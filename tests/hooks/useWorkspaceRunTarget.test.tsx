@@ -18,4 +18,16 @@ describe('useWorkspaceRunTarget', () => {
     unmount();
     expect(useWorkspaceRunReadyStore.getState().ready.sql).toBe(false);
   });
+
+  it('reports a blocked workspace while its target says so, and clears it on unmount', () => {
+    const { rerender, unmount } = renderHook(({ blocked }) => useWorkspaceRunTarget('http', vi.fn(), blocked), {
+      initialProps: { blocked: true },
+    });
+    expect(useWorkspaceRunReadyStore.getState().blocked.http).toBe(true);
+    rerender({ blocked: false });
+    expect(useWorkspaceRunReadyStore.getState().blocked.http).toBe(false);
+    rerender({ blocked: true });
+    unmount();
+    expect(useWorkspaceRunReadyStore.getState().blocked.http).toBe(false);
+  });
 });

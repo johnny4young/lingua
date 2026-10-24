@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { getActiveTab, useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { isWorkspaceTab } from '../../stores/editorTabUtils';
-import { useEmptyWorkspace } from '../../stores/workspaceRunReadyStore';
+import { useBlockedHttpWorkspace, useEmptyWorkspace } from '../../stores/workspaceRunReadyStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
@@ -110,6 +110,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
 
   const activeTab = useActiveTab();
   const emptyWorkspace = useEmptyWorkspace(activeTab?.kind);
+  const blockedHttpWorkspace = useBlockedHttpWorkspace(activeTab?.kind);
   const enabledBreakpointCount = useDebuggerStore((state) => {
     if (!activeTab) return 0;
     return state
@@ -130,6 +131,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     isNotebookTab,
     isWorkspaceTab: workspaceTab,
     emptyWorkspace,
+    blockedHttpWorkspace,
     enabledBreakpointCount,
   });
   const estimatedPillWidth =

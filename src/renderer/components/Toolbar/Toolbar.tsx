@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { isWorkspaceTab } from '../../stores/editorTabUtils';
-import { useEmptyWorkspace } from '../../stores/workspaceRunReadyStore';
+import { useBlockedHttpWorkspace, useEmptyWorkspace } from '../../stores/workspaceRunReadyStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
@@ -57,6 +57,7 @@ export function Toolbar() {
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
   const activeTab = useActiveTab();
   const emptyWorkspace = useEmptyWorkspace(activeTab?.kind);
+  const blockedHttpWorkspace = useBlockedHttpWorkspace(activeTab?.kind);
   const { sidebarVisible, toggleSidebar } = useUIStore(
     useShallow((state) => ({
       sidebarVisible: state.sidebarVisible,
@@ -105,6 +106,7 @@ export function Toolbar() {
     isNotebookTab: activeTab?.kind === 'notebook',
     isWorkspaceTab: activeTab ? isWorkspaceTab(activeTab) : false,
     emptyWorkspace,
+    blockedHttpWorkspace,
     enabledBreakpointCount,
   });
   const {

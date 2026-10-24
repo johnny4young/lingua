@@ -28,12 +28,13 @@
  */
 
 import { Loader2, SendHorizontal, X } from 'lucide-react';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useDeferredValue, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
 import type {
   HttpAssertion,
+  HttpCaptureRule,
   HttpResponseV1,
 } from '../../../shared/httpWorkspaceSchema';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
@@ -41,44 +42,11 @@ import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
 import { cn } from '../../utils/cn';
 import { HttpStatusPill } from './HttpStatusPill';
+import { HttpJsonTree } from './HttpJsonTree';
+import { capturedByPath, parseJsonBody, searchJson, type JsonSegment } from './httpJsonTreeModel';
+import { splitForHighlight } from './httpTextHighlight';
 
 type PreviewTab = 'body' | 'headers' | 'raw';
-
-/** Escape a user string for use as a literal in a RegExp. */
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Split `text` on every (case-insensitive) occurrence of `query`,
- * returning alternating non-match / match segments so the renderer can
- * wrap matches in a highlight `<mark>`. Returns a single non-match
- * segment when the query is empty or never matches.
- */
-function splitForHighlight(
-  text: string,
-  query: string
-): Array<{ text: string; match: boolean }> {
-  if (query.length === 0) return [{ text, match: false }];
-  const re = new RegExp(escapeRegExp(query), 'gi');
-  const segments: Array<{ text: string; match: boolean }> = [];
-  let lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > lastIndex) {
-      segments.push({ text: text.slice(lastIndex, m.index), match: false });
-    }
-    segments.push({ text: m[0], match: true });
-    lastIndex = m.index + m[0].length;
-    // Guard against zero-length matches (escaped query never produces
-    // one, but be defensive against an infinite loop).
-    if (m[0].length === 0) re.lastIndex += 1;
-  }
-  if (lastIndex < text.length) {
-    segments.push({ text: text.slice(lastIndex), match: false });
-  }
-  return segments;
-}
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
@@ -94,15 +62,6 @@ function isJsonContentType(contentType: string): boolean {
 
 function isImageContentType(contentType: string): boolean {
   return /^image\//i.test(contentType);
-}
-
-function tryPrettyJson(raw: string): string | null {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return null;
-  }
 }
 
 function imageDataUrl(response: HttpResponseV1): string | null {
@@ -144,6 +103,10 @@ export interface HttpResponsePreviewProps {
   requestSummary?: string;
   /** The active request's assertions, evaluated against the response. */
   assertions?: readonly HttpAssertion[];
+  /** The active request's capture rules; their body paths are marked in the tree. */
+  captures?: readonly HttpCaptureRule[];
+  /** Adds a body capture rule for a value hovered in the tree. */
+  onCaptureValue?: (path: string, segments: readonly JsonSegment[]) => void;
 }
 
 export function HttpResponsePreview({
@@ -151,6 +114,8 @@ export function HttpResponsePreview({
   isExecuting,
   requestSummary,
   assertions,
+  captures,
+  onCaptureValue,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
   const sendCombo = useShortcutLabel('run-toggle');
@@ -164,15 +129,21 @@ export function HttpResponsePreview({
   const [tab, setTab] = useState<PreviewTab>('body');
   // pretty/raw toggle.
   const [prettyJson, setPrettyJson] = useState<boolean>(true);
+  // Off by default: long values scroll instead of wrapping back to column 0.
+  const [wrap, setWrap] = useState<boolean>(false);
   // Response body search/filter (Body tab). Highlights matches inline.
   const [search, setSearch] = useState<string>('');
+  const deferredSearch = useDeferredValue(search.trim());
 
-  const prettyBody = useMemo(() => {
-    if (!response) return null;
-    if (!isJsonContentType(response.contentType)) return null;
-    if (!prettyJson) return null;
-    return tryPrettyJson(response.body);
+  const parsedBody = useMemo(() => {
+    if (!response || !isJsonContentType(response.contentType) || !prettyJson) return null;
+    return parseJsonBody(response.body);
   }, [response, prettyJson]);
+  const treeSearch = useMemo(
+    () => (parsedBody ? searchJson(parsedBody.value, deferredSearch) : null),
+    [parsedBody, deferredSearch]
+  );
+  const captured = useMemo(() => capturedByPath(captures), [captures]);
   const imageSrc = useMemo(
     () => (response ? imageDataUrl(response) : null),
     [response]
@@ -232,17 +203,22 @@ export function HttpResponsePreview({
   }`;
   const prettyToggleVisible =
     tab === 'body' && isJsonContentType(response.contentType);
+  const wrapToggleVisible = (tab === 'body' && imageSrc === null) || tab === 'raw';
+  const textClass = cn(
+    'font-mono text-caption leading-relaxed',
+    wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre'
+  );
 
-  // The text the Body tab renders (pretty JSON when toggled, else raw).
-  const displayedBody = prettyBody !== null ? prettyBody : response.body;
   const trimmedSearch = search.trim();
   const bodySegments =
-    tab === 'body' && imageSrc === null && trimmedSearch.length > 0
-      ? splitForHighlight(displayedBody, trimmedSearch)
+    tab === 'body' && imageSrc === null && parsedBody === null && trimmedSearch.length > 0
+      ? splitForHighlight(response.body, trimmedSearch)
       : null;
-  const matchCount = bodySegments
-    ? bodySegments.reduce((n, seg) => n + (seg.match ? 1 : 0), 0)
-    : 0;
+  const matchCount = treeSearch
+    ? treeSearch.count
+    : bodySegments
+      ? bodySegments.reduce((n, seg) => n + (seg.match ? 1 : 0), 0)
+      : 0;
   // The search box only makes sense for a textual body.
   const searchVisible = tab === 'body' && imageSrc === null;
 
@@ -261,17 +237,6 @@ export function HttpResponsePreview({
         onTabChange={(id) => setTab(id as PreviewTab)}
         trailing={
           <span className="flex items-center gap-2">
-            {prettyToggleVisible ? (
-              <label className="inline-flex items-center gap-1.5 text-caption text-fg-subtle">
-                <input
-                  type="checkbox"
-                  checked={prettyJson}
-                  onChange={(event) => setPrettyJson(event.target.checked)}
-                  data-testid="http-response-preview-pretty-toggle"
-                />
-                {t('httpWorkspace.response.body.pretty')}
-              </label>
-            ) : null}
             {response.redactedHeaders.length > 0 ? (
               <span
                 data-testid="http-response-preview-redacted-badge"
@@ -395,19 +360,23 @@ export function HttpResponsePreview({
         </div>
       ) : null}
 
-      {/* Body search / filter — highlights matches inline. */}
-      {searchVisible ? (
+      {/* Body search, then the view toggles: kept out of the header so the status never shrinks. */}
+      {wrapToggleVisible ? (
         <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-1.5">
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('httpWorkspace.response.search.placeholder')}
-            aria-label={t('httpWorkspace.response.search.ariaLabel')}
-            data-testid="http-response-preview-search"
-            className="h-6 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
-          />
-          {trimmedSearch.length > 0 ? (
+          {searchVisible ? (
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('httpWorkspace.response.search.placeholder')}
+              aria-label={t('httpWorkspace.response.search.ariaLabel')}
+              data-testid="http-response-preview-search"
+              className="h-6 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+            />
+          ) : (
+            <span className="flex-1" />
+          )}
+          {searchVisible && trimmedSearch.length > 0 ? (
             <span
               data-testid="http-response-preview-search-count"
               className="shrink-0 font-mono text-eyebrow tabular-nums text-fg-subtle"
@@ -415,7 +384,7 @@ export function HttpResponsePreview({
               {t('httpWorkspace.response.search.matches', { count: matchCount })}
             </span>
           ) : null}
-          {search.length > 0 ? (
+          {searchVisible && search.length > 0 ? (
             <button
               type="button"
               onClick={() => setSearch('')}
@@ -426,6 +395,26 @@ export function HttpResponsePreview({
             >
               <X size={12} aria-hidden="true" />
             </button>
+          ) : null}
+          <label className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-caption text-fg-subtle">
+            <input
+              type="checkbox"
+              checked={wrap}
+              onChange={(event) => setWrap(event.target.checked)}
+              data-testid="http-response-preview-wrap-toggle"
+            />
+            {t('httpWorkspace.response.body.wrap')}
+          </label>
+          {prettyToggleVisible ? (
+            <label className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-caption text-fg-subtle">
+              <input
+                type="checkbox"
+                checked={prettyJson}
+                onChange={(event) => setPrettyJson(event.target.checked)}
+                data-testid="http-response-preview-pretty-toggle"
+              />
+              {t('httpWorkspace.response.body.pretty')}
+            </label>
           ) : null}
         </div>
       ) : null}
@@ -439,11 +428,22 @@ export function HttpResponsePreview({
               data-testid="http-response-preview-body-image"
               className="max-w-full"
             />
+          ) : parsedBody !== null && treeSearch !== null ? (
+            <HttpJsonTree
+              key={`${response.recordedAt}|${response.url}`}
+              value={parsedBody.value}
+              query={deferredSearch}
+              search={treeSearch}
+              wrap={wrap}
+              captured={captured}
+              {...(onCaptureValue ? { onCapture: onCaptureValue } : {})}
+            />
           ) : (
             <pre
               data-testid="http-response-preview-body-text"
-              data-mode={prettyBody !== null ? 'pretty' : 'raw'}
-              className="whitespace-pre-wrap break-words font-mono text-caption leading-relaxed"
+              data-mode="raw"
+              data-wrap={wrap}
+              className={textClass}
             >
               {bodySegments !== null
                 ? bodySegments.map((seg, i) =>
@@ -459,7 +459,7 @@ export function HttpResponsePreview({
                       <Fragment key={i}>{seg.text}</Fragment>
                     )
                   )
-                : displayedBody}
+                : response.body}
             </pre>
           )
         ) : null}
@@ -489,7 +489,8 @@ export function HttpResponsePreview({
         {tab === 'raw' ? (
           <pre
             data-testid="http-response-preview-raw"
-            className="whitespace-pre-wrap break-words font-mono text-caption leading-relaxed"
+            data-wrap={wrap}
+            className={textClass}
           >
             {`HTTP/1.1 ${response.status} ${response.statusText}\n` +
               response.headers

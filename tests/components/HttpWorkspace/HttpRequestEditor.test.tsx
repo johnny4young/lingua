@@ -1,6 +1,11 @@
+import { createRef } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpRequestEditor } from '../../../src/renderer/components/HttpWorkspace/HttpRequestEditor';
+import type { HttpCaptureTarget } from '../../../src/renderer/components/HttpWorkspace/useHttpTreeCapture';
+import { useUIStore } from '../../../src/renderer/stores/uiStore';
+import { useWorkspaceRunReadyStore } from '../../../src/renderer/stores/workspaceRunReadyStore';
+import type { HttpEnvironmentV1 } from '../../../src/shared/httpEnvironment';
 import { createBlankHttpRequest } from '../../../src/shared/httpWorkspace';
 
 describe('HttpRequestEditor', () => {
@@ -599,5 +604,132 @@ describe('HttpRequestEditor', () => {
     });
     expect(writeText.mock.calls[0]?.[0]).not.toContain('old-public-value');
     expect(writeText.mock.calls[0]?.[0]).not.toContain('sk-FINAL-SECRET');
+  });
+
+  describe('URL row', () => {
+    const environment: HttpEnvironmentV1 = {
+      version: 1,
+      id: 'env-1',
+      name: 'staging',
+      variables: [{ id: 'v1', key: 'base', value: 'https://api.example.com', secret: false }],
+      createdAt: '2026-10-24T00:00:00.000Z',
+      updatedAt: '2026-10-24T00:00:00.000Z',
+    };
+    const editor = (url: string, props: Partial<Parameters<typeof HttpRequestEditor>[0]> = {}) => {
+      const onSend = vi.fn();
+      render(
+        <HttpRequestEditor request={{ ...createBlankHttpRequest({ id: 'r1' }), url }} onPatch={vi.fn()} onSend={onSend} isExecuting={false} {...props} />
+      );
+      return onSend;
+    };
+    const send = () => screen.getByTestId('http-request-editor-send') as HTMLButtonElement;
+    const hint = () => screen.queryByTestId('http-request-editor-url-hint')?.textContent ?? null;
+
+    it('explains why Send is off and enables it once the URL parses', () => {
+      const onSend = editor('');
+      expect(send().disabled).toBe(true);
+      expect(hint()).toBe('Enter a URL to send.');
+      expect(send().getAttribute('aria-describedby')).toBe('http-request-editor-url-hint');
+      fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: 'api.example.com/users' } });
+      expect(hint()).toBe('Enter a full URL that starts with https:// or http:// to send.');
+      fireEvent.keyDown(screen.getByTestId('http-request-editor'), { key: 'Enter', metaKey: true });
+      expect(onSend).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: 'https://api.example.com/users' } });
+      expect(hint()).toBeNull();
+      expect(send().disabled).toBe(false);
+      expect(send().hasAttribute('aria-describedby')).toBe(false);
+      fireEvent.click(send());
+      expect(onSend).toHaveBeenCalledTimes(1);
+    });
+
+    it('judges a URL after the active environment fills it, and names a missing variable', () => {
+      editor('{{base}}/users', { environments: [environment], activeEnvironmentId: 'env-1' });
+      expect(send().disabled).toBe(false);
+      expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('defined');
+      fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: '{{host}}/users' } });
+      expect(hint()).toBe('Give host a value in the active environment to send.');
+      expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('missing');
+    });
+
+    it('says to pick an environment when none is active', () => {
+      editor('{{base}}/users');
+      expect(hint()).toBe('Choose an environment that sets base to send.');
+    });
+
+    it('asks for a ws:// URL on a WebSocket request', () => {
+      editor('https://api.example.com');
+      fireEvent.change(screen.getByTestId('http-request-editor-transport'), { target: { value: 'websocket' } });
+      expect(hint()).toBe('Enter a full URL that starts with wss:// or ws:// to send.');
+    });
+
+    it('blocks toolbar Run while the URL cannot be sent', () => {
+      editor('');
+      expect(useWorkspaceRunReadyStore.getState().blocked.http).toBe(true);
+      fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: 'https://x.dev' } });
+      expect(useWorkspaceRunReadyStore.getState().blocked.http).toBe(false);
+    });
+
+    it('draws tokens on a layer that scrolls with the input', () => {
+      editor('{{base}}/users/{{id}}', { environments: [environment], activeEnvironmentId: 'env-1' });
+      const field = screen.getByTestId('http-request-editor-url-field');
+      const mirror = screen.getByTestId('http-request-editor-url-mirror');
+      expect(field.getAttribute('data-mirrored')).toBe('true');
+      expect(mirror.getAttribute('aria-hidden')).toBe('true');
+      expect(mirror.textContent).toBe('{{base}}/users/{{id}} ');
+      const input = screen.getByTestId('http-request-editor-url');
+      input.scrollLeft = 42;
+      fireEvent.scroll(input);
+      expect(mirror.scrollLeft).toBe(42);
+      fireEvent.change(input, { target: { value: 'https://x.dev' } });
+      expect(field.getAttribute('data-mirrored')).toBe('false');
+      expect(screen.queryByTestId('http-request-editor-url-mirror')).toBeNull();
+    });
+  });
+
+  it('shows the auth scheme on the Auth tab', () => {
+    render(
+      <HttpRequestEditor
+        request={{ ...createBlankHttpRequest({ id: 'r1' }), auth: { kind: 'apiKey', apiKeyHeader: 'X-Key', apiKeyValue: 'k' } }}
+        onPatch={vi.fn()}
+        onSend={vi.fn()}
+        isExecuting={false}
+      />
+    );
+    expect(screen.getByTestId('http-request-editor-tab-auth').textContent).toBe('AuthAPI key');
+  });
+
+  it('adds a body capture rule for a value picked in the response tree, once per path', () => {
+    const captureTargetRef = createRef<HttpCaptureTarget | null>() as React.MutableRefObject<HttpCaptureTarget | null>;
+    const onPatch = vi.fn();
+    render(
+      <HttpRequestEditor
+        request={{
+          ...createBlankHttpRequest({ id: 'r1' }),
+          captures: [{ id: 'c0', source: 'body-json', path: 'token', targetVariable: 'id', enabled: true }],
+        }}
+        onPatch={onPatch}
+        onSend={vi.fn()}
+        isExecuting={false}
+        captureTargetRef={captureTargetRef}
+      />
+    );
+    act(() => captureTargetRef.current?.('items[0].id', ['items', 0, 'id']));
+    expect(screen.getByTestId('http-request-editor-tab-capture').getAttribute('data-active')).toBe('true');
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'success',
+      messageKey: 'httpWorkspace.editor.capture.added',
+      values: { path: 'items[0].id', name: 'id_2' },
+    });
+    act(() => captureTargetRef.current?.('items.0.id', ['items', 0, 'id']));
+    act(() => vi.advanceTimersByTime(500));
+    expect(onPatch).toHaveBeenLastCalledWith(
+      'r1',
+      expect.objectContaining({
+        captures: [
+          expect.objectContaining({ path: 'token' }),
+          expect.objectContaining({ source: 'body-json', path: 'items[0].id', targetVariable: 'id_2', enabled: true }),
+        ],
+      })
+    );
   });
 });

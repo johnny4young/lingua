@@ -32,6 +32,15 @@ describe('executionControlPolicy', () => {
     );
   });
 
+  it('disables Run on an HTTP request whose URL cannot be sent, after the empty check', () => {
+    const policy = resolve({ language: 'http', isWorkspaceTab: true, blockedHttpWorkspace: true });
+    expect(policy.actions.run).toEqual({ disabled: true, reason: 'workspace-http-no-url' });
+    expect(executionDisabledTooltipKey('run', policy.actions.run.reason)).toBe('toolbar.run.httpWorkspaceNoUrlTooltip');
+    expect(resolve({ language: 'http', isWorkspaceTab: true, emptyWorkspace: 'http', blockedHttpWorkspace: true }).actions.run.reason).toBe(
+      'workspace-http-empty'
+    );
+  });
+
   it('requires an enabled breakpoint for Debug without blocking Run or Scratchpad', () => {
     const policy = resolve();
 

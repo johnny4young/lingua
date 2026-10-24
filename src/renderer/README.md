@@ -630,6 +630,13 @@ collection state:
   builds assertion evaluation on that selector leaf. Response and editor surfaces
   import these modules directly so neither domain depends on the complete
   behavioral facade.
+- [`components/HttpWorkspace/httpJsonTreeModel.ts`](components/HttpWorkspace/httpJsonTreeModel.ts)
+  owns the response tree's node pointers, search and the capture paths it
+  offers; a path is offered only when the capture walker reads it back to the
+  same value. `HttpRequestEditor` registers the handler that turns a picked
+  value into a capture rule, so the rule lands in the editor's draft, not
+  behind it. `httpUrlState` in `../shared/httpEnvironment.ts` decides when Send
+  is on and returns only a verdict, never the resolved URL.
 - [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) preserves the
   historical public API as a compatibility-only facade. Production code must
   import schema, persistence, headers, query, cURL, capture, and assertion
