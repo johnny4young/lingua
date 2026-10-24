@@ -52,8 +52,10 @@ test('explains a disabled Send, highlights variables, and folds, searches and ca
   await expect(tree).toBeVisible();
   await expect(tree).toHaveAttribute('data-wrap', 'false');
   await expect(page.getByTestId('http-json-row').first()).toHaveText('items: [2]');
-  await page.getByRole('button', { name: 'Collapse 1' }).click();
-  await expect(page.getByRole('button', { name: 'Expand 1' })).toHaveAttribute('aria-expanded', 'false');
+  const second = page.locator('[data-testid="http-json-row"][data-pointer="/items/1"]');
+  await second.click();
+  await page.keyboard.press('ArrowLeft');
+  await expect(second).toHaveAttribute('aria-expanded', 'false');
 
   await page.getByTestId('http-response-preview-search').fill('EDITOR');
   await expect(page.getByTestId('http-response-preview-search-count')).toHaveText('1 match');

@@ -10,8 +10,6 @@
   "httpWorkspace.editor.url.hint.invalidWebsocket": "Enter a full URL that starts with wss:// or ws:// to send.",
   "httpWorkspace.response.body.wrap": "Wrap",
   "httpWorkspace.response.tree.ariaLabel": "Response JSON",
-  "httpWorkspace.response.tree.expand": "Expand {{name}}",
-  "httpWorkspace.response.tree.collapse": "Collapse {{name}}",
   "httpWorkspace.response.tree.showFull": "Show the full value",
   "httpWorkspace.response.tree.showLess": "Show less",
   "httpWorkspace.response.tree.more_one": "Show {{count}} more",
