@@ -459,6 +459,54 @@ export function interpolateRequest(
   return mapRequestStrings(request, buildFullLookup(env));
 }
 
+/** Text split around its `{{tokens}}`, in order; `key` is set on token pieces. */
+export function splitVariableTokens(text: string): Array<{ text: string; key?: string }> {
+  const pieces: Array<{ text: string; key?: string }> = [];
+  let last = 0;
+  for (const match of text.matchAll(variableTokenMatcher())) {
+    const index = match.index ?? 0;
+    if (index > last) pieces.push({ text: text.slice(last, index) });
+    pieces.push({ text: match[0], key: match[1] ?? '' });
+    last = index + match[0].length;
+  }
+  if (last < text.length) pieces.push({ text: text.slice(last) });
+  return pieces;
+}
+
+export type HttpUrlState =
+  | { ok: true }
+  | { ok: false; reason: 'empty' | 'invalid' }
+  | { ok: false; reason: 'unresolved'; key: string };
+
+/**
+ * Whether a URL can be sent: it must parse, with the scheme its transport
+ * speaks, once the environment fills its variables. Only the verdict leaves
+ * here, never the resolved text, which can carry a secret.
+ */
+export function httpUrlState(
+  url: string,
+  transport: 'http' | 'sse' | 'websocket',
+  env: HttpEnvironmentV1 | null
+): HttpUrlState {
+  const trimmed = url.trim();
+  if (trimmed.length === 0) return { ok: false, reason: 'empty' };
+  // Missing keys come from the typed URL: a value may itself hold `{{…}}`, which single-pass interpolation sends as is.
+  const lookup = buildFullLookup(env);
+  for (const match of trimmed.matchAll(variableTokenMatcher())) {
+    const key = match[1];
+    if (key !== undefined && !lookup.has(key)) return { ok: false, reason: 'unresolved', key };
+  }
+  const resolved = interpolateString(trimmed, lookup);
+  let protocol: string;
+  try {
+    protocol = new URL(resolved).protocol;
+  } catch {
+    return { ok: false, reason: 'invalid' };
+  }
+  const schemes = transport === 'websocket' ? ['ws:', 'wss:'] : ['http:', 'https:'];
+  return schemes.includes(protocol) ? { ok: true } : { ok: false, reason: 'invalid' };
+}
+
 /**
  * Mask for any persisted / shared / displayed surface (capsule source,
  * cURL clipboard, editor preview): resolve NON-secret variables for

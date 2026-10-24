@@ -21,7 +21,7 @@
  *     `onPatch` — no explicit Save button.
  */
 
-import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react';
+import { Loader2, SendHorizontal, Square } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
@@ -49,13 +49,8 @@ import {
   type HttpRequestV1,
   type HttpTransportKind,
 } from '../../../shared/httpWorkspaceSchema';
-import {
-  HTTP_CODEGEN_TARGETS,
-  HTTP_CODEGEN_LABELS,
-  generateHttpCode,
-  type HttpCodegenTarget,
-} from '../../../shared/httpCodegen';
-import { maskSecretsForCapsule, type HttpEnvironmentV1 } from '../../../shared/httpEnvironment';
+import { generateHttpCode } from '../../../shared/httpCodegen';
+import { httpUrlState, maskSecretsForCapsule, type HttpEnvironmentV1 } from '../../../shared/httpEnvironment';
 import { writeToClipboard } from '../../utils/clipboard';
 import { useUIStore } from '../../stores/uiStore';
 import { tryParseCurl } from './curlImport';
@@ -63,6 +58,9 @@ import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
 import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpRequestBuilderTabs';
 import { HttpTransportSelect } from './HttpTransportSelect';
+import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
+import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
+import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
 
@@ -91,23 +89,11 @@ export interface HttpRequestEditorProps {
   activeEnvironmentId?: string | null;
   onSelectEnvironment?: (id: string | null) => void;
   onManageEnvironment?: () => void;
+  /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
+  captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
 }
 
 const NO_ENVIRONMENTS: ReadonlyArray<HttpEnvironmentV1> = [];
-
-// Copy-as menu formats. Labels are library / tool names (cURL, fetch,
-// axios, requests) — proper nouns, not translatable UI copy — so they
-// live as constants rather than i18n keys.
-const COPY_FORMATS: ReadonlyArray<{
-  id: 'curl' | HttpCodegenTarget;
-  label: string;
-}> = [
-  { id: 'curl', label: 'cURL' },
-  ...HTTP_CODEGEN_TARGETS.map(target => ({
-    id: target,
-    label: HTTP_CODEGEN_LABELS[target],
-  })),
-];
 
 export function HttpRequestEditor({
   request,
@@ -119,6 +105,7 @@ export function HttpRequestEditor({
   activeEnvironmentId = null,
   onSelectEnvironment,
   onManageEnvironment,
+  captureTargetRef,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
   const sendCombo = useShortcutLabel('run-toggle');
@@ -328,12 +315,13 @@ export function HttpRequestEditor({
     return draft;
   }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]);
 
+  const urlState = useMemo(() => httpUrlState(url, transport, activeEnv), [url, transport, activeEnv]);
   const sendCurrentDraft = useCallback(() => {
-    if (isExecuting) return;
+    if (isExecuting || !urlState.ok) return;
     const draft = flushDraftBeforeSend();
     if (!draft) return;
     onSend(draft);
-  }, [flushDraftBeforeSend, isExecuting, onSend]);
+  }, [flushDraftBeforeSend, isExecuting, onSend, urlState.ok]);
   useWorkspaceRunTarget('http', sendCurrentDraft);
 
   // Copy as cURL — build a shell command from the resolved draft (URL
@@ -352,7 +340,7 @@ export function HttpRequestEditor({
   // vars are masked to `{{key}}` (never resolved into the clipboard) for
   // every format, identically to the cURL path.
   const copyAs = useCallback(
-    async (format: 'curl' | HttpCodegenTarget) => {
+    async (format: HttpCopyFormat) => {
       const draft = buildDraftRequest();
       const masked = activeEnv ? maskSecretsForCapsule(draft, activeEnv) : draft;
       const snippet =
@@ -367,27 +355,6 @@ export function HttpRequestEditor({
     },
     [buildDraftRequest, activeEnv]
   );
-
-  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
-  const copyMenuRef = useRef<HTMLDivElement | null>(null);
-  // Close the copy menu on outside click / Escape.
-  useEffect(() => {
-    if (!copyMenuOpen) return;
-    const onPointerDown = (event: PointerEvent): void => {
-      if (!copyMenuRef.current?.contains(event.target as Node)) {
-        setCopyMenuOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setCopyMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [copyMenuOpen]);
 
   // Flush on unmount so an edit typed <500 ms before the editor
   // unmounts (tab close, panel teardown) still lands on its request.
@@ -466,6 +433,10 @@ export function HttpRequestEditor({
   const handleAddCapture = useCallback(() => {
     applyCaptures([...captures, createBlankCaptureRule()]);
   }, [captures, applyCaptures]);
+
+  const openCaptureTab = useCallback(() => setBuilderTab('capture'), []);
+  const envKeys = useMemo(() => new Set(activeEnv?.variables.map(variable => variable.key) ?? []), [activeEnv]);
+  useHttpTreeCapture(captureTargetRef, captures, applyCaptures, openCaptureTab, envKeys);
 
   const handleUpdateCapture = useCallback(
     (index: number, patch: Partial<HttpCaptureRule>) => {
@@ -672,9 +643,9 @@ export function HttpRequestEditor({
             </option>
           ))}
         </select>
-        <input
-          type="text"
-          data-testid="http-request-editor-url"
+        <HttpUrlField
+          value={url}
+          env={activeEnv}
           placeholder={t(
             transport === 'websocket'
               ? 'httpWorkspace.editor.url.websocketPlaceholder'
@@ -682,52 +653,12 @@ export function HttpRequestEditor({
                 ? 'httpWorkspace.editor.url.ssePlaceholder'
                 : 'httpWorkspace.editor.url.placeholder'
           )}
-          aria-label={t('httpWorkspace.editor.url.ariaLabel')}
-          value={url}
-          onChange={event => handleUrlChange(event.target.value)}
+          ariaLabel={t('httpWorkspace.editor.url.ariaLabel')}
+          {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
+          onChange={handleUrlChange}
           onPaste={handleUrlPaste}
-          className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 font-mono text-body-sm text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
         />
-        {/* Copy-as menu — cURL + code snippets (fetch / axios / Python). */}
-        <div ref={copyMenuRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setCopyMenuOpen(open => !open)}
-            disabled={url.trim().length === 0 || transport !== 'http'}
-            data-testid="http-request-editor-copy-menu"
-            aria-haspopup="menu"
-            aria-expanded={copyMenuOpen}
-            aria-label={t('httpWorkspace.editor.copyAs.label')}
-            title={t('httpWorkspace.editor.copyAs.label')}
-            className="focus-ring inline-flex h-8 items-center justify-center gap-0.5 rounded-md border border-border-subtle px-2 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Copy size={14} aria-hidden="true" />
-            <ChevronDown size={12} aria-hidden="true" />
-          </button>
-          {copyMenuOpen ? (
-            <div
-              role="menu"
-              data-testid="http-request-editor-copy-menu-list"
-              className="absolute right-0 top-9 z-20 min-w-[180px] overflow-hidden rounded-md border border-border-subtle bg-bg-base py-1 shadow-e3"
-            >
-              {COPY_FORMATS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="menuitem"
-                  data-testid={`http-request-editor-copy-${id}`}
-                  onClick={() => {
-                    setCopyMenuOpen(false);
-                    void copyAs(id);
-                  }}
-                  className="focus-ring block w-full px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} />
         {/* Send is the SLATE accent primary per the proto
             (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
             SQL Run shares the same accent primary. Label +
@@ -751,7 +682,8 @@ export function HttpRequestEditor({
           <button
             type="button"
             onClick={sendCurrentDraft}
-            disabled={url.trim().length === 0}
+            disabled={!urlState.ok}
+            {...(urlState.ok ? {} : { 'aria-describedby': URL_HINT_ID })}
             data-testid="http-request-editor-send"
             aria-label={t('httpWorkspace.editor.send.label')}
             title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint', { combo: sendCombo })}`}
@@ -762,6 +694,8 @@ export function HttpRequestEditor({
           </button>
         )}
       </div>
+
+      {urlState.ok ? null : <HttpUrlHint state={urlState} transport={transport} hasEnvironment={activeEnv !== null} />}
 
       {/* Resolution preview beneath the
           URL. Resolved URL (secrets masked) + variable-state chips. */}

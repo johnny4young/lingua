@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import '../../i18n/httpBuilderCatalog';
 import type {
   HttpAssertion,
   HttpCaptureRule,
@@ -88,6 +89,7 @@ export function HttpRequestBuilderTabs({
     transport === 'websocket' ||
     (transport === 'http' && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS');
   const bodyKind: HttpRequestBodyKind = body?.kind ?? 'none';
+  const authKind = auth?.kind ?? 'none';
 
   const builderTabs = useMemo(() => {
     const enabledParamCount = params.filter(param => param.enabled && param.key.length > 0).length;
@@ -106,7 +108,7 @@ export function HttpRequestBuilderTabs({
       {
         id: 'auth',
         label: t('httpWorkspace.editor.tab.auth'),
-        ...((auth?.kind ?? 'none') !== 'none' ? { badge: '•' } : {}),
+        ...(authKind !== 'none' ? { badge: t(`httpWorkspace.editor.tab.authBadge.${authKind}`) } : {}),
       },
       {
         id: 'headers',
@@ -133,7 +135,7 @@ export function HttpRequestBuilderTabs({
       ...(enabledAssertionCount > 0 ? { badge: String(enabledAssertionCount) } : {}),
     });
     return tabs;
-  }, [assertions, auth?.kind, bodyKind, captures, headers, params, supportsBody, t]);
+  }, [assertions, authKind, bodyKind, captures, headers, params, supportsBody, t]);
 
   // A method switch can remove the Body tab. Derive the fallback during
   // render so the editor never flashes an empty pane or needs a reset effect.

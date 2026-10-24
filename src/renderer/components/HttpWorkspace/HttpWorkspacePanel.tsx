@@ -44,6 +44,8 @@ import { HttpEmptyState } from './HttpEmptyState';
 import { HttpRequestList } from './HttpRequestList';
 import { HttpRequestEditor } from './HttpRequestEditor';
 import { HttpResponsePreview } from './HttpResponsePreview';
+import type { JsonSegment } from './httpJsonTreeModel';
+import type { HttpCaptureTarget } from './useHttpTreeCapture';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -147,6 +149,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // 0 = newest (the default, which the live preview lands on). Reset to
   // newest whenever the active request changes or a new run records.
   const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const captureTargetRef = useRef<HttpCaptureTarget | null>(null);
   // The (request id + newest response) the index is anchored to. Stored
   // as state (not a ref) so the documented "adjust state during render"
   // reset pattern fires exactly once per change.
@@ -596,6 +599,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               activeEnvironmentId={activeEnvironmentId}
               onSelectEnvironment={handleSelectEnvironment}
               onManageEnvironment={handleManageEnvironment}
+              captureTargetRef={captureTargetRef}
             />
           ) : (
             <HttpEmptyState onCreate={handleCreate} />
@@ -619,6 +623,10 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                     : undefined
                 }
                 assertions={activeRequest?.assertions}
+                captures={activeRequest?.captures}
+                {...(activeRequest
+                  ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }
+                  : {})}
               />
             </div>
             <HttpResponseHistory
