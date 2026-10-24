@@ -42,10 +42,13 @@ interface VisibleRow {
   capture?: () => void;
 }
 
-function valueClass(value: unknown): string {
-  if (typeof value === 'string') return 'text-syntax-string';
-  if (typeof value === 'number') return 'text-syntax-number';
-  return 'text-syntax-function';
+// Syntax hues are theme variables, used inline so they add no class to the boot stylesheet.
+const KEYWORD = { color: 'var(--color-syntax-keyword)' };
+
+function valueColor(value: unknown) {
+  if (typeof value === 'string') return { color: 'var(--color-syntax-string)' };
+  if (typeof value === 'number') return { color: 'var(--color-syntax-number)' };
+  return KEYWORD;
 }
 
 /**
@@ -161,14 +164,14 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         <span className={cn(wrap ? 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre')}>
           {label !== null ? (
             <>
-              <span className={typeof key === 'number' ? 'text-fg-subtle' : 'text-syntax-keyword'}>{highlight(label)}</span>
-              <span className="text-syntax-punctuation">: </span>
+              <span {...(typeof key === 'number' ? { className: 'text-fg-subtle' } : { style: KEYWORD })}>{highlight(label)}</span>
+              <span className="text-fg-subtle">: </span>
             </>
           ) : null}
           {container ? (
             <span className="text-fg-subtle">{Array.isArray(node) ? `[${entries.length}]` : `{${entries.length}}`}</span>
           ) : (
-            <span className={cn(valueClass(node), wrap && 'break-all')}>{highlight(long && !full ? truncateText(text, TRUNCATE_AT) : text)}</span>
+            <span style={valueColor(node)} className={cn(wrap && 'break-all')}>{highlight(long && !full ? truncateText(text, TRUNCATE_AT) : text)}</span>
           )}
         </span>
         {long ? (

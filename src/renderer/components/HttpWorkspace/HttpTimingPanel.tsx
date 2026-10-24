@@ -3,13 +3,14 @@ import '../../i18n/httpBuilderCatalog';
 import type { HttpResponseTiming, HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 
+// Colours come from theme variables inline, which adds no class to the boot stylesheet.
 const PHASES = [
-  { key: 'dnsMs', label: 'dns', bar: 'bg-border-strong' },
-  { key: 'connectMs', label: 'connect', bar: 'bg-border-strong' },
-  { key: 'tlsMs', label: 'tls', bar: 'bg-syntax-function' },
-  { key: 'waitingMs', label: 'waiting', bar: 'bg-accent' },
-  { key: 'downloadMs', label: 'download', bar: 'bg-success' },
-] as const satisfies ReadonlyArray<{ key: keyof HttpResponseTiming; label: string; bar: string }>;
+  { key: 'dnsMs', label: 'dns', color: 'var(--color-border-strong)' },
+  { key: 'connectMs', label: 'connect', color: 'var(--color-border-strong)' },
+  { key: 'tlsMs', label: 'tls', color: 'var(--color-syntax-function)' },
+  { key: 'waitingMs', label: 'waiting', color: 'var(--color-accent)' },
+  { key: 'downloadMs', label: 'download', color: 'var(--color-success)' },
+] as const satisfies ReadonlyArray<{ key: keyof HttpResponseTiming; label: string; color: string }>;
 
 /** The Timing tab: the phases of the hop that answered on desktop, the total everywhere. */
 export function HttpTimingPanel({ response, desktop }: { response: HttpResponseV1; desktop: boolean }) {
@@ -39,17 +40,17 @@ export function HttpTimingPanel({ response, desktop }: { response: HttpResponseV
       <div
         role="img"
         aria-label={t('httpWorkspace.response.timing.waterfall')}
-        className="flex h-2 gap-px overflow-hidden rounded-full bg-bg-inset"
+        className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-bg-inset"
       >
         {phases.map((phase) =>
-          phase.ms > 0 ? <span key={phase.key} className={cn('min-w-[2px]', phase.bar)} style={{ flexGrow: phase.ms }} /> : null
+          phase.ms > 0 ? <span key={phase.key} style={{ flexGrow: phase.ms, minWidth: 2, background: phase.color }} /> : null
         )}
       </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-caption tabular-nums">
+      <dl className="flex flex-col gap-1 font-mono text-caption tabular-nums">
         {phases.map((phase) => (
-          <div key={phase.key} className="contents">
-            <dt className="flex items-center gap-2 text-fg-subtle">
-              <span className={cn('h-2 w-2 rounded-full', phase.bar)} aria-hidden="true" />
+          <div key={phase.key} className="flex gap-x-4">
+            <dt className="flex w-20 items-center gap-2 text-fg-subtle">
+              <span className="h-2 w-2 rounded-full" style={{ background: phase.color }} aria-hidden="true" />
               {phase.name}
             </dt>
             <dd data-testid={`http-timing-${phase.label}`} className="text-fg-base">

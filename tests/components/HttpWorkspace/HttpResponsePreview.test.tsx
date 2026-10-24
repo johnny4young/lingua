@@ -105,6 +105,8 @@ describe('JSON body tree', () => {
 
   it('shows one value per line with counts, folds a node, and cuts long strings with an expand control', () => {
     render(<HttpResponsePreview response={json({ owner: { login: 'johnny4young', following_url: longUrl }, ids: [1, 2] })} isExecuting={false} />);
+    const login = rowAt('/owner/login').querySelectorAll<HTMLElement>('span[style]');
+    expect([...login].map((span) => span.style.color)).toEqual(['var(--color-syntax-keyword)', 'var(--color-syntax-string)']);
     expect(rows()).toEqual(['owner: {2}', 'login: "johnny4young"', `following_url: "${`"${longUrl}"`.slice(1, 119)}…`, 'ids: [2]', '0: 1', '1: 2']);
     fireEvent.click(screen.getByRole('button', { name: 'Show the full value' }));
     expect(rows()[2]).toBe(`following_url: "${longUrl}"`);
@@ -226,6 +228,8 @@ describe('JSON body tree', () => {
     expect(document.activeElement).toBe(rowAt('/owner'));
     key('End');
     expect(document.activeElement).toBe(rowAt('/ids/1'));
+    key('ArrowUp');
+    expect(document.activeElement).toBe(rowAt('/ids/0'));
     key('Home');
     expect(document.activeElement).toBe(rowAt('/owner'));
   });
