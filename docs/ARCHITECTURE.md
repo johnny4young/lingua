@@ -528,7 +528,13 @@ cross-origin requests: connections live for the tab only, their token or
 password stays in that module's memory and is never stored, requests go with
 `fetch` (no cookies, no referrer, no redirects, HTTPS only), and the same run
 and edit guards (`sqlRunGuard.ts`) apply. D1's API refuses browsers, so it is
-desktop-only, as are the socket engines.
+desktop-only, as are the socket engines. Web session credentials have a
+replacement identity independent of their text. A late authentication failure may
+forget only the credential revision used by that operation, including catalog
+requests and staged edits. Replacing credentials detaches all old session lanes
+before awaiting their closure, so old cleanup cannot remove a new lane.
+
+Reproduction: [sqlWebSessionOwnership regression](WEB_SQL_SESSION_OWNERSHIP_TESTING.md).
 
 Copy to Local (`runtime/sqlCopyToLocal.ts`, with its SQL built in
 `src/shared/sqlCopyToLocal.ts`) runs a read statement again through the
