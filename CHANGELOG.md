@@ -52,6 +52,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- Web database connections retain a working replacement token when an older request fails authentication. Late cleanup closes only detached old sessions, including when a token changes away and back to the same text.
 - SQL results show LIST and STRUCT columns as arrays and objects instead of Arrow internals.
 - Run Ledger toggle, export and clear events now appear in Privacy › Recent activity; they were dropped before they reached the feed.
 - Language chips and labels in the light theme are readable (they were pale text on pale tints).
