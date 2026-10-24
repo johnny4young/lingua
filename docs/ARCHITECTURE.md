@@ -306,7 +306,9 @@ checkpoint. Explain uses `EXPLAIN (ANALYZE, FORMAT JSON)` only when DuckDB's
 holds, since ANALYZE executes the statement. The splitter follows DuckDB's
 lexer (`$` and non-ASCII continue identifiers, `--` ends at `\r` or `\n`) so
 a statement cannot hide behind a quote DuckDB does not see. History masks
-credential-bearing string literals with `redactSqlSecrets` before keeping SQL.
+credential-bearing string literals with `redactSqlSecrets` before keeping SQL;
+for a MySQL or ClickHouse run it finds literals by that server's quoting
+rules, and an unclosed literal masks the rest of the text.
 
 With `keepCursor`, a windowed single statement keeps its stream instead of
 cancelling it: the outcome carries a `SqlResultCursor` over the rows left in
@@ -506,7 +508,7 @@ batches with `isSqlServerReadBatch`, which fails closed: only one `SELECT` or
 counts as a read, and anything else needs the typed name on a read-only,
 production or Confirm every write connection. A proven read on a read-only
 connection still runs inside a transaction that is always rolled back, and ClickHouse runs with `readonly = 2`, which its
-server enforces. libSQL checks `describe` and rolls back, Neon runs a `Neon-Batch-Read-Only` batch, and D1, like SQL Server, relies on proven reads (see above); on the SQLite family the classifier reads text by SQLite's rules (block comments do not nest, no dollar or E'' strings), so a Postgres-shaped token cannot hide a statement. A role that can only read is still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
+server enforces. libSQL checks `describe` and rolls back, Neon runs a `Neon-Batch-Read-Only` batch, and D1, like SQL Server, relies on proven reads (see above); on the SQLite family the classifier reads text by SQLite's rules (block comments do not nest, no dollar or E'' strings), so a Postgres-shaped token cannot hide a statement. MySQL and ClickHouse get their own reading too: on MySQL `#` comments, `-- ` only before a space, control character or the end, block comments that do not nest, and `"…"` strings, all checked under each sql_mode reading of the quotes (default, ANSI_QUOTES, NO_BACKSLASH_ESCAPES); on ClickHouse nested block comments, `$tag$` heredocs and backslash escapes in every quote. Unclosed text or more than one statement counts as a write, and on MySQL so do locking reads, `:=` and named locks. A MySQL `READ ONLY` transaction does not stop `SELECT … INTO OUTFILE`; only the FILE privilege and `secure_file_priv` do. A role that can only read is still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
 `VACUUM INTO`, so a query cannot reach a file main did not check.
 
 A result comes back like Local's: a first window under the same row and byte
