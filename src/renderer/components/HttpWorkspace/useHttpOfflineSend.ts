@@ -57,11 +57,12 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1) => Promise<unk
     void (async () => {
       let waiting = 0;
       try {
-        for (const requestId of Object.keys(useHttpOfflineQueue.getState().queued)) {
-          // Re-read after each send: the user may have removed an entry, or the connection dropped again.
+        while (navigator.onLine) {
+          // A reconnect can add held entries while an earlier send is pending.
+          // Select from the live queue after every await, including new ids.
           const queue = useHttpOfflineQueue.getState();
-          if (!navigator.onLine) break;
-          if (queue.queued[requestId]?.ready !== false) continue;
+          const requestId = Object.keys(queue.queued).find((id) => queue.queued[id]?.ready === false);
+          if (requestId === undefined) break;
           const request = useWorkspaceToolStore.getState().requests.find((candidate) => candidate.id === requestId);
           if (!request) {
             queue.remove(requestId);

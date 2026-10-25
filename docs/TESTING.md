@@ -602,3 +602,58 @@ that transaction boundary, stale frame/event/ResizeObserver callbacks after
 replacement or disposal, and view-zone-generated layout events. Hosted
 source-coordinate, captured-error and console-batching journeys retain the
 zero-console-error check as the real-renderer regression gate.
+
+### HTTP offline replay overlap
+
+`httpOfflineSend.test.tsx` parametrizes GET, HEAD, OPTIONS, POST, PUT, PATCH and
+DELETE arriving before, during or after an earlier replay. The backend is a
+controlled promise: resolve the first request only after the second has queued
+and connectivity has returned. Reads must send serially; writes must become
+ready without automatic dispatch. Existing deleted-entry and reconnect-on-mount
+checks remain in the same file.
+
+`httpOfflineReplay.spec.ts` exercises GET/POST in EN/ES through the real app with
+a synthetic route backend. It overrides only the connectivity signal; it does
+not qualify a physical network outage or Electron's native transport. It asserts
+no write before the explicit Send now click, captures minimal call counts and
+app-owned screenshots, and retains zero-console-error teardown.
+
+```sh
+node node_modules/vitest/vitest.mjs run tests/components/HttpWorkspace/httpOfflineSend.test.tsx --maxWorkers=1
+CI=1 node scripts/run-playwright-web-validation.mjs tests/e2e/httpOfflineReplay.spec.ts --workers=1 --retries=0 --trace=on
+```
+
+Use a disposable checkout and profile. The signed test license is synthetic and
+service routes are mocked. Review the launcher first and deny external traffic
+when reproducing in a laboratory. To compare the failing base, copy only the two
+test files into a separate checkout at
+`1c8a20280e6b4bc25660b9d144c13e35f8c44a85`; never copy the product fix. In the
+recorded lab, the external matrix had 14/21 pass on the base and 21/21 with the
+private live-drain intervention; UI had 4/8 pass on the base and 8/8 with that
+intervention. Copying the public unit file onto the unchanged base reproduced
+7 failures and 22 passes; all 29 pass with the actual source repair. The final
+8-case UI pass also requires the second response to persist after dispatch.
+These are functional outcomes, not performance measurements.
+
+
+Recorded environment: Lingua 1.6.2 at the base above; Node 24.21.0,
+pnpm 11.3.0, Vitest 5.0.0, Playwright 1.63.0, React 19.3.0, Vite 8.2.2,
+TypeScript 7.0.2; macOS arm64, Apple M3 Pro, 18 GiB RAM. The actual source
+repair passed 71 focused cases and 8 browser cases; the full unit run passed
+10,385 with 95 skipped. Type checks, lint, telemetry call sites, i18n, copy
+and changelog checks passed. The browser harness denies external traffic and
+mocks the service endpoints in disposable contexts. Its build deliberately
+includes same-origin runtime assets; use a separate production build for
+bundle budget checks. These local results do not qualify Linux, physical
+connectivity failures, native transport, release signing or notarization.
+
+
+The production web builds also passed the existing byte budgets, with no
+budget warnings. Initial assets remain 1,291,893 bytes (gzip 345,136 to
+345,168); lazy assets change from 12,324,076 to 12,324,186 bytes (gzip
+3,212,480 to 3,212,614). One artifact was built per variant, without the E2E
+same-origin runtime flag. This establishes a byte comparison, not a cold/warm
+runtime benchmark or a speed improvement. Re-run the method/timing matrix and
+EN/ES dispatch-count fixture for queue or sender changes; re-run the production
+build and report for imports, dependencies, routes or resources. Cache policy,
+large-queue CPU cost and database query performance are outside this repair.

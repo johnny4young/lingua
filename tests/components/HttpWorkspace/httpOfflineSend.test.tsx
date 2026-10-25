@@ -132,6 +132,43 @@ describe('useHttpOfflineSend', () => {
   });
 });
 
+describe('offline entries arriving around a pending replay', () => {
+  const methods = ['GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+  for (const timing of ['before-drain', 'during-drain', 'after-drain'] as const) {
+    it.each(methods)(`${timing}: resumes or readies %s after reconnect`, async (method) => {
+      const first = request('first', 'https://qa.example.invalid/first');
+      const second = request('second', 'https://qa.example.invalid/second', { method });
+      useWorkspaceToolStore.setState({ requests: [first, second] });
+      setOnline(false);
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => { release = resolve; });
+      const send = vi.fn(async (candidate: HttpRequestV1) => {
+        if (candidate.id === first.id) await pending;
+        return null;
+      });
+      const { result } = renderHook(() => useHttpOfflineSend(send));
+      await act(async () => {
+        result.current.sendFromEditor(first);
+        if (timing === 'before-drain') result.current.sendFromEditor(second);
+      });
+      await act(async () => setOnline(true));
+      expect(send.mock.calls.map(([candidate]) => candidate.id)).toEqual([first.id]);
+      if (timing === 'after-drain') await act(async () => release());
+      if (timing !== 'before-drain') {
+        await act(async () => setOnline(false));
+        await act(async () => result.current.sendFromEditor(second));
+        expect(useHttpOfflineQueue.getState().queued[second.id]).toEqual({ ready: false });
+        await act(async () => setOnline(true));
+      }
+      if (timing !== 'after-drain') await act(async () => release());
+      const read = ['GET', 'HEAD', 'OPTIONS'].includes(method);
+      expect(send.mock.calls.map(([candidate]) => candidate.id)).toEqual(read ? [first.id, second.id] : [first.id]);
+      expect(useHttpOfflineQueue.getState().queued).toEqual(read ? {} : { [second.id]: { ready: true } });
+    });
+  }
+});
+
 describe('HttpSendButton', () => {
   const base = { isExecuting: false, disabled: false, combo: '⌘↵', onSend: vi.fn() };
 
