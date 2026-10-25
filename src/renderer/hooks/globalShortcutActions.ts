@@ -1,6 +1,7 @@
 import { claimCapsuleListSurface } from '../components/CapsuleList/capsuleListSurface';
 import { usePresenterModeStore } from '../stores/presenterModeStore';
-import { getActiveEditorCursorLine } from '../runtime/editorAccess';
+import { getActiveEditor, getActiveEditorCursorLine } from '../runtime/editorAccess';
+import { useExplainPanelStore } from '../stores/explainPanelStore';
 import {
   dispatchDebuggerControl,
   isDebuggerControlActive,
@@ -16,6 +17,7 @@ import type { ShortcutHandler, UseGlobalShortcutsOptions } from './globalShortcu
 export function buildGlobalShortcutActions(
   options: UseGlobalShortcutsOptions
 ): Record<string, ShortcutHandler> {
+  const jumpToExplainedError = explainJump();
   return {
     'run-toggle': () => {
       if (options.isRunning) options.stop();
@@ -74,6 +76,20 @@ export function buildGlobalShortcutActions(
     'debugger-step-over': () => resumeDebugger({ type: 'step', mode: 'over' }),
     'debugger-step-into': () => resumeDebugger({ type: 'step', mode: 'into' }),
     'debugger-step-out': () => resumeDebugger({ type: 'step', mode: 'out' }),
+    ...(jumpToExplainedError ? { 'ai-jump-to-error': jumpToExplainedError } : {}),
+  };
+}
+
+/** Cmd/Ctrl+J: back to the line the explain panel is about, while it is open on the active tab. */
+function explainJump(): ShortcutHandler | null {
+  const target = useExplainPanelStore.getState().target;
+  if (!target?.line || getActiveTab(useEditorStore.getState())?.id !== target.tabId) return null;
+  return () => {
+    const editor = getActiveEditor();
+    if (!editor || !target.line) return;
+    editor.revealLineInCenter(target.line);
+    editor.setPosition({ lineNumber: target.line, column: target.column ?? 1 });
+    editor.focus();
   };
 }
 

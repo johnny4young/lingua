@@ -32,6 +32,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Debugger: step over     | `F10`         | `F10`           |
 | Debugger: step into     | `F11`         | `F11`           |
 | Debugger: step out      | `Shift+F11`   | `Shift+F11`     |
+| Jump to the explained error | `Cmd+J`   | `Ctrl+J`        |
 
 The overlay lists every other global default binding (run history, capsules, utilities, and more); the SQL tab's own run, cancel and save keys are listed under SQL workspace below.
 
@@ -209,6 +210,13 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Click the gutter beside a line number to add or remove a breakpoint, or press Cmd/Ctrl+Shift+B. In JavaScript and TypeScript, Alt-click (Option-click on macOS) turns a mark into a conditional breakpoint, then a logpoint, then a plain breakpoint again; set the condition or message in the Debugger tab. Python, Go and Rust keep plain breakpoints.
 - Debug runs until a breakpoint. The paused line gets an accent tint and an arrow, and the controls sit right under it: Continue (F5), Step over (F10), Step into (F11), Step out (Shift+F11) and Run to end.
 - After a step (or Continue to the next pause), the line you stepped from shows the values that changed, and Locals in the Debugger tab marks new and changed bindings; hover a changed one for its previous value. The Console ends with a row that names the paused line and opens the Debugger tab.
+
+## Failing lines and Explain this error
+
+- When a run fails on a known line, the line takes a red tint and an alert mark in the gutter, and the end of the line names the error with **Copy stack** and, where the language has a debugger, **Add breakpoint**; with Pro it also offers **Explain**. The error message stays in the line's inline result.
+- **Explain** (Pro), from the failing line or from the Console on a code tab, opens a panel beside the editor; the code stays editable. The header names the file and line, and `Cmd/Ctrl+J` jumps back to that line while the panel is open (`Cmd/Ctrl+Alt+J` with the Classic IDE keymap, which keeps `Cmd/Ctrl+J` for the console; in a browser, the browser may keep that shortcut). **Pin** keeps the panel open when the next run changes or clears the error; unpinned, it closes then. SQL, HTTP and notebook errors keep the dialog.
+- **What gets sent** shows the exact text before anything leaves the device, with how many secrets were redacted. **Include runtime values**, off by default, adds the values the program last held (the paused frame, or the last run's variables): names that look secret and token-like values are redacted, and the values appear in the preview before you choose **Send**.
+- After an answer: **Apply & re-run** and **Apply only** (both behind a diff), **Copy**, **Helpful** / **Not helpful**, three suggested follow-ups and a free question. The conversation stays with the tab in memory until you close it; a vote keeps the error's kind (for example `TypeError`), the vote and when, on this device, and nothing from the code, the message or the answer.
 
 ## SQL workspace
 

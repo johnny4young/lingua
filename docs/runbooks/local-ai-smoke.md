@@ -41,9 +41,11 @@ Two ways around it, below.
    - API key: anything non-empty (e.g. `ollama`)
    - Model: `qwen3-coder:latest`
 3. Trigger an error and click **Explain this error**, then **Send to AI**. The
-   trigger appears on: a notebook code cell, the editor console (in **Run**
-   mode, not Scratchpad — the error must reach the console), a failed SQL
-   query's error band, and a failed HTTP request's error band.
+   trigger appears on: the end of a failing editor line, the editor console (in
+   **Run** mode, not Scratchpad — the error must reach the console), a notebook
+   code cell, a failed SQL query's error band, and a failed HTTP request's
+   error band. On a code tab (the line or the console) it opens the panel
+   beside the editor; notebook, SQL and HTTP open the dialog.
 
 ## Option B — agent-driven Playwright smoke (no CSP change relied on)
 

@@ -42,6 +42,7 @@ import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
 import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
+import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 
 configureMonaco();
@@ -194,6 +195,8 @@ export function CodeEditor() {
     language: activeTab?.language,
     toggleAriaLabel: (line, modes) => t(modes ? 'debugger.gutter.toggleModes' : 'debugger.gutter.togglePauseOnly', { line }),
   });
+  // The failing-line actions sit after the text; inline results make room for them.
+  const [errorActionsReserve, setErrorActionsReserve] = useState<{ line: number; width: number } | null>(null);
   // Listen for editor.highlightLine commands
   // emitted by `<OutputLineBadge>` on hover, apply the
   // `lingua-highlight-flash` decoration to the hinted line, and
@@ -485,8 +488,16 @@ export function CodeEditor() {
           lineResults={visibleLineResults}
           tabId={activeTabId}
           lineTimings={lineTimings}
+          lineEndReserve={errorActionsReserve}
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <ErrorLineRowHost
+          editor={editorInstance}
+          monaco={monacoInstance}
+          tabId={activeTabId}
+          language={activeTab?.language}
+          onWidthChange={setErrorActionsReserve}
+        />
       </div>
       <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />
     </div>

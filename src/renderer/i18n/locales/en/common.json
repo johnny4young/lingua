@@ -1988,6 +1988,8 @@
   "shortcuts.item.debuggerStepInto.description": "Advance to the next line, descending into nested calls",
   "shortcuts.item.debuggerStepOut.label": "Step out",
   "shortcuts.item.debuggerStepOut.description": "Resume until the current frame returns",
+  "shortcuts.item.aiJumpToError.label": "Jump to the explained error",
+  "shortcuts.item.aiJumpToError.description": "Move the cursor back to the line the explain panel is about",
   "debugger.gutter.toggleModes": "Toggle breakpoint at line {{line}}. Alt-click changes its type: pause, conditional, logpoint.",
   "debugger.gutter.togglePauseOnly": "Toggle breakpoint at line {{line}}. Conditional breakpoints and logpoints are JavaScript and TypeScript only.",
   "pythonDebugger.outputTruncated": "Python debugger output was truncated at the safety limit.",

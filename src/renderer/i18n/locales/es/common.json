@@ -1988,6 +1988,8 @@
   "shortcuts.item.debuggerStepInto.description": "Avanza a la siguiente línea descendiendo en llamados anidados",
   "shortcuts.item.debuggerStepOut.label": "Salir",
   "shortcuts.item.debuggerStepOut.description": "Reanuda hasta que retorne el marco actual",
+  "shortcuts.item.aiJumpToError.label": "Ir al error explicado",
+  "shortcuts.item.aiJumpToError.description": "Lleva el cursor a la línea de la que habla el panel de explicación",
   "debugger.gutter.toggleModes": "Alterna el punto de interrupción en la línea {{line}}. Alt-clic cambia su tipo: pausa, condicional, punto de registro.",
   "debugger.gutter.togglePauseOnly": "Alterna el punto de interrupción en la línea {{line}}. Los puntos condicionales y de registro son solo para JavaScript y TypeScript.",
   "pythonDebugger.outputTruncated": "La salida del depurador de Python se truncó al alcanzar el límite de seguridad.",

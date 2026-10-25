@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KEYBOARD_SHORTCUTS } from '@/data/keyboardShortcuts';
+import { KEYBOARD_SHORTCUTS, comboKey, resolveCombos } from '@/data/keyboardShortcuts';
 import {
   DEFAULT_KEYMAP_PRESET_ID,
   KEYMAP_PRESETS,
@@ -51,5 +51,16 @@ describe('keymapPresets catalog', () => {
     expect(isKnownKeymapPresetId(undefined)).toBe(false);
     expect(isKnownKeymapPresetId(null)).toBe(false);
     expect(isKnownKeymapPresetId(42)).toBe(false);
+  });
+
+  it('never lets the jump to an explained error share a combo in any preset', () => {
+    for (const preset of KEYMAP_PRESETS) {
+      const jump = KEYBOARD_SHORTCUTS.find((definition) => definition.id === 'ai-jump-to-error')!;
+      const jumpKeys = resolveCombos(jump, preset.overrides).map(comboKey);
+      const clashes = KEYBOARD_SHORTCUTS.filter(
+        (definition) => definition.id !== jump.id && resolveCombos(definition, preset.overrides).some((combo) => jumpKeys.includes(comboKey(combo)))
+      ).map((definition) => definition.id);
+      expect(clashes, preset.id).toEqual([]);
+    }
   });
 });
