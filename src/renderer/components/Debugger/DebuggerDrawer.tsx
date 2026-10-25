@@ -19,6 +19,7 @@ import { Tooltip } from '../ui/chrome';
 import { DebuggerBreakpointList } from './DebuggerBreakpointList';
 import { DebuggerWatchList } from './DebuggerWatchList';
 import { useDebuggerControls } from './useDebuggerControls';
+import { localsChanges, orderedLocals } from '../../utils/debuggerLocals';
 
 const debuggerButtonBase =
   'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-e1 shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40';
@@ -54,6 +55,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
   const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
   const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
   const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
+  const previousLocals = useDebuggerStore((state) => state.previousPause?.locals);
   const watches = useDebuggerStore((state) => state.watches);
   // Toolbar actions are global, even though drawer visibility and the
   // summary pill stay scoped to the active editor tab.
@@ -369,14 +371,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
                 {t('debugger.paused.locals.empty')}
               </p>
             ) : (
-              <ul className="grid gap-1">
-                {Object.entries(pausedFrame!.locals).map(([name, value]) => (
-                  <li key={name} className="font-mono text-caption text-foreground">
-                    <span className="text-muted">{name}: </span>
-                    {value}
-                  </li>
-                ))}
-              </ul>
+              <LocalsList previous={previousLocals} current={pausedFrame!.locals} />
             )}
           </DrawerSection>
           <DrawerSection
@@ -406,6 +401,36 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
         </div>
       )}
     </section>
+  );
+}
+
+/** Locals in a stable order; new or changed ones since the last pause are tinted and say so. */
+function LocalsList({ previous, current }: { previous: Record<string, string> | undefined; current: Record<string, string> }) {
+  const { t } = useTranslation();
+  const changes = localsChanges(previous, current);
+  return (
+    <ul className="grid gap-1">
+      {orderedLocals(previous, current).map(([name, value]) => {
+        const change = changes.get(name);
+        return (
+          <li
+            key={name}
+            data-change={change?.kind}
+            title={change?.kind === 'changed' ? t('debugger.paused.locals.before', { value: change.before }) : undefined}
+            className={`font-mono text-caption text-foreground ${change ? '-mx-1 rounded-sm bg-accent-tint px-1' : ''}`}
+          >
+            <span className="text-muted">{name}: </span>
+            {value}
+            {change ? (
+              <span className="ml-1.5 inline-flex items-center gap-1 font-sans text-micro font-semibold text-accent-fg">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+                {t(`debugger.paused.locals.${change.kind}`)}
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -79,5 +79,8 @@
   "debugger.drawer.collapseHint": "Oculta los detalles del depurador sin cerrar el panel inferior.",
   "debugger.drawer.expandHint": "Muestra variables, pila de llamadas, expresiones y controles del depurador.",
   "debugger.hud.label": "Controles del depurador",
-  "debugger.hud.paused": "En pausa · línea {{line}}"
+  "debugger.hud.paused": "En pausa · línea {{line}}",
+  "debugger.paused.locals.new": "nueva",
+  "debugger.paused.locals.changed": "cambió",
+  "debugger.paused.locals.before": "Antes: {{value}}"
 }

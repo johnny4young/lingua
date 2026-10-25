@@ -267,4 +267,19 @@ describe('debuggerStore ', () => {
       { id: 'watch-1', expression: 'count' },
     ]);
   });
+
+  it('keeps the pause before the current one for the same session and tab', () => {
+    const store = useDebuggerStore.getState();
+    const frame = (tabId: string, line: number) => ({ tabId, line, reason: 'step' as const, locals: { line: String(line) }, callStack: [], watchResults: {} });
+    store.attachSession({ runtime: 'js', tabId: 'a', attachedAt: 1 });
+    store.setPausedFrame(frame('a', 2));
+    expect(useDebuggerStore.getState().previousPause).toBeNull();
+    store.setPausedFrame(null);
+    store.setPausedFrame(frame('a', 3));
+    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' } });
+    store.setPausedFrame(frame('b', 1));
+    expect(useDebuggerStore.getState().previousPause).toBeNull();
+    store.detachSession();
+    expect(useDebuggerStore.getState().lastPause).toBeNull();
+  });
 });

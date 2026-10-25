@@ -19,6 +19,7 @@ function fakeEditor() {
       return { dispose: vi.fn() };
     },
     revealLineInCenterIfOutsideViewport: vi.fn(),
+    getModel: () => ({ getLineCount: () => 20, getLineMaxColumn: (line: number) => line * 10 }),
     setPosition: vi.fn(),
   };
   const monaco = {
@@ -52,7 +53,7 @@ function mount(language: 'javascript' | 'python') {
 }
 
 beforeEach(() => {
-  useDebuggerStore.setState({ breakpoints: {}, breakpointOrder: [], pausedFrame: null, session: null });
+  useDebuggerStore.setState({ breakpoints: {}, breakpointOrder: [], pausedFrame: null, previousPause: null, lastPause: null, session: null });
   Object.defineProperty(window, 'lingua', { configurable: true, value: { platform: 'darwin' } });
 });
 
@@ -93,5 +94,18 @@ describe('breakpoint gutter', () => {
     );
     const paused = gutter.latest().find((decoration) => decoration.options.className === 'lingua-debugger-paused-line');
     expect(paused?.options.linesDecorationsClassName).toBe('lingua-debugger-paused-line-marker');
+  });
+
+  it('shows what a step changed after the line it stepped from', () => {
+    const gutter = mount('javascript');
+    const frame = (line: number, locals: Record<string, string>) =>
+      act(() => useDebuggerStore.getState().setPausedFrame({ tabId: 't1', line, reason: 'step', locals, callStack: [], watchResults: {} }));
+    frame(3, { arr: '[3, 6]' });
+    expect(gutter.latest().some((decoration) => decoration.options.after)).toBe(false);
+    act(() => useDebuggerStore.getState().setPausedFrame(null));
+    frame(4, { arr: '[3, 6]', pivot: '10', left: 'x'.repeat(60) });
+    const inline = gutter.latest().find((decoration) => decoration.options.after);
+    expect(inline?.range).toMatchObject({ startLineNumber: 3, startColumn: 30 });
+    expect(inline?.options.after?.content).toBe(`pivot → 10  ·  left → ${'x'.repeat(39)}…`);
   });
 });

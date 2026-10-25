@@ -114,6 +114,13 @@ export interface PausedFrame {
   conditionError?: string;
 }
 
+/** Where and with which locals a session last paused, so the next pause can show what changed. */
+interface PauseSnapshot {
+  tabId: string;
+  line: number;
+  locals: Record<string, string>;
+}
+
 interface DebuggerSession {
   /** Which language adapter is attached. */
   runtime: DebuggerRuntime;
@@ -142,6 +149,10 @@ export interface DebuggerState {
   // Session state — NOT persisted.
   session: DebuggerSession | null;
   pausedFrame: PausedFrame | null;
+  /** The pause before the current one in this session, in the same tab. */
+  previousPause: PauseSnapshot | null;
+  /** The latest pause, kept while execution runs to the next one. */
+  lastPause: PauseSnapshot | null;
   /**
    * Drawer collapse state. Persists across reloads
    * (folded users want it folded when they reopen) but defaults to
@@ -285,6 +296,8 @@ export const useDebuggerStore = create<DebuggerState>()(
       watches: [],
       session: null,
       pausedFrame: null,
+      previousPause: null,
+      lastPause: null,
       drawerCollapsed: false,
 
       toggleBreakpoint: (tabId, line) => {
@@ -444,15 +457,23 @@ export const useDebuggerStore = create<DebuggerState>()(
       },
 
       attachSession: (session) => {
-        set({ session, pausedFrame: null });
+        set({ session, pausedFrame: null, previousPause: null, lastPause: null });
       },
 
       detachSession: () => {
-        set({ session: null, pausedFrame: null });
+        set({ session: null, pausedFrame: null, previousPause: null, lastPause: null });
       },
 
       setPausedFrame: (frame) => {
-        set({ pausedFrame: frame });
+        if (!frame) {
+          set({ pausedFrame: null });
+          return;
+        }
+        set((state) => ({
+          pausedFrame: frame,
+          previousPause: state.lastPause?.tabId === frame.tabId ? state.lastPause : null,
+          lastPause: { tabId: frame.tabId, line: frame.line, locals: frame.locals },
+        }));
       },
 
       addWatch: (expression) => {

@@ -79,5 +79,8 @@
   "debugger.breakpoints.nativeHint": "Conditional breakpoints and logpoints remain available for JavaScript and TypeScript; Python, Go, and Rust use pause breakpoints.",
   "debugger.watches.nativeExpressionHint": "Native watches run inside the local debug process and may have side effects. Evaluate only expressions you trust.",
   "debugger.hud.label": "Debugger controls",
-  "debugger.hud.paused": "Paused · line {{line}}"
+  "debugger.hud.paused": "Paused · line {{line}}",
+  "debugger.paused.locals.new": "new",
+  "debugger.paused.locals.changed": "changed",
+  "debugger.paused.locals.before": "Before: {{value}}"
 }

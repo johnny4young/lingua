@@ -1424,6 +1424,16 @@
     cursor: pointer;
   }
 
+  /* Values the last step changed, after the line it paused at. */
+  .monaco-editor .lingua-debugger-inline-value {
+    margin-left: 1.25rem;
+    padding: 0 0.4rem;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent-fg);
+    font-size: 0.85em;
+  }
+
   /* The paused line takes the accent, not the breakpoint red, with an arrow beside the line numbers. */
   .monaco-editor .lingua-debugger-paused-line {
     background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important;

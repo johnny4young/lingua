@@ -157,6 +157,8 @@ test.describe('Debugger ', () => {
     expect(hudBox!.y).toBeGreaterThanOrEqual(pausedLine!.y + pausedLine!.height - 1);
     await page.getByTestId('debugger-hud-step-over').click();
     await expect(hud).toContainText('Paused · line 4');
+    await expect(page.locator('.monaco-editor .lingua-debugger-inline-value')).toHaveText('label → value:42');
+    await expect(page.getByTestId('debugger-locals').locator('li[data-change="new"]')).toContainText('label: value:42');
     await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);
     await expect(hud).toHaveCount(0);

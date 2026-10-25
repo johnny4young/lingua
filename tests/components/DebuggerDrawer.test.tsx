@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,6 +23,8 @@ describe('DebuggerDrawer', () => {
         watches: [],
         session: null,
         pausedFrame: null,
+        previousPause: null,
+        lastPause: null,
         drawerCollapsed: false,
       },
       false
@@ -146,6 +148,20 @@ describe('DebuggerDrawer', () => {
     const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="html" />);
 
     expect(container.firstChild).toBeNull();
+  });
+
+  it('marks the locals a step added or changed, keeping their order', () => {
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    const pause = (line: number, locals: Record<string, string>) =>
+      useDebuggerStore.getState().setPausedFrame({ tabId: 'tab-1', line, reason: 'step', locals, callStack: [], watchResults: {} });
+    pause(3, { count: '1', label: 'a' });
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    expect(screen.getByTestId('debugger-locals').querySelectorAll('[data-change]')).toHaveLength(0);
+    act(() => pause(4, { doubled: '4', label: 'a', count: '2' }));
+    const rows = [...screen.getByTestId('debugger-locals').querySelectorAll('li')];
+    expect(rows.map((row) => row.textContent)).toEqual(['count: 2changed', 'label: a', 'doubled: 4new']);
+    expect(rows[0]!.getAttribute('title')).toBe('Before: 1');
+    expect(rows[2]!.dataset.change).toBe('new');
   });
 
   it('renders paused locals and dispatches step controls', () => {
