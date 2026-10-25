@@ -82,5 +82,7 @@
   "httpWorkspace.chain.rule.stale": "If older than 5 min",
   "httpWorkspace.editor.url.hint.chain": "{{name}} comes from {{source}}, which has no 2xx response yet: send it, or set the tag to Send source first.",
   "httpWorkspace.chain.tooLong": "The chain behind {{name}} is more than 20 requests deep, so it was not sent.",
-  "httpWorkspace.chain.tag.others": "Also captured by {{names}}; the tag reads the first one in the list."
+  "httpWorkspace.chain.tag.others": "Also captured by {{names}}; the tag reads the first one in the list.",
+  "httpWorkspace.chain.confirm": "The chain set the host of {{name}} to {{origin}} from a response you have not seen. Send it there?",
+  "httpWorkspace.chain.confirmSend": "Send"
 }

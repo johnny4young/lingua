@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capturersOf, chainOrder, chainPasses, chainRows, chainTags, chainValue, latestFor, requestLabel, sourceNeedsSend } from '../../src/shared/httpChain';
+import { capturersOf, chainedOrigin, chainOrder, chainPasses, chainRows, chainTags, chainValue, latestFor, requestLabel, sourceNeedsSend } from '../../src/shared/httpChain';
 import { httpUrlState, layeredEnvironment, referencedVariables } from '../../src/shared/httpEnvironment';
 import { createBlankHttpRequest, parseHttpRequest, parseHttpResponse, type HttpRequestV1, type HttpResponseV1 } from '../../src/shared/httpWorkspace';
 
@@ -76,6 +76,20 @@ describe('chain tags', () => {
     const producer = request('p', 'https://x', { captures: [capture('cc', 'id', 'constructor')] });
     const user = request('u', 'https://x/{{constructor}}', { chainRules: {} });
     expect(chainTags(user, [producer, user])[0]?.rule).toBe('last');
+  });
+
+  it('find when a just-captured value sets the scheme or host', () => {
+    const env = { version: 1 as const, id: 'e', name: 'e', variables: [
+      { id: '1', key: 'base', value: 'https://api.other.com', secret: false },
+      { id: '2', key: 'host', value: 'evil.example', secret: false },
+      { id: '3', key: 'id', value: '42', secret: false },
+    ], createdAt: NOW, updatedAt: NOW };
+    expect(chainedOrigin('{{base}}/items', env, new Set(['base']))).toBe('https://api.other.com');
+    expect(chainedOrigin('https://{{host}}/x', env, new Set(['host']))).toBe('https://evil.example');
+    expect(chainedOrigin('https://api.example.com/{{id}}', env, new Set(['id']))).toBeNull();
+    expect(chainedOrigin('{{base}}/items', env, new Set(['id']))).toBeNull();
+    expect(chainedOrigin('{{base}}/items', env, new Set())).toBeNull();
+    expect(chainedOrigin('{{missing}}/items', env, new Set(['missing']))).toBeNull();
   });
 
   it('send their source first only when the rule says so', () => {

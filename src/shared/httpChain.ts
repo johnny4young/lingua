@@ -4,7 +4,13 @@
  * the requests that capture the variables it uses.
  */
 
-import { looksSecret, referencedVariables, type HttpEnvVariableV1 } from './httpEnvironment';
+import {
+  interpolateString,
+  looksSecret,
+  referencedVariables,
+  type HttpEnvironmentV1,
+  type HttpEnvVariableV1,
+} from './httpEnvironment';
 import { extractCaptureValue } from './httpWorkspaceCaptures';
 
 // What a recorded response holds in place of a sensitive value.
@@ -128,6 +134,31 @@ export function chainOrder(
   };
   visit(targetId, 0);
   return { order, cycle, tooLong };
+}
+
+// Stands in for a fresh value while checking which part of a URL it reaches.
+const ORIGIN_MARKER = 'lingua-chain-origin';
+
+/**
+ * The origin a URL resolves to when a value a chain just captured supplies its
+ * scheme or host, so the user can confirm where the request goes; null when
+ * those values only reach the path and query.
+ */
+export function chainedOrigin(url: string, env: HttpEnvironmentV1 | null, fresh: ReadonlySet<string>): string | null {
+  if (fresh.size === 0) return null;
+  const full = new Map((env?.variables ?? []).map((row) => [row.key, row.value]));
+  const probe = new Map(full);
+  for (const key of fresh) if (probe.has(key)) probe.set(key, ORIGIN_MARKER);
+  try {
+    if (!new URL(interpolateString(url.trim(), probe)).origin.includes(ORIGIN_MARKER)) return null;
+  } catch {
+    // A marker in place of the scheme does not parse, which also means a fresh value leads the URL.
+  }
+  try {
+    return new URL(interpolateString(url.trim(), full)).origin;
+  } catch {
+    return null;
+  }
 }
 
 /**

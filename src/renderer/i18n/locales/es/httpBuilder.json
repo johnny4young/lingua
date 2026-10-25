@@ -82,5 +82,7 @@
   "httpWorkspace.chain.rule.stale": "Si tiene más de 5 min",
   "httpWorkspace.editor.url.hint.chain": "{{name}} sale de {{source}}, que aún no tiene respuesta 2xx: envíalo o cambia el tag a Enviar antes el origen.",
   "httpWorkspace.chain.tooLong": "La cadena detrás de {{name}} tiene más de 20 requests de profundidad, así que no se envió.",
-  "httpWorkspace.chain.tag.others": "También capturan esta variable: {{names}}; el tag lee el primero de la lista."
+  "httpWorkspace.chain.tag.others": "También capturan esta variable: {{names}}; el tag lee el primero de la lista.",
+  "httpWorkspace.chain.confirm": "La cadena fijó el host de {{name}} en {{origin}} desde una respuesta que no has visto. ¿Enviarlo ahí?",
+  "httpWorkspace.chain.confirmSend": "Enviar"
 }

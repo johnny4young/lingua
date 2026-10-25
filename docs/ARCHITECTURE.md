@@ -1517,8 +1517,9 @@ a tag whose key is secret elsewhere, or looks like a credential, stays secret.
 Before a send, `HttpWorkspacePanel` sends the sources the rules ask for in
 dependency order (`chainOrder`), each with chains skipped, one chain at a
 time, and stops on any response outside 2xx; a cycle, a chain deeper than 20
-or a stream source is refused before sending. Explicit pipelines also skip
-chains.
+or a stream source is refused before sending. When a value the chain just
+captured sets a request's scheme or host (`chainedOrigin`), that send waits for
+the user to confirm the resolved origin. Explicit pipelines also skip chains.
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the

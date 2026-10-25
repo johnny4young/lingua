@@ -1263,6 +1263,60 @@ describe('HttpWorkspacePanel — chain tags', () => {
     await waitFor(() => expect(useWorkspaceToolStore.getState().responsesByRequestId.tgt?.[0]?.environmentId).toBe('prod'));
   });
 
+  describe('a host that comes from the chain', () => {
+    const next = { ...source, captures: [{ id: 'cap', source: 'body-json' as const, path: 'next', targetVariable: 'nextBase', enabled: true }] };
+    const follow = { ...target, url: '{{nextBase}}/items', chainRules: { nextBase: 'source-first' as const } };
+    function seedHost() {
+      useWorkspaceToolStore.setState({ requests: [follow, next], activeRequestId: 'tgt', responsesByRequestId: {} });
+      executeHttpRequestMock.mockImplementation(async (outbound: { url: string }) =>
+        outbound.url.endsWith('/users/octocat/repos') ? makeResponse({ body: JSON.stringify({ next: 'https://other.example' }) }) : makeResponse({ url: outbound.url })
+      );
+    }
+
+    it('waits for the user to confirm the host before sending', async () => {
+      seedHost();
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() =>
+        expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.confirm', values: { name: 'Get repo', origin: 'https://other.example' } })
+      );
+      expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
+      const action = useUIStore.getState().statusNotice!.actions![0]!;
+      useUIStore.getState().dismissStatusNotice('cta');
+      action.onClick();
+      await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, 'https://other.example/items']));
+    });
+
+    it('does not send when the confirmation is dismissed', async () => {
+      seedHost();
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() => expect(useUIStore.getState().statusNotice?.messageKey).toBe('httpWorkspace.chain.confirm'));
+      useUIStore.getState().dismissStatusNotice('manual');
+      await waitFor(() => expect(useUIStore.getState().statusNotice).toMatchObject({ tone: 'info', messageKey: 'httpWorkspace.chain.stopped' }));
+      expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
+    });
+
+    it('cancels the confirmation with Stop', async () => {
+      seedHost();
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() => expect(useUIStore.getState().statusNotice?.messageKey).toBe('httpWorkspace.chain.confirm'));
+      await userEvent.click(screen.getByTestId('http-request-editor-stop'));
+      await waitFor(() => expect(useUIStore.getState().statusNotice?.messageKey).toBe('httpWorkspace.chain.stopped'));
+      expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
+    });
+
+    it('asks nothing when the host was already visible', async () => {
+      useWorkspaceToolStore.setState({ requests: [{ ...follow, chainRules: {} }, next], activeRequestId: 'tgt', responsesByRequestId: { src: [makeResponse({ body: JSON.stringify({ next: 'https://other.example' }) })] } });
+      executeHttpRequestMock.mockResolvedValue(makeResponse());
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() => expect(sentUrls()).toEqual(['https://other.example/items']));
+      expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('httpWorkspace.chain.confirm');
+    });
+  });
+
   it('leaves tags alone with the flag off', async () => {
     useSettingsStore.setState({ featureFlags: {} });
     seed({ owner: 'source-first' });

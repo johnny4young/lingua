@@ -242,3 +242,41 @@ test('chains a request to the response of another through a tag, sending the sou
   expect(sent).toEqual([`${API}/users/octocat/repos`, `${API}/repos/octocat/lingua`]);
   await expect(page.getByTestId('http-chain-tag-preview')).toContainText('"octocat"');
 });
+
+test('asks before sending to a host a chain source just returned', async ({ page }) => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const base = { version: 1, method: 'GET', headers: [], createdAt: NOW, updatedAt: NOW };
+  await openBuilder(
+    page,
+    'en',
+    {
+      requests: [
+        { ...base, id: 'follow', name: 'Follow next', url: '{{nextBase}}/items', chainRules: { nextBase: 'source-first' } },
+        {
+          ...base,
+          id: 'discover',
+          name: 'Discover',
+          url: `${API}/discover`,
+          captures: [{ id: 'cap', source: 'body-json', path: 'next', targetVariable: 'nextBase', enabled: true }],
+        },
+      ],
+      activeRequestId: 'follow',
+    },
+    { httpChainTags: true }
+  );
+  await page.route(`${API}/discover`, (route) =>
+    route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify({ next: `${API}/v2` }) })
+  );
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().startsWith(API)) sent.push(request.url());
+  });
+  await page.getByTestId('http-request-editor-send').click();
+  const notice = page.getByTestId('status-notice-banner');
+  await expect(notice).toContainText(`The chain set the host of Follow next to ${new URL(API).origin}`);
+  expect(sent).toEqual([`${API}/discover`]);
+  await notice.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+  expect(sent).toEqual([`${API}/discover`, `${API}/v2/items`]);
+});
+

@@ -55,7 +55,7 @@ import {
   type HttpEnvironmentFocus,
   type HttpSendOptions,
 } from './httpScopes';
-import { chainOrder, chainPasses, chainTags, latestFor, requestLabel, sourceNeedsSend } from '../../../shared/httpChain';
+import { chainedOrigin, chainOrder, chainPasses, chainTags, latestFor, requestLabel, sourceNeedsSend } from '../../../shared/httpChain';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -297,15 +297,44 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // and stops on a cycle or on any response outside 2xx.
   const chainLockRef = useRef(false);
   const chainCancelledRef = useRef(false);
+  const confirmRef = useRef<((send: boolean) => void) | null>(null);
+  // Pauses a send whose scheme or host comes from a value the chain just captured, until the user confirms the host.
+  const confirmOrigin = useCallback((request: HttpRequestV1, fresh: ReadonlySet<string>): Promise<boolean> => {
+    const env = scopedEnvironmentFor(request, useWorkspaceToolStore.getState().getActiveEnvironment() ?? null);
+    const origin = chainedOrigin(request.url, env, fresh);
+    if (origin === null) return Promise.resolve(true);
+    return new Promise(resolve => {
+      let settled = false;
+      const settle = (send: boolean) => {
+        if (settled) return;
+        settled = true;
+        confirmRef.current = null;
+        resolve(send);
+      };
+      confirmRef.current = settle;
+      useUIStore.getState().pushStatusNotice({
+        tone: 'warning',
+        messageKey: 'httpWorkspace.chain.confirm',
+        values: { name: requestLabel(request), origin },
+        actions: [{ labelKey: 'httpWorkspace.chain.confirmSend', onClick: () => settle(true) }],
+        // The CTA dismisses the notice before its click runs; every other close cancels.
+        onDismiss: mode => {
+          if (mode !== 'cta') settle(false);
+        },
+      });
+    });
+  }, []);
   const handleSendRef = useRef<((request: HttpRequestV1, options?: HttpSendOptions) => Promise<HttpResponseV1 | null>) | null>(null);
   const sendChain = useCallback(
-    async (target: HttpRequestV1, force: boolean): Promise<boolean> => {
+    async (target: HttpRequestV1, force: boolean): Promise<ReadonlySet<string> | null> => {
       const requests = useWorkspaceToolStore.getState().requests.map(request => (request.id === target.id ? target : request));
       const byId = new Map(requests.map(request => [request.id, request]));
       const stop = (messageKey: string, values: Record<string, string>, tone: 'error' | 'info' = 'error') => {
         useUIStore.getState().pushStatusNotice({ tone, messageKey, values });
-        return false;
+        return null;
       };
+      // Variables the sources sent so far just captured.
+      const fresh = new Set<string>();
       const { order, cycle, tooLong } = chainOrder(target.id, requests);
       if (cycle) return stop('httpWorkspace.chain.cycle', { name: requestLabel(target) });
       if (tooLong) return stop('httpWorkspace.chain.tooLong', { name: requestLabel(target) });
@@ -325,15 +354,17 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         const source = byId.get(id);
         if (!needed.has(id) || !source) continue;
         if ((source.transport ?? 'http') !== 'http') return stop('httpWorkspace.chain.liveSource', { name: requestLabel(source) });
+        if (!(await confirmOrigin(source, fresh))) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status: t('httpWorkspace.chain.cancelled') }, 'info');
         const response = await handleSendRef.current?.(source, { skipChain: true });
         // No response, or Stop while it was being recorded, means the user stopped the chain.
         if (!response || chainCancelledRef.current) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status: t('httpWorkspace.chain.cancelled') }, 'info');
         const status = String(response.status || response.kind);
         if (!chainPasses(response)) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status });
+        for (const capture of source.captures ?? []) if (capture.enabled && capture.targetVariable.trim()) fresh.add(capture.targetVariable.trim());
       }
-      return true;
+      return fresh;
     },
-    [t]
+    [t, confirmOrigin]
   );
 
   // Send pipeline with environment interpolation +
@@ -361,7 +392,16 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         chainCancelledRef.current = false;
         setChainRunningFor(requestToSend.id);
         try {
-          if (!(await sendChain(requestToSend, options?.forceChain === true))) return null;
+          const fresh = await sendChain(requestToSend, options?.forceChain === true);
+          if (!fresh) return null;
+          if (!(await confirmOrigin(requestToSend, fresh))) {
+            useUIStore.getState().pushStatusNotice({
+              tone: 'info',
+              messageKey: 'httpWorkspace.chain.stopped',
+              values: { name: requestLabel(requestToSend), status: t('httpWorkspace.chain.cancelled') },
+            });
+            return null;
+          }
         } finally {
           chainLockRef.current = false;
           setChainRunningFor(null);
@@ -536,7 +576,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         }
       }
     },
-    [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce, sendChain]
+    [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce, sendChain, confirmOrigin]
   );
   useEffect(() => {
     handleSendRef.current = handleSend;
@@ -549,6 +589,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const handleStop = useCallback(() => {
     pipelineCancelledRef.current = true;
     chainCancelledRef.current = true;
+    if (confirmRef.current) useUIStore.getState().dismissStatusNotice('manual');
     abortRef.current?.abort('cancelled');
     setLivePreview(null);
   }, []);
