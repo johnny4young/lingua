@@ -103,6 +103,7 @@
   "httpWorkspace.snapshot.scrubber.hostname": "hostname",
   "httpWorkspace.snapshot.scrubber.regex": "+ regex",
   "httpWorkspace.snapshot.scrubber.regexLabel": "Custom pattern to scrub",
+  "httpWorkspace.snapshot.scrubber.regexIgnored": "This pattern is ignored: it could take too long to run, or it matches an empty string.",
   "httpWorkspace.snapshot.suggested": "Suggested from this response",
   "httpWorkspace.editor.assert.label": "Response tests",
   "httpWorkspace.editor.assert.hint": "Assertions run locally after each response — no cloud, no account.",

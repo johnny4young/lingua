@@ -103,6 +103,7 @@
   "httpWorkspace.snapshot.scrubber.hostname": "host",
   "httpWorkspace.snapshot.scrubber.regex": "+ regex",
   "httpWorkspace.snapshot.scrubber.regexLabel": "Patrón propio para ocultar",
+  "httpWorkspace.snapshot.scrubber.regexIgnored": "Este patrón se ignora: podría tardar demasiado o coincide con un texto vacío.",
   "httpWorkspace.snapshot.suggested": "Sugeridos desde esta respuesta",
   "httpWorkspace.editor.assert.label": "Tests de respuesta",
   "httpWorkspace.editor.assert.hint": "Las aserciones corren local tras cada respuesta — sin nube, sin cuenta.",

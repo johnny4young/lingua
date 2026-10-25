@@ -80,7 +80,16 @@ describe('snapshot tab', () => {
     fireEvent.change(screen.getByTestId('http-snapshot-regex'), { target: { value: 'v\\d+' } });
     expect(onChange).toHaveBeenCalledTimes(1);
     fireEvent.blur(screen.getByTestId('http-snapshot-regex'));
+    expect(screen.getByTestId('http-snapshot-regex').getAttribute('aria-invalid')).toBe('false');
     expect(onChange).toHaveBeenLastCalledWith({ ...baseline, scrubbers: { ...baseline.scrubbers, regex: 'v\\d+' } });
+  });
+
+  it('flags a custom pattern it ignores', async () => {
+    preview(response({ name: 'janusly' }), baseline);
+    await userEvent.click(screen.getByRole('button', { name: 'Snapshot' }));
+    fireEvent.change(screen.getByTestId('http-snapshot-regex'), { target: { value: '(a+)+$' } });
+    expect(screen.getByTestId('http-snapshot-regex').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByTestId('http-snapshot-regex').getAttribute('title')).toContain('ignored');
   });
 
   it('cannot snapshot a response over the cap', async () => {

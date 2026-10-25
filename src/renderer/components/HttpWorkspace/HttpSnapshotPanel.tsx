@@ -49,6 +49,7 @@ export function HttpSnapshotPanel({
     setStoredPattern(scrubbers.regex);
     setPattern(scrubbers.regex);
   }
+  const patternIgnored = pattern.length > 0 && !isUsableScrubPattern(pattern);
   const commitPattern = () => {
     if (pattern !== scrubbers.regex) setScrubbers({ ...scrubbers, regex: pattern });
   };
@@ -153,12 +154,15 @@ export function HttpSnapshotPanel({
               onKeyDown={(event) => {
                 if (event.key === 'Enter') commitPattern();
               }}
-              aria-invalid={pattern.length > 0 && !isUsableScrubPattern(pattern)}
+              aria-invalid={patternIgnored}
+              title={patternIgnored ? t('httpWorkspace.snapshot.scrubber.regexIgnored') : undefined}
               placeholder={t('httpWorkspace.snapshot.scrubber.regex')}
               aria-label={t('httpWorkspace.snapshot.scrubber.regexLabel')}
               spellCheck={false}
               data-testid="http-snapshot-regex"
-              className="h-7 w-40 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+              className={`h-7 w-40 rounded-md border bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:outline-none ${
+                patternIgnored ? 'border-error-fg' : 'border-border-subtle focus:border-border-strong'
+              }`}
             />
           </div>
         </div>
