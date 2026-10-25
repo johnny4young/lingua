@@ -85,7 +85,7 @@ action and a preview of exactly what is sent.
   Markdown, supports streaming + follow-up questions, and offers Apply & re-run
   where the host surface can safely replace code behind a diff preview.
 - Code tabs open the same consent flow in a panel anchored beside the editor
-  (from the inline error row or the Console). The preview is still the exact
+  (from the actions at the end of the failing line or the Console). The preview is still the exact
   payload. Its one addition is opt-in: **Include runtime values**, off by
   default, appends the paused locals or the last run's top-level variables as
   `name = value` lines, with secret-looking names and token-shaped values

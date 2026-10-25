@@ -213,8 +213,8 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Explain this error (Pro)
 
-- When a run fails on a known line, the line takes a red tint and an alert mark in the gutter, and a red row under it shows the error with **Explain**, **Copy stack** and, where the language has a debugger, **Add breakpoint**.
-- **Explain**, from that row or from the Console on a code tab, opens a panel beside the editor; the code stays editable. The header names the file and line, and `Cmd/Ctrl+J` jumps back to that line while the panel is open (in a browser, the browser may keep that shortcut). **Pin** keeps the panel open when the next run changes or clears the error; unpinned, it closes then. SQL, HTTP and notebook errors keep the dialog.
+- When a run fails on a known line, the line takes a red tint and an alert mark in the gutter, and the end of the line names the error with **Explain**, **Copy stack** and, where the language has a debugger, **Add breakpoint**; the error message stays in the line's inline result.
+- **Explain**, from the failing line or from the Console on a code tab, opens a panel beside the editor; the code stays editable. The header names the file and line, and `Cmd/Ctrl+J` jumps back to that line while the panel is open (in a browser, the browser may keep that shortcut). **Pin** keeps the panel open when the next run changes or clears the error; unpinned, it closes then. SQL, HTTP and notebook errors keep the dialog.
 - **What gets sent** shows the exact text before anything leaves the device, with how many secrets were redacted. **Include runtime values**, off by default, adds the values the program last held (the paused frame, or the last run's variables): names that look secret and token-like values are redacted, and the values appear in the preview before you choose **Send**.
 - After an answer: **Apply & re-run** and **Apply only** (both behind a diff), **Copy**, **Helpful** / **Not helpful**, three suggested follow-ups and a free question. The conversation stays with the tab in memory until you close it; a vote keeps only the error's kind (for example `TypeError`) on this device.
 

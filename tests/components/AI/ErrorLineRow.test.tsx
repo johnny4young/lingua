@@ -13,18 +13,22 @@ vi.mock('../../../src/renderer/hooks/useEntitlement', () => ({ useEntitlement: (
 
 function fakeEditor() {
   const zones: { afterLineNumber: number }[] = [];
+  const widgets: monacoTypes.editor.IContentWidget[] = [];
   const editor = {
-    getModel: () => ({ getLineCount: () => 10 }),
+    getModel: () => ({ getLineCount: () => 10, getLineMaxColumn: () => 30 }),
     changeViewZones: (callback: (accessor: { addZone: (zone: { afterLineNumber: number }) => string; removeZone: () => void }) => void) =>
       callback({ addZone: (zone) => String(zones.push(zone)), removeZone: () => zones.pop() }),
     createDecorationsCollection: () => ({ getRange: () => ({ startLineNumber: 2 }), clear: vi.fn() }),
-    addContentWidget: (widget: monacoTypes.editor.IContentWidget) => document.body.appendChild(widget.getDomNode()),
+    addContentWidget: (widget: monacoTypes.editor.IContentWidget) => {
+      widgets.push(widget);
+      document.body.appendChild(widget.getDomNode());
+    },
     removeContentWidget: (widget: monacoTypes.editor.IContentWidget) => widget.getDomNode().remove(),
     onDidChangeModelContent: () => ({ dispose: vi.fn() }),
     layoutContentWidget: vi.fn(),
   };
-  const monaco = { Range: class {}, editor: { ContentWidgetPositionPreference: { BELOW: 2 } } };
-  return { editor: editor as unknown as monacoTypes.editor.IStandaloneCodeEditor, monaco: monaco as unknown as typeof monacoTypes, zones };
+  const monaco = { Range: class {}, editor: { ContentWidgetPositionPreference: { EXACT: 0 } } };
+  return { editor: editor as unknown as monacoTypes.editor.IStandaloneCodeEditor, monaco: monaco as unknown as typeof monacoTypes, zones, widgets };
 }
 
 beforeAll(async () => {
@@ -48,12 +52,12 @@ describe('error line row', () => {
     expect(describeError({ message: 'boom' })).toEqual({ name: null, text: 'boom', full: 'boom' });
   });
 
-  it('reserves a row under the line and offers Explain, Copy stack and Add breakpoint', () => {
+  it('sits at the end of the failing line, without a reserved row, and offers its actions', () => {
     const fake = fakeEditor();
     render(<ErrorLineRow editor={fake.editor} monaco={fake.monaco} tabId="t1" language="javascript" />);
-    expect(fake.zones).toEqual([expect.objectContaining({ afterLineNumber: 2 })]);
-    const row = screen.getByTestId('error-line-row');
-    expect(row.textContent).toContain("TypeError Cannot read properties of null (reading 'name')col 43");
+    expect(fake.zones).toHaveLength(0);
+    expect(fake.widgets[0]?.getPosition()).toEqual({ position: { lineNumber: 2, column: 30 }, preference: [0] });
+    expect(screen.getByTestId('error-line-row').textContent).toBe('TypeErrorcol 43ExplainCopy stackAdd breakpoint');
     fireEvent.click(screen.getByTestId('error-line-explain'));
     expect(useExplainPanelStore.getState().target).toEqual({
       tabId: 't1',
