@@ -622,7 +622,8 @@ collection state:
   must not add a desktop-only direct network path around this bridge.
 - [`../shared/httpWorkspaceCurl.ts`](../shared/httpWorkspaceCurl.ts) owns
   shell-safe cURL serialization and request-body fidelity. Copy surfaces import
-  it directly and mask active environment secrets before calling it.
+  it directly and mask the secrets of every variable scope it resolves against
+  (`scopedEnvironmentFor`) before calling it.
 - [`../shared/httpWorkspaceCaptures.ts`](../shared/httpWorkspaceCaptures.ts)
   owns response selectors and environment-write candidates for request
   chaining.

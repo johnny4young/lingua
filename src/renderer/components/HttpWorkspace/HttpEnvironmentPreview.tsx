@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next';
 import {
   findResolvedVariables,
   findUnresolvedVariables,
+  HTTP_COLLECTION_SCOPE_ID,
   maskSecretsForCapsule,
   type HttpEnvironmentV1,
   type HttpVariableSource,
@@ -97,7 +98,8 @@ export function HttpEnvironmentPreview({
 
   // Only render when there is something to show: an active env, the
   // request references at least one token, or an auth header is injected.
-  const hasContent = env !== null || chips.length > 0 || authHeader !== null;
+  // The collection's own view is not an active environment, so alone it shows nothing.
+  const hasContent = (env !== null && env.id !== HTTP_COLLECTION_SCOPE_ID) || chips.length > 0 || authHeader !== null;
   if (!hasContent) return null;
 
   return (

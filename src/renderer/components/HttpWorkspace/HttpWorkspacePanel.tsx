@@ -304,9 +304,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       const activeEnv = tools.getActiveEnvironment() ?? null;
       const env = scopedEnvironmentFor(requestToSend, activeEnv);
 
-      // Block the send when a referenced `{{var}}` has no binding in the
-      // active env (or there is no env). Surfacing the names lets the user
-      // fix the environment without guessing which token is missing.
+      // Block the send when a referenced `{{var}}` has no binding in any
+      // scope it resolves from. Surfacing the names lets the user fix the
+      // environment without guessing which token is missing.
       const unresolved = findUnresolvedVariables(requestToSend, env);
       if (unresolved.length > 0) {
         const fix = activeEnv && httpScopesEnabled() ? rowsFromOtherEnvironments(unresolved, tools.environments, activeEnv.id) : [];

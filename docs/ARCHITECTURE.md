@@ -1516,7 +1516,7 @@ deterministic next-step boundary.
 
 ### Encrypted secret vault
 
-The HTTP workspace's secret environment values, the AI API key and saved
+The HTTP workspace's secret variable values (environment, collection and request), the AI API key and saved
 database connection passwords live in the desktop secret vault, not in
 localStorage. `src/main/secretStore.ts` encrypts
 each value with Electron `safeStorage` and writes one file per id under

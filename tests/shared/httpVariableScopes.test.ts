@@ -68,6 +68,7 @@ describe('environment colour', () => {
     expect(environmentColor(env('prod'))).toBe('red');
     expect(environmentColor(env('Production EU'))).toBe('red');
     expect(environmentColor(env('product-demo'))).toBeUndefined();
+    expect(environmentColor({ ...env('prod'), color: 'none' })).toBeUndefined();
     expect(environmentColor(null)).toBeUndefined();
   });
 
@@ -75,6 +76,7 @@ describe('environment colour', () => {
     const raw = { ...env('dev'), color: 'green' };
     expect(parseHttpEnvironment(raw)?.color).toBe('green');
     expect(parseHttpEnvironment({ ...raw, color: 'pink' })).not.toHaveProperty('color');
+    expect(parseHttpEnvironment({ ...raw, color: 'none' })?.color).toBe('none');
   });
 });
 

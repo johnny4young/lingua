@@ -42,7 +42,8 @@ export function rowsFromOtherEnvironments(
   for (const key of keys) {
     for (const env of environments) {
       if (env.id === activeId) continue;
-      const found = [...env.variables].reverse().find((variable) => variable.key === key);
+      // An empty value is no definition, like a secret the vault has not filled in yet.
+      const found = [...env.variables].reverse().find((variable) => variable.key === key && variable.value !== '');
       if (found) {
         rows.push(createEnvVariable({ key, value: found.value, secret: found.secret }));
         break;

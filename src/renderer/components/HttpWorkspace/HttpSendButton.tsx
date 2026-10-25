@@ -91,7 +91,7 @@ export function HttpSendButton({
       data-queue={queue?.state ?? (queue?.willQueue ? 'will-queue' : 'none')}
       aria-label={label}
       title={`${label} · ${t('httpWorkspace.editor.send.shortcutHint', { combo })}`}
-      className={PRIMARY}
+      className={tint ? `${PRIMARY} hover:brightness-110` : PRIMARY}
       {...(tint ? { 'data-tinted': true, style: tintedSend(tint) } : {})}
     >
       {queue?.willQueue && queue.state === null ? <Clock size={14} aria-hidden="true" /> : <SendHorizontal size={14} aria-hidden="true" />}

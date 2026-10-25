@@ -381,8 +381,8 @@ export function HttpEnvironmentManager({
 
               {scopes ? (
                 <HttpEnvironmentColorPicker
-                  value={selected.color}
-                  onChange={(color) => onUpdate(selected.id, { color })}
+                  value={environmentColor(selected)}
+                  onChange={(color) => onUpdate(selected.id, { color: color ?? 'none' })}
                 />
               ) : null}
               <HttpVariableList

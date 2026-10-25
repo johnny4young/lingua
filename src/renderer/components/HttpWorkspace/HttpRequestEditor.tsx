@@ -737,7 +737,14 @@ export function HttpRequestEditor({
         onAddAssertion={handleAddAssertion}
         onUpdateAssertion={handleUpdateAssertion}
         onRemoveAssertion={handleRemoveAssertion}
-        {...(sources ? { variables: { requestId: request.id, rows: request.variables ?? [] } } : {})}
+        {...(sources
+          ? {
+              variables: {
+                rows: request.variables ?? [],
+                onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
+              },
+            }
+          : {})}
         {...(tint ? { tint } : {})}
       />
     </div>

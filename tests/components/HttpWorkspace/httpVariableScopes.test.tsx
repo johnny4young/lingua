@@ -86,6 +86,15 @@ describe('preview chips', () => {
   });
 });
 
+describe('preview strip', () => {
+  it('stays hidden for a plain URL when only the collection has variables', () => {
+    const scoped = layeredEnvironment({ collection: [v('c', 'owner', 'octocat')], environment: null, request: [] });
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), url: 'https://example.com' };
+    render(<HttpEnvironmentPreview request={request} env={scoped} sources={variableSources({ collection: [], environment: null, request: [] })} />);
+    expect(screen.queryByTestId('http-environment-preview')).toBeNull();
+  });
+});
+
 describe('environment manager with scopes', () => {
   const props = (overrides: Partial<React.ComponentProps<typeof HttpEnvironmentManager>> = {}) => ({
     environments: [env('e1', 'prod', [v('p1', 'base', 'https://api.example.com')])],
@@ -123,8 +132,9 @@ describe('environment manager with scopes', () => {
     const picker = screen.getByTestId('http-environment-color');
     await userEvent.click(within(picker).getByRole('radio', { name: 'Blue' }));
     expect(onUpdate).toHaveBeenCalledWith('e1', { color: 'blue' });
-    await userEvent.click(within(picker).getByRole('radio', { name: 'No colour' }));
-    expect(onUpdate).toHaveBeenLastCalledWith('e1', { color: undefined });
+    expect(within(picker).getByRole('radio', { name: 'Red' }).getAttribute('aria-checked')).toBe('true');
+    await userEvent.click(within(picker).getByRole('radio', { name: 'No color' }));
+    expect(onUpdate).toHaveBeenLastCalledWith('e1', { color: 'none' });
     const tab = screen.getByRole('tab', { name: 'prod' });
     expect((tab.querySelector('span') as HTMLElement).style.backgroundColor).toBe(ENVIRONMENT_TINTS.red.line);
   });
@@ -164,13 +174,13 @@ describe('request Vars tab and tint', () => {
     onRemoveAssertion: vi.fn(),
   };
 
-  it('edits the request own variables in the store', async () => {
-    const request = createBlankHttpRequest({ id: 'req', now: NOW });
-    useWorkspaceToolStore.getState().createRequest(request);
-    render(<HttpRequestBuilderTabs {...tabProps} variables={{ requestId: 'req', rows: [] }} tint={ENVIRONMENT_TINTS.red} />);
+  it('edits the request own variables through its callback', async () => {
+    const onUpdate = vi.fn();
+    render(<HttpRequestBuilderTabs {...tabProps} variables={{ rows: [], onUpdate }} tint={ENVIRONMENT_TINTS.red} />);
     expect(screen.getByTestId('http-request-editor-tabs').style.borderBottomColor).toBe(ENVIRONMENT_TINTS.red.line);
     await userEvent.click(within(screen.getByTestId('http-request-editor-vars')).getByTestId('http-environment-var-add'));
-    expect(useWorkspaceToolStore.getState().requests[0]!.variables).toHaveLength(1);
+    const updater = onUpdate.mock.calls[0]![0] as (rows: HttpEnvVariableV1[]) => HttpEnvVariableV1[];
+    expect(updater([])).toHaveLength(1);
   });
 
   it('falls back to Params when the Vars tab is gone', () => {
@@ -183,6 +193,7 @@ describe('request Vars tab and tint', () => {
     render(<HttpSendButton isExecuting={false} disabled={false} combo="⌘↵" onSend={vi.fn()} tint={ENVIRONMENT_TINTS.red} />);
     const send = screen.getByTestId('http-request-editor-send');
     expect(send.dataset.tinted).toBe('true');
+    expect(send.className).toContain('hover:brightness-110');
     expect(send.style.backgroundColor).toContain('var(--color-error-border)');
   });
 });
@@ -192,9 +203,9 @@ describe('scope helpers', () => {
     const environments = [
       env('prod', 'prod'),
       env('stg', 'staging', [v('s1', 'pageSize', '50'), v('s2', 'token', 'x', true)]),
-      env('dev', 'dev', [v('d1', 'pageSize', '10')]),
+      env('dev', 'dev', [v('d1', 'pageSize', '10'), v('d2', 'blank', '')]),
     ];
-    const rows = rowsFromOtherEnvironments(['pageSize', 'token', 'nowhere'], environments, 'prod');
+    const rows = rowsFromOtherEnvironments(['pageSize', 'token', 'nowhere', 'blank'], environments, 'prod');
     expect(rows.map(({ key, value, secret }) => ({ key, value, secret }))).toEqual([
       { key: 'pageSize', value: '50', secret: false },
       { key: 'token', value: 'x', secret: true },

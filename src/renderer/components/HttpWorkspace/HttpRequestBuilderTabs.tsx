@@ -22,7 +22,6 @@ import { HttpCaptureTab } from './HttpCaptureTab';
 import { HttpParamsTab } from './HttpParamsTab';
 import { HttpVariableList } from './HttpVariableList';
 import type { HttpTint } from './httpScopeColors';
-import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import type { HttpEnvVariableV1 } from '../../../shared/httpEnvironment';
 
 export type HttpRequestBuilderTab =
@@ -61,7 +60,10 @@ interface HttpRequestBuilderTabsProps {
   readonly onUpdateAssertion: (index: number, patch: Partial<HttpAssertion>) => void;
   readonly onRemoveAssertion: (index: number) => void;
   /** With variable scopes on: this request's own variables, shown in a Vars tab. */
-  readonly variables?: { readonly requestId: string; readonly rows: readonly HttpEnvVariableV1[] };
+  readonly variables?: {
+    readonly rows: readonly HttpEnvVariableV1[];
+    readonly onUpdate: (updater: (rows: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]) => void;
+  };
   /** The active environment's colour, drawn as the tab strip's bottom line. */
   readonly tint?: HttpTint;
 }
@@ -210,10 +212,7 @@ export function HttpRequestBuilderTabs({
         {effectiveTab === 'vars' && variables ? (
           <section data-testid="http-request-editor-vars" className="flex flex-col gap-2">
             <p className="text-caption text-fg-subtle">{t('httpWorkspace.editor.vars.hint')}</p>
-            <HttpVariableList
-              variables={variables.rows}
-              onUpdate={(updater) => useWorkspaceToolStore.getState().updateRequestVariables(variables.requestId, updater)}
-            />
+            <HttpVariableList variables={variables.rows} onUpdate={variables.onUpdate} />
           </section>
         ) : null}
 

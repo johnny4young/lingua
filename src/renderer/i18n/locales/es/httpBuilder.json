@@ -46,7 +46,7 @@
   "httpWorkspace.scope.from": "Ámbito: {{scope}}",
   "httpWorkspace.scope.fromOverrides": "Ámbito: {{scope}} · reemplaza a {{overridden}}",
   "httpWorkspace.environment.manager.collection": "Colección",
-  "httpWorkspace.environment.manager.collectionHint": "Variables que cualquier request puede usar. El entorno activo y las variables propias de una request ganan sobre ellas.",
+  "httpWorkspace.environment.manager.collectionHint": "Variables que cualquier request puede usar. El entorno activo y las variables propias de un request ganan sobre ellas.",
   "httpWorkspace.environment.manager.color": "Color",
   "httpWorkspace.environment.manager.colorNone": "Sin color",
   "httpWorkspace.environment.manager.colorName.red": "Rojo",
@@ -56,5 +56,5 @@
   "httpWorkspace.environment.manager.colorName.purple": "Morado",
   "httpWorkspace.environment.manager.colorName.gray": "Gris",
   "httpWorkspace.editor.tab.vars": "Vars",
-  "httpWorkspace.editor.vars.hint": "Variables solo para esta request. Ganan sobre el entorno y la colección."
+  "httpWorkspace.editor.vars.hint": "Variables solo para este request. Ganan sobre el entorno y la colección."
 }

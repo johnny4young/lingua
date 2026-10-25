@@ -68,7 +68,8 @@ const TEXT = 'px-3 font-mono text-body-sm';
 /**
  * The URL input. With `{{tokens}}` in it, the text is drawn by a layer behind
  * a transparent input, which keeps native editing and highlights each token:
- * accent when the environment defines it, red when it does not.
+ * accent when the environment defines it, red when it does not, or with
+ * variable scopes on, the colour of the scope that resolves it.
  */
 export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, describedBy, onChange, onPaste }: HttpUrlFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
