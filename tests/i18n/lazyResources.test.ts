@@ -50,6 +50,19 @@ describe('renderer locale bundle boundary', () => {
     expect(registration).toContain(`addResourceBundle('en', '${COMMON_NAMESPACE}'`);
   });
 
+  it('keeps the debugger panel copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('debugger.') && !key.startsWith('debugger.gutter.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/debugger.json');
+    expect(rendererI18n).toContain("import('./locales/es/debugger.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/debuggerCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/debugger.json'");
+    const drawer = readFileSync(resolve(__dirname, '../../src/renderer/components/Debugger/DebuggerDrawer.tsx'), 'utf8');
+    expect(drawer).toContain("import '../../i18n/debuggerCatalog'");
+  });
+
   it('keeps the newer Labs flag copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')

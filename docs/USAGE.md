@@ -204,6 +204,12 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Hover the segment for the honest boundary: local and cached runtimes keep working, while updates, remote AI, and runtime downloads that are not already cached remain unavailable.
 - Lingua's desktop offline smoke validates the bundled JavaScript, TypeScript, and Python paths with non-loopback network access blocked.
 
+## Debugger
+
+- Click the gutter beside a line number to add or remove a breakpoint, or press Cmd/Ctrl+Shift+B. In JavaScript and TypeScript, Alt-click (Option-click on macOS) turns a mark into a conditional breakpoint, then a logpoint, then a plain breakpoint again; set the condition or message in the Debugger tab. Python, Go and Rust keep plain breakpoints.
+- Debug runs until a breakpoint. The paused line gets an accent tint and an arrow, and the controls sit right under it: Continue (F5), Step over (F10), Step into (F11), Step out (Shift+F11) and Run to end.
+- After a step (or Continue to the next pause), the line you stepped from shows the values that changed, and Locals in the Debugger tab marks new and changed bindings; hover a changed one for its previous value. The Console ends with a row that names the paused line and opens the Debugger tab.
+
 ## SQL workspace
 
 - `Cmd/Ctrl+Alt+S` opens the SQL tab. The connection bar shows **Local · DuckDB**, the engine that runs in this window, or the query's saved connection (see Database connections below); its picker lists Local under This device. **Import data** at the right of the bar reads a CSV, Parquet or JSON file into a new table, or adds its rows to an existing one.

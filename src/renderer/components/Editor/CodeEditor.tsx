@@ -41,6 +41,7 @@ import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
+import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 
 configureMonaco();
@@ -191,7 +192,7 @@ export function CodeEditor() {
   useBreakpointGutter(editorInstance, monacoInstance, {
     activeTabId: activeTab?.id ?? null,
     language: activeTab?.language,
-    toggleAriaLabel: line => t('debugger.gutter.toggle', { line }),
+    toggleAriaLabel: (line, modes) => t(modes ? 'debugger.gutter.toggleModes' : 'debugger.gutter.togglePauseOnly', { line }),
   });
   // Listen for editor.highlightLine commands
   // emitted by `<OutputLineBadge>` on hover, apply the
@@ -485,6 +486,7 @@ export function CodeEditor() {
           tabId={activeTabId}
           lineTimings={lineTimings}
         />
+        <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
       </div>
       <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />
     </div>

@@ -299,6 +299,14 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the source and stdin preview shown only after an outgoing share is prepared',
   },
   {
+    module: 'src/renderer/components/Debugger/DebuggerStepHud.tsx',
+    why: 'the step controls under the paused line, used only once execution pauses',
+  },
+  {
+    module: 'src/renderer/components/Debugger/DebuggerDrawer.tsx',
+    why: 'the debugger panel, its breakpoint and watch editors and their copy, used only once the Debugger tab opens',
+  },
+  {
     module: 'src/renderer/components/Editor/CompareResultsPanel.tsx',
     why: 'the opt-in comparison renderer used only after Compare is enabled',
   },
