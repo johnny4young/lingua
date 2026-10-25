@@ -397,6 +397,12 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'debugger',
     combos: [{ tokens: ['Shift', 'F11'] }],
   },
+  // Only bound while the explain panel has an error, so the browser keeps Cmd/Ctrl+J otherwise.
+  {
+    id: 'ai-jump-to-error',
+    group: 'navigation',
+    combos: [{ tokens: ['Mod', 'J'] }],
+  },
 ] as const satisfies readonly ShortcutDefinition[];
 
 export type ShortcutId = (typeof KEYBOARD_SHORTCUTS)[number]['id'];
