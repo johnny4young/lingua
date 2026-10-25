@@ -9,6 +9,8 @@ import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useExplainPanelStore } from '../../stores/explainPanelStore';
 import { useResultStore } from '../../stores/resultStore';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
+import { describeError } from '../../utils/describeError';
+import { useLineWidget } from '../Editor/useLineWidget';
 
 const ROW_ID = 'lingua.errorLineRow';
 const ROW_BUTTON = 'pointer-events-auto focus-ring inline-flex h-5 shrink-0 items-center gap-1 rounded border border-error/50 px-1.5 text-micro font-medium text-error-fg hover:bg-error/10';
@@ -18,16 +20,6 @@ export interface ErrorLineRowProps {
   monaco: typeof monacoTypes | null;
   tabId: string | null;
   language: string | undefined;
-}
-
-const ERROR_NAME = /^\s*([A-Z][A-Za-z]*(?:Error|Exception))\b:?\s*/;
-
-/** The error's name, from the message or the first stack line, and the rest of the message. */
-export function describeError(error: { message: string; stack?: string }): { name: string | null; text: string; full: string } {
-  const inMessage = ERROR_NAME.exec(error.message);
-  if (inMessage) return { name: inMessage[1]!, text: error.message.slice(inMessage[0].length), full: error.message };
-  const name = ERROR_NAME.exec(error.stack?.split('\n')[0] ?? '')?.[1] ?? null;
-  return { name, text: error.message, full: name ? `${name}: ${error.message}` : error.message };
 }
 
 /**
@@ -48,31 +40,7 @@ export function ErrorLineRow({ editor, monaco, tabId, language }: ErrorLineRowPr
   const [copied, setCopied] = useState(false);
   const line = error?.line && Number.isInteger(error.line) && error.line >= 1 ? error.line : null;
 
-  useEffect(() => {
-    if (!editor || !monaco || line === null) return;
-    const model = editor.getModel();
-    if (!model || line > model.getLineCount()) return;
-    // A tracked range keeps the actions at the end of the failing line through edits.
-    const tracker = editor.createDecorationsCollection([{ range: new monaco.Range(line, 1, line, 1), options: {} }]);
-    const widget: monacoTypes.editor.IContentWidget = {
-      getId: () => ROW_ID,
-      getDomNode: () => node,
-      getPosition: () => {
-        const current = tracker.getRange(0)?.startLineNumber ?? line;
-        return {
-          position: { lineNumber: current, column: editor.getModel()?.getLineMaxColumn(current) ?? 1 },
-          preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
-        };
-      },
-    };
-    editor.addContentWidget(widget);
-    const edits = editor.onDidChangeModelContent(() => editor.layoutContentWidget(widget));
-    return () => {
-      edits.dispose();
-      tracker.clear();
-      editor.removeContentWidget(widget);
-    };
-  }, [editor, monaco, line, node]);
+  useLineWidget(editor, monaco, line, node, { id: ROW_ID, placement: 'line-end' });
 
   useEffect(() => {
     if (!copied) return;

@@ -1,6 +1,6 @@
 /**
  * Helpful / Not helpful votes on explain answers, kept on this device only.
- * A vote stores the error's kind (TypeError, NameError…) and nothing else:
+ * A vote stores the error's kind (TypeError, NameError…), the vote and when;
  * no code, no error text and no answer.
  */
 

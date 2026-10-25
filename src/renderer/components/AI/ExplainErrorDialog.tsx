@@ -16,7 +16,7 @@
  *     payload is the visible transcript plus the typed question — the
  *     transcript IS the preview, keeping the consent contract honest.
  *   - **Apply & re-run**: when the host surface can replace its code
- *     (notebook cell, editor tab, SQL query), the first code block of the
+ *     (notebook cell, SQL query), the first code block of the
  *     last answer can be applied — behind a full line-diff preview, because
  *     applying model output is a destructive edit and the diff IS the
  *     consent surface. Confirming applies and re-runs, closing the loop:

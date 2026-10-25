@@ -15,6 +15,7 @@ import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useExplainPanelStore } from '../../stores/explainPanelStore';
 import { useResultStore } from '../../stores/resultStore';
+import { describeError } from '../../utils/describeError';
 import { useUIStore } from '../../stores/uiStore';
 import {
   PRESENTER_CONSOLE_FONT_LIFT,
@@ -656,7 +657,8 @@ export function ConsolePanel() {
                 const error = useResultStore.getState().error;
                 useExplainPanelStore.getState().open({
                   tabId: activeTab.id,
-                  errorMessage: consoleErrorText,
+                  // Same text as the failing-line action, so both reach the same thread.
+                  errorMessage: error ? describeError(error).full : consoleErrorText,
                   line: error?.line ?? null,
                   column: error?.column ?? null,
                 });

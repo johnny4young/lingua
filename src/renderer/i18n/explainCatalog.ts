@@ -1,6 +1,6 @@
 /**
- * English copy for the anchored explain panel ships with
- * the panel chunk instead of the boot catalog; it merges into the
+ * English copy for the anchored explain panel and the failing-line actions
+ * ships with those chunks instead of the boot catalog; it merges into the
  * common namespace, so keys read as usual. Spanish loads with the rest of the
  * lazy Spanish catalog.
  */

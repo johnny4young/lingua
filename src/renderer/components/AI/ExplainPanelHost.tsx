@@ -26,6 +26,9 @@ export function ExplainPanelHost() {
     if (!target) return;
     const messageAtOpen = useResultStore.getState().error?.message ?? null;
     return useResultStore.subscribe((state) => {
+      // Runs clear the error when they start, and half-typed code never runs, so only a settled run counts.
+      if (state.isAutoRunning || state.isManualRunning || state.autoRunGateReason === 'incomplete') return;
+      if (useEditorStore.getState().activeTabId !== target.tabId) return;
       if ((state.error?.message ?? null) === messageAtOpen || useExplainPanelStore.getState().pinned) return;
       useExplainPanelStore.getState().close();
     });

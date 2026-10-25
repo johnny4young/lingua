@@ -24,5 +24,6 @@
   "errorRow.explain": "Explain",
   "errorRow.copyStack": "Copy stack",
   "errorRow.copied": "Copied",
-  "errorRow.addBreakpoint": "Add breakpoint"
+  "errorRow.addBreakpoint": "Add breakpoint",
+  "ai.panel.applyOnlyIntro": "This replaces the current code with the AI suggestion without running it. Review the change:"
 }

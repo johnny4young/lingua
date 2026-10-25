@@ -4,6 +4,7 @@ import { buildGlobalShortcutActions } from '@/hooks/globalShortcutActions';
 import type { UseGlobalShortcutsOptions } from '@/hooks/globalShortcutTypes';
 import { useEditorStore } from '@/stores/editorStore';
 import { useExplainPanelStore } from '@/stores/explainPanelStore';
+import { setActiveEditor } from '@/runtime/editorAccess';
 
 function options(isRunning = false): UseGlobalShortcutsOptions {
   const callback = () => undefined;
@@ -59,7 +60,13 @@ describe('buildGlobalShortcutActions', () => {
     useExplainPanelStore.setState({ target: null });
     expect(buildGlobalShortcutActions(options())['ai-jump-to-error']).toBeUndefined();
     useExplainPanelStore.setState({ target: { tabId: 'jump-tab', errorMessage: 'TypeError: x', line: 2, column: 5 } });
-    expect(buildGlobalShortcutActions(options())['ai-jump-to-error']).toBeTypeOf('function');
+    const editor = { revealLineInCenter: vi.fn(), setPosition: vi.fn(), focus: vi.fn() };
+    setActiveEditor(editor as never);
+    buildGlobalShortcutActions(options())['ai-jump-to-error']?.(new KeyboardEvent('keydown'));
+    expect(editor.revealLineInCenter).toHaveBeenCalledWith(2);
+    expect(editor.setPosition).toHaveBeenCalledWith({ lineNumber: 2, column: 5 });
+    expect(editor.focus).toHaveBeenCalled();
+    setActiveEditor(null);
     useExplainPanelStore.setState({ target: { tabId: 'another-tab', errorMessage: 'TypeError: x', line: 2, column: 5 } });
     expect(buildGlobalShortcutActions(options())['ai-jump-to-error']).toBeUndefined();
     useExplainPanelStore.setState({ target: null });

@@ -2,7 +2,7 @@ import { Check, Copy, Pin, Play, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/explainCatalog';
-import { answerLanguageFor, buildExplainErrorRequest } from '../../../shared/ai/explainError';
+import { answerLanguageFor, buildExplainErrorRequest, previewOf } from '../../../shared/ai/explainError';
 import { runtimeNoteFor } from '../../../shared/ai/runtimeNotes';
 import type { runChatCompletion } from '../../runtime/aiClient';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
@@ -29,7 +29,13 @@ const ICON_BUTTON = 'focus-ring inline-flex h-7 w-7 items-center justify-center 
  * scrim, so the code stays editable. It sends nothing until Send, keeps one
  * thread per tab in memory, and can include the last known runtime values.
  */
-export function ExplainErrorPanel({
+export function ExplainErrorPanel(props: { target: ExplainTarget; runChatCompletionImpl?: typeof runChatCompletion }) {
+  // A new endpoint remounts the conversation, which then starts from the consent preview again.
+  const endpoint = useAiConfigStore((s) => s.endpoint);
+  return <ExplainConversationPanel key={endpoint} {...props} />;
+}
+
+function ExplainConversationPanel({
   target,
   runChatCompletionImpl,
 }: {
@@ -76,11 +82,13 @@ export function ExplainErrorPanel({
   );
   const conversation = useExplainConversation({
     request,
-    initialTranscript: useExplainPanelStore.getState().threadFor(target.tabId, target.errorMessage),
-    onTranscriptChange: (transcript) => useExplainPanelStore.getState().saveThread(target.tabId, target.errorMessage, transcript),
+    initialTranscript: useExplainPanelStore.getState().threadFor(target.tabId, target.errorMessage, endpoint),
+    onTranscriptChange: (transcript) => useExplainPanelStore.getState().saveThread(target.tabId, target.errorMessage, endpoint, transcript),
     ...(runChatCompletionImpl ? { runChatCompletionImpl } : {}),
   });
-  const { phase, setPhase, exchanges, suggestedCode, lastAnswer } = conversation;
+  const { phase, setPhase, exchanges, suggestedCode, lastAnswer, transcript } = conversation;
+  // Once sent, the box shows the payload that went out, which later turns re-send.
+  const sentPreview = transcript.length > 0 ? previewOf(transcript.slice(0, request.messages.length)) : null;
   const configured = isAiConfigured({ endpoint, apiKey, model });
   const applyDiff = useMemo(() => (phase.kind === 'confirm-apply' ? diffLines(code, phase.suggested) : []), [phase, code]);
 
@@ -167,9 +175,9 @@ export function ExplainErrorPanel({
               </summary>
               <p className="mt-2 text-caption text-fg-subtle">{t('ai.explain.consentIntro')}</p>
               <pre data-testid="ai-explain-preview" className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-bg-inset p-2 text-micro text-fg-base">
-                {request.preview}
+                {sentPreview ?? request.preview}
               </pre>
-              {values ? (
+              {values && !sentPreview ? (
                 <label className="mt-2 flex items-start gap-2 text-caption text-fg-subtle">
                   <input
                     type="checkbox"
@@ -194,7 +202,7 @@ export function ExplainErrorPanel({
               </div>
             ) : phase.kind === 'confirm-apply' ? (
               <div className="space-y-2">
-                <p className="text-fg-muted">{t('ai.explain.applyIntro')}</p>
+                <p className="text-fg-muted">{t(phase.rerun ? 'ai.explain.applyIntro' : 'ai.panel.applyOnlyIntro')}</p>
                 <ApplyDiff segments={applyDiff} />
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setPhase({ kind: 'done' })} data-testid="ai-explain-apply-back" className={BUTTON}>

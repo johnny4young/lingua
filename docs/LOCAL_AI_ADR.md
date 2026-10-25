@@ -80,19 +80,23 @@ action and a preview of exactly what is sent.
   action.
 - Settings → AI: endpoint + key + model entry in an isolated `lingua-ai`
   persist boundary, plus "Detect local AI (Ollama)" for loopback servers.
-- Error surfaces: notebook cells, the editor console, SQL results, and HTTP
-  failures can open the consent dialog. The answer renders as structured
+- Error surfaces: notebook cells, SQL results, and HTTP failures open the
+  consent dialog; the editor console and the failing line open the anchored
+  panel (below). The answer renders as structured
   Markdown, supports streaming + follow-up questions, and offers Apply & re-run
   where the host surface can safely replace code behind a diff preview.
 - Code tabs open the same consent flow in a panel anchored beside the editor
   (from the actions at the end of the failing line or the Console). The preview is still the exact
   payload. Its one addition is opt-in: **Include runtime values**, off by
   default, appends the paused locals or the last run's top-level variables as
-  `name = value` lines, with secret-looking names and token-shaped values
-  redacted (`formatRuntimeValues`), each value and the block capped, and the
-  redacted count added to the notice. The conversation lives in memory per tab
-  and is never persisted; a Helpful / Not helpful vote stores only the error's
-  kind and the vote in `lingua-explain-ratings`.
+  `name = value` lines, with secret-looking names (including initialisms and
+  header names), secret-named fields nested inside a value, URL credentials
+  and token-shaped values redacted (`formatRuntimeValues`), each value and the
+  block capped, and the redacted count added to the notice. Once sent, the
+  preview shows the payload that went out, which follow-ups re-send; the
+  thread is bound to the endpoint it was approved for. The conversation lives
+  in memory per tab and is never persisted; a Helpful / Not helpful vote stores
+  the error's kind, the vote and its time in `lingua-explain-ratings`.
 - SQL workspace: "Ask AI" sends only the live schema and typed question, then
   inserts the generated SQL for user review; it never auto-runs generated SQL.
 

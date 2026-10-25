@@ -7,6 +7,7 @@ import '../../i18n/debuggerCatalog';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import type { ShortcutId } from '../../data/keyboardShortcuts';
 import { useDebuggerControls } from './useDebuggerControls';
+import { useLineWidget } from '../Editor/useLineWidget';
 
 const HUD_HEIGHT = 38;
 const HUD_ID = 'lingua.debugger.stepHud';
@@ -33,25 +34,10 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
     editor.changeViewZones((accessor) => {
       zoneId = accessor.addZone({ afterLineNumber: line, heightInPx: HUD_HEIGHT, domNode: document.createElement('div'), suppressMouseDown: true });
     });
-    // Edits move the reserved row, so the toolbar follows the line through a tracked decoration.
-    const tracker = editor.createDecorationsCollection([{ range: new monaco.Range(line, 1, line, 1), options: {} }]);
-    const widget: monacoTypes.editor.IContentWidget = {
-      getId: () => HUD_ID,
-      getDomNode: () => node,
-      getPosition: () => ({
-        position: { lineNumber: tracker.getRange(0)?.startLineNumber ?? line, column: 1 },
-        preference: [monaco.editor.ContentWidgetPositionPreference.BELOW],
-      }),
-    };
-    editor.addContentWidget(widget);
-    const edits = editor.onDidChangeModelContent(() => editor.layoutContentWidget(widget));
-    return () => {
-      edits.dispose();
-      tracker.clear();
-      editor.removeContentWidget(widget);
-      editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
-    };
-  }, [editor, monaco, line, node]);
+    return () => editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
+  }, [editor, monaco, line]);
+  // Edits move the reserved row, so the toolbar follows the line.
+  useLineWidget(editor, monaco, line, node, { id: HUD_ID, placement: 'below' });
 
   if (line === null) return null;
   return createPortal(

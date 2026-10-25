@@ -28,6 +28,7 @@ function fakeEditor() {
       widgets.push(widget);
       document.body.appendChild(widget.getDomNode());
     },
+    getModel: () => ({ getLineCount: () => 20, getLineMaxColumn: () => 1 }),
     createDecorationsCollection: () => ({ getRange: () => ({ startLineNumber: trackedLine.current ?? 0 }), clear: vi.fn() }),
     onDidChangeModelContent: (handler: () => void) => {
       edit.current = handler;

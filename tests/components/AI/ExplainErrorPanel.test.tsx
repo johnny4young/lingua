@@ -70,10 +70,20 @@ describe('anchored explain panel', () => {
     expect(impl).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the payload that was sent once the code changes after Send', async () => {
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={answer('Answer.')} />);
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByText('Answer.');
+    act(() => useEditorStore.getState().updateContent('t1', 'const totallyNew = 1;'));
+    expect(screen.getByTestId('ai-explain-preview').textContent).toContain('user.name');
+    expect(screen.getByTestId('ai-explain-preview').textContent).not.toContain('totallyNew');
+  });
+
   it('applies a fix with or without a re-run', async () => {
     render(<ExplainErrorPanel target={target} runChatCompletionImpl={answer(`Fix:\n\n\`\`\`javascript\n${FIX}\n\`\`\``)} />);
     fireEvent.click(screen.getByTestId('ai-explain-send'));
     fireEvent.click(await screen.findByTestId('ai-explain-apply-only'));
+    expect(screen.getByText(/without running it/)).toBeTruthy();
     fireEvent.click(screen.getByTestId('ai-explain-apply-confirm'));
     expect(useEditorStore.getState().tabs[0]!.content).toBe(FIX);
     expect(run).not.toHaveBeenCalled();

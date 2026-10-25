@@ -12,7 +12,7 @@ import {
   buildExplainErrorRequest,
   redactSecretsFromCode,
   MAX_EXPLAIN_CODE_CHARS, formatRuntimeValues } from '../../src/shared/ai/explainError';
-import { FAKE_GITHUB_PAT, FAKE_JWT } from './secret.fixtures';
+import { FAKE_DSN, FAKE_GITHUB_PAT, FAKE_JWT } from './secret.fixtures';
 
 describe('redactSecretsFromCode', () => {
   it('masks a string assigned to a secret-looking identifier', () => {
@@ -182,6 +182,29 @@ describe('runtime values', () => {
       `long = ${'x'.repeat(200)}…`,
     ]);
     expect(redactedCount).toBe(2);
+  });
+
+  it('masks secret-named fields inside a serialized value', () => {
+    const { code, redactedCount } = formatRuntimeValues({ config: '{"apiKey":"abc123","url":"x", password: hunter2}' });
+    expect(code).toBe('config = {"apiKey":<redacted>,"url":"x", password: <redacted>}');
+    expect(redactedCount).toBe(2);
+  });
+
+  it('masks secrets nested in objects, header-style keys, Ruby hashes and cut-off values', () => {
+    const cases: [string, string][] = [
+      ["{'db': {'password': 'correct horse battery'}, 'port': 5432}", "{'db': {'password': <redacted>}, 'port': 5432}"],
+      ["{'X-Api-Key': 'k123', 'Authorization': 'Bearer abc'}", "{'X-Api-Key': <redacted>, 'Authorization': <redacted>}"],
+      ['{"password"=>"x y", "name"=>"ok"}', '{"password"=><redacted>, "name"=>"ok"}'],
+      ["{'password': 'correct horse batt", "{'password': <redacted>"],
+      ['main.Config {APIKey: "s3cr3t-value", AWSSecret: "zz", Name: "a"}', 'main.Config {APIKey: <redacted>, AWSSecret: <redacted>, Name: "a"}'],
+    ];
+    for (const [raw, expected] of cases) expect(formatRuntimeValues({ value: raw }).code, raw).toBe(`value = ${expected}`);
+  });
+
+  it('masks URL credentials and more token shapes', () => {
+    const stripe = ['sk', 'live', 'a'.repeat(20)].join('_');
+    const { code } = formatRuntimeValues({ dsn: FAKE_DSN, key: stripe, header: `Bearer ${'t'.repeat(20)}` });
+    expect(code).toBe('dsn = postgres://admin:<redacted>@db:5432/app\nkey = <redacted>\nheader = <redacted>');
   });
 
   it('adds them to the payload and the preview only when given', () => {

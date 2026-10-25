@@ -12,6 +12,8 @@ export interface ExplainTarget {
 
 interface ExplainThread {
   errorMessage: string;
+  /** The endpoint the payload was approved for; another endpoint starts over from the preview. */
+  endpoint: string;
   transcript: readonly ChatMessage[];
 }
 
@@ -24,9 +26,9 @@ interface ExplainPanelState {
   open: (target: ExplainTarget) => void;
   close: () => void;
   setPinned: (pinned: boolean) => void;
-  saveThread: (tabId: string, errorMessage: string, transcript: readonly ChatMessage[]) => void;
-  /** The thread for this error in this tab, or none when the tab's error changed. */
-  threadFor: (tabId: string, errorMessage: string) => readonly ChatMessage[];
+  saveThread: (tabId: string, errorMessage: string, endpoint: string, transcript: readonly ChatMessage[]) => void;
+  /** The thread for this error in this tab and endpoint, or none when either changed. */
+  threadFor: (tabId: string, errorMessage: string, endpoint: string) => readonly ChatMessage[];
   /** Forget the threads of tabs that are no longer open. */
   keepThreads: (openTabIds: readonly string[]) => void;
 }
@@ -38,11 +40,11 @@ export const useExplainPanelStore = create<ExplainPanelState>()((set, get) => ({
   open: (target) => set({ target }),
   close: () => set({ target: null, pinned: false }),
   setPinned: (pinned) => set({ pinned }),
-  saveThread: (tabId, errorMessage, transcript) =>
-    set((state) => ({ threads: { ...state.threads, [tabId]: { errorMessage, transcript } } })),
-  threadFor: (tabId, errorMessage) => {
+  saveThread: (tabId, errorMessage, endpoint, transcript) =>
+    set((state) => ({ threads: { ...state.threads, [tabId]: { errorMessage, endpoint, transcript } } })),
+  threadFor: (tabId, errorMessage, endpoint) => {
     const thread = get().threads[tabId];
-    return thread && thread.errorMessage === errorMessage ? thread.transcript : [];
+    return thread && thread.errorMessage === errorMessage && thread.endpoint === endpoint ? thread.transcript : [];
   },
   keepThreads: (openTabIds) =>
     set((state) => {

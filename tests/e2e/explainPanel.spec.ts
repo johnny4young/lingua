@@ -73,6 +73,12 @@ for (const language of ['en', 'es'] as const) {
     await expect(panel.getByTestId('ai-explain-followup-question')).toHaveCount(1);
     expect(sent).toHaveLength(2);
 
+    // The Console's Explain reaches the same thread, without sending again.
+    await panel.getByTestId('ai-explain-close').click();
+    await page.getByTestId('console-explain-error').click();
+    await expect(panel.getByTestId('ai-explain-followup-question')).toHaveCount(1);
+    expect(sent).toHaveLength(2);
+
     await panel.getByTestId('ai-explain-panel-pin').click();
     await panel.getByTestId('ai-explain-apply').click();
     await expect(panel.getByTestId('ai-explain-apply-diff')).toContainText("user.profile?.name ?? 'Guest'");
