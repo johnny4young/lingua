@@ -12,6 +12,26 @@
 
 import type { HttpEnvVariableV1 } from './httpEnvironment';
 
+/** Which values a snapshot comparison ignores. */
+export interface HttpSnapshotScrubbers {
+  timestamps: boolean;
+  uuids: boolean;
+  /** Fields named `*_id` or `*Id`. */
+  ids: boolean;
+  hostname: boolean;
+  /** A custom pattern; empty for none, ignored when it does not compile. */
+  regex: string;
+}
+
+/** A recorded response kept as the baseline, its secrets already masked. */
+export interface HttpResponseSnapshot {
+  version: 1;
+  status: number;
+  body: string;
+  recordedAt: string;
+  scrubbers: HttpSnapshotScrubbers;
+}
+
 /**
  * How a chain tag gets its value when its request sends: `last` reads the
  * source's latest response when it is 2xx, `source-first` sends the source first, `stale`
@@ -297,6 +317,8 @@ export interface HttpRequestV1 {
   variables?: HttpEnvVariableV1[];
   /** How each chain tag this request uses gets its value; absent means `last`. */
   chainRules?: Partial<Record<string, HttpChainRule>>;
+  /** The response later ones are compared to; absent when Snapshot is off. */
+  snapshot?: HttpResponseSnapshot;
   /** ISO timestamp (millisecond precision). */
   createdAt: string;
   updatedAt: string;

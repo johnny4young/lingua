@@ -2,5 +2,7 @@
   "settings.labs.flag.httpScopes.label": "HTTP variable scopes",
   "settings.labs.flag.httpScopes.description": "Collection and request variables next to environments, each {{variable}} colored by the scope that resolves it, and a color per environment on the HTTP tab and Send.",
   "settings.labs.flag.httpChainTags.label": "HTTP chain tags",
-  "settings.labs.flag.httpChainTags.description": "A {{variable}} that another request captures becomes a tag: see its source, path and live value, choose when Send runs the source first, and run the chain derived from the tags."
+  "settings.labs.flag.httpChainTags.description": "A {{variable}} that another request captures becomes a tag: see its source, path and live value, choose when Send runs the source first, and run the chain derived from the tags.",
+  "settings.labs.flag.httpSnapshots.label": "HTTP snapshot assertions",
+  "settings.labs.flag.httpSnapshots.description": "Snapshot a response and see later ones as a diff to accept or reject, with scrubbers for timestamps, UUIDs and ids, plus assertions suggested from the last response."
 }
