@@ -8,6 +8,7 @@ import {
   type BreakpointMode,
 } from '../../stores/debuggerStore';
 import type { Language } from '../../types/language';
+import { languageSupportsBreakpointModes } from '../../utils/languageMeta';
 
 const modeIcon = {
   pause: CircleDot,
@@ -34,8 +35,7 @@ export function DebuggerBreakpointList({
   const setBreakpointCondition = useDebuggerStore(state => state.setBreakpointCondition);
   const setBreakpointLogMessage = useDebuggerStore(state => state.setBreakpointLogMessage);
   const toggleBreakpoint = useDebuggerStore(state => state.toggleBreakpoint);
-  const supportsAdvancedBreakpoints =
-    activeLanguage === 'javascript' || activeLanguage === 'typescript';
+  const supportsAdvancedBreakpoints = languageSupportsBreakpointModes(activeLanguage);
 
   if (!activeTabId || breakpoints.length === 0) {
     return <p className="text-caption text-muted">{t('debugger.breakpoints.panel.empty')}</p>;

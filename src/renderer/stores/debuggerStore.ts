@@ -50,6 +50,12 @@ type PauseReason = 'user-breakpoint' | 'step' | 'exception';
 
 export type BreakpointMode = 'pause' | 'conditional' | 'logpoint';
 
+const NEXT_BREAKPOINT_MODE: Record<BreakpointMode, BreakpointMode> = {
+  pause: 'conditional',
+  conditional: 'logpoint',
+  logpoint: 'pause',
+};
+
 interface Breakpoint {
   /** Tab id (matches `tabsStore.activeTabId`) — uniquely identifies the file. */
   tabId: string;
@@ -146,6 +152,8 @@ export interface DebuggerState {
   // Mutators — breakpoints
   toggleBreakpoint: (tabId: string, line: number) => void;
   setBreakpointMode: (tabId: string, line: number, mode: BreakpointMode) => void;
+  /** Alt-click in the gutter: adds a conditional breakpoint, or moves to the next mode. */
+  cycleBreakpointMode: (tabId: string, line: number) => void;
   setBreakpointCondition: (tabId: string, line: number, condition: string) => void;
   setBreakpointLogMessage: (tabId: string, line: number, message: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
@@ -355,6 +363,16 @@ export const useDebuggerStore = create<DebuggerState>()(
             },
           };
         });
+      },
+
+      cycleBreakpointMode: (tabId, line) => {
+        const existing = get().breakpoints[bpKey(tabId, line)];
+        if (!existing) {
+          get().toggleBreakpoint(tabId, line);
+          get().setBreakpointMode(tabId, line, 'conditional');
+          return;
+        }
+        get().setBreakpointMode(tabId, line, NEXT_BREAKPOINT_MODE[existing.mode]);
       },
 
       setBreakpointLogMessage: (tabId, line, message) => {

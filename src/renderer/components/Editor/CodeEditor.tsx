@@ -191,7 +191,7 @@ export function CodeEditor() {
   useBreakpointGutter(editorInstance, monacoInstance, {
     activeTabId: activeTab?.id ?? null,
     language: activeTab?.language,
-    toggleAriaLabel: line => t('debugger.gutter.toggle', { line }),
+    toggleAriaLabel: (line, modes) => t(modes ? 'debugger.gutter.toggleModes' : 'debugger.gutter.togglePauseOnly', { line }),
   });
   // Listen for editor.highlightLine commands
   // emitted by `<OutputLineBadge>` on hover, apply the
