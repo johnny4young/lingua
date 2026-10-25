@@ -22,3 +22,17 @@ export function orderedLocals(previous: Locals | null | undefined, current: Loca
   const added = names.filter((name) => !Object.hasOwn(previous, name));
   return [...known, ...added].map((name) => [name, current[name]!]);
 }
+
+const LABEL_VALUES = 3;
+const LABEL_VALUE_LENGTH = 40;
+
+/** `name → value` for the first changes since `previous`, on one line; null when nothing changed. */
+export function changedValuesLabel(previous: Locals | null | undefined, current: Locals): string | null {
+  const names = [...localsChanges(previous, current).keys()];
+  if (names.length === 0) return null;
+  const shown = names.slice(0, LABEL_VALUES).map((name) => {
+    const value = current[name]!.replace(/\s+/g, ' ');
+    return `${name} → ${value.length > LABEL_VALUE_LENGTH ? `${value.slice(0, LABEL_VALUE_LENGTH - 1)}…` : value}`;
+  });
+  return `${shown.join('  ·  ')}${names.length > LABEL_VALUES ? '  …' : ''}`;
+}

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import type { Language } from '../types/language';
-import { localsChanges } from '../utils/debuggerLocals';
+import { changedValuesLabel } from '../utils/debuggerLocals';
 import { languageSupportsBreakpointModes, languageSupportsDebugger } from '../utils/languageMeta';
 
 /**
@@ -35,18 +35,6 @@ export interface BreakpointGutterOptions {
   toggleAriaLabel: (line: number, modes: boolean) => string;
 }
 
-const INLINE_VALUES = 3;
-const INLINE_VALUE_LENGTH = 40;
-
-function inlineValues(previous: Record<string, string>, current: Record<string, string>): string | null {
-  const names = [...localsChanges(previous, current).keys()];
-  if (names.length === 0) return null;
-  const shown = names.slice(0, INLINE_VALUES).map((name) => {
-    const value = current[name]!;
-    return `${name} → ${value.length > INLINE_VALUE_LENGTH ? `${value.slice(0, INLINE_VALUE_LENGTH - 1)}…` : value}`;
-  });
-  return `${shown.join('  ·  ')}${names.length > INLINE_VALUES ? '  …' : ''}`;
-}
 
 export function useBreakpointGutter(
   editor: monacoTypes.editor.IStandaloneCodeEditor | null,
@@ -110,9 +98,10 @@ export function useBreakpointGutter(
       });
       editor.revealLineInCenterIfOutsideViewport(pausedLine);
       editor.setPosition({ lineNumber: pausedLine, column: 1 });
-      const inline = previousPause?.tabId === activeTabId ? inlineValues(previousPause.locals, pausedFrame!.locals) : null;
+      const inline = previousPause?.tabId === activeTabId ? changedValuesLabel(previousPause.locals, pausedFrame!.locals) : null;
       const model = editor.getModel();
-      if (inline && model && previousPause!.line <= model.getLineCount()) {
+      const previousLine = previousPause?.line ?? 0;
+      if (inline && model && Number.isInteger(previousLine) && previousLine >= 1 && previousLine <= model.getLineCount()) {
         // What the last step changed, shown on the line it paused at, like a scratchpad value.
         const column = model.getLineMaxColumn(previousPause!.line);
         decorations.push({

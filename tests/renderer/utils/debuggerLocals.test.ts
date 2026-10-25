@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { localsChanges, orderedLocals } from '../../../src/renderer/utils/debuggerLocals';
+import { changedValuesLabel, localsChanges, orderedLocals } from '../../../src/renderer/utils/debuggerLocals';
 
 describe('debugger locals diff', () => {
   it('marks nothing on the first pause', () => {
@@ -21,5 +21,10 @@ describe('debugger locals diff', () => {
       ['a', '1'],
       ['b', '2'],
     ]);
+  });
+
+  it('labels the first changes on one line', () => {
+    expect(changedValuesLabel(null, { a: '1' })).toBeNull();
+    expect(changedValuesLabel({}, { a: 'x\n  y', b: 'z'.repeat(50), c: '3', d: '4' })).toBe(`a → x y  ·  b → ${'z'.repeat(39)}…  ·  c → 3  …`);
   });
 });

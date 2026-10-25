@@ -13,6 +13,8 @@ vi.mock('@/runtime/debuggerWorkerBridge', () => ({ postDebuggerMessage: vi.fn(()
 function fakeEditor() {
   const zones: { afterLineNumber: number; heightInPx?: number }[] = [];
   const widgets: monacoTypes.editor.IContentWidget[] = [];
+  const trackedLine: { current: number | null } = { current: null };
+  const edit: { current: (() => void) | null } = { current: null };
   const editor = {
     changeViewZones: (callback: (accessor: { addZone: (zone: never) => string; removeZone: (id: string) => void }) => void) =>
       callback({
@@ -26,17 +28,32 @@ function fakeEditor() {
       widgets.push(widget);
       document.body.appendChild(widget.getDomNode());
     },
+    createDecorationsCollection: () => ({ getRange: () => ({ startLineNumber: trackedLine.current ?? 0 }), clear: vi.fn() }),
+    onDidChangeModelContent: (handler: () => void) => {
+      edit.current = handler;
+      return { dispose: vi.fn() };
+    },
+    layoutContentWidget: vi.fn(),
     removeContentWidget: (widget: monacoTypes.editor.IContentWidget) => {
       widgets.splice(widgets.indexOf(widget), 1);
       widget.getDomNode().remove();
     },
   };
-  const monaco = { editor: { ContentWidgetPositionPreference: { BELOW: 2 } } };
+  const monaco = {
+    Range: class {
+      constructor(public startLineNumber: number) {
+        trackedLine.current = startLineNumber;
+      }
+    },
+    editor: { ContentWidgetPositionPreference: { BELOW: 2 } },
+  };
   return {
     editor: editor as unknown as monacoTypes.editor.IStandaloneCodeEditor,
     monaco: monaco as unknown as typeof monacoTypes,
     zones,
     widgets,
+    trackedLine,
+    edit,
   };
 }
 
@@ -71,6 +88,16 @@ describe('step HUD', () => {
     expect(fake.zones).toHaveLength(0);
     pause(7, [{ functionName: 'double', line: 7 }]);
     expect(screen.getByTestId('debugger-hud-step-out').hasAttribute('disabled')).toBe(false);
+  });
+
+  it('follows the paused line when an edit above it moves the row', () => {
+    const fake = fakeEditor();
+    render(<DebuggerStepHud editor={fake.editor} monaco={fake.monaco} tabId="t1" />);
+    pause(3);
+    fake.trackedLine.current = 4;
+    act(() => fake.edit.current?.());
+    expect(fake.editor.layoutContentWidget).toHaveBeenCalledTimes(1);
+    expect(fake.widgets[0]?.getPosition()?.position).toEqual({ lineNumber: 4, column: 1 });
   });
 
   it('stays away from another tab', () => {

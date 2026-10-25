@@ -33,16 +33,21 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
     editor.changeViewZones((accessor) => {
       zoneId = accessor.addZone({ afterLineNumber: line, heightInPx: HUD_HEIGHT, domNode: document.createElement('div'), suppressMouseDown: true });
     });
+    // Edits move the reserved row, so the toolbar follows the line through a tracked decoration.
+    const tracker = editor.createDecorationsCollection([{ range: new monaco.Range(line, 1, line, 1), options: {} }]);
     const widget: monacoTypes.editor.IContentWidget = {
       getId: () => HUD_ID,
       getDomNode: () => node,
       getPosition: () => ({
-        position: { lineNumber: line, column: 1 },
+        position: { lineNumber: tracker.getRange(0)?.startLineNumber ?? line, column: 1 },
         preference: [monaco.editor.ContentWidgetPositionPreference.BELOW],
       }),
     };
     editor.addContentWidget(widget);
+    const edits = editor.onDidChangeModelContent(() => editor.layoutContentWidget(widget));
     return () => {
+      edits.dispose();
+      tracker.clear();
       editor.removeContentWidget(widget);
       editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
     };

@@ -469,11 +469,19 @@ export const useDebuggerStore = create<DebuggerState>()(
           set({ pausedFrame: null });
           return;
         }
-        set((state) => ({
-          pausedFrame: frame,
-          previousPause: state.lastPause?.tabId === frame.tabId ? state.lastPause : null,
-          lastPause: { tabId: frame.tabId, line: frame.line, locals: frame.locals },
-        }));
+        set((state) => {
+          const snapshot = { tabId: frame.tabId, line: frame.line, locals: frame.locals };
+          // A refresh of the pause on screen (a watch sync) keeps the pause it is compared with.
+          const current = state.pausedFrame;
+          if (current && current.tabId === frame.tabId && current.line === frame.line) {
+            return { pausedFrame: frame, lastPause: snapshot };
+          }
+          return {
+            pausedFrame: frame,
+            previousPause: state.lastPause?.tabId === frame.tabId ? state.lastPause : null,
+            lastPause: snapshot,
+          };
+        });
       },
 
       addWatch: (expression) => {

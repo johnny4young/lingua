@@ -108,4 +108,14 @@ describe('breakpoint gutter', () => {
     expect(inline?.range).toMatchObject({ startLineNumber: 3, startColumn: 30 });
     expect(inline?.options.after?.content).toBe(`pivot → 10  ·  left → ${'x'.repeat(39)}…`);
   });
+
+  it('skips the inline value when the earlier pause line is not a line', () => {
+    const gutter = mount('javascript');
+    const frame = (line: number, locals: Record<string, string>) =>
+      act(() => useDebuggerStore.getState().setPausedFrame({ tabId: 't1', line, reason: 'step', locals, callStack: [], watchResults: {} }));
+    frame(0.5, { a: '1' });
+    act(() => useDebuggerStore.getState().setPausedFrame(null));
+    frame(4, { a: '2' });
+    expect(gutter.latest().some((decoration) => decoration.options.after)).toBe(false);
+  });
 });
