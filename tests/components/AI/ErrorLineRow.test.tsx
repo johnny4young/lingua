@@ -1,0 +1,77 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import i18next from 'i18next';
+import type * as monacoTypes from 'monaco-editor';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { initI18n } from '../../../src/renderer/i18n';
+import { ErrorLineRow, describeError } from '../../../src/renderer/components/AI/ErrorLineRow';
+import { useDebuggerStore } from '../../../src/renderer/stores/debuggerStore';
+import { useExplainPanelStore } from '../../../src/renderer/stores/explainPanelStore';
+import { useResultStore } from '../../../src/renderer/stores/resultStore';
+
+let entitled = true;
+vi.mock('../../../src/renderer/hooks/useEntitlement', () => ({ useEntitlement: () => entitled }));
+
+function fakeEditor() {
+  const zones: { afterLineNumber: number }[] = [];
+  const editor = {
+    getModel: () => ({ getLineCount: () => 10 }),
+    changeViewZones: (callback: (accessor: { addZone: (zone: { afterLineNumber: number }) => string; removeZone: () => void }) => void) =>
+      callback({ addZone: (zone) => String(zones.push(zone)), removeZone: () => zones.pop() }),
+    createDecorationsCollection: () => ({ getRange: () => ({ startLineNumber: 2 }), clear: vi.fn() }),
+    addContentWidget: (widget: monacoTypes.editor.IContentWidget) => document.body.appendChild(widget.getDomNode()),
+    removeContentWidget: (widget: monacoTypes.editor.IContentWidget) => widget.getDomNode().remove(),
+    onDidChangeModelContent: () => ({ dispose: vi.fn() }),
+    layoutContentWidget: vi.fn(),
+  };
+  const monaco = { Range: class {}, editor: { ContentWidgetPositionPreference: { BELOW: 2 } } };
+  return { editor: editor as unknown as monacoTypes.editor.IStandaloneCodeEditor, monaco: monaco as unknown as typeof monacoTypes, zones };
+}
+
+beforeAll(async () => {
+  await initI18n('en');
+  await i18next.changeLanguage('en');
+});
+
+beforeEach(() => {
+  entitled = true;
+  useDebuggerStore.setState({ breakpoints: {}, breakpointOrder: [] });
+  useExplainPanelStore.setState({ target: null, pinned: false, threads: {} });
+  useResultStore.setState({
+    error: { message: "Cannot read properties of null (reading 'name')", line: 2, column: 43, stack: "TypeError: Cannot read properties of null (reading 'name')\n    at eval (user code:2:43)" },
+  });
+});
+
+describe('error line row', () => {
+  it('reads the error name from the message or the first stack line', () => {
+    expect(describeError({ message: 'NameError: x is not defined' })).toEqual({ name: 'NameError', text: 'x is not defined', full: 'NameError: x is not defined' });
+    expect(describeError({ message: 'boom', stack: 'RangeError: boom\n at a' }).full).toBe('RangeError: boom');
+    expect(describeError({ message: 'boom' })).toEqual({ name: null, text: 'boom', full: 'boom' });
+  });
+
+  it('reserves a row under the line and offers Explain, Copy stack and Add breakpoint', () => {
+    const fake = fakeEditor();
+    render(<ErrorLineRow editor={fake.editor} monaco={fake.monaco} tabId="t1" language="javascript" />);
+    expect(fake.zones).toEqual([expect.objectContaining({ afterLineNumber: 2 })]);
+    const row = screen.getByTestId('error-line-row');
+    expect(row.textContent).toContain("TypeError Cannot read properties of null (reading 'name')col 43");
+    fireEvent.click(screen.getByTestId('error-line-explain'));
+    expect(useExplainPanelStore.getState().target).toEqual({
+      tabId: 't1',
+      errorMessage: "TypeError: Cannot read properties of null (reading 'name')",
+      line: 2,
+      column: 43,
+    });
+    fireEvent.click(screen.getByTestId('error-line-breakpoint'));
+    expect(useDebuggerStore.getState().breakpoints['t1:2']).toBeTruthy();
+    expect(screen.queryByTestId('error-line-breakpoint')).toBeNull();
+  });
+
+  it('hides Explain without the AI entitlement and Add breakpoint without a debugger', () => {
+    entitled = false;
+    const fake = fakeEditor();
+    render(<ErrorLineRow editor={fake.editor} monaco={fake.monaco} tabId="t1" language="ruby" />);
+    expect(screen.queryByTestId('error-line-explain')).toBeNull();
+    expect(screen.queryByTestId('error-line-breakpoint')).toBeNull();
+    expect(screen.getByTestId('error-line-copy')).toBeTruthy();
+  });
+});

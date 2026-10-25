@@ -63,6 +63,20 @@ describe('renderer locale bundle boundary', () => {
     expect(drawer).toContain("import '../../i18n/debuggerCatalog'");
   });
 
+  it('keeps the explain panel and error row copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('ai.panel.') || key.startsWith('errorRow.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/explain.json');
+    expect(rendererI18n).toContain("import('./locales/es/explain.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/explainCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/explain.json'");
+    for (const file of ['ExplainErrorPanel.tsx', 'ErrorLineRow.tsx']) {
+      expect(readFileSync(resolve(__dirname, `../../src/renderer/components/AI/${file}`), 'utf8')).toContain("import '../../i18n/explainCatalog'");
+    }
+  });
+
   it('keeps the newer Labs flag copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
