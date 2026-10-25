@@ -23,31 +23,17 @@
  *     red → explain → apply → re-run.
  */
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+import { useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { OverlayBackdrop } from '../ui/chrome';
 import { Sparkles, X } from 'lucide-react';
-import {
-  answerLanguageFor,
-  buildExplainErrorRequest,
-  type ChatMessage,
-} from '../../../shared/ai/explainError';
-import {
-  runChatCompletion,
-  type AiChatResult,
-} from '../../runtime/aiClient';
-import { aiFailureMessage } from '../../runtime/aiFailureMessage';
+import { answerLanguageFor, buildExplainErrorRequest } from '../../../shared/ai/explainError';
+import type { runChatCompletion } from '../../runtime/aiClient';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
-import { ExplainErrorAnswer } from './ExplainErrorAnswer';
-import { firstCodeBlock } from './answerCode';
-import { diffLines, type DiffSegment } from '../../utils/diff';
+import { diffLines } from '../../utils/diff';
+import { ApplyDiff, ExplainExchanges } from './ExplainConversationParts';
+import { useExplainConversation } from './useExplainConversation';
 
 export interface ExplainErrorDialogProps {
   readonly errorMessage: string;
@@ -67,36 +53,6 @@ export interface ExplainErrorDialogProps {
   readonly runChatCompletionImpl?: typeof runChatCompletion;
 }
 
-type Phase =
-  | { readonly kind: 'preview' }
-  | { readonly kind: 'streaming'; readonly partial: string }
-  | { readonly kind: 'done' }
-  | { readonly kind: 'confirm-apply'; readonly suggested: string }
-  | { readonly kind: 'error'; readonly message: string };
-
-/** One diff row in the apply confirmation, styled per ExecutionComparisonModal. */
-function ApplyDiffLine({ segment }: { readonly segment: DiffSegment }) {
-  const isAdd = segment.kind === 'add';
-  const isRemove = segment.kind === 'remove';
-  const tone = isAdd
-    ? 'bg-success/10 text-success'
-    : isRemove
-      ? 'bg-error/10 text-error'
-      : 'text-fg-muted';
-  const sigil = isAdd ? '+' : isRemove ? '−' : ' ';
-  return (
-    <div
-      className={`flex gap-2 whitespace-pre-wrap px-2 py-0.5 font-mono text-micro leading-5 ${tone}`}
-      data-testid={`ai-explain-apply-diff-${segment.kind}`}
-    >
-      <span aria-hidden="true" className="select-none opacity-60">
-        {sigil}
-      </span>
-      <span>{segment.text}</span>
-    </div>
-  );
-}
-
 export function ExplainErrorDialog({
   errorMessage,
   code,
@@ -113,13 +69,6 @@ export function ExplainErrorDialog({
   const endpoint = useAiConfigStore((s) => s.endpoint);
   const apiKey = useAiConfigStore((s) => s.apiKey);
   const model = useAiConfigStore((s) => s.model);
-  const [phase, setPhase] = useState<Phase>({ kind: 'preview' });
-  const activeControllerRef = useRef<AbortController | null>(null);
-  // The conversation so far: the approved initial payload + every completed
-  // exchange. Follow-up sends re-transmit this whole array (chat models are
-  // stateless), which is why the transcript view doubles as the payload
-  // preview for follow-up turns.
-  const [transcript, setTranscript] = useState<readonly ChatMessage[]>([]);
   const [followUp, setFollowUp] = useState('');
 
   const request = useMemo(
@@ -135,99 +84,21 @@ export function ExplainErrorDialog({
       }),
     [errorMessage, code, language, filename, runtimeNote, model, answerLanguage]
   );
-
+  const conversation = useExplainConversation({ request, ...(runChatCompletionImpl ? { runChatCompletionImpl } : {}) });
+  const { phase, setPhase, exchanges, suggestedCode } = conversation;
   const configured = isAiConfigured({ endpoint, apiKey, model });
-  const send = runChatCompletionImpl ?? runChatCompletion;
-
-  useEffect(
-    () => () => {
-      activeControllerRef.current?.abort('dialog-unmounted');
-      activeControllerRef.current = null;
-    },
-    []
-  );
-
-  function abortActiveRequest(reason: string): void {
-    activeControllerRef.current?.abort(reason);
-    activeControllerRef.current = null;
-  }
 
   function handleClose(): void {
-    abortActiveRequest('dialog-closed');
+    conversation.abort('dialog-closed');
     onClose();
   }
 
-  async function handleSend(messages: readonly ChatMessage[]): Promise<void> {
-    abortActiveRequest('superseded');
-    const controller = new AbortController();
-    activeControllerRef.current = controller;
-    setPhase({ kind: 'streaming', partial: '' });
-    try {
-      const result: AiChatResult = await send(
-        { messages, model },
-        { endpoint, apiKey, model },
-        {
-          signal: controller.signal,
-          onChunk: (textSoFar) => {
-            if (!controller.signal.aborted) {
-              setPhase({ kind: 'streaming', partial: textSoFar });
-            }
-          },
-        }
-      );
-      if (controller.signal.aborted) return;
-      if (result.ok) {
-        setTranscript([
-          ...messages,
-          { role: 'assistant', content: result.content },
-        ]);
-        setPhase({ kind: 'done' });
-      } else {
-        // Keep the attempted messages so a mid-conversation retry can resend.
-        setTranscript(messages);
-        setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
-      }
-    } finally {
-      if (activeControllerRef.current === controller) {
-        activeControllerRef.current = null;
-      }
-    }
-  }
-
-  function handleRetry(): void {
-    // First-attempt failure returns to the consent preview (re-approve);
-    // a failed FOLLOW-UP retries the conversation directly — the payload was
-    // already approved turn by turn and is fully visible above.
-    if (transcript.length <= request.messages.length) {
-      setPhase({ kind: 'preview' });
-    } else {
-      void handleSend(transcript);
-    }
-  }
-
   function handleFollowUp(): void {
-    const question = followUp.trim();
-    if (question.length === 0) return;
-    setFollowUp('');
-    void handleSend([...transcript, { role: 'user', content: question }]);
+    conversation.ask(followUp);
+    if (followUp.trim()) setFollowUp('');
   }
 
-  // Everything after the initial [system, user] payload is a visible
-  // exchange: assistant answers + the user's follow-up questions.
-  const exchanges = transcript.slice(request.messages.length);
-
-  // Apply-&-re-run: offered only when the host wired the seam AND the last
-  // answer actually proposes code. `code` (the current source) diffs against
-  // it in the confirmation step.
-  const lastAssistant = [...transcript]
-    .reverse()
-    .find((m) => m.role === 'assistant');
-  const suggestedCode = lastAssistant ? firstCodeBlock(lastAssistant.content) : null;
-  const applyDiff = useMemo(
-    () =>
-      phase.kind === 'confirm-apply' ? diffLines(code, phase.suggested) : [],
-    [phase, code]
-  );
+  const applyDiff = useMemo(() => (phase.kind === 'confirm-apply' ? diffLines(code, phase.suggested) : []), [phase, code]);
 
   // The backdrop moves, traps and restores focus; Escape stops here so an
   // overlay or workspace underneath keeps its own state.
@@ -293,45 +164,10 @@ export function ExplainErrorDialog({
           ) : phase.kind === 'confirm-apply' ? (
             <div className="space-y-2">
               <p className="text-fg-muted">{t('ai.explain.applyIntro')}</p>
-              <div
-                data-testid="ai-explain-apply-diff"
-                className="max-h-[45vh] overflow-auto rounded border border-border bg-bg-panel-alt py-1"
-              >
-                {applyDiff.map((segment, index) => (
-                  <ApplyDiffLine key={index} segment={segment} />
-                ))}
-              </div>
+              <ApplyDiff segments={applyDiff} />
             </div>
           ) : (
-            <div className="space-y-3">
-              {exchanges.map((message, index) =>
-                message.role === 'assistant' ? (
-                  <ExplainErrorAnswer key={index} content={message.content} />
-                ) : (
-                  <p
-                    key={index}
-                    data-testid="ai-explain-followup-question"
-                    className="rounded border-l-2 border-accent bg-bg-panel-alt px-3 py-2 text-fg-muted"
-                  >
-                    {message.content}
-                  </p>
-                )
-              )}
-              {phase.kind === 'streaming' ? (
-                phase.partial.length > 0 ? (
-                  <ExplainErrorAnswer content={phase.partial} />
-                ) : (
-                  <p data-testid="ai-explain-loading" className="text-fg-muted">
-                    {t('ai.explain.loading')}
-                  </p>
-                )
-              ) : null}
-              {phase.kind === 'error' ? (
-                <p data-testid="ai-explain-error" className="text-error">
-                  {phase.message}
-                </p>
-              ) : null}
-            </div>
+            <ExplainExchanges exchanges={exchanges} phase={phase} />
           )}
         </div>
 
@@ -347,7 +183,7 @@ export function ExplainErrorDialog({
               </button>
               <button
                 type="button"
-                onClick={() => void handleSend(request.messages)}
+                onClick={conversation.start}
                 data-testid="ai-explain-send"
                 className="focus-ring rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
               >
@@ -358,7 +194,7 @@ export function ExplainErrorDialog({
             <div className="flex items-center justify-end">
               <button
                 type="button"
-                onClick={handleRetry}
+                onClick={conversation.retry}
                 data-testid="ai-explain-retry"
                 className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
               >
@@ -413,7 +249,7 @@ export function ExplainErrorDialog({
                   <button
                     type="button"
                     onClick={() =>
-                      setPhase({ kind: 'confirm-apply', suggested: suggestedCode })
+                      setPhase({ kind: 'confirm-apply', suggested: suggestedCode, rerun: true })
                     }
                     data-testid="ai-explain-apply"
                     className="focus-ring shrink-0 rounded border border-accent px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/10"
