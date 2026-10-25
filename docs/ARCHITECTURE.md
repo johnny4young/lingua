@@ -1521,6 +1521,13 @@ or a stream source is refused before sending. When a value the chain just
 captured sets a request's scheme or host (`chainedOrigin`), that send waits for
 the user to confirm the resolved origin. Explicit pipelines also skip chains.
 
+With the `httpSnapshots` Labs flag, a request can keep a snapshot
+(`HttpRequestV1.snapshot`): the status and the recorded body, already masked
+like every recorded response, capped at 256 KB, plus its scrubbers.
+`src/shared/httpSnapshot.ts` scrubs both sides at compare time and diffs them
+by JSON path (by line otherwise); a non-empty diff counts as a failed check in
+the response strip and fails a pipeline step.
+
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
 active environment fresh for each step, and stop after transport, HTTP, or
