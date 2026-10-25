@@ -8,6 +8,7 @@
  */
 
 import {
+  HTTP_CHAIN_RULES,
   HTTP_METHODS,
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
@@ -22,6 +23,7 @@ import type {
   HttpAuthKind,
   HttpCaptureRule,
   HttpCaptureSource,
+  HttpChainRule,
   HttpMethod,
   HttpQueryParam,
   HttpRequestAuth,
@@ -279,6 +281,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     ...(assertions !== undefined ? { assertions } : {}),
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     ...(Array.isArray(value.variables) ? { variables: parseEnvVariables(value.variables) } : {}),
+    ...(isRecord(value.chainRules) ? { chainRules: parseChainRules(value.chainRules) } : {}),
     createdAt,
     updatedAt,
   };
@@ -410,6 +413,7 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     ...(closeCode !== undefined ? { closeCode } : {}),
     ...(closeReason !== undefined ? { closeReason } : {}),
     ...(timing !== undefined ? { timing } : {}),
+    ...(typeof value.environmentId === 'string' && value.environmentId.length > 0 ? { environmentId: value.environmentId } : {}),
   };
 }
 
@@ -467,4 +471,14 @@ export function parseEnvVariables(value: unknown): HttpEnvVariableV1[] {
     if (parsed !== null) variables.push(parsed);
   }
   return variables;
+}
+
+/** Known rules per variable key; anything else drops. */
+function parseChainRules(value: Record<string, unknown>): Partial<Record<string, HttpChainRule>> {
+  const rules: Partial<Record<string, HttpChainRule>> = {};
+  for (const [key, rule] of Object.entries(value)) {
+    const known = HTTP_CHAIN_RULES.find((candidate) => candidate === rule);
+    if (known && key.length > 0) rules[key] = known;
+  }
+  return rules;
 }

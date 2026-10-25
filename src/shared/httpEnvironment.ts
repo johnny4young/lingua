@@ -268,7 +268,7 @@ export function toExportableEnvironment(
 // ---------------------------------------------------------------------------
 
 /** Where a variable's value comes from, lowest precedence first. */
-const HTTP_VARIABLE_SCOPES = ['collection', 'environment', 'request'] as const;
+const HTTP_VARIABLE_SCOPES = ['collection', 'environment', 'chain', 'request'] as const;
 export type HttpVariableScope = (typeof HTTP_VARIABLE_SCOPES)[number];
 
 /** Id of the collection's variable set, for the secret vault and the layered view. */
@@ -277,6 +277,8 @@ export const HTTP_COLLECTION_SCOPE_ID = 'collection';
 export interface HttpVariableLayers {
   readonly collection: readonly HttpEnvVariableV1[];
   readonly environment: HttpEnvironmentV1 | null;
+  /** Values chain tags read from other requests' responses. */
+  readonly chain?: readonly HttpEnvVariableV1[];
   readonly request: readonly HttpEnvVariableV1[];
 }
 
@@ -294,9 +296,10 @@ export interface HttpVariableSource {
  */
 export function layeredEnvironment(layers: HttpVariableLayers): HttpEnvironmentV1 | null {
   const { collection, environment, request } = layers;
-  if (collection.length === 0 && request.length === 0) return environment;
+  const chain = layers.chain ?? [];
+  if (collection.length === 0 && chain.length === 0 && request.length === 0) return environment;
   const base = environment ?? createBlankHttpEnvironment({ id: HTTP_COLLECTION_SCOPE_ID, now: '' });
-  return { ...base, variables: [...collection, ...base.variables, ...request] };
+  return { ...base, variables: [...collection, ...base.variables, ...chain, ...request] };
 }
 
 /** The scope that supplies each key and the lower scopes it overrides. */
@@ -305,6 +308,7 @@ export function variableSources(layers: HttpVariableLayers): Map<string, HttpVar
   const rows: Record<HttpVariableScope, readonly HttpEnvVariableV1[]> = {
     collection: layers.collection,
     environment: layers.environment?.variables ?? [],
+    chain: layers.chain ?? [],
     request: layers.request,
   };
   for (const scope of HTTP_VARIABLE_SCOPES) {
@@ -526,16 +530,22 @@ export type HttpUrlState =
 export function httpUrlState(
   url: string,
   transport: 'http' | 'sse' | 'websocket',
-  env: HttpEnvironmentV1 | null
+  env: HttpEnvironmentV1 | null,
+  /** Keys whose value only exists once Send has run something first; the URL is judged then. */
+  deferred: ReadonlySet<string> = new Set()
 ): HttpUrlState {
   const trimmed = url.trim();
   if (trimmed.length === 0) return { ok: false, reason: 'empty' };
   // Missing keys come from the typed URL: a value may itself hold `{{…}}`, which single-pass interpolation sends as is.
   const lookup = buildFullLookup(env);
+  let waits = false;
   for (const match of trimmed.matchAll(variableTokenMatcher())) {
     const key = match[1];
-    if (key !== undefined && !lookup.has(key)) return { ok: false, reason: 'unresolved', key };
+    if (key === undefined || lookup.has(key)) continue;
+    if (!deferred.has(key)) return { ok: false, reason: 'unresolved', key };
+    waits = true;
   }
+  if (waits) return { ok: true };
   const resolved = interpolateString(trimmed, lookup);
   let protocol: string;
   try {
@@ -585,33 +595,16 @@ function authScanFields(auth: HttpRequestAuth | undefined): string[] {
 }
 
 /**
- * Collect every distinct `{{token}}` key that appears in the request's
- * url, ENABLED header values, body.content, or auth fields
- * but is NOT defined in the environment (when `env` is null, ALL
- * referenced tokens count as unresolved). First-seen order, deduped.
- * Drives the pre-send block + the "unresolved" chips in the editor
- * preview.
- *
- * Note: a variable defined with an EMPTY value is treated as resolved
- * here — the user has bound the key, the binding is just blank. (Empty
- * values are a deliberate "send nothing" affordance, not an error.)
+ * Every distinct `{{token}}` key in the request's url, ENABLED header values,
+ * body.content and auth fields, first-seen order.
  */
-export function findUnresolvedVariables(
-  request: HttpRequestV1,
-  env: HttpEnvironmentV1 | null
-): string[] {
-  const known = new Set<string>();
-  if (env) {
-    for (const variable of env.variables) known.add(variable.key);
-  }
+export function referencedVariables(request: HttpRequestV1): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   const scan = (input: string): void => {
     for (const match of input.matchAll(variableTokenMatcher())) {
       const key = match[1];
-      if (key === undefined) continue;
-      if (known.has(key)) continue;
-      if (seen.has(key)) continue;
+      if (key === undefined || seen.has(key)) continue;
       seen.add(key);
       out.push(key);
     }
@@ -629,6 +622,26 @@ export function findUnresolvedVariables(
 }
 
 /**
+ * Collect every distinct `{{token}}` key that appears in the request's
+ * url, ENABLED header values, body.content, or auth fields
+ * but is NOT defined in the environment (when `env` is null, ALL
+ * referenced tokens count as unresolved). First-seen order, deduped.
+ * Drives the pre-send block + the "unresolved" chips in the editor
+ * preview.
+ *
+ * Note: a variable defined with an EMPTY value is treated as resolved
+ * here — the user has bound the key, the binding is just blank. (Empty
+ * values are a deliberate "send nothing" affordance, not an error.)
+ */
+export function findUnresolvedVariables(
+  request: HttpRequestV1,
+  env: HttpEnvironmentV1 | null
+): string[] {
+  const known = new Set(env?.variables.map((variable) => variable.key) ?? []);
+  return referencedVariables(request).filter((key) => !known.has(key));
+}
+
+/**
  * Collect every distinct `{{token}}` key referenced in the request's
  * url, ENABLED header values, body.content, or auth fields
  * 3b) that IS defined in the environment. First-seen order, deduped. Used
@@ -641,28 +654,7 @@ export function findResolvedVariables(
 ): string[] {
   if (!env) return [];
   const known = new Set(env.variables.map((variable) => variable.key));
-  const seen = new Set<string>();
-  const out: string[] = [];
-  const scan = (input: string): void => {
-    for (const match of input.matchAll(variableTokenMatcher())) {
-      const key = match[1];
-      if (key === undefined) continue;
-      if (!known.has(key)) continue;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(key);
-    }
-  };
-  scan(request.url);
-  for (const header of request.headers) {
-    if (!header.enabled) continue;
-    scan(header.value);
-  }
-  if (request.body && request.body.kind !== 'none' && request.body.content) {
-    scan(request.body.content);
-  }
-  for (const field of authScanFields(request.auth)) scan(field);
-  return out;
+  return referencedVariables(request).filter((key) => known.has(key));
 }
 
 /**
