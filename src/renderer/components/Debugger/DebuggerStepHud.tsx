@@ -54,7 +54,7 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
       role="toolbar"
       aria-label={t('debugger.hud.label')}
       data-testid="debugger-step-hud"
-      className="mt-1 inline-flex items-center gap-1 rounded-lg border border-border-strong bg-bg-panel p-1 shadow-e2"
+      className="mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-border-strong bg-bg-panel p-1 shadow-e2"
     >
       <span className="mx-1 rounded-sm bg-accent-tint px-1.5 py-0.5 text-micro font-semibold uppercase tracking-wide text-accent-fg">
         {t('debugger.hud.paused', { line })}

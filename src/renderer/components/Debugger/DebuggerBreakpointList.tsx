@@ -1,4 +1,4 @@
-import { Circle, CircleDot, Diamond, MessageSquareText, Trash2 } from 'lucide-react';
+import { Circle, Diamond, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
 import {
@@ -10,11 +10,12 @@ import {
 import type { Language } from '../../types/language';
 import { languageSupportsBreakpointModes } from '../../utils/languageMeta';
 
+// The same marks as the gutter: a red dot, an amber diamond, a blue ring.
 const modeIcon = {
-  pause: CircleDot,
-  conditional: Diamond,
-  logpoint: MessageSquareText,
-} satisfies Record<BreakpointMode, typeof Circle>;
+  pause: { icon: Circle, className: 'fill-current text-danger' },
+  conditional: { icon: Diamond, className: 'text-warning-fg' },
+  logpoint: { icon: Circle, className: 'text-info-fg' },
+} satisfies Record<BreakpointMode, { icon: typeof Circle; className: string }>;
 
 export function DebuggerBreakpointList({
   activeTabId,
@@ -46,7 +47,7 @@ export function DebuggerBreakpointList({
       <ul className="grid max-h-52 gap-2 overflow-auto pr-1">
         {breakpoints.map(breakpoint => {
           const effectiveMode = supportsAdvancedBreakpoints ? breakpoint.mode : 'pause';
-          const ModeIcon = modeIcon[effectiveMode];
+          const { icon: ModeIcon, className: modeClass } = modeIcon[effectiveMode];
           const modeLabel = t(`debugger.breakpoints.mode.${effectiveMode}`);
           return (
             <li
@@ -69,7 +70,7 @@ export function DebuggerBreakpointList({
                     aria-label={t('debugger.breakpoints.enabled', { line: breakpoint.line })}
                     className="accent-danger"
                   />
-                  <ModeIcon size={12} className="shrink-0 text-danger" aria-hidden="true" />
+                  <ModeIcon size={12} className={`shrink-0 ${modeClass}`} aria-hidden="true" />
                   <span className="truncate font-mono">
                     {t('debugger.breakpoints.line', { line: breakpoint.line })}
                   </span>

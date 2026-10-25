@@ -163,7 +163,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
     <section
       data-testid="debugger-drawer"
       className={`flex h-full min-h-0 flex-col bg-background/55 ${
-        isPaused ? 'border-danger/45' : 'border-border/80'
+        isPaused ? 'border-accent/45' : 'border-border/80'
       }`}
     >
       <header className="flex flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
@@ -208,7 +208,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
           <Tooltip content={statusHint}>
             <span
               className={`status-pill border-transparent px-2 py-0.5 text-eyebrow ${
-                isPaused ? 'bg-danger/12 text-danger' : 'bg-surface text-muted'
+                isPaused ? 'bg-accent-tint text-accent-fg' : 'bg-surface text-muted'
               }`}
             >
               {isPaused ? t('debugger.status.paused') : t('debugger.status.ready')}
