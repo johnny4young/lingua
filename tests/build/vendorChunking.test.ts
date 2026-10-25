@@ -21,6 +21,15 @@ describe.each(configs)('%s vendor chunking', (_surface, config) => {
     expect(output.manualChunks).toBeUndefined();
   });
 
+  it('leaves icons with the chunks that use them', () => {
+    const output = config.build!.rollupOptions!.output!;
+    if (Array.isArray(output)) throw new Error('Expected one output');
+    const chunking = output.codeSplitting as Exclude<typeof output.codeSplitting, boolean | undefined>;
+    const lucide = '/repo/node_modules/lucide-react/dist/esm/icons/pin.js';
+    const captured = chunking.groups!.filter(group => group.test instanceof RegExp && group.test.test(lucide));
+    expect(captured.map(group => group.name)).toEqual([]);
+  });
+
   it('emits the small Vite helper as a real independent chunk', async () => {
     const output = config.build!.rollupOptions!.output!;
     if (Array.isArray(output)) throw new Error('Expected one output');

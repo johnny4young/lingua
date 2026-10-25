@@ -32,10 +32,14 @@ Assets are grouped into:
 
 Vendor code is split into named chunks by rolldown `codeSplitting`
 groups in `vite.web.config.mts` and `vite.renderer.config.mts`
-(`react`, `zustand`, `lucide`, `i18next`, `vega-embed`, `duckdb-wasm`,
+(`react`, `zustand`, `i18next`, `vega-embed`, `duckdb-wasm`,
 `esbuild-wasm`, plus the `vite-preload` pin). The split does not shrink
 `initial`; it keeps framework bytes on a hash that survives app-only
-deploys, so returning visitors reuse them from cache. Rolldown ignores
+deploys, so returning visitors reuse them from cache. A group can grow
+`initial`, though: it captures every matching module, including ones only lazy
+chunks import, and the group loads with the entry. `lucide-react` has no group
+for that reason, so each icon ships with the chunks that use it; a group for
+it had pulled every lazy surface's icons into the initial bundle. Rolldown ignores
 `manualChunks` when `codeSplitting` is also configured;
 the former mixed configuration therefore never emitted its named vendor
 groups. Keep new groups in the same policy instead of combining both APIs.
