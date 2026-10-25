@@ -58,6 +58,15 @@ for (const language of ['en', 'es'] as const) {
     await expect(panel).toBeVisible();
     await expect(page.locator('.overlay-backdrop')).toHaveCount(0);
     await expect(panel.getByTestId('ai-explain-preview')).toContainText('user.profile.name');
+    // With the editor narrowed by the panel, the line's actions and its error result never overlap.
+    await expect
+      .poll(async () => {
+        const actions = await row.boundingBox();
+        const result = await page.getByTestId('lingua-inline-result').first().boundingBox();
+        if (!actions || !result) return false;
+        return actions.x + actions.width <= result.x || result.y >= actions.y + actions.height || actions.y >= result.y + result.height;
+      })
+      .toBe(true);
     expect(sent).toHaveLength(0);
 
     await panel.getByTestId('ai-explain-send').click();

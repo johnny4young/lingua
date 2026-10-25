@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import type * as monacoTypes from 'monaco-editor';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,8 @@ import { useResultStore } from '../../../src/renderer/stores/resultStore';
 
 let entitled = true;
 vi.mock('../../../src/renderer/hooks/useEntitlement', () => ({ useEntitlement: () => entitled }));
+
+const layoutWidth = { current: 1600 };
 
 function fakeEditor() {
   const zones: { afterLineNumber: number }[] = [];
@@ -26,6 +28,11 @@ function fakeEditor() {
     },
     removeContentWidget: (widget: monacoTypes.editor.IContentWidget) => widget.getDomNode().remove(),
     onDidChangeModelContent: () => ({ dispose: vi.fn() }),
+    onDidLayoutChange: () => ({ dispose: vi.fn() }),
+    onDidScrollChange: () => ({ dispose: vi.fn() }),
+    getLayoutInfo: () => ({ width: layoutWidth.current, contentLeft: 60, verticalScrollbarWidth: 14, minimap: { minimapWidth: 0 } }),
+    getOffsetForColumn: () => 300,
+    getScrollLeft: () => 0,
     layoutContentWidget: vi.fn(),
   };
   const monaco = { Range: class {}, editor: { ContentWidgetPositionPreference: { EXACT: 0 } } };
@@ -69,6 +76,27 @@ describe('error line row', () => {
     fireEvent.click(screen.getByTestId('error-line-breakpoint'));
     expect(useDebuggerStore.getState().breakpoints['t1:2']).toBeTruthy();
     expect(screen.queryByTestId('error-line-breakpoint')).toBeNull();
+  });
+
+  it('drops the labels for icons when the actions would pass the editor edge', async () => {
+    let measure: (() => void) | null = null;
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) {
+        measure = callback;
+      }
+      observe() {
+        measure?.();
+      }
+      disconnect() {}
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 420 } as DOMRect);
+    layoutWidth.current = 700;
+    const fake = fakeEditor();
+    render(<ErrorLineRow editor={fake.editor} monaco={fake.monaco} tabId="t1" language="javascript" onWidthChange={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId('error-line-copy').textContent).toBe(''));
+    expect(screen.getByTestId('error-line-copy').getAttribute('aria-label')).toBe('Copy stack');
+    layoutWidth.current = 1600;
+    vi.unstubAllGlobals();
   });
 
   it('hides Explain without the AI entitlement and Add breakpoint without a debugger', () => {
