@@ -1226,11 +1226,13 @@ describe('HttpWorkspacePanel — chain tags', () => {
 
   it('reports a stopped chain as information, not an error', async () => {
     seed({ owner: 'source-first' });
-    executeHttpRequestMock.mockImplementation(async (_outbound, options) => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      if (options?.signal?.aborted) throw new Error('aborted');
-      return repos('fresh');
-    });
+    // Like the real client, the source settles only when Stop aborts it, and never throws.
+    executeHttpRequestMock.mockImplementation(
+      (_outbound, options: { signal: AbortSignal }) =>
+        new Promise((resolve) => {
+          options.signal.addEventListener('abort', () => resolve(makeResponse({ kind: 'network-error', status: 0, statusText: '' })));
+        })
+    );
     render(<HttpWorkspacePanel />);
     await userEvent.click(screen.getByTestId('http-request-editor-send'));
     await userEvent.click(await screen.findByTestId('http-request-editor-stop'));
