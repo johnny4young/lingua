@@ -11,7 +11,7 @@ const users = {
   page: 1,
 };
 
-async function openBuilder(page: Page, language: 'en' | 'es'): Promise<void> {
+async function openBuilder(page: Page, language: 'en' | 'es', scopes?: { environments: unknown[]; activeEnvironmentId: string }): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route(`${API}/**`, (route) =>
     route.fulfill({
@@ -21,6 +21,16 @@ async function openBuilder(page: Page, language: 'en' | 'es'): Promise<void> {
     })
   );
   await seedSession(page, { language });
+  if (scopes) {
+    await page.addInitScript((tools) => {
+      const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
+      settings.state.featureFlags = { httpScopes: true };
+      localStorage.setItem('lingua-settings', JSON.stringify(settings));
+      if (!localStorage.getItem('lingua-workspace-tool-state')) {
+        localStorage.setItem('lingua-workspace-tool-state', JSON.stringify({ state: { requests: [], ...tools }, version: 1 }));
+      }
+    }, scopes);
+  }
   await gotoApp(page);
   await waitForSeededWorkspaceSettled(page);
   await page.keyboard.press('ControlOrMeta+Shift+K');
@@ -116,4 +126,65 @@ test('holds sends while offline, sends reads by themselves and leaves writes for
   await expect(send).toHaveText('Send now');
   await send.click();
   await expect(send).toHaveText('Send');
+});
+
+test('resolves collection, environment and request variables and copies a missing one from another environment', async ({ page }) => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const env = (id: string, name: string, variables: Array<[string, string]>) => ({
+    version: 1,
+    id,
+    name,
+    variables: variables.map(([key, value], index) => ({ id: `${id}-${index}`, key, value, secret: false })),
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+  await openBuilder(page, 'en', {
+    environments: [env('prod', 'prod', [['base', API]]), { ...env('stg', 'staging', [['pageSize', '50']]), variables: [...env('stg', 'staging', [['pageSize', '50']]).variables, { id: 'stg-t', key: 'token', value: 'stg-only', secret: true }] }],
+    activeEnvironmentId: 'prod',
+  });
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().startsWith(API)) sent.push(request.url());
+  });
+  await page.getByTestId('http-request-editor-url').fill('{{base}}/repos/{{owner}}?per_page={{pageSize}}&t={{token}}');
+
+  await page.getByTestId('http-environment-manage').click();
+  await page.getByTestId('http-environment-collection-tab').click();
+  const collection = page.getByTestId('http-environment-collection');
+  await collection.getByTestId('http-environment-var-add').click();
+  await collection.getByTestId('http-environment-var-key').fill('owner');
+  await collection.getByTestId('http-environment-var-value').fill('octocat');
+  await page.keyboard.press('Escape');
+
+  const tokens = page.getByTestId('http-request-editor-url-token');
+  await expect(tokens).toHaveCount(4);
+  await expect(tokens.nth(0)).toHaveAttribute('data-state', 'environment');
+  await expect(tokens.nth(1)).toHaveAttribute('data-state', 'collection');
+  await expect(tokens.nth(2)).toHaveAttribute('data-state', 'missing');
+  await expect(tokens.nth(3)).toHaveAttribute('data-state', 'missing');
+  const send = page.getByTestId('http-request-editor-send');
+  await expect(send).toBeDisabled();
+  await expect(send).toHaveAttribute('data-tinted', 'true');
+
+  // The secret comes over as its key only, and the manager opens on it to type this environment's value.
+  await page.getByTestId('http-request-editor-url-hint-add').click();
+  const focused = page.locator(':focus');
+  await expect(focused).toHaveAttribute('data-testid', 'http-environment-var-value');
+  await expect(focused).toHaveAttribute('type', 'password');
+  await expect(focused).toHaveValue('');
+  await page.keyboard.insertText('prod-token');
+  await page.keyboard.press('Escape');
+  await expect(tokens.nth(2)).toHaveAttribute('data-state', 'environment');
+  await expect(tokens.nth(3)).toHaveAttribute('data-state', 'environment');
+  await page.getByTestId('http-request-editor-tab-vars').click();
+  const vars = page.getByTestId('http-request-editor-vars');
+  await vars.getByTestId('http-environment-var-add').click();
+  await vars.getByTestId('http-environment-var-key').fill('owner');
+  await vars.getByTestId('http-environment-var-value').fill('hubot');
+  await expect(tokens.nth(1)).toHaveAttribute('data-state', 'request');
+
+  await send.click();
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+  expect(sent).toContain(`${API}/repos/hubot?per_page=50&t=prod-token`);
+  expect(sent.join(' ')).not.toContain('stg-only');
 });

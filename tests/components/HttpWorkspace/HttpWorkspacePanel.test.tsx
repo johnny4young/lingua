@@ -13,6 +13,7 @@ import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { useSessionStore } from '../../../src/renderer/stores/sessionStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
+import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import {
   createBlankHttpRequest,
   type HttpResponseV1,
@@ -991,5 +992,108 @@ describe('HttpWorkspacePanel — collection workspace (rail-driven)', () => {
       .getState()
       .environments.find((e) => e.id === 'e1');
     expect(env?.variables.find((v) => v.key === 'TOKEN')).toBeUndefined();
+  });
+});
+
+describe('HttpWorkspacePanel — variable scopes', () => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const envOf = (id: string, name: string, variables: Array<{ key: string; value: string; secret?: boolean }>) => ({
+    version: 1 as const,
+    id,
+    name,
+    variables: variables.map((variable, index) => ({ id: `${id}-${index}`, secret: false, ...variable })),
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspaceToolStoreForTests();
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpScopes: true } });
+    useUIStore.setState({ statusNotice: null });
+    executeHttpRequestMock.mockReset();
+    executeHttpRequestMock.mockResolvedValue(makeResponse());
+  });
+
+  async function sendUrl(url: string) {
+    const user = userEvent.setup();
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-request-list-create'));
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: url } });
+    return user;
+  }
+
+  it('sends with request over environment over collection', async () => {
+    useWorkspaceToolStore.setState({
+      environments: [envOf('e1', 'staging', [{ key: 'base', value: 'https://staging.example' }, { key: 'repo', value: 'env-repo' }])],
+      activeEnvironmentId: 'e1',
+      collectionVariables: [
+        { id: 'c1', key: 'base', value: 'https://collection.example', secret: false },
+        { id: 'c2', key: 'owner', value: 'octocat', secret: false },
+      ],
+    });
+    const user = await sendUrl('{{base}}/repos/{{owner}}/{{repo}}');
+    const id = useWorkspaceToolStore.getState().requests[0]!.id;
+    useWorkspaceToolStore.getState().updateRequestVariables(id, () => [{ id: 'r1', key: 'repo', value: 'lingua', secret: false }]);
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalled());
+    expect(executeHttpRequestMock.mock.calls[0]![0].url).toBe('https://staging.example/repos/octocat/lingua');
+  });
+
+  it('ignores the new scopes with the flag off', async () => {
+    useSettingsStore.setState({ featureFlags: {} });
+    useWorkspaceToolStore.setState({ collectionVariables: [{ id: 'c1', key: 'owner', value: 'octocat', secret: false }] });
+    const user = await sendUrl('https://api.example.com/{{owner}}');
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(executeHttpRequestMock).not.toHaveBeenCalled();
+  });
+
+  const twoEnvironments = () =>
+    useWorkspaceToolStore.setState({
+      environments: [
+        envOf('prod', 'prod', [{ key: 'base', value: 'https://api.example.com' }]),
+        envOf('staging', 'staging', [{ key: 'pageSize', value: '50' }, { key: 'token', value: 'stg-secret', secret: true }]),
+      ],
+      activeEnvironmentId: 'prod',
+    });
+  const prodRows = () =>
+    useWorkspaceToolStore
+      .getState()
+      .environments.find((env) => env.id === 'prod')!
+      .variables.map(({ key, value, secret }) => ({ key, value, secret }));
+
+  it('offers Add to the active environment under the URL when another one defines the missing value', async () => {
+    twoEnvironments();
+    const user = await sendUrl('{{base}}/repos?per_page={{pageSize}}');
+    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
+    await user.click(screen.getByTestId('http-request-editor-url-hint-add'));
+    expect(prodRows()).toEqual([
+      { key: 'base', value: 'https://api.example.com', secret: false },
+      { key: 'pageSize', value: '50', secret: false },
+    ]);
+    await waitFor(() => expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(false));
+  });
+
+  it('offers Add to in the blocked-send notice, bringing a secret as its key and opening it to fill in', async () => {
+    twoEnvironments();
+    const seeded = {
+      ...createBlankHttpRequest({ id: 'h1', now: NOW }),
+      url: '{{base}}/repos',
+      headers: [{ name: 'Authorization', value: 'Bearer {{token}}', enabled: true }],
+    };
+    useWorkspaceToolStore.getState().createRequest(seeded);
+    const user = userEvent.setup();
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1));
+    const action = useUIStore.getState().statusNotice!.actions![0]!;
+    expect(action).toMatchObject({ labelKey: 'httpWorkspace.environment.unresolved.addTo', labelValues: { env: 'prod' } });
+    expect(executeHttpRequestMock).not.toHaveBeenCalled();
+    action.onClick();
+    expect(prodRows()).toContainEqual({ key: 'token', value: '', secret: true });
+    expect(JSON.stringify(useWorkspaceToolStore.getState().environments.find((env) => env.id === 'prod'))).not.toContain('stg-secret');
+    await waitFor(() => expect(document.activeElement?.getAttribute('type')).toBe('password'));
+    expect(screen.getByTestId('http-environment-manager')).toBeTruthy();
   });
 });

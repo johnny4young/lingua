@@ -27,28 +27,27 @@
  * environment list (the store is the source of truth).
  */
 
-import { Copy, GripVertical, Plus, Trash2, Upload } from 'lucide-react';
+import { Copy, Plus, Trash2, Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SecretStorageNote } from '../ui/SecretStorageNote';
-import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  arrayMove,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { ModalShell } from '../ui/ModalShell';
 import { useUIStore } from '../../stores/uiStore';
 import { writeToClipboard } from '../../utils/clipboard';
+import '../../i18n/httpBuilderCatalog';
 import {
   createBlankHttpEnvironment,
-  createEnvVariable,
-  looksSecret,
+  environmentColor,
+  HTTP_COLLECTION_SCOPE_ID,
+  HTTP_ENVIRONMENT_COLORS,
+  type HttpEnvironmentColor,
   type HttpEnvironmentV1,
   type HttpEnvVariableV1,
 } from '../../../shared/httpEnvironment';
+import { ENVIRONMENT_TINTS } from './httpScopeColors';
+import type { HttpEnvironmentFocus } from './httpScopes';
+import { HttpVariableList } from './HttpVariableList';
+
+type VariablesUpdater = (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[];
 
 export interface HttpEnvironmentManagerProps {
   environments: ReadonlyArray<HttpEnvironmentV1>;
@@ -78,10 +77,14 @@ export interface HttpEnvironmentManagerProps {
    * id, appends). `{ ok: false }` on malformed input.
    */
   onImport: (json: string) => { ok: true; id: string } | { ok: false };
+  /** With variable scopes on: the collection's variables and a colour per environment. */
+  scopes?: {
+    collectionVariables: ReadonlyArray<HttpEnvVariableV1>;
+    onUpdateCollection: (updater: VariablesUpdater) => void;
+  };
+  /** Opens on this environment with the row's value field focused. */
+  focus?: HttpEnvironmentFocus | null;
 }
-
-const FIELD_CLASS =
-  'h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none';
 
 export function HttpEnvironmentManager({
   environments,
@@ -93,6 +96,8 @@ export function HttpEnvironmentManager({
   onDuplicate,
   onExport,
   onImport,
+  scopes,
+  focus,
 }: HttpEnvironmentManagerProps) {
   const { t } = useTranslation();
   const titleId = useId();
@@ -101,10 +106,12 @@ export function HttpEnvironmentManager({
   // falls back gracefully when the list changes (the resolved selection
   // is derived during render, never stored stale).
   const [selectedId, setSelectedId] = useState<string | null>(
-    environments[0]?.id ?? null
+    focus?.environmentId ?? environments[0]?.id ?? (scopes ? HTTP_COLLECTION_SCOPE_ID : null)
   );
-  const selected =
-    environments.find((e) => e.id === selectedId) ?? environments[0] ?? null;
+  const collectionSelected = scopes !== undefined && (selectedId === HTTP_COLLECTION_SCOPE_ID || environments.length === 0);
+  const selected = collectionSelected
+    ? null
+    : (environments.find((e) => e.id === selectedId) ?? environments[0] ?? null);
 
   // Import affordance (mirrors the pipeline importer): a textarea + confirm.
   const importTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -122,72 +129,6 @@ export function HttpEnvironmentManager({
 
   const handleRename = (id: string, name: string): void => {
     onUpdate(id, { name });
-  };
-
-  const handleAddVariable = (env: HttpEnvironmentV1): void => {
-    // Functional update — appends a freshly-id'd blank row onto whatever
-    // the current list is, so a double-click never collapses two adds.
-    onUpdateVariables(env.id, (variables) => [
-      ...variables,
-      createEnvVariable({ key: '', value: '', secret: false }),
-    ]);
-  };
-
-  const handleUpdateVariable = (
-    env: HttpEnvironmentV1,
-    rowId: string,
-    patch: Partial<HttpEnvVariableV1>
-  ): void => {
-    onUpdateVariables(env.id, (variables) =>
-      variables.map((variable) =>
-        variable.id === rowId ? { ...variable, ...patch } : variable
-      )
-    );
-  };
-
-  // Secret-by-default — on a KEY edit, auto-suggest
-  // `secret: true` exactly once when the NEW key looks secret, the OLD key
-  // did not, and the row is not already secret. Never overrides a user who
-  // explicitly unset secret (the guard `!variable.secret` plus the
-  // old-key-did-not-match condition ensures a single nudge, not a sticky
-  // override on every subsequent keystroke of a token-like name).
-  const handleKeyChange = (
-    env: HttpEnvironmentV1,
-    rowId: string,
-    nextKey: string
-  ): void => {
-    onUpdateVariables(env.id, (variables) =>
-      variables.map((variable) => {
-        if (variable.id !== rowId) return variable;
-        const shouldSuggestSecret =
-          !variable.secret &&
-          !looksSecret(variable.key) &&
-          looksSecret(nextKey);
-        return shouldSuggestSecret
-          ? { ...variable, key: nextKey, secret: true }
-          : { ...variable, key: nextKey };
-      })
-    );
-  };
-
-  const handleRemoveVariable = (
-    env: HttpEnvironmentV1,
-    rowId: string
-  ): void => {
-    onUpdateVariables(env.id, (variables) =>
-      variables.filter((variable) => variable.id !== rowId)
-    );
-  };
-
-  const handleDragEnd = (env: HttpEnvironmentV1, event: DragEndEvent): void => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    onUpdateVariables(env.id, (variables) => {
-      const oldIndex = variables.findIndex((v) => v.id === active.id);
-      const newIndex = variables.findIndex((v) => v.id === over.id);
-      if (oldIndex === -1 || newIndex === -1) return variables.slice();
-      return arrayMove(variables.slice(), oldIndex, newIndex);
-    });
   };
 
   const handleExport = useCallback(
@@ -312,7 +253,7 @@ export function HttpEnvironmentManager({
         </div>
       ) : null}
 
-      {environments.length === 0 ? (
+      {environments.length === 0 && !scopes ? (
         <p
           data-testid="http-environment-empty"
           className="px-1 py-6 text-center text-body-sm text-fg-subtle"
@@ -322,14 +263,31 @@ export function HttpEnvironmentManager({
       ) : (
         <div className="flex flex-col gap-3">
           {/* Environment switcher row — one chip per environment. */}
-          {environments.length > 1 ? (
+          {environments.length > 1 || scopes ? (
             <div
               role="tablist"
               aria-label={t('httpWorkspace.environment.manager.title')}
               className="flex flex-wrap items-center gap-1"
             >
+              {scopes ? (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={collectionSelected}
+                  data-testid="http-environment-collection-tab"
+                  onClick={() => setSelectedId(HTTP_COLLECTION_SCOPE_ID)}
+                  className={
+                    collectionSelected
+                      ? 'rounded-md bg-bg-inset px-2.5 py-1 text-caption font-semibold text-fg-base'
+                      : 'rounded-md px-2.5 py-1 text-caption text-fg-subtle transition-colors hover:text-fg-base'
+                  }
+                >
+                  {t('httpWorkspace.environment.manager.collection')}
+                </button>
+              ) : null}
               {environments.map((env) => {
                 const active = selected?.id === env.id;
+                const tint = scopes ? environmentColor(env) : undefined;
                 return (
                   <button
                     key={env.id}
@@ -343,6 +301,13 @@ export function HttpEnvironmentManager({
                         : 'rounded-md px-2.5 py-1 text-caption text-fg-subtle transition-colors hover:text-fg-base'
                     }
                   >
+                    {tint ? (
+                      <span
+                        aria-hidden="true"
+                        className="mr-1.5 inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: ENVIRONMENT_TINTS[tint].line }}
+                      />
+                    ) : null}
                     {env.name.length > 0
                       ? env.name
                       : t('httpWorkspace.environment.unnamed')}
@@ -350,6 +315,13 @@ export function HttpEnvironmentManager({
                 );
               })}
             </div>
+          ) : null}
+
+          {collectionSelected && scopes ? (
+            <section data-testid="http-environment-collection" className="flex flex-col gap-2">
+              <p className="text-caption text-fg-subtle">{t('httpWorkspace.environment.manager.collectionHint')}</p>
+              <HttpVariableList variables={scopes.collectionVariables} onUpdate={scopes.onUpdateCollection} />
+            </section>
           ) : null}
 
           {selected ? (
@@ -411,60 +383,17 @@ export function HttpEnvironmentManager({
                 </button>
               </div>
 
-              {/* Variable table */}
-              <div className="flex items-center gap-2">
-                <span className="text-caption font-semibold text-fg-base">
-                  {t('httpWorkspace.environment.manager.variablesLabel')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleAddVariable(selected)}
-                  data-testid="http-environment-var-add"
-                  aria-label={t('httpWorkspace.environment.manager.addVariable')}
-                  title={t('httpWorkspace.environment.manager.addVariable')}
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-                >
-                  <Plus size={12} aria-hidden="true" />
-                </button>
-              </div>
-              <DndContext
-                collisionDetection={closestCenter}
-                onDragEnd={(event) => handleDragEnd(selected, event)}
-              >
-                <SortableContext
-                  items={selected.variables.map((variable) => variable.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <ul role="list" className="flex flex-col gap-1.5">
-                    {selected.variables.map((variable) => (
-                      <HttpEnvironmentVariableRow
-                        key={variable.id}
-                        variable={variable}
-                        onKeyChange={(nextKey) =>
-                          handleKeyChange(selected, variable.id, nextKey)
-                        }
-                        onValueChange={(value) =>
-                          handleUpdateVariable(selected, variable.id, { value })
-                        }
-                        onSecretChange={(secret) =>
-                          handleUpdateVariable(selected, variable.id, { secret })
-                        }
-                        onRemove={() =>
-                          handleRemoveVariable(selected, variable.id)
-                        }
-                      />
-                    ))}
-                    {selected.variables.length === 0 ? (
-                      <li className="text-caption text-fg-subtle">
-                        {t('httpWorkspace.environment.manager.noVariables')}
-                      </li>
-                    ) : null}
-                  </ul>
-                </SortableContext>
-              </DndContext>
-              {selected.variables.some((variable) => variable.secret) ? (
-                <SecretStorageNote testId="http-environment-secret-storage" />
+              {scopes ? (
+                <HttpEnvironmentColorPicker
+                  value={environmentColor(selected)}
+                  onChange={(color) => onUpdate(selected.id, { color: color ?? 'none' })}
+                />
               ) : null}
+              <HttpVariableList
+                variables={selected.variables}
+                onUpdate={(updater) => onUpdateVariables(selected.id, updater)}
+                {...(focus?.environmentId === selected.id ? { focusId: focus.variableId } : {})}
+              />
             </section>
           ) : null}
         </div>
@@ -473,93 +402,51 @@ export function HttpEnvironmentManager({
   );
 }
 
-interface HttpEnvironmentVariableRowProps {
-  variable: HttpEnvVariableV1;
-  onKeyChange: (nextKey: string) => void;
-  onValueChange: (value: string) => void;
-  onSecretChange: (secret: boolean) => void;
-  onRemove: () => void;
-}
-
-/**
- * One sortable variable row. Drag handle + key / value / secret-toggle /
- * delete. Sortable via @dnd-kit (keyed by the row's opaque
- * `variable.id`); keyboard-reorderable per dnd-kit
- * defaults (focus the handle, Space to lift, arrows to move).
- */
-function HttpEnvironmentVariableRow({
-  variable,
-  onKeyChange,
-  onValueChange,
-  onSecretChange,
-  onRemove,
-}: HttpEnvironmentVariableRowProps) {
+/** None plus one swatch per theme hue; the chosen colour tints the HTTP tab and Send. */
+function HttpEnvironmentColorPicker({
+  value,
+  onChange,
+}: {
+  value: HttpEnvironmentColor | undefined;
+  onChange: (color: HttpEnvironmentColor | undefined) => void;
+}) {
   const { t } = useTranslation();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: variable.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  };
-
+  const swatch = 'inline-flex h-6 w-6 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70';
   return (
-    <li
-      ref={setNodeRef}
-      style={style}
-      data-testid="http-environment-var-row"
+    <div
+      role="radiogroup"
+      aria-label={t('httpWorkspace.environment.manager.color')}
+      data-testid="http-environment-color"
       className="flex items-center gap-1.5"
     >
+      <span className="mr-1 text-caption font-semibold text-fg-base">{t('httpWorkspace.environment.manager.color')}</span>
       <button
         type="button"
-        data-testid="http-environment-var-drag"
-        aria-label={t('httpWorkspace.environment.manager.reorderVariable')}
-        title={t('httpWorkspace.environment.manager.reorderVariable')}
-        className="inline-flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-        {...attributes}
-        {...listeners}
+        role="radio"
+        aria-checked={value === undefined}
+        aria-label={t('httpWorkspace.environment.manager.colorNone')}
+        title={t('httpWorkspace.environment.manager.colorNone')}
+        onClick={() => onChange(undefined)}
+        className={`${swatch} border-border-default text-micro text-fg-subtle`}
       >
-        <GripVertical size={13} aria-hidden="true" />
+        {value === undefined ? '✓' : ''}
       </button>
-      <input
-        type="text"
-        value={variable.key}
-        onChange={(event) => onKeyChange(event.target.value)}
-        placeholder={t('httpWorkspace.environment.manager.keyPlaceholder')}
-        aria-label={t('httpWorkspace.environment.manager.keyPlaceholder')}
-        data-testid="http-environment-var-key"
-        className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
-      />
-      <input
-        type={variable.secret ? 'password' : 'text'}
-        value={variable.value}
-        onChange={(event) => onValueChange(event.target.value)}
-        placeholder={t('httpWorkspace.environment.manager.valuePlaceholder')}
-        aria-label={t('httpWorkspace.environment.manager.valuePlaceholder')}
-        data-testid="http-environment-var-value"
-        className={FIELD_CLASS}
-      />
-      <label className="inline-flex shrink-0 items-center gap-1 text-eyebrow text-fg-subtle">
-        <input
-          type="checkbox"
-          checked={variable.secret}
-          onChange={(event) => onSecretChange(event.target.checked)}
-          data-testid="http-environment-var-secret"
-          aria-label={t('httpWorkspace.environment.manager.secretToggle')}
-        />
-        <span>{t('httpWorkspace.environment.manager.secretToggle')}</span>
-      </label>
-      <button
-        type="button"
-        onClick={onRemove}
-        data-testid="http-environment-var-delete"
-        aria-label={t('httpWorkspace.environment.manager.removeVariable')}
-        title={t('httpWorkspace.environment.manager.removeVariable')}
-        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:text-error-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-      >
-        <Trash2 size={11} aria-hidden="true" />
-      </button>
-    </li>
+      {HTTP_ENVIRONMENT_COLORS.map((color) => (
+        <button
+          key={color}
+          type="button"
+          role="radio"
+          aria-checked={value === color}
+          aria-label={t(`httpWorkspace.environment.manager.colorName.${color}`)}
+          title={t(`httpWorkspace.environment.manager.colorName.${color}`)}
+          data-color={color}
+          onClick={() => onChange(color)}
+          className={`${swatch} text-micro text-fg-on-accent`}
+          style={{ backgroundColor: ENVIRONMENT_TINTS[color].line, borderColor: ENVIRONMENT_TINTS[color].line }}
+        >
+          {value === color ? '✓' : ''}
+        </button>
+      ))}
+    </div>
   );
 }

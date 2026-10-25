@@ -50,6 +50,18 @@ describe('renderer locale bundle boundary', () => {
     expect(registration).toContain(`addResourceBundle('en', '${COMMON_NAMESPACE}'`);
   });
 
+  it('keeps the newer Labs flag copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.labs.flag.httpScopes.'))).toEqual([]);
+    expect(rendererI18n).toContain("import('./locales/es/labs.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/labsCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/labs.json'");
+    const labs = readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/LabsSection.tsx'), 'utf8');
+    expect(labs).toContain("import '../../i18n/labsCatalog'");
+  });
+
   it('keeps language selection metadata free of catalog imports', () => {
     expect(languageMetadata).not.toMatch(/common\.json/u);
   });

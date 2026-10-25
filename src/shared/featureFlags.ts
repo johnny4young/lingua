@@ -3,25 +3,11 @@
  * in Settings › Labs; a flag leaves this list once its feature ships for everyone.
  */
 
-export const FEATURE_FLAGS = {
-  networkPolicy: {
-    labelKey: 'settings.labs.flag.networkPolicy.label',
-    descriptionKey: 'settings.labs.flag.networkPolicy.description',
-  },
-  dbClient: {
-    labelKey: 'settings.labs.flag.dbClient.label',
-    descriptionKey: 'settings.labs.flag.dbClient.description',
-  },
-  editRows: {
-    labelKey: 'settings.labs.flag.editRows.label',
-    descriptionKey: 'settings.labs.flag.editRows.description',
-  },
-} as const;
+/** Each id reads its copy from `settings.labs.flag.<id>.label` and `.description`. */
+export const FEATURE_FLAG_IDS = ['networkPolicy', 'dbClient', 'editRows', 'httpScopes'] as const;
 
-export type FeatureFlagId = keyof typeof FEATURE_FLAGS;
+export type FeatureFlagId = (typeof FEATURE_FLAG_IDS)[number];
 export type FeatureFlagState = Partial<Record<FeatureFlagId, boolean>>;
-
-export const FEATURE_FLAG_IDS = Object.keys(FEATURE_FLAGS) as FeatureFlagId[];
 
 /** Keeps known flags that are explicitly on; drops everything else. */
 export function sanitizeFeatureFlags(value: unknown): FeatureFlagState {

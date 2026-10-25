@@ -4,8 +4,9 @@
  *
  * An HTTP environment is a named bag of `{{key}}` → value bindings the
  * user can swap (dev / staging / prod) without rewriting every request.
- * On send, the active environment is interpolated into the request's
- * URL, header values, and body content. Some bindings are flagged
+ * On send, the active environment (joined with collection and request
+ * variables by `layeredEnvironment` when scopes are on) is interpolated into
+ * the request's URL, header values, and body content. Some bindings are flagged
  * `secret: true` — those are the privacy-critical part of this module.
  *
  * Privacy posture (READ THIS BEFORE TOUCHING ANY MASK FUNCTION):
@@ -26,7 +27,7 @@
  *
  * All functions in this module are pure data transforms — no IPC, no
  * side effects, no stateful module-level regex — with ONE documented
- * exception: `parseEnvVariable` backfills a missing opaque row `id` via
+ * exception: `parseEnvVariables` (in `httpWorkspacePersistence.ts`) backfills a missing opaque row `id` via
  * `crypto.randomUUID()` , so the parser is non-pure for
  * that single non-semantic field only. `parseHttpEnvironment` is the
  * defense-in-depth boundary at the localStorage rehydrate edge, mirroring
@@ -38,6 +39,9 @@ import type {
   HttpRequestV1,
   HttpResponseV1,
 } from './httpWorkspaceSchema';
+import { parseEnvVariables } from './httpWorkspacePersistence';
+
+export { parseEnvVariables };
 
 /**
  * One variable binding in an environment.
@@ -113,10 +117,16 @@ export interface HttpEnvironmentV1 {
   name: string;
   /** Ordered variable bindings. May contain rows with an empty value. */
   variables: HttpEnvVariableV1[];
+  /** Tints the HTTP chrome while this environment is active; `none` turns off the prod default. */
+  color?: HttpEnvironmentColor | 'none';
   /** ISO timestamp (millisecond precision). */
   createdAt: string;
   updatedAt: string;
 }
+
+/** Colours an environment can tint the HTTP chrome with, each mapped to a theme token. */
+export const HTTP_ENVIRONMENT_COLORS = ['red', 'orange', 'green', 'blue', 'purple', 'gray'] as const;
+export type HttpEnvironmentColor = (typeof HTTP_ENVIRONMENT_COLORS)[number];
 
 /**
  * Source regex for a `{{ key }}` token. Inner whitespace around the key
@@ -151,37 +161,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Coerce one raw row into an `HttpEnvVariableV1`, or `null` if the row
- * is not a usable binding. Unlike the request parser (which rejects the
- * whole entry on a bad row), invalid variable rows are DROPPED by
- * `parseHttpEnvironment` so a single hand-corrupted row cannot brick an
- * otherwise-valid environment. `secret` defaults to `false` when absent
- * (forward-compat: an environment persisted before the secret flag
- * existed loads as all-non-secret).
- *
- * `id` is kept when it is a non-empty string, otherwise
- * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
- * parser is intentionally non-pure: rows persisted before ids existed (and
- * rows from an imported / hand-written JSON, whose ids are deliberately
- * stripped on export) have no id, and the React list + drag reorder need a
- * stable one. The backfill touches only this opaque id — it never
- * fabricates key/value/secret data.
- */
-function parseEnvVariable(value: unknown): HttpEnvVariableV1 | null {
-  if (!isRecord(value)) return null;
-  const key = value.key;
-  const varValue = value.value;
-  if (typeof key !== 'string' || key.length === 0) return null;
-  if (typeof varValue !== 'string') return null;
-  const secret = value.secret === true;
-  const id =
-    typeof value.id === 'string' && value.id.length > 0
-      ? value.id
-      : crypto.randomUUID();
-  return { id, key, value: varValue, secret };
-}
-
-/**
  * Strict parser for a persisted environment. Returns `null` on a hard
  * top-level shape mismatch (wrong version, missing id/name/timestamps,
  * non-array `variables`). Invalid INDIVIDUAL variable rows are dropped
@@ -196,20 +175,18 @@ export function parseHttpEnvironment(value: unknown): HttpEnvironmentV1 | null {
   if (!Array.isArray(value.variables)) return null;
   if (typeof value.createdAt !== 'string') return null;
   if (typeof value.updatedAt !== 'string') return null;
-  const variables: HttpEnvVariableV1[] = [];
-  for (const raw of value.variables) {
-    const parsed = parseEnvVariable(raw);
-    if (parsed !== null) variables.push(parsed);
-  }
+  const color = value.color === 'none' ? 'none' : HTTP_ENVIRONMENT_COLORS.find((candidate) => candidate === value.color);
   return {
     version: 1,
     id: value.id,
     name: value.name,
-    variables,
+    variables: parseEnvVariables(value.variables),
+    ...(color ? { color } : {}),
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   };
 }
+
 
 /**
  * Build a fresh blank environment with sensible defaults. Used by the
@@ -287,6 +264,66 @@ export function toExportableEnvironment(
 }
 
 // ---------------------------------------------------------------------------
+// Variable scopes.
+// ---------------------------------------------------------------------------
+
+/** Where a variable's value comes from, lowest precedence first. */
+const HTTP_VARIABLE_SCOPES = ['collection', 'environment', 'request'] as const;
+export type HttpVariableScope = (typeof HTTP_VARIABLE_SCOPES)[number];
+
+/** Id of the collection's variable set, for the secret vault and the layered view. */
+export const HTTP_COLLECTION_SCOPE_ID = 'collection';
+
+export interface HttpVariableLayers {
+  readonly collection: readonly HttpEnvVariableV1[];
+  readonly environment: HttpEnvironmentV1 | null;
+  readonly request: readonly HttpEnvVariableV1[];
+}
+
+export interface HttpVariableSource {
+  readonly scope: HttpVariableScope;
+  readonly secret: boolean;
+  /** Lower scopes that also define the key and lose to `scope`. */
+  readonly overrides: readonly HttpVariableScope[];
+}
+
+/**
+ * Every scope as one environment, its rows ordered by precedence so the
+ * last-row-wins lookups below resolve request over environment over
+ * collection. Returns the environment itself when no other scope has rows.
+ */
+export function layeredEnvironment(layers: HttpVariableLayers): HttpEnvironmentV1 | null {
+  const { collection, environment, request } = layers;
+  if (collection.length === 0 && request.length === 0) return environment;
+  const base = environment ?? createBlankHttpEnvironment({ id: HTTP_COLLECTION_SCOPE_ID, now: '' });
+  return { ...base, variables: [...collection, ...base.variables, ...request] };
+}
+
+/** The scope that supplies each key and the lower scopes it overrides. */
+export function variableSources(layers: HttpVariableLayers): Map<string, HttpVariableSource> {
+  const sources = new Map<string, HttpVariableSource>();
+  const rows: Record<HttpVariableScope, readonly HttpEnvVariableV1[]> = {
+    collection: layers.collection,
+    environment: layers.environment?.variables ?? [],
+    request: layers.request,
+  };
+  for (const scope of HTTP_VARIABLE_SCOPES) {
+    for (const [key, variable] of finalRows(rows[scope])) {
+      const lower = sources.get(key);
+      const overrides = lower && lower.scope !== scope ? [...lower.overrides, lower.scope] : [];
+      sources.set(key, { scope, secret: variable.secret, overrides });
+    }
+  }
+  return sources;
+}
+
+/** The environment's colour, or red for a production-looking name never given one. */
+export function environmentColor(env: HttpEnvironmentV1 | null | undefined): HttpEnvironmentColor | undefined {
+  if (!env || env.color === 'none') return undefined;
+  return env.color ?? (/\bprod(uction)?\b/i.test(env.name) ? 'red' : undefined);
+}
+
+// ---------------------------------------------------------------------------
 // Interpolation core.
 // ---------------------------------------------------------------------------
 
@@ -321,9 +358,12 @@ export function interpolateString(
 function buildFinalVariableMap(
   env: HttpEnvironmentV1 | null
 ): Map<string, HttpEnvVariableV1> {
+  return finalRows(env?.variables ?? []);
+}
+
+function finalRows(rows: readonly HttpEnvVariableV1[]): Map<string, HttpEnvVariableV1> {
   const variables = new Map<string, HttpEnvVariableV1>();
-  if (!env) return variables;
-  for (const variable of env.variables) {
+  for (const variable of rows) {
     variables.set(variable.key, variable);
   }
   return variables;
@@ -519,7 +559,12 @@ export function maskSecretsForCapsule(
   request: HttpRequestV1,
   env: HttpEnvironmentV1 | null
 ): HttpRequestV1 {
-  return mapRequestStrings(request, buildNonSecretLookup(env));
+  const masked = mapRequestStrings(request, buildNonSecretLookup(env));
+  // Request-scoped secret values ride on the request itself, so blank them too.
+  if (masked.variables?.some((variable) => variable.secret && variable.value)) {
+    masked.variables = masked.variables.map((variable) => (variable.secret ? { ...variable, value: '' } : variable));
+  }
+  return masked;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { Clock, Loader2, SendHorizontal, Square, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/httpBuilderCatalog';
+import { tintedSend, type HttpTint } from './httpScopeColors';
 
 /** Where the active request stands with the offline queue. */
 export interface HttpSendQueue {
@@ -26,6 +27,7 @@ export function HttpSendButton({
   queue,
   onSend,
   onStop,
+  tint,
 }: {
   isExecuting: boolean;
   disabled: boolean;
@@ -34,6 +36,8 @@ export function HttpSendButton({
   queue?: HttpSendQueue;
   onSend: () => void;
   onStop?: () => void;
+  /** The active environment's colour, so a send to production looks like one. */
+  tint?: HttpTint;
 }) {
   const { t } = useTranslation();
   if (isExecuting) {
@@ -87,7 +91,8 @@ export function HttpSendButton({
       data-queue={queue?.state ?? (queue?.willQueue ? 'will-queue' : 'none')}
       aria-label={label}
       title={`${label} · ${t('httpWorkspace.editor.send.shortcutHint', { combo })}`}
-      className={PRIMARY}
+      className={tint ? `${PRIMARY} hover:brightness-110` : PRIMARY}
+      {...(tint ? { 'data-tinted': true, style: tintedSend(tint) } : {})}
     >
       {queue?.willQueue && queue.state === null ? <Clock size={14} aria-hidden="true" /> : <SendHorizontal size={14} aria-hidden="true" />}
       <span>{label}</span>

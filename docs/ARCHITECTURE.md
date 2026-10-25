@@ -1496,6 +1496,17 @@ transports and pipelines never queue. Whenever the app is online with held
 entries, including when the HTTP tab opens after the connection came back,
 held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
 
+With the `httpScopes` Labs flag, variables resolve from three scopes:
+collection (`collectionVariables` in the workspace store), the active
+environment and the request's own `variables`. `layeredEnvironment` in
+`src/shared/httpEnvironment.ts` joins them into one environment whose rows run
+from lowest to highest precedence, so the existing last-row-wins lookups,
+secret masking and response scrubbing apply to every scope unchanged;
+`variableSources` says which scope supplies each key for the colours. Secret
+values of the new scopes follow the environments' vault rules, and
+`maskSecretsForCapsule` also blanks secret request variables. With the flag
+off the request resolves against the active environment alone, as before.
+
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
 active environment fresh for each step, and stop after transport, HTTP, or
@@ -1505,12 +1516,14 @@ deterministic next-step boundary.
 
 ### Encrypted secret vault
 
-The HTTP workspace's secret environment values, the AI API key and saved
+The HTTP workspace's secret variable values (environment, collection and request), the AI API key and saved
 database connection passwords live in the desktop secret vault, not in
 localStorage. `src/main/secretStore.ts` encrypts
 each value with Electron `safeStorage` and writes one file per id under
 `userData/secrets` (atomic tmp + rename, mode 0600). Ids are namespaced
-(`ai.api-key`, `http-env.<environment>.<variable>`, `db.<connection id>`) and limited to a
+(`ai.api-key`, `http-env.<environment>.<variable>`, `db.<connection id>`; the HTTP
+collection uses `collection` and a request `request-<id>` as the environment
+segment) and limited to a
 filename-safe charset by `src/shared/secretVault.ts`; the `secrets:*` handlers
 in `src/main/ipc/secrets.ts` validate every id, prefix and value size before
 touching the store. `db.` ids are main-only: the `secrets:*` channels refuse

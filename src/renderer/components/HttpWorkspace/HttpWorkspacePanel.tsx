@@ -47,6 +47,12 @@ import { HttpResponsePreview } from './HttpResponsePreview';
 import type { JsonSegment } from './httpJsonTreeModel';
 import type { HttpCaptureTarget } from './useHttpTreeCapture';
 import { useHttpOfflineSend } from './useHttpOfflineSend';
+import {
+  httpScopesEnabled,
+  rowsFromOtherEnvironments,
+  scopedEnvironmentFor,
+  type HttpEnvironmentFocus,
+} from './httpScopes';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -133,11 +139,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
+  const scopesOn = useSettingsStore(state => state.featureFlags.httpScopes === true);
+  const collectionVariables = useWorkspaceToolStore(state => state.collectionVariables);
   // Environments + active selection drive the
   // selector, the resolution preview, and send-time interpolation.
   const environments = useWorkspaceToolStore(state => state.environments);
   const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
+  const [managerFocus, setManagerFocus] = useState<HttpEnvironmentFocus | null>(null);
   const [isPipelineManagerOpen, setIsPipelineManagerOpen] = useState(false);
   const [pipelineRun, setPipelineRun] = useState<HttpPipelineRunSnapshot | null>(null);
   const pipelineRunningRef = useRef(false);
@@ -297,13 +306,16 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       const controller = new AbortController();
       abortRef.current = controller;
       setLivePreview(null);
-      const env = useWorkspaceToolStore.getState().getActiveEnvironment() ?? null;
+      const tools = useWorkspaceToolStore.getState();
+      const activeEnv = tools.getActiveEnvironment() ?? null;
+      const env = scopedEnvironmentFor(requestToSend, activeEnv);
 
-      // Block the send when a referenced `{{var}}` has no binding in the
-      // active env (or there is no env). Surfacing the names lets the user
-      // fix the environment without guessing which token is missing.
+      // Block the send when a referenced `{{var}}` has no binding in any
+      // scope it resolves from. Surfacing the names lets the user fix the
+      // environment without guessing which token is missing.
       const unresolved = findUnresolvedVariables(requestToSend, env);
       if (unresolved.length > 0) {
+        const fix = activeEnv && httpScopesEnabled() ? rowsFromOtherEnvironments(unresolved, tools.environments, activeEnv.id) : [];
         useUIStore.getState().pushStatusNotice({
           tone: 'error',
           messageKey: 'httpWorkspace.environment.unresolved.body',
@@ -311,6 +323,24 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             count: unresolved.length,
             names: unresolved.join(', '),
           },
+          ...(activeEnv && fix.length > 0
+            ? {
+                actions: [
+                  {
+                    labelKey: 'httpWorkspace.environment.unresolved.addTo',
+                    labelValues: { env: activeEnv.name || t('httpWorkspace.environment.unnamed') },
+                    onClick: () => {
+                      tools.updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...fix]);
+                      const secret = fix.find((row) => row.secret);
+                      if (secret) {
+                        setManagerFocus({ environmentId: activeEnv.id, variableId: secret.id });
+                        setIsManagerOpen(true);
+                      }
+                    },
+                  },
+                ],
+              }
+            : {}),
         });
         return null;
       }
@@ -564,7 +594,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().setActiveEnvironment(id);
   }, []);
 
-  const handleManageEnvironment = useCallback(() => {
+  const handleManageEnvironment = useCallback((focus?: HttpEnvironmentFocus) => {
+    setManagerFocus(focus ?? null);
     setIsManagerOpen(true);
   }, []);
 
@@ -646,6 +677,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         <HttpEnvironmentManager
           environments={environments}
           onClose={() => setIsManagerOpen(false)}
+          focus={managerFocus}
           onCreate={env => useWorkspaceToolStore.getState().createEnvironment(env)}
           onUpdate={(id, patch) => useWorkspaceToolStore.getState().updateEnvironment(id, patch)}
           onUpdateVariables={(id, updater) =>
@@ -663,6 +695,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           }
           onExport={id => useWorkspaceToolStore.getState().exportEnvironmentJson(id)}
           onImport={json => useWorkspaceToolStore.getState().importEnvironmentJson(json)}
+          {...(scopesOn
+            ? {
+                scopes: {
+                  collectionVariables,
+                  onUpdateCollection: updater => useWorkspaceToolStore.getState().updateCollectionVariables(updater),
+                },
+              }
+            : {})}
         />
       ) : null}
       {isPipelineManagerOpen ? (

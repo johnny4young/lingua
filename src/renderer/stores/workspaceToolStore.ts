@@ -37,6 +37,8 @@ import type {
 import {
   parseHttpEnvironment,
   toExportableEnvironment,
+  HTTP_COLLECTION_SCOPE_ID,
+  parseEnvVariables,
   type HttpEnvironmentV1,
   type HttpEnvVariableV1,
 } from '../../shared/httpEnvironment';
@@ -100,6 +102,11 @@ interface WorkspaceToolState {
    * rehydrate (a stale id repoints to null).
    */
   readonly activeEnvironmentId: string | null;
+  /**
+   * Variables of the collection (the whole HTTP workspace), under every
+   * environment. Secret values follow the environments' vault rules.
+   */
+  readonly collectionVariables: ReadonlyArray<HttpEnvVariableV1>;
   /** Persisted named, sequential HTTP-only pipelines. */
   readonly httpPipelines: ReadonlyArray<HttpPipelineV1>;
   readonly activeHttpPipelineId: string | null;
@@ -201,6 +208,15 @@ interface WorkspaceToolState {
   deleteEnvironment: (id: string) => void;
   /** Set the active environment (or null for "No environment"). */
   setActiveEnvironment: (id: string | null) => void;
+  /** Functional update of the collection's variables, like `updateEnvironmentVariables`. */
+  updateCollectionVariables: (
+    updater: (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]
+  ) => void;
+  /** Functional update of one request's variables; bumps its `updatedAt`. */
+  updateRequestVariables: (
+    id: string,
+    updater: (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]
+  ) => void;
   /** The currently-active environment, or undefined when none is set. */
   getActiveEnvironment: () => HttpEnvironmentV1 | undefined;
 }
@@ -218,6 +234,7 @@ function createInitialState(): Pick<
   | 'executingRequestId'
   | 'environments'
   | 'activeEnvironmentId'
+  | 'collectionVariables'
   | 'httpPipelines'
   | 'activeHttpPipelineId'
 > {
@@ -228,6 +245,7 @@ function createInitialState(): Pick<
     executingRequestId: null,
     environments: [],
     activeEnvironmentId: null,
+    collectionVariables: [],
     httpPipelines: [],
     activeHttpPipelineId: null,
   };
@@ -539,6 +557,18 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
             : { activeEnvironmentId: id }
         ),
 
+      updateCollectionVariables: (updater) =>
+        set((state) => ({ collectionVariables: updater(state.collectionVariables) })),
+
+      updateRequestVariables: (id, updater) =>
+        set((state) => ({
+          requests: state.requests.map((request) =>
+            request.id === id
+              ? { ...request, variables: updater(request.variables ?? []), updatedAt: new Date().toISOString() }
+              : request
+          ),
+        })),
+
       getActiveEnvironment: () => {
         const { environments, activeEnvironmentId } = get();
         if (activeEnvironmentId === null) return undefined;
@@ -574,7 +604,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           if (surviving.length > 0) persistedResponses[reqId] = surviving;
         }
         return {
-          requests: state.requests,
+          requests: vaultOwnsEnvSecrets ? blankRequestSecrets(state.requests) : state.requests,
           responsesByRequestId: persistedResponses,
           activeRequestId: state.activeRequestId,
           // Additive fields. No persist `version` bump:
@@ -586,6 +616,9 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
             ? blankSecretValues(state.environments)
             : state.environments,
           activeEnvironmentId: state.activeEnvironmentId,
+          collectionVariables: vaultOwnsEnvSecrets
+            ? blankVariables(state.collectionVariables)
+            : state.collectionVariables,
           httpPipelines: state.httpPipelines,
           activeHttpPipelineId: state.activeHttpPipelineId,
         };
@@ -662,6 +695,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           } else {
             merged.activeEnvironmentId = null;
           }
+          merged.collectionVariables = parseEnvVariables(p.collectionVariables);
           if (Array.isArray(p.httpPipelines)) {
             const safePipelines: HttpPipelineV1[] = [];
             for (const raw of p.httpPipelines.slice(0, HTTP_PIPELINE_MAX_COUNT)) {
@@ -694,18 +728,60 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
   )
 );
 
-function secretValues(
-  environments: ReadonlyArray<HttpEnvironmentV1>
-): Map<string, string> {
+/** A scope's rows under the id its vault entries use. */
+interface VariableSet {
+  readonly id: string;
+  readonly variables: ReadonlyArray<HttpEnvVariableV1>;
+}
+
+const requestScopeId = (requestId: string) => `request-${requestId}`;
+
+/** Every set of variables whose secret values the vault holds. */
+function variableSets(state: Pick<WorkspaceToolState, 'environments' | 'collectionVariables' | 'requests'>): VariableSet[] {
+  const sets: VariableSet[] = [...state.environments];
+  sets.push({ id: HTTP_COLLECTION_SCOPE_ID, variables: state.collectionVariables });
+  for (const request of state.requests) {
+    if (request.variables?.length) sets.push({ id: requestScopeId(request.id), variables: request.variables });
+  }
+  return sets;
+}
+
+function secretValues(sets: ReadonlyArray<VariableSet>): Map<string, string> {
   const values = new Map<string, string>();
-  for (const env of environments) {
-    for (const variable of env.variables) {
+  for (const set of sets) {
+    for (const variable of set.variables) {
       if (variable.secret && variable.value) {
-        values.set(httpEnvSecretId(env.id, variable.id), variable.value);
+        values.set(httpEnvSecretId(set.id, variable.id), variable.value);
       }
     }
   }
   return values;
+}
+
+function blankVariables(variables: ReadonlyArray<HttpEnvVariableV1>): ReadonlyArray<HttpEnvVariableV1> {
+  return variables.some((variable) => variable.secret && variable.value)
+    ? variables.map((variable) => (variable.secret ? { ...variable, value: '' } : variable))
+    : variables;
+}
+
+function blankRequestSecrets(requests: ReadonlyArray<HttpRequestV1>): ReadonlyArray<HttpRequestV1> {
+  return requests.map((request) => {
+    if (!request.variables) return request;
+    const variables = blankVariables(request.variables);
+    return variables === request.variables ? request : { ...request, variables: [...variables] };
+  });
+}
+
+/** Writes vault values into blanked secret rows of every scope. */
+function fillVariables(
+  variables: ReadonlyArray<HttpEnvVariableV1>,
+  setId: string,
+  filled: ReadonlyMap<string, string>
+): HttpEnvVariableV1[] {
+  return variables.map((variable) => {
+    const value = filled.get(httpEnvSecretId(setId, variable.id));
+    return value && variable.secret && !variable.value ? { ...variable, value } : variable;
+  });
 }
 
 function blankSecretValues(
@@ -727,10 +803,10 @@ function blankSecretValues(
 let syncedSecrets = new Map<string, string>();
 let unsubscribeSecretSync: (() => void) | null = null;
 
-function syncSecretDiff(environments: ReadonlyArray<HttpEnvironmentV1>): void {
+function syncSecretDiff(sets: ReadonlyArray<VariableSet>): void {
   const vault = getSecretVault();
   if (!vault) return;
-  const next = secretValues(environments);
+  const next = secretValues(sets);
   const writes: Promise<boolean>[] = [];
   for (const [id, value] of next) {
     if (syncedSecrets.get(id) !== value) writes.push(writeSecret(vault, id, value));
@@ -751,7 +827,13 @@ function syncSecretDiff(environments: ReadonlyArray<HttpEnvironmentV1>): void {
 function startSecretSync(): void {
   unsubscribeSecretSync?.();
   unsubscribeSecretSync = useWorkspaceToolStore.subscribe((state, previous) => {
-    if (state.environments !== previous.environments) syncSecretDiff(state.environments);
+    if (
+      state.environments !== previous.environments ||
+      state.collectionVariables !== previous.collectionVariables ||
+      state.requests !== previous.requests
+    ) {
+      syncSecretDiff(variableSets(state));
+    }
   });
 }
 
@@ -767,8 +849,8 @@ export async function syncHttpEnvSecretsWithVault(): Promise<void> {
   // Without a real keyring the values keep today's localStorage storage.
   const status = await vault.status().catch(() => null);
   if (status?.mode !== 'encrypted') return;
-  const environments = useWorkspaceToolStore.getState().environments;
-  const legacy = secretValues(environments);
+  const sets = variableSets(useWorkspaceToolStore.getState());
+  const legacy = secretValues(sets);
   if (legacy.size > 0) {
     const results = await Promise.all(
       [...legacy].map(([id, value]) => writeSecretVerified(vault, id, value))
@@ -778,7 +860,7 @@ export async function syncHttpEnvSecretsWithVault(): Promise<void> {
     syncedSecrets = legacy;
     startSecretSync();
     // Edits made while the copy was in flight.
-    syncSecretDiff(useWorkspaceToolStore.getState().environments);
+    syncSecretDiff(variableSets(useWorkspaceToolStore.getState()));
     useWorkspaceToolStore.setState({});
     return;
   }
@@ -786,11 +868,11 @@ export async function syncHttpEnvSecretsWithVault(): Promise<void> {
   startSecretSync();
   const filled = new Map<string, string>();
   await Promise.all(
-    environments.flatMap((env) =>
-      env.variables
+    sets.flatMap((set) =>
+      set.variables
         .filter((variable) => variable.secret)
         .map(async (variable) => {
-          const id = httpEnvSecretId(env.id, variable.id);
+          const id = httpEnvSecretId(set.id, variable.id);
           const value = await vault.get(id).catch(() => null);
           if (value) filled.set(id, value);
         })
@@ -799,8 +881,8 @@ export async function syncHttpEnvSecretsWithVault(): Promise<void> {
   const stored = await vault.list(HTTP_ENV_SECRET_PREFIX).catch(() => [] as readonly string[]);
   // Built after the await so variables created meanwhile are not treated as orphans.
   const known = new Set<string>(syncedSecrets.keys());
-  for (const env of useWorkspaceToolStore.getState().environments) {
-    for (const variable of env.variables) known.add(httpEnvSecretId(env.id, variable.id));
+  for (const set of variableSets(useWorkspaceToolStore.getState())) {
+    for (const variable of set.variables) known.add(httpEnvSecretId(set.id, variable.id));
   }
   for (const id of stored) {
     if (!known.has(id)) void writeSecret(vault, id, '');
@@ -808,13 +890,13 @@ export async function syncHttpEnvSecretsWithVault(): Promise<void> {
   if (filled.size === 0) return;
   syncedSecrets = new Map([...syncedSecrets, ...filled]);
   useWorkspaceToolStore.setState((state) => ({
-    environments: state.environments.map((env) => ({
-      ...env,
-      variables: env.variables.map((variable) => {
-        const value = filled.get(httpEnvSecretId(env.id, variable.id));
-        return value && variable.secret && !variable.value ? { ...variable, value } : variable;
-      }),
-    })),
+    environments: state.environments.map((env) => ({ ...env, variables: fillVariables(env.variables, env.id, filled) })),
+    collectionVariables: fillVariables(state.collectionVariables, HTTP_COLLECTION_SCOPE_ID, filled),
+    requests: state.requests.map((request) =>
+      request.variables?.length
+        ? { ...request, variables: fillVariables(request.variables, requestScopeId(request.id), filled) }
+        : request
+    ),
   }));
 }
 

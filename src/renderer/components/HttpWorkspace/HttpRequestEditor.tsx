@@ -49,9 +49,16 @@ import {
   type HttpTransportKind,
 } from '../../../shared/httpWorkspaceSchema';
 import { generateHttpCode } from '../../../shared/httpCodegen';
-import { httpUrlState, maskSecretsForCapsule, type HttpEnvironmentV1 } from '../../../shared/httpEnvironment';
+import {
+  environmentColor,
+  findUnresolvedVariables,
+  httpUrlState,
+  maskSecretsForCapsule,
+  type HttpEnvironmentV1,
+} from '../../../shared/httpEnvironment';
 import { writeToClipboard } from '../../utils/clipboard';
 import { useUIStore } from '../../stores/uiStore';
+import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { tryParseCurl } from './curlImport';
 import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
@@ -59,6 +66,8 @@ import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpReques
 import { HttpTransportSelect } from './HttpTransportSelect';
 import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
 import { HttpSendButton, type HttpSendQueue } from './HttpSendButton';
+import { ENVIRONMENT_TINTS } from './httpScopeColors';
+import { rowsFromOtherEnvironments, useScopedEnvironment, type HttpEnvironmentFocus } from './httpScopes';
 import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
 import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
 
@@ -88,7 +97,8 @@ export interface HttpRequestEditorProps {
   environments?: ReadonlyArray<HttpEnvironmentV1>;
   activeEnvironmentId?: string | null;
   onSelectEnvironment?: (id: string | null) => void;
-  onManageEnvironment?: () => void;
+  /** Open the environment manager, optionally on one row to fill in. */
+  onManageEnvironment?: (focus?: HttpEnvironmentFocus) => void;
   /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
   captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
   /** Offline queue state for this request; absent where sends never queue. */
@@ -138,6 +148,10 @@ export function HttpRequestEditor({
     () => environments.find(e => e.id === activeEnvironmentId) ?? null,
     [environments, activeEnvironmentId]
   );
+  // Collection and request variables join the environment with the scopes flag on.
+  const { env: scopedEnv, sources } = useScopedEnvironment(request, activeEnv);
+  const envColor = sources ? environmentColor(activeEnv) : undefined;
+  const tint = envColor ? ENVIRONMENT_TINTS[envColor] : undefined;
 
   // A LIVE request snapshot for the
   // resolution preview, rebuilt from the in-editor draft state on every
@@ -318,7 +332,20 @@ export function HttpRequestEditor({
     return draft;
   }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]);
 
-  const urlState = useMemo(() => httpUrlState(url, transport, activeEnv), [url, transport, activeEnv]);
+  const urlState = useMemo(() => httpUrlState(url, transport, scopedEnv), [url, transport, scopedEnv]);
+  const urlFix = useMemo(() => {
+    if (!sources || !activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
+    const rows = rowsFromOtherEnvironments(findUnresolvedVariables(previewRequest, scopedEnv), environments, activeEnv.id);
+    if (rows.length === 0) return undefined;
+    return {
+      envName: activeEnv.name || t('httpWorkspace.environment.unnamed'),
+      onAdd: () => {
+        useWorkspaceToolStore.getState().updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...rows]);
+        const secret = rows.find((row) => row.secret);
+        if (secret) onManageEnvironment?.({ environmentId: activeEnv.id, variableId: secret.id });
+      },
+    };
+  }, [sources, activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
   const sendCurrentDraft = useCallback(() => {
     if (isExecuting || !urlState.ok) return;
     const draft = flushDraftBeforeSend();
@@ -345,7 +372,7 @@ export function HttpRequestEditor({
   const copyAs = useCallback(
     async (format: HttpCopyFormat) => {
       const draft = buildDraftRequest();
-      const masked = activeEnv ? maskSecretsForCapsule(draft, activeEnv) : draft;
+      const masked = scopedEnv ? maskSecretsForCapsule(draft, scopedEnv) : draft;
       const snippet =
         format === 'curl' ? buildCurlCommand(masked) : generateHttpCode(masked, format);
       const ok = await writeToClipboard(snippet);
@@ -356,7 +383,7 @@ export function HttpRequestEditor({
           : 'httpWorkspace.editor.copyCurl.failed',
       });
     },
-    [buildDraftRequest, activeEnv]
+    [buildDraftRequest, scopedEnv]
   );
 
   // Flush on unmount so an edit typed <500 ms before the editor
@@ -610,7 +637,8 @@ export function HttpRequestEditor({
           environments={environments}
           activeEnvironmentId={activeEnvironmentId}
           onSelect={onSelectEnvironment ?? (() => undefined)}
-          onManage={onManageEnvironment ?? (() => undefined)}
+          onManage={() => onManageEnvironment?.()}
+          {...(tint ? { tint } : {})}
         />
       </div>
 
@@ -648,7 +676,8 @@ export function HttpRequestEditor({
         </select>
         <HttpUrlField
           value={url}
-          env={activeEnv}
+          env={scopedEnv}
+          {...(sources ? { sources } : {})}
           placeholder={t(
             transport === 'websocket'
               ? 'httpWorkspace.editor.url.websocketPlaceholder'
@@ -670,14 +699,22 @@ export function HttpRequestEditor({
           {...(queue ? { queue } : {})}
           onSend={sendCurrentDraft}
           {...(onStop ? { onStop } : {})}
+          {...(tint ? { tint } : {})}
         />
       </div>
 
-      {urlState.ok ? null : <HttpUrlHint state={urlState} transport={transport} hasEnvironment={activeEnv !== null} />}
+      {urlState.ok ? null : (
+        <HttpUrlHint
+          state={urlState}
+          transport={transport}
+          hasEnvironment={activeEnv !== null}
+          {...(urlFix ? { fix: urlFix } : {})}
+        />
+      )}
 
       {/* Resolution preview beneath the
           URL. Resolved URL (secrets masked) + variable-state chips. */}
-      <HttpEnvironmentPreview request={previewRequest} env={activeEnv} />
+      <HttpEnvironmentPreview request={previewRequest} env={scopedEnv} {...(sources ? { sources } : {})} />
 
       <HttpRequestBuilderTabs
         method={method}
@@ -705,6 +742,15 @@ export function HttpRequestEditor({
         onAddAssertion={handleAddAssertion}
         onUpdateAssertion={handleUpdateAssertion}
         onRemoveAssertion={handleRemoveAssertion}
+        {...(sources
+          ? {
+              variables: {
+                rows: request.variables ?? [],
+                onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
+              },
+            }
+          : {})}
+        {...(tint ? { tint } : {})}
       />
     </div>
   );

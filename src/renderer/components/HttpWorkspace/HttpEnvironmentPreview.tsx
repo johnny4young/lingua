@@ -31,15 +31,21 @@ import { useTranslation } from 'react-i18next';
 import {
   findResolvedVariables,
   findUnresolvedVariables,
+  HTTP_COLLECTION_SCOPE_ID,
   maskSecretsForCapsule,
   type HttpEnvironmentV1,
+  type HttpVariableSource,
 } from '../../../shared/httpEnvironment';
+import '../../i18n/httpBuilderCatalog';
+import { SCOPE_TINTS, tintPill } from './httpScopeColors';
 import { buildAuthHeader } from '../../../shared/httpWorkspaceHeaders';
 import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 
 export interface HttpEnvironmentPreviewProps {
   request: HttpRequestV1;
   env: HttpEnvironmentV1 | null;
+  /** With variable scopes on: chips take their scope's colour and say where the value comes from. */
+  sources?: ReadonlyMap<string, HttpVariableSource>;
 }
 
 type ChipState = 'resolved' | 'secret' | 'unresolved';
@@ -47,6 +53,7 @@ type ChipState = 'resolved' | 'secret' | 'unresolved';
 export function HttpEnvironmentPreview({
   request,
   env,
+  sources,
 }: HttpEnvironmentPreviewProps) {
   const { t } = useTranslation();
 
@@ -91,7 +98,8 @@ export function HttpEnvironmentPreview({
 
   // Only render when there is something to show: an active env, the
   // request references at least one token, or an auth header is injected.
-  const hasContent = env !== null || chips.length > 0 || authHeader !== null;
+  // The collection's own view is not an active environment, so alone it shows nothing.
+  const hasContent = (env !== null && env.id !== HTTP_COLLECTION_SCOPE_ID) || chips.length > 0 || authHeader !== null;
   if (!hasContent) return null;
 
   return (
@@ -130,9 +138,17 @@ export function HttpEnvironmentPreview({
           {chips.map((chip) => {
             const isUnresolved = chip.state === 'unresolved';
             const isSecret = chip.state === 'secret';
+            const source = isUnresolved ? undefined : sources?.get(chip.key);
+            const origin = source
+              ? t(source.overrides.length > 0 ? 'httpWorkspace.scope.fromOverrides' : 'httpWorkspace.scope.from', {
+                  scope: t(`httpWorkspace.scope.${source.scope}`),
+                  overridden: source.overrides.map((scope) => t(`httpWorkspace.scope.${scope}`)).join(', '),
+                })
+              : undefined;
             return (
               <span
                 key={`${chip.state}:${chip.key}`}
+                {...(source ? { 'data-scope': source.scope, title: origin, style: tintPill(SCOPE_TINTS[source.scope]) } : {})}
                 data-testid={
                   isUnresolved
                     ? 'http-environment-preview-chip-unresolved'
@@ -147,6 +163,7 @@ export function HttpEnvironmentPreview({
                 }
               >
                 <span>{chip.key}</span>
+                {origin ? <span className="sr-only">{origin}</span> : null}
                 {isSecret ? (
                   <span className="rounded-sm bg-bg-panel px-1 text-nano font-semibold uppercase tracking-wide text-fg-subtle">
                     {t('httpWorkspace.environment.preview.secretBadge')}

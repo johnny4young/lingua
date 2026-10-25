@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { splitVariableTokens, type HttpEnvironmentV1, type HttpUrlState } from '../../../shared/httpEnvironment';
+import {
+  splitVariableTokens,
+  type HttpEnvironmentV1,
+  type HttpUrlState,
+  type HttpVariableSource,
+} from '../../../shared/httpEnvironment';
 import type { HttpTransportKind } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 import '../../i18n/httpBuilderCatalog';
+import { SCOPE_TINTS, tintPill, UNRESOLVED_TINT } from './httpScopeColors';
 
 export const URL_HINT_ID = 'http-request-editor-url-hint';
 
@@ -12,10 +18,13 @@ export function HttpUrlHint({
   state,
   transport,
   hasEnvironment,
+  fix,
 }: {
   state: Exclude<HttpUrlState, { ok: true }>;
   transport: HttpTransportKind;
   hasEnvironment: boolean;
+  /** Another environment defines what is missing: one click copies it into the active one. */
+  fix?: { envName: string; onAdd: () => void };
 }) {
   const { t } = useTranslation();
   const text =
@@ -27,6 +36,16 @@ export function HttpUrlHint({
   return (
     <p id={URL_HINT_ID} data-testid="http-request-editor-url-hint" className="-mt-1 shrink-0 text-caption text-fg-subtle">
       {text}
+      {fix ? (
+        <button
+          type="button"
+          data-testid="http-request-editor-url-hint-add"
+          onClick={fix.onAdd}
+          className="focus-ring ml-2 rounded-sm font-medium text-accent-fg underline-offset-2 hover:underline"
+        >
+          {t('httpWorkspace.environment.unresolved.addTo', { env: fix.envName })}
+        </button>
+      ) : null}
     </p>
   );
 }
@@ -34,6 +53,8 @@ export function HttpUrlHint({
 export interface HttpUrlFieldProps {
   value: string;
   env: HttpEnvironmentV1 | null;
+  /** With variable scopes on: each token takes the colour of the scope that resolves it. */
+  sources?: ReadonlyMap<string, HttpVariableSource>;
   placeholder: string;
   ariaLabel: string;
   describedBy?: string;
@@ -47,9 +68,10 @@ const TEXT = 'px-3 font-mono text-body-sm';
 /**
  * The URL input. With `{{tokens}}` in it, the text is drawn by a layer behind
  * a transparent input, which keeps native editing and highlights each token:
- * accent when the environment defines it, red when it does not.
+ * accent when the environment defines it, red when it does not, or with
+ * variable scopes on, the colour of the scope that resolves it.
  */
-export function HttpUrlField({ value, env, placeholder, ariaLabel, describedBy, onChange, onPaste }: HttpUrlFieldProps) {
+export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, describedBy, onChange, onPaste }: HttpUrlFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
   const pieces = useMemo(() => splitVariableTokens(value), [value]);
@@ -82,10 +104,23 @@ export function HttpUrlField({ value, env, placeholder, ariaLabel, describedBy, 
           data-testid="http-request-editor-url-mirror"
           className={cn(TEXT, 'pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-fg-base')}
         >
-          {pieces.map((piece, index) =>
-            piece.key === undefined ? (
-              <span key={index}>{piece.text}</span>
-            ) : (
+          {pieces.map((piece, index) => {
+            if (piece.key === undefined) return <span key={index}>{piece.text}</span>;
+            if (sources) {
+              const scope = sources.get(piece.key)?.scope;
+              return (
+                <span
+                  key={index}
+                  data-testid="http-request-editor-url-token"
+                  data-state={scope ?? 'missing'}
+                  className="rounded-sm"
+                  style={tintPill(scope ? SCOPE_TINTS[scope] : UNRESOLVED_TINT)}
+                >
+                  {piece.text}
+                </span>
+              );
+            }
+            return (
               <span
                 key={index}
                 data-testid="http-request-editor-url-token"
@@ -94,8 +129,8 @@ export function HttpUrlField({ value, env, placeholder, ariaLabel, describedBy, 
               >
                 {piece.text}
               </span>
-            )
-          )}
+            );
+          })}
           {/* Lets the layer scroll as far as the input when the caret sits at the end. */}
           <span> </span>
         </div>

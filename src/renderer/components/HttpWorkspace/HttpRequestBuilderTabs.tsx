@@ -20,6 +20,9 @@ import { HttpAssertionsTab } from './HttpAssertionsTab';
 import { HttpAuthTab } from './HttpAuthTab';
 import { HttpCaptureTab } from './HttpCaptureTab';
 import { HttpParamsTab } from './HttpParamsTab';
+import { HttpVariableList } from './HttpVariableList';
+import type { HttpTint } from './httpScopeColors';
+import type { HttpEnvVariableV1 } from '../../../shared/httpEnvironment';
 
 export type HttpRequestBuilderTab =
   | 'params'
@@ -27,7 +30,8 @@ export type HttpRequestBuilderTab =
   | 'headers'
   | 'body'
   | 'capture'
-  | 'assert';
+  | 'assert'
+  | 'vars';
 
 interface HttpRequestBuilderTabsProps {
   readonly method: HttpMethod;
@@ -55,6 +59,13 @@ interface HttpRequestBuilderTabsProps {
   readonly onAddAssertion: () => void;
   readonly onUpdateAssertion: (index: number, patch: Partial<HttpAssertion>) => void;
   readonly onRemoveAssertion: (index: number) => void;
+  /** With variable scopes on: this request's own variables, shown in a Vars tab. */
+  readonly variables?: {
+    readonly rows: readonly HttpEnvVariableV1[];
+    readonly onUpdate: (updater: (rows: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]) => void;
+  };
+  /** The active environment's colour, drawn as the tab strip's bottom line. */
+  readonly tint?: HttpTint;
 }
 
 export function HttpRequestBuilderTabs({
@@ -83,6 +94,8 @@ export function HttpRequestBuilderTabs({
   onAddAssertion,
   onUpdateAssertion,
   onRemoveAssertion,
+  variables,
+  tint,
 }: HttpRequestBuilderTabsProps) {
   const { t } = useTranslation();
   const supportsBody =
@@ -134,13 +147,17 @@ export function HttpRequestBuilderTabs({
       label: t('httpWorkspace.editor.tab.assert'),
       ...(enabledAssertionCount > 0 ? { badge: String(enabledAssertionCount) } : {}),
     });
+    if (variables) {
+      const count = variables.rows.filter((row) => row.key.length > 0).length;
+      tabs.push({ id: 'vars', label: t('httpWorkspace.editor.tab.vars'), ...(count > 0 ? { badge: String(count) } : {}) });
+    }
     return tabs;
-  }, [assertions, authKind, bodyKind, captures, headers, params, supportsBody, t]);
+  }, [assertions, authKind, bodyKind, captures, headers, params, supportsBody, t, variables]);
 
   // A method switch can remove the Body tab. Derive the fallback during
   // render so the editor never flashes an empty pane or needs a reset effect.
   const effectiveTab: HttpRequestBuilderTab =
-    activeTab === 'body' && !supportsBody ? 'params' : activeTab;
+    (activeTab === 'body' && !supportsBody) || (activeTab === 'vars' && !variables) ? 'params' : activeTab;
 
   return (
     <>
@@ -149,6 +166,7 @@ export function HttpRequestBuilderTabs({
         aria-label={t('httpWorkspace.editor.tabs.ariaLabel')}
         data-testid="http-request-editor-tabs"
         className="flex shrink-0 items-center gap-1 border-b border-border-subtle pb-1.5"
+        {...(tint ? { 'data-tinted': true, style: { borderBottomColor: tint.line } } : {})}
       >
         {builderTabs.map(tab => {
           const isActive = tab.id === effectiveTab;
@@ -190,6 +208,13 @@ export function HttpRequestBuilderTabs({
         ) : null}
 
         {effectiveTab === 'auth' ? <HttpAuthTab auth={auth} onChange={onAuthChange} /> : null}
+
+        {effectiveTab === 'vars' && variables ? (
+          <section data-testid="http-request-editor-vars" className="flex flex-col gap-2">
+            <p className="text-caption text-fg-subtle">{t('httpWorkspace.editor.vars.hint')}</p>
+            <HttpVariableList variables={variables.rows} onUpdate={variables.onUpdate} />
+          </section>
+        ) : null}
 
         {effectiveTab === 'headers' ? (
           <section data-testid="http-request-editor-headers">
