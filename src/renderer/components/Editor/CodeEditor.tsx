@@ -42,6 +42,8 @@ import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
 import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
+import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
+import { useErrorLineMarks } from '../../hooks/useErrorLineMarks';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 
 configureMonaco();
@@ -194,6 +196,7 @@ export function CodeEditor() {
     language: activeTab?.language,
     toggleAriaLabel: (line, modes) => t(modes ? 'debugger.gutter.toggleModes' : 'debugger.gutter.togglePauseOnly', { line }),
   });
+  useErrorLineMarks(editorInstance, monacoInstance);
   // Listen for editor.highlightLine commands
   // emitted by `<OutputLineBadge>` on hover, apply the
   // `lingua-highlight-flash` decoration to the hinted line, and
@@ -487,6 +490,7 @@ export function CodeEditor() {
           lineTimings={lineTimings}
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <ErrorLineRowHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} language={activeTab?.language} />
       </div>
       <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />
     </div>
