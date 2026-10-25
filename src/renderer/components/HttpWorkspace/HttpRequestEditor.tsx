@@ -67,7 +67,7 @@ import { HttpTransportSelect } from './HttpTransportSelect';
 import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
 import { HttpSendButton, type HttpSendQueue } from './HttpSendButton';
 import { ENVIRONMENT_TINTS } from './httpScopeColors';
-import { rowsFromOtherEnvironments, useScopedEnvironment } from './httpScopes';
+import { rowsFromOtherEnvironments, useScopedEnvironment, type HttpEnvironmentFocus } from './httpScopes';
 import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
 import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
 
@@ -97,7 +97,8 @@ export interface HttpRequestEditorProps {
   environments?: ReadonlyArray<HttpEnvironmentV1>;
   activeEnvironmentId?: string | null;
   onSelectEnvironment?: (id: string | null) => void;
-  onManageEnvironment?: () => void;
+  /** Open the environment manager, optionally on one row to fill in. */
+  onManageEnvironment?: (focus?: HttpEnvironmentFocus) => void;
   /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
   captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
   /** Offline queue state for this request; absent where sends never queue. */
@@ -338,9 +339,13 @@ export function HttpRequestEditor({
     if (rows.length === 0) return undefined;
     return {
       envName: activeEnv.name || t('httpWorkspace.environment.unnamed'),
-      onAdd: () => useWorkspaceToolStore.getState().updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...rows]),
+      onAdd: () => {
+        useWorkspaceToolStore.getState().updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...rows]);
+        const secret = rows.find((row) => row.secret);
+        if (secret) onManageEnvironment?.({ environmentId: activeEnv.id, variableId: secret.id });
+      },
     };
-  }, [sources, activeEnv, urlState, previewRequest, scopedEnv, environments, t]);
+  }, [sources, activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
   const sendCurrentDraft = useCallback(() => {
     if (isExecuting || !urlState.ok) return;
     const draft = flushDraftBeforeSend();
@@ -632,7 +637,7 @@ export function HttpRequestEditor({
           environments={environments}
           activeEnvironmentId={activeEnvironmentId}
           onSelect={onSelectEnvironment ?? (() => undefined)}
-          onManage={onManageEnvironment ?? (() => undefined)}
+          onManage={() => onManageEnvironment?.()}
           {...(tint ? { tint } : {})}
         />
       </div>

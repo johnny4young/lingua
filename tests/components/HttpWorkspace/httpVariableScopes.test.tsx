@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -139,6 +139,21 @@ describe('environment manager with scopes', () => {
     expect((tab.querySelector('span') as HTMLElement).style.backgroundColor).toBe(ENVIRONMENT_TINTS.red.line);
   });
 
+  it('opens on the row to fill in with its value field focused', async () => {
+    render(
+      <HttpEnvironmentManager
+        {...props({
+          environments: [env('e1', 'prod', [v('p1', 'base', 'x')]), env('e2', 'staging', [v('s1', 'token', '', true)])],
+          focus: { environmentId: 'e2', variableId: 's1' },
+          scopes: { collectionVariables: [], onUpdateCollection: vi.fn() },
+        })}
+      />
+    );
+    await waitFor(() => expect(document.activeElement?.getAttribute('data-testid')).toBe('http-environment-var-value'));
+    expect(document.activeElement?.getAttribute('type')).toBe('password');
+    expect(screen.getByRole('tab', { name: 'staging' }).getAttribute('aria-selected')).toBe('true');
+  });
+
   it('shows neither the collection nor colours without scopes', () => {
     render(<HttpEnvironmentManager {...props()} />);
     expect(screen.queryByTestId('http-environment-collection-tab')).toBeNull();
@@ -199,7 +214,7 @@ describe('request Vars tab and tint', () => {
 });
 
 describe('scope helpers', () => {
-  it('copies the first definition from another environment, keeping secrets secret', () => {
+  it('copies the first definition from another environment, and a secret as its key only', () => {
     const environments = [
       env('prod', 'prod'),
       env('stg', 'staging', [v('s1', 'pageSize', '50'), v('s2', 'token', 'x', true)]),
@@ -208,7 +223,7 @@ describe('scope helpers', () => {
     const rows = rowsFromOtherEnvironments(['pageSize', 'token', 'nowhere', 'blank'], environments, 'prod');
     expect(rows.map(({ key, value, secret }) => ({ key, value, secret }))).toEqual([
       { key: 'pageSize', value: '50', secret: false },
-      { key: 'token', value: 'x', secret: true },
+      { key: 'token', value: '', secret: true },
     ]);
     expect(rows[0]!.id).not.toBe('s1');
   });

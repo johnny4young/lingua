@@ -1075,7 +1075,7 @@ describe('HttpWorkspacePanel — variable scopes', () => {
     await waitFor(() => expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(false));
   });
 
-  it('offers Add to in the blocked-send notice for a header value, copying a secret as secret', async () => {
+  it('offers Add to in the blocked-send notice, bringing a secret as its key and opening it to fill in', async () => {
     twoEnvironments();
     const seeded = {
       ...createBlankHttpRequest({ id: 'h1', now: NOW }),
@@ -1091,6 +1091,9 @@ describe('HttpWorkspacePanel — variable scopes', () => {
     expect(action).toMatchObject({ labelKey: 'httpWorkspace.environment.unresolved.addTo', labelValues: { env: 'prod' } });
     expect(executeHttpRequestMock).not.toHaveBeenCalled();
     action.onClick();
-    expect(prodRows()).toContainEqual({ key: 'token', value: 'stg-secret', secret: true });
+    expect(prodRows()).toContainEqual({ key: 'token', value: '', secret: true });
+    expect(JSON.stringify(useWorkspaceToolStore.getState().environments.find((env) => env.id === 'prod'))).not.toContain('stg-secret');
+    await waitFor(() => expect(document.activeElement?.getAttribute('type')).toBe('password'));
+    expect(screen.getByTestId('http-environment-manager')).toBeTruthy();
   });
 });

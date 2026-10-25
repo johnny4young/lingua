@@ -47,7 +47,12 @@ import { HttpResponsePreview } from './HttpResponsePreview';
 import type { JsonSegment } from './httpJsonTreeModel';
 import type { HttpCaptureTarget } from './useHttpTreeCapture';
 import { useHttpOfflineSend } from './useHttpOfflineSend';
-import { httpScopesEnabled, rowsFromOtherEnvironments, scopedEnvironmentFor } from './httpScopes';
+import {
+  httpScopesEnabled,
+  rowsFromOtherEnvironments,
+  scopedEnvironmentFor,
+  type HttpEnvironmentFocus,
+} from './httpScopes';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -141,6 +146,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const environments = useWorkspaceToolStore(state => state.environments);
   const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
+  const [managerFocus, setManagerFocus] = useState<HttpEnvironmentFocus | null>(null);
   const [isPipelineManagerOpen, setIsPipelineManagerOpen] = useState(false);
   const [pipelineRun, setPipelineRun] = useState<HttpPipelineRunSnapshot | null>(null);
   const pipelineRunningRef = useRef(false);
@@ -323,7 +329,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                   {
                     labelKey: 'httpWorkspace.environment.unresolved.addTo',
                     labelValues: { env: activeEnv.name || t('httpWorkspace.environment.unnamed') },
-                    onClick: () => tools.updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...fix]),
+                    onClick: () => {
+                      tools.updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...fix]);
+                      const secret = fix.find((row) => row.secret);
+                      if (secret) {
+                        setManagerFocus({ environmentId: activeEnv.id, variableId: secret.id });
+                        setIsManagerOpen(true);
+                      }
+                    },
                   },
                 ],
               }
@@ -581,7 +594,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().setActiveEnvironment(id);
   }, []);
 
-  const handleManageEnvironment = useCallback(() => {
+  const handleManageEnvironment = useCallback((focus?: HttpEnvironmentFocus) => {
+    setManagerFocus(focus ?? null);
     setIsManagerOpen(true);
   }, []);
 
@@ -663,6 +677,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         <HttpEnvironmentManager
           environments={environments}
           onClose={() => setIsManagerOpen(false)}
+          focus={managerFocus}
           onCreate={env => useWorkspaceToolStore.getState().createEnvironment(env)}
           onUpdate={(id, patch) => useWorkspaceToolStore.getState().updateEnvironment(id, patch)}
           onUpdateVariables={(id, updater) =>

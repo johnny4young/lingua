@@ -139,14 +139,14 @@ test('resolves collection, environment and request variables and copies a missin
     updatedAt: NOW,
   });
   await openBuilder(page, 'en', {
-    environments: [env('prod', 'prod', [['base', API]]), env('stg', 'staging', [['pageSize', '50']])],
+    environments: [env('prod', 'prod', [['base', API]]), { ...env('stg', 'staging', [['pageSize', '50']]), variables: [...env('stg', 'staging', [['pageSize', '50']]).variables, { id: 'stg-t', key: 'token', value: 'stg-only', secret: true }] }],
     activeEnvironmentId: 'prod',
   });
   const sent: string[] = [];
   page.on('request', (request) => {
     if (request.url().startsWith(API)) sent.push(request.url());
   });
-  await page.getByTestId('http-request-editor-url').fill('{{base}}/repos/{{owner}}?per_page={{pageSize}}');
+  await page.getByTestId('http-request-editor-url').fill('{{base}}/repos/{{owner}}?per_page={{pageSize}}&t={{token}}');
 
   await page.getByTestId('http-environment-manage').click();
   await page.getByTestId('http-environment-collection-tab').click();
@@ -157,16 +157,25 @@ test('resolves collection, environment and request variables and copies a missin
   await page.keyboard.press('Escape');
 
   const tokens = page.getByTestId('http-request-editor-url-token');
-  await expect(tokens).toHaveCount(3);
+  await expect(tokens).toHaveCount(4);
   await expect(tokens.nth(0)).toHaveAttribute('data-state', 'environment');
   await expect(tokens.nth(1)).toHaveAttribute('data-state', 'collection');
   await expect(tokens.nth(2)).toHaveAttribute('data-state', 'missing');
+  await expect(tokens.nth(3)).toHaveAttribute('data-state', 'missing');
   const send = page.getByTestId('http-request-editor-send');
   await expect(send).toBeDisabled();
   await expect(send).toHaveAttribute('data-tinted', 'true');
 
+  // The secret comes over as its key only, and the manager opens on it to type this environment's value.
   await page.getByTestId('http-request-editor-url-hint-add').click();
+  const focused = page.locator(':focus');
+  await expect(focused).toHaveAttribute('data-testid', 'http-environment-var-value');
+  await expect(focused).toHaveAttribute('type', 'password');
+  await expect(focused).toHaveValue('');
+  await page.keyboard.insertText('prod-token');
+  await page.keyboard.press('Escape');
   await expect(tokens.nth(2)).toHaveAttribute('data-state', 'environment');
+  await expect(tokens.nth(3)).toHaveAttribute('data-state', 'environment');
   await page.getByTestId('http-request-editor-tab-vars').click();
   const vars = page.getByTestId('http-request-editor-vars');
   await vars.getByTestId('http-environment-var-add').click();
@@ -176,5 +185,6 @@ test('resolves collection, environment and request variables and copies a missin
 
   await send.click();
   await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
-  expect(sent).toContain(`${API}/repos/hubot?per_page=50`);
+  expect(sent).toContain(`${API}/repos/hubot?per_page=50&t=prod-token`);
+  expect(sent.join(' ')).not.toContain('stg-only');
 });

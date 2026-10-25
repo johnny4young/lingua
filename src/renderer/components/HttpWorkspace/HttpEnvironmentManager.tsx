@@ -44,6 +44,7 @@ import {
   type HttpEnvVariableV1,
 } from '../../../shared/httpEnvironment';
 import { ENVIRONMENT_TINTS } from './httpScopeColors';
+import type { HttpEnvironmentFocus } from './httpScopes';
 import { HttpVariableList } from './HttpVariableList';
 
 type VariablesUpdater = (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[];
@@ -81,6 +82,8 @@ export interface HttpEnvironmentManagerProps {
     collectionVariables: ReadonlyArray<HttpEnvVariableV1>;
     onUpdateCollection: (updater: VariablesUpdater) => void;
   };
+  /** Opens on this environment with the row's value field focused. */
+  focus?: HttpEnvironmentFocus | null;
 }
 
 export function HttpEnvironmentManager({
@@ -94,6 +97,7 @@ export function HttpEnvironmentManager({
   onExport,
   onImport,
   scopes,
+  focus,
 }: HttpEnvironmentManagerProps) {
   const { t } = useTranslation();
   const titleId = useId();
@@ -102,7 +106,7 @@ export function HttpEnvironmentManager({
   // falls back gracefully when the list changes (the resolved selection
   // is derived during render, never stored stale).
   const [selectedId, setSelectedId] = useState<string | null>(
-    environments[0]?.id ?? (scopes ? HTTP_COLLECTION_SCOPE_ID : null)
+    focus?.environmentId ?? environments[0]?.id ?? (scopes ? HTTP_COLLECTION_SCOPE_ID : null)
   );
   const collectionSelected = scopes !== undefined && (selectedId === HTTP_COLLECTION_SCOPE_ID || environments.length === 0);
   const selected = collectionSelected
@@ -388,6 +392,7 @@ export function HttpEnvironmentManager({
               <HttpVariableList
                 variables={selected.variables}
                 onUpdate={(updater) => onUpdateVariables(selected.id, updater)}
+                {...(focus?.environmentId === selected.id ? { focusId: focus.variableId } : {})}
               />
             </section>
           ) : null}

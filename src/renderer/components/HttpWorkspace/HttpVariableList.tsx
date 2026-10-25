@@ -5,6 +5,7 @@
  */
 
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
@@ -17,12 +18,14 @@ type VariablesUpdater = (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnv
 export interface HttpVariableListProps {
   variables: ReadonlyArray<HttpEnvVariableV1>;
   onUpdate: (updater: VariablesUpdater) => void;
+  /** Row whose value field takes focus when the list opens. */
+  focusId?: string;
 }
 
 const FIELD_CLASS =
   'h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none';
 
-export function HttpVariableList({ variables, onUpdate }: HttpVariableListProps) {
+export function HttpVariableList({ variables, onUpdate, focusId }: HttpVariableListProps) {
   const { t } = useTranslation();
 
   const patchRow = (rowId: string, patch: Partial<HttpEnvVariableV1>): void =>
@@ -71,6 +74,7 @@ export function HttpVariableList({ variables, onUpdate }: HttpVariableListProps)
               <HttpVariableRow
                 key={variable.id}
                 variable={variable}
+                focusValue={variable.id === focusId}
                 onKeyChange={(nextKey) => changeKey(variable.id, nextKey)}
                 onValueChange={(value) => patchRow(variable.id, { value })}
                 onSecretChange={(secret) => patchRow(variable.id, { secret })}
@@ -90,6 +94,7 @@ export function HttpVariableList({ variables, onUpdate }: HttpVariableListProps)
 
 interface HttpVariableRowProps {
   variable: HttpEnvVariableV1;
+  focusValue: boolean;
   onKeyChange: (nextKey: string) => void;
   onValueChange: (value: string) => void;
   onSecretChange: (secret: boolean) => void;
@@ -97,8 +102,13 @@ interface HttpVariableRowProps {
 }
 
 /** One sortable row; keyboard-reorderable per dnd-kit defaults (focus the handle, Space, arrows). */
-function HttpVariableRow({ variable, onKeyChange, onValueChange, onSecretChange, onRemove }: HttpVariableRowProps) {
+function HttpVariableRow({ variable, focusValue, onKeyChange, onValueChange, onSecretChange, onRemove }: HttpVariableRowProps) {
   const { t } = useTranslation();
+  const valueRef = useRef<HTMLInputElement>(null);
+  // Runs before the modal's own initial focus, which keeps focus already inside it.
+  useEffect(() => {
+    if (focusValue) valueRef.current?.focus();
+  }, [focusValue]);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: variable.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
@@ -125,6 +135,7 @@ function HttpVariableRow({ variable, onKeyChange, onValueChange, onSecretChange,
         className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
       />
       <input
+        ref={valueRef}
         type={variable.secret ? 'password' : 'text'}
         value={variable.value}
         onChange={(event) => onValueChange(event.target.value)}

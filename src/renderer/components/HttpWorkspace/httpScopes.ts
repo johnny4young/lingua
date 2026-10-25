@@ -29,9 +29,17 @@ export function scopedEnvironmentFor(request: ScopedRequest, env: HttpEnvironmen
   return layeredEnvironment(layers(request, env, useWorkspaceToolStore.getState().collectionVariables));
 }
 
+/** A variable row of an environment, for opening the manager on it. */
+export interface HttpEnvironmentFocus {
+  readonly environmentId: string;
+  readonly variableId: string;
+}
+
 /**
  * Rows the other environments define for keys the active one lacks, first
- * environment in list order winning, as fresh rows ready to append.
+ * environment in list order winning, as fresh rows ready to append. A secret
+ * comes over as its key only: a credential belongs to one environment, so the
+ * user types the one for this environment.
  */
 export function rowsFromOtherEnvironments(
   keys: readonly string[],
@@ -42,10 +50,10 @@ export function rowsFromOtherEnvironments(
   for (const key of keys) {
     for (const env of environments) {
       if (env.id === activeId) continue;
-      // An empty value is no definition, like a secret the vault has not filled in yet.
-      const found = [...env.variables].reverse().find((variable) => variable.key === key && variable.value !== '');
+      // An empty plain value is no definition.
+      const found = [...env.variables].reverse().find((variable) => variable.key === key && (variable.secret || variable.value !== ''));
       if (found) {
-        rows.push(createEnvVariable({ key, value: found.value, secret: found.secret }));
+        rows.push(createEnvVariable({ key, value: found.secret ? '' : found.value, secret: found.secret }));
         break;
       }
     }
