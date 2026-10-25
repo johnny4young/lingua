@@ -11,9 +11,8 @@ import {
   answerLanguageFor,
   buildExplainErrorRequest,
   redactSecretsFromCode,
-  MAX_EXPLAIN_CODE_CHARS,
-} from '../../src/shared/ai/explainError';
-import { FAKE_GITHUB_PAT } from './secret.fixtures';
+  MAX_EXPLAIN_CODE_CHARS, formatRuntimeValues } from '../../src/shared/ai/explainError';
+import { FAKE_GITHUB_PAT, FAKE_JWT } from './secret.fixtures';
 
 describe('redactSecretsFromCode', () => {
   it('masks a string assigned to a secret-looking identifier', () => {
@@ -165,5 +164,32 @@ describe('answer language', () => {
     expect(spanish.preview).toContain('Answer in: Spanish');
     const english = buildExplainErrorRequest({ errorMessage: 'TypeError', code: 'x.y', language: 'javascript' });
     expect(english.messages[1]!.content).not.toContain('Answer in:');
+  });
+});
+
+describe('runtime values', () => {
+  it('hides secret names, masks token values and caps each value', () => {
+    const { code, redactedCount } = formatRuntimeValues({
+      apiKey: 'plain-looking',
+      session: FAKE_JWT,
+      user: '{ id: 7,\n  profile: null }',
+      long: 'x'.repeat(300),
+    });
+    expect(code.split('\n')).toEqual([
+      'apiKey = <redacted>',
+      'session = <redacted>',
+      'user = { id: 7, profile: null }',
+      `long = ${'x'.repeat(200)}…`,
+    ]);
+    expect(redactedCount).toBe(2);
+  });
+
+  it('adds them to the payload and the preview only when given', () => {
+    const base = { errorMessage: 'TypeError: x', code: 'let user = null;', language: 'javascript' };
+    expect(buildExplainErrorRequest(base).preview).not.toContain('Runtime values');
+    const withValues = buildExplainErrorRequest({ ...base, runtimeValues: { user: 'null', token: 'abc' } });
+    expect(withValues.messages[1]!.content).toContain('Runtime values:\nuser = null\ntoken = <redacted>');
+    expect(withValues.preview).toContain('token = <redacted>');
+    expect(withValues.redactedCount).toBe(1);
   });
 });

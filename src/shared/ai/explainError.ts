@@ -39,6 +39,7 @@ const TOKEN_PATTERNS: readonly RegExp[] = [
   /xox[baprs]-[A-Za-z0-9-]{10,}/g, // Slack
   /AKIA[0-9A-Z]{16}/g, // AWS access key id
   /AIza[0-9A-Za-z_-]{30,}/g, // Google API key
+  /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, // JWT
 ];
 
 /** An assignment of a quoted string to an identifier: `NAME = "value"` / `NAME: 'value'`. */
@@ -108,6 +109,43 @@ export interface ExplainErrorInput {
   readonly redact?: boolean;
   /** Optional model id to request (provider-specific). */
   readonly model?: string;
+  /**
+   * Values the program last held, by name, sent only when the user ticks
+   * Include runtime values. Redacted and capped by `formatRuntimeValues`.
+   */
+  readonly runtimeValues?: Readonly<Record<string, string>>;
+}
+
+/** Most names, characters per value and characters overall sent as runtime values. */
+const MAX_RUNTIME_VALUES = 30;
+const MAX_RUNTIME_VALUE_CHARS = 200;
+const MAX_RUNTIME_VALUES_CHARS = 2000;
+
+/**
+ * `name = value` lines for the prompt: a secret-looking name hides its value,
+ * token-shaped values are masked, and each value and the whole block are capped.
+ */
+export function formatRuntimeValues(values: Readonly<Record<string, string>>): RedactionResult {
+  let redactedCount = 0;
+  const lines: string[] = [];
+  for (const [name, raw] of Object.entries(values).slice(0, MAX_RUNTIME_VALUES)) {
+    let value: string;
+    if (looksSecret(name)) {
+      redactedCount += 1;
+      value = REDACTED;
+    } else {
+      value = raw.replace(/\s+/g, ' ');
+      for (const pattern of TOKEN_PATTERNS) {
+        value = value.replace(pattern, () => {
+          redactedCount += 1;
+          return REDACTED;
+        });
+      }
+      if (value.length > MAX_RUNTIME_VALUE_CHARS) value = `${value.slice(0, MAX_RUNTIME_VALUE_CHARS)}…`;
+    }
+    lines.push(`${name} = ${value}`);
+  }
+  return { code: clip(lines.join('\n'), MAX_RUNTIME_VALUES_CHARS), redactedCount };
 }
 
 export interface ChatMessage {
@@ -171,6 +209,7 @@ export function buildExplainErrorRequest(
   const code = clip(redaction.code, MAX_EXPLAIN_CODE_CHARS);
   const errorMessage = clip(input.errorMessage, MAX_EXPLAIN_ERROR_CHARS);
   const fileLabel = input.filename ? ` (${input.filename})` : '';
+  const values = input.runtimeValues && Object.keys(input.runtimeValues).length > 0 ? formatRuntimeValues(input.runtimeValues) : null;
 
   const runtimeLine = input.runtimeNote
     ? `Runtime: ${input.runtimeNote}\n`
@@ -180,7 +219,8 @@ export function buildExplainErrorRequest(
     runtimeLine +
     answerLanguageLine(input.answerLanguage) +
     `\nError:\n${errorMessage}\n\n` +
-    `Code:\n\`\`\`${input.language}\n${code}\n\`\`\``;
+    `Code:\n\`\`\`${input.language}\n${code}\n\`\`\`` +
+    (values ? `\n\nRuntime values:\n${values.code}` : '');
 
   const messages: ChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -191,11 +231,12 @@ export function buildExplainErrorRequest(
     'The following will be sent to your configured AI endpoint:\n\n' +
     messages.map((m) => `[${m.role}]\n${m.content}`).join('\n\n');
 
+  const redactedCount = redaction.redactedCount + (values?.redactedCount ?? 0);
   const request: ExplainErrorRequest = {
     messages,
     preview,
-    redacted: redaction.redactedCount > 0,
-    redactedCount: redaction.redactedCount,
+    redacted: redactedCount > 0,
+    redactedCount,
   };
   return input.model ? { ...request, model: input.model } : request;
 }
