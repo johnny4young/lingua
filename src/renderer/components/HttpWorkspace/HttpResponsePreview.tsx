@@ -2,7 +2,7 @@
  * Right column: response preview.
  *
  * The shared `<ResultHeader>` carries status, `245 ms · 83 B` and the
- * Body / Headers / Raw tabs; the no-response and loading states use
+ * Body / Headers / Raw / Timing tabs (Snapshot with its Labs flag); the no-response and loading states use
  * `<EmptyState>`. Search, Wrap and Pretty sit in a row under the header.
  *
  * The Body view picks the renderer based on content-type:
@@ -145,7 +145,10 @@ export function HttpResponsePreview({
     () => (snapshots && response?.kind === 'success' ? suggestAssertions(response, assertions ?? []) : []),
     [snapshots, response, assertions]
   );
-  const [tab, setTab] = useState<PreviewTab>('body');
+  const [selectedTab, setTab] = useState<PreviewTab>('body');
+  const tab = selectedTab === 'snapshot' && !snapshots ? 'body' : selectedTab;
+  // The response whose snapshot diff was rejected, kept across tab switches.
+  const [rejectedAt, setRejectedAt] = useState<string | null>(null);
   // pretty/raw toggle.
   const [prettyJson, setPrettyJson] = useState<boolean>(true);
   // Off by default: long values scroll instead of wrapping back to column 0.
@@ -273,8 +276,8 @@ export function HttpResponsePreview({
         }
       />
 
-      {/* Assertion results strip. Only shown when the request has
-          enabled assertions; a green/red summary plus a per-row verdict. */}
+      {/* Results strip: shown when the request has enabled assertions or a
+          snapshot, which counts as one more check. */}
       {checkCount > 0 ? (
         <div
           data-testid="http-response-assertions"
@@ -536,7 +539,14 @@ export function HttpResponsePreview({
         ) : null}
 
         {tab === 'snapshot' && snapshots ? (
-          <HttpSnapshotPanel response={response} snapshot={snapshot} changes={changes} onChange={snapshots.onChange} />
+          <HttpSnapshotPanel
+            response={response}
+            snapshot={snapshot}
+            changes={changes}
+            onChange={snapshots.onChange}
+            rejected={rejectedAt === response.recordedAt}
+            onReject={() => setRejectedAt(response.recordedAt)}
+          />
         ) : null}
 
         {tab === 'timing' ? (

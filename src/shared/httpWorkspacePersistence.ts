@@ -13,6 +13,7 @@ import {
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
+  SNAPSHOT_MAX_BODY_BYTES,
   utf8ByteLength,
 } from './httpWorkspaceSchema';
 import type { HttpEnvVariableV1 } from './httpEnvironment';
@@ -490,6 +491,8 @@ function parseChainRules(value: Record<string, unknown>): Partial<Record<string,
 function parseSnapshot(value: unknown): HttpResponseSnapshot | null {
   if (!isRecord(value) || value.version !== 1) return null;
   if (typeof value.status !== 'number' || typeof value.body !== 'string' || typeof value.recordedAt !== 'string') return null;
+  if (!Number.isInteger(value.status) || value.status < 0 || value.status > 999 || !Number.isFinite(Date.parse(value.recordedAt))) return null;
+  if (utf8ByteLength(value.body) > SNAPSHOT_MAX_BODY_BYTES) return null;
   const scrubbers = value.scrubbers;
   if (!isRecord(scrubbers)) return null;
   const flags = ['timestamps', 'uuids', 'ids', 'hostname'] as const;

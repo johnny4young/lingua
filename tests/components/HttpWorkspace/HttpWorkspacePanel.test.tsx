@@ -1345,6 +1345,21 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
     await waitFor(() => expect(useWorkspaceToolStore.getState().requests[0]?.assertions).toHaveLength(1));
   });
 
+  it('offers the snapshot only on the newest response, whose body is kept', async () => {
+    const snapshot = { version: 1 as const, status: 200, body: '{"stars":12}', recordedAt: NOW, scrubbers: { timestamps: true, uuids: true, ids: true, hostname: false, regex: '' } };
+    const request = { ...createBlankHttpRequest({ id: 'r1', now: NOW }), url: 'https://api.example.com/repo', snapshot };
+    useWorkspaceToolStore.setState({
+      requests: [request],
+      activeRequestId: 'r1',
+      responsesByRequestId: { r1: [makeResponse({ body: '{"stars":12}' }), makeResponse({ body: '' })] },
+    });
+    render(<HttpWorkspacePanel />);
+    expect(screen.getByTestId('http-response-snapshot-row').dataset.pass).toBe('true');
+    await userEvent.click(screen.getAllByTestId('http-response-history-row')[1]!);
+    expect(screen.queryByTestId('http-response-snapshot-row')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Snapshot' })).toBeNull();
+  });
+
   it('fails a pipeline step whose response differs from its snapshot', async () => {
     const user = userEvent.setup();
     const store = useWorkspaceToolStore.getState();

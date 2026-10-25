@@ -59,6 +59,9 @@ describe('snapshot tab', () => {
     expect(screen.queryByTestId('http-snapshot-accept')).toBeNull();
     expect(screen.getByTestId('http-response-snapshot-row').dataset.pass).toBe('false');
     expect(onChange).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Body' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Snapshot' }));
+    expect(screen.queryByTestId('http-snapshot-accept')).toBeNull();
   });
 
   it('accepts a response as the new snapshot', async () => {
@@ -75,6 +78,8 @@ describe('snapshot tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'hostname' }));
     expect(onChange).toHaveBeenLastCalledWith({ ...baseline, scrubbers: { ...baseline.scrubbers, hostname: true } });
     fireEvent.change(screen.getByTestId('http-snapshot-regex'), { target: { value: 'v\\d+' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    fireEvent.blur(screen.getByTestId('http-snapshot-regex'));
     expect(onChange).toHaveBeenLastCalledWith({ ...baseline, scrubbers: { ...baseline.scrubbers, regex: 'v\\d+' } });
   });
 

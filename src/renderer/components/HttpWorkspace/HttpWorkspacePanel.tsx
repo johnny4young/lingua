@@ -228,6 +228,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     livePreview?.requestId === activeRequestId && isExecuting
       ? livePreview.response
       : activeHistory[safeHistoryIndex];
+  // Older history rows have no body left to compare or keep.
+  const snapshotsShown = snapshotsOn && safeHistoryIndex === 0;
 
   // SQL/HTTP MODEL rework — a new request is a row in the collection,
   // NOT a new editor tab. `createRequest` appends it and selects it (the
@@ -785,7 +787,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                 {...(activeRequest
                   ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }
                   : {})}
-                {...(activeRequest && snapshotsOn
+                {...(activeRequest && snapshotsShown
                   ? {
                       snapshots: {
                         snapshot: activeRequest.snapshot,

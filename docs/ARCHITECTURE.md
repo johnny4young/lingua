@@ -1530,8 +1530,8 @@ the response strip and fails a pipeline step.
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
-active environment fresh for each step, and stop after transport, HTTP, or
-assertion failure unless the saved pipeline says to continue. SSE and WebSocket
+active environment fresh for each step, and stop after transport, HTTP, assertion or (with `httpSnapshots`) snapshot
+failure unless the saved pipeline says to continue. SSE and WebSocket
 sessions are intentionally excluded because a long-lived connection has no
 deterministic next-step boundary.
 

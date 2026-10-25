@@ -91,6 +91,9 @@ export const MAX_REQUEST_BODY_BYTES = 1_048_576;
 /** Hard cap on the response body size. 4 MiB. */
 export const MAX_RESPONSE_BODY_BYTES = 4 * 1_048_576;
 
+/** The largest body a request snapshot keeps. */
+export const SNAPSHOT_MAX_BODY_BYTES = 256 * 1024;
+
 /** Live transports retain at most this many discrete messages per run. */
 export const MAX_STREAM_MESSAGES = 1_000;
 

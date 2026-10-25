@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/httpBuilderCatalog';
 import {
   DEFAULT_SNAPSHOT_SCRUBBERS,
+  isUsableScrubPattern,
   takeSnapshot,
   type SnapshotChange,
 } from '../../../shared/httpSnapshot';
@@ -24,22 +25,34 @@ export function HttpSnapshotPanel({
   snapshot,
   changes,
   onChange,
+  rejected,
+  onReject,
 }: {
   response: HttpResponseV1;
   snapshot: HttpResponseSnapshot | undefined;
   changes: readonly SnapshotChange[];
   onChange: (snapshot: HttpResponseSnapshot | undefined) => void;
+  /** Reject keeps the snapshot and the failure; it only closes the diff for this response. */
+  rejected: boolean;
+  onReject: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [now] = useState(() => Date.now());
-  // Reject keeps the snapshot and the failure; it only closes the diff for this response.
-  const [rejected, setRejected] = useState<string | null>(null);
   const scrubbers = snapshot?.scrubbers ?? DEFAULT_SNAPSHOT_SCRUBBERS;
-  const fresh = takeSnapshot(response, scrubbers);
+  const fresh = useMemo(() => takeSnapshot(response, scrubbers), [response, scrubbers]);
   const setScrubbers = (next: HttpSnapshotScrubbers) => {
     if (snapshot) onChange({ ...snapshot, scrubbers: next });
   };
-  const reviewing = snapshot !== undefined && changes.length > 0 && rejected !== response.recordedAt;
+  const [pattern, setPattern] = useState(scrubbers.regex);
+  const [storedPattern, setStoredPattern] = useState(scrubbers.regex);
+  if (storedPattern !== scrubbers.regex) {
+    setStoredPattern(scrubbers.regex);
+    setPattern(scrubbers.regex);
+  }
+  const commitPattern = () => {
+    if (pattern !== scrubbers.regex) setScrubbers({ ...scrubbers, regex: pattern });
+  };
+  const reviewing = snapshot !== undefined && changes.length > 0 && !rejected;
 
   return (
     <div data-testid="http-snapshot" data-state={!snapshot ? 'off' : changes.length > 0 ? 'changed' : 'matches'} className="flex flex-col gap-3">
@@ -66,7 +79,7 @@ export function HttpSnapshotPanel({
             <button
               type="button"
               data-testid="http-snapshot-reject"
-              onClick={() => setRejected(response.recordedAt)}
+              onClick={onReject}
               className="focus-ring rounded-md border border-border-subtle px-2 py-0.5 text-caption font-medium text-fg-base hover:bg-bg-inset"
             >
               {t('httpWorkspace.snapshot.reject')}
@@ -133,8 +146,14 @@ export function HttpSnapshotPanel({
             ))}
             <input
               type="text"
-              value={scrubbers.regex}
-              onChange={(event) => setScrubbers({ ...scrubbers, regex: event.target.value })}
+              value={pattern}
+              onChange={(event) => setPattern(event.target.value)}
+              // Committed on blur or Enter, so the diff is not recomputed on every keystroke.
+              onBlur={commitPattern}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commitPattern();
+              }}
+              aria-invalid={pattern.length > 0 && !isUsableScrubPattern(pattern)}
               placeholder={t('httpWorkspace.snapshot.scrubber.regex')}
               aria-label={t('httpWorkspace.snapshot.scrubber.regexLabel')}
               spellCheck={false}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SNAPSHOT_SCRUBBERS,
   SNAPSHOT_MAX_BODY_BYTES,
+  isUsableScrubPattern,
   scrubText,
   snapshotChanges,
   suggestAssertions,
@@ -73,14 +74,47 @@ describe('snapshot diff', () => {
     ]);
   });
 
+  it('diffs JSON nested past the depth limit by line instead of overflowing', () => {
+    const deep = (leaf: number) => '['.repeat(5000) + leaf + ']'.repeat(5000);
+    const base = takeSnapshot(response(deep(1)), DEFAULT_SNAPSHOT_SCRUBBERS)!;
+    expect(snapshotChanges(base, response(deep(2)))).toEqual([{ kind: 'changed', path: 'line 1', before: deep(1), after: deep(2) }]);
+  });
+
+  it('never lets a pattern that matches nothing at all fill the text', () => {
+    expect(scrubText('abc', { ...DEFAULT_SNAPSHOT_SCRUBBERS, regex: 'x*' })).toBe('abc');
+    expect(scrubText('x'.repeat(5000), { ...DEFAULT_SNAPSHOT_SCRUBBERS, regex: 'x' })).toBe('x'.repeat(5000));
+  });
+
+  it('counts one inserted text line as one change', () => {
+    const base = takeSnapshot(response('a\nb\nc', { contentType: 'text/plain' }), DEFAULT_SNAPSHOT_SCRUBBERS)!;
+    expect(snapshotChanges(base, response('new\na\nb\nc'))).toEqual([{ kind: 'added', path: 'line 1', after: 'new' }]);
+  });
+
+  it('scrubs id keys in any case', () => {
+    const base = takeSnapshot(response({ USER_ID: 1, requestID: 'a', userId: 2, id: 3 }), DEFAULT_SNAPSHOT_SCRUBBERS)!;
+    expect(snapshotChanges(base, response({ USER_ID: 9, requestID: 'b', userId: 8, id: 3 }))).toEqual([]);
+    expect(snapshotChanges(base, response({ USER_ID: 1, requestID: 'a', userId: 2, id: 4 }))).toHaveLength(1);
+  });
+
   it('uses a custom pattern and ignores one that does not compile', () => {
     expect(scrubText('order A-123 shipped', { ...DEFAULT_SNAPSHOT_SCRUBBERS, regex: 'A-\\d+' })).toBe('order ‹scrubbed› shipped');
     expect(scrubText('order A-123', { ...DEFAULT_SNAPSHOT_SCRUBBERS, regex: '(' })).toBe('order A-123');
   });
 
-  it('refuses a body larger than the cap', () => {
+  it('ignores custom patterns that could backtrack for long', () => {
+    for (const pattern of ['(a+)+$', '(a|aa)*', '(\\w+\\s?)*', '((ab)+)+', '((a+))+', '\\d*\\d*\\d*x', '(.)\\1', '(?<x>a)\\k<x>']) {
+      expect(isUsableScrubPattern(pattern), pattern).toBe(false);
+    }
+    for (const pattern of ['v\\d+', 'req-[a-z0-9+*]+', '(foo|bar)', '(ab)+', 'v\\d+\\.\\d+']) {
+      expect(isUsableScrubPattern(pattern), pattern).toBe(true);
+    }
+  });
+
+  it('refuses a body larger than the cap, here and when stored', () => {
     expect(takeSnapshot(response('x'.repeat(SNAPSHOT_MAX_BODY_BYTES + 1)), DEFAULT_SNAPSHOT_SCRUBBERS)).toBeNull();
     expect(takeSnapshot(response('{}', { tooLarge: true }), DEFAULT_SNAPSHOT_SCRUBBERS)).toBeNull();
+    const big = { version: 1, status: 200, body: 'x'.repeat(SNAPSHOT_MAX_BODY_BYTES + 1), recordedAt: NOW, scrubbers: DEFAULT_SNAPSHOT_SCRUBBERS };
+    expect(parseHttpRequest({ ...createBlankHttpRequest({ id: 'r', now: NOW }), snapshot: big })).not.toHaveProperty('snapshot');
   });
 });
 
@@ -96,6 +130,11 @@ describe('suggested assertions', () => {
       'body-json html_url equals https://github.com/octocat/janusly',
     ]);
   });
+
+  it('never suggests a field that looks like a secret', () => {
+    const paths = suggestAssertions(response({ access_token: 'eyJhbGciOi', apiKey: 'k', name: 'janusly' }), []).map((row) => row.path);
+    expect(paths).toEqual(['', 'content-type', 'name']);
+  });
 });
 
 describe('snapshot persistence', () => {
@@ -105,5 +144,7 @@ describe('snapshot persistence', () => {
     expect(parseHttpRequest(request)?.snapshot).toEqual(snapshot);
     expect(parseHttpRequest({ ...request, snapshot: { ...snapshot, scrubbers: { ...snapshot.scrubbers, ids: 'yes' } } })).not.toHaveProperty('snapshot');
     expect(parseHttpRequest({ ...request, snapshot: { ...snapshot, version: 2 } })).not.toHaveProperty('snapshot');
+    expect(parseHttpRequest({ ...request, snapshot: { ...snapshot, recordedAt: 'yesterday' } })).not.toHaveProperty('snapshot');
+    expect(parseHttpRequest({ ...request, snapshot: { ...snapshot, status: 200.5 } })).not.toHaveProperty('snapshot');
   });
 });
