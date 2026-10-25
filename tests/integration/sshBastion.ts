@@ -16,8 +16,16 @@ export interface Bastion {
   close: () => void;
 }
 
+/** An ed25519 host key ssh2 can load: its own keygen emits one it cannot parse about once in 250 tries. */
+export function generateHostKey(): { private: string; public: string } {
+  for (;;) {
+    const key = utils.generateKeyPairSync('ed25519');
+    if (!(utils.parseKey(key.private) instanceof Error)) return key;
+  }
+}
+
 export async function startBastion(): Promise<Bastion> {
-  const hostKey = utils.generateKeyPairSync('ed25519');
+  const hostKey = generateHostKey();
   const fingerprint = sshFingerprint(Buffer.from(hostKey.public.split(' ')[1]!, 'base64'));
   const forwarded: string[] = [];
   const signedIn = new Set<{ end: () => void }>();
