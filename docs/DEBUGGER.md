@@ -10,11 +10,24 @@
 
 The current implementation provides:
 
-- A red dot in the Monaco gutter whenever a breakpoint is set on the
-  current tab. Click an empty gutter cell to add a breakpoint; click
-  an existing dot to remove it. The keyboard path is `Mod+Shift+B`
-  (Cmd+Shift+B on macOS / Ctrl+Shift+B elsewhere) — toggles the
-  breakpoint at the cursor line without leaving the editor.
+- A mark in the Monaco gutter for each breakpoint on the current tab,
+  shaped by its mode. Click an empty gutter cell to add a breakpoint;
+  click an existing mark to remove it. Alt-click (Option-click on macOS)
+  adds a conditional breakpoint or moves a mark to its next mode (pause,
+  conditional, logpoint) in JavaScript and TypeScript; in Python, Go and
+  Rust it toggles a plain breakpoint and the mark's tooltip says why. The
+  keyboard path is `Mod+Shift+B` (Cmd+Shift+B on macOS / Ctrl+Shift+B
+  elsewhere) — toggles the breakpoint at the cursor line without leaving
+  the editor.
+- While paused, a step HUD sits in a row reserved under the paused line:
+  the paused line, Continue (F5), Step Over (F10), Step Into (F11), Step
+  Out (Shift+F11) and Run to end. It loads the first time execution pauses
+  and uses the same actions as the Debugger tab.
+- After a step, Locals mark the bindings that are new or changed since the
+  previous pause with an accent tint and a tag (a changed one shows its
+  previous value on hover), and keep the order they had. The line the step
+  came from shows up to three of those values inline. The Console ends with
+  a row naming the paused line and those values, with Open Debugger.
 - A **Debugger** tab in the resizable results dock. It appears once
   the active tab has a breakpoint or a live session, and Debug opens
   it automatically when a session attaches. It shares the dock's
@@ -68,9 +81,12 @@ active-file row has three modes:
   `{expression}` placeholders to include safe local values; use `{{` and `}}`
   for literal braces.
 
-The gutter distinguishes these modes: pause uses a circle, conditional uses a
-diamond in the danger color, and logpoint uses an amber diamond. Disabled
-markers retain their shape at lower opacity. Mode, condition, log message, and
+The gutter distinguishes these modes: pause is a solid red dot, conditional a
+hollow amber diamond and logpoint a hollow blue ring; the Breakpoints list uses
+the same marks. A disabled pause breakpoint is a hollow ring, and disabled
+conditional and logpoint marks fade. A conditional or logpoint made with
+Alt-click starts empty: an empty condition pauses fail-safe and says so, and an
+empty logpoint message logs a warning, until you fill them in the Debugger tab. Mode, condition, log message, and
 enabled state persist with the breakpoint.
 
 Native Python, Go, and Rust adapters support standard **Pause** breakpoints
@@ -113,8 +129,9 @@ and expression length, but users must evaluate only expressions they trust.
    - The session is attached and the bridge is registered.
 3. When the worker hits a yield matching an enabled breakpoint, the
    `paused` message is posted; the Debugger tab flips to the paused state
-   with locals + call stack + evaluated watches, Monaco highlights
-   the entire paused line in the danger color, and any console output
+   with locals + call stack + evaluated watches, Monaco tints the paused
+   line with the accent and marks it with an arrow beside the line number
+   (distinct from the red breakpoint dot), and any console output
    emitted before the pause is already visible in the dock's Console tab.
    The parent timeout is suspended until Continue / Step resumes the
    worker, so an intentional pause does not surface as a 30 s timeout.
@@ -316,7 +333,15 @@ second custom splitter, and the editor keeps its full width while paused.
 - `src/renderer/hooks/useBreakpointGutter.ts` — Monaco glyph-margin
   decorations + click-handler binding.
 - `src/renderer/components/Debugger/DebuggerDrawer.tsx` — breakpoint,
-  watch, paused-frame, locals, and call-stack orchestration.
+  watch, paused-frame, locals, and call-stack orchestration, loaded by
+  `DebuggerDrawerHost.tsx` when the Debugger tab opens.
+- `src/renderer/components/Debugger/DebuggerStepHud.tsx` — the step HUD in a
+  Monaco view zone under the paused line, loaded by `DebuggerStepHudHost.tsx`.
+- `src/renderer/components/Debugger/useDebuggerControls.ts` — resume, step and
+  run-to-end actions shared by the tab and the HUD.
+- `src/renderer/utils/debuggerLocals.ts` — what changed since the previous
+  pause and the stable locals order; the store keeps that pause per session
+  and tab.
 - `src/renderer/components/Debugger/DebuggerBreakpointList.tsx` — active-file
   mode, condition, logpoint, enabled-state, and removal controls.
 - `src/renderer/components/Debugger/DebuggerWatchList.tsx` — persistent watch
