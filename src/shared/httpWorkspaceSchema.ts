@@ -13,6 +13,14 @@
 import type { HttpEnvVariableV1 } from './httpEnvironment';
 
 /**
+ * How a chain tag gets its value when its request sends: `last` reads the
+ * source's latest response, `source-first` sends the source first, `stale`
+ * sends it first only when its latest response is older than five minutes.
+ */
+export const HTTP_CHAIN_RULES = ['last', 'source-first', 'stale'] as const;
+export type HttpChainRule = (typeof HTTP_CHAIN_RULES)[number];
+
+/**
  * Closed enum of HTTP methods Lingua supports. CONNECT and TRACE
  * are deliberately excluded — CONNECT is a proxy primitive (browser
  * fetch rejects it anyway) and TRACE is rarely used in modern APIs.
@@ -287,6 +295,8 @@ export interface HttpRequestV1 {
   timeoutMs?: number;
   /** Request-scoped variables; they win over the environment and the collection. */
   variables?: HttpEnvVariableV1[];
+  /** How each chain tag this request uses gets its value; absent means `last`. */
+  chainRules?: Partial<Record<string, HttpChainRule>>;
   /** ISO timestamp (millisecond precision). */
   createdAt: string;
   updatedAt: string;
