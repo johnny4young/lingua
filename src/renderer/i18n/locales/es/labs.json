@@ -1,0 +1,4 @@
+{
+  "settings.labs.flag.httpScopes.label": "Ámbitos de variables HTTP",
+  "settings.labs.flag.httpScopes.description": "Variables de colección y de request junto a los entornos, cada {{variable}} con el color del ámbito que la resuelve, y un color por entorno en la pestaña HTTP y en Enviar."
+}
