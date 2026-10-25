@@ -2,14 +2,13 @@ import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/httpBuilderCatalog';
-import { chainOrder, chainPasses, chainValue, type HttpChainTag } from '../../../shared/httpChain';
+import { capturersOf, chainOrder, chainPasses, chainValue, latestFor, requestLabel, type HttpChainTag } from '../../../shared/httpChain';
 import { HTTP_CHAIN_RULES, type HttpChainRule, type HttpRequestV1, type HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { formatRelativeTime } from '../../utils/timeLabels';
 import { ENVIRONMENT_TINTS, SCOPE_TINTS, tintPill } from './httpScopeColors';
 
 const EYEBROW = 'shrink-0 text-eyebrow font-semibold uppercase tracking-wide text-fg-subtle';
-const label = (request: HttpRequestV1) => request.name || request.url;
 
 /** The status badge of a node: green on 2xx, red otherwise, a dash before any response. */
 function StatusBadge({ response }: { response: HttpResponseV1 | undefined }) {
@@ -44,6 +43,7 @@ export function HttpChainSection({
   const { t } = useTranslation();
   const requests = useWorkspaceToolStore((state) => state.requests);
   const responses = useWorkspaceToolStore((state) => state.responsesByRequestId);
+  const environmentId = useWorkspaceToolStore((state) => state.activeEnvironmentId);
   const byId = useMemo(() => new Map(requests.map((entry) => [entry.id, entry])), [requests]);
   const { order, cycle } = useMemo(
     () => chainOrder(request.id, requests.map((entry) => (entry.id === request.id ? request : entry))),
@@ -51,18 +51,20 @@ export function HttpChainSection({
   );
   const open = tags.find((tag) => tag.key === openKey);
   const openSource = open ? byId.get(open.sourceId) : undefined;
+  const others = open ? capturersOf(open.key, requests).filter((entry) => entry.id !== open.sourceId && entry.id !== request.id) : [];
 
   return (
     <section data-testid="http-chain" className="flex shrink-0 flex-col gap-2 rounded-md border border-border-subtle px-2.5 py-1.5">
       {open && openSource ? (
         <HttpChainTagPanel
           // A new response remounts the panel, so its age counts from then.
-          key={`${open.key}:${responses[open.sourceId]?.[0]?.recordedAt ?? ''}`}
+          key={`${open.key}:${responses[open.sourceId]?.[0]?.recordedAt ?? ''}:${environmentId ?? ''}`}
           tag={open}
           request={request}
           source={openSource}
-          latest={responses[open.sourceId]?.[0]}
+          latest={latestFor(responses, open.sourceId, environmentId)}
           secret={secretKeys.has(open.key)}
+          others={others.map(requestLabel)}
           onClose={onClose}
         />
       ) : null}
@@ -81,7 +83,7 @@ export function HttpChainSection({
               <span key={id} data-testid="http-chain-node" data-request={id} className="inline-flex items-center gap-1.5">
                 {index > 0 ? <span className="text-fg-subtle" aria-hidden="true">→</span> : null}
                 <StatusBadge response={latest} />
-                <span className="text-fg-base">{label(node)}</span>
+                <span className="text-fg-base">{requestLabel(node)}</span>
                 <span className="font-mono text-micro tabular-nums text-fg-subtle">
                   {latest ? `${latest.durationMs} ms` : t('httpWorkspace.chain.waits')}
                 </span>
@@ -109,6 +111,7 @@ function HttpChainTagPanel({
   source,
   latest,
   secret,
+  others,
   onClose,
 }: {
   tag: HttpChainTag;
@@ -116,6 +119,8 @@ function HttpChainTagPanel({
   source: HttpRequestV1;
   latest: HttpResponseV1 | undefined;
   secret: boolean;
+  /** Other requests that also capture this variable; the tag reads the first in the list. */
+  others: readonly string[];
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -147,7 +152,12 @@ function HttpChainTagPanel({
       </button>
       <span className="text-fg-subtle">{t('httpWorkspace.chain.tag.source')}</span>
       <span data-testid="http-chain-tag-source" className="truncate font-mono text-fg-base">
-        {`${label(source)} · ${source.method} ${source.url}`}
+        {`${requestLabel(source)} · ${source.method} ${source.url}`}
+        {others.length > 0 ? (
+          <span data-testid="http-chain-tag-others" className="block font-sans text-fg-subtle">
+            {t('httpWorkspace.chain.tag.others', { names: others.join(', ') })}
+          </span>
+        ) : null}
       </span>
       <span className="text-fg-subtle">
         {t(tag.capture.source === 'body-json' ? 'httpWorkspace.chain.tag.path' : tag.capture.source === 'header' ? 'httpWorkspace.chain.tag.header' : 'httpWorkspace.chain.tag.status')}

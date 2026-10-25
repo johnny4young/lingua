@@ -233,7 +233,7 @@ test('chains a request to the response of another through a tag, sending the sou
 
   await page.getByTestId('http-chain-chip').click();
   await expect(page.getByTestId('http-chain-tag-source')).toContainText('List repos · GET');
-  await expect(page.getByTestId('http-chain-tag-preview')).toHaveText('No 2xx response yet');
+  await expect(page.getByTestId('http-chain-tag-preview')).toHaveText('No value: the latest response is missing or not 2xx');
   await page.getByRole('radio', { name: 'Send source first' }).click();
   await expect(send).toBeEnabled();
 

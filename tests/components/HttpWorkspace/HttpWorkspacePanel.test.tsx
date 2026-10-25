@@ -1201,6 +1201,66 @@ describe('HttpWorkspacePanel — chain tags', () => {
     await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, `${API}/repos/fresh/lingua`]));
   });
 
+  it('runs one chain at a time, with Send turned into Stop while its sources go out', async () => {
+    seed({ owner: 'source-first' });
+    let release: () => void = () => undefined;
+    executeHttpRequestMock.mockImplementation(async (outbound: { url: string }) => {
+      if (outbound.url.endsWith('/users/octocat/repos')) {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return repos('fresh');
+      }
+      return makeResponse({ url: outbound.url });
+    });
+    render(<HttpWorkspacePanel />);
+    // Two clicks in one tick reach the panel before React re-renders Send as Stop.
+    const sendButton = screen.getByTestId('http-request-editor-send');
+    fireEvent.click(sendButton);
+    fireEvent.click(screen.getByTestId('http-chain-run'));
+    await waitFor(() => expect(screen.queryByTestId('http-request-editor-stop')).not.toBeNull());
+    release();
+    await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, `${API}/repos/fresh/lingua`]));
+    expect(useUIStore.getState().statusNotice).toBeNull();
+  });
+
+  it('reports a stopped chain as information, not an error', async () => {
+    seed({ owner: 'source-first' });
+    executeHttpRequestMock.mockImplementation(async (_outbound, options) => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      if (options?.signal?.aborted) throw new Error('aborted');
+      return repos('fresh');
+    });
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await userEvent.click(await screen.findByTestId('http-request-editor-stop'));
+    await waitFor(() => expect(useUIStore.getState().statusNotice).toMatchObject({ tone: 'info', messageKey: 'httpWorkspace.chain.stopped' }));
+  });
+
+  it('does not read a response recorded under another environment', () => {
+    seed();
+    const env = (id: string) => ({ version: 1 as const, id, name: id, variables: [], createdAt: NOW, updatedAt: NOW });
+    useWorkspaceToolStore.setState({
+      environments: [env('prod'), env('stg')],
+      activeEnvironmentId: 'prod',
+      responsesByRequestId: { src: [repos('staging-owner', { environmentId: 'stg' })] },
+    });
+    render(<HttpWorkspacePanel />);
+    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('records the active environment on each response', async () => {
+    seed();
+    useWorkspaceToolStore.setState({
+      environments: [{ version: 1 as const, id: 'prod', name: 'prod', variables: [], createdAt: NOW, updatedAt: NOW }],
+      activeEnvironmentId: 'prod',
+      responsesByRequestId: { src: [repos('owner', { environmentId: 'prod' })] },
+    });
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(useWorkspaceToolStore.getState().responsesByRequestId.tgt?.[0]?.environmentId).toBe('prod'));
+  });
+
   it('leaves tags alone with the flag off', async () => {
     useSettingsStore.setState({ featureFlags: {} });
     seed({ owner: 'source-first' });

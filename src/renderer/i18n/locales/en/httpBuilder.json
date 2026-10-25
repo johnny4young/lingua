@@ -74,11 +74,13 @@
   "httpWorkspace.chain.tag.header": "Header",
   "httpWorkspace.chain.tag.status": "Status code",
   "httpWorkspace.chain.tag.preview": "Preview",
-  "httpWorkspace.chain.tag.none": "No 2xx response yet",
+  "httpWorkspace.chain.tag.none": "No value: the latest response is missing or not 2xx",
   "httpWorkspace.chain.tag.from": "from the response {{age}}",
   "httpWorkspace.chain.tag.when": "When sending",
   "httpWorkspace.chain.rule.last": "Use last response",
   "httpWorkspace.chain.rule.source-first": "Send source first",
   "httpWorkspace.chain.rule.stale": "If older than 5 min",
-  "httpWorkspace.editor.url.hint.chain": "{{name}} comes from {{source}}, which has no 2xx response yet: send it, or set the tag to Send source first."
+  "httpWorkspace.editor.url.hint.chain": "{{name}} comes from {{source}}, which has no 2xx response yet: send it, or set the tag to Send source first.",
+  "httpWorkspace.chain.tooLong": "The chain behind {{name}} is more than 20 requests deep, so it was not sent.",
+  "httpWorkspace.chain.tag.others": "Also captured by {{names}}; the tag reads the first one in the list."
 }

@@ -55,7 +55,7 @@ import {
   type HttpEnvironmentFocus,
   type HttpSendOptions,
 } from './httpScopes';
-import { chainOrder, chainPasses, chainTags, sourceNeedsSend } from '../../../shared/httpChain';
+import { chainOrder, chainPasses, chainTags, latestFor, requestLabel, sourceNeedsSend } from '../../../shared/httpChain';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -84,12 +84,15 @@ export interface HttpWorkspacePanelProps {
  * writes to a stale environment.
  */
 function applyCapturesToActiveEnvironment(
-  writes: ReadonlyArray<{ targetVariable: string; value: string }>
+  writes: ReadonlyArray<{ targetVariable: string; value: string }>,
+  // A chain reads its tags from the response, so its sources need neither notice.
+  quiet = false
 ): void {
   if (writes.length === 0) return;
   const store = useWorkspaceToolStore.getState();
   const envId = store.activeEnvironmentId;
   if (envId === null) {
+    if (quiet) return;
     useUIStore.getState().pushStatusNotice({
       tone: 'warning',
       messageKey: 'httpWorkspace.capture.noEnvironment',
@@ -113,6 +116,7 @@ function applyCapturesToActiveEnvironment(
     }
     return next;
   });
+  if (quiet) return;
   const envName = store.environments.find(e => e.id === envId)?.name ?? '';
   useUIStore.getState().pushStatusNotice({
     tone: 'success',
@@ -138,7 +142,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const executingRequestId = useWorkspaceToolStore(state => state.executingRequestId);
   // The active request's Send button is busy only while THAT request is
   // the one in flight (per-request execution tracking).
-  const isExecuting = executingRequestId !== null && executingRequestId === activeRequestId;
+  // While a chain sends its sources, its request counts as running, so Send turns into Stop.
+  const [chainRunningFor, setChainRunningFor] = useState<string | null>(null);
+  const isExecuting = (executingRequestId !== null && executingRequestId === activeRequestId) || chainRunningFor === activeRequestId;
   const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
@@ -287,31 +293,24 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().updateRequest(requestId, patch);
   }, []);
 
-  // Send pipeline with environment interpolation +
-  // secret-aware redaction. The privacy invariant (no resolved secret on
-  // any persisted / shared / displayed surface) is enforced here:
-  //   - `interpolateRequest` resolves ALL vars into the OUTBOUND request
-  //     (the only surface that carries a resolved secret — it goes
-  //     straight to fetch and is never recorded).
-  //   - `maskSecretValuesInResponse` scrubs any secret a server echoed
-  //     back BEFORE the response is recorded / capsuled.
-  //   - `maskSecretsForCapsule` keeps secret tokens as `{{key}}` in the
-  //     capsule source so the export never carries the resolved value.
   // Sends the sources a request's chain tags need first, in dependency order,
   // and stops on a cycle or on any response outside 2xx.
+  const chainLockRef = useRef(false);
+  const chainCancelledRef = useRef(false);
   const handleSendRef = useRef<((request: HttpRequestV1, options?: HttpSendOptions) => Promise<HttpResponseV1 | null>) | null>(null);
   const sendChain = useCallback(
     async (target: HttpRequestV1, force: boolean): Promise<boolean> => {
       const requests = useWorkspaceToolStore.getState().requests.map(request => (request.id === target.id ? target : request));
       const byId = new Map(requests.map(request => [request.id, request]));
-      const label = (request: HttpRequestV1) => request.name || request.url;
-      const stop = (messageKey: string, values: Record<string, string>) => {
-        useUIStore.getState().pushStatusNotice({ tone: 'error', messageKey, values });
+      const stop = (messageKey: string, values: Record<string, string>, tone: 'error' | 'info' = 'error') => {
+        useUIStore.getState().pushStatusNotice({ tone, messageKey, values });
         return false;
       };
-      const { order, cycle } = chainOrder(target.id, requests);
-      if (cycle) return stop('httpWorkspace.chain.cycle', { name: label(target) });
-      const latest = (id: string) => useWorkspaceToolStore.getState().responsesByRequestId[id]?.[0];
+      const { order, cycle, tooLong } = chainOrder(target.id, requests);
+      if (cycle) return stop('httpWorkspace.chain.cycle', { name: requestLabel(target) });
+      if (tooLong) return stop('httpWorkspace.chain.tooLong', { name: requestLabel(target) });
+      const environmentId = useWorkspaceToolStore.getState().activeEnvironmentId;
+      const latest = (id: string) => latestFor(useWorkspaceToolStore.getState().responsesByRequestId, id, environmentId);
       const needed = new Set<string>();
       const mark = (request: HttpRequestV1): void => {
         for (const tag of chainTags(request, requests)) {
@@ -325,20 +324,28 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       for (const id of order) {
         const source = byId.get(id);
         if (!needed.has(id) || !source) continue;
-        if ((source.transport ?? 'http') !== 'http') return stop('httpWorkspace.chain.liveSource', { name: label(source) });
+        if ((source.transport ?? 'http') !== 'http') return stop('httpWorkspace.chain.liveSource', { name: requestLabel(source) });
         const response = await handleSendRef.current?.(source, { skipChain: true });
-        if (!chainPasses(response ?? undefined)) {
-          return stop('httpWorkspace.chain.stopped', {
-            name: label(source),
-            status: response ? String(response.status || response.kind) : t('httpWorkspace.chain.cancelled'),
-          });
-        }
+        // No response, or Stop while it was being recorded, means the user stopped the chain.
+        if (!response || chainCancelledRef.current) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status: t('httpWorkspace.chain.cancelled') }, 'info');
+        const status = String(response.status || response.kind);
+        if (!chainPasses(response)) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status });
       }
       return true;
     },
     [t]
   );
 
+  // Send pipeline with environment interpolation +
+  // secret-aware redaction. The privacy invariant (no resolved secret on
+  // any persisted / shared / displayed surface) is enforced here:
+  //   - `interpolateRequest` resolves ALL vars into the OUTBOUND request
+  //     (the only surface that carries a resolved secret — it goes
+  //     straight to fetch and is never recorded).
+  //   - `maskSecretValuesInResponse` scrubs any secret a server echoed
+  //     back BEFORE the response is recorded / capsuled.
+  //   - `maskSecretsForCapsule` keeps secret tokens as `{{key}}` in the
+  //     capsule source so the export never carries the resolved value.
   const handleSend = useCallback(
     async (requestToSend: HttpRequestV1, options?: HttpSendOptions): Promise<HttpResponseV1 | null> => {
       // Block a duplicate send of the SAME request; a different request
@@ -347,8 +354,20 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       if (useWorkspaceToolStore.getState().executingRequestId === requestToSend.id) {
         return null;
       }
-      if (httpChainEnabled() && !options?.skipChain && !(await sendChain(requestToSend, options?.forceChain === true))) {
-        return null;
+      if (httpChainEnabled() && !options?.skipChain) {
+        // One chain at a time: a second click while sources go out is ignored.
+        if (chainLockRef.current) return null;
+        chainLockRef.current = true;
+        chainCancelledRef.current = false;
+        setChainRunningFor(requestToSend.id);
+        try {
+          if (!(await sendChain(requestToSend, options?.forceChain === true))) return null;
+        } finally {
+          chainLockRef.current = false;
+          setChainRunningFor(null);
+        }
+        // Something else may have started this request while its sources went out.
+        if (useWorkspaceToolStore.getState().executingRequestId === requestToSend.id) return null;
       }
       abortRef.current?.abort('superseded');
       const controller = new AbortController();
@@ -442,7 +461,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         }
         // Scrub any echoed secret value out of the response BEFORE it is
         // recorded or capsuled. No-op when there are no secrets.
-        const response = maskSecretValuesInResponse(raw, secretValues);
+        const masked = maskSecretValuesInResponse(raw, secretValues);
+        const response = activeEnv ? { ...masked, environmentId: activeEnv.id } : masked;
         setLivePreview(null);
         useWorkspaceToolStore.getState().recordResponse(requestToSend.id, response);
         // Request chaining. On a successful response, apply the
@@ -453,7 +473,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         // so extracting from `raw` (not the masked `response`) is what
         // yields the real value to store.
         if (response.kind === 'success' && requestToSend.captures?.length) {
-          applyCapturesToActiveEnvironment(applyCaptureRules(raw, requestToSend.captures));
+          applyCapturesToActiveEnvironment(applyCaptureRules(raw, requestToSend.captures), options?.skipChain === true && httpChainEnabled());
         }
         const resolvedCount = findResolvedVariables(requestToSend, env).length;
         trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
@@ -528,6 +548,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // response on screen; the aborted send skips recording.
   const handleStop = useCallback(() => {
     pipelineCancelledRef.current = true;
+    chainCancelledRef.current = true;
     abortRef.current?.abort('cancelled');
     setLivePreview(null);
   }, []);

@@ -593,6 +593,8 @@ collection state:
   dependency-safe request/response contract used by import detection and
   preview. Keep only closed enums, limits, data shapes, UTF-8 sizing, and the
   blank-request factory there.
+- [`../shared/httpChain.ts`](../shared/httpChain.ts) derives chain tags, their
+  order and chain-layer rows from capture rules; requests store only `chainRules`.
 - [`../shared/httpPipeline.ts`](../shared/httpPipeline.ts) owns the dependency-
   free, 20-step bounded schema for named sequential HTTP pipelines. Pipelines
   reference saved request ids instead of copying requests, and the store prunes

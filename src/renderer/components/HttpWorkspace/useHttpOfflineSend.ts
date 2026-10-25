@@ -39,7 +39,7 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
         void (options ? send(request, options) : send(request));
         return;
       }
-      queue.enqueue(request.id);
+      queue.enqueue(request.id, options?.forceChain);
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
         messageKey: sendsByItselfOnline(request.method) ? 'httpWorkspace.offline.queuedRead' : 'httpWorkspace.offline.queuedWrite',
@@ -66,9 +66,10 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
           if (!request) {
             queue.remove(requestId);
           } else if (sendsByItselfOnline(request.method)) {
+            const forceChain = queue.queued[requestId]?.forceChain === true;
             queue.remove(requestId);
             // One at a time: a new send aborts the one in flight.
-            await send(request);
+            await (forceChain ? send(request, { forceChain }) : send(request));
           } else {
             queue.markReady(requestId);
             waiting += 1;

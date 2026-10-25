@@ -1512,11 +1512,13 @@ capture rule writes is a chain tag (`src/shared/httpChain.ts`): the graph is
 read from the capture rules, never stored, and each request keeps only a
 per-tag sending rule (`chainRules`). Tag values form a `chain` layer between
 the environment and the request in `layeredEnvironment`, read from the
-source's latest 2xx response, so masking and scrubbing apply as for any scope;
+source's latest response when it is 2xx (the first capturer in list order wins), so masking and scrubbing apply as for any scope;
 a tag whose key is secret elsewhere, or looks like a credential, stays secret.
 Before a send, `HttpWorkspacePanel` sends the sources the rules ask for in
-dependency order (`chainOrder`), each with chains skipped, and stops on a
-cycle or on any response outside 2xx. Explicit pipelines also skip chains.
+dependency order (`chainOrder`), each with chains skipped, one chain at a
+time, and stops on any response outside 2xx; a cycle, a chain deeper than 20
+or a stream source is refused before sending. Explicit pipelines also skip
+chains.
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the

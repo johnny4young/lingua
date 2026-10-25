@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { chainOrder, chainPasses, chainRows, chainTags, chainValue, sourceNeedsSend } from '../../src/shared/httpChain';
+import { capturersOf, chainOrder, chainPasses, chainRows, chainTags, chainValue, latestFor, requestLabel, sourceNeedsSend } from '../../src/shared/httpChain';
 import { httpUrlState, layeredEnvironment, referencedVariables } from '../../src/shared/httpEnvironment';
-import { createBlankHttpRequest, parseHttpRequest, type HttpRequestV1, type HttpResponseV1 } from '../../src/shared/httpWorkspace';
+import { createBlankHttpRequest, parseHttpRequest, parseHttpResponse, type HttpRequestV1, type HttpResponseV1 } from '../../src/shared/httpWorkspace';
 
 const NOW = '2026-10-25T00:00:00.000Z';
 const capture = (id: string, path: string, targetVariable: string, enabled = true) => ({ id, source: 'body-json' as const, path, targetVariable, enabled });
@@ -55,6 +55,29 @@ describe('chain tags', () => {
     expect(chainPasses(response(body, { kind: 'network-error', status: 0 }))).toBe(false);
   });
 
+  it('read only a response recorded under the active environment', () => {
+    const staging = response([], { environmentId: 'stg' });
+    const none = response([]);
+    expect(latestFor({ list: [staging] }, 'list', 'stg')).toBe(staging);
+    expect(latestFor({ list: [staging] }, 'list', 'prod')).toBeUndefined();
+    expect(latestFor({ list: [staging] }, 'list', null)).toBeUndefined();
+    expect(latestFor({ list: [none] }, 'list', null)).toBe(none);
+  });
+
+  it('never read a redacted placeholder as a value', () => {
+    const [tag] = chainTags(getRepo, [listRepos, getRepo]);
+    expect(chainValue(tag!, response([{ owner: { login: 'a <redacted> b' } }]))).toBeNull();
+    const header = { ...tag!, capture: { id: 'h', source: 'header' as const, path: 'Set-Cookie', targetVariable: 'owner', enabled: true } };
+    const withCookie = response([], { headers: [{ name: 'set-cookie', value: '<redacted>', redacted: true }], redactedHeaders: ['set-cookie'] });
+    expect(chainValue(header, withCookie)).toBeNull();
+  });
+
+  it('ignore rules a request inherits instead of storing', () => {
+    const producer = request('p', 'https://x', { captures: [capture('cc', 'id', 'constructor')] });
+    const user = request('u', 'https://x/{{constructor}}', { chainRules: {} });
+    expect(chainTags(user, [producer, user])[0]?.rule).toBe('last');
+  });
+
   it('send their source first only when the rule says so', () => {
     const [tag] = chainTags(getRepo, [listRepos, getRepo]);
     const fresh = response([], { recordedAt: '2026-10-25T00:04:00.000Z' });
@@ -68,11 +91,21 @@ describe('chain tags', () => {
 
   it('order every source after the ones it depends on, and find a cycle', () => {
     const requests = [listIssues, getRepo, listRepos];
-    expect(chainOrder('issues', requests)).toEqual({ order: ['list', 'get'], cycle: false });
-    expect(chainOrder('list', requests)).toEqual({ order: [], cycle: false });
+    expect(chainOrder('issues', requests)).toEqual({ order: ['list', 'get'], cycle: false, tooLong: false });
+    expect(chainOrder('list', requests)).toEqual({ order: [], cycle: false, tooLong: false });
     const a = request('a', 'https://x/{{b}}', { captures: [capture('ca', 'id', 'a')] });
     const b = request('b', 'https://x/{{a}}', { captures: [capture('cb', 'id', 'b')] });
     expect(chainOrder('a', [a, b]).cycle).toBe(true);
+    // A long chain without a cycle is too long, not circular.
+    const long = Array.from({ length: 23 }, (_, i) =>
+      request(`r${i}`, i === 22 ? 'https://x' : `https://x/{{v${i + 1}}}`, { captures: [capture(`c${i}`, 'id', `v${i}`)] })
+    );
+    expect(chainOrder('r0', long)).toMatchObject({ cycle: false, tooLong: true });
+  });
+
+  it('name every request that captures a variable', () => {
+    const second = request('second', 'https://x', { name: '', captures: [capture('c9', 'id', 'owner')] });
+    expect(capturersOf('owner', [listRepos, getRepo, second]).map(requestLabel)).toEqual(['list', 'https://x']);
   });
 
   it('give the chain layer its rows, secret when the key is secret elsewhere or looks like one', () => {
@@ -114,6 +147,11 @@ describe('variable scanning and persistence', () => {
     expect(httpUrlState('{{issues}}?state=open', 'http', null)).toEqual({ ok: false, reason: 'unresolved', key: 'issues' });
     expect(httpUrlState('{{issues}}?state=open', 'http', null, new Set(['issues']))).toEqual({ ok: true });
     expect(httpUrlState('{{issues}}/{{other}}', 'http', null, new Set(['issues']))).toEqual({ ok: false, reason: 'unresolved', key: 'other' });
+  });
+
+  it('keeps the environment a response was recorded under', () => {
+    expect(parseHttpResponse({ ...response([]), environmentId: 'prod' })?.environmentId).toBe('prod');
+    expect(parseHttpResponse({ ...response([]), environmentId: 42 })).not.toHaveProperty('environmentId');
   });
 
   it('keeps known chain rules and drops the rest', () => {

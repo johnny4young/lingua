@@ -413,6 +413,7 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     ...(closeCode !== undefined ? { closeCode } : {}),
     ...(closeReason !== undefined ? { closeReason } : {}),
     ...(timing !== undefined ? { timing } : {}),
+    ...(typeof value.environmentId === 'string' && value.environmentId.length > 0 ? { environmentId: value.environmentId } : {}),
   };
 }
 

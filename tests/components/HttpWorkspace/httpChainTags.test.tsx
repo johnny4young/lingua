@@ -65,6 +65,13 @@ describe('chain tag panel', () => {
     expect(useWorkspaceToolStore.getState().getRequest('tgt')?.chainRules).toEqual({ owner: 'source-first' });
   });
 
+  it('says when another request also captures the variable', () => {
+    const refresh = { ...createBlankHttpRequest({ id: 'refresh', now: NOW }), name: 'Refresh', url: 'https://x', captures: [{ id: 'c9', source: 'body-json' as const, path: 'login', targetVariable: 'owner', enabled: true }] };
+    useWorkspaceToolStore.setState({ requests: [target, source, refresh] });
+    section();
+    expect(screen.getByTestId('http-chain-tag-others').textContent).toBe('Also captured by Refresh; the tag reads the first one in the list.');
+  });
+
   it('masks a secret value and says when there is no 2xx response', () => {
     const { unmount } = section({ secretKeys: new Set(['owner']) });
     expect(screen.getByTestId('http-chain-tag-preview').textContent).toContain('••••••');
@@ -72,7 +79,7 @@ describe('chain tag panel', () => {
     unmount();
     useWorkspaceToolStore.setState({ responsesByRequestId: { src: [recorded('x', 404)] } });
     section();
-    expect(screen.getByTestId('http-chain-tag-preview').textContent).toBe('No 2xx response yet');
+    expect(screen.getByTestId('http-chain-tag-preview').textContent).toBe('No value: the latest response is missing or not 2xx');
   });
 });
 

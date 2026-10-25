@@ -14,7 +14,7 @@ import type { HttpEnvVariableV1 } from './httpEnvironment';
 
 /**
  * How a chain tag gets its value when its request sends: `last` reads the
- * source's latest response, `source-first` sends the source first, `stale`
+ * source's latest response when it is 2xx, `source-first` sends the source first, `stale`
  * sends it first only when its latest response is older than five minutes.
  */
 export const HTTP_CHAIN_RULES = ['last', 'source-first', 'stale'] as const;
@@ -373,6 +373,8 @@ export interface HttpResponseV1 {
   closeReason?: string;
   /** Phases of the final hop, measured by the desktop proxy; absent on the web. */
   timing?: HttpResponseTiming;
+  /** The environment active when the response was recorded; chain tags read only matching ones. */
+  environmentId?: string;
 }
 
 /** Milliseconds per phase of the hop that answered; earlier redirect hops are summed apart. */

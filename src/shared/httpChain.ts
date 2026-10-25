@@ -6,6 +6,9 @@
 
 import { looksSecret, referencedVariables, type HttpEnvVariableV1 } from './httpEnvironment';
 import { extractCaptureValue } from './httpWorkspaceCaptures';
+
+// What a recorded response holds in place of a sensitive value.
+const REDACTED = '<redacted>';
 import type { HttpCaptureRule, HttpChainRule, HttpRequestV1, HttpResponseV1 } from './httpWorkspaceSchema';
 
 /** `stale` sends the source again when its latest response is older than this. */
@@ -18,6 +21,14 @@ export interface HttpChainTag {
   readonly sourceId: string;
   readonly capture: HttpCaptureRule;
   readonly rule: HttpChainRule;
+}
+
+/** How a request reads in chain copy: its name, or its URL when it has none. */
+export const requestLabel = (request: Pick<HttpRequestV1, 'name' | 'url'>): string => request.name || request.url;
+
+/** Every request whose enabled capture rule writes `key`, in list order. */
+export function capturersOf(key: string, requests: ReadonlyArray<HttpRequestV1>): HttpRequestV1[] {
+  return requests.filter((request) => request.captures?.some((capture) => capture.enabled && capture.targetVariable.trim() === key));
 }
 
 /** The request whose enabled capture rule writes each variable, first in list order. */
@@ -40,7 +51,8 @@ export function chainTags(request: HttpRequestV1, requests: ReadonlyArray<HttpRe
   for (const key of referencedVariables(request)) {
     const source = produced.get(key);
     if (!source || source.requestId === request.id) continue;
-    tags.push({ key, sourceId: source.requestId, capture: source.capture, rule: request.chainRules?.[key] ?? 'last' });
+    const rule = request.chainRules && Object.hasOwn(request.chainRules, key) ? request.chainRules[key] : undefined;
+    tags.push({ key, sourceId: source.requestId, capture: source.capture, rule: rule ?? 'last' });
   }
   return tags;
 }
@@ -50,9 +62,28 @@ export function chainPasses(response: HttpResponseV1 | undefined): response is H
   return response !== undefined && response.kind === 'success' && response.status >= 200 && response.status < 300;
 }
 
-/** The tag's value in the source's latest response, or null without a 2xx one. */
+/**
+ * The source's latest response, when it was recorded under the active
+ * environment: a token from staging must not reach production.
+ */
+export function latestFor(
+  responses: Readonly<Record<string, ReadonlyArray<HttpResponseV1>>>,
+  requestId: string,
+  environmentId: string | null
+): HttpResponseV1 | undefined {
+  const latest = responses[requestId]?.[0];
+  return latest && (latest.environmentId ?? null) === environmentId ? latest : undefined;
+}
+
+/**
+ * The tag's value in the source's latest response, or null without a 2xx one.
+ * A recorded response has its sensitive values redacted, and a redacted
+ * placeholder is no value, so the environment's own capture applies instead.
+ */
 export function chainValue(tag: HttpChainTag, latest: HttpResponseV1 | undefined): string | null {
-  return chainPasses(latest) ? extractCaptureValue(latest, tag.capture) : null;
+  if (!chainPasses(latest)) return null;
+  const value = extractCaptureValue(latest, tag.capture);
+  return value === null || value.includes(REDACTED) ? null : value;
 }
 
 /** Whether the tag's rule sends its source before the request that uses it. */
@@ -64,24 +95,31 @@ export function sourceNeedsSend(tag: HttpChainTag, latest: HttpResponseV1 | unde
 
 /**
  * Every request the target depends on through its tags, each after the ones it
- * depends on itself, or `cycle` when a request depends on itself.
+ * depends on itself; `cycle` when a request depends on itself, `tooLong` past
+ * the depth limit.
  */
 export function chainOrder(
   targetId: string,
   requests: ReadonlyArray<HttpRequestV1>
-): { order: string[]; cycle: boolean } {
+): { order: string[]; cycle: boolean; tooLong: boolean } {
   const byId = new Map(requests.map((request) => [request.id, request]));
   const order: string[] = [];
   const done = new Set<string>();
   const path = new Set<string>();
   let cycle = false;
+  let tooLong = false;
   const visit = (id: string, depth: number): void => {
-    if (done.has(id) || cycle) return;
+    if (done.has(id) || cycle || tooLong) return;
     const request = byId.get(id);
-    if (path.has(id) || depth > CHAIN_MAX_DEPTH || !request) {
-      cycle ||= path.has(id) || depth > CHAIN_MAX_DEPTH;
+    if (path.has(id)) {
+      cycle = true;
       return;
     }
+    if (depth > CHAIN_MAX_DEPTH) {
+      tooLong = true;
+      return;
+    }
+    if (!request) return;
     path.add(id);
     for (const tag of chainTags(request, requests)) visit(tag.sourceId, depth + 1);
     path.delete(id);
@@ -89,7 +127,7 @@ export function chainOrder(
     if (id !== targetId) order.push(id);
   };
   visit(targetId, 0);
-  return { order, cycle };
+  return { order, cycle, tooLong };
 }
 
 /**

@@ -67,6 +67,7 @@ import { HttpTransportSelect } from './HttpTransportSelect';
 import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
 import { HttpSendButton, type HttpSendQueue } from './HttpSendButton';
 import { HttpChainSection } from './HttpChainSection';
+import { requestLabel } from '../../../shared/httpChain';
 import { ENVIRONMENT_TINTS } from './httpScopeColors';
 import {
   rowsFromOtherEnvironments,
@@ -78,6 +79,11 @@ import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
 import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
+
+const chainSourceLabel = (id: string): string => {
+  const source = useWorkspaceToolStore.getState().getRequest(id);
+  return source ? requestLabel(source) : id;
+};
 
 export interface HttpRequestEditorProps {
   request: HttpRequestV1;
@@ -722,7 +728,7 @@ export function HttpRequestEditor({
           transport={transport}
           hasEnvironment={activeEnv !== null}
           {...(urlFix ? { fix: urlFix } : {})}
-          {...(missingTag ? { chainSource: useWorkspaceToolStore.getState().getRequest(missingTag.sourceId)?.name ?? '' } : {})}
+          {...(missingTag ? { chainSource: chainSourceLabel(missingTag.sourceId) } : {})}
         />
       )}
 

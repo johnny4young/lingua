@@ -1,6 +1,6 @@
 {
   "settings.labs.flag.httpScopes.label": "Ámbitos de variables HTTP",
   "settings.labs.flag.httpScopes.description": "Variables de colección y de request junto a los entornos, cada {{variable}} con el color del ámbito que la resuelve, y un color por entorno en la pestaña HTTP y en Enviar.",
-  "settings.labs.flag.httpChainTags.label": "Chain tags HTTP",
-  "settings.labs.flag.httpChainTags.description": "Una {{variable}} que otro request captura se vuelve un tag: ve su origen, ruta y valor en vivo, elige si Enviar usa la última respuesta o envía antes el origen, y ejecuta la cadena que sale de los tags."
+  "settings.labs.flag.httpChainTags.label": "Tags de cadena HTTP",
+  "settings.labs.flag.httpChainTags.description": "Una {{variable}} que otro request captura se vuelve un tag: ve su origen, ruta y valor en vivo, elige cuándo Enviar ejecuta antes el origen, y ejecuta la cadena que sale de los tags."
 }

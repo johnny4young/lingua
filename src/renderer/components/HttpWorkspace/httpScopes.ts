@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { chainRows, chainTags, type HttpChainTag } from '../../../shared/httpChain';
+import { chainRows, chainTags, latestFor, type HttpChainTag } from '../../../shared/httpChain';
 import {
   createEnvVariable,
   layeredEnvironment,
@@ -39,7 +39,7 @@ function layersFor(request: ScopedRequest, env: HttpEnvironmentV1 | null, inputs
   const tags = inputs.chain && request ? chainTags(request, inputs.requests) : [];
   // A tag stays masked wherever a lower scope already marks its key secret.
   const secretKeys = new Set([...collection, ...(env?.variables ?? [])].filter((row) => row.secret).map((row) => row.key));
-  const chain = chainRows(tags, (id) => inputs.responses[id]?.[0], secretKeys);
+  const chain = chainRows(tags, (id) => latestFor(inputs.responses, id, env?.id ?? null), secretKeys);
   return { layers: { collection, environment: env, chain, request: own }, tags };
 }
 
