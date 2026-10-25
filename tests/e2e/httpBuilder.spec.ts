@@ -280,3 +280,35 @@ test('asks before sending to a host a chain source just returned', async ({ page
   expect(sent).toEqual([`${API}/discover`, `${API}/v2/items`]);
 });
 
+test('snapshots a response, flags a change as a failed check and accepts it', async ({ page }) => {
+  await openBuilder(page, 'en', {}, { httpSnapshots: true });
+  let stars = 12;
+  await page.route(`${API}/repo`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ name: 'janusly', stars, updated_at: new Date().toISOString() }),
+    })
+  );
+  await page.getByTestId('http-request-editor-url').fill(`${API}/repo`);
+  const send = page.getByTestId('http-request-editor-send');
+  await send.click();
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+
+  await page.getByTestId('http-response-suggestion').first().click();
+  await expect(page.getByTestId('http-request-editor-tab-assert')).toHaveText('Tests1');
+
+  await page.getByRole('button', { name: 'Snapshot', exact: true }).click();
+  await page.getByTestId('http-snapshot-toggle').click();
+  await expect(page.getByTestId('http-snapshot-badge')).toHaveText('Matches the snapshot');
+
+  stars = 14;
+  await send.click();
+  await expect(page.getByTestId('http-snapshot-badge')).toHaveText('1 change');
+  await expect(page.getByTestId('http-snapshot-diff')).toContainText('- stars: 12');
+  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('1/2 tests passed');
+  await page.getByTestId('http-snapshot-accept').click();
+  await expect(page.getByTestId('http-snapshot-badge')).toHaveText('Matches the snapshot');
+  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('2/2 tests passed');
+});
+

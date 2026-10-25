@@ -13,6 +13,7 @@ import {
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
+  SNAPSHOT_MAX_BODY_BYTES,
   utf8ByteLength,
 } from './httpWorkspaceSchema';
 import type { HttpEnvVariableV1 } from './httpEnvironment';
@@ -25,6 +26,7 @@ import type {
   HttpCaptureSource,
   HttpChainRule,
   HttpMethod,
+  HttpResponseSnapshot,
   HttpQueryParam,
   HttpRequestAuth,
   HttpRequestBody,
@@ -266,6 +268,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     if (value.timeoutMs <= 0) return null;
     timeoutMs = Math.min(value.timeoutMs, MAX_REQUEST_TIMEOUT_MS);
   }
+  const snapshot = parseSnapshot(value.snapshot);
   return {
     version: 1,
     id: value.id,
@@ -282,6 +285,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     ...(Array.isArray(value.variables) ? { variables: parseEnvVariables(value.variables) } : {}),
     ...(isRecord(value.chainRules) ? { chainRules: parseChainRules(value.chainRules) } : {}),
+    ...(snapshot ? { snapshot } : {}),
     createdAt,
     updatedAt,
   };
@@ -481,4 +485,29 @@ function parseChainRules(value: Record<string, unknown>): Partial<Record<string,
     if (known && key.length > 0) rules[key] = known;
   }
   return rules;
+}
+
+/** A stored snapshot, or null when any part of it is malformed. */
+function parseSnapshot(value: unknown): HttpResponseSnapshot | null {
+  if (!isRecord(value) || value.version !== 1) return null;
+  if (typeof value.status !== 'number' || typeof value.body !== 'string' || typeof value.recordedAt !== 'string') return null;
+  if (!Number.isInteger(value.status) || value.status < 0 || value.status > 999 || !Number.isFinite(Date.parse(value.recordedAt))) return null;
+  if (utf8ByteLength(value.body) > SNAPSHOT_MAX_BODY_BYTES) return null;
+  const scrubbers = value.scrubbers;
+  if (!isRecord(scrubbers)) return null;
+  const flags = ['timestamps', 'uuids', 'ids', 'hostname'] as const;
+  if (flags.some((flag) => typeof scrubbers[flag] !== 'boolean') || typeof scrubbers.regex !== 'string') return null;
+  return {
+    version: 1,
+    status: value.status,
+    body: value.body,
+    recordedAt: value.recordedAt,
+    scrubbers: {
+      timestamps: scrubbers.timestamps as boolean,
+      uuids: scrubbers.uuids as boolean,
+      ids: scrubbers.ids as boolean,
+      hostname: scrubbers.hostname as boolean,
+      regex: scrubbers.regex,
+    },
+  };
 }

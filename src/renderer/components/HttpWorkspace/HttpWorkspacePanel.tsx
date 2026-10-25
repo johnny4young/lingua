@@ -47,6 +47,8 @@ import { HttpResponsePreview } from './HttpResponsePreview';
 import type { JsonSegment } from './httpJsonTreeModel';
 import type { HttpCaptureTarget } from './useHttpTreeCapture';
 import { useHttpOfflineSend } from './useHttpOfflineSend';
+import type { HttpAssertionTarget } from './useHttpAssertionTarget';
+import { snapshotChanges } from '../../../shared/httpSnapshot';
 import {
   httpChainEnabled,
   httpScopesEnabled,
@@ -149,6 +151,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
   const scopesOn = useSettingsStore(state => state.featureFlags.httpScopes === true);
+  const snapshotsOn = useSettingsStore(state => state.featureFlags.httpSnapshots === true);
+  const assertionTargetRef = useRef<HttpAssertionTarget | null>(null);
   const collectionVariables = useWorkspaceToolStore(state => state.collectionVariables);
   // Environments + active selection drive the
   // selector, the resolution preview, and send-time interpolation.
@@ -224,6 +228,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     livePreview?.requestId === activeRequestId && isExecuting
       ? livePreview.response
       : activeHistory[safeHistoryIndex];
+  // Older history rows have no body left to compare or keep.
+  const snapshotsShown = snapshotsOn && safeHistoryIndex === 0;
 
   // SQL/HTTP MODEL rework — a new request is a row in the collection,
   // NOT a new editor tab. `createRequest` appends it and selects it (the
@@ -671,7 +677,10 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               const assertionFailures = runAssertions(response, request.assertions ?? []).filter(
                 result => !result.pass
               ).length;
-              const passed = response.kind === 'success' && assertionFailures === 0;
+              // A pending snapshot diff fails the step like a failed assertion.
+              const snapshotFailed =
+                useSettingsStore.getState().featureFlags.httpSnapshots === true && request.snapshot !== undefined && snapshotChanges(request.snapshot, response).length > 0;
+              const passed = response.kind === 'success' && assertionFailures === 0 && !snapshotFailed;
               results.push({
                 stepId: step.id,
                 requestId: step.requestId,
@@ -748,6 +757,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               onSelectEnvironment={handleSelectEnvironment}
               onManageEnvironment={handleManageEnvironment}
               captureTargetRef={captureTargetRef}
+              assertionTargetRef={assertionTargetRef}
               queue={queueFor(activeRequest)}
             />
           ) : (
@@ -776,6 +786,15 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                 captures={activeRequest?.captures}
                 {...(activeRequest
                   ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }
+                  : {})}
+                {...(activeRequest && snapshotsShown
+                  ? {
+                      snapshots: {
+                        snapshot: activeRequest.snapshot,
+                        onChange: snapshot => useWorkspaceToolStore.getState().updateRequest(activeRequest.id, { snapshot }),
+                        onAddAssertion: assertion => assertionTargetRef.current?.(assertion),
+                      },
+                    }
                   : {})}
               />
             </div>

@@ -785,7 +785,12 @@ export async function executeHttpRequest(
     options.fetchImpl === undefined && typeof window !== 'undefined'
       ? window.lingua?.http
       : undefined;
-  if (desktopBridge) return executeDesktopHttpRequest(request, options, desktopBridge);
+  if (desktopBridge) {
+    // The snapshot body is renderer-only; main never needs it.
+    const wire: HttpRequestV1 = { ...request };
+    delete wire.snapshot;
+    return executeDesktopHttpRequest(wire, options, desktopBridge);
+  }
   if (request.transport === 'websocket') {
     return executeBrowserWebSocketRequest(request, options);
   }

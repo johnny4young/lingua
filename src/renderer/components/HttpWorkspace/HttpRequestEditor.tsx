@@ -77,6 +77,7 @@ import {
 } from './httpScopes';
 import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
 import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
+import { useHttpAssertionTarget, type HttpAssertionTarget } from './useHttpAssertionTarget';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
 
@@ -113,6 +114,8 @@ export interface HttpRequestEditorProps {
   onManageEnvironment?: (focus?: HttpEnvironmentFocus) => void;
   /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
   captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
+  /** Filled with the handler that adds an assertion suggested from the response. */
+  assertionTargetRef?: React.MutableRefObject<HttpAssertionTarget | null>;
   /** Offline queue state for this request; absent where sends never queue. */
   queue?: HttpSendQueue;
 }
@@ -130,6 +133,7 @@ export function HttpRequestEditor({
   onSelectEnvironment,
   onManageEnvironment,
   captureTargetRef,
+  assertionTargetRef,
   queue,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
@@ -515,6 +519,8 @@ export function HttpRequestEditor({
     [scheduleAutoSave]
   );
 
+  const openTestsTab = useCallback(() => setBuilderTab('assert'), []);
+  useHttpAssertionTarget(assertionTargetRef, assertions, applyAssertions, openTestsTab);
   const handleAddAssertion = useCallback(() => {
     applyAssertions([...assertions, createBlankAssertion()]);
   }, [assertions, applyAssertions]);
