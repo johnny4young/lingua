@@ -1424,7 +1424,7 @@
     cursor: pointer;
   }
 
-  /* Values the last step changed, after the line it paused at. */
+  /* Values the last step changed, after the line it stepped from. */
   .monaco-editor .lingua-debugger-inline-value {
     margin-left: 1.25rem;
     padding: 0 0.4rem;

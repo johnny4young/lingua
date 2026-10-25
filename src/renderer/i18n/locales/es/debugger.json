@@ -10,6 +10,7 @@
   "debugger.paused.heading": "Pausado en línea {{line}} ({{reason}})",
   "debugger.paused.reason.user-breakpoint": "punto de interrupción",
   "debugger.paused.reason.step": "paso",
+  "debugger.paused.reason.exception": "excepción",
   "debugger.paused.locals": "Variables",
   "debugger.paused.callstack": "Pila de llamadas",
   "debugger.paused.watches": "Expresiones",

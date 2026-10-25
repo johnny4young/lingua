@@ -10,10 +10,9 @@ import { languageSupportsBreakpointModes, languageSupportsDebugger } from '../ut
  *
  * Renders one mark per breakpoint in the active tab, shaped by its mode, and
  * turns clicks on the gutter into `toggleBreakpoint(tabId, line)` calls;
- * alt-click cycles pause, conditional and logpoint in JS/TS. Disabled
- * breakpoints (set via the Debugger panel's Disable all action) render
- * as a hollow ring so users still see them but they no longer pause
- * execution.
+ * alt-click cycles pause, conditional and logpoint in JS/TS. A disabled
+ * pause breakpoint renders as a hollow ring and disabled conditional and
+ * logpoint marks fade, so users still see them but they no longer pause.
  *
  * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1), the gutter mounts for
  * JavaScript/TypeScript in both shells and Python on desktop. Other tabs see
@@ -102,7 +101,7 @@ export function useBreakpointGutter(
       const model = editor.getModel();
       const previousLine = previousPause?.line ?? 0;
       if (inline && model && Number.isInteger(previousLine) && previousLine >= 1 && previousLine <= model.getLineCount()) {
-        // What the last step changed, shown on the line it paused at, like a scratchpad value.
+        // What the last step changed, after the line it stepped from, like a scratchpad value.
         const column = model.getLineMaxColumn(previousPause!.line);
         decorations.push({
           range: new monaco.Range(previousPause!.line, column, previousPause!.line, column),

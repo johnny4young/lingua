@@ -1988,7 +1988,7 @@
   "shortcuts.item.debuggerStepInto.description": "Advance to the next line, descending into nested calls",
   "shortcuts.item.debuggerStepOut.label": "Step out",
   "shortcuts.item.debuggerStepOut.description": "Resume until the current frame returns",
-  "debugger.gutter.toggleModes": "Toggle breakpoint at line {{line}}. Alt-click changes its type: breakpoint, conditional, logpoint.",
+  "debugger.gutter.toggleModes": "Toggle breakpoint at line {{line}}. Alt-click changes its type: pause, conditional, logpoint.",
   "debugger.gutter.togglePauseOnly": "Toggle breakpoint at line {{line}}. Conditional breakpoints and logpoints are JavaScript and TypeScript only.",
   "pythonDebugger.outputTruncated": "Python debugger output was truncated at the safety limit.",
   "pythonDebugger.error.desktop-only": "Python debugging requires Lingua Desktop and a local Python installation.",

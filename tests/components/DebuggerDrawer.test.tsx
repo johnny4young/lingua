@@ -150,6 +150,16 @@ describe('DebuggerDrawer', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('names an exception pause', () => {
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: { tabId: 'tab-1', line: 6, reason: 'exception', locals: {}, callStack: [], watchResults: {} },
+    });
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    expect(screen.getByText(/Paused at line 6/).textContent).toContain('(exception)');
+    expect(screen.getByText(/Paused at line 6/).textContent).not.toContain('debugger.paused');
+  });
+
   it('marks the locals a step added or changed, keeping their order', () => {
     useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
     const pause = (line: number, locals: Record<string, string>) =>

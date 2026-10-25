@@ -10,6 +10,7 @@
   "debugger.paused.heading": "Paused at line {{line}} ({{reason}})",
   "debugger.paused.reason.user-breakpoint": "breakpoint",
   "debugger.paused.reason.step": "step",
+  "debugger.paused.reason.exception": "exception",
   "debugger.paused.locals": "Locals",
   "debugger.paused.callstack": "Call stack",
   "debugger.paused.watches": "Watches",

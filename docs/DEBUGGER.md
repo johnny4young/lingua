@@ -20,11 +20,11 @@ The current implementation provides:
   elsewhere) — toggles the breakpoint at the cursor line without leaving
   the editor.
 - While paused, a step HUD sits in a row reserved under the paused line:
-  the paused line, Continue (F5), Step Over (F10), Step Into (F11), Step
+  a Paused · line N label, Continue (F5), Step Over (F10), Step Into (F11), Step
   Out (Shift+F11) and Run to end. It loads the first time execution pauses
   and uses the same actions as the Debugger tab.
-- After a step, Locals mark the bindings that are new or changed since the
-  previous pause with an accent tint and a tag (a changed one shows its
+- After a step or Continue, Locals mark the bindings that are new or changed
+  since the previous pause with an accent tint and a tag (a changed one shows its
   previous value on hover), and keep the order they had. The line the step
   came from shows up to three of those values inline. The Console ends with
   a row naming the paused line and those values, with Open Debugger.
@@ -86,8 +86,8 @@ hollow amber diamond and logpoint a hollow blue ring; the Breakpoints list uses
 the same marks. A disabled pause breakpoint is a hollow ring, and disabled
 conditional and logpoint marks fade. A conditional or logpoint made with
 Alt-click starts empty: an empty condition pauses fail-safe and says so, and an
-empty logpoint message logs a warning, until you fill them in the Debugger tab. Mode, condition, log message, and
-enabled state persist with the breakpoint.
+empty logpoint message logs a warning, until you fill them in the Debugger tab.
+Mode, condition, log message, and enabled state persist with the breakpoint.
 
 Native Python, Go, and Rust adapters support standard **Pause** breakpoints
 only. Existing conditional or logpoint metadata remains persisted if a tab
@@ -296,7 +296,8 @@ second custom splitter, and the editor keeps its full width while paused.
 
 - `src/renderer/stores/debuggerStore.ts` — the runtime-agnostic
   state machine (breakpoints, watches, session, pausedFrame,
-  drawerCollapsed).
+  drawerCollapsed), plus the session-only previous pause the step
+  changes compare with.
 - `src/renderer/runtime/debuggerInstrument.ts` — acorn + magic-string
   AST instrumentation with trace-mapping composition for TS.
 - `src/renderer/runtime/debuggerWorkerBridge.ts` — postMessage shim
