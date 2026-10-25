@@ -7,12 +7,13 @@ import { useUIStore } from '../../stores/uiStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { isLocalNetworkHostname } from '../../utils/loopbackHost';
 import type { HttpSendQueue } from './HttpSendButton';
+import { scopedEnvironmentFor } from './httpScopes';
 
 /** Whether an HTTP request needs the internet: false for local and private hosts, which answer offline too. */
 function needsInternet(request: HttpRequestV1): boolean {
   if ((request.transport ?? 'http') !== 'http') return false;
   try {
-    const env = useWorkspaceToolStore.getState().getActiveEnvironment() ?? null;
+    const env = scopedEnvironmentFor(request, useWorkspaceToolStore.getState().getActiveEnvironment() ?? null);
     return !isLocalNetworkHostname(new URL(interpolateRequest(request, env).url).hostname);
   } catch {
     return false;

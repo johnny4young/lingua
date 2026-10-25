@@ -779,7 +779,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [sqlConnectionsStore.ts](stores/sqlConnectionsStore.ts) | the desktop database connection catalog read from main (saved and session-only connections, Free count, keychain availability); never persisted in the renderer and never holds a password |
 | [sqlRemoteCatalogStore.ts](stores/sqlRemoteCatalogStore.ts) | each database connection's catalog as the Explorer reads it (schemas, objects, columns, object detail), in memory for the session; Refresh bumps a generation that drops late answers |
 | [sqlQueryTabCount.ts](stores/sqlQueryTabCount.ts) | leaf handles on the lazy SQL store: the open query tab count for the Free tab budget (persisted slice until the store registers) and the live reset Clear everything calls |
-| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata; on desktop secret environment values persist blanked and live in the secret vault |
+| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments, collection variables and active request metadata; on desktop secret values of every scope persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
 | [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |

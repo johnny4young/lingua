@@ -14,6 +14,7 @@ import {
   MAX_RESPONSE_BODY_BYTES,
   utf8ByteLength,
 } from './httpWorkspaceSchema';
+import type { HttpEnvVariableV1 } from './httpEnvironment';
 import type {
   HttpAssertion,
   HttpAssertionComparator,
@@ -277,6 +278,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     ...(captures !== undefined ? { captures } : {}),
     ...(assertions !== undefined ? { assertions } : {}),
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+    ...(Array.isArray(value.variables) ? { variables: parseEnvVariables(value.variables) } : {}),
     createdAt,
     updatedAt,
   };
@@ -423,4 +425,46 @@ function parseResponseTiming(value: unknown): HttpResponseTiming | null {
     timing[field] = raw;
   }
   return timing as HttpResponseTiming;
+}
+
+/**
+ * Coerce one raw row into an `HttpEnvVariableV1`, or `null` if the row
+ * is not a usable binding. Unlike the request parser (which rejects the
+ * whole entry on a bad row), invalid variable rows are DROPPED by
+ * `parseHttpEnvironment` and request variables so a single hand-corrupted row cannot brick an
+ * otherwise-valid environment. `secret` defaults to `false` when absent
+ * (forward-compat: an environment persisted before the secret flag
+ * existed loads as all-non-secret).
+ *
+ * `id` is kept when it is a non-empty string, otherwise
+ * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
+ * parser is intentionally non-pure: rows persisted before ids existed (and
+ * rows from an imported / hand-written JSON, whose ids are deliberately
+ * stripped on export) have no id, and the React list + drag reorder need a
+ * stable one. The backfill touches only this opaque id — it never
+ * fabricates key/value/secret data.
+ */
+function parseEnvVariable(value: unknown): HttpEnvVariableV1 | null {
+  if (!isRecord(value)) return null;
+  const key = value.key;
+  const varValue = value.value;
+  if (typeof key !== 'string' || key.length === 0) return null;
+  if (typeof varValue !== 'string') return null;
+  const secret = value.secret === true;
+  const id =
+    typeof value.id === 'string' && value.id.length > 0
+      ? value.id
+      : crypto.randomUUID();
+  return { id, key, value: varValue, secret };
+}
+
+/** Variable rows from untrusted JSON; invalid rows drop, a non-array gives none. */
+export function parseEnvVariables(value: unknown): HttpEnvVariableV1[] {
+  if (!Array.isArray(value)) return [];
+  const variables: HttpEnvVariableV1[] = [];
+  for (const raw of value) {
+    const parsed = parseEnvVariable(raw);
+    if (parsed !== null) variables.push(parsed);
+  }
+  return variables;
 }

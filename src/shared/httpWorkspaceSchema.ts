@@ -10,6 +10,8 @@
  * leaves used by the activated surface.
  */
 
+import type { HttpEnvVariableV1 } from './httpEnvironment';
+
 /**
  * Closed enum of HTTP methods Lingua supports. CONNECT and TRACE
  * are deliberately excluded — CONNECT is a proxy primitive (browser
@@ -283,6 +285,8 @@ export interface HttpRequestV1 {
   assertions?: HttpAssertion[];
   /** Optional per-request timeout override. Capped at `MAX_REQUEST_TIMEOUT_MS`. */
   timeoutMs?: number;
+  /** Request-scoped variables; they win over the environment and the collection. */
+  variables?: HttpEnvVariableV1[];
   /** ISO timestamp (millisecond precision). */
   createdAt: string;
   updatedAt: string;
