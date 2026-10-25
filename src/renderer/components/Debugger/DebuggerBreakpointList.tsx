@@ -1,5 +1,6 @@
 import { Circle, CircleDot, Diamond, MessageSquareText, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import '../../i18n/debuggerCatalog';
 import {
   MAX_BREAKPOINT_CONDITION_LENGTH,
   MAX_LOGPOINT_MESSAGE_LENGTH,

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import '../../i18n/debuggerCatalog';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import {
   dispatchDebuggerControl,
@@ -43,13 +44,12 @@ const debuggerDangerButton =
  *
  * Reference: docs/DEBUGGER_ADR.md.
  */
-export function DebuggerDrawer({
-  activeTabId,
-  activeLanguage,
-}: {
+export interface DebuggerDrawerProps {
   activeTabId: string | null;
   activeLanguage: Language | null | undefined;
-}) {
+}
+
+export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerProps) {
   const { t } = useTranslation();
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
   const session = useDebuggerStore((state) => state.session);
