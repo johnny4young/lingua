@@ -7,7 +7,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { isLocalNetworkHostname } from '../../utils/loopbackHost';
 import type { HttpSendQueue } from './HttpSendButton';
-import { scopedEnvironmentFor } from './httpScopes';
+import { scopedEnvironmentFor, type HttpSendOptions } from './httpScopes';
 
 /** Whether an HTTP request needs the internet: false for local and private hosts, which answer offline too. */
 function needsInternet(request: HttpRequestV1): boolean {
@@ -25,18 +25,18 @@ function needsInternet(request: HttpRequestV1): boolean {
  * connection returns, held reads go out one at a time and held writes wait
  * for Send now. Pipelines call `send` directly and never queue.
  */
-export function useHttpOfflineSend(send: (request: HttpRequestV1) => Promise<unknown>) {
+export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: HttpSendOptions) => Promise<unknown>) {
   const online = useOnlineStatus();
   const queued = useHttpOfflineQueue((state) => state.queued);
   const willQueue = useCallback((request: HttpRequestV1) => !online && needsInternet(request), [online]);
 
   const sendFromEditor = useCallback(
-    (request: HttpRequestV1) => {
+    (request: HttpRequestV1, options?: HttpSendOptions) => {
       const queue = useHttpOfflineQueue.getState();
       if (queue.queued[request.id]?.ready === false && !online) return;
       if (!willQueue(request)) {
         queue.remove(request.id);
-        void send(request);
+        void (options ? send(request, options) : send(request));
         return;
       }
       queue.enqueue(request.id);

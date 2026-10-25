@@ -48,11 +48,14 @@ import type { JsonSegment } from './httpJsonTreeModel';
 import type { HttpCaptureTarget } from './useHttpTreeCapture';
 import { useHttpOfflineSend } from './useHttpOfflineSend';
 import {
+  httpChainEnabled,
   httpScopesEnabled,
   rowsFromOtherEnvironments,
   scopedEnvironmentFor,
   type HttpEnvironmentFocus,
+  type HttpSendOptions,
 } from './httpScopes';
+import { chainOrder, chainPasses, chainTags, sourceNeedsSend } from '../../../shared/httpChain';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -294,12 +297,57 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   //     back BEFORE the response is recorded / capsuled.
   //   - `maskSecretsForCapsule` keeps secret tokens as `{{key}}` in the
   //     capsule source so the export never carries the resolved value.
+  // Sends the sources a request's chain tags need first, in dependency order,
+  // and stops on a cycle or on any response outside 2xx.
+  const handleSendRef = useRef<((request: HttpRequestV1, options?: HttpSendOptions) => Promise<HttpResponseV1 | null>) | null>(null);
+  const sendChain = useCallback(
+    async (target: HttpRequestV1, force: boolean): Promise<boolean> => {
+      const requests = useWorkspaceToolStore.getState().requests.map(request => (request.id === target.id ? target : request));
+      const byId = new Map(requests.map(request => [request.id, request]));
+      const label = (request: HttpRequestV1) => request.name || request.url;
+      const stop = (messageKey: string, values: Record<string, string>) => {
+        useUIStore.getState().pushStatusNotice({ tone: 'error', messageKey, values });
+        return false;
+      };
+      const { order, cycle } = chainOrder(target.id, requests);
+      if (cycle) return stop('httpWorkspace.chain.cycle', { name: label(target) });
+      const latest = (id: string) => useWorkspaceToolStore.getState().responsesByRequestId[id]?.[0];
+      const needed = new Set<string>();
+      const mark = (request: HttpRequestV1): void => {
+        for (const tag of chainTags(request, requests)) {
+          if (needed.has(tag.sourceId) || !(force || sourceNeedsSend(tag, latest(tag.sourceId), Date.now()))) continue;
+          needed.add(tag.sourceId);
+          const source = byId.get(tag.sourceId);
+          if (source) mark(source);
+        }
+      };
+      mark(target);
+      for (const id of order) {
+        const source = byId.get(id);
+        if (!needed.has(id) || !source) continue;
+        if ((source.transport ?? 'http') !== 'http') return stop('httpWorkspace.chain.liveSource', { name: label(source) });
+        const response = await handleSendRef.current?.(source, { skipChain: true });
+        if (!chainPasses(response ?? undefined)) {
+          return stop('httpWorkspace.chain.stopped', {
+            name: label(source),
+            status: response ? String(response.status || response.kind) : t('httpWorkspace.chain.cancelled'),
+          });
+        }
+      }
+      return true;
+    },
+    [t]
+  );
+
   const handleSend = useCallback(
-    async (requestToSend: HttpRequestV1): Promise<HttpResponseV1 | null> => {
+    async (requestToSend: HttpRequestV1, options?: HttpSendOptions): Promise<HttpResponseV1 | null> => {
       // Block a duplicate send of the SAME request; a different request
       // may still start (per-request execution model). Abort any prior
       // in-flight send so only one request executes at a time.
       if (useWorkspaceToolStore.getState().executingRequestId === requestToSend.id) {
+        return null;
+      }
+      if (httpChainEnabled() && !options?.skipChain && !(await sendChain(requestToSend, options?.forceChain === true))) {
         return null;
       }
       abortRef.current?.abort('superseded');
@@ -468,8 +516,11 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         }
       }
     },
-    [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce]
+    [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce, sendChain]
   );
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
 
   const { sendFromEditor, queueFor } = useHttpOfflineSend(handleSend);
 
@@ -527,7 +578,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               message: request ? 'live-transport' : 'missing-request',
             });
           } else {
-            const response = await handleSend(request);
+            // Explicit pipelines keep their own order, so their steps never run tag chains.
+            const response = await handleSend(request, { skipChain: true });
             if (!response) {
               if (pipelineCancelledRef.current) {
                 results.push({
