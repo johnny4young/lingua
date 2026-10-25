@@ -1325,3 +1325,47 @@ describe('HttpWorkspacePanel — chain tags', () => {
     expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
   });
 });
+
+describe('HttpWorkspacePanel — snapshot assertions', () => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspaceToolStoreForTests();
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpSnapshots: true } });
+    executeHttpRequestMock.mockReset();
+  });
+
+  it('adds a suggested assertion to the request draft and opens Tests', async () => {
+    const request = { ...createBlankHttpRequest({ id: 'r1', now: NOW }), name: 'Repo', url: 'https://api.example.com/repo' };
+    useWorkspaceToolStore.setState({ requests: [request], activeRequestId: 'r1', responsesByRequestId: { r1: [makeResponse({ body: '{"name":"janusly"}' })] } });
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getAllByTestId('http-response-suggestion')[0]!);
+    expect(screen.getByTestId('http-request-editor-tab-assert').dataset.active).toBe('true');
+    expect(screen.getByTestId('http-request-editor-tab-assert').textContent).toBe('Tests1');
+    await waitFor(() => expect(useWorkspaceToolStore.getState().requests[0]?.assertions).toHaveLength(1));
+  });
+
+  it('fails a pipeline step whose response differs from its snapshot', async () => {
+    const user = userEvent.setup();
+    const store = useWorkspaceToolStore.getState();
+    const snapshot = { version: 1 as const, status: 200, body: '{"stars":12}', recordedAt: NOW, scrubbers: { timestamps: true, uuids: true, ids: true, hostname: false, regex: '' } };
+    const requests = ['one', 'two'].map((id) => ({ ...createBlankHttpRequest({ id, name: id }), url: `https://api.example.com/${id}` }));
+    store.createRequests([{ ...requests[0]!, snapshot }, requests[1]!]);
+    store.createHttpPipeline({
+      version: 1,
+      id: 'p',
+      name: 'Snapshot flow',
+      steps: requests.map((request, index) => ({ id: `s${index}`, requestId: request.id, enabled: true })),
+      stopOnFailure: true,
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    executeHttpRequestMock.mockResolvedValue(makeResponse({ body: '{"stars":14}' }));
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-pipeline-open'));
+    await user.click(screen.getByRole('button', { name: 'Run pipeline' }));
+    await waitFor(() => expect(screen.getByText('Pipeline finished with failures.')).not.toBeNull());
+    expect(executeHttpRequestMock).toHaveBeenCalledTimes(1);
+  });
+});
+
