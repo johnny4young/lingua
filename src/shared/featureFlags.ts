@@ -4,7 +4,7 @@
  */
 
 /** Each id reads its copy from `settings.labs.flag.<id>.label` and `.description`. */
-export const FEATURE_FLAG_IDS = ['networkPolicy', 'dbClient', 'editRows', 'httpScopes', 'httpChainTags'] as const;
+export const FEATURE_FLAG_IDS = ['networkPolicy', 'dbClient', 'editRows', 'httpScopes', 'httpChainTags', 'httpSnapshots'] as const;
 
 export type FeatureFlagId = (typeof FEATURE_FLAG_IDS)[number];
 export type FeatureFlagState = Partial<Record<FeatureFlagId, boolean>>;

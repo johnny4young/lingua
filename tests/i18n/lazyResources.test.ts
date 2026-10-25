@@ -41,7 +41,7 @@ describe('renderer locale bundle boundary', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
     ) as Record<string, string>;
-    expect(Object.keys(bootCatalog).filter((key) => /^httpWorkspace\.(response\.tree|editor\.url\.hint|editor\.tab\.authBadge)\./u.test(key))).toEqual([]);
+    expect(Object.keys(bootCatalog).filter((key) => /^httpWorkspace\.(response\.tree|editor\.url\.hint|editor\.tab\.authBadge|editor\.assert)\./u.test(key))).toEqual([]);
     expect(rendererI18n).not.toContain("locales/en/httpBuilder.json");
     expect(rendererI18n).toContain("import('./locales/es/httpBuilder.json')");
     const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/httpBuilderCatalog.ts'), 'utf8');
