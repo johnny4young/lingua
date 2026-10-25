@@ -90,6 +90,11 @@ describe('chain tags', () => {
     expect(chainedOrigin('{{base}}/items', env, new Set(['id']))).toBeNull();
     expect(chainedOrigin('{{base}}/items', env, new Set())).toBeNull();
     expect(chainedOrigin('{{missing}}/items', env, new Set(['missing']))).toBeNull();
+    // A fresh value that rewrites the authority from outside the host still counts.
+    const authority = { ...env, variables: [...env.variables, { id: '4', key: 'suffix', value: '@evil.example', secret: false }] };
+    expect(chainedOrigin('https://api.example.com{{suffix}}/x', authority, new Set(['suffix']))).toBe('https://evil.example');
+    const scheme = { ...env, variables: [...env.variables, { id: '5', key: 'next', value: 'mailto:someone', secret: false }] };
+    expect(chainedOrigin('{{next}}', scheme, new Set(['next']))).toBe('mailto:someone');
   });
 
   it('send their source first only when the rule says so', () => {

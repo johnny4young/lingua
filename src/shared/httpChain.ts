@@ -136,29 +136,32 @@ export function chainOrder(
   return { order, cycle, tooLong };
 }
 
-// Stands in for a fresh value while checking which part of a URL it reaches.
+// Stands in for a fresh value, so the URL's origin without those values can be compared.
 const ORIGIN_MARKER = 'lingua-chain-origin';
 
+const originOf = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    // A scheme without an origin (`null`) cannot be compared, so it shows as the whole URL.
+    return parsed.origin === 'null' ? parsed.href : parsed.origin;
+  } catch {
+    return null;
+  }
+};
+
 /**
- * The origin a URL resolves to when a value a chain just captured supplies its
- * scheme or host, so the user can confirm where the request goes; null when
- * those values only reach the path and query.
+ * Where a request goes when a value a chain just captured may set its scheme
+ * or host, so the user can confirm it; null when the origin is the same with
+ * those values left out, or the URL does not parse and will fail on its own.
  */
 export function chainedOrigin(url: string, env: HttpEnvironmentV1 | null, fresh: ReadonlySet<string>): string | null {
   if (fresh.size === 0) return null;
   const full = new Map((env?.variables ?? []).map((row) => [row.key, row.value]));
+  const real = originOf(interpolateString(url.trim(), full));
+  if (real === null) return null;
   const probe = new Map(full);
   for (const key of fresh) if (probe.has(key)) probe.set(key, ORIGIN_MARKER);
-  try {
-    if (!new URL(interpolateString(url.trim(), probe)).origin.includes(ORIGIN_MARKER)) return null;
-  } catch {
-    // A marker in place of the scheme does not parse, which also means a fresh value leads the URL.
-  }
-  try {
-    return new URL(interpolateString(url.trim(), full)).origin;
-  } catch {
-    return null;
-  }
+  return originOf(interpolateString(url.trim(), probe)) === real ? null : real;
 }
 
 /**
