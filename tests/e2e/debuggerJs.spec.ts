@@ -152,6 +152,9 @@ test.describe('Debugger ', () => {
     await clickDebug(page);
     const hud = page.getByTestId('debugger-step-hud');
     await expect(hud).toContainText('Paused · line 3');
+    await page.getByRole('tab', { name: /^Console/ }).click();
+    await expect(page.getByTestId('console-paused-summary')).toContainText('Paused at line 3');
+    await page.getByTestId('console-paused-summary').getByRole('button', { name: 'Open Debugger' }).click();
     const pausedLine = await page.locator('.monaco-editor .lingua-debugger-paused-line').boundingBox();
     const hudBox = await hud.boundingBox();
     expect(hudBox!.y).toBeGreaterThanOrEqual(pausedLine!.y + pausedLine!.height - 1);

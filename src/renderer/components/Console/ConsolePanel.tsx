@@ -27,6 +27,7 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRow } from './ConsoleEntryRow';
+import { PausedConsoleSummary } from './PausedConsoleSummary';
 import { richKindBucket } from './richConsoleFormat';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useCommandListener } from '../../hooks/useCommandListener';
@@ -734,6 +735,7 @@ export function ConsolePanel() {
           </>
         )}
       </div>
+      <PausedConsoleSummary />
 
       <ExecutionComparisonModal entries={comparison} onClose={handleCloseComparison} />
     </div>
