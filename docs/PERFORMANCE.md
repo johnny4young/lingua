@@ -35,11 +35,14 @@ groups in `vite.web.config.mts` and `vite.renderer.config.mts`
 (`react`, `zustand`, `i18next`, `vega-embed`, `duckdb-wasm`,
 `esbuild-wasm`, plus the `vite-preload` pin). The split does not shrink
 `initial`; it keeps framework bytes on a hash that survives app-only
-deploys, so returning visitors reuse them from cache. A group can grow
-`initial`, though: it captures every matching module, including ones only lazy
-chunks import, and the group loads with the entry. `lucide-react` has no group
-for that reason, so each icon ships with the chunks that use it; a group for
-it had pulled every lazy surface's icons into the initial bundle. Rolldown ignores
+deploys, so returning visitors reuse them from cache. A group is one chunk, so
+when the entry imports any of its modules, all of them load with the entry. Group
+a package only when the entry uses all of it (`react`, `zustand`, `i18next`) or
+none of it (`vega-embed`, `duckdb-wasm`, `esbuild-wasm`). `lucide-react` is
+neither: the entry needs a few icons and lazy surfaces need many more, so it has
+no group and each icon ships with the chunks that use it. Its small shared
+runtime now rides a common chunk whose hash can change with app deploys; that
+costs a few KB of cache reuse, against about 7.5 KB of initial gzip a group cost. Rolldown ignores
 `manualChunks` when `codeSplitting` is also configured;
 the former mixed configuration therefore never emitted its named vendor
 groups. Keep new groups in the same policy instead of combining both APIs.
