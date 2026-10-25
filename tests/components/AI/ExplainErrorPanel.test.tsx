@@ -80,7 +80,8 @@ describe('anchored explain panel', () => {
     act(() => useEditorStore.getState().updateContent('t1', CODE));
     fireEvent.click(screen.getByTestId('ai-explain-apply'));
     fireEvent.click(screen.getByTestId('ai-explain-apply-confirm'));
-    expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledTimes(1);    // The code now matches the suggestion, so there is nothing left to apply.
+    expect(screen.queryByTestId('ai-explain-apply')).toBeNull();
   });
 
   it('keeps only the vote and the error kind on this device', async () => {

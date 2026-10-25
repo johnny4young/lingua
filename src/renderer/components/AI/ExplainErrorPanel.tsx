@@ -221,7 +221,7 @@ export function ExplainErrorPanel({
             {phase.kind === 'done' && lastAnswer ? (
               <>
                 <div className="flex flex-wrap items-center gap-2">
-                  {suggestedCode && tab ? (
+                  {suggestedCode && tab && suggestedCode.trim() !== code.trim() ? (
                     <>
                       <button
                         type="button"
