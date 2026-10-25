@@ -84,6 +84,15 @@ action and a preview of exactly what is sent.
   failures can open the consent dialog. The answer renders as structured
   Markdown, supports streaming + follow-up questions, and offers Apply & re-run
   where the host surface can safely replace code behind a diff preview.
+- Code tabs open the same consent flow in a panel anchored beside the editor
+  (from the inline error row or the Console). The preview is still the exact
+  payload. Its one addition is opt-in: **Include runtime values**, off by
+  default, appends the paused locals or the last run's top-level variables as
+  `name = value` lines, with secret-looking names and token-shaped values
+  redacted (`formatRuntimeValues`), each value and the block capped, and the
+  redacted count added to the notice. The conversation lives in memory per tab
+  and is never persisted; a Helpful / Not helpful vote stores only the error's
+  kind and the vote in `lingua-explain-ratings`.
 - SQL workspace: "Ask AI" sends only the live schema and typed question, then
   inserts the generated SQL for user review; it never auto-runs generated SQL.
 
