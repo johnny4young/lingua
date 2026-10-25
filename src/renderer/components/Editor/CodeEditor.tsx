@@ -41,6 +41,7 @@ import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
+import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 
 configureMonaco();
@@ -485,6 +486,7 @@ export function CodeEditor() {
           tabId={activeTabId}
           lineTimings={lineTimings}
         />
+        <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
       </div>
       <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />
     </div>

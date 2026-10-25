@@ -12,16 +12,13 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
 import { useDebuggerStore } from '../../stores/debuggerStore';
-import {
-  dispatchDebuggerControl,
-  dispatchDebuggerRunToEnd,
-} from '../../runtime/debuggerControlBridge';
-import { trackEvent } from '../../utils/telemetry';
+import { dispatchDebuggerControl } from '../../runtime/debuggerControlBridge';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
 import type { Language } from '../../types/language';
 import { Tooltip } from '../ui/chrome';
 import { DebuggerBreakpointList } from './DebuggerBreakpointList';
 import { DebuggerWatchList } from './DebuggerWatchList';
+import { useDebuggerControls } from './useDebuggerControls';
 
 const debuggerButtonBase =
   'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-e1 shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40';
@@ -52,9 +49,8 @@ export interface DebuggerDrawerProps {
 export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerProps) {
   const { t } = useTranslation();
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
-  const session = useDebuggerStore((state) => state.session);
-  const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
-  const detachSession = useDebuggerStore((state) => state.detachSession);
+  const { session, pausedFrame, isPaused, canStepOut, resume: sendResume, step: sendStep, runToEnd: detach } =
+    useDebuggerControls();
   const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
   const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
   const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
@@ -114,7 +110,6 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
   if (!supportsDebugger) return null;
   if (!session && breakpointCount === 0) return null;
 
-  const isPaused = Boolean(pausedFrame);
   const reasonKey = pausedFrame
     ? `debugger.paused.reason.${pausedFrame.reason}`
     : '';
@@ -122,15 +117,6 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
     breakpointCount > 0 && enabledBreakpointCount === 0
       ? 'debugger.empty.noEnabled'
       : 'debugger.empty.ready';
-  // Some runtimes can pause without stack metadata; do not expose a
-  // step-out action that the worker cannot satisfy.
-  const canStepOut =
-    isPaused &&
-    (pausedFrame?.callStack.length ?? 0) > 0 &&
-    !(
-      session?.runtime === 'python' &&
-      pausedFrame?.callStack[0]?.functionName === '<module>'
-    );
   const breakpointSummary =
     breakpointCount > 0
       ? t('debugger.breakpoints.summary', {
@@ -160,31 +146,6 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
       ? t('debugger.breakpoints.emptyHint')
       : t('debugger.breakpoints.clearAll.hint');
 
-  const sendResume = () => {
-    dispatchDebuggerControl({ type: 'resume' });
-    // Optimistically clear the pause state so stale variables/callstack
-    // are not shown while the worker resumes execution.
-    useDebuggerStore.getState().setPausedFrame(null);
-  };
-  const sendStep = (mode: 'over' | 'into' | 'out') => {
-    dispatchDebuggerControl({ type: 'step', mode });
-    // A step command immediately invalidates the current frame; the
-    // worker will publish a fresh pause frame if execution stops again.
-    useDebuggerStore.getState().setPausedFrame(null);
-  };
-  const detach = () => {
-    // Emit a `debugger.detached` event with
-    // `reasonBucket='user-detach'`. The runners emit their own
-    // `run-complete` / `crash` / `stop` reasons; this branch covers the
-    // explicit user-initiated detach via the drawer button.
-    const language = session?.runtime ?? 'js';
-    if (language !== 'python') {
-      void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
-    }
-    dispatchDebuggerRunToEnd();
-    useDebuggerStore.getState().setPausedFrame(null);
-    detachSession();
-  };
   const toggleAllBreakpoints = () => {
     // Bulk enable/disable intentionally spans every tab so a hidden
     // breakpoint cannot keep surprising future runs.

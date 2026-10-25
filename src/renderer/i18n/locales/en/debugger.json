@@ -77,5 +77,7 @@
   "debugger.drawer.expandHint": "Show debugger variables, call stack, watches, and controls.",
   "debugger.breakpoints.nativePauseOnly": "Native debuggers use standard pause breakpoints.",
   "debugger.breakpoints.nativeHint": "Conditional breakpoints and logpoints remain available for JavaScript and TypeScript; Python, Go, and Rust use pause breakpoints.",
-  "debugger.watches.nativeExpressionHint": "Native watches run inside the local debug process and may have side effects. Evaluate only expressions you trust."
+  "debugger.watches.nativeExpressionHint": "Native watches run inside the local debug process and may have side effects. Evaluate only expressions you trust.",
+  "debugger.hud.label": "Debugger controls",
+  "debugger.hud.paused": "Paused · line {{line}}"
 }
