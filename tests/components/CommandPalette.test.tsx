@@ -465,6 +465,24 @@ describe('CommandPalette', () => {
     }
   });
 
+  it('shows why a selection command is unavailable without a selection', () => {
+    editorState.tabs = [{ id: 'sel-js', language: 'javascript', content: 'const a = 1;', runtimeMode: 'worker' }];
+    editorState.activeTabId = 'sel-js';
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('Search templates, snippets, commands...'), {
+      target: { value: 'copy with context' },
+    });
+    expect(screen.getAllByText('Select code in the editor first.').length).toBeGreaterThan(0);
+  });
+
   it('describes desktop runtimes honestly in the web command palette', () => {
     const originalLingua = window.lingua;
     Object.defineProperty(window, 'lingua', {

@@ -635,7 +635,6 @@ export function SettingsModal({
           <EffectiveConfigTile tab={activeTab} />
         </div>
 
-        {/* Status bar */}
       </OverlayCard>
     </OverlayBackdrop>
   );
