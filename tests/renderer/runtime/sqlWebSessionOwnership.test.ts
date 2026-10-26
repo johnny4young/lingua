@@ -43,7 +43,7 @@ async function open(db: ReturnType<typeof createWebSqlDb>) {
 }
 const options = { timeoutMs: 1_000 };
 
-// Synthetic Hrana transport: no server, real token, browser profile or native vault.
+// Synthetic Hrana transport: no server, no real token, no browser profile and no native vault.
 describe('web SQL session ownership', () => {
   it('does not forget a working replacement token when the old catalog handshake returns 401', async () => {
     const { db, started, oldHandshake } = fixture();
@@ -58,6 +58,16 @@ describe('web SQL session ownership', () => {
     await rotating;
     expect((await db.catalog()).adhoc[0]).toMatchObject({ hasPassword: true });
     expect(await db.execute('next', id, 'SELECT 42 AS n', options)).toMatchObject({ status: 'success', rows: [{ n: 42 }] });
+  });
+
+  it('accepts a new token at once while the old handshake is still pending', async () => {
+    const { db, started } = fixture();
+    const id = await open(db);
+    void db.introspect(id, { level: 'schemas' });
+    await started.promise;
+    // The UI awaits the password change before it retries; a silent old handshake must not block it.
+    await db.sessionPassword(id, 'new-token');
+    expect(await db.execute('new', id, 'SELECT 42 AS n', options)).toMatchObject({ status: 'success', rows: [{ n: 42 }] });
   });
 
   it('detaches every old lane before awaiting a handshake so cleanup cannot drop a new catalog session', async () => {

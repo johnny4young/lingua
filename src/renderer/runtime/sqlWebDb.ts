@@ -108,17 +108,14 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     return ready;
   }
 
-  async function drop(id: string): Promise<void> {
-    for (const [runId, run] of runs) if (run.connectionId === id) runs.delete(runId);
-    // Detach every old lane before awaiting any handshake: replacements may open meanwhile.
-    const previous = ['', '#catalog', '#edits'].map((lane) => {
+  /** Detaches a connection's runs and sessions at once and closes them in the background, so a hung handshake cannot block a new credential. */
+  function drop(id: string): void {
+    for (const [runId, run] of runs) if (run.connectionId === id) void closeRun(runId);
+    for (const lane of ['', '#catalog', '#edits']) {
       const key = `${id}${lane}`;
       const session = sessions.get(key);
       sessions.delete(key);
-      return session;
-    });
-    for (const session of previous) {
-      await session?.then((driver) => driver.close()).catch(() => undefined);
+      void session?.then((driver) => driver.close()).catch(() => undefined);
     }
   }
 
@@ -128,7 +125,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     // A late refusal belongs to the credential used by that request, never its replacement.
     if (revision === undefined || credentialRevisions.get(entry.id) !== revision) return detail;
     secrets.delete(entry.id);
-    void drop(entry.id);
+    drop(entry.id);
     return { ...detail, fix: 'password-needed' };
   }
 
@@ -175,7 +172,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       const had = connections.delete(id);
       secrets.delete(id);
       credentialRevisions.delete(id);
-      await drop(id);
+      drop(id);
       return { ok: had };
     },
 
@@ -184,7 +181,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       if (!entry || kind !== 'database' || entry.passwordMode === 'none') return { ok: false };
       secrets.set(id, password);
       credentialRevisions.set(id, Symbol());
-      await drop(id);
+      drop(id);
       return { ok: true };
     },
 
