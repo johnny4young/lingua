@@ -10,17 +10,16 @@ import {
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import '../../i18n/debuggerCatalog';
 import { useDebuggerStore } from '../../stores/debuggerStore';
-import {
-  dispatchDebuggerControl,
-  dispatchDebuggerRunToEnd,
-} from '../../runtime/debuggerControlBridge';
-import { trackEvent } from '../../utils/telemetry';
+import { dispatchDebuggerControl } from '../../runtime/debuggerControlBridge';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
 import type { Language } from '../../types/language';
 import { Tooltip } from '../ui/chrome';
 import { DebuggerBreakpointList } from './DebuggerBreakpointList';
 import { DebuggerWatchList } from './DebuggerWatchList';
+import { useDebuggerControls } from './useDebuggerControls';
+import { localsChanges, orderedLocals } from '../../utils/debuggerLocals';
 
 const debuggerButtonBase =
   'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-e1 shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40';
@@ -43,21 +42,20 @@ const debuggerDangerButton =
  *
  * Reference: docs/DEBUGGER_ADR.md.
  */
-export function DebuggerDrawer({
-  activeTabId,
-  activeLanguage,
-}: {
+export interface DebuggerDrawerProps {
   activeTabId: string | null;
   activeLanguage: Language | null | undefined;
-}) {
+}
+
+export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerProps) {
   const { t } = useTranslation();
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
-  const session = useDebuggerStore((state) => state.session);
-  const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
-  const detachSession = useDebuggerStore((state) => state.detachSession);
+  const { session, pausedFrame, isPaused, canStepOut, resume: sendResume, step: sendStep, runToEnd: detach } =
+    useDebuggerControls();
   const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
   const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
   const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
+  const previousLocals = useDebuggerStore((state) => state.previousPause?.locals);
   const watches = useDebuggerStore((state) => state.watches);
   // Toolbar actions are global, even though drawer visibility and the
   // summary pill stay scoped to the active editor tab.
@@ -114,7 +112,6 @@ export function DebuggerDrawer({
   if (!supportsDebugger) return null;
   if (!session && breakpointCount === 0) return null;
 
-  const isPaused = Boolean(pausedFrame);
   const reasonKey = pausedFrame
     ? `debugger.paused.reason.${pausedFrame.reason}`
     : '';
@@ -122,15 +119,6 @@ export function DebuggerDrawer({
     breakpointCount > 0 && enabledBreakpointCount === 0
       ? 'debugger.empty.noEnabled'
       : 'debugger.empty.ready';
-  // Some runtimes can pause without stack metadata; do not expose a
-  // step-out action that the worker cannot satisfy.
-  const canStepOut =
-    isPaused &&
-    (pausedFrame?.callStack.length ?? 0) > 0 &&
-    !(
-      session?.runtime === 'python' &&
-      pausedFrame?.callStack[0]?.functionName === '<module>'
-    );
   const breakpointSummary =
     breakpointCount > 0
       ? t('debugger.breakpoints.summary', {
@@ -160,31 +148,6 @@ export function DebuggerDrawer({
       ? t('debugger.breakpoints.emptyHint')
       : t('debugger.breakpoints.clearAll.hint');
 
-  const sendResume = () => {
-    dispatchDebuggerControl({ type: 'resume' });
-    // Optimistically clear the pause state so stale variables/callstack
-    // are not shown while the worker resumes execution.
-    useDebuggerStore.getState().setPausedFrame(null);
-  };
-  const sendStep = (mode: 'over' | 'into' | 'out') => {
-    dispatchDebuggerControl({ type: 'step', mode });
-    // A step command immediately invalidates the current frame; the
-    // worker will publish a fresh pause frame if execution stops again.
-    useDebuggerStore.getState().setPausedFrame(null);
-  };
-  const detach = () => {
-    // Emit a `debugger.detached` event with
-    // `reasonBucket='user-detach'`. The runners emit their own
-    // `run-complete` / `crash` / `stop` reasons; this branch covers the
-    // explicit user-initiated detach via the drawer button.
-    const language = session?.runtime ?? 'js';
-    if (language !== 'python') {
-      void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
-    }
-    dispatchDebuggerRunToEnd();
-    useDebuggerStore.getState().setPausedFrame(null);
-    detachSession();
-  };
   const toggleAllBreakpoints = () => {
     // Bulk enable/disable intentionally spans every tab so a hidden
     // breakpoint cannot keep surprising future runs.
@@ -200,7 +163,7 @@ export function DebuggerDrawer({
     <section
       data-testid="debugger-drawer"
       className={`flex h-full min-h-0 flex-col bg-background/55 ${
-        isPaused ? 'border-danger/45' : 'border-border/80'
+        isPaused ? 'border-accent/45' : 'border-border/80'
       }`}
     >
       <header className="flex flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
@@ -245,7 +208,7 @@ export function DebuggerDrawer({
           <Tooltip content={statusHint}>
             <span
               className={`status-pill border-transparent px-2 py-0.5 text-eyebrow ${
-                isPaused ? 'bg-danger/12 text-danger' : 'bg-surface text-muted'
+                isPaused ? 'bg-accent-tint text-accent-fg' : 'bg-surface text-muted'
               }`}
             >
               {isPaused ? t('debugger.status.paused') : t('debugger.status.ready')}
@@ -408,14 +371,7 @@ export function DebuggerDrawer({
                 {t('debugger.paused.locals.empty')}
               </p>
             ) : (
-              <ul className="grid gap-1">
-                {Object.entries(pausedFrame!.locals).map(([name, value]) => (
-                  <li key={name} className="font-mono text-caption text-foreground">
-                    <span className="text-muted">{name}: </span>
-                    {value}
-                  </li>
-                ))}
-              </ul>
+              <LocalsList previous={previousLocals} current={pausedFrame!.locals} />
             )}
           </DrawerSection>
           <DrawerSection
@@ -445,6 +401,36 @@ export function DebuggerDrawer({
         </div>
       )}
     </section>
+  );
+}
+
+/** Locals in a stable order; new or changed ones since the last pause are tinted and say so. */
+function LocalsList({ previous, current }: { previous: Record<string, string> | undefined; current: Record<string, string> }) {
+  const { t } = useTranslation();
+  const changes = localsChanges(previous, current);
+  return (
+    <ul className="grid gap-1">
+      {orderedLocals(previous, current).map(([name, value]) => {
+        const change = changes.get(name);
+        return (
+          <li
+            key={name}
+            data-change={change?.kind}
+            title={change?.kind === 'changed' ? t('debugger.paused.locals.before', { value: change.before }) : undefined}
+            className={`font-mono text-caption text-foreground ${change ? '-mx-1 rounded-sm bg-accent-tint px-1' : ''}`}
+          >
+            <span className="text-muted">{name}: </span>
+            {value}
+            {change ? (
+              <span className="ml-1.5 inline-flex items-center gap-1 font-sans text-micro font-semibold text-accent-fg">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+                {t(`debugger.paused.locals.${change.kind}`)}
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

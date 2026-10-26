@@ -44,6 +44,20 @@ import { HttpEmptyState } from './HttpEmptyState';
 import { HttpRequestList } from './HttpRequestList';
 import { HttpRequestEditor } from './HttpRequestEditor';
 import { HttpResponsePreview } from './HttpResponsePreview';
+import type { JsonSegment } from './httpJsonTreeModel';
+import type { HttpCaptureTarget } from './useHttpTreeCapture';
+import { useHttpOfflineSend } from './useHttpOfflineSend';
+import type { HttpAssertionTarget } from './useHttpAssertionTarget';
+import { snapshotChanges } from '../../../shared/httpSnapshot';
+import {
+  httpChainEnabled,
+  httpScopesEnabled,
+  rowsFromOtherEnvironments,
+  scopedEnvironmentFor,
+  type HttpEnvironmentFocus,
+  type HttpSendOptions,
+} from './httpScopes';
+import { chainedOrigin, chainOrder, chainPasses, chainTags, latestFor, requestLabel, sourceNeedsSend } from '../../../shared/httpChain';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -72,12 +86,15 @@ export interface HttpWorkspacePanelProps {
  * writes to a stale environment.
  */
 function applyCapturesToActiveEnvironment(
-  writes: ReadonlyArray<{ targetVariable: string; value: string }>
+  writes: ReadonlyArray<{ targetVariable: string; value: string }>,
+  // A chain reads its tags from the response, so its sources need neither notice.
+  quiet = false
 ): void {
   if (writes.length === 0) return;
   const store = useWorkspaceToolStore.getState();
   const envId = store.activeEnvironmentId;
   if (envId === null) {
+    if (quiet) return;
     useUIStore.getState().pushStatusNotice({
       tone: 'warning',
       messageKey: 'httpWorkspace.capture.noEnvironment',
@@ -101,6 +118,7 @@ function applyCapturesToActiveEnvironment(
     }
     return next;
   });
+  if (quiet) return;
   const envName = store.environments.find(e => e.id === envId)?.name ?? '';
   useUIStore.getState().pushStatusNotice({
     tone: 'success',
@@ -126,15 +144,22 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const executingRequestId = useWorkspaceToolStore(state => state.executingRequestId);
   // The active request's Send button is busy only while THAT request is
   // the one in flight (per-request execution tracking).
-  const isExecuting = executingRequestId !== null && executingRequestId === activeRequestId;
+  // While a chain sends its sources, its request counts as running, so Send turns into Stop.
+  const [chainRunningFor, setChainRunningFor] = useState<string | null>(null);
+  const isExecuting = (executingRequestId !== null && executingRequestId === activeRequestId) || chainRunningFor === activeRequestId;
   const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
+  const scopesOn = useSettingsStore(state => state.featureFlags.httpScopes === true);
+  const snapshotsOn = useSettingsStore(state => state.featureFlags.httpSnapshots === true);
+  const assertionTargetRef = useRef<HttpAssertionTarget | null>(null);
+  const collectionVariables = useWorkspaceToolStore(state => state.collectionVariables);
   // Environments + active selection drive the
   // selector, the resolution preview, and send-time interpolation.
   const environments = useWorkspaceToolStore(state => state.environments);
   const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
+  const [managerFocus, setManagerFocus] = useState<HttpEnvironmentFocus | null>(null);
   const [isPipelineManagerOpen, setIsPipelineManagerOpen] = useState(false);
   const [pipelineRun, setPipelineRun] = useState<HttpPipelineRunSnapshot | null>(null);
   const pipelineRunningRef = useRef(false);
@@ -147,6 +172,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // 0 = newest (the default, which the live preview lands on). Reset to
   // newest whenever the active request changes or a new run records.
   const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const captureTargetRef = useRef<HttpCaptureTarget | null>(null);
   // The (request id + newest response) the index is anchored to. Stored
   // as state (not a ref) so the documented "adjust state during render"
   // reset pattern fires exactly once per change.
@@ -202,6 +228,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     livePreview?.requestId === activeRequestId && isExecuting
       ? livePreview.response
       : activeHistory[safeHistoryIndex];
+  // Older history rows have no body left to compare or keep.
+  const snapshotsShown = snapshotsOn && safeHistoryIndex === 0;
 
   // SQL/HTTP MODEL rework — a new request is a row in the collection,
   // NOT a new editor tab. `createRequest` appends it and selects it (the
@@ -271,6 +299,80 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().updateRequest(requestId, patch);
   }, []);
 
+  // Sends the sources a request's chain tags need first, in dependency order,
+  // and stops on a cycle or on any response outside 2xx.
+  const chainLockRef = useRef(false);
+  const chainCancelledRef = useRef(false);
+  const confirmRef = useRef<((send: boolean) => void) | null>(null);
+  // Pauses a send whose scheme or host comes from a value the chain just captured, until the user confirms the host.
+  const confirmOrigin = useCallback((request: HttpRequestV1, fresh: ReadonlySet<string>): Promise<boolean> => {
+    const env = scopedEnvironmentFor(request, useWorkspaceToolStore.getState().getActiveEnvironment() ?? null);
+    const origin = chainedOrigin(request.url, env, fresh);
+    if (origin === null) return Promise.resolve(true);
+    return new Promise(resolve => {
+      let settled = false;
+      const settle = (send: boolean) => {
+        if (settled) return;
+        settled = true;
+        confirmRef.current = null;
+        resolve(send);
+      };
+      confirmRef.current = settle;
+      useUIStore.getState().pushStatusNotice({
+        tone: 'warning',
+        messageKey: 'httpWorkspace.chain.confirm',
+        values: { name: requestLabel(request), origin },
+        actions: [{ labelKey: 'httpWorkspace.chain.confirmSend', onClick: () => settle(true) }],
+        // The CTA dismisses the notice before its click runs; every other close cancels.
+        onDismiss: mode => {
+          if (mode !== 'cta') settle(false);
+        },
+      });
+    });
+  }, []);
+  const handleSendRef = useRef<((request: HttpRequestV1, options?: HttpSendOptions) => Promise<HttpResponseV1 | null>) | null>(null);
+  const sendChain = useCallback(
+    async (target: HttpRequestV1, force: boolean): Promise<ReadonlySet<string> | null> => {
+      const requests = useWorkspaceToolStore.getState().requests.map(request => (request.id === target.id ? target : request));
+      const byId = new Map(requests.map(request => [request.id, request]));
+      const stop = (messageKey: string, values: Record<string, string>, tone: 'error' | 'info' = 'error') => {
+        useUIStore.getState().pushStatusNotice({ tone, messageKey, values });
+        return null;
+      };
+      // Variables the sources sent so far just captured.
+      const fresh = new Set<string>();
+      const { order, cycle, tooLong } = chainOrder(target.id, requests);
+      if (cycle) return stop('httpWorkspace.chain.cycle', { name: requestLabel(target) });
+      if (tooLong) return stop('httpWorkspace.chain.tooLong', { name: requestLabel(target) });
+      const environmentId = useWorkspaceToolStore.getState().activeEnvironmentId;
+      const latest = (id: string) => latestFor(useWorkspaceToolStore.getState().responsesByRequestId, id, environmentId);
+      const needed = new Set<string>();
+      const mark = (request: HttpRequestV1): void => {
+        for (const tag of chainTags(request, requests)) {
+          if (needed.has(tag.sourceId) || !(force || sourceNeedsSend(tag, latest(tag.sourceId), Date.now()))) continue;
+          needed.add(tag.sourceId);
+          const source = byId.get(tag.sourceId);
+          if (source) mark(source);
+        }
+      };
+      mark(target);
+      for (const id of order) {
+        const source = byId.get(id);
+        if (!needed.has(id) || !source) continue;
+        if ((source.transport ?? 'http') !== 'http') return stop('httpWorkspace.chain.liveSource', { name: requestLabel(source) });
+        if (!(await confirmOrigin(source, fresh))) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status: t('httpWorkspace.chain.cancelled') }, 'info');
+        const response = await handleSendRef.current?.(source, { skipChain: true });
+        // No response, or Stop while it was being recorded, means the user stopped the chain.
+        if (!response || chainCancelledRef.current) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status: t('httpWorkspace.chain.cancelled') }, 'info');
+        const status = String(response.status || response.kind);
+        if (!chainPasses(response)) return stop('httpWorkspace.chain.stopped', { name: requestLabel(source), status });
+        for (const capture of source.captures ?? []) if (capture.enabled && capture.targetVariable.trim()) fresh.add(capture.targetVariable.trim());
+      }
+      return fresh;
+    },
+    [t, confirmOrigin]
+  );
+
   // Send pipeline with environment interpolation +
   // secret-aware redaction. The privacy invariant (no resolved secret on
   // any persisted / shared / displayed surface) is enforced here:
@@ -282,24 +384,51 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   //   - `maskSecretsForCapsule` keeps secret tokens as `{{key}}` in the
   //     capsule source so the export never carries the resolved value.
   const handleSend = useCallback(
-    async (requestToSend: HttpRequestV1): Promise<HttpResponseV1 | null> => {
+    async (requestToSend: HttpRequestV1, options?: HttpSendOptions): Promise<HttpResponseV1 | null> => {
       // Block a duplicate send of the SAME request; a different request
       // may still start (per-request execution model). Abort any prior
       // in-flight send so only one request executes at a time.
       if (useWorkspaceToolStore.getState().executingRequestId === requestToSend.id) {
         return null;
       }
+      if (httpChainEnabled() && !options?.skipChain) {
+        // One chain at a time: a second click while sources go out is ignored.
+        if (chainLockRef.current) return null;
+        chainLockRef.current = true;
+        chainCancelledRef.current = false;
+        setChainRunningFor(requestToSend.id);
+        try {
+          const fresh = await sendChain(requestToSend, options?.forceChain === true);
+          if (!fresh) return null;
+          if (!(await confirmOrigin(requestToSend, fresh))) {
+            useUIStore.getState().pushStatusNotice({
+              tone: 'info',
+              messageKey: 'httpWorkspace.chain.stopped',
+              values: { name: requestLabel(requestToSend), status: t('httpWorkspace.chain.cancelled') },
+            });
+            return null;
+          }
+        } finally {
+          chainLockRef.current = false;
+          setChainRunningFor(null);
+        }
+        // Something else may have started this request while its sources went out.
+        if (useWorkspaceToolStore.getState().executingRequestId === requestToSend.id) return null;
+      }
       abortRef.current?.abort('superseded');
       const controller = new AbortController();
       abortRef.current = controller;
       setLivePreview(null);
-      const env = useWorkspaceToolStore.getState().getActiveEnvironment() ?? null;
+      const tools = useWorkspaceToolStore.getState();
+      const activeEnv = tools.getActiveEnvironment() ?? null;
+      const env = scopedEnvironmentFor(requestToSend, activeEnv);
 
-      // Block the send when a referenced `{{var}}` has no binding in the
-      // active env (or there is no env). Surfacing the names lets the user
-      // fix the environment without guessing which token is missing.
+      // Block the send when a referenced `{{var}}` has no binding in any
+      // scope it resolves from. Surfacing the names lets the user fix the
+      // environment without guessing which token is missing.
       const unresolved = findUnresolvedVariables(requestToSend, env);
       if (unresolved.length > 0) {
+        const fix = activeEnv && httpScopesEnabled() ? rowsFromOtherEnvironments(unresolved, tools.environments, activeEnv.id) : [];
         useUIStore.getState().pushStatusNotice({
           tone: 'error',
           messageKey: 'httpWorkspace.environment.unresolved.body',
@@ -307,6 +436,24 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             count: unresolved.length,
             names: unresolved.join(', '),
           },
+          ...(activeEnv && fix.length > 0
+            ? {
+                actions: [
+                  {
+                    labelKey: 'httpWorkspace.environment.unresolved.addTo',
+                    labelValues: { env: activeEnv.name || t('httpWorkspace.environment.unnamed') },
+                    onClick: () => {
+                      tools.updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...fix]);
+                      const secret = fix.find((row) => row.secret);
+                      if (secret) {
+                        setManagerFocus({ environmentId: activeEnv.id, variableId: secret.id });
+                        setIsManagerOpen(true);
+                      }
+                    },
+                  },
+                ],
+              }
+            : {}),
         });
         return null;
       }
@@ -360,7 +507,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         }
         // Scrub any echoed secret value out of the response BEFORE it is
         // recorded or capsuled. No-op when there are no secrets.
-        const response = maskSecretValuesInResponse(raw, secretValues);
+        const masked = maskSecretValuesInResponse(raw, secretValues);
+        const response = activeEnv ? { ...masked, environmentId: activeEnv.id } : masked;
         setLivePreview(null);
         useWorkspaceToolStore.getState().recordResponse(requestToSend.id, response);
         // Request chaining. On a successful response, apply the
@@ -371,7 +519,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         // so extracting from `raw` (not the masked `response`) is what
         // yields the real value to store.
         if (response.kind === 'success' && requestToSend.captures?.length) {
-          applyCapturesToActiveEnvironment(applyCaptureRules(raw, requestToSend.captures));
+          applyCapturesToActiveEnvironment(applyCaptureRules(raw, requestToSend.captures), options?.skipChain === true && httpChainEnabled());
         }
         const resolvedCount = findResolvedVariables(requestToSend, env).length;
         trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
@@ -434,13 +582,20 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         }
       }
     },
-    [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce]
+    [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce, sendChain, confirmOrigin]
   );
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
+
+  const { sendFromEditor, queueFor } = useHttpOfflineSend(handleSend);
 
   // Cancel the in-flight request (Stop button). Leaves the previous
   // response on screen; the aborted send skips recording.
   const handleStop = useCallback(() => {
     pipelineCancelledRef.current = true;
+    chainCancelledRef.current = true;
+    if (confirmRef.current) useUIStore.getState().dismissStatusNotice('manual');
     abortRef.current?.abort('cancelled');
     setLivePreview(null);
   }, []);
@@ -491,7 +646,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               message: request ? 'live-transport' : 'missing-request',
             });
           } else {
-            const response = await handleSend(request);
+            // Explicit pipelines keep their own order, so their steps never run tag chains.
+            const response = await handleSend(request, { skipChain: true });
             if (!response) {
               if (pipelineCancelledRef.current) {
                 results.push({
@@ -521,7 +677,10 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               const assertionFailures = runAssertions(response, request.assertions ?? []).filter(
                 result => !result.pass
               ).length;
-              const passed = response.kind === 'success' && assertionFailures === 0;
+              // A pending snapshot diff fails the step like a failed assertion.
+              const snapshotFailed =
+                useSettingsStore.getState().featureFlags.httpSnapshots === true && request.snapshot !== undefined && snapshotChanges(request.snapshot, response).length > 0;
+              const passed = response.kind === 'success' && assertionFailures === 0 && !snapshotFailed;
               results.push({
                 stepId: step.id,
                 requestId: step.requestId,
@@ -558,7 +717,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().setActiveEnvironment(id);
   }, []);
 
-  const handleManageEnvironment = useCallback(() => {
+  const handleManageEnvironment = useCallback((focus?: HttpEnvironmentFocus) => {
+    setManagerFocus(focus ?? null);
     setIsManagerOpen(true);
   }, []);
 
@@ -589,13 +749,16 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             <HttpRequestEditor
               request={activeRequest}
               onPatch={handlePatch}
-              onSend={handleSend}
+              onSend={sendFromEditor}
               onStop={handleStop}
               isExecuting={isExecuting}
               environments={environments}
               activeEnvironmentId={activeEnvironmentId}
               onSelectEnvironment={handleSelectEnvironment}
               onManageEnvironment={handleManageEnvironment}
+              captureTargetRef={captureTargetRef}
+              assertionTargetRef={assertionTargetRef}
+              queue={queueFor(activeRequest)}
             />
           ) : (
             <HttpEmptyState onCreate={handleCreate} />
@@ -619,6 +782,20 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                     : undefined
                 }
                 assertions={activeRequest?.assertions}
+                previous={activeHistory[safeHistoryIndex + 1]}
+                captures={activeRequest?.captures}
+                {...(activeRequest
+                  ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }
+                  : {})}
+                {...(activeRequest && snapshotsShown
+                  ? {
+                      snapshots: {
+                        snapshot: activeRequest.snapshot,
+                        onChange: snapshot => useWorkspaceToolStore.getState().updateRequest(activeRequest.id, { snapshot }),
+                        onAddAssertion: assertion => assertionTargetRef.current?.(assertion),
+                      },
+                    }
+                  : {})}
               />
             </div>
             <HttpResponseHistory
@@ -633,6 +810,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         <HttpEnvironmentManager
           environments={environments}
           onClose={() => setIsManagerOpen(false)}
+          focus={managerFocus}
           onCreate={env => useWorkspaceToolStore.getState().createEnvironment(env)}
           onUpdate={(id, patch) => useWorkspaceToolStore.getState().updateEnvironment(id, patch)}
           onUpdateVariables={(id, updater) =>
@@ -650,6 +828,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           }
           onExport={id => useWorkspaceToolStore.getState().exportEnvironmentJson(id)}
           onImport={json => useWorkspaceToolStore.getState().importEnvironmentJson(json)}
+          {...(scopesOn
+            ? {
+                scopes: {
+                  collectionVariables,
+                  onUpdateCollection: updater => useWorkspaceToolStore.getState().updateCollectionVariables(updater),
+                },
+              }
+            : {})}
         />
       ) : null}
       {isPipelineManagerOpen ? (

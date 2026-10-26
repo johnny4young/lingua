@@ -2,16 +2,17 @@ import { useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import type { Language } from '../types/language';
-import { languageSupportsDebugger } from '../utils/languageMeta';
+import { changedValuesLabel } from '../utils/debuggerLocals';
+import { languageSupportsBreakpointModes, languageSupportsDebugger } from '../utils/languageMeta';
 
 /**
  * Monaco glyph-margin integration for breakpoints.
  *
- * Renders one dot per breakpoint in the active tab and turns clicks on
- * the gutter into `toggleBreakpoint(tabId, line)` calls. Disabled
- * breakpoints (set via the Debugger panel's Disable all action) render
- * as a hollow ring so users still see them but they no longer pause
- * execution.
+ * Renders one mark per breakpoint in the active tab, shaped by its mode, and
+ * turns clicks on the gutter into `toggleBreakpoint(tabId, line)` calls;
+ * alt-click cycles pause, conditional and logpoint in JS/TS. A disabled
+ * pause breakpoint renders as a hollow ring and disabled conditional and
+ * logpoint marks fade, so users still see them but they no longer pause.
  *
  * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1), the gutter mounts for
  * JavaScript/TypeScript in both shells and Python on desktop. Other tabs see
@@ -29,9 +30,10 @@ export interface BreakpointGutterOptions {
   activeTabId: string | null;
   /** Tab language — gates the gutter to shipping debugger adapters. */
   language: Language | undefined;
-  /** Localized aria label for the breakpoint toggle row. */
-  toggleAriaLabel: (line: number) => string;
+  /** Localized hover text for a mark; `modes` is false where only plain breakpoints exist. */
+  toggleAriaLabel: (line: number, modes: boolean) => string;
 }
+
 
 export function useBreakpointGutter(
   editor: monacoTypes.editor.IStandaloneCodeEditor | null,
@@ -40,10 +42,12 @@ export function useBreakpointGutter(
 ): void {
   const breakpoints = useDebuggerStore((state) => state.breakpoints);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
+  const previousPause = useDebuggerStore((state) => state.previousPause);
   const decorationsRef = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
 
   const { activeTabId, language, toggleAriaLabel } = options;
   const supportsDebugger = languageSupportsDebugger(language);
+  const supportsModes = languageSupportsBreakpointModes(language);
 
   // Decoration pass — runs on every breakpoint mutation. Clears the
   // previous set first; Monaco's collection handles incremental diffs
@@ -73,12 +77,12 @@ export function useBreakpointGutter(
         isWholeLine: false,
         glyphMarginClassName: [
           'lingua-bp-glyph',
-          `lingua-bp-glyph--${bp.mode}`,
+          `lingua-bp-glyph--${supportsModes ? bp.mode : 'pause'}`,
           bp.enabled ? '' : 'lingua-bp-glyph--disabled',
         ]
           .filter(Boolean)
           .join(' '),
-        glyphMarginHoverMessage: { value: toggleAriaLabel(bp.line) },
+        glyphMarginHoverMessage: { value: toggleAriaLabel(bp.line, supportsModes) },
       },
     }));
 
@@ -93,6 +97,17 @@ export function useBreakpointGutter(
       });
       editor.revealLineInCenterIfOutsideViewport(pausedLine);
       editor.setPosition({ lineNumber: pausedLine, column: 1 });
+      const inline = previousPause?.tabId === activeTabId ? changedValuesLabel(previousPause.locals, pausedFrame!.locals) : null;
+      const model = editor.getModel();
+      const previousLine = previousPause?.line ?? 0;
+      if (inline && model && Number.isInteger(previousLine) && previousLine >= 1 && previousLine <= model.getLineCount()) {
+        // What the last step changed, after the line it stepped from, like a scratchpad value.
+        const column = model.getLineMaxColumn(previousPause!.line);
+        decorations.push({
+          range: new monaco.Range(previousPause!.line, column, previousPause!.line, column),
+          options: { after: { content: inline, inlineClassName: 'lingua-debugger-inline-value' }, showIfCollapsed: true },
+        });
+      }
     }
 
     if (!decorationsRef.current) {
@@ -104,9 +119,11 @@ export function useBreakpointGutter(
     editor,
     monaco,
     supportsDebugger,
+    supportsModes,
     activeTabId,
     breakpoints,
     pausedFrame,
+    previousPause,
     toggleAriaLabel,
   ]);
 
@@ -128,13 +145,16 @@ export function useBreakpointGutter(
       if (!isGlyphMargin) return;
       const lineNumber = event.target.position?.lineNumber;
       if (typeof lineNumber !== 'number' || lineNumber <= 0) return;
-      useDebuggerStore.getState().toggleBreakpoint(activeTabId, lineNumber);
+      const store = useDebuggerStore.getState();
+      // Alt-click picks the mode where the runtime has modes; elsewhere it is a plain toggle.
+      if (event.event.altKey && supportsModes) store.cycleBreakpointMode(activeTabId, lineNumber);
+      else store.toggleBreakpoint(activeTabId, lineNumber);
     });
 
     return () => {
       handler.dispose();
     };
-  }, [editor, monaco, supportsDebugger, activeTabId]);
+  }, [editor, monaco, supportsDebugger, supportsModes, activeTabId]);
 
   // Always-on cleanup — when the gutter unmounts we clear decorations
   // so a leftover dot doesn't sit on a now-unused tab. The mouse-click

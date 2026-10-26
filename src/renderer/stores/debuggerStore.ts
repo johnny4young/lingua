@@ -50,6 +50,12 @@ type PauseReason = 'user-breakpoint' | 'step' | 'exception';
 
 export type BreakpointMode = 'pause' | 'conditional' | 'logpoint';
 
+const NEXT_BREAKPOINT_MODE: Record<BreakpointMode, BreakpointMode> = {
+  pause: 'conditional',
+  conditional: 'logpoint',
+  logpoint: 'pause',
+};
+
 interface Breakpoint {
   /** Tab id (matches `tabsStore.activeTabId`) — uniquely identifies the file. */
   tabId: string;
@@ -108,6 +114,13 @@ export interface PausedFrame {
   conditionError?: string;
 }
 
+/** Where and with which locals a session last paused, so the next pause can show what changed. */
+interface PauseSnapshot {
+  tabId: string;
+  line: number;
+  locals: Record<string, string>;
+}
+
 interface DebuggerSession {
   /** Which language adapter is attached. */
   runtime: DebuggerRuntime;
@@ -136,6 +149,10 @@ export interface DebuggerState {
   // Session state — NOT persisted.
   session: DebuggerSession | null;
   pausedFrame: PausedFrame | null;
+  /** The pause before the current one in this session, in the same tab. */
+  previousPause: PauseSnapshot | null;
+  /** The latest pause, kept while execution runs to the next one. */
+  lastPause: PauseSnapshot | null;
   /**
    * Drawer collapse state. Persists across reloads
    * (folded users want it folded when they reopen) but defaults to
@@ -146,6 +163,8 @@ export interface DebuggerState {
   // Mutators — breakpoints
   toggleBreakpoint: (tabId: string, line: number) => void;
   setBreakpointMode: (tabId: string, line: number, mode: BreakpointMode) => void;
+  /** Alt-click in the gutter: adds a conditional breakpoint, or moves to the next mode. */
+  cycleBreakpointMode: (tabId: string, line: number) => void;
   setBreakpointCondition: (tabId: string, line: number, condition: string) => void;
   setBreakpointLogMessage: (tabId: string, line: number, message: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
@@ -277,6 +296,8 @@ export const useDebuggerStore = create<DebuggerState>()(
       watches: [],
       session: null,
       pausedFrame: null,
+      previousPause: null,
+      lastPause: null,
       drawerCollapsed: false,
 
       toggleBreakpoint: (tabId, line) => {
@@ -357,6 +378,16 @@ export const useDebuggerStore = create<DebuggerState>()(
         });
       },
 
+      cycleBreakpointMode: (tabId, line) => {
+        const existing = get().breakpoints[bpKey(tabId, line)];
+        if (!existing) {
+          get().toggleBreakpoint(tabId, line);
+          get().setBreakpointMode(tabId, line, 'conditional');
+          return;
+        }
+        get().setBreakpointMode(tabId, line, NEXT_BREAKPOINT_MODE[existing.mode]);
+      },
+
       setBreakpointLogMessage: (tabId, line, message) => {
         if (typeof tabId !== 'string' || tabId.length === 0 || !isPositiveLine(line)) {
           return;
@@ -426,15 +457,31 @@ export const useDebuggerStore = create<DebuggerState>()(
       },
 
       attachSession: (session) => {
-        set({ session, pausedFrame: null });
+        set({ session, pausedFrame: null, previousPause: null, lastPause: null });
       },
 
       detachSession: () => {
-        set({ session: null, pausedFrame: null });
+        set({ session: null, pausedFrame: null, previousPause: null, lastPause: null });
       },
 
       setPausedFrame: (frame) => {
-        set({ pausedFrame: frame });
+        if (!frame) {
+          set({ pausedFrame: null });
+          return;
+        }
+        set((state) => {
+          const snapshot = { tabId: frame.tabId, line: frame.line, locals: frame.locals };
+          // A refresh of the pause on screen (a watch sync) keeps the pause it is compared with.
+          const current = state.pausedFrame;
+          if (current && current.tabId === frame.tabId && current.line === frame.line) {
+            return { pausedFrame: frame, lastPause: snapshot };
+          }
+          return {
+            pausedFrame: frame,
+            previousPause: state.lastPause?.tabId === frame.tabId ? state.lastPause : null,
+            lastPause: snapshot,
+          };
+        });
       },
 
       addWatch: (expression) => {

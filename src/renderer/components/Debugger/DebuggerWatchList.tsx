@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import '../../i18n/debuggerCatalog';
 import {
   type DebuggerRuntime,
   MAX_WATCHES,

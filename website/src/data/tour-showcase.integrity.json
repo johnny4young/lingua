@@ -11,12 +11,12 @@
       "sha256": "47df7bcced0977a6e21f3aa71d50d3c895eb58f7083af35b9977fe594aaa5cb3"
     },
     "http-workspace/en": {
-      "bytes": 83660,
-      "sha256": "09c81d40edae0b0b34501855a3f7952c9908a6dc5d2cf2e82a6e836723252224"
+      "bytes": 73893,
+      "sha256": "d63feb1ada027edaabcc498b6a38e6eadfea07b598928517c80f731d65218fe8"
     },
     "http-workspace/es": {
-      "bytes": 85768,
-      "sha256": "ae95ba966dd3eefac39473d34f5607e4548dc61819b6da4f00424c650d5c3e6e"
+      "bytes": 75952,
+      "sha256": "29263ddff2a8ef1543a41b3323f74b3e55d389e802c6775d6c2ebe2c5082ba65"
     },
     "settings-privacy/en": {
       "bytes": 192344,
