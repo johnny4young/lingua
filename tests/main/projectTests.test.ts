@@ -597,6 +597,7 @@ describe('scoped project test runs', () => {
     let captured = null as SpawnNativeRunOptions | null;
     const result = await runProjectTests(rootPath, framework, `run-${framework}-${Math.random().toString(36).slice(2)}`, {
       env: { PATH: binPath },
+      platform: 'linux',
       scope,
       spawnImpl: async (options) => {
         captured = options;
@@ -653,6 +654,7 @@ describe('scoped project test runs', () => {
       const spawnImpl = vi.fn();
       const result = await runProjectTests(rootPath, framework, `run-bad-${Math.random().toString(36).slice(2)}`, {
         env: { PATH: binPath },
+        platform: 'linux',
         scope,
         spawnImpl,
       });
@@ -665,6 +667,7 @@ describe('scoped project test runs', () => {
     let reportFile = '';
     await runProjectTests(rootPath, 'vitest', 'run-report-cleanup', {
       env: { PATH: binPath },
+      platform: 'linux',
       spawnImpl: async (options) => {
         reportFile = options.args.find((arg) => arg.startsWith('--outputFile.json='))!.split('=')[1]!;
         await writeFile(reportFile, '{"testResults":[]}', 'utf8');
@@ -684,6 +687,7 @@ describe('scoped project test runs', () => {
     const shown: string[] = [];
     const result = await runProjectTests(rootPath, 'go', 'run-go-stream', {
       env: { PATH: binPath },
+      platform: 'linux',
       onOutput: (_stream, chunk) => shown.push(chunk),
       spawnImpl: async (options) => {
         options.onStdout?.(events.slice(0, 120));
@@ -725,6 +729,7 @@ describe('scoped project test runs', () => {
     ].join('\n');
     const result = await runProjectTests(rootPath, 'cargo', 'run-contained', {
       env: { PATH: binPath },
+      platform: 'linux',
       spawnImpl: async (options) => {
         options.onStdout?.(text);
         return { ...passing, stdout: text };
@@ -738,6 +743,7 @@ describe('scoped project test runs', () => {
     const event = JSON.stringify({ Action: 'pass', Package: 'example.com/shop/internal/cart', Test: 'TestSums', Elapsed: 0 });
     const result = await runProjectTests(rootPath, 'go', 'run-go-quoted', {
       env: { PATH: binPath },
+      platform: 'linux',
       spawnImpl: async (options) => {
         options.onStdout?.(`${event}\n`);
         return passing;

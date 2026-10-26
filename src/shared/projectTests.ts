@@ -28,7 +28,7 @@ export interface ProjectTestDetectionResult {
   candidates: ProjectTestCandidate[];
 }
 
-export type ProjectTestRunKind =
+type ProjectTestRunKind =
   | 'success'
   | 'failed'
   | 'timed-out'
