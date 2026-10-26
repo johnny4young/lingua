@@ -73,4 +73,19 @@ describe('HTTP IPC owner lifecycle', () => {
     expect(sender.send.mock.calls.length).toBeLessThanOrEqual(2);
     expect(sender.send.mock.calls.at(-1)?.[1]).toMatchObject({ body: 'body-1000', runId: 'run-2' });
   });
+
+  it('passes a bounded stream message cap to the proxy and refuses one past the ceiling', async () => {
+    const sender = new FakeSender();
+    proxy.execute.mockResolvedValue({ kind: 'success' });
+    const execute = handlers.get('http:execute');
+    await execute?.({ sender }, 'run-3', sseRequest, { ...options, maxStreamMessages: 20_000 });
+    expect(proxy.execute.mock.calls[0]?.[1]).toMatchObject({ maxStreamMessages: 20_000 });
+
+    for (const maxStreamMessages of [0, 1.5, 20_001, '50']) {
+      await expect(
+        Promise.resolve().then(() => execute?.({ sender }, 'run-4', sseRequest, { ...options, maxStreamMessages }))
+      ).rejects.toThrow('Invalid stream message cap');
+    }
+    expect(proxy.execute).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,9 +1,10 @@
 /** Typed lifecycle-owned bridge for guarded desktop HTTP live transports. */
 
 import { parseHttpRequest } from '../../shared/httpWorkspacePersistence';
-import type {
-  HttpDesktopRequestOptions,
-  HttpStreamProgress,
+import {
+  MAX_STREAM_MESSAGES_CEILING,
+  type HttpDesktopRequestOptions,
+  type HttpStreamProgress,
 } from '../../shared/httpWorkspaceSchema';
 import { executeHttpProxyRequest } from '../httpProxy';
 import { executeWebSocketProxyRequest } from '../httpWebSocket';
@@ -41,9 +42,19 @@ function parseOptions(value: unknown): HttpDesktopRequestOptions {
   if (headers.length !== record.userSensitiveHeaders.length) {
     throw new Error('Invalid sensitive-header entry');
   }
+  const maxStreamMessages = record.maxStreamMessages;
+  if (
+    maxStreamMessages !== undefined &&
+    (!Number.isInteger(maxStreamMessages) ||
+      (maxStreamMessages as number) < 1 ||
+      (maxStreamMessages as number) > MAX_STREAM_MESSAGES_CEILING)
+  ) {
+    throw new Error('Invalid stream message cap');
+  }
   return {
     allowPrivateHosts: record.allowPrivateHosts,
     userSensitiveHeaders: headers,
+    ...(maxStreamMessages !== undefined ? { maxStreamMessages: maxStreamMessages as number } : {}),
   };
 }
 
@@ -107,6 +118,9 @@ export function registerHttpHandlers(): void {
           allowPrivateHosts: options.allowPrivateHosts,
           userSensitiveHeaders: options.userSensitiveHeaders,
           signal: controller.signal,
+          ...(options.maxStreamMessages !== undefined
+            ? { maxStreamMessages: options.maxStreamMessages }
+            : {}),
           ...(request.transport === 'sse' ? { onProgress } : {}),
         });
       } finally {
