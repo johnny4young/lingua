@@ -64,6 +64,7 @@ The format follows Keep a Changelog and groups changes by release.
 ### Fixed
 - Loading more rows of a SQL result that another run replaced reports an error instead of silently ending the partial result, on desktop as on the web.
 - Web database connections remember Cancel during the initial handshake and do not dispatch that run afterward.
+- On the web, a database token you just replaced is no longer forgotten when an older request with the previous token fails to authenticate.
 - Long values in an HTTP response body no longer wrap back to the first column and break the indentation: Wrap is off by default, and when it is on, a wrapped value stays at its own indent.
 - SQL results show LIST and STRUCT columns as arrays and objects instead of Arrow internals.
 - Run Ledger toggle, export and clear events now appear in Privacy › Recent activity; they were dropped before they reached the feed.

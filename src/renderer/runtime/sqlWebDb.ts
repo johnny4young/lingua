@@ -66,6 +66,7 @@ interface PendingRun {
 export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): SqlDbBridge {
   const connections = new Map<string, SqlConnectionV1>();
   const secrets = new Map<string, string>();
+  const credentialRevisions = new Map<string, symbol>();
   const sessions = new Map<string, Promise<DriverSession>>();
   const runs = new Map<string, Run>();
   /** Reserve cancellation before opening the driver, including its initial handshake. */
@@ -97,7 +98,8 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     const current = sessions.get(key);
     if (current) return current;
     if (entry.passwordMode !== 'none' && !secrets.has(entry.id)) return Promise.reject(new SqlConnectError('This connection needs its password.', { step: 'auth', fix: 'password-needed' }));
-    const ready = Promise.resolve().then(() => open(entry, secrets.get(entry.id)));
+    const secret = secrets.get(entry.id);
+    const ready = Promise.resolve().then(() => open(entry, secret));
     sessions.set(key, ready);
     // A failed connect is retried by the next request.
     ready.catch(() => {
@@ -106,20 +108,24 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     return ready;
   }
 
-  async function drop(id: string): Promise<void> {
-    for (const [runId, run] of runs) if (run.connectionId === id) runs.delete(runId);
+  /** Detaches a connection's runs and sessions at once and closes them in the background, so a hung handshake cannot block a new credential. */
+  function drop(id: string): void {
+    for (const [runId, run] of runs) if (run.connectionId === id) void closeRun(runId);
     for (const lane of ['', '#catalog', '#edits']) {
-      const session = sessions.get(`${id}${lane}`);
-      sessions.delete(`${id}${lane}`);
-      await session?.then((driver) => driver.close()).catch(() => undefined);
+      const key = `${id}${lane}`;
+      const session = sessions.get(key);
+      sessions.delete(key);
+      void session?.then((driver) => driver.close()).catch(() => undefined);
     }
   }
 
   /** A refused password or token is forgotten, so the next run asks again. */
-  function refused(entry: SqlConnectionV1, detail: SqlDriverError): SqlDriverError {
+  function refused(entry: SqlConnectionV1, detail: SqlDriverError, revision: symbol | undefined): SqlDriverError {
     if (detail.fix !== 'auth' || entry.passwordMode === 'none') return detail;
+    // A late refusal belongs to the credential used by that request, never its replacement.
+    if (revision === undefined || credentialRevisions.get(entry.id) !== revision) return detail;
     secrets.delete(entry.id);
-    void drop(entry.id);
+    drop(entry.id);
     return { ...detail, fix: 'password-needed' };
   }
 
@@ -152,6 +158,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       updatedAt: stamp,
     };
     connections.set(entry.id, entry);
+    credentialRevisions.set(entry.id, Symbol());
     if (password !== undefined && entry.passwordMode === 'session') secrets.set(entry.id, password);
     return { ok: true, connection: view(entry) };
   }
@@ -164,7 +171,8 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     async delete(id) {
       const had = connections.delete(id);
       secrets.delete(id);
-      await drop(id);
+      credentialRevisions.delete(id);
+      drop(id);
       return { ok: had };
     },
 
@@ -172,7 +180,8 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       const entry = connections.get(id);
       if (!entry || kind !== 'database' || entry.passwordMode === 'none') return { ok: false };
       secrets.set(id, password);
-      await drop(id);
+      credentialRevisions.set(id, Symbol());
+      drop(id);
       return { ok: true };
     },
 
@@ -235,11 +244,12 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       try {
         for (const [id, run] of runs) if (run.connectionId === connectionId) await closeRun(id);
         if (pending.cancelled) return cancelled();
+        const revision = credentialRevisions.get(connectionId);
         let session: DriverSession | null;
         try {
           session = await Promise.race([sessionFor(entry), cancelRequested]);
         } catch (err) {
-          const detail = refused(entry, classifyConnectError(err));
+          const detail = refused(entry, classifyConnectError(err), revision);
           if (pending.cancelled) return cancelled();
           return fail('connection-failed', detail.message, detail.fix);
         }
@@ -276,7 +286,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
           if (pending.cancelled) return cancelled();
           const message = err instanceof Error ? err.message : String(err);
           if (/cancel/i.test(message)) return fail('cancelled', message);
-          const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err)) : null;
+          const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err), revision) : null;
           return detail ? fail('connection-failed', detail.message, detail.fix) : fail('sql-error', message);
         } finally {
           clearTimeout(timer);
@@ -326,17 +336,19 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
 
     async introspect(connectionId, request) {
       const entry = connections.get(connectionId);
+      const revision = credentialRevisions.get(connectionId);
       if (!entry) return { errorMessage: 'Unknown connection.' };
       try {
         return await (await sessionFor(entry, '#catalog')).introspect(request);
       } catch (err) {
-        const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err)) : { message: err instanceof Error ? err.message : String(err) };
+        const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err), revision) : { message: err instanceof Error ? err.message : String(err) };
         return { errorMessage: detail.message, ...(detail.fix ? { fix: detail.fix } : {}) };
       }
     },
 
     async applyEdits(connectionId, target, changes, confirmName) {
       const entry = connections.get(connectionId);
+      let revision = credentialRevisions.get(connectionId);
       if (!entry) return { ok: false, reason: 'failed', message: 'Unknown connection.' };
       const blocked = editGuard(entry, confirmName);
       if (blocked) return blocked;
@@ -346,11 +358,12 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
         if (!table) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
         if (rowEditProblem(table, changes)) return { ok: false, reason: 'invalid' };
         const statements = rowEditStatements(table, changes, false);
+        revision = credentialRevisions.get(connectionId);
         await (await sessionFor(entry, '#edits')).applyEdits(statements);
         return { ok: true, applied: statements.length };
       } catch (err) {
         if (err instanceof EditFailedError) return { ok: false, reason: 'failed', message: err.message, edit: err.failure };
-        const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err)) : { message: err instanceof Error ? err.message : String(err) };
+        const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err), revision) : { message: err instanceof Error ? err.message : String(err) };
         return { ok: false, reason: 'failed', message: detail.message, ...(detail.fix ? { fix: detail.fix } : {}) };
       }
     },
