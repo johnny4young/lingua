@@ -34,7 +34,7 @@ describe('AiSection — detect local AI', () => {
     useAiConfigStore.getState().clear();
   });
 
-  it('fills the endpoint + placeholder key and lists models on success', async () => {
+  it('switches to the Local profile, with no key, and lists models on success', async () => {
     const fetchImpl = vi.fn(async (url: RequestInfo | URL) => {
       expect(String(url)).toBe('http://localhost:11434/v1/models');
       return modelsResponse(['qwen3-coder:latest', 'gpt-oss:20b']);
@@ -47,8 +47,10 @@ describe('AiSection — detect local AI', () => {
     );
 
     const state = useAiConfigStore.getState();
+    expect(state.mode).toBe('local');
     expect(state.endpoint).toBe('http://localhost:11434/v1/chat/completions');
-    expect(state.apiKey).toBe('ollama');
+    expect(state.apiKey).toBe('');
+    expect(screen.queryByTestId('ai-settings-key')).toBeNull();
 
     // Picking a model chip writes it to the store.
     const chips = screen.getAllByTestId('ai-settings-detect-model');
@@ -60,7 +62,7 @@ describe('AiSection — detect local AI', () => {
     expect(useAiConfigStore.getState().model).toBe('gpt-oss:20b');
   });
 
-  it('keeps a user-typed API key instead of overwriting it', async () => {
+  it('keeps the My endpoint key and profile when Local is detected', async () => {
     useAiConfigStore.getState().setApiKey('sk-mine');
     const fetchImpl = vi.fn(async () =>
       modelsResponse(['llama3'])
@@ -70,7 +72,10 @@ describe('AiSection — detect local AI', () => {
     await waitFor(() =>
       expect(screen.getByTestId('ai-settings-detect-models')).toBeTruthy()
     );
+    expect(useAiConfigStore.getState().remoteApiKey).toBe('sk-mine');
+    fireEvent.click(screen.getByTestId('ai-settings-mode-remote'));
     expect(useAiConfigStore.getState().apiKey).toBe('sk-mine');
+    expect((screen.getByTestId('ai-settings-key') as HTMLInputElement).value).toBe('sk-mine');
   });
 
   it('shows the failure copy when no server answers', async () => {

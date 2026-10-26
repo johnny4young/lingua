@@ -68,10 +68,10 @@ describe('AI key in the secret vault', () => {
       JSON.stringify({ state: { endpoint: 'https://x/v1', apiKey: 'sk-legacy', model: 'm' }, version: 1 })
     );
     const { useAiConfigStore } = await bootAiStore();
-    await vi.waitFor(() => expect(persisted('lingua-ai')).not.toHaveProperty('apiKey'));
+    await vi.waitFor(() => expect(persisted('lingua-ai')).not.toHaveProperty('remoteApiKey'));
     expect(vault.values.get('ai.api-key')).toBe('sk-legacy');
     expect(useAiConfigStore.getState().apiKey).toBe('sk-legacy');
-    expect(persisted('lingua-ai')).toMatchObject({ endpoint: 'https://x/v1', model: 'm' });
+    expect(persisted('lingua-ai')).toMatchObject({ mode: 'remote', remote: { endpoint: 'https://x/v1', model: 'm' } });
 
     const reboot = await bootAiStore();
     await vi.waitFor(() => expect(reboot.useAiConfigStore.getState().apiKey).toBe('sk-legacy'));
@@ -83,7 +83,7 @@ describe('AI key in the secret vault', () => {
     const { useAiConfigStore } = await bootAiStore();
     useAiConfigStore.getState().setModel('m');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(persisted('lingua-ai')).toMatchObject({ apiKey: 'sk-keep', model: 'm' });
+    expect(persisted('lingua-ai')).toMatchObject({ remoteApiKey: 'sk-keep', remote: { model: 'm' } });
   });
 
   it('writes new keys to the vault only, and clear deletes them', async () => {
@@ -101,7 +101,7 @@ describe('AI key in the secret vault', () => {
     await vi.waitFor(() => expect(persisted('lingua-ai')).toMatchObject({ apiKeyInVault: true }));
     vault.failDeletes = true;
     first.useAiConfigStore.getState().clear();
-    await vi.waitFor(() => expect(persisted('lingua-ai')).toMatchObject({ apiKey: '' }));
+    await vi.waitFor(() => expect(persisted('lingua-ai')).toMatchObject({ remoteApiKey: '' }));
     expect(vault.values.get('ai.api-key')).toBe('sk-old');
 
     const reboot = await bootAiStore();
@@ -124,7 +124,7 @@ describe('AI key in the secret vault', () => {
     const { useAiConfigStore } = await bootAiStore();
     await new Promise((resolve) => setTimeout(resolve, 0));
     useAiConfigStore.getState().setModel('m2');
-    expect(persisted('lingua-ai')).toMatchObject({ apiKeyInVault: true, model: 'm2' });
+    expect(persisted('lingua-ai')).toMatchObject({ apiKeyInVault: true, remote: { model: 'm2' } });
     release();
     await vi.waitFor(() => expect(useAiConfigStore.getState().apiKey).toBe('sk-slow'));
   });
@@ -135,7 +135,7 @@ describe('AI key in the secret vault', () => {
     const { useAiConfigStore } = await bootAiStore();
     await new Promise((resolve) => setTimeout(resolve, 0));
     useAiConfigStore.getState().setModel('m');
-    expect(persisted('lingua-ai')).toMatchObject({ apiKey: 'sk-linux', model: 'm' });
+    expect(persisted('lingua-ai')).toMatchObject({ remoteApiKey: 'sk-linux', remote: { model: 'm' } });
     expect(vault.values.size).toBe(0);
   });
 
@@ -143,7 +143,7 @@ describe('AI key in the secret vault', () => {
     lingua.lingua = { ...(originalLingua ?? {}), secrets: undefined };
     const { useAiConfigStore } = await bootAiStore();
     useAiConfigStore.getState().setApiKey('sk-web');
-    expect(persisted('lingua-ai')).toMatchObject({ apiKey: 'sk-web' });
+    expect(persisted('lingua-ai')).toMatchObject({ remoteApiKey: 'sk-web' });
   });
 });
 

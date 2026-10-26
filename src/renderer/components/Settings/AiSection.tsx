@@ -16,13 +16,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SecretStorageNote } from '../ui/SecretStorageNote';
 import { SettingsSection } from '../ui/SpecRow';
-import { useAiConfigStore } from '../../stores/aiConfigStore';
+import { DEFAULT_LOCAL_AI_ENDPOINT, useAiConfigStore, type AiMode } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 
 const OLLAMA_MODELS_URL = 'http://localhost:11434/v1/models';
-const OLLAMA_CHAT_URL = 'http://localhost:11434/v1/chat/completions';
-/** Ollama ignores the key, but the client requires one; this is the convention. */
-const OLLAMA_PLACEHOLDER_KEY = 'ollama';
+const AI_MODES: readonly AiMode[] = ['local', 'remote'];
 /** A local server answers in milliseconds; don't hang the Settings pane. */
 const DETECT_TIMEOUT_MS = 3000;
 
@@ -50,8 +48,10 @@ export interface AiSectionProps {
 export function AiSection({ fetchImpl }: AiSectionProps = {}) {
   const { t } = useTranslation();
   const entitled = useEntitlement('LOCAL_AI');
+  const mode = useAiConfigStore((s) => s.mode);
+  const setMode = useAiConfigStore((s) => s.setMode);
   const endpoint = useAiConfigStore((s) => s.endpoint);
-  const apiKey = useAiConfigStore((s) => s.apiKey);
+  const apiKey = useAiConfigStore((s) => s.remoteApiKey);
   const model = useAiConfigStore((s) => s.model);
   const setEndpoint = useAiConfigStore((s) => s.setEndpoint);
   const setApiKey = useAiConfigStore((s) => s.setApiKey);
@@ -77,9 +77,9 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
         setDetect({ kind: 'failed' });
         return;
       }
-      // A reachable server IS the endpoint; the model stays the user's pick.
-      setEndpoint(OLLAMA_CHAT_URL);
-      if (apiKey.trim().length === 0) setApiKey(OLLAMA_PLACEHOLDER_KEY);
+      // A reachable server is the Local profile; the model stays the user's pick.
+      setMode('local');
+      setEndpoint(DEFAULT_LOCAL_AI_ENDPOINT);
       setDetect({ kind: 'found', models });
     } catch {
       setDetect({ kind: 'failed' });
@@ -99,29 +99,52 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
         </p>
       ) : (
         <div className="grid gap-3" data-testid="ai-settings-form">
+          <div className="grid gap-1">
+            <span className="text-caption font-medium text-fg-base">{t('ai.settings.mode.label')}</span>
+            <div role="radiogroup" aria-label={t('ai.settings.mode.label')} className="inline-flex w-fit rounded-lg border border-border-subtle bg-bg-inset p-0.5">
+              {AI_MODES.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === option}
+                  data-testid={`ai-settings-mode-${option}`}
+                  onClick={() => setMode(option)}
+                  className={`focus-ring h-6 rounded-md px-2.5 text-caption font-medium ${
+                    mode === option ? 'bg-bg-panel text-fg-base shadow-e1' : 'text-fg-muted hover:text-fg-base'
+                  }`}
+                >
+                  {t(`ai.settings.mode.${option}`)}
+                </button>
+              ))}
+            </div>
+            <p className="text-caption text-fg-subtle">{t(`ai.settings.mode.${mode}Hint`)}</p>
+          </div>
           <label className="grid gap-1 text-caption font-medium text-fg-base">
             <span>{t('ai.settings.endpointLabel')}</span>
             <input
               type="url"
               className="field-shell"
-              placeholder={t('ai.settings.endpointPlaceholder')}
+              placeholder={mode === 'local' ? DEFAULT_LOCAL_AI_ENDPOINT : t('ai.settings.endpointPlaceholder')}
               value={endpoint}
               onChange={(e) => setEndpoint(e.target.value)}
               data-testid="ai-settings-endpoint"
             />
           </label>
-          <label className="grid gap-1 text-caption font-medium text-fg-base">
-            <span>{t('ai.settings.apiKeyLabel')}</span>
-            <input
-              type="password"
-              autoComplete="off"
-              className="field-shell"
-              placeholder={t('ai.settings.apiKeyPlaceholder')}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              data-testid="ai-settings-key"
-            />
-          </label>
+          {mode === 'remote' ? (
+            <label className="grid gap-1 text-caption font-medium text-fg-base">
+              <span>{t('ai.settings.apiKeyLabel')}</span>
+              <input
+                type="password"
+                autoComplete="off"
+                className="field-shell"
+                placeholder={t('ai.settings.apiKeyPlaceholder')}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                data-testid="ai-settings-key"
+              />
+            </label>
+          ) : null}
           <label className="grid gap-1 text-caption font-medium text-fg-base">
             <span>{t('ai.settings.modelLabel')}</span>
             <input

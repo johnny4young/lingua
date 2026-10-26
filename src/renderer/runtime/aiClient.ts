@@ -86,14 +86,14 @@ function normalizeConfig(config: AiProviderConfig): NormalizedAiProviderConfig {
   const apiKey = config.apiKey.trim();
   const model = config.model?.trim();
 
-  if (apiKey.length === 0) return { ok: false, message: 'No API key configured.' };
-
   let url: URL;
   try {
     url = new URL(endpoint);
   } catch {
     return { ok: false, message: 'AI endpoint is not a valid URL.' };
   }
+  // A server on this machine takes no key; a remote provider always needs one.
+  if (apiKey.length === 0 && !isLoopbackHostname(url.hostname)) return { ok: false, message: 'No API key configured.' };
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     return { ok: false, message: 'AI endpoint must be an http(s) URL.' };
   }
@@ -158,7 +158,7 @@ export async function runChatCompletion(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${normalizedConfig.apiKey}`,
+        ...(normalizedConfig.apiKey ? { Authorization: `Bearer ${normalizedConfig.apiKey}` } : {}),
       },
       body: JSON.stringify({
         model,
@@ -185,7 +185,7 @@ export async function runChatCompletion(
       // before it is appended so the "key never leaks" guarantee holds even on
       // the endpoint-error path. split/join avoids regex-escaping the key.
       if (detail) {
-        detail = detail.split(normalizedConfig.apiKey).join('[redacted]').slice(0, 500);
+        detail = redactKey(detail, normalizedConfig.apiKey).slice(0, 500);
       }
       return {
         ok: false,
@@ -244,9 +244,7 @@ export async function runChatCompletion(
     if (controller.signal.aborted)
       return { ok: false, kind: 'cancelled', message: 'The AI request was cancelled.' };
     if (err instanceof AiResponseError) return { ok: false, kind: err.kind, message: err.message };
-    const message = (err instanceof Error ? err.message : String(err ?? 'network error'))
-      .split(normalizedConfig.apiKey)
-      .join('[redacted]');
+    const message = redactKey(err instanceof Error ? err.message : String(err ?? 'network error'), normalizedConfig.apiKey);
     return { ok: false, kind: 'network', message };
   } finally {
     clearTimeout(timer);
@@ -254,6 +252,11 @@ export async function runChatCompletion(
     controller.abort('finished');
     if (options.signal) options.signal.removeEventListener('abort', onAbort);
   }
+}
+
+/** Every literal occurrence of the key masked; a local server's empty key masks nothing. */
+function redactKey(text: string, apiKey: string): string {
+  return apiKey ? text.split(apiKey).join('[redacted]') : text;
 }
 
 // Only SSE re-arms; non-streaming bodies stay under the original absolute deadline.
