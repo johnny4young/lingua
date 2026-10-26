@@ -37,6 +37,7 @@ import {
 } from './privacyTrustHelpers';
 import type { TrustEvent, TrustFeature, TrustSensitivity } from '../../stores/trustEventStore';
 import { emitCommand } from '../../stores/commandBus';
+import { isAiConfigured, useAiConfigStore } from '../../stores/aiConfigStore';
 import type { TabId } from './settingsRailModel';
 
 /** Newest N trust events shown in the Recent activity feed. */
@@ -157,6 +158,7 @@ export function PrivacyTrustSection() {
   }, [surface]);
 
   const localRows = getLocalStoreRows();
+  const aiConfigured = useAiConfigStore(isAiConfigured);
 
   const networkRows = useMemo(() => {
     // Derive the per-feature "last call" from the live
@@ -170,8 +172,10 @@ export function PrivacyTrustSection() {
       updateCheckLastAt: lastAt.updates ?? null,
       licenseVerifyLastAt: lastAt.license ?? null,
       dependencyInstallLastAt,
+      aiConfigured,
+      aiLastAt: lastAt.ai ?? null,
     });
-  }, [telemetryConsent, licenseToken, dependencyInstallLastAt, trustEvents]);
+  }, [telemetryConsent, licenseToken, dependencyInstallLastAt, trustEvents, aiConfigured]);
 
   // newest-initial implementation of the trust log for the Recent
   // activity feed, narrowed by the sensitivity filter.

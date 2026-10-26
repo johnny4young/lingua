@@ -39,6 +39,26 @@ The license service tracks device identifiers and coarse device metadata needed
 to enforce license limits and show removable devices in Settings. License tokens
 are sent in authorization headers, not URL query strings.
 
+## AI Explain
+
+AI features are off until you set a model in Settings. Lingua ships no default
+endpoint or key, and sends nothing until you choose Send after seeing the exact
+payload: the error, the code of the tab, and the runtime values only if you
+include them. Secret-looking values are redacted before the preview.
+
+- **Local** sends to a server at `localhost` or `127.0.0.1`. Nothing leaves the
+  device, and no key is used.
+- **My endpoint** sends to the provider you configure, under your account and
+  its terms. On desktop the request goes through Lingua's network proxy, which
+  refuses private-network hosts and drops the key on a redirect to another
+  host.
+
+The key is stored in the system keychain on desktop and in the browser's local
+storage on the web. Conversations stay in memory and are never saved. Each send
+is listed in Settings › Privacy without its content, and a Helpful / Not
+helpful vote keeps only the error's kind. Telemetry never carries prompts,
+answers, endpoints or keys.
+
 ## Web App Updates
 
 The web build may poll `updates.linguacode.dev` for the latest published version

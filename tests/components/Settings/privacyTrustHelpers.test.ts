@@ -44,6 +44,20 @@ describe('Privacy dashboard — consoleImagePaste row ', () => {
   });
 });
 
+describe('buildNetworkActivityRows — AI row', () => {
+  const base = { telemetryConsent: 'declined', licenseStatus: 'pro', capsuleExportLastAt: null, telemetryLastAt: null, updateCheckLastAt: null } as const;
+
+  it('is enabled with its last send once a profile can send', () => {
+    const row = buildNetworkActivityRows({ ...base, aiConfigured: true, aiLastAt: 1234 }).find((r) => r.feature === 'ai');
+    expect(row).toEqual({ feature: 'ai', status: 'enabled', lastCallAt: 1234 });
+  });
+
+  it('is disabled and never called without a configured profile', () => {
+    const row = buildNetworkActivityRows(base).find((r) => r.feature === 'ai');
+    expect(row).toEqual({ feature: 'ai', status: 'disabled', lastCallAt: null });
+  });
+});
+
 describe('latestEventAtByFeature ', () => {
   it('returns the newest at per feature from an unordered log', () => {
     const latest = latestEventAtByFeature([
