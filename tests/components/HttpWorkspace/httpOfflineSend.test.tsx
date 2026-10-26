@@ -142,6 +142,45 @@ describe('useHttpOfflineSend', () => {
     expect(send).not.toHaveBeenCalled();
     expect(useHttpOfflineQueue.getState().queued).toEqual({});
   });
+
+  it('keeps draining after a send throws', async () => {
+    const first = request('first', 'https://api.example.com/a');
+    const second = request('second', 'https://api.example.com/b');
+    useWorkspaceToolStore.setState({ requests: [first, second] });
+    useHttpOfflineQueue.getState().enqueue('first');
+    useHttpOfflineQueue.getState().enqueue('second');
+    const send = vi.fn(async (candidate: HttpRequestV1) => {
+      if (candidate.id === first.id) throw new Error('chain setup failed');
+      return null;
+    });
+    await act(async () => {
+      renderHook(() => useHttpOfflineSend(send));
+    });
+    expect(send.mock.calls.map(([candidate]) => candidate.id)).toEqual([first.id, second.id]);
+    expect(useHttpOfflineQueue.getState().queued).toEqual({});
+  });
+
+  it('stops a drain whose panel unmounted before taking new entries', async () => {
+    const first = request('first', 'https://api.example.com/a');
+    const second = request('second', 'https://api.example.com/b');
+    useWorkspaceToolStore.setState({ requests: [first, second] });
+    useHttpOfflineQueue.getState().enqueue('first');
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const send = vi.fn(async (candidate: HttpRequestV1) => {
+      if (candidate.id === first.id) await pending;
+      return null;
+    });
+    let unmount!: () => void;
+    await act(async () => {
+      ({ unmount } = renderHook(() => useHttpOfflineSend(send)));
+    });
+    unmount();
+    useHttpOfflineQueue.getState().enqueue('second');
+    await act(async () => release());
+    expect(send.mock.calls.map(([candidate]) => candidate.id)).toEqual([first.id]);
+    expect(useHttpOfflineQueue.getState().queued).toEqual({ second: { ready: false } });
+  });
 });
 
 describe('offline entries arriving around a pending replay', () => {
@@ -173,7 +212,11 @@ describe('offline entries arriving around a pending replay', () => {
         expect(useHttpOfflineQueue.getState().queued[second.id]).toEqual({ ready: false });
         await act(async () => setOnline(true));
       }
-      if (timing !== 'after-drain') await act(async () => release());
+      if (timing !== 'after-drain') {
+        // Still one at a time: nothing else goes out while the first send is pending.
+        expect(send.mock.calls.map(([candidate]) => candidate.id)).toEqual([first.id]);
+        await act(async () => release());
+      }
       const read = ['GET', 'HEAD', 'OPTIONS'].includes(method);
       expect(send.mock.calls.map(([candidate]) => candidate.id)).toEqual(read ? [first.id, second.id] : [first.id]);
       expect(useHttpOfflineQueue.getState().queued).toEqual(read ? {} : { [second.id]: { ready: true } });

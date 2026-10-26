@@ -51,16 +51,24 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
   // Watches held entries, not the offline edge: the connection may have returned while the panel was closed.
   const held = useHttpOfflineQueue((state) => Object.values(state.queued).some((entry) => !entry.ready));
   const flushing = useRef(false);
+  // A drain outliving its panel must not take entries queued after the unmount.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   useEffect(() => {
     if (!online || !held || flushing.current) return;
     flushing.current = true;
     void (async () => {
       let waiting = 0;
       try {
-        while (navigator.onLine) {
+        while (navigator.onLine && mounted.current) {
           // Read the live queue each pass: entries can be queued or removed while a send is pending.
           const queue = useHttpOfflineQueue.getState();
-          const requestId = Object.keys(queue.queued).find((id) => queue.queued[id]?.ready === false);
+          const requestId = Object.keys(queue.queued).find((id) => !queue.queued[id]!.ready);
           if (requestId === undefined) break;
           const request = useWorkspaceToolStore.getState().requests.find((candidate) => candidate.id === requestId);
           if (!request) {
@@ -69,7 +77,11 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
             const forceChain = queue.queued[requestId]?.forceChain === true;
             queue.remove(requestId);
             // One at a time: a new send aborts the one in flight.
-            await (forceChain ? send(request, { forceChain }) : send(request));
+            try {
+              await (forceChain ? send(request, { forceChain }) : send(request));
+            } catch {
+              // A failed send must not strand the entries behind it.
+            }
           } else {
             queue.markReady(requestId);
             waiting += 1;
