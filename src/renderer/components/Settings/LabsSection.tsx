@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { FEATURE_FLAG_IDS, FEATURE_FLAGS } from '../../../shared/featureFlags';
+import '../../i18n/labsCatalog';
+import { FEATURE_FLAG_IDS } from '../../../shared/featureFlags';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
@@ -20,14 +21,14 @@ export function LabsSection() {
           <SpecRow
             key={id}
             searchTargetId={`labs-${id}`}
-            label={t(FEATURE_FLAGS[id].labelKey)}
-            description={t(FEATURE_FLAGS[id].descriptionKey)}
+            label={t(`settings.labs.flag.${id}.label`)}
+            description={t(`settings.labs.flag.${id}.description`)}
             last={index === FEATURE_FLAG_IDS.length - 1}
             control={
               <Toggle
                 value={flags[id] === true}
                 onChange={() => setFeatureFlag(id, flags[id] !== true)}
-                aria-label={t(FEATURE_FLAGS[id].labelKey)}
+                aria-label={t(`settings.labs.flag.${id}.label`)}
                 data-testid={`labs-flag-${id}`}
               />
             }

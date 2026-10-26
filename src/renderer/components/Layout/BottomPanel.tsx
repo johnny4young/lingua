@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ConsolePanel } from '../Console';
-import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
+import { DebuggerDrawerHost } from '../Debugger/DebuggerDrawerHost';
 import { BrowserPreviewPanel } from '../BrowserPreview';
 import { StdinInputPanel } from '../Editor/StdinInputPanel';
 import { VariableInspectorPanel } from '../Editor/VariableInspectorPanel';
@@ -255,7 +255,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
       {expanded ? (
         <div key={effectiveTab} className="dock-tab-body flex min-h-0 flex-1 flex-col overflow-hidden">
           {effectiveTab === 'debugger' ? (
-            <DebuggerDrawer activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
+            <DebuggerDrawerHost activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
           ) : effectiveTab === 'browser-preview' ? (
             <BrowserPreviewPanel />
           ) : effectiveTab === 'stdin' ? (

@@ -281,6 +281,11 @@ export function executionModeForLanguage(language: Language): 'run' | 'validate'
   return getLanguageMeta(language).executionMode;
 }
 
+/** Conditional breakpoints and logpoints; the native adapters only pause. */
+export function languageSupportsBreakpointModes(language: Language | null | undefined): boolean {
+  return language === 'javascript' || language === 'typescript';
+}
+
 export function languageSupportsDebugger(language: Language | null | undefined): boolean {
   if (!language) return false;
   const supported = getLanguagePackById(language)?.capabilities.debugger === 'available';
