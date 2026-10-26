@@ -19,7 +19,8 @@ export function createProxyAiFetch(bridge: HttpDesktopAPI): typeof fetch {
   return (input, init = {}) => {
     const runId = crypto.randomUUID();
     const body = typeof init.body === 'string' ? init.body : '';
-    const stream = wantsStream(body);
+    const headers = new Headers(init.headers);
+    const stream = isEventStream(headers.get('accept') ?? undefined);
     const now = new Date().toISOString();
     const request: HttpRequestV1 = {
       version: 1,
@@ -28,7 +29,7 @@ export function createProxyAiFetch(bridge: HttpDesktopAPI): typeof fetch {
       transport: stream ? 'sse' : 'http',
       method: 'POST',
       url: String(input),
-      headers: [...new Headers(init.headers)].map(([name, value]) => ({ name, value, enabled: true })),
+      headers: [...headers].map(([name, value]) => ({ name, value, enabled: true })),
       body: { kind: 'json', content: body },
       // The caller owns the stall and absolute deadlines and cancels through the signal.
       timeoutMs: MAX_REQUEST_TIMEOUT_MS,
@@ -113,14 +114,6 @@ export function createProxyAiFetch(bridge: HttpDesktopAPI): typeof fetch {
         }, fail);
     });
   };
-}
-
-function wantsStream(body: string): boolean {
-  try {
-    return (JSON.parse(body) as { stream?: unknown }).stream === true;
-  } catch {
-    return false;
-  }
 }
 
 function isEventStream(contentType: string | undefined): boolean {

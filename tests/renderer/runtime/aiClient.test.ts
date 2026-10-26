@@ -312,4 +312,10 @@ describe('runChatCompletion', () => {
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.content).toBe('ok');
   });
+  it('treats only localhost and 127.0.0.1 as a keyless local server', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const res = await runChatCompletion(request, { endpoint: 'http://[::1]:11434/v1/chat/completions', apiKey: '', model: 'm' }, { fetchImpl });
+    expect(res).toMatchObject({ ok: false, kind: 'config' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 });

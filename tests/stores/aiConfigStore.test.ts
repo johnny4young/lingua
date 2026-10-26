@@ -63,6 +63,9 @@ describe('aiConfigStore', () => {
   it('needs a key only for a server that is not on this machine', () => {
     expect(isAiConfigured({ endpoint: 'http://127.0.0.1:1234/v1/chat/completions', apiKey: '', model: 'm' })).toBe(true);
     expect(isAiConfigured({ endpoint: 'https://api.example.com/v1', apiKey: '', model: 'm' })).toBe(false);
+    // Only the two loopback hosts the CSP allows count as this machine.
+    expect(isAiConfigured({ endpoint: 'http://ollama.localhost:11434/v1/chat/completions', apiKey: '', model: 'm' })).toBe(false);
+    expect(isAiConfigured({ endpoint: 'http://[::1]:11434/v1/chat/completions', apiKey: '', model: 'm' })).toBe(false);
   });
 
   it('migrates one endpoint into the profile its host belongs to', () => {
@@ -79,5 +82,16 @@ describe('aiConfigStore', () => {
       remoteApiKey: 'sk-x',
     });
     expect(toV2({ endpoint: 'https://api.example.com/v1', apiKeyInVault: true, model: 'gpt' })).toMatchObject({ apiKeyInVault: true });
+    expect(toV2({})).toEqual({
+      mode: 'remote',
+      local: { endpoint: DEFAULT_LOCAL_AI_ENDPOINT, model: '' },
+      remote: { endpoint: '', model: '' },
+      remoteApiKey: '',
+    });
+    // A local server's placeholder key does not follow it into the keyless Local profile.
+    const fromVault = toV2({ endpoint: 'http://127.0.0.1:1234/v1/chat/completions', apiKeyInVault: true, model: 'q' });
+    expect(fromVault).toMatchObject({ mode: 'local' });
+    expect(fromVault).not.toHaveProperty('apiKeyInVault');
+    expect(fromVault).not.toHaveProperty('remoteApiKey');
   });
 });

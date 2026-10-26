@@ -25,6 +25,7 @@ import {
   writeSecret,
   writeSecretVerified,
 } from '../services/secretVault';
+import { isLocalAiEndpoint } from '../utils/loopbackHost';
 
 /** Which profile the AI features send to: a server on this machine, or the user's own endpoint. */
 export type AiMode = 'local' | 'remote';
@@ -61,16 +62,6 @@ export interface AiConfigState {
   clear: () => void;
 }
 
-/** True for a server on this machine (localhost, 127.0.0.1, ::1), which needs no key. */
-export function isLoopbackAiEndpoint(endpoint: string): boolean {
-  try {
-    const { hostname } = new URL(endpoint);
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname.endsWith('.localhost');
-  } catch {
-    return false;
-  }
-}
-
 /** True when the send path is usable: an endpoint and a model, and a key unless the server is local. */
 export function isAiConfigured(
   config: Pick<AiConfigState, 'endpoint' | 'apiKey' | 'model'>
@@ -78,7 +69,7 @@ export function isAiConfigured(
   return (
     config.endpoint.trim().length > 0 &&
     config.model.trim().length > 0 &&
-    (config.apiKey.trim().length > 0 || isLoopbackAiEndpoint(config.endpoint))
+    (config.apiKey.trim().length > 0 || isLocalAiEndpoint(config.endpoint))
   );
 }
 

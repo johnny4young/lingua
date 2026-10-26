@@ -64,6 +64,16 @@ describe('anchored explain panel', () => {
     expect(impl).toHaveBeenCalledTimes(2);
   });
 
+  it('says Local reaches only this machine when its endpoint is another host', () => {
+    act(() => {
+      useAiConfigStore.getState().setMode('local');
+      useAiConfigStore.getState().setEndpoint('http://192.168.1.20:11434/v1/chat/completions');
+      useAiConfigStore.getState().setModel('qwen');
+    });
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={answer('x')} />);
+    expect(screen.getByTestId('ai-explain-unconfigured').textContent).toContain('Local reaches only localhost or 127.0.0.1');
+  });
+
   it('names what the active profile is missing', () => {
     act(() => useAiConfigStore.getState().setMode('local'));
     render(<ExplainErrorPanel target={target} runChatCompletionImpl={answer('x')} />);

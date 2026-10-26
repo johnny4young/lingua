@@ -1,5 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { AI_MODES, isAiConfigured, useAiConfigStore, type AiMode } from '../../stores/aiConfigStore';
+import { AI_MODES, isAiConfigured, useAiConfigStore, type AiMode, type AiProfile } from '../../stores/aiConfigStore';
+import { isLocalAiEndpoint } from '../../utils/loopbackHost';
+
+/** The copy key naming what a profile still needs before it can send. */
+export function missingSetupKey(mode: AiMode, profile: AiProfile): string {
+  if (mode === 'remote') return 'ai.panel.mode.remoteUnset';
+  const otherHost = profile.endpoint.trim() !== '' && !isLocalAiEndpoint(profile.endpoint);
+  return otherHost ? 'ai.panel.mode.localOtherHost' : 'ai.panel.mode.localUnset';
+}
 
 /** Picks where Send goes. A profile Settings has not filled in yet stays disabled, with the reason. */
 export function ExplainModeSwitch() {
@@ -26,7 +34,7 @@ export function ExplainModeSwitch() {
               role="radio"
               aria-checked={mode === option}
               disabled={disabled}
-              title={disabled ? t(`ai.panel.mode.${option}Unset`) : undefined}
+              title={disabled ? t(missingSetupKey(option, option === 'local' ? local : remote)) : undefined}
               data-testid={`ai-explain-mode-${option}`}
               onClick={() => useAiConfigStore.getState().setMode(option)}
               className={`focus-ring h-6 rounded-md px-2.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50 ${

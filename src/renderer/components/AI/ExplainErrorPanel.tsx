@@ -17,7 +17,7 @@ import { diffLines } from '../../utils/diff';
 import { recordExplainRating, type ExplainVote } from '../../utils/explainRatings';
 import { scopeValueToString } from '../Console/richConsoleFormat';
 import { ApplyDiff, ExplainExchanges } from './ExplainConversationParts';
-import { ExplainModeSwitch } from './ExplainModeSwitch';
+import { ExplainModeSwitch, missingSetupKey } from './ExplainModeSwitch';
 import { useExplainConversation } from './useExplainConversation';
 
 const FOLLOW_UP_CHIPS = ['why', 'safer', 'test'] as const;
@@ -49,6 +49,7 @@ function ExplainConversationPanel({
   const apiKey = useAiConfigStore((s) => s.apiKey);
   const model = useAiConfigStore((s) => s.model);
   const mode = useAiConfigStore((s) => s.mode);
+  const activeProfile = useAiConfigStore((s) => (s.mode === 'local' ? s.local : s.remote));
   const tab = useEditorStore((s) => s.tabs.find((candidate) => candidate.id === target.tabId) ?? null);
   const pinned = useExplainPanelStore((s) => s.pinned);
   const { run } = useRunner();
@@ -162,7 +163,7 @@ function ExplainConversationPanel({
           </p>
         ) : !configured ? (
           <p data-testid="ai-explain-unconfigured" className="text-fg-muted">
-            {t(`ai.panel.mode.${mode}Unset`)}
+            {t(missingSetupKey(mode, activeProfile))}
           </p>
         ) : (
           <>

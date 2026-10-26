@@ -13,7 +13,7 @@
  * never echoed into any error message.
  */
 
-import { isLoopbackHostname } from '../utils/loopbackHost';
+import { isLocalAiEndpoint } from '../utils/loopbackHost';
 import type { ChatMessage } from '../../shared/ai/explainError';
 import { utf8ByteLength } from '../../shared/utf8';
 import { readAiResponseBody, AiResponseError, AI_RESPONSE_LIMITS } from './aiResponseBody';
@@ -94,11 +94,12 @@ function normalizeConfig(config: AiProviderConfig): NormalizedAiProviderConfig {
     return { ok: false, message: 'AI endpoint is not a valid URL.' };
   }
   // A server on this machine takes no key; a remote provider always needs one.
-  if (apiKey.length === 0 && !isLoopbackHostname(url.hostname)) return { ok: false, message: 'No API key configured.' };
+  const local = isLocalAiEndpoint(endpoint);
+  if (apiKey.length === 0 && !local) return { ok: false, message: 'No API key configured.' };
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     return { ok: false, message: 'AI endpoint must be an http(s) URL.' };
   }
-  if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
+  if (url.protocol === 'http:' && !local) {
     return {
       ok: false,
       message:
@@ -159,6 +160,7 @@ export async function runChatCompletion(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(options.onChunk ? { Accept: 'text/event-stream' } : {}),
         ...(normalizedConfig.apiKey ? { Authorization: `Bearer ${normalizedConfig.apiKey}` } : {}),
       },
       body: JSON.stringify({
@@ -262,7 +264,7 @@ function redactKey(text: string, apiKey: string): string {
 
 function defaultFetch(endpoint: string): typeof fetch {
   const bridge = typeof window !== 'undefined' ? window.lingua?.http : undefined;
-  if (bridge && !isLoopbackHostname(new URL(endpoint).hostname)) return createProxyAiFetch(bridge);
+  if (bridge && !isLocalAiEndpoint(endpoint)) return createProxyAiFetch(bridge);
   return globalThis.fetch.bind(globalThis);
 }
 

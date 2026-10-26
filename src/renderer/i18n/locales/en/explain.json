@@ -29,5 +29,6 @@
   "ai.panel.mode.localCaption": "{{model}} on {{host}} · nothing leaves this machine",
   "ai.panel.mode.remoteCaption": "{{model}} at {{host}}",
   "ai.panel.mode.localUnset": "Pick a local model in Settings → Account → AI. Ollama or LM Studio must be running.",
-  "ai.panel.mode.remoteUnset": "Add your endpoint, API key, and model in Settings → Account → AI."
+  "ai.panel.mode.remoteUnset": "Add your endpoint, API key, and model in Settings → Account → AI.",
+  "ai.panel.mode.localOtherHost": "Local reaches only localhost or 127.0.0.1, on this machine. Change the Local endpoint in Settings → Account → AI."
 }

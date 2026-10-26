@@ -21,6 +21,8 @@
  * register a step under key `N` here that upgrades the `N-1` shape to `N`.
  */
 
+import { isLocalAiEndpoint } from '../../utils/loopbackHost';
+
 /**
  * A single forward migration step: upgrades a persisted (already partialized)
  * state from the previous schema version to the next. Must be pure and total —
@@ -60,15 +62,6 @@ export type PersistedStoreName =
   | 'lingua-workspace-sql-state'
   | 'lingua-workspace-tool-state'
   | 'lingua-ai';
-
-function isLoopbackUrl(value: string): boolean {
-  try {
-    const { hostname } = new URL(value);
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Forward-migration steps per store. Empty maps are intentional: those stores
@@ -164,7 +157,7 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
       const endpoint = typeof state.endpoint === 'string' ? state.endpoint : '';
       const model = typeof state.model === 'string' ? state.model : '';
       const apiKey = typeof state.apiKey === 'string' ? state.apiKey : '';
-      const local = isLoopbackUrl(endpoint);
+      const local = isLocalAiEndpoint(endpoint);
       return {
         mode: local ? 'local' : 'remote',
         local: local ? { endpoint, model } : { endpoint: 'http://localhost:11434/v1/chat/completions', model: '' },
