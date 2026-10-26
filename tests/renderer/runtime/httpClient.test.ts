@@ -269,6 +269,23 @@ describe('executeHttpRequest ', () => {
     expect(events).toEqual(['execute', 'cancel', 'unsubscribe']);
   });
 
+  it('never sends the request snapshot to the desktop bridge', async () => {
+    const sent: HttpRequestV1[] = [];
+    const bridge: HttpDesktopAPI = {
+      execute: async (_runId, request) => {
+        sent.push(request);
+        return { version: 1, kind: 'success', status: 200, statusText: 'OK', url: '', finalUrl: '', headers: [], body: '', contentType: '', sizeBytes: 0, durationMs: 0, tooLarge: false, redactedHeaders: [], recordedAt: '2026-08-01T00:00:00.000Z' };
+      },
+      cancel: async () => ({ cancelled: true }),
+      onProgress: () => () => undefined,
+    };
+    Object.defineProperty(window, 'lingua', { configurable: true, value: { http: bridge } });
+    const snapshot = { version: 1 as const, status: 200, body: '{}', recordedAt: '2026-08-01T00:00:00.000Z', scrubbers: { timestamps: true, uuids: true, ids: true, hostname: false, regex: '' } };
+    await executeHttpRequest(makeRequest({ snapshot }));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).not.toHaveProperty('snapshot');
+  });
+
   it('skips body on GET / HEAD / OPTIONS even when request.body is set', async () => {
     let captured: RequestInit | undefined;
     const fetchImpl = async (_url: unknown, init?: RequestInit) => {

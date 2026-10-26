@@ -58,6 +58,7 @@ export type VariablesViewMode = 'list' | 'cards';
  */
 export interface StatusNoticeAction {
   readonly labelKey: string;
+  readonly labelValues?: Record<string, string | number>;
   readonly onClick: () => void;
 }
 

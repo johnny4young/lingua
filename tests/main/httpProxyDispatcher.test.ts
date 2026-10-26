@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { LookupImpl } from '../../src/main/httpProxy';
 import { createBlankHttpRequest } from '../../src/shared/httpWorkspace';
 
-const recorded = vi.hoisted(() => ({ agentOptions: [] as unknown[], fetchCalls: 0 }));
+const recorded = vi.hoisted(() => ({ agentOptions: [] as unknown[], connectorOptions: [] as unknown[], fetchCalls: 0 }));
 
 vi.mock('undici', async importOriginal => {
   const actual = await importOriginal<typeof import('undici')>();
@@ -32,6 +32,10 @@ vi.mock('undici', async importOriginal => {
   return {
     ...actual,
     Agent: RecordingAgent,
+    buildConnector: (options: Parameters<typeof actual.buildConnector>[0]) => {
+      recorded.connectorOptions.push(options);
+      return actual.buildConnector(options);
+    },
     fetch: async () => {
       recorded.fetchCalls += 1;
       return new Response('{"ok":true}', {
@@ -63,9 +67,8 @@ describe('executeHttpProxyRequest — production hop dispatcher', () => {
     expect(response.kind).toBe('success');
 
     expect(recorded.agentOptions).toHaveLength(1);
-    expect(recorded.agentOptions[0]).toMatchObject({
-      allowH2: false,
-      connect: { lookup: expect.any(Function) },
-    });
+    // The timed connector replaces the one Agent would build, so the connector itself stays on HTTP/1.1 with the pinned lookup.
+    expect(recorded.agentOptions[0]).toMatchObject({ allowH2: false, connect: expect.any(Function) });
+    expect(recorded.connectorOptions).toEqual([{ allowH2: false, lookup: expect.any(Function) }]);
   });
 });

@@ -56,14 +56,21 @@ interface Run extends RowPager {
   session: DriverSession;
 }
 
+interface PendingRun {
+  session?: DriverSession;
+  cancelled: boolean;
+  /** Settles a wait on the driver handshake, which itself cannot be aborted. */
+  cancel: () => void;
+}
+
 export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): SqlDbBridge {
   const connections = new Map<string, SqlConnectionV1>();
   const secrets = new Map<string, string>();
   const credentialRevisions = new Map<string, symbol>();
   const sessions = new Map<string, Promise<DriverSession>>();
   const runs = new Map<string, Run>();
-  /** Runs still waiting for their first page, so Cancel stops only their own session. */
-  const waiting = new Map<string, DriverSession>();
+  /** Reserve cancellation before opening the driver, including its initial handshake. */
+  const waiting = new Map<string, PendingRun>();
 
   const view = (entry: SqlConnectionV1): SqlDbConnectionView => ({ ...entry, hasPassword: secrets.has(entry.id) });
 
@@ -230,57 +237,71 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       if (!entry) return fail('connection-failed', 'Unknown connection.');
       const { writes, refusal } = runGuard(entry, sql, options);
       if (refusal) return fail('sql-error', refusal, 'confirm-needed');
-      for (const [id, run] of runs) if (run.connectionId === connectionId) await closeRun(id);
-      const revision = credentialRevisions.get(connectionId);
-      let session: DriverSession;
+      let onCancel!: () => void;
+      const cancelRequested = new Promise<null>((resolve) => {
+        onCancel = () => resolve(null);
+      });
+      const pending: PendingRun = { cancelled: false, cancel: onCancel };
+      const cancelled = () => fail('cancelled', 'Query cancelled');
+      waiting.set(runId, pending);
       try {
-        session = await sessionFor(entry);
-      } catch (err) {
-        const detail = refused(entry, classifyConnectError(err), revision);
-        return fail('connection-failed', detail.message, detail.fix);
-      }
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        void session.cancel();
-      }, options.timeoutMs);
-      waiting.set(runId, session);
-      try {
-        const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
-        waiting.delete(runId);
-        const run: Run = { connectionId, session, rows, pending: [], done: false };
-        runs.set(runId, run);
-        const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
-        const hasMore = !page.done;
-        if (!hasMore) await closeRun(runId);
-        return {
-          status: hasMore ? 'too-large' : 'success',
-          engine: entry.engine,
-          columns: rows.columns,
-          rows: page.rows,
-          rowCount: page.rows.length,
-          tooLarge: hasMore,
-          rowCountIsLowerBound: hasMore,
-          hasMore,
-          durationMs: Math.round(performance.now() - started),
-          ...(rows.affectedRows !== undefined ? { affectedRows: rows.affectedRows } : {}),
-        };
-      } catch (err) {
-        await closeRun(runId);
-        if (timedOut) return fail('timeout', 'Query exceeded timeout');
-        const message = err instanceof Error ? err.message : String(err);
-        if (/cancel/i.test(message)) return fail('cancelled', message);
-        const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err), revision) : null;
-        return detail ? fail('connection-failed', detail.message, detail.fix) : fail('sql-error', message);
+        for (const [id, run] of runs) if (run.connectionId === connectionId) await closeRun(id);
+        if (pending.cancelled) return cancelled();
+        const revision = credentialRevisions.get(connectionId);
+        let session: DriverSession | null;
+        try {
+          session = await Promise.race([sessionFor(entry), cancelRequested]);
+        } catch (err) {
+          const detail = refused(entry, classifyConnectError(err), revision);
+          if (pending.cancelled) return cancelled();
+          return fail('connection-failed', detail.message, detail.fix);
+        }
+        if (!session || pending.cancelled) return cancelled();
+        pending.session = session;
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          void session.cancel();
+        }, options.timeoutMs);
+        try {
+          // Once the statement is sent, a late Cancel cannot unsend it: keep its result.
+          const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
+          const run: Run = { connectionId, session, rows, pending: [], done: false };
+          runs.set(runId, run);
+          const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
+          const hasMore = !page.done;
+          if (!hasMore) await closeRun(runId);
+          return {
+            status: hasMore ? 'too-large' : 'success',
+            engine: entry.engine,
+            columns: rows.columns,
+            rows: page.rows,
+            rowCount: page.rows.length,
+            tooLarge: hasMore,
+            rowCountIsLowerBound: hasMore,
+            hasMore,
+            durationMs: Math.round(performance.now() - started),
+            ...(rows.affectedRows !== undefined ? { affectedRows: rows.affectedRows } : {}),
+          };
+        } catch (err) {
+          await closeRun(runId);
+          if (timedOut) return fail('timeout', 'Query exceeded timeout');
+          if (pending.cancelled) return cancelled();
+          const message = err instanceof Error ? err.message : String(err);
+          if (/cancel/i.test(message)) return fail('cancelled', message);
+          const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err), revision) : null;
+          return detail ? fail('connection-failed', detail.message, detail.fix) : fail('sql-error', message);
+        } finally {
+          clearTimeout(timer);
+        }
       } finally {
         waiting.delete(runId);
-        clearTimeout(timer);
       }
     },
 
     async fetch(runId, limit, maxBytes) {
       const run = runs.get(runId);
-      if (!run) return { rows: [], done: true, bytes: 0 };
+      if (!run) return { rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.' };
       try {
         const page = await readRowPage(run, limit, maxBytes, same, rowSize);
         if (page.done) await closeRun(runId);
@@ -292,8 +313,13 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     },
 
     async cancel(runId) {
-      const session = runs.get(runId)?.session ?? waiting.get(runId);
-      return { cancelled: session ? await session.cancel() : false };
+      const pending = waiting.get(runId);
+      if (pending) {
+        pending.cancelled = true;
+        pending.cancel();
+      }
+      const session = runs.get(runId)?.session ?? pending?.session;
+      return { cancelled: session ? await session.cancel() : Boolean(pending) };
     },
 
     async closeRun(runId) {

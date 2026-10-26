@@ -11,6 +11,7 @@
 import { Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { HttpEnvironmentV1 } from '../../../shared/httpEnvironment';
+import type { HttpTint } from './httpScopeColors';
 
 export interface HttpEnvironmentSelectorProps {
   environments: ReadonlyArray<HttpEnvironmentV1>;
@@ -19,6 +20,8 @@ export interface HttpEnvironmentSelectorProps {
   onSelect: (id: string | null) => void;
   /** Open the environment manager modal. */
   onManage: () => void;
+  /** The active environment's colour, for the select's border and text. */
+  tint?: HttpTint;
 }
 
 export function HttpEnvironmentSelector({
@@ -26,6 +29,7 @@ export function HttpEnvironmentSelector({
   activeEnvironmentId,
   onSelect,
   onManage,
+  tint,
 }: HttpEnvironmentSelectorProps) {
   const { t } = useTranslation();
   return (
@@ -44,6 +48,7 @@ export function HttpEnvironmentSelector({
         aria-label={t('httpWorkspace.environment.selector.label')}
         title={t('httpWorkspace.environment.selector.label')}
         className="h-8 max-w-[160px] shrink-0 rounded-md border border-border-subtle bg-bg-panel px-2 text-body-sm font-medium text-fg-base focus:border-border-strong focus:outline-none"
+        {...(tint ? { 'data-tinted': true, style: { borderColor: tint.line, color: tint.fg, backgroundColor: tint.bg } } : {})}
       >
         <option value="">{t('httpWorkspace.environment.selector.none')}</option>
         {environments.map((env) => (

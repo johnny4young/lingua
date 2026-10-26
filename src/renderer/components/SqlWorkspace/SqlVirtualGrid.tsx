@@ -5,7 +5,7 @@
  */
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
@@ -63,9 +63,16 @@ const UNSET_CELL = 'default';
 function cellClass(value: unknown, numeric: boolean): string {
   const base = 'max-w-[32rem] truncate px-2.5 align-middle';
   if (value === null || value === undefined) return `${base} italic text-fg-subtle ${numeric ? 'text-right' : ''}`;
-  if (numeric) return `${base} text-right tabular-nums text-syntax-number`;
-  if (typeof value === 'boolean') return `${base} text-syntax-keyword`;
+  if (numeric) return `${base} text-right tabular-nums`;
+  if (typeof value === 'boolean') return base;
   return `${base} text-fg-base`;
+}
+
+/** The syntax hue for a number or a boolean, as a theme variable so the boot stylesheet gains no class. */
+function cellColor(value: unknown, numeric: boolean): CSSProperties | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (numeric) return { color: 'var(--color-syntax-number)' };
+  return typeof value === 'boolean' ? { color: 'var(--color-syntax-keyword)' } : undefined;
 }
 
 type TypedColumn = { col: SqlColumnMetadata; duckType: string; numeric: boolean };
@@ -151,6 +158,7 @@ const GridRow = memo(function GridRow({
             onDoubleClick={() => actions.open(index, col.name)}
             onContextMenu={(event) => actions.menu(event, { row: index, column: col.name })}
             className={cn(cellClass(value, numeric), tone && TONE_CLASS[tone], cellSelected && 'outline outline-1 -outline-offset-1 outline-accent')}
+            style={cellColor(value, numeric)}
           >
             {linked ? (
               <button

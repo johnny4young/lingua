@@ -127,7 +127,7 @@ export function StatusNoticeBanner() {
                 data-testid={`status-notice-action-${action.labelKey}`}
                 className="rounded-full border border-foreground/20 bg-surface-strong/80 px-3 py-1 text-body-sm font-medium text-foreground transition-colors hover:bg-primary/15 hover:text-foreground"
               >
-                {t(action.labelKey)}
+                {t(action.labelKey, action.labelValues)}
               </button>
             ))}
           </div>

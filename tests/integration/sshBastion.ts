@@ -1,9 +1,10 @@
 /** An in-process SSH bastion for the SQL host tunnel tests: password `tunnel`, forwarding to any target. */
 
 import net, { type AddressInfo } from 'node:net';
-import { Server, utils } from 'ssh2';
+import { Server } from 'ssh2';
 import { sshFingerprint } from '../../src/main/sqlSsh/knownHosts';
 import type { HostSshConfig } from '../../src/main/sqlHost/protocol';
+import { generateSshKeyPair } from '../__fixtures__/sshKeys';
 
 export interface Bastion {
   port: number;
@@ -17,7 +18,7 @@ export interface Bastion {
 }
 
 export async function startBastion(): Promise<Bastion> {
-  const hostKey = utils.generateKeyPairSync('ed25519');
+  const hostKey = generateSshKeyPair();
   const fingerprint = sshFingerprint(Buffer.from(hostKey.public.split(' ')[1]!, 'base64'));
   const forwarded: string[] = [];
   const signedIn = new Set<{ end: () => void }>();

@@ -105,6 +105,7 @@ describe.skipIf(!libsql)('libSQL over Hrana', () => {
 });
 
 describe.skipIf(!neon)('Neon over SQL over HTTP', () => {
+  // About ten round trips to a proxy that shares Postgres with the other engine suites, like their 30 s tests.
   it('tests, runs, keeps a read-only connection read-only on the server and reads the catalog', async () => {
     const test = await ok<{ serverVersion: string }>({ type: 'test', config: neon! });
     expect(test.serverVersion).toMatch(/^PostgreSQL 16\.\d+ \(Neon\)$/);
@@ -122,7 +123,7 @@ describe.skipIf(!neon)('Neon over SQL over HTTP', () => {
     expect(await ok<number | null>({ type: 'estimate', config: neon!, sql: 'SELECT * FROM orders' })).toBeGreaterThan(0);
     const detail = await ok<SqlDbIntrospectResult>({ type: 'introspect', config: neon!, request: { level: 'detail', schema: 'public', name: 'orders', kind: 'table' } });
     expect(detail.detail?.columns.find((column) => column.name === 'id')).toMatchObject({ primaryKey: true, nullable: false });
-  });
+  }, 30_000);
 
   it('applies staged edits as one batch, and rolls them all back on a conflict', async () => {
     const table: RowEditTable = { engine: 'neon', schema: 'public', name: 'orders', columns: ['id', 'city'], key: { kind: 'pk', columns: ['id'] } };
