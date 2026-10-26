@@ -72,6 +72,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Danger-coloured text that rendered without a colour now uses the error colour.
 - Settings selects given a custom width, such as the execution timeout ones, keep their styling instead of rendering as plain browser selects.
 - Run, HTTP, SQL and pipeline capsules recorded in the desktop app now say desktop instead of web.
+- HTTP requests queued during an earlier reconnect send resume when it finishes; queued writes still wait for Send now.
 
 ### Security
 - The desktop local MCP server moves to the patched @modelcontextprotocol packages (server 2.3.1, node 2.1.1), which fix one HTTP client's messages reaching another on a shared transport and a request that could exhaust memory during validation.
