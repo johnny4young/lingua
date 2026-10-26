@@ -87,6 +87,9 @@ export interface SqlDbFetchResult {
   errorMessage?: string;
 }
 
+/** A fetch on a run that is no longer open: an error, so a partial result never reads as complete. */
+export const closedSqlResult = (): SqlDbFetchResult => ({ rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.' });
+
 export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key' | 'ssh-key';
 export type SqlDbPickResult = { canceled: true } | { canceled: false; path: string } | { canceled: true; blocked: true };
 

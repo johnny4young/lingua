@@ -374,7 +374,7 @@ Server and `EXPLAIN ESTIMATE` under `readonly = 2` on ClickHouse), and refuses
 a write to a production connection without the typed connection name
 (`runGuard` in `src/shared/sqlRunGuard.ts`, through `isWriteSqlStatementOn`); that confirm is a guard against mistakes, since a
 renderer that knows the name can pass it. The nineteen `sql-db:*` channels in
-`ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
+`ipc/sqlDb.ts` validate every argument and scope runs to the calling window. Fetching a closed run, or one owned by another window, returns an error instead of an empty end of result.
 
 SSH tunnels (`sqlHost/tunnel.ts`) sign in to the bastion with a password, a
 key and its passphrase, or the agent, through up to three jump hosts that sign
@@ -535,7 +535,10 @@ cross-origin requests: connections live for the tab only, their token or
 password stays in that module's memory and is never stored, requests go with
 `fetch` (no cookies, no referrer, no redirects, HTTPS only), and the same run
 and edit guards (`sqlRunGuard.ts`) apply. D1's API refuses browsers, so it is
-desktop-only, as are the socket engines.
+desktop-only, as are the socket engines. A web run registers for Cancel
+before the driver handshake, so a Cancel during connection keeps its SQL from
+being sent, and fetching from a closed run returns an error rather than an
+empty end of result.
 
 Copy to Local (`runtime/sqlCopyToLocal.ts`, with its SQL built in
 `src/shared/sqlCopyToLocal.ts`) runs a read statement again through the
@@ -1502,6 +1505,8 @@ interpolated when it finally sends. Hosts that answer without the internet
 transports and pipelines never queue. Whenever the app is online with held
 entries, including when the HTTP tab opens after the connection came back,
 held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
+The drain picks each next entry from the live queue, so one queued while a send
+is pending is not stranded.
 
 With the `httpScopes` Labs flag, variables resolve from three scopes:
 collection (`collectionVariables` in the workspace store), the active
