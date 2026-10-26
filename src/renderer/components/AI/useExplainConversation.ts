@@ -80,8 +80,9 @@ export function useExplainConversation({
         setTranscript([...messages, { role: 'assistant', content: result.content }]);
         setPhase({ kind: 'done' });
       } else {
-        // Keep the attempted messages so a mid-conversation retry can resend.
-        setTranscript(messages);
+        // Keep a failed follow-up so Retry can resend it; a failed first request is never
+        // a thread, so Retry and a remount start again from the current preview.
+        if (messages.length > request.messages.length) setTranscript(messages);
         setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
       }
     } finally {

@@ -7,6 +7,7 @@ import { useAiConfigStore } from '../../../src/renderer/stores/aiConfigStore';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useExplainPanelStore, type ExplainTarget } from '../../../src/renderer/stores/explainPanelStore';
 import { useResultStore } from '../../../src/renderer/stores/resultStore';
+import { previewOf } from '../../../src/shared/ai/explainError';
 
 const run = vi.fn();
 vi.mock('../../../src/renderer/hooks/useEntitlement', () => ({ useEntitlement: () => true }));
@@ -80,6 +81,42 @@ describe('anchored explain panel', () => {
     expect(screen.getByTestId('ai-explain-unconfigured').textContent).toContain('Pick a local model');
     expect(screen.queryByTestId('ai-explain-mode-caption')).toBeNull();
     expect(screen.getByTestId('ai-explain-mode-remote')).toHaveProperty('disabled', false);
+  });
+
+  it('retries a failed first attempt from a preview of the current code', async () => {
+    const edited = "const user = { name: 'Ada' };\nconst name = user.name;";
+    const impl = vi.fn()
+      .mockResolvedValueOnce({ ok: false, kind: 'network', message: 'Synthetic failure' })
+      .mockResolvedValue({ ok: true, content: 'Synthetic answer.' });
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByTestId('ai-explain-error');
+    expect(useExplainPanelStore.getState().threadFor('t1', target.errorMessage, useAiConfigStore.getState().endpoint)).toEqual([]);
+    expect(screen.queryByTestId('ai-explain-followup-input')).toBeNull();
+    act(() => useEditorStore.getState().updateContent('t1', edited));
+    fireEvent.click(screen.getByTestId('ai-explain-retry'));
+    const preview = screen.getByTestId('ai-explain-preview').textContent;
+    expect(preview).toContain(edited);
+    expect(preview).not.toContain(CODE);
+    expect(impl).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByText('Synthetic answer.');
+    const messages = impl.mock.calls[1]![0].messages;
+    expect(preview).toBe(previewOf(messages));
+    expect(useExplainPanelStore.getState().threadFor('t1', target.errorMessage, useAiConfigStore.getState().endpoint)).toEqual([
+      ...messages, { role: 'assistant', content: 'Synthetic answer.' },
+    ]);
+  });
+
+  it('reopens a failed first attempt at the consent preview', async () => {
+    const impl = vi.fn().mockResolvedValue({ ok: false, kind: 'network', message: 'Synthetic failure' });
+    const { unmount } = render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByTestId('ai-explain-error');
+    unmount();
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
+    expect(screen.getByTestId('ai-explain-send')).toBeTruthy();
+    expect(screen.getByTestId('ai-explain-preview').textContent).toContain(CODE);
   });
 
   it('names the file and line and sends nothing until Send', () => {
