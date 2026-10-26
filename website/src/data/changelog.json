@@ -1,6 +1,19 @@
 {
-  "generatedAt": "2026-10-19T23:13:13.657Z",
+  "generatedAt": "2026-10-26T04:36:58.915Z",
   "entries": [
+    {
+      "version": "1.6.3",
+      "date": "2026-10-26",
+      "sections": [
+        {
+          "heading": "Fixed",
+          "items": [
+            "Switching SQL queries with identical text resets the previous query's undo history and keeps the Run glyphs."
+          ]
+        }
+      ],
+      "raw": "### Fixed\n- Switching SQL queries with identical text resets the previous query's undo history and keeps the Run glyphs."
+    },
     {
       "version": "1.6.2",
       "date": "2026-10-19",
