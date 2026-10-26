@@ -54,7 +54,7 @@ blockExoticSubdeps: true
 # npm-style `overrides` block stays in package.json too (npm-compat +
 # asserted by the depFreshness test).
 overrides:
-  "monaco-editor>dompurify": "^3.4.16"
+  "monaco-editor>dompurify": "^3.4.17"
   # ssh2 only probes CPU features for cipher order when cpu-features loads; without
   # it, packaging no longer tries to compile the addon for Electron.
   "ssh2>cpu-features": "-"
