@@ -68,6 +68,7 @@ The format follows Keep a Changelog and groups changes by release.
 - SQL results show LIST and STRUCT columns as arrays and objects instead of Arrow internals.
 - Run Ledger toggle, export and clear events now appear in Privacy › Recent activity; they were dropped before they reached the feed.
 - Language chips and labels in the light theme are readable (they were pale text on pale tints).
+- On desktop, the first query after cancelling or timing out a long SQL query no longer fails with The SQL host stopped.
 - The Cron Parser's schedule field is no longer cut off at narrow window widths, since the tool list folds to a rail.
 - Disabled primary buttons such as Save set, Save Snippet and Start free trial keep readable text instead of white on pale blue.
 - Danger-coloured text that rendered without a colour now uses the error colour.
