@@ -26,6 +26,7 @@ interface Harness {
   scrollLeftResets: number;
   externalEdits: number;
   documentResets: number;
+  viewRestores: number;
   glyphs: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>;
   onCursor: ((event: unknown) => void) | null;
   onMouseDown: ((event: unknown) => void) | null;
@@ -43,6 +44,7 @@ const harness: Harness = {
   scrollLeftResets: 0,
   externalEdits: 0,
   documentResets: 0,
+  viewRestores: 0,
   glyphs: [],
   onCursor: null,
   onMouseDown: null,
@@ -109,6 +111,10 @@ vi.mock('@monaco-editor/react', () => {
       setScrollLeft: () => {
         harness.scrollLeftResets += 1;
       },
+      saveViewState: () => ({ __view: true }),
+      restoreViewState: () => {
+        harness.viewRestores += 1;
+      },
       createDecorationsCollection: () => ({
         set: (glyphs: Harness['glyphs']) => {
           harness.glyphs = glyphs;
@@ -171,6 +177,7 @@ function resetHarness() {
   harness.scrollLeftResets = 0;
   harness.externalEdits = 0;
   harness.documentResets = 0;
+  harness.viewRestores = 0;
   harness.glyphs = [];
   harness.onCursor = null;
   harness.onMouseDown = null;
@@ -358,9 +365,12 @@ describe('SqlMonacoEditor', () => {
     const sameStatements = splitSqlStatements('SELECT 8;');
     rerender(host('SELECT 8;', 'q2', sameStatements));
     const emitted = onChange.mock.calls.length;
+    const scrollResets = harness.scrollLeftResets;
     rerender(host('SELECT 8;', 'q3', sameStatements));
     expect(textarea.value).toBe('SELECT 8;');
     expect(harness.documentResets).toBe(2);
+    expect(harness.viewRestores).toBe(1);
+    expect(harness.scrollLeftResets).toBe(scrollResets);
     expect(harness.externalEdits).toBe(1);
     expect(onChange).toHaveBeenCalledTimes(emitted);
     expect(harness.glyphs.map(glyph => glyph.range.startLineNumber)).toEqual([1]);

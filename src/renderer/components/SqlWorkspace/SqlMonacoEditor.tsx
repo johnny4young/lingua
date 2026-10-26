@@ -221,6 +221,30 @@ export function SqlMonacoEditor({
   useEffect(() => {
     handlersRef.current = { onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut };
   }, [onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut]);
+  const statementsRef = useRef(statements);
+  const runGlyphLabelRef = useRef(runGlyphLabel);
+  const glyphsRef = useRef<ReturnType<EditorInstance['createDecorationsCollection']> | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+
+  const paintRunGlyphs = useCallback(() => {
+    const monaco = monacoRef.current;
+    if (!monaco || !glyphsRef.current) return;
+    glyphsRef.current.set(
+      statementsRef.current.map((statement) => ({
+        range: new monaco.Range(statement.startLine, 1, statement.startLine, 1),
+        options: {
+          glyphMarginClassName: 'lingua-sql-run-glyph',
+          glyphMarginHoverMessage: { value: runGlyphLabelRef.current },
+        },
+      }))
+    );
+  }, []);
+  useEffect(() => {
+    statementsRef.current = statements;
+    runGlyphLabelRef.current = runGlyphLabel;
+    paintRunGlyphs();
+  }, [statements, runGlyphLabel, paintRunGlyphs]);
+
   const typedValueRef = useRef(value);
   // Texts emitted since the parent last caught up, oldest first. The parent renders them in
   // order, so a render of one is stale rather than external; the cap bounds a long lag.
@@ -234,7 +258,10 @@ export function SqlMonacoEditor({
       documentKeyRef.current = documentKey;
       echoes.length = 0;
       typedValueRef.current = value;
-      if (editor) replaceModelText(editor, value, applyingExternalRef, false);
+      if (!editor) return;
+      replaceModelText(editor, value, applyingExternalRef, false);
+      // Resetting the model clears its decorations.
+      paintRunGlyphs();
       return;
     }
     const echo = echoes.indexOf(value);
@@ -246,7 +273,7 @@ export function SqlMonacoEditor({
     echoes.length = 0;
     typedValueRef.current = value;
     if (editor) replaceModelText(editor, value, applyingExternalRef, true);
-  }, [value, documentKey]);
+  }, [value, documentKey, paintRunGlyphs]);
   const insertedNonceRef = useRef(insertAtCursor?.nonce ?? 0);
   useEffect(() => {
     const editor = editorRef.current;
@@ -257,27 +284,6 @@ export function SqlMonacoEditor({
     editor.executeEdits('sql-rail', [{ range: selection, text: insertAtCursor.text, forceMoveMarkers: true }]);
     editor.focus();
   }, [insertAtCursor]);
-  const statementsRef = useRef(statements);
-  const glyphsRef = useRef<ReturnType<EditorInstance['createDecorationsCollection']> | null>(null);
-  const monacoRef = useRef<Monaco | null>(null);
-
-  const paintRunGlyphs = useCallback(() => {
-    const monaco = monacoRef.current;
-    if (!monaco || !glyphsRef.current) return;
-    glyphsRef.current.set(
-      statementsRef.current.map((statement) => ({
-        range: new monaco.Range(statement.startLine, 1, statement.startLine, 1),
-        options: {
-          glyphMarginClassName: 'lingua-sql-run-glyph',
-          glyphMarginHoverMessage: { value: runGlyphLabel },
-        },
-      }))
-    );
-  }, [runGlyphLabel]);
-  useEffect(() => {
-    statementsRef.current = statements;
-    paintRunGlyphs();
-  }, [statements, paintRunGlyphs, documentKey]);
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editorRef.current = editor;
@@ -468,7 +474,7 @@ export function SqlMonacoEditor({
 
 /**
  * Replaces the whole model, scrolled to the left edge so short lines stay visible. Format and
- * inserts stay undoable; a new document starts its own undo history.
+ * inserts stay undoable; a new document starts its own undo history, even with the same text.
  */
 function replaceModelText(
   editor: EditorInstance,
@@ -477,7 +483,11 @@ function replaceModelText(
   undoable: boolean
 ): void {
   const model = editor.getModel();
-  if (!model || (undoable && model.getValue() === text)) return;
+  if (!model) return;
+  const sameText = model.getValue() === text;
+  if (sameText && undoable) return;
+  // Same text keeps the cursor and scroll (Save As, Duplicate); only the undo stack resets.
+  const viewState = sameText ? editor.saveViewState() : null;
   applying.current = true;
   try {
     if (undoable) {
@@ -489,5 +499,6 @@ function replaceModelText(
   } finally {
     applying.current = false;
   }
-  editor.setScrollLeft(0);
+  if (viewState) editor.restoreViewState(viewState);
+  else editor.setScrollLeft(0);
 }

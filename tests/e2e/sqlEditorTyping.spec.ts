@@ -63,16 +63,19 @@ for (const language of ['en', 'es'] as const) {
     await page.keyboard.press('ControlOrMeta+Alt+S');
     const source = 'SELECT 1 AS fixture';
     const ids: string[] = [];
+    const activeTab = page.locator('[data-testid="sql-query-tab"][data-active="true"]');
     for (let index = 0; index < 2; index += 1) {
       await page.getByTestId('sql-query-list-create').click();
       await expect(page.getByTestId('sql-query-editor-monaco').locator('.monaco-editor')).toBeVisible();
-      const id = await page.locator('[data-testid="sql-query-tab"][data-active="true"]').getAttribute('data-query-id');
+      if (ids[0]) await expect(activeTab).not.toHaveAttribute('data-query-id', ids[0]);
+      const id = await activeTab.getAttribute('data-query-id');
       if (!id) throw new Error('The new query must have a document id');
       ids.push(id);
       await replaceWithKeystrokes(page, source);
       await expect.poll(() => savedQuery(page, id)).toBe(source);
     }
     await page.locator(`[data-testid="sql-query-list-row"][data-query-id="${ids[0]}"]`).click();
+    await expect(activeTab).toHaveAttribute('data-query-id', ids[0]);
     const editor = page.getByTestId('sql-query-editor-monaco');
     await expect(page.getByTestId('sql-query-editor-run')).toContainText(language === 'es' ? 'Ejecutar' : 'Run');
     await expect(editor.locator('.lingua-sql-run-glyph')).toHaveCount(1);

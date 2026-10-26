@@ -128,6 +128,8 @@ function MonacoEditor({
     },
     createDecorationsCollection: () => ({ set: () => {} }),
     setScrollLeft: () => {},
+    saveViewState: () => null,
+    restoreViewState: () => {},
     onDidChangeCursorSelection: (listener: Listener) => {
       sqlMonacoHarness.onCursor = listener;
       return disposable;
