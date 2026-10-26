@@ -221,7 +221,7 @@ lifecycle—plus the full execution boundary.
 | Dependency     | Version | Notes                                                          |
 | -------------- | ------- | -------------------------------------------------------------- |
 | Node.js        | 24.x    | Required for local development, tests, and builds              |
-| pnpm           | >= 11   | Package manager (`corepack enable` picks the pinned version)   |
+| pnpm           | 11.3.0  | Pinned by `package.json#packageManager`; use `corepack pnpm`     |
 | Go             | >= 1.21 | Required only for desktop Go execution                         |
 | Rust (`rustc`) | stable  | Required only for desktop Rust execution                       |
 | Ruby           | any     | Optional — desktop system-Ruby mode; the bundled WASM runtime needs nothing |
@@ -231,9 +231,20 @@ lifecycle—plus the full execution boundary.
 ```bash
 git clone https://github.com/johnny4young/lingua.git
 cd lingua
-pnpm install
-pnpm run dev:desktop
+corepack pnpm install --frozen-lockfile
+corepack pnpm run dev:desktop
 ```
+
+`corepack pnpm` resolves the repository pin without replacing a global pnpm
+installation. If `pnpm --version` already reports `11.3.0`, the shorter `pnpm`
+commands below are equivalent. Initial installation downloads the development
+dependencies; it requires network access unless those dependencies are cached.
+
+The default desktop launcher uses the separate **Lingua Dev** profile. Start
+with synthetic code and data when testing. Optional service configuration is
+listed in [`.env.example`](.env.example) and
+[the configuration reference](docs/DEVELOPMENT.md#configuration-env-vars);
+keep private keys, API tokens and real license tokens out of Git.
 
 Common commands:
 
@@ -245,6 +256,20 @@ pnpm run dev:desktop:pro  # desktop build with throwaway dev license token print
 pnpm run smoke:desktop    # repeatable Electron smoke across the native runtime matrix (JS, TS, Python, Go, Rust)
 pnpm run build:web        # static web build for app.linguacode.dev
 ```
+
+Run the root contributor checks with the same pinned package manager:
+
+```bash
+corepack pnpm test -- --run
+corepack pnpm exec tsc --noEmit
+corepack pnpm run typecheck:tests
+corepack pnpm run lint
+corepack pnpm run check:i18n
+corepack pnpm run check:i18n:copy
+```
+
+The website and the two Workers have independent dependency locks; follow their
+own setup instructions before working in those subprojects.
 
 Full contributor workflow — quality checks, i18n contributor flow, UI smoke against the web preview, desktop launcher flags, packaged-app smoke variants, build commands, automation/delivery — lives in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
 
