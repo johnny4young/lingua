@@ -6,6 +6,7 @@
  *   vi.mock('@monaco-editor/react', async () =>
  *     (await import('../../__fixtures__/sqlMonacoMock')).sqlMonacoModule);
  */
+import { useRef, useState } from 'react';
 import { vi } from 'vitest';
 
 type Listener = (event: unknown) => void;
@@ -77,28 +78,37 @@ export function moveSqlCursor(offset: number, selection?: { start: number; end: 
 }
 
 function MonacoEditor({
-  value,
+  defaultValue,
   onChange,
   onMount,
   options,
 }: {
-  value: string;
+  defaultValue?: string;
   onChange?: (value: string | undefined) => void;
   onMount?: (editor: unknown, monaco: unknown) => void;
   options?: { ariaLabel?: string };
 }) {
+  // An uncontrolled model, like Monaco's: only typing and executeEdits change it.
+  const [text, setText] = useState(defaultValue ?? '');
+  const textRef = useRef(text);
+  textRef.current = text;
   const disposable = { dispose: () => {} };
   const editor = {
     getSelection: () => ({ __selection: true }),
-    executeEdits: (_source: string, edits: Array<{ text: string }>) => {
-      sqlMonacoHarness.edits.push(...edits.map((edit) => edit.text));
+    executeEdits: (source: string, edits: Array<{ text: string }>) => {
+      if (source === 'sql-external') {
+        textRef.current = edits[0]?.text ?? '';
+        setText(textRef.current);
+      } else sqlMonacoHarness.edits.push(...edits.map((edit) => edit.text));
       return true;
     },
+    pushUndoStop: () => true,
     focus: () => {},
     getPosition: () => ({ lineNumber: 1, column: 1 }),
     getModel: () => ({
       getValueInRange: () => sqlMonacoHarness.selectedRangeText ?? '',
-      getValue: () => sqlMonacoHarness.modelValue ?? undefined,
+      getValue: () => sqlMonacoHarness.modelValue ?? textRef.current,
+      getFullModelRange: () => ({}),
       getOffsetAt: (position: { offset?: number }) => position.offset ?? sqlMonacoHarness.cursorOffset,
     }),
     addCommand: (chord: number, callback: () => void) => {
@@ -134,8 +144,12 @@ function MonacoEditor({
     <textarea
       data-testid="sql-query-editor-textarea"
       aria-label={options?.ariaLabel}
-      value={value}
-      onChange={(event) => onChange?.(event.target.value)}
+      value={text}
+      onChange={(event) => {
+        textRef.current = event.target.value;
+        setText(event.target.value);
+        onChange?.(event.target.value);
+      }}
       onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();

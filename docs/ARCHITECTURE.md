@@ -335,15 +335,12 @@ An import into an existing table runs the plan from `src/shared/sqlImportPlan.ts
 `INSERT INTO … SELECT CAST(…)` between `BEGIN TRANSACTION` and `COMMIT`, with
 a `ROLLBACK` when any row fails.
 
-The SQL editor observes each native Monaco draft immediately, then flushes the
-latest visual publication in a microtask after Monaco's cursor update and before
-the next native input task. This lets React batch text and cursor without allowing
-the controlled wrapper to replay an earlier draft. Generation invalidation stops
-a queued publication after unmount; the owner's immediate draft ref still lets
-cleanup save the right query. Run reads and byte-checks that current buffer even
-before the queued render. Cursor insertions made inside the editor's React effect
-keep the ordinary callback path. Reproduction and measurements:
-[SQL editor input](SQL_EDITOR_INPUT_TESTING.md).
+The SQL editor does not give Monaco its text as a controlled prop: the wrapper
+syncs that prop in a passive effect, so a render that lags a keystroke would
+replay older text over newer. `SqlMonacoEditor` replaces the model only for
+external changes and ignores renders of text it emitted, and `SqlQueryEditor`
+ignores its own auto-save coming back from the store. Run reads the latest
+draft from a ref, ahead of the render.
 
 ### Database connections and the SQL host
 

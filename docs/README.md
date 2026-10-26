@@ -17,8 +17,6 @@ planning is intentionally excluded from the published repository.
 
 ## Product and runtime references
 
-- [SQL editor input synchronization](SQL_EDITOR_INPUT_TESTING.md) — rapid native input, save and locale regressions.
-
 - [`AGENT_INTEGRATION.md`](./AGENT_INTEGRATION.md) — portable `lingua-verify` Agent Skill, native Claude marketplace, client installation, CLI evidence workflow, and execution boundary.
 - [`CLI_USAGE.md`](./CLI_USAGE.md) — current command-line surface and exit-code contract; the human task-based guide lives at [`linguacode.dev/cli`](https://linguacode.dev/cli).
 - [`IMPORTING.md`](./IMPORTING.md) — supported import formats, limits, and trust boundaries.

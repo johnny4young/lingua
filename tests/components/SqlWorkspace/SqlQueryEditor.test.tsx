@@ -457,7 +457,7 @@ describe('SqlQueryEditor', () => {
     // Common keywords ride alongside the table names.
     expect(labels).toContain('SELECT');
   });
-  it('runs the latest draft from the toolbar before visual publication', async () => {
+  it('runs the latest draft from the toolbar before React renders it', async () => {
     const { onRun, onPatch } = renderEditor('SELECT old;');
     await act(async () => {
       fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
@@ -470,7 +470,7 @@ describe('SqlQueryEditor', () => {
     });
   });
 
-  it('checks the current model byte cap before a pending render catches up', async () => {
+  it('checks the byte cap on the latest draft before React renders it', async () => {
     const { onRun } = renderEditor('SELECT 1;');
     await act(async () => {
       fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {

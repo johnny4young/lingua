@@ -114,11 +114,6 @@ export function SqlQueryEditor({
   // the newly-active query.
   const pendingTargetIdRef = useRef<string>(query.id);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Keep cleanup current even when native publication is cancelled by a query switch or unmount.
-  const handleBeforeTextChange = useCallback((next: string) => {
-    latestTextRef.current = next;
-    pendingTargetIdRef.current = query.id;
-  }, [query.id]);
   const sizeBytes = utf8ByteLength(text);
   const overCap = sizeBytes > MAX_QUERY_BYTES;
   const statements = useMemo(() => splitSqlStatements(text), [text]);
@@ -143,7 +138,11 @@ export function SqlQueryEditor({
   // didn't touch query text but selection change did). Compare ids
   // via the prop's id capture — the effect re-runs whenever the
   // store-driven query object changes.
+  const syncedQueryIdRef = useRef(query.id);
   useEffect(() => {
+    // Our own auto-save coming back through the store; newer typing may already be ahead of it.
+    if (query.id === syncedQueryIdRef.current && query.query === lastSavedRef.current) return;
+    syncedQueryIdRef.current = query.id;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- This prop-to-draft sync must run after the query-id cleanup has flushed the previous draft.
     setText(query.query);
     latestTextRef.current = query.query;
@@ -205,6 +204,12 @@ export function SqlQueryEditor({
 
   // The query-id cleanup above flushes pending drafts on both unmount
   // and active-query switches, before the new query state is synced.
+
+  // Typing reaches the ref at once, so Run and the unmount flush never read a lagging render.
+  const handleTextChange = useCallback((next: string) => {
+    latestTextRef.current = next;
+    setText(next);
+  }, []);
 
   const runMode = useCallback(
     (mode: SqlRunMenuMode, context: SqlRunContext) => {
@@ -346,8 +351,7 @@ export function SqlQueryEditor({
       </header>
       <SqlMonacoEditor
         value={text}
-        onChange={setText}
-        onBeforeChange={handleBeforeTextChange}
+        onChange={handleTextChange}
         onRunCommand={runMode}
         onCancelShortcut={onCancel}
         onSaveShortcut={onSave}
