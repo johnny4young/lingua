@@ -20,7 +20,6 @@ import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
 import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useProjectBundle } from '../../hooks/useProjectBundle';
-import { emitCommand } from '../../stores/commandBus';
 import { useUIStore } from '../../stores/uiStore';
 import { IconButton } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
@@ -362,14 +361,16 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           >
             <FolderPlus size={ICON_GLYPH.md} />
           </IconButton>
-          <IconButton
-            onClick={() => emitCommand('overlay.openProjectTests')}
-            tooltip={t('fileTree.actions.projectTests')}
-            aria-label={t('fileTree.actions.projectTests')}
-            data-testid="file-tree-project-tests"
-          >
-            <FlaskConical size={ICON_GLYPH.md} />
-          </IconButton>
+          {window.lingua?.projectTests ? (
+            <IconButton
+              onClick={() => useUIStore.getState().openBottomPanel('tests')}
+              tooltip={t('fileTree.actions.projectTests')}
+              aria-label={t('fileTree.actions.projectTests')}
+              data-testid="file-tree-project-tests"
+            >
+              <FlaskConical size={ICON_GLYPH.md} />
+            </IconButton>
+          ) : null}
           {window.lingua?.projectTerminal ? (
             <IconButton
               onClick={() => useUIStore.getState().openBottomPanel('project-terminal')}

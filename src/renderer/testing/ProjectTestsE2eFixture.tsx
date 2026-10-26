@@ -1,7 +1,13 @@
-/** Playwright-only deterministic evidence surface for the project test runner. */
+/** Playwright-only deterministic evidence surface for the Tests dock tab. */
 
-import { ProjectTestsOverlay } from '../components/ProjectTests/ProjectTestsOverlay';
+import { TestsPanel } from '../components/ProjectTests/TestsPanel';
 
 export function ProjectTestsE2eFixture() {
-  return <ProjectTestsOverlay onClose={() => undefined} />;
+  return (
+    <div className="h-screen bg-bg-base p-6">
+      <div className="h-[420px] overflow-hidden rounded-lg border border-border-subtle">
+        <TestsPanel />
+      </div>
+    </div>
+  );
 }

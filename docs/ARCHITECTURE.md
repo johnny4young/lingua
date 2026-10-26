@@ -1309,15 +1309,17 @@ the same `window.lingua.fs.searchInFiles(...)` contract.
 
 Project tests are an explicit desktop action adjacent to the project
 lifecycle, not a background lifecycle phase. Opening a folder never runs code.
-The Explorer action or Command Palette opens the test surface, which asks main
+The Explorer action or Command Palette opens the Tests dock tab, which asks main
 to inspect the already-approved project root for Vitest, Jest, Pytest, Go, and
-Cargo markers.
+Cargo markers. A run may carry a scope (one file or one test) and returns
+project-relative cases parsed from each runner's own report; see
+`docs/PROJECT_TEST_RUNNER_ADR.md` § Amendment.
 
 The trust boundary is deliberately narrower than a generic task runner:
 
-- the renderer sends a branded `rootId`, a closed framework identifier, and an
-  opaque run id; it never sends a command, executable path, arguments, cwd, or
-  environment;
+- the renderer sends a branded `rootId`, a closed framework identifier, an
+  opaque run id and an optional scope that main validates; it never sends a
+  command, executable path, arguments, cwd, or environment;
 - main resolves the root capability, re-detects the selected framework
   immediately before every spawn, and owns a fixed argument vector for each
   runner;

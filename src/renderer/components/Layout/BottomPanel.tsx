@@ -6,6 +6,7 @@ import {
   ChevronUp,
   Diff,
   Eye,
+  FlaskConical,
   GitBranch,
   Globe,
   GraduationCap,
@@ -37,6 +38,7 @@ import {
 import { useConsoleStore } from '../../stores/consoleStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useProjectTestStore } from '../../stores/projectTestStore';
 import { cn } from '../../utils/cn';
 import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { availableDockTabs, resolveDockTab, type DockTabId } from './dockTabs';
@@ -60,6 +62,11 @@ const RecipeRunPanel = lazy(async () => {
   return { default: module.RecipeRunPanel };
 });
 
+const TestsPanel = lazy(async () => {
+  const module = await import('../ProjectTests/TestsPanel');
+  return { default: module.TestsPanel };
+});
+
 const ProjectTerminalPanel = lazy(async () => {
   const module = await import('../ProjectTerminal/ProjectTerminalPanel');
   return { default: module.ProjectTerminalPanel };
@@ -81,6 +88,7 @@ const DOCK_TAB_META: Record<DockTabId, DockTabMeta> = {
     labelKey: 'bottomPanel.tabs.projectTerminal',
     hintKey: 'bottomPanel.tabs.projectTerminalHint',
   },
+  tests: { icon: FlaskConical, labelKey: 'bottomPanel.tabs.tests', hintKey: 'bottomPanel.tabs.testsHint' },
   debugger: { icon: Bug, labelKey: 'bottomPanel.tabs.debugger', hintKey: 'bottomPanel.tabs.debuggerHint' },
   'browser-preview': {
     icon: Globe,
@@ -115,6 +123,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const dockCombo = useShortcutLabel('view-toggle-console');
   const currentProject = useProjectStore(state => state.currentProject);
   const consoleCount = useConsoleStore(state => state.entries.length);
+  const failedTests = useProjectTestStore(state => state.cases?.filter(entry => entry.status === 'failed').length ?? 0);
   // Lines staged for the next run, so the Input tab says so before it is opened.
   const stdinLines = useEditorStore(
     s => (getActiveTab(s)?.stdinBuffer ?? '').split('\n').filter(line => line !== '').length
@@ -158,6 +167,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
     compare: compareCount,
     variables: variableCount ?? 0,
     debugger: allBreakpoints,
+    tests: failedTests,
   };
   const hintValues = {
     combo: formatShortcutLabel('run-toggle-variable-inspector', shortcutOverrides) ?? '',
@@ -213,7 +223,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                   {count > 0 ? (
                     <span
                       data-testid={`bottom-panel-${id}-count`}
-                      className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-nano font-bold leading-none text-fg-on-accent tabular-nums"
+                      className={cn(
+                        'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-nano font-bold leading-none text-fg-on-accent tabular-nums',
+                        id === 'tests' ? 'bg-error-fg' : 'bg-accent'
+                      )}
                     >
                       {count}
                     </span>
@@ -292,6 +305,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                   projectName: currentProject.name,
                 }}
               />
+            </Suspense>
+          ) : effectiveTab === 'tests' ? (
+            <Suspense fallback={null}>
+              <TestsPanel />
             </Suspense>
           ) : effectiveTab === 'recipe' ? (
             <Suspense fallback={null}>

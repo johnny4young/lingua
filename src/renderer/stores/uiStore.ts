@@ -28,6 +28,7 @@ export type BottomPanelTab =
   // `git.diff_panel_opened` telemetry.
   | 'git-diff'
   | 'project-terminal'
+  | 'tests'
   // The HTTP and SQL workspaces are no longer dock
   // panels. They ascended to full-screen `FileTab`s owned by
   // `useEditorStore` (one stable tab per workspace). `'http'` / `'sql'`

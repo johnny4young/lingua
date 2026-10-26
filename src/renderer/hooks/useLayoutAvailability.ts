@@ -82,6 +82,7 @@ export function useLayoutAvailability(): LayoutAvailability {
       workerLanguage &&
       hasScope,
     'project-terminal': hasProject && window.lingua?.projectTerminal !== undefined,
+    tests: window.lingua?.projectTests !== undefined,
     debugger: languageSupportsDebugger(language) && (shell.debuggerLive || hasBreakpoints),
     'browser-preview': languageHasRuntimeModes(language) && runtimeMode === 'browser-preview',
     dependencies,

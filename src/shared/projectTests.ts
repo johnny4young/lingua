@@ -107,7 +107,7 @@ function isScopeText(value: unknown): value is string {
     typeof value === 'string' &&
     value.length > 0 &&
     value.length <= SCOPE_TEXT_LIMIT &&
-    !/[\u0000-\u001f\u007f]/u.test(value)
+    ![...value].some(char => char.charCodeAt(0) < 0x20 || char.charCodeAt(0) === 0x7f)
   );
 }
 

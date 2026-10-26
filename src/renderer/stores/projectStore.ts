@@ -70,6 +70,8 @@ export interface RecentProject {
   name: string;
   rootPath: string;
   openedAt: number;
+  /** The test runner last detected in this project, for the Tests tab's recents. */
+  testRunner?: ProjectTestFramework;
 }
 
 /**
@@ -123,6 +125,8 @@ interface ProjectState {
   createProject: () => Promise<void>;
   openProject: (rootPath?: string) => Promise<void>;
   closeProject: () => void;
+  /** Remember the test runner a project uses, so its recent row can name it. */
+  setRecentTestRunner: (projectId: string, framework: ProjectTestFramework) => void;
   refreshTree: () => Promise<void>;
   /**
    * Delta refresh for a coalesced burst of watch
@@ -199,6 +203,17 @@ function withNodeIndex(nodes: FileTreeNode[]): {
 
 // ----------------------------------------------------------------- store
 
+function recentEntryFor(project: RecentProject, recents: readonly RecentProject[]): RecentProject {
+  const testRunner = recents.find((entry) => entry.id === project.id)?.testRunner;
+  return {
+    id: project.id,
+    name: project.name,
+    rootPath: project.rootPath,
+    openedAt: project.openedAt,
+    ...(testRunner ? { testRunner } : {}),
+  };
+}
+
 export const useProjectStore = create<ProjectState>()(
   persist(
     (set, get) => ({
@@ -261,24 +276,18 @@ export const useProjectStore = create<ProjectState>()(
           openedAt: Date.now(),
           rootId: result.rootId,
         };
-        const persistedRecent: RecentProject = {
-          id: project.id,
-          name: project.name,
-          rootPath: project.rootPath,
-          openedAt: project.openedAt,
-        };
-
-        set((s) => ({
-          currentProject: project,
-          watchId: newWatchId,
-          recentProjects: [
-            persistedRecent,
-            ...s.recentProjects
-              .filter((p) => p.id !== persistedRecent.id)
-              .slice(0, 9),
-          ],
-          ...withNodeIndex(nodes),
-        }));
+        set((s) => {
+          const persistedRecent = recentEntryFor(project, s.recentProjects);
+          return {
+            currentProject: project,
+            watchId: newWatchId,
+            recentProjects: [
+              persistedRecent,
+              ...s.recentProjects.filter((p) => p.id !== persistedRecent.id).slice(0, 9),
+            ],
+            ...withNodeIndex(nodes),
+          };
+        });
       },
 
       openProject: async (rootPath?: string) => {
@@ -348,25 +357,26 @@ export const useProjectStore = create<ProjectState>()(
           await window.lingua.fs.revokeRoot(previous.rootId).catch(() => {});
         }
 
-        const persistedRecent: RecentProject = {
-          id: project.id,
-          name: project.name,
-          rootPath: project.rootPath,
-          openedAt: project.openedAt,
-        };
-
-        set((s) => ({
-          currentProject: project,
-          watchId: newWatchId,
-          recentProjects: [
-            persistedRecent,
-            ...s.recentProjects
-              .filter((p) => p.id !== persistedRecent.id)
-              .slice(0, 9),
-          ],
-          ...withNodeIndex(nodes),
-        }));
+        set((s) => {
+          const persistedRecent = recentEntryFor(project, s.recentProjects);
+          return {
+            currentProject: project,
+            watchId: newWatchId,
+            recentProjects: [
+              persistedRecent,
+              ...s.recentProjects.filter((p) => p.id !== persistedRecent.id).slice(0, 9),
+            ],
+            ...withNodeIndex(nodes),
+          };
+        });
       },
+
+      setRecentTestRunner: (projectId, framework) =>
+        set((s) => ({
+          recentProjects: s.recentProjects.map((entry) =>
+            entry.id === projectId && entry.testRunner !== framework ? { ...entry, testRunner: framework } : entry
+          ),
+        })),
 
       closeProject: () => {
         const { watchId, currentProject } = get();

@@ -7,13 +7,16 @@ import {
 import { create } from 'zustand';
 import type {
   ProjectTestCandidate,
+  ProjectTestCase,
   ProjectTestDetectionResult,
   ProjectTestFramework,
   ProjectTestRunResult,
+  ProjectTestScope,
 } from '../../shared/projectTests';
 import type { RootId } from '../../shared/fs/brandedIds';
 import { useSettingsStore } from './settingsStore';
 import { useNativeExecutionGateStore } from './nativeExecutionGateStore';
+import { useProjectStore } from './projectStore';
 
 export interface ProjectTestBinding {
   rootId: RootId;
@@ -33,10 +36,44 @@ interface ProjectTestState {
   liveOutput: { stdout: string; stderr: string; transcript?: ProjectTestTranscript };
   error: ProjectTestError;
   activeRunId: string | null;
+  /** Every test the runner has reported so far; null until a run returns a readable report. */
+  cases: ProjectTestCase[] | null;
+  casesTruncated: boolean;
+  runningScope: ProjectTestScope | null;
+  filter: 'all' | 'failed';
   detect: (binding: ProjectTestBinding) => Promise<void>;
   selectFramework: (framework: ProjectTestFramework) => void;
-  run: (binding: ProjectTestBinding) => Promise<void>;
+  run: (binding: ProjectTestBinding, scope?: ProjectTestScope) => Promise<void>;
   stop: (binding: ProjectTestBinding) => Promise<void>;
+  setFilter: (filter: 'all' | 'failed') => void;
+}
+
+const sameTest = (a: Pick<ProjectTestCase, 'file' | 'path'>, b: Pick<ProjectTestCase, 'file' | 'path'>) =>
+  a.file === b.file && a.path.length === b.path.length && a.path.every((part, index) => part === b.path[index]);
+
+/**
+ * A scoped run updates only its own part of the list: a file run replaces that
+ * file's tests, a single-test run that one test (runners report the rest of
+ * the file as skipped when a name filter applies).
+ */
+export function mergeProjectTestCases(
+  previous: readonly ProjectTestCase[] | null,
+  scope: ProjectTestScope,
+  incoming: readonly ProjectTestCase[]
+): ProjectTestCase[] {
+  if (scope.kind === 'all' || !previous) return [...incoming];
+  if (scope.kind === 'test') {
+    const fresh = incoming.find(entry => sameTest(entry, scope));
+    if (!fresh) return [...previous];
+    const at = previous.findIndex(entry => sameTest(entry, scope));
+    return at < 0 ? [...previous, fresh] : previous.map((entry, index) => (index === at ? fresh : entry));
+  }
+  const fresh = incoming.filter(entry => entry.file === scope.file);
+  const at = previous.findIndex(entry => entry.file === scope.file);
+  const rest = previous.filter(entry => entry.file !== scope.file);
+  if (at < 0) return [...rest, ...fresh];
+  const before = previous.slice(0, at).filter(entry => entry.file !== scope.file);
+  return [...before, ...fresh, ...rest.slice(before.length)];
 }
 
 function defaultFramework(
@@ -66,6 +103,12 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   liveOutput: { stdout: '', stderr: '' },
   error: null,
   activeRunId: null,
+  cases: null,
+  casesTruncated: false,
+  runningScope: null,
+  filter: 'all',
+
+  setFilter: filter => set({ filter }),
 
   detect: async binding => {
     const bridge = window.lingua?.projectTests;
@@ -83,6 +126,9 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       liveOutput: { stdout: '', stderr: '' },
       error: null,
       activeRunId: null,
+      cases: null,
+      casesTruncated: false,
+      runningScope: null,
     });
     if (!bridge) {
       set({ status: 'ready', detection: { kind: 'none', candidates: [] } });
@@ -94,20 +140,22 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       // A project switch while detection was in flight must not install stale
       // candidates into the new project's surface.
       if (get().rootId !== binding.rootId) return;
-      set({
-        status: 'ready',
-        detection,
-        selectedFramework: defaultFramework(detection.candidates),
-      });
+      const selectedFramework = defaultFramework(detection.candidates);
+      set({ status: 'ready', detection, selectedFramework });
+      const project = useProjectStore.getState().currentProject;
+      if (selectedFramework && project?.rootId === binding.rootId) {
+        useProjectStore.getState().setRecentTestRunner(project.id, selectedFramework);
+      }
     } catch {
       if (get().rootId !== binding.rootId) return;
       set({ status: 'error', error: 'detect-failed' });
     }
   },
 
-  selectFramework: selectedFramework => set({ selectedFramework, result: null, error: null }),
+  selectFramework: selectedFramework =>
+    set({ selectedFramework, result: null, error: null, cases: null, casesTruncated: false }),
 
-  run: async binding => {
+  run: async (binding, scope = { kind: 'all' }) => {
     const bridge = window.lingua?.projectTests;
     const framework = get().selectedFramework;
     if (!bridge || !framework || get().status === 'running' || get().rootId !== binding.rootId) {
@@ -115,7 +163,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
     }
     if (!useSettingsStore.getState().nativeExecutionAcknowledged) {
       useNativeExecutionGateStore.getState().request('project-tests', () => {
-        if (get().rootId === binding.rootId) void get().run(binding);
+        if (get().rootId === binding.rootId) void get().run(binding, scope);
       });
       return;
     }
@@ -123,6 +171,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
     set({
       status: 'running',
       activeRunId: runId,
+      runningScope: scope,
       result: null,
       liveOutput: { stdout: '', stderr: '' },
       error: null,
@@ -138,12 +187,23 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       }));
     });
     try {
-      const result = await bridge.run(binding.rootId, framework, runId);
+      const result = await bridge.run(binding.rootId, framework, runId, scope);
       if (get().activeRunId !== runId) return;
-      set({ status: 'ready', activeRunId: null, result });
+      set(state => ({
+        status: 'ready',
+        activeRunId: null,
+        runningScope: null,
+        result,
+        ...(result.cases
+          ? {
+              cases: mergeProjectTestCases(state.cases, scope, result.cases),
+              casesTruncated: scope.kind === 'all' ? result.casesTruncated === true : state.casesTruncated,
+            }
+          : {}),
+      }));
     } catch {
       if (get().activeRunId !== runId) return;
-      set({ status: 'error', activeRunId: null, error: 'run-failed' });
+      set({ status: 'error', activeRunId: null, runningScope: null, error: 'run-failed' });
     } finally {
       unsubscribe();
     }

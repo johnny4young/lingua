@@ -162,23 +162,14 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Project test runner
 
-- Open a local project in the desktop app, then choose the flask action in the
-  Explorer header or run **Run project tests** from the Command Palette.
-- Lingua detects every matching root-level runner in deterministic order:
-  Vitest, Jest, Pytest, Go, then Cargo. It shows the exact fixed command and the
-  manifest or configuration evidence that triggered each match.
-- A configured runner can remain unavailable until its project-local package
-  or host toolchain is installed. Use **Detect again** after installing it; no
-  app restart is required.
-- Select a runner and choose **Run tests**. The first native run asks you to
-  acknowledge that the suite and its dependencies execute as ordinary local
-  processes. Continue only for projects you trust.
-- Output appears while the suite is running. **Stop** terminates the owned
-  process tree; Lingua also stops it after five minutes and caps each output
-  stream so a noisy suite cannot grow renderer memory without bound.
+- In the desktop app, **Tests** is a results dock tab, after Terminal. The flask action in the Explorer header and **Run project tests** in the Command Palette open it. Without a project it offers **Open project folder…** and up to three recent projects with the runner each one last used.
+- Lingua detects every matching root-level runner in deterministic order: Vitest, Jest, Pytest, Go, then Cargo. With more than one, the toolbar picks between them. A configured runner can remain unavailable until its project-local package or host toolchain is installed; **Detect again** (the refresh button) finds it without a restart.
+- **Run all tests** lists every test grouped by file (Go groups by package) with passed, failed and skipped counts, and the dock tab shows how many failed. **All / Failed only** narrows the list. Hovering a file offers **Run file**, and a test **Run this test**; a scoped run updates only that part of the list. A failed test shows the line of its assertion, and selecting it shows the message. Rust doc tests are listed but run only with the whole suite.
+- **Show output** has the runner's own log, which opens by itself when its report cannot be read. The first native run asks you to acknowledge that the suite and its dependencies execute as ordinary local processes. Continue only for projects you trust.
+- **Stop** terminates the owned process tree; Lingua also stops it after five minutes and caps each output stream so a noisy suite cannot grow renderer memory without bound.
 - Lingua never invokes a shell or accepts a command from the renderer, but this
   is not a sandbox: test code still runs with your user account's filesystem
-  permissions. The web build cannot start host processes and says so explicitly.
+  permissions. The web build cannot start host processes, so it has no Tests tab.
 
 ## Project terminal
 
