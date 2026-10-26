@@ -35,12 +35,16 @@
         keeps the broad `https:`. `wss:` was removed  — nothing in
         the web bundle opens a WebSocket, so an arbitrary-origin `wss:`
         was pure attack surface with no consumer.
+      - `http://localhost:*` and `http://127.0.0.1:*` are the only plain-http
+        origins: they let the Local AI mode reach a server on this machine
+        (Ollama, LM Studio, llama.cpp). Loopback cannot exfiltrate off the
+        device. See docs/LOCAL_AI_ADR.md.
       - `img-src https:` lets the HTTP response preview render image
         bodies that the server returns under a recognised content-type.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev https:; base-uri 'self'; form-action 'self';"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev https: http://localhost:* http://127.0.0.1:*; base-uri 'self'; form-action 'self';"
     />
     <!--
       Early TLS handshakes for the two boot-time

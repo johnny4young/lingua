@@ -103,3 +103,27 @@ describe('fail-closed shell policy generation', () => {
     expect(() => hardenShellCsp(input)).toThrow();
   });
 });
+
+describe('shell connect-src', () => {
+  const connectSrc = async (entry: string): Promise<string[]> => {
+    const source = await readFile(path.join(root, entry), 'utf8');
+    const policy = source.match(/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]*)"/)?.[1] ?? '';
+    return policy.split(';').find(part => part.trim().startsWith('connect-src '))?.trim().split(/\s+/).slice(1) ?? [];
+  };
+
+  it('limits plain http to loopback for the Local AI mode in both shells', async () => {
+    for (const [, entry] of cases) {
+      const sources = await connectSrc(entry);
+      expect(sources).toEqual(expect.arrayContaining(['http://localhost:*', 'http://127.0.0.1:*']));
+      expect(sources.filter(source => source.startsWith('http:') || source.startsWith('http://'))).toEqual([
+        'http://localhost:*',
+        'http://127.0.0.1:*',
+      ]);
+    }
+  });
+
+  it('keeps remote origins out of the desktop renderer, which reaches them through main', async () => {
+    expect(await connectSrc('index.html')).not.toContain('https:');
+    expect(await connectSrc('src/web/index.html')).toContain('https:');
+  });
+});
