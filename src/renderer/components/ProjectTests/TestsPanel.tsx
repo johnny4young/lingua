@@ -255,9 +255,8 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
             </span>
           ) : null}
         </span>
-        <span className="flex-1" />
         {cases && cases.length > 0 ? (
-          <>
+          <div className="ml-auto flex items-center gap-3.5">
             <span className="flex items-center gap-3.5" data-testid="tests-counts">
               <span className="inline-flex items-center gap-1.5 text-success-fg">
                 <CheckCircle2 size={14} aria-hidden="true" />
@@ -293,7 +292,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                 </button>
               ))}
             </div>
-          </>
+          </div>
         ) : null}
       </div>
 

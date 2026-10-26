@@ -126,6 +126,15 @@ describe('TestsPanel', () => {
     expect(screen.getByTestId('tests-failure').textContent).toBe('expected 1211 to be 1210.5');
   });
 
+  it('uses the singular for one result in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    openProject();
+    installBridge();
+    render(<TestsPanel />);
+    await userEvent.setup().click(await screen.findByTestId('tests-run-all'));
+    await waitFor(() => expect(screen.getByTestId('tests-counts').textContent).toBe('2 aprobadas1 fallida1 omitida'));
+  });
+
   it('narrows the list to failed tests', async () => {
     openProject();
     installBridge();

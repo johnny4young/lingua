@@ -14,7 +14,7 @@ test.describe('Tests dock tab bilingual evidence', () => {
 
   for (const [locale, copy] of [
     ['en', { summary: '6 tests in 4 files · found with', failedAt: 'Failed at line 10', counts: '4 passed1 failed1 skipped', fixed: '5 passed0 failed1 skipped', show: 'Show output', noProject: 'Open a project to see its tests' }],
-    ['es', { summary: '6 pruebas en 4 archivos · encontradas con', failedAt: 'Falló en la línea 10', counts: '4 aprobadas1 fallidas1 omitidas', fixed: '5 aprobadas0 fallidas1 omitidas', show: 'Mostrar salida', noProject: 'Abre un proyecto para ver sus pruebas' }],
+    ['es', { summary: '6 pruebas en 4 archivos · encontradas con', failedAt: 'Falló en la línea 10', counts: '4 aprobadas1 fallida1 omitida', fixed: '5 aprobadas0 fallidas1 omitida', show: 'Mostrar salida', noProject: 'Abre un proyecto para ver sus pruebas' }],
   ] as const) {
     test(`${locale} results by file, a single-test run and the raw output`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 1280, height: 520 });
