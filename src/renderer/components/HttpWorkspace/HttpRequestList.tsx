@@ -123,16 +123,11 @@ export function HttpRequestList({
               role="button"
               tabIndex={isRenaming ? -1 : 0}
               aria-current={isActive ? 'true' : undefined}
-              // Proto rail row: rounded inset surface + 2px
-              // accent left-border when active (httpWs `Rail`,
-              // `borderLeft: 2px solid D.acc`). The left-border slot is
-              // always reserved (transparent when inactive) so the row
-              // text never shifts on selection.
               className={cn(
-                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-body-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-body-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
                 isActive
-                  ? 'border-l-accent bg-bg-inset text-fg-base'
-                  : 'border-l-transparent text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
+                  ? 'bg-bg-inset font-semibold text-fg-base'
+                  : 'text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
               )}
               onClick={() => {
                 if (!isRenaming) onSelect(req.id);

@@ -14,6 +14,8 @@ export interface InlineResultWidgetsProps {
   readonly lineTimings?: readonly LineTimingEntry[];
   // True while a run is in flight; reserved rows wait for it to finish.
   readonly running?: boolean;
+  // Room another widget takes right after a line's text (the failing-line actions); a result that no longer fits beside it moves to its own row.
+  readonly lineEndReserve?: { readonly line: number; readonly width: number } | null;
 }
 
 /**
@@ -30,8 +32,9 @@ export function InlineResultWidgets({
   tabId,
   lineTimings = [],
   running = false,
+  lineEndReserve = null,
 }: InlineResultWidgetsProps) {
-  useInlineResultWidgets(editor, monaco, lineResults, tabId, lineTimings, running);
+  useInlineResultWidgets(editor, monaco, lineResults, tabId, lineTimings, running, lineEndReserve);
   return null;
 }
 
@@ -99,9 +102,11 @@ function useInlineResultWidgets(
   // Rendered as a trailing chip on the line's widget (or a standalone
   // widget for lines with no value result). Empty = feature inactive.
   lineTimings: readonly LineTimingEntry[] = [],
-  running = false
+  running = false,
+  lineEndReserve: { readonly line: number; readonly width: number } | null = null
 ) {
   const widgetsRef = useRef<Map<number, InlineWidget>>(new Map());
+  const lineEndReserveRef = useRef(lineEndReserve);
   const repositioningRef = useRef(false);
   const scheduledFrameRef = useRef<number | null>(null);
   const measurementGenerationRef = useRef(0);
@@ -207,7 +212,8 @@ function useInlineResultWidgets(
             widget.line,
             model.getLineMaxColumn(widget.line)
           );
-          const sourceEnd = layout.contentLeft + sourceOffset - editor.getScrollLeft();
+          const reserved = lineEndReserveRef.current?.line === widget.line ? lineEndReserveRef.current.width : 0;
+          const sourceEnd = layout.contentLeft + sourceOffset - editor.getScrollLeft() + reserved;
           const widgetLeft = layout.width - rightOffset - rect.width;
           const wrapped =
             editor.getBottomForLineNumber(widget.line) - editor.getTopForLineNumber(widget.line) >
@@ -276,6 +282,11 @@ function useInlineResultWidgets(
       repositionAll();
     });
   }, [editor, repositionAll]);
+
+  useEffect(() => {
+    lineEndReserveRef.current = lineEndReserve;
+    scheduleReposition();
+  }, [lineEndReserve?.line, lineEndReserve?.width, scheduleReposition]);
 
   // Wire scroll + layout listeners. Disposed on unmount / tab swap.
   useEffect(() => {

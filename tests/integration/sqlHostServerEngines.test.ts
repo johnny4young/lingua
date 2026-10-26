@@ -353,7 +353,7 @@ describe.skipIf(!mssql && !clickhouse)('through an SSH tunnel', () => {
   beforeAll(async () => {
     bastion = await startBastion();
   });
-  afterAll(() => bastion.close());
+  afterAll(() => bastion?.close());
 
   for (const [engine, direct, sql] of [
     ['sqlserver', mssql, 'SELECT TOP (50) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_objects'],

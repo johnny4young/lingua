@@ -39,6 +39,12 @@ const TOKEN_PATTERNS: readonly RegExp[] = [
   /xox[baprs]-[A-Za-z0-9-]{10,}/g, // Slack
   /AKIA[0-9A-Z]{16}/g, // AWS access key id
   /AIza[0-9A-Za-z_-]{30,}/g, // Google API key
+  /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, // JWT
+  /(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}/g, // Stripe
+  /github_pat_[A-Za-z0-9_]{20,}/g,
+  /gh[sur]_[A-Za-z0-9]{20,}/g,
+  /Bearer\s+[A-Za-z0-9._~+/-]{16,}=*/g,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
 ];
 
 /** An assignment of a quoted string to an identifier: `NAME = "value"` / `NAME: 'value'`. */
@@ -108,6 +114,69 @@ export interface ExplainErrorInput {
   readonly redact?: boolean;
   /** Optional model id to request (provider-specific). */
   readonly model?: string;
+  /**
+   * Values the program last held, by name, sent only when the user ticks
+   * Include runtime values. Redacted and capped by `formatRuntimeValues`.
+   */
+  readonly runtimeValues?: Readonly<Record<string, string>>;
+}
+
+/**
+ * A `key: value`, `key=value` or `key => value` pair inside a serialized value,
+ * so nested secret fields are masked too. A value that opens an object or a
+ * list is not consumed, so the keys inside it are scanned in turn, and a quoted
+ * value cut short by the cap runs to the end.
+ */
+const NESTED_PAIR = /(["']?)([A-Za-z_$][\w$-]*)\1(\s*(?:=>|[:=])\s*)(?!\s*[{[])("(?:[^"\\]|\\.)*(?:"|$)|'(?:[^'\\]|\\.)*(?:'|$)|[^,}\]]+)/g;
+/** The password in a URL's user info, the part between the user name and `@`. */
+const URL_CREDENTIALS = /([a-z][a-z0-9+.-]*:\/\/[^:/\s@]+:)[^@\s/]+@/gi;
+/** Names that hold credentials in runtime values beyond what `looksSecret` covers. */
+const RUNTIME_SECRET_NAME = /^(?:authorization|cookie|set-cookie|credentials?|auth|session|x-api-key)$/i;
+
+/** `looksSecret`, plus leading initialisms (`APIKey`, `AWSSecret`) and header-style names. */
+function looksSecretName(name: string): boolean {
+  const split = name.replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2').replace(/-/g, '_');
+  return looksSecret(split) || RUNTIME_SECRET_NAME.test(name);
+}
+
+/** Most names, characters per value and characters overall sent as runtime values. */
+const MAX_RUNTIME_VALUES = 30;
+const MAX_RUNTIME_VALUE_CHARS = 200;
+const MAX_RUNTIME_VALUES_CHARS = 2000;
+
+/**
+ * `name = value` lines for the prompt: a secret-looking name hides its value,
+ * token-shaped values are masked, and each value and the whole block are capped.
+ */
+export function formatRuntimeValues(values: Readonly<Record<string, string>>): RedactionResult {
+  let redactedCount = 0;
+  const lines: string[] = [];
+  for (const [name, raw] of Object.entries(values).slice(0, MAX_RUNTIME_VALUES)) {
+    let value: string;
+    if (looksSecretName(name)) {
+      redactedCount += 1;
+      value = REDACTED;
+    } else {
+      value = raw.replace(/\s+/g, ' ').replace(NESTED_PAIR, (pair, quote: string, key: string, separator: string) => {
+        if (!looksSecretName(key)) return pair;
+        redactedCount += 1;
+        return `${quote}${key}${quote}${separator}${REDACTED}`;
+      });
+      value = value.replace(URL_CREDENTIALS, (_match, head: string) => {
+        redactedCount += 1;
+        return `${head}${REDACTED}@`;
+      });
+      for (const pattern of TOKEN_PATTERNS) {
+        value = value.replace(pattern, () => {
+          redactedCount += 1;
+          return REDACTED;
+        });
+      }
+      if (value.length > MAX_RUNTIME_VALUE_CHARS) value = `${value.slice(0, MAX_RUNTIME_VALUE_CHARS)}…`;
+    }
+    lines.push(`${name} = ${value}`);
+  }
+  return { code: clip(lines.join('\n'), MAX_RUNTIME_VALUES_CHARS), redactedCount };
 }
 
 export interface ChatMessage {
@@ -155,6 +224,11 @@ const SYSTEM_PROMPT =
   'described, keep the fix compatible with it and do not suggest tools or ' +
   'packages that runtime cannot run.';
 
+/** The human-readable rendering of exactly these messages, as the consent surface shows them. */
+export function previewOf(messages: readonly ChatMessage[]): string {
+  return 'The following will be sent to your configured AI endpoint:\n\n' + messages.map((m) => `[${m.role}]\n${m.content}`).join('\n\n');
+}
+
 /**
  * Build the provider-agnostic "explain this error" request plus the consent
  * preview. Pure — no network. The caller sends the request only after the
@@ -171,6 +245,7 @@ export function buildExplainErrorRequest(
   const code = clip(redaction.code, MAX_EXPLAIN_CODE_CHARS);
   const errorMessage = clip(input.errorMessage, MAX_EXPLAIN_ERROR_CHARS);
   const fileLabel = input.filename ? ` (${input.filename})` : '';
+  const values = input.runtimeValues && Object.keys(input.runtimeValues).length > 0 ? formatRuntimeValues(input.runtimeValues) : null;
 
   const runtimeLine = input.runtimeNote
     ? `Runtime: ${input.runtimeNote}\n`
@@ -180,22 +255,22 @@ export function buildExplainErrorRequest(
     runtimeLine +
     answerLanguageLine(input.answerLanguage) +
     `\nError:\n${errorMessage}\n\n` +
-    `Code:\n\`\`\`${input.language}\n${code}\n\`\`\``;
+    `Code:\n\`\`\`${input.language}\n${code}\n\`\`\`` +
+    (values ? `\n\nRuntime values:\n${values.code}` : '');
 
   const messages: ChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: userContent },
   ];
 
-  const preview =
-    'The following will be sent to your configured AI endpoint:\n\n' +
-    messages.map((m) => `[${m.role}]\n${m.content}`).join('\n\n');
+  const preview = previewOf(messages);
 
+  const redactedCount = redaction.redactedCount + (values?.redactedCount ?? 0);
   const request: ExplainErrorRequest = {
     messages,
     preview,
-    redacted: redaction.redactedCount > 0,
-    redactedCount: redaction.redactedCount,
+    redacted: redactedCount > 0,
+    redactedCount,
   };
   return input.model ? { ...request, model: input.model } : request;
 }
