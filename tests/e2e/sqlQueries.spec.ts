@@ -4,7 +4,7 @@
  */
 
 import type { Page } from '@playwright/test';
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import { expect, gotoApp, seedSession, test, waitForSeededWorkspaceSettled } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -86,16 +86,17 @@ test.describe('SQL queries', () => {
   test('counts query tabs toward the Free budget', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
-    const codeTabs = await page.locator('[data-testid="editor-tab-kind-glyph"]').count();
+    // welcome.js takes one of the three Free tab slots.
+    await waitForSeededWorkspaceSettled(page);
     await page.keyboard.press('ControlOrMeta+Alt+S');
     await expect(page.getByTestId('sql-query-tabs')).toHaveCount(0);
-    for (let opened = 0; opened < 3 - codeTabs; opened += 1) {
+    for (let opened = 0; opened < 2; opened += 1) {
       await page.getByTestId('sql-query-list-create').click();
     }
-    await expect(page.getByTestId('sql-query-tab')).toHaveCount(3 - codeTabs);
+    await expect(page.getByTestId('sql-query-tab')).toHaveCount(2);
     await expect(page.getByTestId('sql-query-tabs-free-hint')).toHaveText('Free: 3 open tabs, SQL included');
     await page.getByTestId('sql-query-tabs-create').click();
-    await expect(page.getByTestId('sql-query-tab')).toHaveCount(3 - codeTabs);
+    await expect(page.getByTestId('sql-query-tab')).toHaveCount(2);
     await expect(page.getByTestId('status-notice-banner')).toBeVisible();
   });
 
