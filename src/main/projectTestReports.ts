@@ -211,8 +211,15 @@ const GO_FRAME = /^\s*(=== (RUN|PAUSE|CONT|NAME)|--- (PASS|FAIL|SKIP):)/u;
  */
 export function createGoTestCollector(modulePath: string) {
   const tests = new Map<string, GoTestState>();
-  const packageFailures = new Map<string, string[]>();
+  const packageOutput = new Map<string, string[]>();
+  const failedPackages = new Set<string>();
   let pending = '';
+
+  const remember = (dir: string, text: string) => {
+    const lines = packageOutput.get(dir) ?? [];
+    if (lines.length < GO_OUTPUT_LIMIT) lines.push(text.trimEnd());
+    packageOutput.set(dir, lines);
+  };
 
   const directoryOf = (pkg: string): string | null =>
     pkg === modulePath ? '.' : pkg.startsWith(`${modulePath}/`) ? pkg.slice(modulePath.length + 1) : null;
@@ -225,17 +232,16 @@ export function createGoTestCollector(modulePath: string) {
       return `${line}\n`;
     }
     const output = typeof event.Output === 'string' ? event.Output : '';
-    const pkg = typeof event.Package === 'string' ? event.Package : '';
+    // Build events name the test binary (`pkg.test` or `pkg [pkg.test]`) instead of the package.
+    const importPath = typeof event.ImportPath === 'string' ? event.ImportPath.split(' ')[0]!.replace(/\.test$/u, '') : '';
+    const pkg = typeof event.Package === 'string' ? event.Package : importPath;
     const dir = directoryOf(pkg);
     const name = typeof event.Test === 'string' ? event.Test : '';
     if (dir === null) return output;
     if (!name) {
-      if (event.Action === 'output' && output && !/^(ok|FAIL|PASS|\?)\s/u.test(output)) {
-        const lines = packageFailures.get(dir) ?? [];
-        if (lines.length < GO_OUTPUT_LIMIT) lines.push(output.trimEnd());
-        packageFailures.set(dir, lines);
-      }
-      if (event.Action === 'pass' || event.Action === 'skip') packageFailures.delete(dir);
+      if (event.Action === 'build-output' && output && !output.startsWith('# ')) remember(dir, output);
+      else if (event.Action === 'output' && output && !/^(ok|FAIL|PASS|\?)\s/u.test(output)) remember(dir, output);
+      if (event.Action === 'fail' || event.Action === 'build-fail') failedPackages.add(dir);
       return output;
     }
     const key = `${dir}\u0000${name}`;
@@ -260,11 +266,14 @@ export function createGoTestCollector(modulePath: string) {
     /** Call after `flush`, once the stream has ended. */
     finish(): ParsedProjectTestCases {
       const list = new CaseList();
-      const names = [...tests.keys()];
+      const parents = new Set<string>();
+      for (const key of tests.keys()) {
+        for (let at = key.indexOf('/'); at >= 0; at = key.indexOf('/', at + 1)) parents.add(key.slice(0, at));
+      }
       for (const [key, state] of tests) {
         if (state.status === null) continue;
         // Report leaves only: a parent's result repeats its subtests'.
-        if (names.some(other => other.startsWith(`${key}/`))) continue;
+        if (parents.has(key)) continue;
         let failureFile: string | undefined;
         let failureLine: number | undefined;
         for (const text of state.output) {
@@ -283,9 +292,19 @@ export function createGoTestCollector(modulePath: string) {
           ...(state.status === 'failed' ? failureFields(failureFile, failureLine, clip(state.output.join('\n'))) : {}),
         });
       }
-      for (const [dir, lines] of packageFailures) {
-        if (lines.length === 0) continue;
-        list.push({ file: dir, path: [], status: 'failed', runnable: false, ...failureFields(undefined, undefined, clip(lines.join('\n'))) });
+      // A package that failed without a failing test did not build or could not start.
+      const testFailed = new Set(list.cases.filter(entry => entry.status === 'failed').map(entry => entry.file));
+      for (const dir of failedPackages) {
+        if (testFailed.has(dir)) continue;
+        const lines = packageOutput.get(dir) ?? [];
+        const at = lines.map(text => /^([\w./-]+\.go):(\d+):/u.exec(text.trim())).find(Boolean);
+        list.push({
+          file: dir,
+          path: [],
+          status: 'failed',
+          runnable: false,
+          ...failureFields(at?.[1], at ? Number(at[2]) : undefined, clip(lines.join('\n'))),
+        });
       }
       return list.done();
     },

@@ -52,5 +52,6 @@
   "projectTests.result.busy": "Ya está en ejecución",
   "projectTests.result.invalid-request": "Solicitud no válida",
   "projectTests.empty.none.description": "Agrega una dependencia de Vitest o Jest, una configuración de Pytest, go.mod o Cargo.toml en la raíz del proyecto y detecta de nuevo.",
-  "projectTests.refresh": "Detectar de nuevo"
+  "projectTests.refresh": "Detectar de nuevo",
+  "projectTests.noCases": "La ejecución falló antes de que alguna prueba reportara un resultado."
 }

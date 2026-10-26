@@ -189,6 +189,8 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
     try {
       const result = await bridge.run(binding.rootId, framework, runId, scope);
       if (get().activeRunId !== runId) return;
+      const project = useProjectStore.getState().currentProject;
+      if (project?.rootId === binding.rootId) useProjectStore.getState().setRecentTestRunner(project.id, framework);
       set(state => ({
         status: 'ready',
         activeRunId: null,

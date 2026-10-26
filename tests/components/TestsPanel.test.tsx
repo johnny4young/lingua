@@ -174,6 +174,30 @@ describe('TestsPanel', () => {
     expect(screen.getByTestId('tests-output').textContent).toBe('raw vitest log\n');
   });
 
+  it('opens the log when a run fails before any test reports', async () => {
+    openProject();
+    const bridge = installBridge();
+    bridge.run.mockResolvedValueOnce(result({ cases: [], orderedOutput: 'error: could not compile' }));
+    render(<TestsPanel />);
+    await userEvent.setup().click(await screen.findByTestId('tests-run-all'));
+    expect((await screen.findByTestId('tests-notice')).textContent).toBe('The run failed before any test reported a result.');
+    expect(screen.getByTestId('tests-output').textContent).toBe('error: could not compile');
+  });
+
+  it('remembers the runner the project last ran on its recent entry', async () => {
+    openProject();
+    const bridge = installBridge();
+    bridge.detect.mockResolvedValueOnce({
+      kind: 'ready',
+      candidates: [detection.candidates[0]!, { framework: 'go', command: 'go test ./...', evidence: ['go.mod'], available: true }],
+    });
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await user.selectOptions(await screen.findByTestId('tests-runner'), 'go');
+    await user.click(screen.getByTestId('tests-run-all'));
+    await waitFor(() => expect(useProjectStore.getState().recentProjects[0]!.testRunner).toBe('go'));
+  });
+
   it('explains a runner that needs setup and finds it again after Detect again', async () => {
     openProject();
     const bridge = installBridge();

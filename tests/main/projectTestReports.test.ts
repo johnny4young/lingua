@@ -101,4 +101,22 @@ describe('project test reports', () => {
     expect(cases[2]!.failureMessage).toContain('left: 4');
     expect(cases[4]!.runnable).toBe(false);
   });
+
+  it('turns a Go package that does not build into one failed, non-runnable case', () => {
+    const collector = createGoTestCollector('example.com/shop');
+    collector.push(fixture('go-build-fail.ndjson'));
+    collector.flush();
+    const { cases } = collector.finish();
+    expect(brief(cases)).toEqual(['passed . TestRoot', 'failed internal/broken ']);
+    expect(cases[1]).toMatchObject({
+      runnable: false,
+      failureFile: 'internal/broken/b_test.go',
+      failureLine: 5,
+    });
+    expect(cases[1]!.failureMessage).toContain("expected operand, found ';'");
+  });
+
+  it('reads no cases from a cargo run that stops at a compile error', () => {
+    expect(parseCargoTestOutput(fixture('cargo-build-fail.txt')).cases).toEqual([]);
+  });
 });

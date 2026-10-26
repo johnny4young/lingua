@@ -36,7 +36,11 @@ function countByStatus(cases: readonly ProjectTestCase[]): Record<ProjectTestCas
 
 function groupByFile(cases: readonly ProjectTestCase[]): FileGroup[] {
   const groups = new Map<string, ProjectTestCase[]>();
-  for (const entry of cases) groups.set(entry.file, [...(groups.get(entry.file) ?? []), entry]);
+  for (const entry of cases) {
+    const group = groups.get(entry.file);
+    if (group) group.push(entry);
+    else groups.set(entry.file, [entry]);
+  }
   return [...groups].map(([file, entries]) => ({ file, cases: entries, counts: countByStatus(entries) }));
 }
 
@@ -176,9 +180,11 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const counts = useMemo(() => countByStatus(cases ?? []), [cases]);
   const visibleGroups = filter === 'failed' ? groups.filter(group => group.counts.failed > 0) : groups;
   const noReport = result !== null && result.cases === undefined && (result.kind === 'success' || result.kind === 'failed');
+  // A compile error fails the run before any test reports, so the log is the only answer.
+  const noCases = result?.kind === 'failed' && result.cases !== undefined && result.cases.length === 0;
   const notice = result && !['success', 'failed'].includes(result.kind) ? result.kind : null;
   const output = running ? (liveOutput.transcript?.text ?? '') : (result?.orderedOutput ?? [result?.stdout, result?.stderr].filter(Boolean).join('\n'));
-  const showOutput = outputOpen || noReport;
+  const showOutput = outputOpen || noReport || noCases;
 
   const runScope = (scope: ProjectTestScope) => void run(binding, scope);
   const toggleGroup = (file: string) =>
@@ -297,7 +303,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
           {t(`projectTests.unavailable.${candidate.unavailableReason}`)}
         </p>
       ) : null}
-      {notice || error === 'run-failed' || noReport || casesTruncated ? (
+      {notice || error === 'run-failed' || noReport || noCases || casesTruncated ? (
         <p className="flex items-start gap-2 border-b border-border-subtle px-4 py-2 text-fg-muted" data-testid="tests-notice">
           <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning-fg" aria-hidden="true" />
           {error === 'run-failed'
@@ -308,7 +314,9 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                   .join(' · ')
               : noReport
                 ? t('projectTests.noReport')
-                : t('projectTests.truncated', { count: cases?.length ?? 0 })}
+                : noCases
+                  ? t('projectTests.noCases')
+                  : t('projectTests.truncated', { count: cases?.length ?? 0 })}
         </p>
       ) : null}
 
