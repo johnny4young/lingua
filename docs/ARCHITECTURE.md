@@ -1494,7 +1494,9 @@ interpolated when it finally sends. Hosts that answer without the internet
 `.localhost`, `.local`, `.test`, `.internal`, `.lan` or `.home.arpa`), streamed
 transports and pipelines never queue. Whenever the app is online with held
 entries, including when the HTTP tab opens after the connection came back,
-held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now. The drain selects the next held id from the live queue after each awaited send, so a second disconnect/reconnect while that send is pending cannot strand a newly queued entry.
+held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
+The drain picks each next entry from the live queue, so one queued while a send
+is pending is not stranded.
 
 With the `httpScopes` Labs flag, variables resolve from three scopes:
 collection (`collectionVariables` in the workspace store), the active

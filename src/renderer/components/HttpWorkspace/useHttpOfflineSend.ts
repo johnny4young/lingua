@@ -58,8 +58,7 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
       let waiting = 0;
       try {
         while (navigator.onLine) {
-          // A reconnect can add held entries while an earlier send is pending.
-          // Select from the live queue after every await, including new ids.
+          // Read the live queue each pass: entries can be queued or removed while a send is pending.
           const queue = useHttpOfflineQueue.getState();
           const requestId = Object.keys(queue.queued).find((id) => queue.queued[id]?.ready === false);
           if (requestId === undefined) break;
