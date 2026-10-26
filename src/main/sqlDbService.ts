@@ -14,6 +14,7 @@ import type { LicenseTier } from '../shared/license';
 import { dbConnectionCeilingForTier } from '../shared/entitlements';
 import { connectionSecretId, httpEndpoint, sameSshTarget, type SqlConnectionDraft, type SqlConnectionSsh, type SqlConnectionV1 } from '../shared/sqlConnections';
 import {
+  closedSqlResult,
   failedRun,
   type SqlDbCatalogView,
   type SqlDbApplyResult,
@@ -595,7 +596,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     async fetch(owner: number, runId: string, limit: number, maxBytes: number): Promise<SqlDbFetchResult> {
       const key = hostRunId(owner, runId);
-      if (!runs.has(key)) return { rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.' };
+      if (!runs.has(key)) return closedSqlResult();
       try {
         const page = await deps.host.request<HostFetchResult>({ type: 'fetch', runId: key, limit, maxBytes });
         if (page.done) runs.delete(key);
