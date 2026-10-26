@@ -340,7 +340,10 @@ syncs that prop in a passive effect, so a render that lags a keystroke would
 replay older text over newer. `SqlMonacoEditor` replaces the model only for
 external changes and ignores renders of text it emitted, and `SqlQueryEditor`
 ignores its own auto-save coming back from the store. Run reads the latest
-draft from a ref, ahead of the render.
+draft from a ref, ahead of the render. Changing queries resets the model's undo
+history and repaints its Run glyphs, even when the two queries have identical text
+(Save As, Duplicate), which keep the cursor and scroll; a same-document render keeps
+its undo history.
 
 ### Database connections and the SQL host
 
