@@ -1,3 +1,4 @@
+import { previewOf } from '../../../src/shared/ai/explainError';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -32,6 +33,34 @@ beforeEach(() => {
 });
 
 describe('anchored explain panel', () => {
+  it('retries an edited SQL request with the exact consent preview it sends', async () => {
+    const sqlA = 'SELECT synthetic_a FROM fixture_a;';
+    const sqlB = 'SELECT synthetic_b FROM fixture_b;';
+    act(() => useEditorStore.getState().restoreTabs([
+      { id: 't1', name: 'fixture.sql', language: 'sql', content: sqlA },
+    ] as never, 't1'));
+    const impl = vi.fn()
+      .mockResolvedValueOnce({ ok: false, kind: 'network', message: 'Synthetic failure' })
+      .mockResolvedValue({ ok: true, content: 'Synthetic answer.' });
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByTestId('ai-explain-error');
+    act(() => useEditorStore.getState().updateContent('t1', sqlB));
+    fireEvent.click(screen.getByTestId('ai-explain-retry'));
+    const preview = screen.getByTestId('ai-explain-preview').textContent;
+    expect(preview).toContain(sqlB);
+    expect(preview).not.toContain(sqlA);
+    expect(impl).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByText('Synthetic answer.');
+    const messages = impl.mock.calls[1]![0].messages;
+    expect(preview).toBe(previewOf(messages));
+    expect(messages.at(-1).content).toContain(sqlB);
+    expect(useExplainPanelStore.getState().threadFor('t1', target.errorMessage, useAiConfigStore.getState().endpoint)).toEqual([
+      ...messages, { role: 'assistant', content: 'Synthetic answer.' },
+    ]);
+  });
+
   it('names the file and line and sends nothing until Send', () => {
     const impl = answer('x');
     render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);

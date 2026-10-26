@@ -92,8 +92,10 @@ export function useExplainConversation({
   function retry(): void {
     // A first-attempt failure returns to the consent preview (re-approve); a
     // failed follow-up resends the conversation, already approved turn by turn.
-    if (transcript.length <= request.messages.length) setPhase({ kind: 'preview' });
-    else void sendMessages(transcript);
+    if (transcript.length <= request.messages.length) {
+      setTranscript([]);
+      setPhase({ kind: 'preview' });
+    } else void sendMessages(transcript);
   }
 
   function ask(question: string): void {

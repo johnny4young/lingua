@@ -39,7 +39,7 @@ for (const language of ['en', 'es'] as const) {
         status: 200,
         contentType: 'text/event-stream',
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: `data: ${JSON.stringify({ choices: [{ delta: { content: ANSWER } }] })}\n\ndata: [DONE]\n\n`,
+        body: sent.length === 1 ? 'data: [DONE]\n\n' : `data: ${JSON.stringify({ choices: [{ delta: { content: ANSWER } }] })}\n\ndata: [DONE]\n\n`,
       });
     });
     await gotoApp(page);
@@ -70,8 +70,19 @@ for (const language of ['en', 'es'] as const) {
     expect(sent).toHaveLength(0);
 
     await panel.getByTestId('ai-explain-send').click();
-    await expect(panel).toContainText('The profile is null');
+    await expect(panel.getByTestId('ai-explain-error')).toBeVisible();
+    const edited = `${FAILING}\n// synthetic edited request`;
+    await replaceEditorText(page, edited);
+    await panel.getByTestId('ai-explain-retry').click();
+    const preview = panel.getByTestId('ai-explain-preview');
+    await expect(preview).toContainText('synthetic edited request');
+    const approved = await preview.textContent();
     expect(sent).toHaveLength(1);
+    await panel.getByTestId('ai-explain-send').click();
+    await expect(panel).toContainText('The profile is null');
+    expect(sent).toHaveLength(2);
+    const messages = (JSON.parse(sent[1]!) as { messages: { role: string; content: string }[] }).messages;
+    expect(approved).toBe('The following will be sent to your configured AI endpoint:\n\n' + messages.map(message => `[${message.role}]\n${message.content}`).join('\n\n'));
     await panel.getByTestId('ai-explain-helpful').click();
     await expect(panel.getByTestId('ai-explain-helpful')).toHaveAttribute('aria-pressed', 'true');
     const ratings = await page.evaluate(() => localStorage.getItem('lingua-explain-ratings') ?? '');
@@ -80,13 +91,13 @@ for (const language of ['en', 'es'] as const) {
 
     await panel.getByTestId('ai-explain-chip').first().click();
     await expect(panel.getByTestId('ai-explain-followup-question')).toHaveCount(1);
-    expect(sent).toHaveLength(2);
+    expect(sent).toHaveLength(3);
 
     // The Console's Explain reaches the same thread, without sending again.
     await panel.getByTestId('ai-explain-close').click();
     await page.getByTestId('console-explain-error').click();
     await expect(panel.getByTestId('ai-explain-followup-question')).toHaveCount(1);
-    expect(sent).toHaveLength(2);
+    expect(sent).toHaveLength(3);
 
     await panel.getByTestId('ai-explain-panel-pin').click();
     await panel.getByTestId('ai-explain-apply').click();
