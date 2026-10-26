@@ -97,6 +97,7 @@ vi.mock('@monaco-editor/react', () => {
         getFullModelRange: () => ({}),
         setValue: (next: string) => {
           harness.documentResets += 1;
+          harness.glyphs = []; // Monaco clears decorations when setValue resets a document.
           valueRef.current = next;
           setValue(next);
         },
@@ -317,11 +318,11 @@ describe('SqlMonacoEditor', () => {
   it('ignores a render that lags its own typing and applies an external replacement', () => {
     const { rerender, onChange } = renderHost({ value: 'SELECT 1;' });
     const textarea = screen.getByTestId('sql-monaco-textarea') as HTMLTextAreaElement;
-    const host = (value: string, documentKey?: string) => (
+    const host = (value: string, documentKey?: string, statements = splitSqlStatements(value)) => (
       <SqlMonacoEditor
         value={value}
         {...(documentKey ? { documentKey } : {})}
-        statements={splitSqlStatements(value)}
+        statements={statements}
         runGlyphLabel="Run statement"
         tables={[]}
         ariaLabel="SQL query editor"
@@ -351,6 +352,21 @@ describe('SqlMonacoEditor', () => {
     expect(textarea.value).toBe('');
     expect(harness.documentResets).toBe(1);
     expect(harness.externalEdits).toBe(1);
+
+    // A different document must reset history even when its text is exactly the current model.
+    fireEvent.change(textarea, { target: { value: 'SELECT 8;' } });
+    const sameStatements = splitSqlStatements('SELECT 8;');
+    rerender(host('SELECT 8;', 'q2', sameStatements));
+    const emitted = onChange.mock.calls.length;
+    rerender(host('SELECT 8;', 'q3', sameStatements));
+    expect(textarea.value).toBe('SELECT 8;');
+    expect(harness.documentResets).toBe(2);
+    expect(harness.externalEdits).toBe(1);
+    expect(onChange).toHaveBeenCalledTimes(emitted);
+    expect(harness.glyphs.map(glyph => glyph.range.startLineNumber)).toEqual([1]);
+    // Re-rendering that same document must keep its existing undo history.
+    rerender(host('SELECT 8;', 'q3', sameStatements));
+    expect(harness.documentResets).toBe(2);
   });
 
   it('offers table, column, and keyword completions', () => {

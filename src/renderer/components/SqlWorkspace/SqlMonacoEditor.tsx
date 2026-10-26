@@ -277,12 +277,14 @@ export function SqlMonacoEditor({
   useEffect(() => {
     statementsRef.current = statements;
     paintRunGlyphs();
-  }, [statements, paintRunGlyphs]);
+  }, [statements, paintRunGlyphs, documentKey]);
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editorRef.current = editor;
     // `value` may have changed while Monaco was loading.
-    replaceModelText(editor, typedValueRef.current, applyingExternalRef, false);
+    if (editor.getModel()?.getValue() !== typedValueRef.current) {
+      replaceModelText(editor, typedValueRef.current, applyingExternalRef, false);
+    }
     // INVARIANT: do NOT call setActiveEditor here — this surface stays
     // out of the global editor-access registry on purpose.
 
@@ -475,7 +477,7 @@ function replaceModelText(
   undoable: boolean
 ): void {
   const model = editor.getModel();
-  if (!model || model.getValue() === text) return;
+  if (!model || (undoable && model.getValue() === text)) return;
   applying.current = true;
   try {
     if (undoable) {
