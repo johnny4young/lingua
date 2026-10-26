@@ -1,7 +1,7 @@
 /**
  * Monaco-backed SQL query editor host.
  *
- * Replaces the SQL workspace's plain `<textarea>` with a controlled
+ * Replaces the SQL workspace's plain `<textarea>` with an
  * `@monaco-editor/react` editor on the built-in `sql` language. This is
  * a Free-tier, renderer-only surface — no IPC, no entitlement.
  *
@@ -59,6 +59,8 @@ import { sqlDialect } from '../../../shared/sqlDialect';
 configureMonaco();
 
 type EditorInstance = Parameters<OnMount>[0];
+
+const MAX_PENDING_ECHOES = 64;
 
 // Mirror `goCompletions.ts`: derive the completion-provider param types from
 // the Monaco namespace so the inline provider object below type-checks without
@@ -132,6 +134,8 @@ export interface SqlEditorCursor {
 export interface SqlMonacoEditorProps {
   /** Buffer text owned by the parent; external changes replace the model. */
   value: string;
+  /** Identifies the document `value` belongs to; a new key replaces the model without undo history. */
+  documentKey?: string;
   /** Fired on every user edit with the full buffer text. */
   onChange: (value: string) => void;
   /** A run gesture; `offset` is the cursor (or the gutter statement's start). */
@@ -169,6 +173,7 @@ export interface SqlMonacoEditorProps {
 
 export function SqlMonacoEditor({
   value,
+  documentKey,
   onChange,
   onRunCommand,
   onCancelShortcut,
@@ -216,23 +221,32 @@ export function SqlMonacoEditor({
   useEffect(() => {
     handlersRef.current = { onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut };
   }, [onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut]);
-  // Text replaced from outside (Format, Edit in editor) keeps Monaco's old horizontal scroll,
-  // which can hide every short line; start those at the left edge.
   const typedValueRef = useRef(value);
-  // Texts emitted since the parent last caught up; a render of one of them is stale, not external.
-  const pendingEchoesRef = useRef(new Set<string>());
+  // Texts emitted since the parent last caught up, oldest first. The parent renders them in
+  // order, so a render of one is stale rather than external; the cap bounds a long lag.
+  const pendingEchoesRef = useRef<string[]>([]);
   const applyingExternalRef = useRef(false);
+  const documentKeyRef = useRef(documentKey);
   useEffect(() => {
     const echoes = pendingEchoesRef.current;
-    if (value === typedValueRef.current || echoes.has(value)) {
-      if (value === typedValueRef.current) echoes.clear();
+    const editor = editorRef.current;
+    if (documentKey !== documentKeyRef.current) {
+      documentKeyRef.current = documentKey;
+      echoes.length = 0;
+      typedValueRef.current = value;
+      if (editor) replaceModelText(editor, value, applyingExternalRef, false);
       return;
     }
-    echoes.clear();
+    const echo = echoes.indexOf(value);
+    if (echo >= 0) {
+      echoes.splice(0, echo + 1);
+      return;
+    }
+    if (value === typedValueRef.current) return;
+    echoes.length = 0;
     typedValueRef.current = value;
-    const editor = editorRef.current;
-    if (editor) replaceModelText(editor, value, applyingExternalRef);
-  }, [value]);
+    if (editor) replaceModelText(editor, value, applyingExternalRef, true);
+  }, [value, documentKey]);
   const insertedNonceRef = useRef(insertAtCursor?.nonce ?? 0);
   useEffect(() => {
     const editor = editorRef.current;
@@ -268,7 +282,7 @@ export function SqlMonacoEditor({
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editorRef.current = editor;
     // `value` may have changed while Monaco was loading.
-    replaceModelText(editor, typedValueRef.current, applyingExternalRef);
+    replaceModelText(editor, typedValueRef.current, applyingExternalRef, false);
     // INVARIANT: do NOT call setActiveEditor here — this surface stays
     // out of the global editor-access registry on purpose.
 
@@ -438,7 +452,9 @@ export function SqlMonacoEditor({
         onChange={(next) => {
           if (next === undefined || applyingExternalRef.current) return;
           typedValueRef.current = next;
-          pendingEchoesRef.current.add(next);
+          const echoes = pendingEchoesRef.current;
+          echoes.push(next);
+          if (echoes.length > MAX_PENDING_ECHOES) echoes.shift();
           onChange(next);
         }}
         onMount={handleMount}
@@ -448,14 +464,26 @@ export function SqlMonacoEditor({
   );
 }
 
-/** Replaces the whole model as one undoable edit, starting at the left edge so short lines stay visible. */
-function replaceModelText(editor: EditorInstance, text: string, applying: { current: boolean }): void {
+/**
+ * Replaces the whole model, scrolled to the left edge so short lines stay visible. Format and
+ * inserts stay undoable; a new document starts its own undo history.
+ */
+function replaceModelText(
+  editor: EditorInstance,
+  text: string,
+  applying: { current: boolean },
+  undoable: boolean
+): void {
   const model = editor.getModel();
   if (!model || model.getValue() === text) return;
   applying.current = true;
   try {
-    editor.executeEdits('sql-external', [{ range: model.getFullModelRange(), text, forceMoveMarkers: true }]);
-    editor.pushUndoStop();
+    if (undoable) {
+      editor.executeEdits('sql-external', [{ range: model.getFullModelRange(), text, forceMoveMarkers: true }]);
+      editor.pushUndoStop();
+    } else {
+      model.setValue(text);
+    }
   } finally {
     applying.current = false;
   }

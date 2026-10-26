@@ -31,6 +31,8 @@ export const sqlMonacoHarness: {
   edits: string[];
   /** Model text ahead of React, as right after a paste; null mirrors the rendered value. */
   modelValue: string | null;
+  /** Types like Monaco: a native model event, outside React's event system, so React may render it later. */
+  type: (text: string) => void;
   onCursor: Listener | null;
   completionProvider:
     | {
@@ -46,6 +48,7 @@ export const sqlMonacoHarness: {
   cursorOffset: 0,
   edits: [],
   modelValue: null,
+  type: () => {},
   onCursor: null,
   completionProvider: null,
 };
@@ -92,6 +95,11 @@ function MonacoEditor({
   const [text, setText] = useState(defaultValue ?? '');
   const textRef = useRef(text);
   textRef.current = text;
+  sqlMonacoHarness.type = (next) => {
+    textRef.current = next;
+    setText(next);
+    onChange?.(next);
+  };
   const disposable = { dispose: () => {} };
   const editor = {
     getSelection: () => ({ __selection: true }),
@@ -109,6 +117,10 @@ function MonacoEditor({
       getValueInRange: () => sqlMonacoHarness.selectedRangeText ?? '',
       getValue: () => sqlMonacoHarness.modelValue ?? textRef.current,
       getFullModelRange: () => ({}),
+      setValue: (next: string) => {
+        textRef.current = next;
+        setText(next);
+      },
       getOffsetAt: (position: { offset?: number }) => position.offset ?? sqlMonacoHarness.cursorOffset,
     }),
     addCommand: (chord: number, callback: () => void) => {
@@ -139,7 +151,12 @@ function MonacoEditor({
       },
     },
   };
-  onMount?.(editor, monaco);
+  // Monaco mounts once; a host that edits the model on mount must not loop.
+  const mountedRef = useRef(false);
+  if (!mountedRef.current) {
+    mountedRef.current = true;
+    onMount?.(editor, monaco);
+  }
   return (
     <textarea
       data-testid="sql-query-editor-textarea"

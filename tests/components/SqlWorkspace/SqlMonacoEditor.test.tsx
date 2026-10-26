@@ -25,6 +25,7 @@ interface Harness {
   cursorOffset: number;
   scrollLeftResets: number;
   externalEdits: number;
+  documentResets: number;
   glyphs: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>;
   onCursor: ((event: unknown) => void) | null;
   onMouseDown: ((event: unknown) => void) | null;
@@ -41,6 +42,7 @@ const harness: Harness = {
   cursorOffset: 0,
   scrollLeftResets: 0,
   externalEdits: 0,
+  documentResets: 0,
   glyphs: [],
   onCursor: null,
   onMouseDown: null,
@@ -93,6 +95,11 @@ vi.mock('@monaco-editor/react', () => {
         getValueInRange: () => harness.selectedRangeText ?? '',
         getValue: () => valueRef.current,
         getFullModelRange: () => ({}),
+        setValue: (next: string) => {
+          harness.documentResets += 1;
+          valueRef.current = next;
+          setValue(next);
+        },
         getOffsetAt: (position: { offset?: number }) => position.offset ?? harness.cursorOffset,
       }),
       addCommand: (key: number, callback: () => void) => {
@@ -162,6 +169,7 @@ function resetHarness() {
   harness.cursorOffset = 0;
   harness.scrollLeftResets = 0;
   harness.externalEdits = 0;
+  harness.documentResets = 0;
   harness.glyphs = [];
   harness.onCursor = null;
   harness.onMouseDown = null;
@@ -309,9 +317,10 @@ describe('SqlMonacoEditor', () => {
   it('ignores a render that lags its own typing and applies an external replacement', () => {
     const { rerender, onChange } = renderHost({ value: 'SELECT 1;' });
     const textarea = screen.getByTestId('sql-monaco-textarea') as HTMLTextAreaElement;
-    const host = (value: string) => (
+    const host = (value: string, documentKey?: string) => (
       <SqlMonacoEditor
         value={value}
+        {...(documentKey ? { documentKey } : {})}
         statements={splitSqlStatements(value)}
         runGlyphLabel="Run statement"
         tables={[]}
@@ -334,6 +343,14 @@ describe('SqlMonacoEditor', () => {
     expect(textarea.value).toBe('SELECT 9;');
     expect(harness.externalEdits).toBe(1);
     expect(onChange).not.toHaveBeenCalledWith('SELECT 9;');
+
+    // A new document whose text matches an earlier keystroke still replaces the model, without undo.
+    fireEvent.change(textarea, { target: { value: '' } });
+    fireEvent.change(textarea, { target: { value: 'x' } });
+    rerender(host('', 'q2'));
+    expect(textarea.value).toBe('');
+    expect(harness.documentResets).toBe(1);
+    expect(harness.externalEdits).toBe(1);
   });
 
   it('offers table, column, and keyword completions', () => {

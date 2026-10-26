@@ -460,9 +460,7 @@ describe('SqlQueryEditor', () => {
   it('runs the latest draft from the toolbar before React renders it', async () => {
     const { onRun, onPatch } = renderEditor('SELECT old;');
     await act(async () => {
-      fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
-        target: { value: 'SELECT 707 AS current;' },
-      });
+      sqlMonacoHarness.type('SELECT 707 AS current;');
       fireEvent.click(screen.getByTestId('sql-query-editor-run'));
       expect(onRun).toHaveBeenCalledTimes(1);
       expect(onRun.mock.calls[0]?.[0].query.query).toBe('SELECT 707 AS current;');
@@ -470,12 +468,21 @@ describe('SqlQueryEditor', () => {
     });
   });
 
+  it('formats the latest draft even before React renders it', async () => {
+    vi.useRealTimers();
+    renderEditor('select old');
+    const textarea = screen.getByTestId('sql-query-editor-textarea') as HTMLTextAreaElement;
+    await act(async () => {
+      sqlMonacoHarness.type('select latest');
+      pressSqlChord('format');
+    });
+    await waitFor(() => expect(textarea.value).toBe('SELECT\n  latest'));
+  });
+
   it('checks the byte cap on the latest draft before React renders it', async () => {
     const { onRun } = renderEditor('SELECT 1;');
     await act(async () => {
-      fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
-        target: { value: 'a'.repeat(256 * 1024 + 1) },
-      });
+      sqlMonacoHarness.type('a'.repeat(256 * 1024 + 1));
       fireEvent.click(screen.getByTestId('sql-query-editor-run'));
       expect(onRun).not.toHaveBeenCalled();
       sqlMonacoHarness.modelValue = 'b'.repeat(256 * 1024 + 1);
