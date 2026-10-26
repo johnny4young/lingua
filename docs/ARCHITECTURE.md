@@ -343,7 +343,7 @@ and Cloudflare D1 connections run outside the renderer on desktop. Main forks `s
 `pg-native`, `mysql2`, `ssh2`, `tedious` and `@clickhouse/client` left
 external) as the `Lingua SQL host` utility process through
 `createSqlHostSupervisor`; a request pending when the host exits fails, and
-the next request forks a new host. A retired host's later exit event is ignored; only the current child can fail current pending requests. It starts without the `PG*` and `MYSQL_*`
+the next request forks a new host; a retired host's late exit event cannot fail the new host's requests. It starts without the `PG*` and `MYSQL_*`
 environment variables, and Postgres never falls back to a `.pgpass` file, so a
 driver can only use the password main gives it. The host holds one session per
 connection and serializes the requests on it.
