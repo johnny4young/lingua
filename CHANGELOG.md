@@ -89,6 +89,11 @@ The format follows Keep a Changelog and groups changes by release.
 - Quick Open describes an unsaved tab as "Unsaved · edited 2 min ago" instead of showing its internal id, and shows the project-relative path for files on disk.
 - SQL result columns are labeled with DuckDB type names (VARCHAR, INTEGER, DECIMAL(6,2)), the same names the column profile uses; the Arrow name is in the tooltip.
 
+## [1.6.3] — 2026-10-26
+
+### Fixed
+- After an explanation fails, Retry shows the current code in the consent preview and sends exactly that preview when you choose Send.
+
 ## [1.6.2] — 2026-10-19
 
 ### Fixed
