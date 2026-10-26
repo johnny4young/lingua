@@ -119,4 +119,10 @@ describe('project test reports', () => {
   it('reads no cases from a cargo run that stops at a compile error', () => {
     expect(parseCargoTestOutput(fixture('cargo-build-fail.txt')).cases).toEqual([]);
   });
+
+  it('leaves an out-of-range character reference as text instead of failing the report', () => {
+    const xml = '<testsuite><testcase classname="t" name="x" file="t.py" line="1"><failure message="bad &#x110000; &#99999999999;">b</failure></testcase></testsuite>';
+    expect(parsePytestJunit(xml)!.cases[0]!.failureMessage).toBe('bad &#x110000; &#99999999999;');
+  });
 });
+

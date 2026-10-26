@@ -645,8 +645,11 @@ describe('scoped project test runs', () => {
       { kind: 'file', file: 'src/missing.test.ts' },
       { kind: 'test', file: 'src/cart.test.ts', path: ['line\nbreak'] },
       { kind: 'file', file: 'src/lib.rs' },
+      { kind: 'file', file: 'tests/@options.py' },
+      { kind: 'test', file: 'tests/flow.rs', path: ['--logfile=/tmp/x'] },
+      { kind: 'test', file: 'tests/flow.rs', path: ['checkout works'] },
     ]) {
-      const framework = scope.file === 'src/lib.rs' ? 'cargo' : 'vitest';
+      const framework = scope.file === 'src/lib.rs' || scope.file === 'tests/flow.rs' ? 'cargo' : 'vitest';
       const spawnImpl = vi.fn();
       const result = await runProjectTests(rootPath, framework, `run-bad-${Math.random().toString(36).slice(2)}`, {
         env: { PATH: binPath },
@@ -711,6 +714,36 @@ describe('scoped project test runs', () => {
       ['cart rounds (a|b)', 'failed'],
     ]);
     expect(result.cases?.[1]).toMatchObject({ failureFile: 'src/cart.test.ts', failureLine: 3 });
+  });
+
+  it('drops cases whose paths a report places outside the project', async () => {
+    const text = [
+      '     Running /etc/evil.rs (target/debug/deps/x)',
+      'test planted ... ok',
+      '     Running tests/flow.rs (target/debug/deps/flow)',
+      'test checkout_works ... ok',
+    ].join('\n');
+    const result = await runProjectTests(rootPath, 'cargo', 'run-contained', {
+      env: { PATH: binPath },
+      spawnImpl: async (options) => {
+        options.onStdout?.(text);
+        return { ...passing, stdout: text };
+      },
+    });
+    expect(result.cases?.map((entry) => entry.file)).toEqual(['tests/flow.rs']);
+  });
+
+  it('reads a quoted Go module path', async () => {
+    await write('go.mod', 'module "example.com/shop"\n');
+    const event = JSON.stringify({ Action: 'pass', Package: 'example.com/shop/internal/cart', Test: 'TestSums', Elapsed: 0 });
+    const result = await runProjectTests(rootPath, 'go', 'run-go-quoted', {
+      env: { PATH: binPath },
+      spawnImpl: async (options) => {
+        options.onStdout?.(`${event}\n`);
+        return passing;
+      },
+    });
+    expect(result.cases).toEqual([expect.objectContaining({ file: 'internal/cart', path: ['TestSums'] })]);
   });
 });
 

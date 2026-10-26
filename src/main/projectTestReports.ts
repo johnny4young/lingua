@@ -104,8 +104,10 @@ const XML_ENTITIES: Record<string, string> = { lt: '<', gt: '>', amp: '&', quot:
 
 function decodeXml(text: string): string {
   return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/giu, (whole, entity: string) => {
-    if (entity.startsWith('#x') || entity.startsWith('#X')) return String.fromCodePoint(Number.parseInt(entity.slice(2), 16));
-    if (entity.startsWith('#')) return String.fromCodePoint(Number.parseInt(entity.slice(1), 10));
+    if (entity.startsWith('#')) {
+      const point = entity[1] === 'x' || entity[1] === 'X' ? Number.parseInt(entity.slice(2), 16) : Number.parseInt(entity.slice(1), 10);
+      return Number.isInteger(point) && point >= 0 && point <= 0x10ffff ? String.fromCodePoint(point) : whole;
+    }
     return XML_ENTITIES[entity.toLowerCase()] ?? whole;
   });
 }
@@ -203,6 +205,8 @@ interface GoTestState {
 }
 
 const GO_OUTPUT_LIMIT = 64;
+// Parents and leaves both arrive as events; this bounds the work after the run.
+const GO_TEST_LIMIT = PROJECT_TEST_MAX_CASES * 4;
 const GO_FRAME = /^\s*(=== (RUN|PAUSE|CONT|NAME)|--- (PASS|FAIL|SKIP):)/u;
 
 /**
@@ -214,6 +218,7 @@ export function createGoTestCollector(modulePath: string) {
   const packageOutput = new Map<string, string[]>();
   const failedPackages = new Set<string>();
   let pending = '';
+  let overflow = false;
 
   const remember = (dir: string, text: string) => {
     const lines = packageOutput.get(dir) ?? [];
@@ -245,8 +250,15 @@ export function createGoTestCollector(modulePath: string) {
       return output;
     }
     const key = `${dir}\u0000${name}`;
-    const state = tests.get(key) ?? { file: dir, path: name.split('/'), status: null, output: [] };
-    tests.set(key, state);
+    let state = tests.get(key);
+    if (!state) {
+      if (tests.size >= GO_TEST_LIMIT) {
+        overflow = true;
+        return output;
+      }
+      state = { file: dir, path: name.split('/'), status: null, output: [] };
+      tests.set(key, state);
+    }
     if (event.Action === 'output' && output && !GO_FRAME.test(output) && state.output.length < GO_OUTPUT_LIMIT) {
       state.output.push(output.trimEnd());
     } else if (event.Action === 'pass' || event.Action === 'fail' || event.Action === 'skip') {
@@ -306,6 +318,7 @@ export function createGoTestCollector(modulePath: string) {
           ...failureFields(at?.[1], at ? Number(at[2]) : undefined, clip(lines.join('\n'))),
         });
       }
+      if (overflow) list.truncated = true;
       return list.done();
     },
     /** The text `go test` would have printed, for output that ends without a newline. */

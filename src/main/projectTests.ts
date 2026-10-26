@@ -33,7 +33,12 @@ import type {
   ProjectTestRunResult,
   ProjectTestScope,
 } from '../shared/projectTests';
-import { isProjectTestFramework, isProjectTestRunId, parseProjectTestScope } from '../shared/projectTests';
+import {
+  isProjectTestFramework,
+  isProjectTestRelativePath,
+  isProjectTestRunId,
+  parseProjectTestScope,
+} from '../shared/projectTests';
 import { resolvePythonInterpreter } from '../shared/python/interpreter';
 import {
   NODE_TOOLCHAIN_KEYS,
@@ -465,7 +470,7 @@ async function executionSpecs(
       args: ['test', '-json'],
       env,
       report: 'go-json',
-      modulePath: /^module\s+(\S+)/mu.exec(goMod ?? '')?.[1] ?? '',
+      modulePath: /^module\s+"?([^"\s]+)"?/mu.exec(goMod ?? '')?.[1] ?? '',
       scopedArgs: scope => [
         scope.kind === 'all' ? './...' : scope.file === '.' ? '.' : `./${scope.file}`,
         ...(scope.kind === 'test' ? ['-run', scope.path.map(exactPattern).join('/')] : []),
@@ -497,7 +502,10 @@ async function executionSpecs(
       report: 'cargo-text',
       scopedArgs: scope => {
         const target = scope.kind === 'all' ? [] : cargoTargetArgs(scope.file);
-        if (target === null) return null;
+        // libtest reads the name after `--`, so it must be a Rust path, never an option.
+        if (target === null || (scope.kind === 'test' && !scope.path.every(part => /^[A-Za-z_]\w*$/u.test(part)))) {
+          return null;
+        }
         return [
           '--no-fail-fast',
           ...target,
@@ -527,6 +535,19 @@ async function readReport(file: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Reports come from project code: keep only paths that stay inside the root. */
+function containedCases(parsed: ParsedProjectTestCases | null): ParsedProjectTestCases | null {
+  if (!parsed) return null;
+  const cases = parsed.cases
+    .filter(entry => isProjectTestRelativePath(entry.file))
+    .map(entry => {
+      if (entry.failureFile === undefined || isProjectTestRelativePath(entry.failureFile)) return entry;
+      const { failureFile: _dropped, failureLine: _line, ...rest } = entry;
+      return rest;
+    });
+  return { cases, truncated: parsed.truncated };
 }
 
 async function readProjectTestCases(
@@ -638,7 +659,7 @@ export async function runProjectTests(
       }
       const go = spec.report === 'go-json' ? createGoTestCollector(spec.modulePath ?? '') : null;
       let transcript: ProjectTestTranscript | undefined;
-      let shownStdout = '';
+      const shown = { stdout: '', stderr: '' };
       const pipeSizes = { stdout: 0, stderr: 0 };
       const clippedPipes = new Set<'stdout' | 'stderr'>();
       const show = (stream: 'stdout' | 'stderr', chunk: string) => {
@@ -653,7 +674,7 @@ export async function runProjectTests(
           clippedPipes.add(stream);
         }
         pipeSizes[stream] += chunk.length;
-        if (stream === 'stdout') shownStdout += text;
+        shown[stream] += text;
         transcript = appendProjectTestOutput(transcript, text);
         options.onOutput?.(stream, text);
       };
@@ -675,7 +696,9 @@ export async function runProjectTests(
         onStderr: chunk => capture('stderr', chunk),
       });
       if (go) show('stdout', go.flush());
-      const parsed = await readProjectTestCases(spec.report, rootPath, reportFile, transcript?.text ?? '', go);
+      const parsed = containedCases(
+        await readProjectTestCases(spec.report, rootPath, reportFile, transcript?.text ?? '', go).catch(() => null)
+      );
       const kind: ProjectTestRunResult['kind'] = result.killed
         ? 'stopped'
         : result.timedOut
@@ -690,8 +713,9 @@ export async function runProjectTests(
         framework,
         command: spec.candidate.command,
         ...(transcript === undefined ? {} : { orderedOutput: transcript.text }),
-        stdout: go ? shownStdout : result.stdout,
-        stderr: result.stderr || result.spawnError?.message || '',
+        // Go's raw cap is larger for its JSON, so return the bounded text that was shown.
+        stdout: go ? shown.stdout : result.stdout,
+        stderr: (go ? shown.stderr : result.stderr) || result.spawnError?.message || '',
         exitCode: result.exitCode,
         executionTime: result.executionTime,
         timeoutMs: PROJECT_TEST_TIMEOUT_MS,

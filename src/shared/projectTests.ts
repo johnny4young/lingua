@@ -116,7 +116,10 @@ export function isProjectTestRelativePath(value: unknown): value is string {
   if (!isScopeText(value)) return false;
   if (value === '.') return true;
   if (value.startsWith('/') || value.includes('\\') || /^[a-zA-Z]:/u.test(value)) return false;
-  return value.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..' && !segment.startsWith('-'));
+  // A leading `-` reads as an option and `@` as a pytest argument file.
+  return value
+    .split('/')
+    .every(segment => segment !== '' && segment !== '.' && segment !== '..' && !/^[-@]/u.test(segment));
 }
 
 export function parseProjectTestScope(value: unknown): ProjectTestScope | null {
