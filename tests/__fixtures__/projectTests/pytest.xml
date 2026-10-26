@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="1" tests="6" time="0.015" timestamp="2026-10-26T09:17:48.946831-05:00" hostname="host"><testcase classname="tests.test_cart" name="test_sums" file="tests/test_cart.py" line="2" time="0.000" /><testcase classname="tests.test_cart" name="test_rounds" file="tests/test_cart.py" line="5" time="0.000"><failure message="assert 1211 == 1210.5">def test_rounds():
+&gt;       assert 1211 == 1210.5
+E       assert 1211 == 1210.5
+
+tests/test_cart.py:7: AssertionError</failure></testcase><testcase classname="tests.test_cart" name="test_later" file="tests/test_cart.py" line="8" time="0.000"><skipped type="pytest.skip" message="later">/project/tests/test_cart.py:9: later</skipped></testcase><testcase classname="tests.test_cart.TestCheckout" name="test_flow" file="tests/test_cart.py" line="13" time="0.000" /><testcase classname="tests.test_cart" name="test_param[1]" file="tests/test_cart.py" line="16" time="0.000" /><testcase classname="tests.test_cart" name="test_param[2]" file="tests/test_cart.py" line="16" time="0.000"><failure message="assert 2 == 1">n = 2
+
+    @pytest.mark.parametrize("n", [1, 2])
+    def test_param(n):
+&gt;       assert n == 1
+E       assert 2 == 1
+
+tests/test_cart.py:19: AssertionError</failure></testcase></testsuite></testsuites>

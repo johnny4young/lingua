@@ -44,6 +44,33 @@ export interface ProjectTestOutputEvent {
   chunk: string;
 }
 
+export type ProjectTestCaseStatus = 'passed' | 'failed' | 'skipped';
+
+/**
+ * One test as its runner reported it. `file` is project-relative with `/`;
+ * Go reports a package directory, `.` for the module root.
+ */
+export interface ProjectTestCase {
+  file: string;
+  /** Suite names from the outermost to the test's own title. */
+  path: string[];
+  status: ProjectTestCaseStatus;
+  durationMs?: number;
+  /** Where the failing assertion is, project-relative, when the runner says. */
+  failureFile?: string;
+  failureLine?: number;
+  failureMessage?: string;
+  /** False for cases the runner cannot select on their own (Rust doc tests). */
+  runnable?: boolean;
+}
+
+export type ProjectTestScope =
+  | { kind: 'all' }
+  | { kind: 'file'; file: string }
+  | { kind: 'test'; file: string; path: string[] };
+
+export const PROJECT_TEST_MAX_CASES = 5_000;
+
 export interface ProjectTestRunResult {
   kind: ProjectTestRunKind;
   framework: ProjectTestFramework | null;
@@ -56,6 +83,10 @@ export interface ProjectTestRunResult {
   executionTime: number;
   timeoutMs: number;
   unavailableReason?: ProjectTestUnavailableReason;
+  scope?: ProjectTestScope;
+  /** Absent when the runner's report could not be read; the raw output still is. */
+  cases?: ProjectTestCase[];
+  casesTruncated?: boolean;
 }
 
 export function isProjectTestFramework(value: unknown): value is ProjectTestFramework {
@@ -67,4 +98,42 @@ export function isProjectTestFramework(value: unknown): value is ProjectTestFram
 /** Transient execution correlation only; never a persisted identifier. */
 export function isProjectTestRunId(value: unknown): value is string {
   return typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/u.test(value);
+}
+
+const SCOPE_TEXT_LIMIT = 512;
+
+function isScopeText(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= SCOPE_TEXT_LIMIT &&
+    !/[\u0000-\u001f\u007f]/u.test(value)
+  );
+}
+
+/** A project-relative path that cannot climb out of the root or read as an option. */
+export function isProjectTestRelativePath(value: unknown): value is string {
+  if (!isScopeText(value)) return false;
+  if (value === '.') return true;
+  if (value.startsWith('/') || value.includes('\\') || /^[a-zA-Z]:/u.test(value)) return false;
+  return value.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..' && !segment.startsWith('-'));
+}
+
+export function parseProjectTestScope(value: unknown): ProjectTestScope | null {
+  if (value === undefined) return { kind: 'all' };
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  if (record.kind === 'all') return { kind: 'all' };
+  if (!isProjectTestRelativePath(record.file)) return null;
+  if (record.kind === 'file') return { kind: 'file', file: record.file };
+  if (
+    record.kind === 'test' &&
+    Array.isArray(record.path) &&
+    record.path.length > 0 &&
+    record.path.length <= 32 &&
+    record.path.every(isScopeText)
+  ) {
+    return { kind: 'test', file: record.file, path: [...(record.path as string[])] };
+  }
+  return null;
 }

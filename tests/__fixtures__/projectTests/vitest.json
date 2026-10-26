@@ -1,0 +1,114 @@
+{
+ "numTotalTestSuites": 4,
+ "numPassedTestSuites": 2,
+ "numFailedTestSuites": 2,
+ "numPendingTestSuites": 0,
+ "numTotalTests": 5,
+ "numPassedTests": 3,
+ "numFailedTests": 1,
+ "numPendingTests": 1,
+ "numTodoTests": 0,
+ "snapshot": {
+  "added": 0,
+  "failure": false,
+  "filesAdded": 0,
+  "filesRemoved": 0,
+  "filesRemovedList": [],
+  "filesUnmatched": 0,
+  "filesUpdated": 0,
+  "matched": 0,
+  "total": 0,
+  "unchecked": 0,
+  "uncheckedKeysByFile": [],
+  "unmatched": 0,
+  "updated": 0,
+  "didUpdate": false
+ },
+ "startTime": 1793024250838,
+ "success": false,
+ "testResults": [
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [],
+     "fullName": "top level",
+     "status": "passed",
+     "title": "top level",
+     "duration": 0.593874999999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    }
+   ],
+   "startTime": 1793024250917,
+   "endTime": 1793024250917.594,
+   "status": "passed",
+   "message": "",
+   "name": "/project/src/tax.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "cartTotal"
+     ],
+     "fullName": "cartTotal sums quantities",
+     "status": "passed",
+     "title": "sums quantities",
+     "duration": 0.6117909999999966,
+     "failureMessages": [],
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    },
+    {
+     "ancestorTitles": [
+      "cartTotal"
+     ],
+     "fullName": "cartTotal rounds cents",
+     "status": "failed",
+     "title": "rounds cents",
+     "duration": 2.2595000000000027,
+     "failureMessages": [
+      "AssertionError: expected 1211 to be 1210.5 // Object.is equality\n    at /project/src/total.test.ts:8:18\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:1628:35\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:2783:26\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3319:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3314:10)\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3299:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3257:10)\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3876:64"
+     ],
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    },
+    {
+     "ancestorTitles": [
+      "cartTotal"
+     ],
+     "fullName": "cartTotal applies tax rate",
+     "status": "skipped",
+     "title": "applies tax rate",
+     "failureMessages": [],
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    },
+    {
+     "ancestorTitles": [
+      "cartTotal",
+      "nested"
+     ],
+     "fullName": "cartTotal nested works (a|b)",
+     "status": "passed",
+     "title": "works (a|b)",
+     "duration": 0.059916999999998666,
+     "failureMessages": [],
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    }
+   ],
+   "startTime": 1793024250917,
+   "endTime": 1793024250920.2595,
+   "status": "failed",
+   "message": "",
+   "name": "/project/src/total.test.ts"
+  }
+ ]
+}

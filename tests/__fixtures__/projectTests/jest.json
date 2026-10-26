@@ -1,0 +1,110 @@
+{
+ "numFailedTestSuites": 1,
+ "numFailedTests": 1,
+ "numPassedTestSuites": 0,
+ "numPassedTests": 1,
+ "numPendingTestSuites": 0,
+ "numPendingTests": 1,
+ "numRuntimeErrorTestSuites": 0,
+ "numTodoTests": 0,
+ "numTotalTestSuites": 1,
+ "numTotalTests": 3,
+ "openHandles": [],
+ "snapshot": {
+  "added": 0,
+  "didUpdate": false,
+  "failure": false,
+  "filesAdded": 0,
+  "filesRemoved": 0,
+  "filesRemovedList": [],
+  "filesUnmatched": 0,
+  "filesUpdated": 0,
+  "matched": 0,
+  "total": 0,
+  "unchecked": 0,
+  "uncheckedKeysByFile": [],
+  "unmatched": 0,
+  "updated": 0
+ },
+ "startTime": 1793024287328,
+ "success": false,
+ "testResults": [
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "cartTotal"
+     ],
+     "duration": 1,
+     "failing": false,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "cartTotal sums quantities",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryMessages": [],
+     "retryReasons": [],
+     "status": "passed",
+     "title": "sums quantities",
+     "startAt": 1793024287442
+    },
+    {
+     "ancestorTitles": [
+      "cartTotal"
+     ],
+     "duration": 1,
+     "failing": false,
+     "failureDetails": [
+      {
+       "matcherResult": {
+        "actual": 1211,
+        "expected": 1210.5,
+        "message": "expect(received).toBe(expected) // Object.is equality\n\nExpected: 1210.5\nReceived: 1211",
+        "name": "toBe",
+        "pass": false
+       }
+      }
+     ],
+     "failureMessages": [
+      "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 1210.5\nReceived: 1211\n    at Object.toBe (/project/src/total.test.js:3:43)\n    at Promise.finally.completed (/project/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (/project/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)\n    at _callCircusTest (/project/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)\n    at _runTestInContext (/project/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)\n    at runTestWithContext (/project/node_modules/jest-circus/build/jestAdapterInit.js:996:5)\n    at _runTestsForDescribeBlockOnce (/project/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)\n    at _runTestsForDescribeBlock (/project/node_modules/jest-circus/build/jestAdapterInit.js:824:5)\n    at _runTestsForDescribeBlockOnce (/project/node_modules/jest-circus/build/jestAdapterInit.js:1003:11)\n    at _runTestsForDescribeBlock (/project/node_modules/jest-circus/build/jestAdapterInit.js:824:5)\n    at run (/project/node_modules/jest-circus/build/jestAdapterInit.js:789:3)\n    at runAndTransformResultsToJestFormat (/project/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)\n    at jestAdapter (/project/node_modules/jest-circus/build/runner.js:111:19)\n    at runTestInternal (/project/node_modules/jest-runner/build/index.js:247:16)\n    at runTest (/project/node_modules/jest-runner/build/index.js:315:7)"
+     ],
+     "fullName": "cartTotal rounds cents",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 0,
+     "retryMessages": [],
+     "retryReasons": [],
+     "status": "failed",
+     "title": "rounds cents",
+     "startAt": 1793024287443
+    },
+    {
+     "ancestorTitles": [
+      "cartTotal"
+     ],
+     "duration": null,
+     "failing": false,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "cartTotal applies tax rate",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 0,
+     "retryMessages": [],
+     "retryReasons": [],
+     "status": "pending",
+     "title": "applies tax rate",
+     "startAt": 1793024287444
+    }
+   ],
+   "endTime": 1793024287451,
+   "message": "  \u25cf cartTotal \u203a rounds cents\n\n    expect(received).toBe(expected) // Object.is equality\n\n    Expected: 1210.5\n    Received: 1211\n\n      1 | describe('cartTotal', () => {\n      2 |   it('sums quantities', () => { expect(1 + 2).toBe(3); });\n    > 3 |   it('rounds cents', () => { expect(1211).toBe(1210.5); });\n        |                                           ^\n      4 |   it.skip('applies tax rate', () => {});\n      5 | });\n      6 |\n\n      at Object.toBe (src/total.test.js:3:43)\n",
+   "name": "/project/src/total.test.js",
+   "startTime": 1793024287374,
+   "status": "failed",
+   "summary": ""
+  }
+ ],
+ "wasInterrupted": false
+}

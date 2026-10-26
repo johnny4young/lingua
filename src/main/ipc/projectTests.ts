@@ -32,7 +32,7 @@ export function registerProjectTestHandlers(): void {
 
   typedHandle(
     'project-tests:run',
-    async (event, rootId: unknown, framework: unknown, runId: unknown) => {
+    async (event, rootId: unknown, framework: unknown, runId: unknown, scope?: unknown) => {
       if (typeof rootId !== 'string' || !isProjectTestFramework(framework) || !isProjectTestRunId(runId)) {
         return emptyProjectTestRunResult('invalid-request', null);
       }
@@ -50,6 +50,7 @@ export function registerProjectTestHandlers(): void {
         const rootPath = await authorizedProjectRoot(rootId);
         if (ownerLifecycle.signal.aborted) return emptyProjectTestRunResult('stopped', framework);
         return await runProjectTests(rootPath, framework, runId, {
+          scope,
           signal: ownerLifecycle.signal,
           onOutput: (stream, chunk) => {
             if (ownerLifecycle.signal.aborted || sender.isDestroyed()) return;

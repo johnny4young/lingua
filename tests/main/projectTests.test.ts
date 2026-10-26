@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -208,6 +208,8 @@ describe('project test discovery', () => {
           path.join(rootPath, 'node_modules/jest/bin/jest.js'),
           '--runInBand',
           '--colors=false',
+          '--json',
+          expect.stringMatching(/^--outputFile=.+report\.json$/u),
         ],
       })
     );
@@ -378,7 +380,14 @@ describe('project test execution', () => {
     expect(captured).toEqual(
       expect.objectContaining({
         command: process.execPath,
-        args: [path.join(rootPath, 'node_modules/vitest/vitest.mjs'), 'run', '--no-color'],
+        args: [
+          path.join(rootPath, 'node_modules/vitest/vitest.mjs'),
+          'run',
+          '--no-color',
+          '--reporter=default',
+          '--reporter=json',
+          expect.stringMatching(/^--outputFile\.json=.+report\.json$/u),
+        ],
         cwd: rootPath,
       })
     );
@@ -558,7 +567,7 @@ describe('project test execution', () => {
     await write(
       'node_modules/vitest/vitest.mjs',
       [
-        "if (process.argv.slice(2).join(' ') !== 'run --no-color') process.exit(2);",
+        "if (!process.argv.slice(2).join(' ').startsWith('run --no-color --reporter=default --reporter=json --outputFile.json=')) process.exit(2);",
         "console.log('fixture suite passed');",
       ].join('\n')
     );
@@ -580,3 +589,128 @@ describe('project test execution', () => {
     expect(streamed.join('')).toContain('fixture suite passed');
   });
 });
+
+describe('scoped project test runs', () => {
+  const passing = { stdout: '', stderr: '', exitCode: 0, executionTime: 1, timedOut: false, killed: false };
+
+  async function argvFor(framework: 'vitest' | 'jest' | 'pytest' | 'go' | 'cargo', scope: unknown) {
+    let captured = null as SpawnNativeRunOptions | null;
+    const result = await runProjectTests(rootPath, framework, `run-${framework}-${Math.random().toString(36).slice(2)}`, {
+      env: { PATH: binPath },
+      scope,
+      spawnImpl: async (options) => {
+        captured = options;
+        return passing;
+      },
+    });
+    return { args: captured?.args.slice(framework === 'vitest' || framework === 'jest' ? 1 : 0), result };
+  }
+
+  beforeEach(async () => {
+    await write('package.json', JSON.stringify({ devDependencies: { vitest: '^5', jest: '^30' } }));
+    await write('node_modules/vitest/vitest.mjs');
+    await write('node_modules/jest/bin/jest.js');
+    await write('pytest.ini', '[pytest]\n');
+    await write('go.mod', 'module example.com/shop\n');
+    await write('Cargo.toml', '[package]\nname = "shop"\n');
+    await write('src/cart.test.ts');
+    await write('tests/test_cart.py');
+    await write('tests/flow.rs');
+    await write('internal/cart/total_test.go');
+    await executable('python3');
+    await executable('go');
+    await executable('cargo');
+  });
+
+  it('narrows each runner to a file or one test with literal arguments', async () => {
+    const vitest = await argvFor('vitest', { kind: 'test', file: 'src/cart.test.ts', path: ['cart', 'rounds (a|b)'] });
+    expect(vitest.args?.slice(5)).toEqual(['src/cart.test.ts', '-t', '^cart(?: | > )rounds \\(a\\|b\\)$']);
+    const jest = await argvFor('jest', { kind: 'file', file: 'src/cart.test.ts' });
+    expect(jest.args?.slice(4)).toEqual(['--runTestsByPath', 'src/cart.test.ts']);
+    const pytest = await argvFor('pytest', { kind: 'test', file: 'tests/test_cart.py', path: ['TestCheckout', 'test_flow[1]'] });
+    expect(pytest.args?.slice(-1)).toEqual(['tests/test_cart.py::TestCheckout::test_flow[1]']);
+    expect(pytest.args).toContain('junit_family=xunit1');
+    const go = await argvFor('go', { kind: 'test', file: 'internal/cart', path: ['TestTable', 'two'] });
+    expect(go.args).toEqual(['test', '-json', './internal/cart', '-run', '^TestTable$/^two$']);
+    const cargo = await argvFor('cargo', { kind: 'test', file: 'tests/flow.rs', path: ['checkout_works'] });
+    expect(cargo.args).toEqual(['test', '--color', 'never', '--no-fail-fast', '--test', 'flow', '--', '--exact', 'checkout_works']);
+    expect((await argvFor('go', undefined)).args).toEqual(['test', '-json', './...']);
+  });
+
+  it('refuses a scope that leaves the project, reads as an option or does not exist, without spawning', async () => {
+    for (const scope of [
+      { kind: 'file', file: '../outside.test.ts' },
+      { kind: 'file', file: '/etc/passwd' },
+      { kind: 'file', file: 'src/-rf.test.ts' },
+      { kind: 'file', file: 'src/missing.test.ts' },
+      { kind: 'test', file: 'src/cart.test.ts', path: ['line\nbreak'] },
+      { kind: 'file', file: 'src/lib.rs' },
+    ]) {
+      const framework = scope.file === 'src/lib.rs' ? 'cargo' : 'vitest';
+      const spawnImpl = vi.fn();
+      const result = await runProjectTests(rootPath, framework, `run-bad-${Math.random().toString(36).slice(2)}`, {
+        env: { PATH: binPath },
+        scope,
+        spawnImpl,
+      });
+      expect(result.kind, JSON.stringify(scope)).toBe('invalid-request');
+      expect(spawnImpl).not.toHaveBeenCalled();
+    }
+  });
+
+  it('removes the report folder after the run', async () => {
+    let reportFile = '';
+    await runProjectTests(rootPath, 'vitest', 'run-report-cleanup', {
+      env: { PATH: binPath },
+      spawnImpl: async (options) => {
+        reportFile = options.args.find((arg) => arg.startsWith('--outputFile.json='))!.split('=')[1]!;
+        await writeFile(reportFile, '{"testResults":[]}', 'utf8');
+        return passing;
+      },
+    });
+    await expect(stat(path.dirname(reportFile))).rejects.toThrow();
+  });
+
+  it('turns go test -json into cases and readable output as it streams', async () => {
+    const events = [
+      { Action: 'run', Package: 'example.com/shop/internal/cart', Test: 'TestRounds' },
+      { Action: 'output', Package: 'example.com/shop/internal/cart', Test: 'TestRounds', Output: '    total_test.go:9: expected 1210.5\n' },
+      { Action: 'output', Package: 'example.com/shop/internal/cart', Test: 'TestRounds', Output: '--- FAIL: TestRounds (0.00s)\n' },
+      { Action: 'fail', Package: 'example.com/shop/internal/cart', Test: 'TestRounds', Elapsed: 0.01 },
+    ].map((event) => JSON.stringify(event)).join('\n');
+    const shown: string[] = [];
+    const result = await runProjectTests(rootPath, 'go', 'run-go-stream', {
+      env: { PATH: binPath },
+      onOutput: (_stream, chunk) => shown.push(chunk),
+      spawnImpl: async (options) => {
+        options.onStdout?.(events.slice(0, 120));
+        options.onStdout?.(events.slice(120));
+        return { ...passing, exitCode: 1, stdout: events };
+      },
+    });
+    expect(result.cases).toEqual([
+      expect.objectContaining({ file: 'internal/cart', path: ['TestRounds'], status: 'failed', failureFile: 'internal/cart/total_test.go', failureLine: 9 }),
+    ]);
+    expect(result.stdout).toContain('--- FAIL: TestRounds');
+    expect(shown.join('')).not.toContain('"Action"');
+  });
+
+  it('runs one real Vitest test and reports the others as skipped', async () => {
+    const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
+    await write('node_modules/vitest/vitest.mjs', `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`);
+    await write('vitest.config.mjs', 'export default { test: { globals: true } };\n');
+    await write('src/cart.test.ts', "describe('cart', () => {\n  it('sums', () => expect(1 + 2).toBe(3));\n  it('rounds (a|b)', () => expect(1211).toBe(1210.5));\n});\n");
+
+    const result = await runProjectTests(rootPath, 'vitest', 'run-real-scoped', {
+      scope: { kind: 'test', file: 'src/cart.test.ts', path: ['cart', 'rounds (a|b)'] },
+    });
+
+    expect(result.kind).toBe('failed');
+    expect(result.cases?.map((entry) => [entry.path.join(' '), entry.status])).toEqual([
+      ['cart sums', 'skipped'],
+      ['cart rounds (a|b)', 'failed'],
+    ]);
+    expect(result.cases?.[1]).toMatchObject({ failureFile: 'src/cart.test.ts', failureLine: 3 });
+  });
+});
+
