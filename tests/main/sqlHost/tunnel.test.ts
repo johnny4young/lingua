@@ -5,9 +5,10 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { sshFingerprint } from '../../../src/main/sqlSsh/knownHosts';
 import type { HostSshConfig, HostSshHop } from '../../../src/main/sqlHost/protocol';
 import { createTunnelPool } from '../../../src/main/sqlHost/tunnel';
+import { generateSshKeyPair } from '../../__fixtures__/sshKeys';
 
-const hostKey = utils.generateKeyPairSync('ed25519');
-const userKey = utils.generateKeyPairSync('ed25519', { passphrase: 'open sesame', cipher: 'aes256-ctr', rounds: 1 });
+const hostKey = generateSshKeyPair();
+const userKey = generateSshKeyPair('ed25519', { passphrase: 'open sesame', cipher: 'aes256-ctr', rounds: 1 });
 const hostFingerprint = sshFingerprint(Buffer.from(hostKey.public.split(' ')[1]!, 'base64'));
 const userPublic = utils.parseKey(userKey.public);
 
