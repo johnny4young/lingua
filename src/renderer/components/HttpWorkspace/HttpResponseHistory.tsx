@@ -82,10 +82,10 @@ export function HttpResponseHistory({
                 data-selected={isSelected}
                 aria-current={isSelected ? 'true' : undefined}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
                   isSelected
-                    ? 'border-l-accent bg-bg-inset text-fg-base'
-                    : 'border-l-transparent text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
+                    ? 'bg-bg-inset font-semibold text-fg-base'
+                    : 'text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
                 )}
               >
                 <HttpStatusPill response={entry} />

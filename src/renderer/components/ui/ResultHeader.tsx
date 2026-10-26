@@ -33,6 +33,8 @@ export interface ResultHeaderProps {
   status: ReactNode;
   /** Mono metadata line, e.g. "340 ms · 83 B". */
   meta?: string;
+  /** Shown right after the meta on the same line, e.g. the change from the previous run. */
+  metaTrailing?: ReactNode;
   /** Optional tab group, right-aligned. */
   tabs?: ReadonlyArray<ResultHeaderTab>;
   /** Currently-active tab id. */
@@ -47,6 +49,7 @@ export interface ResultHeaderProps {
 export function ResultHeader({
   status,
   meta,
+  metaTrailing,
   tabs,
   activeTab,
   onTabChange,
@@ -65,6 +68,7 @@ export function ResultHeader({
       {meta ? (
         <span className="shrink-0 whitespace-nowrap font-mono text-caption tabular-nums text-fg-subtle">
           {meta}
+          {metaTrailing}
         </span>
       ) : null}
       {tabs && tabs.length > 0 ? (

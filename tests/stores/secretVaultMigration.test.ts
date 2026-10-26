@@ -226,3 +226,62 @@ describe('HTTP environment secrets in the secret vault', () => {
     await vi.waitFor(() => expect(vault.values.has('http-env.gone.var')).toBe(false));
   });
 });
+
+describe('HTTP collection and request secrets in the secret vault', () => {
+  const collectionId = 'http-env.collection.var-c';
+  const requestId = 'http-env.request-req-1.var-r';
+  const blob = (collectionValue: string, requestValue: string) =>
+    JSON.stringify({
+      state: {
+        requests: [
+          {
+            version: 1,
+            id: 'req-1',
+            name: 'Users',
+            method: 'GET',
+            url: 'https://api.example.com/{{path}}',
+            headers: [],
+            createdAt: '2026-10-01T00:00:00.000Z',
+            updatedAt: '2026-10-01T00:00:00.000Z',
+            variables: [{ id: 'var-r', key: 'REQ_TOKEN', value: requestValue, secret: true }],
+          },
+        ],
+        environments: [],
+        collectionVariables: [
+          { id: 'var-c', key: 'COLL_TOKEN', value: collectionValue, secret: true },
+          { id: 'var-p', key: 'path', value: 'users', secret: false },
+        ],
+      },
+      version: 1,
+    });
+
+  it('moves both scopes into the vault, blanks localStorage and refills on boot', async () => {
+    localStorage.setItem('lingua-workspace-tool-state', blob('coll-123', 'req-456'));
+    const { useWorkspaceToolStore } = await bootToolStore();
+    await vi.waitFor(() => {
+      const stored = localStorage.getItem('lingua-workspace-tool-state') ?? '';
+      expect(stored).not.toContain('coll-123');
+      expect(stored).not.toContain('req-456');
+    });
+    expect(vault.values.get(collectionId)).toBe('coll-123');
+    expect(vault.values.get(requestId)).toBe('req-456');
+    expect(localStorage.getItem('lingua-workspace-tool-state')).toContain('"users"');
+    expect(useWorkspaceToolStore.getState().collectionVariables[0]?.value).toBe('coll-123');
+
+    const reboot = await bootToolStore();
+    await vi.waitFor(() => {
+      const state = reboot.useWorkspaceToolStore.getState();
+      expect(state.collectionVariables[0]?.value).toBe('coll-123');
+      expect(state.requests[0]?.variables?.[0]?.value).toBe('req-456');
+    });
+  });
+
+  it('drops a deleted request secret from the vault', async () => {
+    localStorage.setItem('lingua-workspace-tool-state', blob('c', 'r'));
+    const { useWorkspaceToolStore } = await bootToolStore();
+    await vi.waitFor(() => expect(vault.values.get(requestId)).toBe('r'));
+    useWorkspaceToolStore.getState().deleteRequest('req-1');
+    await vi.waitFor(() => expect(vault.values.has(requestId)).toBe(false));
+    expect(vault.values.get(collectionId)).toBe('c');
+  });
+});

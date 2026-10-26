@@ -14,12 +14,14 @@ import {
   createEnvVariable,
   findResolvedVariables,
   findUnresolvedVariables,
+  httpUrlState,
   interpolateRequest,
   interpolateString,
   looksSecret,
   maskSecretsForCapsule,
   maskSecretValuesInResponse,
   parseHttpEnvironment,
+  splitVariableTokens,
   toExportableEnvironment,
   type HttpEnvironmentV1,
   type HttpEnvVariableV1,
@@ -643,5 +645,55 @@ describe('toExportableEnvironment (privacy)', () => {
       secret: true,
     });
     expect(reparsed?.variables[0]?.id).toBeTruthy();
+  });
+});
+
+describe('splitVariableTokens', () => {
+  it('splits text around its tokens, keeping every character', () => {
+    expect(splitVariableTokens('{{ base }}/users?id={{id}}')).toEqual([
+      { text: '{{ base }}', key: 'base' },
+      { text: '/users?id=' },
+      { text: '{{id}}', key: 'id' },
+    ]);
+    expect(splitVariableTokens('https://x.dev/{oops}')).toEqual([{ text: 'https://x.dev/{oops}' }]);
+    expect(splitVariableTokens('')).toEqual([]);
+  });
+});
+
+describe('httpUrlState', () => {
+  const vars = env([
+    { key: 'base', value: 'https://api.example.com', secret: false },
+    { key: 'token', value: 'shh', secret: true },
+    { key: 'blank', value: '', secret: false },
+  ]);
+
+  it('sends once the URL parses with its transport scheme after the environment fills it', () => {
+    expect(httpUrlState('{{base}}/users?t={{token}}', 'http', vars)).toEqual({ ok: true });
+    expect(httpUrlState('  https://x.dev  ', 'sse', null)).toEqual({ ok: true });
+    expect(httpUrlState('wss://x.dev/socket', 'websocket', null)).toEqual({ ok: true });
+  });
+
+  it('says why it cannot send yet', () => {
+    expect(httpUrlState('   ', 'http', vars)).toEqual({ ok: false, reason: 'empty' });
+    expect(httpUrlState('{{host}}/users', 'http', vars)).toEqual({ ok: false, reason: 'unresolved', key: 'host' });
+    expect(httpUrlState('{{base}}/users', 'http', null)).toEqual({ ok: false, reason: 'unresolved', key: 'base' });
+    expect(httpUrlState('api.example.com/users', 'http', null)).toEqual({ ok: false, reason: 'invalid' });
+    expect(httpUrlState('{{blank}}/users', 'http', vars)).toEqual({ ok: false, reason: 'invalid' });
+    expect(httpUrlState('ftp://x.dev', 'http', null)).toEqual({ ok: false, reason: 'invalid' });
+    expect(httpUrlState('https://x.dev', 'websocket', null)).toEqual({ ok: false, reason: 'invalid' });
+  });
+
+  it('names only variables the typed URL lacks, never token-shaped text inside a value', () => {
+    const tricky = env([
+      { key: 'base', value: 'https://api.example.com', secret: false },
+      { key: 'token', value: 'abc{{def}}', secret: true },
+    ]);
+    expect(httpUrlState('{{base}}/users?t={{token}}', 'http', tricky)).toEqual({ ok: true });
+    expect(JSON.stringify(httpUrlState('{{base}}/{{missing}}?t={{token}}', 'http', tricky))).not.toContain('def');
+  });
+
+  it('never returns the resolved URL, which can hold a secret', () => {
+    expect(JSON.stringify(httpUrlState('https://x.dev/{{token}}', 'http', vars))).not.toContain('shh');
+    expect(JSON.stringify(httpUrlState('{{token}}', 'http', vars))).not.toContain('shh');
   });
 });

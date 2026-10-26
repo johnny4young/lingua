@@ -13,6 +13,9 @@ import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
+import { useExplainPanelStore } from '../../stores/explainPanelStore';
+import { useResultStore } from '../../stores/resultStore';
+import { describeError } from '../../utils/describeError';
 import { useUIStore } from '../../stores/uiStore';
 import {
   PRESENTER_CONSOLE_FONT_LIFT,
@@ -27,6 +30,7 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRow } from './ConsoleEntryRow';
+import { PausedConsoleSummary } from './PausedConsoleSummary';
 import { richKindBucket } from './richConsoleFormat';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useCommandListener } from '../../hooks/useCommandListener';
@@ -649,12 +653,15 @@ export function ConsolePanel() {
               language={activeTab.language}
               filename={activeTab.name}
               {...(activeTab.runtimeMode ? { runtimeMode: activeTab.runtimeMode } : {})}
-              onApplyFix={newCode => {
-                // Apply & re-run: replace the tab buffer with the AI
-                // suggestion (marks dirty, resets lifecycle dots) and run it
-                // through the same manual-run path as the Run button.
-                useEditorStore.getState().updateContent(activeTab.id, newCode);
-                void run();
+              onOpen={() => {
+                const error = useResultStore.getState().error;
+                useExplainPanelStore.getState().open({
+                  tabId: activeTab.id,
+                  // Same text as the failing-line action, so both reach the same thread.
+                  errorMessage: error ? describeError(error).full : consoleErrorText,
+                  line: error?.line ?? null,
+                  column: error?.column ?? null,
+                });
               }}
               testId="console-explain-error"
             />
@@ -734,6 +741,7 @@ export function ConsolePanel() {
           </>
         )}
       </div>
+      <PausedConsoleSummary />
 
       <ExecutionComparisonModal entries={comparison} onClose={handleCloseComparison} />
     </div>
