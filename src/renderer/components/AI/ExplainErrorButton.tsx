@@ -51,6 +51,8 @@ export interface ExplainErrorButtonProps {
   readonly className?: string;
   /** Test seam forwarded to the dialog so component tests never hit the network. */
   readonly runChatCompletionImpl?: typeof runChatCompletion;
+  /** Opens another explain surface (the anchored panel) instead of the modal. */
+  readonly onOpen?: () => void;
 }
 
 export function ExplainErrorButton({
@@ -64,6 +66,7 @@ export function ExplainErrorButton({
   testId,
   className,
   runChatCompletionImpl,
+  onOpen,
 }: ExplainErrorButtonProps) {
   const { t } = useTranslation();
   const entitled = useEntitlement('LOCAL_AI');
@@ -86,7 +89,7 @@ export function ExplainErrorButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => (onOpen ? onOpen() : setOpen(true))}
         data-testid={testId ?? 'explain-error-trigger'}
         className={`focus-ring inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-micro text-fg-muted hover:text-fg${
           className ? ` ${className}` : ''

@@ -49,8 +49,10 @@ export const KEYMAP_PRESETS: readonly KeymapPreset[] = [
       // to Ctrl/Cmd per platform — we only swap the auxiliary modifier.
       'nav-go-to-symbol': [{ tokens: ['Mod', 'Alt', 'O'] }],
       'nav-project-search': [{ tokens: ['Mod', 'Alt', 'F'] }],
-      // Terminal-style console toggle on Mod+J mirrors JetBrains/WebStorm.
+      // Terminal-style console toggle on Mod+J mirrors JetBrains/WebStorm, so the
+      // jump to an explained error moves to Mod+Alt+J.
       'view-toggle-console': [{ tokens: ['Mod', 'J'] }],
+      'ai-jump-to-error': [{ tokens: ['Mod', 'Alt', 'J'] }],
     },
   },
 ];

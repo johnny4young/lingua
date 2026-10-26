@@ -207,6 +207,19 @@ describe('inline results avoid source collisions', () => {
     view.unmount();
     expect(h.callbacks.size).toBe(0);
   });
+  it('moves a result to its own row when actions after the line text leave it no room', () => {
+    const h = harness();
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} lineEndReserve={null} />);
+    flushFrames();
+    expect(h.zones.size).toBe(0);
+    view.rerender(<InlineResultWidgets {...props} editor={h.editor} lineEndReserve={{ line: 1, width: 520 }} />);
+    flushFrames();
+    expect(h.zones.size).toBe(1);
+    view.rerender(<InlineResultWidgets {...props} editor={h.editor} lineEndReserve={{ line: 2, width: 520 }} />);
+    flushFrames();
+    expect(h.zones.size).toBe(0);
+  });
+
   it('keeps wrapped source clear even if its last visual segment is short', () => {
     const h = harness();
     h.setWrapped();

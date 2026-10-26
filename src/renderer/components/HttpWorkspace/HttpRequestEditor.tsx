@@ -66,12 +66,25 @@ import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpReques
 import { HttpTransportSelect } from './HttpTransportSelect';
 import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
 import { HttpSendButton, type HttpSendQueue } from './HttpSendButton';
+import { HttpChainSection } from './HttpChainSection';
+import { requestLabel } from '../../../shared/httpChain';
 import { ENVIRONMENT_TINTS } from './httpScopeColors';
-import { rowsFromOtherEnvironments, useScopedEnvironment, type HttpEnvironmentFocus } from './httpScopes';
+import {
+  rowsFromOtherEnvironments,
+  useScopedEnvironment,
+  type HttpEnvironmentFocus,
+  type HttpSendOptions,
+} from './httpScopes';
 import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
 import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
+import { useHttpAssertionTarget, type HttpAssertionTarget } from './useHttpAssertionTarget';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
+
+const chainSourceLabel = (id: string): string => {
+  const source = useWorkspaceToolStore.getState().getRequest(id);
+  return source ? requestLabel(source) : id;
+};
 
 export interface HttpRequestEditorProps {
   request: HttpRequestV1;
@@ -83,7 +96,7 @@ export interface HttpRequestEditorProps {
    */
   onPatch: (requestId: string, patch: Partial<HttpRequestV1>) => void;
   /** Send the current request. Caller disables during in-flight. */
-  onSend: (request: HttpRequestV1) => void;
+  onSend: (request: HttpRequestV1, options?: HttpSendOptions) => void;
   /** Cancel the in-flight request. Optional (no-op when absent). */
   onStop?: () => void;
   isExecuting: boolean;
@@ -101,6 +114,8 @@ export interface HttpRequestEditorProps {
   onManageEnvironment?: (focus?: HttpEnvironmentFocus) => void;
   /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
   captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
+  /** Filled with the handler that adds an assertion suggested from the response. */
+  assertionTargetRef?: React.MutableRefObject<HttpAssertionTarget | null>;
   /** Offline queue state for this request; absent where sends never queue. */
   queue?: HttpSendQueue;
 }
@@ -118,6 +133,7 @@ export function HttpRequestEditor({
   onSelectEnvironment,
   onManageEnvironment,
   captureTargetRef,
+  assertionTargetRef,
   queue,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
@@ -149,9 +165,6 @@ export function HttpRequestEditor({
     [environments, activeEnvironmentId]
   );
   // Collection and request variables join the environment with the scopes flag on.
-  const { env: scopedEnv, sources } = useScopedEnvironment(request, activeEnv);
-  const envColor = sources ? environmentColor(activeEnv) : undefined;
-  const tint = envColor ? ENVIRONMENT_TINTS[envColor] : undefined;
 
   // A LIVE request snapshot for the
   // resolution preview, rebuilt from the in-editor draft state on every
@@ -169,6 +182,10 @@ export function HttpRequestEditor({
     }),
     [request, transport, method, url, headers, params, auth, body]
   );
+  const { scopes, env: scopedEnv, sources, tags, check, deferred } = useScopedEnvironment(previewRequest, activeEnv);
+  const envColor = scopes ? environmentColor(activeEnv) : undefined;
+  const tint = envColor ? ENVIRONMENT_TINTS[envColor] : undefined;
+  const [openTag, setOpenTag] = useState<string | null>(null);
 
   // Debounced auto-save. One timer covers all fields so a
   // rapid edit across URL + params + headers + body settles to a
@@ -332,9 +349,10 @@ export function HttpRequestEditor({
     return draft;
   }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]);
 
-  const urlState = useMemo(() => httpUrlState(url, transport, scopedEnv), [url, transport, scopedEnv]);
+  const urlState = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.send), [url, transport, scopedEnv, deferred.send]);
+  const missingTag = !urlState.ok && urlState.reason === 'unresolved' ? tags.find((tag) => tag.key === urlState.key) : undefined;
   const urlFix = useMemo(() => {
-    if (!sources || !activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
+    if (!scopes || !activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
     const rows = rowsFromOtherEnvironments(findUnresolvedVariables(previewRequest, scopedEnv), environments, activeEnv.id);
     if (rows.length === 0) return undefined;
     return {
@@ -345,14 +363,19 @@ export function HttpRequestEditor({
         if (secret) onManageEnvironment?.({ environmentId: activeEnv.id, variableId: secret.id });
       },
     };
-  }, [sources, activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
-  const sendCurrentDraft = useCallback(() => {
-    if (isExecuting || !urlState.ok) return;
-    const draft = flushDraftBeforeSend();
-    if (!draft) return;
-    onSend(draft);
-  }, [flushDraftBeforeSend, isExecuting, onSend, urlState.ok]);
-  useWorkspaceRunTarget('http', sendCurrentDraft);
+  }, [scopes, activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
+  const chainUrlOk = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.chain).ok, [url, transport, scopedEnv, deferred.chain]);
+  const sendCurrentDraft = useCallback(
+    (options?: HttpSendOptions) => {
+      if (isExecuting || !(options?.forceChain ? chainUrlOk : urlState.ok)) return;
+      const draft = flushDraftBeforeSend();
+      if (!draft) return;
+      if (options) onSend(draft, options);
+      else onSend(draft);
+    },
+    [flushDraftBeforeSend, isExecuting, onSend, urlState.ok, chainUrlOk]
+  );
+  useWorkspaceRunTarget('http', () => sendCurrentDraft());
 
   // Copy as cURL — build a shell command from the resolved draft (URL
   // incl. params, composed headers incl. injected auth, body) and copy
@@ -496,6 +519,8 @@ export function HttpRequestEditor({
     [scheduleAutoSave]
   );
 
+  const openTestsTab = useCallback(() => setBuilderTab('assert'), []);
+  useHttpAssertionTarget(assertionTargetRef, assertions, applyAssertions, openTestsTab);
   const handleAddAssertion = useCallback(() => {
     applyAssertions([...assertions, createBlankAssertion()]);
   }, [assertions, applyAssertions]);
@@ -676,8 +701,8 @@ export function HttpRequestEditor({
         </select>
         <HttpUrlField
           value={url}
-          env={scopedEnv}
-          {...(sources ? { sources } : {})}
+          env={check.env}
+          {...(check.sources ? { sources: check.sources } : {})}
           placeholder={t(
             transport === 'websocket'
               ? 'httpWorkspace.editor.url.websocketPlaceholder'
@@ -697,7 +722,7 @@ export function HttpRequestEditor({
           {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
           combo={sendCombo}
           {...(queue ? { queue } : {})}
-          onSend={sendCurrentDraft}
+          onSend={() => sendCurrentDraft()}
           {...(onStop ? { onStop } : {})}
           {...(tint ? { tint } : {})}
         />
@@ -709,12 +734,28 @@ export function HttpRequestEditor({
           transport={transport}
           hasEnvironment={activeEnv !== null}
           {...(urlFix ? { fix: urlFix } : {})}
+          {...(missingTag ? { chainSource: chainSourceLabel(missingTag.sourceId) } : {})}
         />
       )}
 
       {/* Resolution preview beneath the
           URL. Resolved URL (secrets masked) + variable-state chips. */}
-      <HttpEnvironmentPreview request={previewRequest} env={scopedEnv} {...(sources ? { sources } : {})} />
+      <HttpEnvironmentPreview
+        request={previewRequest}
+        env={scopedEnv}
+        {...(sources ? { sources } : {})}
+        {...(tags.length > 0 ? { chainKeys: new Set(tags.map((tag) => tag.key)), openTag, onOpenTag: (key: string) => setOpenTag(key || null) } : {})}
+      />
+      {tags.length > 0 ? (
+        <HttpChainSection
+          request={previewRequest}
+          tags={tags}
+          secretKeys={new Set(scopedEnv?.variables.filter((row) => row.secret).map((row) => row.key))}
+          openKey={openTag}
+          onClose={() => setOpenTag(null)}
+          onRun={() => sendCurrentDraft({ forceChain: true })}
+        />
+      ) : null}
 
       <HttpRequestBuilderTabs
         method={method}
@@ -742,7 +783,7 @@ export function HttpRequestEditor({
         onAddAssertion={handleAddAssertion}
         onUpdateAssertion={handleUpdateAssertion}
         onRemoveAssertion={handleRemoveAssertion}
-        {...(sources
+        {...(scopes
           ? {
               variables: {
                 rows: request.variables ?? [],

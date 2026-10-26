@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ExplainPanelHost } from '../AI/ExplainPanelHost';
 import { useShallow } from 'zustand/react/shallow';
 import type { RefObject } from 'react';
 import { PanelLeft, X } from 'lucide-react';
@@ -328,40 +329,43 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
   const dockInPanel = dockShown && (dockExpanded || !vertical);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <Group
-        key={vertical ? 'beside' : 'below'}
-        orientation={vertical ? 'horizontal' : 'vertical'}
-        defaultLayout={layout.defaultLayout}
-        onLayoutChanged={layout.onLayoutChanged}
-        resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-        className="min-h-0 flex-1"
-      >
-        <Panel
-          id="workspace-panel"
-          defaultSize={vertical ? '60%' : '66%'}
-          minSize={vertical ? 420 : 260}
+    <div className="flex h-full min-h-0">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+        <Group
+          key={vertical ? 'beside' : 'below'}
+          orientation={vertical ? 'horizontal' : 'vertical'}
+          defaultLayout={layout.defaultLayout}
+          onLayoutChanged={layout.onLayoutChanged}
+          resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
+          className="min-h-0 flex-1"
         >
-          <EditorArea />
-        </Panel>
-        <ResizeHandle orientation={vertical ? 'vertical' : 'horizontal'} disabled={!dockExpanded} />
-        <Panel
-          id="console-panel"
-          panelRef={dockPanelRef}
-          collapsible
-          collapsedSize={collapsedSize}
-          defaultSize={vertical ? '40%' : '34%'}
-          minSize={vertical ? 260 : 160}
-          onResize={handleDockResize}
-        >
-          {dockInPanel ? <BottomPanelSurface expanded={dockExpanded} /> : null}
-        </Panel>
-      </Group>
-      {vertical && dockShown && !dockExpanded ? (
-        <div className="h-[34px] shrink-0">
-          <BottomPanelSurface expanded={false} />
-        </div>
-      ) : null}
+          <Panel
+            id="workspace-panel"
+            defaultSize={vertical ? '60%' : '66%'}
+            minSize={vertical ? 420 : 260}
+          >
+            <EditorArea />
+          </Panel>
+          <ResizeHandle orientation={vertical ? 'vertical' : 'horizontal'} disabled={!dockExpanded} />
+          <Panel
+            id="console-panel"
+            panelRef={dockPanelRef}
+            collapsible
+            collapsedSize={collapsedSize}
+            defaultSize={vertical ? '40%' : '34%'}
+            minSize={vertical ? 260 : 160}
+            onResize={handleDockResize}
+          >
+            {dockInPanel ? <BottomPanelSurface expanded={dockExpanded} /> : null}
+          </Panel>
+        </Group>
+        {vertical && dockShown && !dockExpanded ? (
+          <div className="h-[34px] shrink-0">
+            <BottomPanelSurface expanded={false} />
+          </div>
+        ) : null}
+      </div>
+      <ExplainPanelHost />
     </div>
   );
 }

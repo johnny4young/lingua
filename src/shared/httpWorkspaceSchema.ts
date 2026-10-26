@@ -12,6 +12,34 @@
 
 import type { HttpEnvVariableV1 } from './httpEnvironment';
 
+/** Which values a snapshot comparison ignores. */
+export interface HttpSnapshotScrubbers {
+  timestamps: boolean;
+  uuids: boolean;
+  /** Fields named `*_id` or `*Id`. */
+  ids: boolean;
+  hostname: boolean;
+  /** A custom pattern; empty for none, ignored when it does not compile. */
+  regex: string;
+}
+
+/** A recorded response kept as the baseline, its secrets already masked. */
+export interface HttpResponseSnapshot {
+  version: 1;
+  status: number;
+  body: string;
+  recordedAt: string;
+  scrubbers: HttpSnapshotScrubbers;
+}
+
+/**
+ * How a chain tag gets its value when its request sends: `last` reads the
+ * source's latest response when it is 2xx, `source-first` sends the source first, `stale`
+ * sends it first only when its latest response is older than five minutes.
+ */
+export const HTTP_CHAIN_RULES = ['last', 'source-first', 'stale'] as const;
+export type HttpChainRule = (typeof HTTP_CHAIN_RULES)[number];
+
 /**
  * Closed enum of HTTP methods Lingua supports. CONNECT and TRACE
  * are deliberately excluded — CONNECT is a proxy primitive (browser
@@ -62,6 +90,9 @@ export const MAX_REQUEST_BODY_BYTES = 1_048_576;
 
 /** Hard cap on the response body size. 4 MiB. */
 export const MAX_RESPONSE_BODY_BYTES = 4 * 1_048_576;
+
+/** The largest body a request snapshot keeps. */
+export const SNAPSHOT_MAX_BODY_BYTES = 256 * 1024;
 
 /** Live transports retain at most this many discrete messages per run. */
 export const MAX_STREAM_MESSAGES = 1_000;
@@ -287,6 +318,10 @@ export interface HttpRequestV1 {
   timeoutMs?: number;
   /** Request-scoped variables; they win over the environment and the collection. */
   variables?: HttpEnvVariableV1[];
+  /** How each chain tag this request uses gets its value; absent means `last`. */
+  chainRules?: Partial<Record<string, HttpChainRule>>;
+  /** The response later ones are compared to; absent when Snapshot is off. */
+  snapshot?: HttpResponseSnapshot;
   /** ISO timestamp (millisecond precision). */
   createdAt: string;
   updatedAt: string;
@@ -363,6 +398,8 @@ export interface HttpResponseV1 {
   closeReason?: string;
   /** Phases of the final hop, measured by the desktop proxy; absent on the web. */
   timing?: HttpResponseTiming;
+  /** The environment active when the response was recorded; chain tags read only matching ones. */
+  environmentId?: string;
 }
 
 /** Milliseconds per phase of the hop that answered; earlier redirect hops are summed apart. */

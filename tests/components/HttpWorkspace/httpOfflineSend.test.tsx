@@ -120,6 +120,18 @@ describe('useHttpOfflineSend', () => {
     expect(send).toHaveBeenCalledWith(first);
   });
 
+  it('keeps Run chain on a queued send', async () => {
+    const get = request('get', 'https://api.example.com/users');
+    useWorkspaceToolStore.setState({ requests: [get] });
+    const send = vi.fn(async () => null);
+    const { result } = renderHook(() => useHttpOfflineSend(send));
+    act(() => setOnline(false));
+    act(() => result.current.sendFromEditor(get, { forceChain: true }));
+    expect(useHttpOfflineQueue.getState().queued).toEqual({ get: { ready: false, forceChain: true } });
+    await act(async () => setOnline(true));
+    expect(send).toHaveBeenCalledWith(get, { forceChain: true });
+  });
+
   it('drops a queued entry whose request was deleted', async () => {
     useWorkspaceToolStore.setState({ requests: [] });
     const send = vi.fn(async () => null);

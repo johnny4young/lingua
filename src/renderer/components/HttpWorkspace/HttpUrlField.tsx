@@ -19,10 +19,13 @@ export function HttpUrlHint({
   transport,
   hasEnvironment,
   fix,
+  chainSource,
 }: {
   state: Exclude<HttpUrlState, { ok: true }>;
   transport: HttpTransportKind;
   hasEnvironment: boolean;
+  /** The missing variable is a chain tag whose source has no 2xx response yet. */
+  chainSource?: string;
   /** Another environment defines what is missing: one click copies it into the active one. */
   fix?: { envName: string; onAdd: () => void };
 }) {
@@ -30,7 +33,9 @@ export function HttpUrlHint({
   const text =
     state.reason === 'empty'
       ? t('httpWorkspace.editor.url.hint.empty')
-      : state.reason === 'unresolved'
+      : state.reason === 'unresolved' && chainSource !== undefined
+        ? t('httpWorkspace.editor.url.hint.chain', { name: state.key, source: chainSource })
+        : state.reason === 'unresolved'
         ? t(hasEnvironment ? 'httpWorkspace.editor.url.hint.unresolved' : 'httpWorkspace.editor.url.hint.unresolvedNoEnv', { name: state.key })
         : t(transport === 'websocket' ? 'httpWorkspace.editor.url.hint.invalidWebsocket' : 'httpWorkspace.editor.url.hint.invalid');
   return (

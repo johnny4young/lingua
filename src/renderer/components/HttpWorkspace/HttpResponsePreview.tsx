@@ -2,7 +2,7 @@
  * Right column: response preview.
  *
  * The shared `<ResultHeader>` carries status, `245 ms · 83 B` and the
- * Body / Headers / Raw tabs; the no-response and loading states use
+ * Body / Headers / Raw / Timing tabs (Snapshot with its Labs flag); the no-response and loading states use
  * `<EmptyState>`. Search, Wrap and Pretty sit in a row under the header.
  *
  * The Body view picks the renderer based on content-type:
@@ -39,10 +39,20 @@ import '../../i18n/httpBuilderCatalog';
 import { HttpStatusPill } from './HttpStatusPill';
 import { HttpJsonTree } from './HttpJsonTree';
 import { HttpResponseDelta, HttpTimingPanel } from './HttpTimingPanel';
+import { HttpSnapshotPanel } from './HttpSnapshotPanel';
+import { snapshotChanges, suggestAssertions } from '../../../shared/httpSnapshot';
+import type { HttpResponseSnapshot } from '../../../shared/httpWorkspaceSchema';
 import { capturedByPath, nestsDeeperThan, parseJsonBody, searchJson, TREE_DEPTH_LIMIT, type JsonSegment } from './httpJsonTreeModel';
 import { splitForHighlight } from './httpTextHighlight';
 
-type PreviewTab = 'body' | 'headers' | 'raw' | 'timing';
+type PreviewTab = 'body' | 'headers' | 'raw' | 'timing' | 'snapshot';
+
+/** With snapshot assertions on: the request's snapshot and the ways to change it. */
+interface HttpResponseSnapshots {
+  snapshot: HttpResponseSnapshot | undefined;
+  onChange: (snapshot: HttpResponseSnapshot | undefined) => void;
+  onAddAssertion: (assertion: Omit<HttpAssertion, 'id'>) => void;
+}
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
@@ -105,6 +115,7 @@ export interface HttpResponsePreviewProps {
   captures?: readonly HttpCaptureRule[];
   /** Adds a body capture rule for a value hovered in the tree. */
   onCaptureValue?: (path: string, segments: readonly JsonSegment[]) => void;
+  snapshots?: HttpResponseSnapshots;
 }
 
 export function HttpResponsePreview({
@@ -115,6 +126,7 @@ export function HttpResponsePreview({
   previous,
   captures,
   onCaptureValue,
+  snapshots,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
   const sendCombo = useShortcutLabel('run-toggle');
@@ -124,8 +136,19 @@ export function HttpResponsePreview({
     if (!response || !assertions || assertions.length === 0) return [];
     return runAssertions(response, assertions);
   }, [response, assertions]);
-  const assertionPassCount = assertionResults.filter((r) => r.pass).length;
-  const [tab, setTab] = useState<PreviewTab>('body');
+  // A pending snapshot diff counts as one more failed check.
+  const snapshot = snapshots?.snapshot;
+  const changes = useMemo(() => (snapshot && response ? snapshotChanges(snapshot, response) : []), [snapshot, response]);
+  const checkCount = assertionResults.length + (snapshot ? 1 : 0);
+  const assertionPassCount = assertionResults.filter((r) => r.pass).length + (snapshot && changes.length === 0 ? 1 : 0);
+  const suggestions = useMemo(
+    () => (snapshots && response?.kind === 'success' ? suggestAssertions(response, assertions ?? []) : []),
+    [snapshots, response, assertions]
+  );
+  const [selectedTab, setTab] = useState<PreviewTab>('body');
+  const tab = selectedTab === 'snapshot' && !snapshots ? 'body' : selectedTab;
+  // The response whose snapshot diff was rejected, kept across tab switches.
+  const [rejectedAt, setRejectedAt] = useState<string | null>(null);
   // pretty/raw toggle.
   const [prettyJson, setPrettyJson] = useState<boolean>(true);
   // Off by default: long values scroll instead of wrapping back to column 0.
@@ -155,11 +178,11 @@ export function HttpResponsePreview({
 
   const responseTabs = useMemo<ReadonlyArray<ResultHeaderTab>>(
     () =>
-      (['body', 'headers', 'raw', 'timing'] as const).map((tabId) => ({
+      ([...(['body', 'headers', 'raw', 'timing'] as const), ...(snapshots ? (['snapshot'] as const) : [])]).map((tabId) => ({
         id: tabId,
         label: t(`httpWorkspace.response.tab.${tabId}`),
       })),
-    [t]
+    [t, snapshots]
   );
 
   if (isExecuting && !response) {
@@ -253,26 +276,26 @@ export function HttpResponsePreview({
         }
       />
 
-      {/* Assertion results strip. Only shown when the request has
-          enabled assertions; a green/red summary plus a per-row verdict. */}
-      {assertionResults.length > 0 ? (
+      {/* Results strip: shown when the request has enabled assertions or a
+          snapshot, which counts as one more check. */}
+      {checkCount > 0 ? (
         <div
           data-testid="http-response-assertions"
-          data-all-passed={assertionPassCount === assertionResults.length}
+          data-all-passed={assertionPassCount === checkCount}
           className="border-b border-border-subtle bg-bg-panel-alt px-3 py-2"
         >
           <div
             data-testid="http-response-assertions-summary"
             className={cn(
               'text-caption font-semibold',
-              assertionPassCount === assertionResults.length
+              assertionPassCount === checkCount
                 ? 'text-success-fg'
                 : 'text-error-fg'
             )}
           >
             {t('httpWorkspace.editor.assert.results.summary', {
               passed: assertionPassCount,
-              total: assertionResults.length,
+              total: checkCount,
             })}
           </div>
           <ul role="list" className="mt-1 flex flex-col gap-0.5">
@@ -304,7 +327,34 @@ export function HttpResponsePreview({
                 </span>
               </li>
             ))}
+            {snapshot ? (
+              <li data-testid="http-response-snapshot-row" data-pass={changes.length === 0} className="flex items-center gap-2 font-mono text-eyebrow">
+                <span className={cn('rounded-sm px-1 py-0.5 font-semibold', changes.length === 0 ? 'bg-success-bg text-success-fg' : 'bg-error-bg text-error-fg')}>
+                  {t(changes.length === 0 ? 'httpWorkspace.editor.assert.results.pass' : 'httpWorkspace.editor.assert.results.fail')}
+                </span>
+                <span className="text-fg-subtle">
+                  {changes.length === 0 ? t('httpWorkspace.snapshot.matches') : t('httpWorkspace.snapshot.changes', { count: changes.length })}
+                </span>
+              </li>
+            ) : null}
           </ul>
+        </div>
+      ) : null}
+
+      {suggestions.length > 0 && snapshots ? (
+        <div data-testid="http-response-suggestions" className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle px-3 py-2">
+          <span className="text-eyebrow font-semibold uppercase tracking-wide text-fg-subtle">{t('httpWorkspace.snapshot.suggested')}</span>
+          {suggestions.map((suggestion) => (
+            <button
+              key={`${suggestion.source}:${suggestion.path}:${suggestion.comparator}`}
+              type="button"
+              data-testid="http-response-suggestion"
+              onClick={() => snapshots.onAddAssertion(suggestion)}
+              className="focus-ring rounded-md border border-border-subtle px-2 py-0.5 font-mono text-eyebrow text-fg-muted hover:bg-bg-inset hover:text-fg-base"
+            >
+              {`+ ${t(`httpWorkspace.editor.assert.source.${suggestion.source === 'body-json' ? 'bodyJson' : suggestion.source === 'response-time' ? 'responseTime' : suggestion.source}`)}${suggestion.path ? ` ${suggestion.path}` : ''} ${t(`httpWorkspace.editor.assert.cmp.${suggestion.comparator}`)} ${suggestion.expected}`}
+            </button>
+          ))}
         </div>
       ) : null}
 
@@ -486,6 +536,17 @@ export function HttpResponsePreview({
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {tab === 'snapshot' && snapshots ? (
+          <HttpSnapshotPanel
+            response={response}
+            snapshot={snapshot}
+            changes={changes}
+            onChange={snapshots.onChange}
+            rejected={rejectedAt === response.recordedAt}
+            onReject={() => setRejectedAt(response.recordedAt)}
+          />
         ) : null}
 
         {tab === 'timing' ? (

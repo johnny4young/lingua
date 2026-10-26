@@ -46,6 +46,10 @@ export interface HttpEnvironmentPreviewProps {
   env: HttpEnvironmentV1 | null;
   /** With variable scopes on: chips take their scope's colour and say where the value comes from. */
   sources?: ReadonlyMap<string, HttpVariableSource>;
+  /** Chain tag keys: their chips open the tag. */
+  chainKeys?: ReadonlySet<string>;
+  openTag?: string | null;
+  onOpenTag?: (key: string) => void;
 }
 
 type ChipState = 'resolved' | 'secret' | 'unresolved';
@@ -54,6 +58,9 @@ export function HttpEnvironmentPreview({
   request,
   env,
   sources,
+  chainKeys,
+  openTag,
+  onOpenTag,
 }: HttpEnvironmentPreviewProps) {
   const { t } = useTranslation();
 
@@ -145,7 +152,7 @@ export function HttpEnvironmentPreview({
                   overridden: source.overrides.map((scope) => t(`httpWorkspace.scope.${scope}`)).join(', '),
                 })
               : undefined;
-            return (
+            const chipNode = (
               <span
                 key={`${chip.state}:${chip.key}`}
                 {...(source ? { 'data-scope': source.scope, title: origin, style: tintPill(SCOPE_TINTS[source.scope]) } : {})}
@@ -175,6 +182,22 @@ export function HttpEnvironmentPreview({
                   </span>
                 ) : null}
               </span>
+            );
+            return chainKeys?.has(chip.key) && onOpenTag ? (
+              <button
+                key={`tag:${chip.key}`}
+                type="button"
+                data-testid="http-chain-chip"
+                data-tag={chip.key}
+                aria-pressed={openTag === chip.key}
+                aria-label={t('httpWorkspace.chain.tag.open', { name: chip.key })}
+                onClick={() => onOpenTag(openTag === chip.key ? '' : chip.key)}
+                className="focus-ring rounded-sm"
+              >
+                {chipNode}
+              </button>
+            ) : (
+              chipNode
             );
           })}
         </div>

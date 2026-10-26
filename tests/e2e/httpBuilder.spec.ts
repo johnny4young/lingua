@@ -11,7 +11,12 @@ const users = {
   page: 1,
 };
 
-async function openBuilder(page: Page, language: 'en' | 'es', scopes?: { environments: unknown[]; activeEnvironmentId: string }): Promise<void> {
+async function openBuilder(
+  page: Page,
+  language: 'en' | 'es',
+  scopes?: { environments?: unknown[]; activeEnvironmentId?: string; requests?: unknown[]; activeRequestId?: string },
+  flags: Record<string, boolean> = { httpScopes: true }
+): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route(`${API}/**`, (route) =>
     route.fulfill({
@@ -22,19 +27,23 @@ async function openBuilder(page: Page, language: 'en' | 'es', scopes?: { environ
   );
   await seedSession(page, { language });
   if (scopes) {
-    await page.addInitScript((tools) => {
-      const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-      settings.state.featureFlags = { httpScopes: true };
-      localStorage.setItem('lingua-settings', JSON.stringify(settings));
-      if (!localStorage.getItem('lingua-workspace-tool-state')) {
-        localStorage.setItem('lingua-workspace-tool-state', JSON.stringify({ state: { requests: [], ...tools }, version: 1 }));
-      }
-    }, scopes);
+    await page.addInitScript(
+      ({ tools, featureFlags }) => {
+        const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
+        settings.state.featureFlags = featureFlags;
+        localStorage.setItem('lingua-settings', JSON.stringify(settings));
+        if (!localStorage.getItem('lingua-workspace-tool-state')) {
+          localStorage.setItem('lingua-workspace-tool-state', JSON.stringify({ state: { requests: [], ...tools }, version: 1 }));
+        }
+      },
+      { tools: scopes, featureFlags: flags }
+    );
   }
   await gotoApp(page);
   await waitForSeededWorkspaceSettled(page);
   await page.keyboard.press('ControlOrMeta+Shift+K');
   await expect(page.getByTestId('http-workspace-panel')).toBeVisible();
+  if (scopes?.activeRequestId) return;
   const create = page.getByTestId('http-request-list-create');
   if (await create.isVisible().catch(() => false)) await create.click();
   else await page.getByTestId('http-workspace-empty-create').click();
@@ -188,3 +197,118 @@ test('resolves collection, environment and request variables and copies a missin
   expect(sent).toContain(`${API}/repos/hubot?per_page=50&t=prod-token`);
   expect(sent.join(' ')).not.toContain('stg-only');
 });
+
+test('chains a request to the response of another through a tag, sending the source first', async ({ page }) => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const base = { version: 1, method: 'GET', headers: [], createdAt: NOW, updatedAt: NOW };
+  await openBuilder(
+    page,
+    'en',
+    {
+      requests: [
+        { ...base, id: 'get-repo', name: 'Get repo', url: `${API}/repos/{{owner}}/lingua` },
+        {
+          ...base,
+          id: 'list-repos',
+          name: 'List repos',
+          url: `${API}/users/octocat/repos`,
+          captures: [{ id: 'cap', source: 'body-json', path: '[0].owner.login', targetVariable: 'owner', enabled: true }],
+        },
+      ],
+      activeRequestId: 'get-repo',
+    },
+    { httpChainTags: true }
+  );
+  await page.route(`${API}/users/octocat/repos`, (route) =>
+    route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify([{ owner: { login: 'octocat' } }]) })
+  );
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().startsWith(API)) sent.push(request.url());
+  });
+  const send = page.getByTestId('http-request-editor-send');
+  await expect(send).toBeDisabled();
+  await expect(page.getByTestId('http-request-editor-url-hint')).toContainText('owner comes from List repos');
+  await expect(page.getByTestId('http-chain-node')).toHaveCount(2);
+
+  await page.getByTestId('http-chain-chip').click();
+  await expect(page.getByTestId('http-chain-tag-source')).toContainText('List repos · GET');
+  await expect(page.getByTestId('http-chain-tag-preview')).toHaveText('No value: the latest response is missing or not 2xx');
+  await page.getByRole('radio', { name: 'Send source first' }).click();
+  await expect(send).toBeEnabled();
+
+  await send.click();
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+  expect(sent).toEqual([`${API}/users/octocat/repos`, `${API}/repos/octocat/lingua`]);
+  await expect(page.getByTestId('http-chain-tag-preview')).toContainText('"octocat"');
+});
+
+test('asks before sending to a host a chain source just returned', async ({ page }) => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const base = { version: 1, method: 'GET', headers: [], createdAt: NOW, updatedAt: NOW };
+  await openBuilder(
+    page,
+    'en',
+    {
+      requests: [
+        { ...base, id: 'follow', name: 'Follow next', url: '{{nextBase}}/items', chainRules: { nextBase: 'source-first' } },
+        {
+          ...base,
+          id: 'discover',
+          name: 'Discover',
+          url: `${API}/discover`,
+          captures: [{ id: 'cap', source: 'body-json', path: 'next', targetVariable: 'nextBase', enabled: true }],
+        },
+      ],
+      activeRequestId: 'follow',
+    },
+    { httpChainTags: true }
+  );
+  await page.route(`${API}/discover`, (route) =>
+    route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify({ next: `${API}/v2` }) })
+  );
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().startsWith(API)) sent.push(request.url());
+  });
+  await page.getByTestId('http-request-editor-send').click();
+  const notice = page.getByTestId('status-notice-banner');
+  await expect(notice).toContainText(`The chain set the host of Follow next to ${new URL(API).origin}`);
+  expect(sent).toEqual([`${API}/discover`]);
+  await notice.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+  expect(sent).toEqual([`${API}/discover`, `${API}/v2/items`]);
+});
+
+test('snapshots a response, flags a change as a failed check and accepts it', async ({ page }) => {
+  await openBuilder(page, 'en', {}, { httpSnapshots: true });
+  let stars = 12;
+  await page.route(`${API}/repo`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ name: 'janusly', stars, updated_at: new Date().toISOString() }),
+    })
+  );
+  await page.getByTestId('http-request-editor-url').fill(`${API}/repo`);
+  const send = page.getByTestId('http-request-editor-send');
+  await send.click();
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+
+  await page.getByTestId('http-response-suggestion').first().click();
+  await expect(page.getByTestId('http-request-editor-tab-assert')).toHaveText('Tests1');
+
+  await page.getByRole('button', { name: 'Snapshot', exact: true }).click();
+  await page.getByTestId('http-snapshot-toggle').click();
+  await expect(page.getByTestId('http-snapshot-badge')).toHaveText('Matches the snapshot');
+
+  stars = 14;
+  await send.click();
+  await expect(page.getByTestId('http-snapshot-badge')).toHaveText('1 change');
+  await expect(page.getByTestId('http-snapshot-diff')).toContainText('- stars: 12');
+  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('1/2 tests passed');
+  await page.getByTestId('http-snapshot-accept').click();
+  await expect(page.getByTestId('http-snapshot-badge')).toHaveText('Matches the snapshot');
+  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('2/2 tests passed');
+});
+

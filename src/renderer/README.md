@@ -200,8 +200,8 @@ publishing a result. A failed run overlays a View console action that moves
 focus to the Console tab; editing and running again removes the recovery UI.
 The retained successful document is restored only for the same editor tab, so
 a failed refresh cannot display another tab's preview.
-| [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`, `DebuggerBreakpointList.tsx`, `DebuggerWatchList.tsx` | Shared JS/TS/Python/Go/Rust pause controls and paused-frame display; advanced breakpoint modes stay JS/TS-only and native watches disclose side effects |
-| [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`                              | BYO-key "Explain this error" consent + result dialog       |
+| [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx` (lazy, via `DebuggerDrawerHost.tsx`), `DebuggerStepHud.tsx` (lazy, via `DebuggerStepHudHost.tsx`), `useDebuggerControls.ts`, `DebuggerBreakpointList.tsx`, `DebuggerWatchList.tsx` | Shared JS/TS/Python/Go/Rust pause controls, the step HUD under the paused line and paused-frame display; advanced breakpoint modes stay JS/TS-only and native watches disclose side effects |
+| [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`, `ExplainErrorPanel.tsx` (lazy, via `ExplainPanelHost.tsx`), `ErrorLineRow.tsx` (lazy, the actions at the end of a failing line), `useExplainConversation.ts` | BYO-key "Explain this error": the consent dialog for SQL/HTTP/notebook, the panel anchored beside the editor for code tabs, the failing-line actions, and the shared conversation hook |
 | [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
 | [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`, `PlaygroundUrlImportForm.tsx`   | cURL, notebooks, Postman, Bruno file/folder, and bounded playground URL previews before opening workspace tabs; paste, file and drop are explicit (opening the overlay never reads the clipboard); directory reads live in `hooks/brunoDirectoryImport.ts` and URL policy lives in `shared/importers/playgroundUrlImport.ts` |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
@@ -593,6 +593,10 @@ collection state:
   dependency-safe request/response contract used by import detection and
   preview. Keep only closed enums, limits, data shapes, UTF-8 sizing, and the
   blank-request factory there.
+- [`../shared/httpSnapshot.ts`](../shared/httpSnapshot.ts) scrubs and diffs a
+  response against the request's snapshot and suggests tests from a response.
+- [`../shared/httpChain.ts`](../shared/httpChain.ts) derives chain tags, their
+  order and chain-layer rows from capture rules; requests store only `chainRules`.
 - [`../shared/httpPipeline.ts`](../shared/httpPipeline.ts) owns the dependency-
   free, 20-step bounded schema for named sequential HTTP pipelines. Pipelines
   reference saved request ids instead of copying requests, and the store prunes
@@ -767,7 +771,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |
-| [debuggerStore.ts](stores/debuggerStore.ts) | runtime-agnostic persisted breakpoint modes/watch expressions plus session-only JS/TS/Python/Go/Rust paused frames and results; `runtime/debuggerControlBridge.ts` routes controls while `runtime/nativeDebuggerBridge.ts` owns the shared lazy desktop lifecycle and the Python/Go/Rust wrappers supply runtime-specific bridges |
+| [explainPanelStore.ts](stores/explainPanelStore.ts) | the anchored explain panel's error, its pin and one in-memory conversation per tab (never persisted, so code stays off storage); threads of closed tabs are dropped |
+| [debuggerStore.ts](stores/debuggerStore.ts) | runtime-agnostic persisted breakpoint modes/watch expressions plus session-only JS/TS/Python/Go/Rust paused frames, results and the previous pause the step changes compare with; `runtime/debuggerControlBridge.ts` routes controls while `runtime/nativeDebuggerBridge.ts` owns the shared lazy desktop lifecycle and the Python/Go/Rust wrappers supply runtime-specific bridges |
 | [licenseStore.ts](stores/licenseStore.ts)   | license token, verification status, device/recovery metadata — thin factory+facade that picks web vs desktop and re-exports the public types |
 | license split — shared leaves: [licenseTypes.ts](stores/licenseTypes.ts) (`LicenseStatus`/`ServerSyncState`/`RecoverHint`/`LicenseState` + status consts + `LicenseSet`/`LicenseGet`), [licenseBridge.ts](stores/licenseBridge.ts) (`readLicenseBridge` + `LicenseBridge`, including the single IPC Result compatibility adapter), [licenseWebVerify.ts](stores/licenseWebVerify.ts) (embedded Ed25519 key + local verify), [licenseServerMappers.ts](stores/licenseServerMappers.ts) (server verdict → local status), [licenseTokenHelpers.ts](stores/licenseTokenHelpers.ts) (issuedAt/issuedTo decode + stale-token pickup) | imported by both flows; no facade cycle |
 | license split — web flow: [licenseWebActions.ts](stores/licenseWebActions.ts) (setLicenseToken/clearLicense/removeDevice/clearRecoverHint), [licenseWebRevalidate.ts](stores/licenseWebRevalidate.ts) (revalidate), [licenseWebStore.ts](stores/licenseWebStore.ts) (state creator + persist + cross-tab); desktop flow: [licenseDesktopStore.ts](stores/licenseDesktopStore.ts) (bridge-delegating, no persist) | the two stores never import each other |

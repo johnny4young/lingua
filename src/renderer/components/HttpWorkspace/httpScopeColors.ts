@@ -30,6 +30,7 @@ export const ENVIRONMENT_TINTS: Record<HttpEnvironmentColor, HttpTint> = {
 export const SCOPE_TINTS: Record<HttpVariableScope, HttpTint> = {
   collection: ENVIRONMENT_TINTS.purple,
   environment: ENVIRONMENT_TINTS.green,
+  chain: ENVIRONMENT_TINTS.blue,
   request: ENVIRONMENT_TINTS.orange,
 };
 

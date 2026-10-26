@@ -355,7 +355,7 @@ describe.skipIf(!process.env.LINGUA_TEST_PG_URL && !process.env.LINGUA_TEST_MYSQ
   beforeAll(async () => {
     bastion = await startBastion();
   });
-  afterAll(() => bastion.close());
+  afterAll(() => bastion?.close());
 
   for (const [engine, url] of [
     ['postgres', process.env.LINGUA_TEST_PG_URL],
