@@ -104,10 +104,10 @@ export function SqlQueryList({
         aria-current={isActive ? 'true' : undefined}
         style={{ paddingLeft: `${10 + depth * 14}px` }}
         className={cn(
-          'group flex min-h-[23px] cursor-pointer items-center gap-2 rounded-md border-l-2 py-0.5 pr-2.5 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+          'group flex min-h-[23px] cursor-pointer items-center gap-2 rounded-md py-0.5 pr-2.5 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
           isActive
-            ? 'border-l-accent bg-bg-inset text-fg-base'
-            : 'border-l-transparent text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
+            ? 'bg-bg-inset font-medium text-fg-base'
+            : 'text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
         )}
         onClick={() => {
           if (!isRenaming) onSelect(q.id);

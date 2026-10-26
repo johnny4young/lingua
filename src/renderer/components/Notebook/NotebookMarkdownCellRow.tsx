@@ -178,19 +178,10 @@ function NotebookMarkdownCellRowImpl({
       onFocus={() => onActivate(cell.id)}
       className={cn(
         'relative grid gap-2 rounded-md border bg-surface/30 p-3 pl-4 outline-none transition-colors',
-        isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/40'
+        isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/40',
+        isActive && mode === 'edit' && 'bg-primary-soft/25'
       )}
     >
-      {isActive ? (
-        <span
-          aria-hidden="true"
-          data-testid="notebook-cell-accent"
-          className={cn(
-            'absolute inset-y-1 left-0 w-[3px] rounded-full',
-            mode === 'edit' ? 'bg-primary' : 'bg-primary/40'
-          )}
-        />
-      ) : null}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {/* The MD type badge reuses the canonical

@@ -105,7 +105,7 @@ export function SqlRemoteTree({ connection, filter, selected, onOpenObject, onEn
       <li key={key}>
         <div
           style={indent(depth)}
-          className={cn('group', LEAF, isSelected ? 'bg-accent-tint shadow-[inset_2px_0_0_var(--color-accent)]' : 'hover:bg-bg-panel-alt')}
+          className={cn('group', LEAF, isSelected ? 'bg-accent-tint font-semibold' : 'hover:bg-bg-panel-alt')}
         >
           <button
             type="button"

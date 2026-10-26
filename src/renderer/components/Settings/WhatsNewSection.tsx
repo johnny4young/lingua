@@ -298,7 +298,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                           {section.title}
                         </h4>
                       </div>
-                      <ul className="space-y-1.5 border-l-2 border-border/60 pl-4">
+                      <ul className="space-y-1.5">
                         {section.items.map((item) => (
                           <li
                             key={item}

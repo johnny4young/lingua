@@ -89,8 +89,8 @@ export function SqlPlanView({ result }: { result: SqlPlanResult }) {
                 data-testid="sql-plan-node"
                 data-slowest={isSlowest || undefined}
                 className={cn(
-                  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-l-2 py-1 pr-3',
-                  isSlowest ? 'border-l-warning-fg bg-warning-bg/60' : 'border-l-transparent'
+                  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-1 pr-3',
+                  isSlowest && 'bg-warning-bg/60'
                 )}
                 style={{ paddingLeft: `${12 + depth * 16}px` }}
               >

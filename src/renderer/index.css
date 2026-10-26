@@ -2078,7 +2078,7 @@
   }
 
   .settings-rail-row {
-    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
     width: 100%;
   }
 
@@ -2087,7 +2087,7 @@
   }
 
   .settings-rail-row[data-active='true'] {
-    @apply border-l-accent bg-bg-panel text-fg-base font-medium;
+    @apply bg-bg-panel text-fg-base font-medium;
   }
 
   .settings-rail-row[data-dim='true'] {
