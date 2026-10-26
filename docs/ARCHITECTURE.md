@@ -1345,8 +1345,8 @@ The first local run reuses the persisted native-execution acknowledgement.
 That warning is essential: fixed arguments and a filtered environment prevent
 command injection and accidental secret inheritance, but a project's tests and
 dependencies are still arbitrary unsandboxed code with the user's OS
-permissions. The web build omits `window.lingua.projectTests` and shows an
-explicit desktop-only state instead of simulating execution.
+permissions. The web build omits `window.lingua.projectTests`, so the Tests
+tab and its Explorer and Command Palette entry points are hidden there.
 
 #### Project terminal
 

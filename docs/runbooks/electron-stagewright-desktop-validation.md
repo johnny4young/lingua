@@ -29,9 +29,9 @@ args = [
   "/tmp",
   "-y",
   "--package",
-  "@electron-stagewright/core",
+  "@electron-stagewright/core@0.7.0",
   "--package",
-  "playwright",
+  "playwright@1.64.1",
   "electron-stagewright",
   "--screenshot-dir",
   "/abs/path/to/lingua/output/stagewright/screenshots"
@@ -103,7 +103,8 @@ When the MCP tools are available in a future Codex session, prefer this flow:
 2. Launch from the repo root so Electron reads `package.json#main` and app
    metadata. Also pass the repo's Electron binary, because the published MCP
    server runs from an `npx` temp install rather than Lingua's `node_modules`:
-   `electron_launch({ main: "/abs/path/to/lingua", executablePath: "$(node -p 'require(\"electron\")')", cwd: "/abs/path/to/lingua", env: { LINGUA_RENDERER_URL: "http://localhost:5174/" } })`.
+   `electron_launch({ main: "/abs/path/to/lingua", executablePath: "$(node -p 'require(\"electron\")')", cwd: "/abs/path/to/lingua", args: ["--use-mock-keychain"], env: { LINGUA_RENDERER_URL: "http://localhost:5174/" } })`.
+   On Linux pass `--password-store=basic` instead (see the keychain note above).
 3. Inspect with `electron_snapshot` or `electron_find` before interacting.
 4. Prefer `electron_expect_*` tools over manual read/compare/retry loops.
 5. End every pass with `electron_console_logs({ type: "error" })`.
