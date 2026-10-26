@@ -69,6 +69,9 @@ describe('SQL host supervisor', () => {
     children[0]!.emit('exit', 0);
     children[1]!.reply(children[1]!.sent[0]!.id, 'ready');
     expect(await replacement).toEqual({ value: 'ready' });
+    const crashed = supervisor.request({ type: 'close-run', runId: 'crashed' }).catch(error => error);
+    children[1]!.emit('exit', 1);
+    expect(await crashed).toBeInstanceOf(SqlHostError);
     supervisor.dispose();
   });
 

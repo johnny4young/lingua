@@ -62,7 +62,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
-- Desktop SQL host restarts preserve requests sent to the replacement host when the old host exits late.
+- On desktop, the first query after cancelling or timing out a long SQL query no longer fails with The SQL host stopped.
 - Long values in an HTTP response body no longer wrap back to the first column and break the indentation: Wrap is off by default, and when it is on, a wrapped value stays at its own indent.
 - SQL results show LIST and STRUCT columns as arrays and objects instead of Arrow internals.
 - Run Ledger toggle, export and clear events now appear in Privacy › Recent activity; they were dropped before they reached the feed.
