@@ -201,7 +201,7 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
               </div>
             ) : null}
           </div>
-          <SecretStorageNote testId="ai-settings-secret-storage" />
+          {mode === 'remote' ? <SecretStorageNote testId="ai-settings-secret-storage" /> : null}
           <p className="text-caption text-fg-subtle">
             {t('ai.settings.storedLocally')}
           </p>

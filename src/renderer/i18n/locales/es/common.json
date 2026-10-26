@@ -39,7 +39,7 @@
   "ai.settings.mode.remote": "Mi endpoint",
   "ai.settings.mode.localHint": "Un servidor de modelos en este equipo, como Ollama o LM Studio. No necesita clave y nada sale del dispositivo.",
   "ai.settings.mode.remoteHint": "Tu propio proveedor y tu clave. Las solicitudes van a ese endpoint solo cuando eliges Enviar.",
-  "ai.settings.description": "Usa tu propia clave. Lingua no incluye ninguna clave ni endpoint por defecto, y no envía nada sin una acción explícita — siempre ves antes el contenido exacto.",
+  "ai.settings.description": "Usa un modelo en este equipo o tu propio endpoint con tu clave. Lingua no incluye ninguna clave ni endpoint por defecto, y no envía nada sin una acción explícita — siempre ves antes el contenido exacto.",
   "ai.settings.endpointLabel": "Endpoint de chat completions",
   "ai.settings.endpointPlaceholder": "https://api.openai.com/v1/chat/completions",
   "ai.settings.apiKeyLabel": "Clave de API",

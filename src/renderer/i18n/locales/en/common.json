@@ -39,7 +39,7 @@
   "ai.settings.mode.remote": "My endpoint",
   "ai.settings.mode.localHint": "A model server on this machine, such as Ollama or LM Studio. It needs no key, and nothing leaves the device.",
   "ai.settings.mode.remoteHint": "Your own provider and key. Requests go to that endpoint only when you choose Send.",
-  "ai.settings.description": "Bring your own API key. Lingua ships no default key or endpoint, and sends nothing without an explicit action — you always see the exact payload first.",
+  "ai.settings.description": "Use a model on this machine or bring your own endpoint and key. Lingua ships no default key or endpoint, and sends nothing without an explicit action — you always see the exact payload first.",
   "ai.settings.endpointLabel": "Chat completions endpoint",
   "ai.settings.endpointPlaceholder": "https://api.openai.com/v1/chat/completions",
   "ai.settings.apiKeyLabel": "API key",

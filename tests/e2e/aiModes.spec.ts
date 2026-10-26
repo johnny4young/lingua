@@ -62,8 +62,10 @@ for (const language of ['en', 'es'] as const) {
     await openSettingsTab(page, 'account');
     await expect(page.getByTestId('ai-settings-mode-remote')).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByTestId('ai-settings-key')).toHaveValue('remote-fixture-only');
+    await expect(page.getByTestId('ai-settings-secret-storage')).toBeVisible();
     await page.getByTestId('ai-settings-mode-local').click();
     await expect(page.getByTestId('ai-settings-key')).toHaveCount(0);
+    await expect(page.getByTestId('ai-settings-secret-storage')).toHaveCount(0);
     await page.getByTestId('ai-settings-detect').click();
     await page.getByTestId('ai-settings-detect-model').filter({ hasText: 'qwen-fixture' }).click();
     await expect(page.getByTestId('ai-settings-endpoint')).toHaveValue(`${LOCAL_ORIGIN}/v1/chat/completions`);
