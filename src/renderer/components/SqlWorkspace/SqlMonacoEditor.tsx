@@ -1,7 +1,7 @@
 /**
  * Monaco-backed SQL query editor host.
  *
- * Replaces the SQL workspace's plain `<textarea>` with a controlled
+ * Replaces the SQL workspace's plain `<textarea>` with an
  * `@monaco-editor/react` editor on the built-in `sql` language. This is
  * a Free-tier, renderer-only surface — no IPC, no entitlement.
  *
@@ -14,12 +14,12 @@
  *     readouts, and the keyboard-shortcut bus point at the SQL buffer
  *     instead of the main code editor.
  *
- *   - **Controlled value contract.** `value` is the single source of
- *     truth, owned by the parent. `@monaco-editor/react` reconciles the
- *     model when `value` changes externally (e.g. Edit-in-editor insert,
- *     format result) and does NOT re-fire `onChange` for that
- *     library-driven update, so there is no echo loop. We never call
- *     `editor.setValue` on every render — the library owns model sync.
+ *   - **Value contract.** The parent owns `value`, but the model is not
+ *     handed to the wrapper as a controlled prop: its passive-effect sync
+ *     would replay a render that lags the latest keystroke over newer
+ *     text. This host applies only external changes (Format, Edit in
+ *     editor, a query switch) and ignores renders of text it emitted
+ *     itself, without echoing `onChange` for its own replacement.
  *
  *   - **Provider disposal.** The `sql` completion provider and
  *     the two keybinding commands are registered in
@@ -59,6 +59,8 @@ import { sqlDialect } from '../../../shared/sqlDialect';
 configureMonaco();
 
 type EditorInstance = Parameters<OnMount>[0];
+
+const MAX_PENDING_ECHOES = 64;
 
 // Mirror `goCompletions.ts`: derive the completion-provider param types from
 // the Monaco namespace so the inline provider object below type-checks without
@@ -130,12 +132,10 @@ export interface SqlEditorCursor {
 }
 
 export interface SqlMonacoEditorProps {
-  /**
-   * Controlled buffer text. The parent owns this; the editor reconciles
-   * its model when the value changes externally without echoing
-   * `onChange` for that library-driven update.
-   */
+  /** Buffer text owned by the parent; external changes replace the model. */
   value: string;
+  /** Identifies the document `value` belongs to; a new key replaces the model without undo history. */
+  documentKey?: string;
   /** Fired on every user edit with the full buffer text. */
   onChange: (value: string) => void;
   /** A run gesture; `offset` is the cursor (or the gutter statement's start). */
@@ -173,6 +173,7 @@ export interface SqlMonacoEditorProps {
 
 export function SqlMonacoEditor({
   value,
+  documentKey,
   onChange,
   onRunCommand,
   onCancelShortcut,
@@ -220,14 +221,32 @@ export function SqlMonacoEditor({
   useEffect(() => {
     handlersRef.current = { onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut };
   }, [onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut]);
-  // Text replaced from outside (Format, Edit in editor) keeps Monaco's old horizontal scroll,
-  // which can hide every short line; start those at the left edge.
   const typedValueRef = useRef(value);
+  // Texts emitted since the parent last caught up, oldest first. The parent renders them in
+  // order, so a render of one is stale rather than external; the cap bounds a long lag.
+  const pendingEchoesRef = useRef<string[]>([]);
+  const applyingExternalRef = useRef(false);
+  const documentKeyRef = useRef(documentKey);
   useEffect(() => {
+    const echoes = pendingEchoesRef.current;
+    const editor = editorRef.current;
+    if (documentKey !== documentKeyRef.current) {
+      documentKeyRef.current = documentKey;
+      echoes.length = 0;
+      typedValueRef.current = value;
+      if (editor) replaceModelText(editor, value, applyingExternalRef, false);
+      return;
+    }
+    const echo = echoes.indexOf(value);
+    if (echo >= 0) {
+      echoes.splice(0, echo + 1);
+      return;
+    }
     if (value === typedValueRef.current) return;
+    echoes.length = 0;
     typedValueRef.current = value;
-    editorRef.current?.setScrollLeft(0);
-  }, [value]);
+    if (editor) replaceModelText(editor, value, applyingExternalRef, true);
+  }, [value, documentKey]);
   const insertedNonceRef = useRef(insertAtCursor?.nonce ?? 0);
   useEffect(() => {
     const editor = editorRef.current;
@@ -262,6 +281,8 @@ export function SqlMonacoEditor({
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editorRef.current = editor;
+    // `value` may have changed while Monaco was loading.
+    replaceModelText(editor, typedValueRef.current, applyingExternalRef, false);
     // INVARIANT: do NOT call setActiveEditor here — this surface stays
     // out of the global editor-access registry on purpose.
 
@@ -425,12 +446,15 @@ export function SqlMonacoEditor({
       <MonacoEditor
         height="100%"
         language="sql"
-        value={value}
+        defaultValue={value}
         theme={editorTheme}
         beforeMount={handleBeforeMount}
         onChange={(next) => {
-          if (next === undefined) return;
+          if (next === undefined || applyingExternalRef.current) return;
           typedValueRef.current = next;
+          const echoes = pendingEchoesRef.current;
+          echoes.push(next);
+          if (echoes.length > MAX_PENDING_ECHOES) echoes.shift();
           onChange(next);
         }}
         onMount={handleMount}
@@ -438,4 +462,30 @@ export function SqlMonacoEditor({
       />
     </div>
   );
+}
+
+/**
+ * Replaces the whole model, scrolled to the left edge so short lines stay visible. Format and
+ * inserts stay undoable; a new document starts its own undo history.
+ */
+function replaceModelText(
+  editor: EditorInstance,
+  text: string,
+  applying: { current: boolean },
+  undoable: boolean
+): void {
+  const model = editor.getModel();
+  if (!model || model.getValue() === text) return;
+  applying.current = true;
+  try {
+    if (undoable) {
+      editor.executeEdits('sql-external', [{ range: model.getFullModelRange(), text, forceMoveMarkers: true }]);
+      editor.pushUndoStop();
+    } else {
+      model.setValue(text);
+    }
+  } finally {
+    applying.current = false;
+  }
+  editor.setScrollLeft(0);
 }

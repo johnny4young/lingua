@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   SqlMonacoEditor,
@@ -23,6 +24,8 @@ interface Harness {
   selectedRangeText: string | null;
   cursorOffset: number;
   scrollLeftResets: number;
+  externalEdits: number;
+  documentResets: number;
   glyphs: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>;
   onCursor: ((event: unknown) => void) | null;
   onMouseDown: ((event: unknown) => void) | null;
@@ -38,6 +41,8 @@ const harness: Harness = {
   selectedRangeText: null,
   cursorOffset: 0,
   scrollLeftResets: 0,
+  externalEdits: 0,
+  documentResets: 0,
   glyphs: [],
   onCursor: null,
   onMouseDown: null,
@@ -61,23 +66,40 @@ const chord = {
 
 vi.mock('@monaco-editor/react', () => {
   const MonacoEditor = ({
-    value,
+    defaultValue,
     onChange,
     onMount,
     options,
   }: {
-    value: string;
+    defaultValue?: string;
     onChange?: (value: string | undefined) => void;
     onMount?: (editor: unknown, monaco: unknown) => void;
     options?: { ariaLabel?: string; glyphMargin?: boolean };
   }) => {
+    // An uncontrolled model, like Monaco's: only typing and executeEdits change it.
+    const [value, setValue] = useState(defaultValue ?? '');
+    const valueRef = useRef(value);
+    valueRef.current = value;
     const disposable = { dispose: () => {} };
     const editor = {
+      executeEdits: (_source: string, edits: Array<{ text: string }>) => {
+        harness.externalEdits += 1;
+        valueRef.current = edits[0]?.text ?? '';
+        setValue(valueRef.current);
+        return true;
+      },
+      pushUndoStop: () => true,
       getSelection: () => (harness.selectedRangeText !== null ? { __selection: true } : null),
       getPosition: () => ({ lineNumber: 1, column: 1 }),
       getModel: () => ({
         getValueInRange: () => harness.selectedRangeText ?? '',
-        getValue: () => value,
+        getValue: () => valueRef.current,
+        getFullModelRange: () => ({}),
+        setValue: (next: string) => {
+          harness.documentResets += 1;
+          valueRef.current = next;
+          setValue(next);
+        },
         getOffsetAt: (position: { offset?: number }) => position.offset ?? harness.cursorOffset,
       }),
       addCommand: (key: number, callback: () => void) => {
@@ -129,7 +151,11 @@ vi.mock('@monaco-editor/react', () => {
         data-glyph-margin={String(options?.glyphMargin)}
         aria-label={options?.ariaLabel}
         value={value}
-        onChange={(event) => onChange?.(event.target.value)}
+        onChange={(event) => {
+          valueRef.current = event.target.value;
+          setValue(event.target.value);
+          onChange?.(event.target.value);
+        }}
       />
     );
   };
@@ -142,6 +168,8 @@ function resetHarness() {
   harness.selectedRangeText = null;
   harness.cursorOffset = 0;
   harness.scrollLeftResets = 0;
+  harness.externalEdits = 0;
+  harness.documentResets = 0;
   harness.glyphs = [];
   harness.onCursor = null;
   harness.onMouseDown = null;
@@ -284,6 +312,45 @@ describe('SqlMonacoEditor', () => {
       />
     );
     expect(harness.scrollLeftResets).toBe(1);
+  });
+
+  it('ignores a render that lags its own typing and applies an external replacement', () => {
+    const { rerender, onChange } = renderHost({ value: 'SELECT 1;' });
+    const textarea = screen.getByTestId('sql-monaco-textarea') as HTMLTextAreaElement;
+    const host = (value: string, documentKey?: string) => (
+      <SqlMonacoEditor
+        value={value}
+        {...(documentKey ? { documentKey } : {})}
+        statements={splitSqlStatements(value)}
+        runGlyphLabel="Run statement"
+        tables={[]}
+        ariaLabel="SQL query editor"
+        onChange={onChange}
+        onRunCommand={vi.fn()}
+        onCancelShortcut={vi.fn()}
+        onSaveShortcut={vi.fn()}
+        onCursorChange={vi.fn()}
+        onFormatShortcut={vi.fn()}
+      />
+    );
+    fireEvent.change(textarea, { target: { value: 'SELECT 12;' } });
+    fireEvent.change(textarea, { target: { value: 'SELECT 123;' } });
+    rerender(host('SELECT 12;'));
+    expect(textarea.value).toBe('SELECT 123;');
+    rerender(host('SELECT 123;'));
+    expect(harness.externalEdits).toBe(0);
+    rerender(host('SELECT 9;'));
+    expect(textarea.value).toBe('SELECT 9;');
+    expect(harness.externalEdits).toBe(1);
+    expect(onChange).not.toHaveBeenCalledWith('SELECT 9;');
+
+    // A new document whose text matches an earlier keystroke still replaces the model, without undo.
+    fireEvent.change(textarea, { target: { value: '' } });
+    fireEvent.change(textarea, { target: { value: 'x' } });
+    rerender(host('', 'q2'));
+    expect(textarea.value).toBe('');
+    expect(harness.documentResets).toBe(1);
+    expect(harness.externalEdits).toBe(1);
   });
 
   it('offers table, column, and keyword completions', () => {

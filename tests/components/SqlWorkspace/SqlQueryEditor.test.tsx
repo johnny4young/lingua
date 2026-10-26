@@ -23,7 +23,7 @@ describe('SqlQueryEditor', () => {
     vi.useRealTimers();
   });
 
-  it('auto-saves the query text after the debounce settles', () => {
+  it('auto-saves the query text after the debounce settles', async () => {
     const query = createBlankSqlQuery({
       id: 'q1',
       now: '2026-05-26T00:00:00.000Z',
@@ -42,8 +42,10 @@ describe('SqlQueryEditor', () => {
       />
     );
 
-    fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
-      target: { value: 'SELECT 42;' },
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
+        target: { value: 'SELECT 42;' },
+      });
     });
 
     act(() => {
@@ -350,10 +352,12 @@ describe('SqlQueryEditor', () => {
     expect(onRun.mock.calls[1]?.[0]).toMatchObject({ statements: ['SELECT 1'] });
   });
 
-  it('auto-saves the FULL buffer even when only a selection runs', () => {
+  it('auto-saves the FULL buffer even when only a selection runs', async () => {
     const { onRun, onPatch } = renderEditor('SELECT 1;');
-    fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
-      target: { value: 'SELECT 1;\nSELECT 99;' },
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
+        target: { value: 'SELECT 1;\nSELECT 99;' },
+      });
     });
     sqlMonacoHarness.selectedRangeText = 'SELECT 99;';
     act(() => pressSqlChord('selection'));
@@ -453,4 +457,38 @@ describe('SqlQueryEditor', () => {
     // Common keywords ride alongside the table names.
     expect(labels).toContain('SELECT');
   });
+  it('runs the latest draft from the toolbar before React renders it', async () => {
+    const { onRun, onPatch } = renderEditor('SELECT old;');
+    await act(async () => {
+      sqlMonacoHarness.type('SELECT 707 AS current;');
+      fireEvent.click(screen.getByTestId('sql-query-editor-run'));
+      expect(onRun).toHaveBeenCalledTimes(1);
+      expect(onRun.mock.calls[0]?.[0].query.query).toBe('SELECT 707 AS current;');
+      expect(onPatch).toHaveBeenLastCalledWith('q1', { query: 'SELECT 707 AS current;' });
+    });
+  });
+
+  it('formats the latest draft even before React renders it', async () => {
+    vi.useRealTimers();
+    renderEditor('select old');
+    const textarea = screen.getByTestId('sql-query-editor-textarea') as HTMLTextAreaElement;
+    await act(async () => {
+      sqlMonacoHarness.type('select latest');
+      pressSqlChord('format');
+    });
+    await waitFor(() => expect(textarea.value).toBe('SELECT\n  latest'));
+  });
+
+  it('checks the byte cap on the latest draft before React renders it', async () => {
+    const { onRun } = renderEditor('SELECT 1;');
+    await act(async () => {
+      sqlMonacoHarness.type('a'.repeat(256 * 1024 + 1));
+      fireEvent.click(screen.getByTestId('sql-query-editor-run'));
+      expect(onRun).not.toHaveBeenCalled();
+      sqlMonacoHarness.modelValue = 'b'.repeat(256 * 1024 + 1);
+      act(() => pressSqlChord('all'));
+      expect(onRun).not.toHaveBeenCalled();
+    });
+  });
+
 });

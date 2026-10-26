@@ -119,6 +119,18 @@ export function SqlQueryEditor({
   const statements = useMemo(() => splitSqlStatements(text), [text]);
   const [cursorInsert, setCursorInsert] = useState<{ text: string; nonce: number } | null>(null);
   const [cursor, setCursor] = useState<SqlEditorCursor>({ offset: 0, selectionStart: 0, selectionEnd: 0 });
+  // Typing reaches these refs at once, so Run, Format and the unmount flush never read a lagging render.
+  const latestCursorRef = useRef(cursor);
+  const updateText = useCallback((next: string) => {
+    latestTextRef.current = next;
+    setText(next);
+  }, []);
+  const handleCursorChange = useCallback((next: SqlEditorCursor) => {
+    latestCursorRef.current = next;
+    setCursor(next);
+  }, []);
+  // The query the draft belongs to; it changes in the same render as the text it brings.
+  const [draftQueryId, setDraftQueryId] = useState(query.id);
   const cursorIndex = statementAtOffset(statements, cursor.offset)?.index ?? 0;
   const hasSelection = text.slice(cursor.selectionStart, cursor.selectionEnd).trim().length > 0;
 
@@ -138,17 +150,17 @@ export function SqlQueryEditor({
   // didn't touch query text but selection change did). Compare ids
   // via the prop's id capture — the effect re-runs whenever the
   // store-driven query object changes.
+  const syncedQueryIdRef = useRef(query.id);
   useEffect(() => {
+    // Our own auto-save coming back through the store; newer typing may already be ahead of it.
+    if (query.id === syncedQueryIdRef.current && query.query === lastSavedRef.current) return;
+    syncedQueryIdRef.current = query.id;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- This prop-to-draft sync must run after the query-id cleanup has flushed the previous draft.
-    setText(query.query);
-    latestTextRef.current = query.query;
+    updateText(query.query);
+    setDraftQueryId(query.id);
     lastSavedRef.current = query.query;
     pendingTargetIdRef.current = query.id;
-  }, [query.id, query.query]);
-
-  useEffect(() => {
-    latestTextRef.current = text;
-  }, [text]);
+  }, [query.id, query.query, updateText]);
 
   useEffect(() => {
     latestOnPatchRef.current = onPatch;
@@ -156,23 +168,17 @@ export function SqlQueryEditor({
 
   // Edit-in-editor insert. Keyed on the signal nonce so re-inserting
   // the same table (identical text) still fires. Appends on a fresh
-  // line when the draft already has content. The append flows through
-  // `setText` → the controlled `value` prop → Monaco reconciles its
-  // model, so no editor ref is needed. The debounce effect picks up the
-  // resulting `text` change and auto-saves.
+  // line when the draft already has content. The new `value` reaches
+  // Monaco as an external change, and the debounce effect auto-saves it.
   useEffect(() => {
     if (insertSignal === undefined) return;
     if (insertSignal.nonce === lastInsertNonceRef.current) return;
     lastInsertNonceRef.current = insertSignal.nonce;
     if (insertSignal.text.length === 0) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the Edit-in-editor insert nonce) and folds it into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
-    setText((current) => {
-      const trimmed = current.replace(/\s+$/, '');
-      return trimmed.length === 0
-        ? insertSignal.text
-        : `${trimmed}\n${insertSignal.text}`;
-    });
-  }, [insertSignal]);
+    const trimmed = latestTextRef.current.replace(/\s+$/, '');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the Edit-in-editor insert nonce) and folds it into the latest draft, so concurrent typing is preserved.
+    updateText(trimmed.length === 0 ? insertSignal.text : `${trimmed}\n${insertSignal.text}`);
+  }, [insertSignal, updateText]);
 
   useEffect(() => {
     return () => {
@@ -203,8 +209,9 @@ export function SqlQueryEditor({
 
   const runMode = useCallback(
     (mode: SqlRunMenuMode, context: SqlRunContext) => {
-      if (isExecuting || isBusy || overCap) return;
-      const buffer = context.value ?? text;
+      if (isExecuting || isBusy) return;
+      const buffer = context.value ?? latestTextRef.current;
+      if (utf8ByteLength(buffer) > MAX_QUERY_BYTES) return;
       const bufferStatements = buffer === text ? statements : splitSqlStatements(buffer);
       let pieces: string[];
       if (mode === 'all') pieces = bufferStatements.map((statement) => statement.text);
@@ -226,15 +233,16 @@ export function SqlQueryEditor({
       }
       onRun({ query: { ...query, query: buffer }, mode, statements: pieces });
     },
-    [isExecuting, isBusy, overCap, statements, text, query, onPatch, onRun]
+    [isExecuting, isBusy, statements, text, query, onPatch, onRun]
   );
   const selectedText = useCallback(() => {
-    const raw = text.slice(cursor.selectionStart, cursor.selectionEnd);
+    const { selectionStart, selectionEnd } = latestCursorRef.current;
+    const raw = latestTextRef.current.slice(selectionStart, selectionEnd);
     return raw.trim().length > 0 ? raw : null;
-  }, [text, cursor]);
+  }, []);
   const runFromToolbar = useCallback(
-    (mode: SqlRunMenuMode) => runMode(mode, { offset: cursor.offset, selectedText: selectedText() }),
-    [runMode, cursor.offset, selectedText]
+    (mode: SqlRunMenuMode) => runMode(mode, { offset: latestCursorRef.current.offset, selectedText: selectedText() }),
+    [runMode, selectedText]
   );
   useWorkspaceRunTarget('sql', () => runFromToolbar('statement'));
   useCommandListener('workspace.save', (payload) => {
@@ -246,33 +254,37 @@ export function SqlQueryEditor({
   useEffect(() => {
     if (!predicateSignal || predicateSignal.nonce === lastPredicateNonceRef.current) return;
     lastPredicateNonceRef.current = predicateSignal.nonce;
+    const { offset } = latestCursorRef.current;
     if (predicateSignal.raw) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Folds an external insert signal into the editor, like insertSignal above.
       setCursorInsert({ text: predicateSignal.text, nonce: predicateSignal.nonce });
       return;
     }
-    const picked = statementAtOffset(splitSqlStatements(latestTextRef.current), cursor.offset);
+    const picked = statementAtOffset(splitSqlStatements(latestTextRef.current), offset);
     const before = picked
-      ? latestTextRef.current.slice(picked.statement.start, Math.min(cursor.offset, picked.statement.end))
+      ? latestTextRef.current.slice(picked.statement.start, Math.min(offset, picked.statement.end))
       : '';
     const joiner = hasWhereClause(before) ? 'AND' : 'WHERE';
-    const spacer = /\s$/.test(latestTextRef.current.slice(0, cursor.offset)) || cursor.offset === 0 ? '' : ' ';
+    const spacer = /\s$/.test(latestTextRef.current.slice(0, offset)) || offset === 0 ? '' : ' ';
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Folds an external insert signal into the editor, like insertSignal above.
     setCursorInsert({ text: `${spacer}${joiner} ${predicateSignal.text}`, nonce: predicateSignal.nonce });
-  }, [predicateSignal, cursor.offset]);
+  }, [predicateSignal]);
 
   // Pretty-print via sql-formatter in the engine's language. Lazy-import
   // keeps the formatter out of the main chunk.
   const handleFormat = useCallback(async () => {
-    if (overCap) return;
+    const source = latestTextRef.current;
+    if (utf8ByteLength(source) > MAX_QUERY_BYTES) return;
     try {
       const mod = await import('sql-formatter');
-      const formatted = mod.format(text, {
+      // Keystrokes that arrived while the formatter loaded win over formatting the older text.
+      if (latestTextRef.current !== source) return;
+      const formatted = mod.format(source, {
         language: sqlDialect(engine).formatter,
         keywordCase: 'upper',
         tabWidth: 2,
       });
-      setText(formatted);
+      updateText(formatted);
     } catch (err) {
       // sql-formatter throws on syntactically-broken SQL. Push a
       // non-blocking notice — the editor stays in the user's text.
@@ -282,7 +294,7 @@ export function SqlQueryEditor({
         detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
       });
     }
-  }, [text, overCap, engine]);
+  }, [engine, updateText]);
 
   return (
     <div
@@ -340,11 +352,12 @@ export function SqlQueryEditor({
       </header>
       <SqlMonacoEditor
         value={text}
-        onChange={setText}
+        documentKey={draftQueryId}
+        onChange={updateText}
         onRunCommand={runMode}
         onCancelShortcut={onCancel}
         onSaveShortcut={onSave}
-        onCursorChange={setCursor}
+        onCursorChange={handleCursorChange}
         statements={statements}
         runGlyphLabel={t('sqlWorkspace.run.statement')}
         onFormatShortcut={handleFormat}

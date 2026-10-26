@@ -6,6 +6,7 @@
  *   vi.mock('@monaco-editor/react', async () =>
  *     (await import('../../__fixtures__/sqlMonacoMock')).sqlMonacoModule);
  */
+import { useRef, useState } from 'react';
 import { vi } from 'vitest';
 
 type Listener = (event: unknown) => void;
@@ -30,6 +31,8 @@ export const sqlMonacoHarness: {
   edits: string[];
   /** Model text ahead of React, as right after a paste; null mirrors the rendered value. */
   modelValue: string | null;
+  /** Types like Monaco: a native model event, outside React's event system, so React may render it later. */
+  type: (text: string) => void;
   onCursor: Listener | null;
   completionProvider:
     | {
@@ -45,6 +48,7 @@ export const sqlMonacoHarness: {
   cursorOffset: 0,
   edits: [],
   modelValue: null,
+  type: () => {},
   onCursor: null,
   completionProvider: null,
 };
@@ -77,28 +81,46 @@ export function moveSqlCursor(offset: number, selection?: { start: number; end: 
 }
 
 function MonacoEditor({
-  value,
+  defaultValue,
   onChange,
   onMount,
   options,
 }: {
-  value: string;
+  defaultValue?: string;
   onChange?: (value: string | undefined) => void;
   onMount?: (editor: unknown, monaco: unknown) => void;
   options?: { ariaLabel?: string };
 }) {
+  // An uncontrolled model, like Monaco's: only typing and executeEdits change it.
+  const [text, setText] = useState(defaultValue ?? '');
+  const textRef = useRef(text);
+  textRef.current = text;
+  sqlMonacoHarness.type = (next) => {
+    textRef.current = next;
+    setText(next);
+    onChange?.(next);
+  };
   const disposable = { dispose: () => {} };
   const editor = {
     getSelection: () => ({ __selection: true }),
-    executeEdits: (_source: string, edits: Array<{ text: string }>) => {
-      sqlMonacoHarness.edits.push(...edits.map((edit) => edit.text));
+    executeEdits: (source: string, edits: Array<{ text: string }>) => {
+      if (source === 'sql-external') {
+        textRef.current = edits[0]?.text ?? '';
+        setText(textRef.current);
+      } else sqlMonacoHarness.edits.push(...edits.map((edit) => edit.text));
       return true;
     },
+    pushUndoStop: () => true,
     focus: () => {},
     getPosition: () => ({ lineNumber: 1, column: 1 }),
     getModel: () => ({
       getValueInRange: () => sqlMonacoHarness.selectedRangeText ?? '',
-      getValue: () => sqlMonacoHarness.modelValue ?? undefined,
+      getValue: () => sqlMonacoHarness.modelValue ?? textRef.current,
+      getFullModelRange: () => ({}),
+      setValue: (next: string) => {
+        textRef.current = next;
+        setText(next);
+      },
       getOffsetAt: (position: { offset?: number }) => position.offset ?? sqlMonacoHarness.cursorOffset,
     }),
     addCommand: (chord: number, callback: () => void) => {
@@ -129,13 +151,22 @@ function MonacoEditor({
       },
     },
   };
-  onMount?.(editor, monaco);
+  // Monaco mounts once; a host that edits the model on mount must not loop.
+  const mountedRef = useRef(false);
+  if (!mountedRef.current) {
+    mountedRef.current = true;
+    onMount?.(editor, monaco);
+  }
   return (
     <textarea
       data-testid="sql-query-editor-textarea"
       aria-label={options?.ariaLabel}
-      value={value}
-      onChange={(event) => onChange?.(event.target.value)}
+      value={text}
+      onChange={(event) => {
+        textRef.current = event.target.value;
+        setText(event.target.value);
+        onChange?.(event.target.value);
+      }}
       onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
