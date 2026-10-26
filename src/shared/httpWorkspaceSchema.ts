@@ -97,6 +97,9 @@ export const SNAPSHOT_MAX_BODY_BYTES = 256 * 1024;
 /** Live transports retain at most this many discrete messages per run. */
 export const MAX_STREAM_MESSAGES = 1_000;
 
+/** Token-per-event streams (AI chat) may raise the message cap up to this ceiling. */
+export const MAX_STREAM_MESSAGES_CEILING = 20_000;
+
 /** Default request timeout. User can override per request, capped at 5 min. */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 export const MAX_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
@@ -423,11 +426,16 @@ export interface HttpStreamProgress {
   readonly sizeBytes: number;
   readonly messageCount: number;
   readonly opened: boolean;
+  /** Final-hop status and content type, so a caller can start reading before the run settles. */
+  readonly status?: number;
+  readonly contentType?: string;
 }
 
 export interface HttpDesktopRequestOptions {
   allowPrivateHosts: boolean;
   userSensitiveHeaders: string[];
+  /** SSE message cap for this run, between 1 and `MAX_STREAM_MESSAGES_CEILING`. */
+  maxStreamMessages?: number;
 }
 
 export interface HttpDesktopAPI {

@@ -71,6 +71,6 @@ describe('runtime preconnect Vite wiring', () => {
 
     expect(runtimePlugin(config)).toBeUndefined();
     expect(runtimeUrls(config)).toEqual([null, null]);
-    expect(config.plugins.some(plugin => plugin.name === 'lingua-dev-local-ai-csp')).toBe(command === 'serve');
+    expect(config.plugins.some(plugin => plugin.name === 'lingua-dev-local-ai-csp')).toBe(false);
   });
 });

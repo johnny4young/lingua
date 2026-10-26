@@ -103,12 +103,16 @@ export interface HttpProxyOptions extends NetworkTargetOptions {
   maxResponseBodyBytes?: number;
   /** Test seam: override the redirect cap. */
   maxRedirects?: number;
+  /** SSE message cap; defaults to `MAX_STREAM_MESSAGES`. */
+  maxStreamMessages?: number;
   /** Live SSE preview. Called with bounded, already-decoded content. */
   onProgress?: (progress: {
     body: string;
     sizeBytes: number;
     messageCount: number;
     opened: boolean;
+    status?: number;
+    contentType?: string;
   }) => void;
 }
 
@@ -612,11 +616,16 @@ export async function executeHttpProxyRequest(
 
   let bodyResult: { text: string; size: number; tooLarge: boolean };
   try {
+    const onProgress = options.onProgress;
+    const status = response.status;
+    const contentType = response.headers.get('content-type') ?? '';
     bodyResult = await readBodyWithCap(
       response,
       bodyCap,
-      request.transport === 'sse' ? options.onProgress : undefined,
-      request.transport === 'sse' ? MAX_STREAM_MESSAGES : undefined
+      request.transport === 'sse' && onProgress
+        ? (progress) => onProgress({ ...progress, status, contentType })
+        : undefined,
+      request.transport === 'sse' ? (options.maxStreamMessages ?? MAX_STREAM_MESSAGES) : undefined
     );
   } catch (err) {
     if (finalDispatcher) await finalDispatcher.close();

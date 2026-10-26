@@ -3,6 +3,16 @@ export function isLoopbackHostname(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
 }
 
+/** Local AI endpoints: the two loopback hosts both CSPs allow over plain http. */
+export function isLocalAiEndpoint(endpoint: string): boolean {
+  try {
+    const { hostname } = new URL(endpoint.trim());
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
+
 const LOCAL_SUFFIXES = ['.localhost', '.local', '.test', '.internal', '.lan', '.home.arpa'];
 
 /**

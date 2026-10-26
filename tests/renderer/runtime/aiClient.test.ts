@@ -44,6 +44,19 @@ describe('runChatCompletion', () => {
     }
   });
 
+  it('calls a local server without a key or an Authorization header', async () => {
+    let headers: Headers | null = null;
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+      headers = new Headers(init?.headers);
+      return jsonResponse({ error: 'boom' }, { status: 500 });
+    }) as unknown as typeof fetch;
+    const res = await runChatCompletion(request, { endpoint: 'http://localhost:11434/v1/chat/completions', apiKey: '', model: 'qwen' }, { fetchImpl });
+    expect(headers!.has('authorization')).toBe(false);
+    // An empty key masks nothing, so the server's message stays readable.
+    expect(res.ok === false && res.message).toBe('AI endpoint returned 500: {"error":"boom"}');
+    expect((await runChatCompletion(request, { ...config, apiKey: '' }, { fetchImpl })).ok).toBe(false);
+  });
+
   it('sends the key in the Authorization header and the model+messages in the body', async () => {
     const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
@@ -298,5 +311,11 @@ describe('runChatCompletion', () => {
     });
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.content).toBe('ok');
+  });
+  it('treats only localhost and 127.0.0.1 as a keyless local server', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const res = await runChatCompletion(request, { endpoint: 'http://[::1]:11434/v1/chat/completions', apiKey: '', model: 'm' }, { fetchImpl });
+    expect(res).toMatchObject({ ok: false, kind: 'config' });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

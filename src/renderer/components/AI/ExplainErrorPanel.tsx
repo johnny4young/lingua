@@ -17,6 +17,7 @@ import { diffLines } from '../../utils/diff';
 import { recordExplainRating, type ExplainVote } from '../../utils/explainRatings';
 import { scopeValueToString } from '../Console/richConsoleFormat';
 import { ApplyDiff, ExplainExchanges } from './ExplainConversationParts';
+import { ExplainModeSwitch, missingSetupKey } from './ExplainModeSwitch';
 import { useExplainConversation } from './useExplainConversation';
 
 const FOLLOW_UP_CHIPS = ['why', 'safer', 'test'] as const;
@@ -47,6 +48,8 @@ function ExplainConversationPanel({
   const endpoint = useAiConfigStore((s) => s.endpoint);
   const apiKey = useAiConfigStore((s) => s.apiKey);
   const model = useAiConfigStore((s) => s.model);
+  const mode = useAiConfigStore((s) => s.mode);
+  const activeProfile = useAiConfigStore((s) => (s.mode === 'local' ? s.local : s.remote));
   const tab = useEditorStore((s) => s.tabs.find((candidate) => candidate.id === target.tabId) ?? null);
   const pinned = useExplainPanelStore((s) => s.pinned);
   const { run } = useRunner();
@@ -153,13 +156,14 @@ function ExplainConversationPanel({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 py-3">
+        {entitled ? <ExplainModeSwitch /> : null}
         {!entitled ? (
           <p data-testid="ai-explain-upsell" className="text-fg-muted">
             {t('ai.explain.upsell')}
           </p>
         ) : !configured ? (
           <p data-testid="ai-explain-unconfigured" className="text-fg-muted">
-            {t('ai.explain.unconfigured')}
+            {t(missingSetupKey(mode, activeProfile))}
           </p>
         ) : (
           <>

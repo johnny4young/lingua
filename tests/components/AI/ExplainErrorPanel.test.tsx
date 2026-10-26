@@ -25,13 +25,63 @@ beforeAll(async () => {
 beforeEach(() => {
   run.mockClear();
   localStorage.clear();
-  useAiConfigStore.setState({ endpoint: 'https://api.example.com/v1/chat/completions', apiKey: 'k', model: 'm' });
+  const ai = useAiConfigStore.getState();
+  ai.clear();
+  ai.setMode('remote');
+  ai.setEndpoint('https://api.example.com/v1/chat/completions');
+  ai.setModel('m');
+  ai.setApiKey('k');
   useEditorStore.getState().restoreTabs([{ id: 't1', name: 'greeting.js', language: 'javascript', content: CODE }] as never, 't1');
   useExplainPanelStore.setState({ target, pinned: false, threads: {} });
   useResultStore.setState({ scopeSnapshot: null });
 });
 
 describe('anchored explain panel', () => {
+  it('switches between the two profiles and restarts from the consent preview', async () => {
+    const impl = answer('Remote answer.');
+    impl.mockResolvedValueOnce({ ok: true, content: 'Remote answer.' }).mockResolvedValueOnce({ ok: true, content: 'Local answer.' });
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
+    expect(screen.getByTestId('ai-explain-mode-caption').textContent).toBe('m at api.example.com');
+    expect(screen.getByTestId('ai-explain-mode-local')).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('ai-explain-mode-local').getAttribute('title')).toContain('Pick a local model');
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByText('Remote answer.');
+
+    act(() => useAiConfigStore.getState().setProfile('local', { model: 'qwen' }));
+    fireEvent.click(screen.getByTestId('ai-explain-mode-local'));
+    expect(useAiConfigStore.getState().endpoint).toBe('http://localhost:11434/v1/chat/completions');
+    expect(screen.getByTestId('ai-explain-mode-caption').textContent).toBe('qwen on localhost:11434 · nothing leaves this machine');
+    expect(screen.getByTestId('ai-explain-send')).toBeTruthy();
+    expect(screen.queryByText('Remote answer.')).toBeNull();
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByText('Local answer.');
+
+    // Each mode keeps its own thread.
+    fireEvent.click(screen.getByTestId('ai-explain-mode-remote'));
+    expect(screen.getByText('Remote answer.')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('ai-explain-mode-local'));
+    expect(screen.getByText('Local answer.')).toBeTruthy();
+    expect(impl).toHaveBeenCalledTimes(2);
+  });
+
+  it('says Local reaches only this machine when its endpoint is another host', () => {
+    act(() => {
+      useAiConfigStore.getState().setMode('local');
+      useAiConfigStore.getState().setEndpoint('http://192.168.1.20:11434/v1/chat/completions');
+      useAiConfigStore.getState().setModel('qwen');
+    });
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={answer('x')} />);
+    expect(screen.getByTestId('ai-explain-unconfigured').textContent).toContain('Local reaches only localhost or 127.0.0.1');
+  });
+
+  it('names what the active profile is missing', () => {
+    act(() => useAiConfigStore.getState().setMode('local'));
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={answer('x')} />);
+    expect(screen.getByTestId('ai-explain-unconfigured').textContent).toContain('Pick a local model');
+    expect(screen.queryByTestId('ai-explain-mode-caption')).toBeNull();
+    expect(screen.getByTestId('ai-explain-mode-remote')).toHaveProperty('disabled', false);
+  });
+
   it('names the file and line and sends nothing until Send', () => {
     const impl = answer('x');
     render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);

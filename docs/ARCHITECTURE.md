@@ -1478,6 +1478,14 @@ and Capsules. Only the network transport varies by platform:
   run by renderer id plus opaque run id, aborts it when the renderer is
   destroyed, reloaded or crashes, and emits only bounded progress events,
   coalesced to at most one every 100 ms with the latest body always delivered.
+- AI explain's My endpoint reuses the desktop bridge through
+  `src/renderer/runtime/aiProxyFetch.ts`. It always sends
+  `allowPrivateHosts: false`, raises the SSE message cap with
+  `maxStreamMessages` (validated in the handler, at most
+  `MAX_STREAM_MESSAGES_CEILING`; the default stays `MAX_STREAM_MESSAGES`), and
+  opens its stream at the first progress event, which reports the final hop's
+  status and content type. The key travels to main in that run's request
+  headers. See `docs/LOCAL_AI_ADR.md` § Modes and transport.
 - HTTP and SSE resolve and validate every redirect hop, remove authorization,
   cookie, proxy authorization, auth-injected, and user-sensitive headers when
   crossing origins, and pin undici's socket lookup to the addresses that passed

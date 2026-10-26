@@ -21,6 +21,8 @@
  * register a step under key `N` here that upgrades the `N-1` shape to `N`.
  */
 
+import { isLocalAiEndpoint } from '../../utils/loopbackHost';
+
 /**
  * A single forward migration step: upgrades a persisted (already partialized)
  * state from the previous schema version to the next. Must be pure and total —
@@ -148,8 +150,22 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
   'lingua-utility-pipeline-state': {},
   'lingua-workspace-sql-state': {},
   'lingua-workspace-tool-state': {},
-  // BYO-key AI config (endpoint / apiKey / model). No shape change yet.
-  'lingua-ai': {},
+  // v2: one endpoint becomes two profiles. A loopback endpoint is the Local
+  // profile and stays active; any other host is My endpoint, with its key.
+  'lingua-ai': {
+    2: (state) => {
+      const endpoint = typeof state.endpoint === 'string' ? state.endpoint : '';
+      const model = typeof state.model === 'string' ? state.model : '';
+      const apiKey = typeof state.apiKey === 'string' ? state.apiKey : '';
+      const local = isLocalAiEndpoint(endpoint);
+      return {
+        mode: local ? 'local' : 'remote',
+        local: local ? { endpoint, model } : { endpoint: 'http://localhost:11434/v1/chat/completions', model: '' },
+        remote: local ? { endpoint: '', model: '' } : { endpoint, model },
+        ...(local ? {} : state.apiKeyInVault === true ? { apiKeyInVault: true } : { remoteApiKey: apiKey }),
+      };
+    },
+  },
 };
 
 /**

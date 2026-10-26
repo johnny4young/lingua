@@ -85,6 +85,45 @@ describe('desktop SSE proxy', () => {
     expect(progress.at(-1)).toBe(MAX_STREAM_MESSAGES);
   });
 
+  it('streams a POST past the default cap when the caller raises it, with the status in progress', async () => {
+    let received = '';
+    server = createServer((request, response) => {
+      request.setEncoding('utf8');
+      request.on('data', (chunk: string) => {
+        received += chunk;
+      });
+      request.on('end', () => {
+        response.writeHead(200, { 'content-type': 'text/event-stream' });
+        response.end(
+          Array.from({ length: MAX_STREAM_MESSAGES + 500 }, (_, index) => `data: ${index}\n\n`).join('')
+        );
+      });
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('missing port');
+    const progress: { status?: number; contentType?: string }[] = [];
+    const response = await executeHttpProxyRequest(
+      {
+        ...createBlankHttpRequest({ id: 'sse-post' }),
+        transport: 'sse',
+        method: 'POST',
+        url: `http://127.0.0.1:${address.port}/v1/chat/completions`,
+        body: { kind: 'json', content: '{"stream":true}' },
+      },
+      {
+        allowPrivateHosts: true,
+        maxStreamMessages: MAX_STREAM_MESSAGES + 1_000,
+        onProgress: (next) => progress.push({ status: next.status, contentType: next.contentType }),
+      }
+    );
+
+    expect(received).toBe('{"stream":true}');
+    expect(response).toMatchObject({ kind: 'success', messageCount: MAX_STREAM_MESSAGES + 500 });
+    expect(progress[0]).toEqual({ status: 200, contentType: 'text/event-stream' });
+  });
+
   it('times the phases of the hop that answered and counts the redirects before it', async () => {
     server = createServer((request, response) => {
       if (request.url === '/old') {

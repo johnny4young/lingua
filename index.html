@@ -20,14 +20,12 @@
       until implementation completes the first-party hosting decision; see
       docs/RUNTIME_ASSETS_ADR.md.
 
-      implementation / internal — connect-src additionally allows plain-http
-      localhost/127.0.0.1 (any port) so the desktop app can reach a
-      LOCAL AI server (Ollama, LM Studio, llama.cpp) for the
-      explain-error feature — the local-first AI path. Remote https AI
-      endpoints stay blocked on desktop by design until they route
-      through the internal implementation SSRF-guarded main proxy (see
-      docs/LOCAL_AI_ADR.md); loopback-only keeps the audited internal
-      no-exfil posture intact.
+      connect-src additionally allows plain-http localhost/127.0.0.1
+      (any port) so the Local AI mode can reach a server on this
+      machine (Ollama, LM Studio, llama.cpp). Remote AI endpoints never
+      need renderer CSP room: they go through the SSRF-guarded main
+      proxy (see docs/LOCAL_AI_ADR.md), so the renderer stays
+      loopback-only.
     -->
     <meta
       http-equiv="Content-Security-Policy"
