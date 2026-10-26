@@ -470,10 +470,20 @@ const sections = [
     gap: 1rem;
   }
   .bullet-list li {
+    position: relative;
     color: var(--color-text-muted);
     line-height: 1.6;
     padding-left: 1rem;
-    border-left: 2px solid var(--color-border);
+  }
+  .bullet-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--color-accent);
   }
   .bullet-list strong {
     color: var(--color-text);
@@ -503,11 +513,11 @@ const sections = [
     gap: 0.625rem;
   }
   .bullet-list.inline li {
-    border-left: 0;
     padding-left: 0;
     padding-bottom: 0.625rem;
     border-bottom: 1px dashed var(--color-border);
   }
+  .bullet-list.inline li::before { content: none; }
   .bullet-list.inline li:last-child { border-bottom: 0; padding-bottom: 0; }
   .bullet-list.two-col {
     margin-top: 2rem;

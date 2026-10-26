@@ -113,3 +113,24 @@ When the MCP tools are available in a future Codex session, prefer this flow:
 If Stagewright cannot reach the flow because it requires the renderer's existing
 desktop-smoke bridge or native runtime matrix, fall back to `pnpm run
 smoke:desktop`.
+
+## Gallery capture: Project tests
+
+The site gallery shows the Tests tab from a real desktop run, so its evidence
+comes from this flow rather than a web spec.
+
+1. Create a small Vitest project outside `/tmp` (temp roots are blocked) with
+   its own `git init`, so the status bar shows its branch instead of Lingua's,
+   and one failing test.
+2. Write `{"version":1,"roots":["<project path>"]}` to
+   `<userData>/filesystem-approvals.json` and launch with
+   `LINGUA_SMOKE_USER_DATA_DIR=<userData>`. Use `http://localhost:5174/` as the
+   renderer URL; the dev server listens on `::1` only.
+3. Set the TypeScript workflow default to Run in Settings, so opening a source
+   file does not auto-run it in the worker.
+4. Open the project, run all tests, open the source under test, select the
+   failing case and capture at 1440 px wide in English and Spanish.
+5. Scale each capture to 1440 × 879, save it to
+   `output/stagewright/project-tests/project-tests-{en,es}.png`, copy it over
+   `website/public/screenshots/v1.0/`, and run
+   `npm --prefix website run record:showcase-evidence`.
