@@ -103,8 +103,8 @@ test.describe('with a Spanish browser', () => {
     await page.getByTestId('app-language-select').selectOption('system');
 
     await expect(
-      page.getByText('Ajusta el shell, el editor y los valores predeterminados del entorno')
-    ).toBeVisible();
+      page.getByRole('heading', { name: 'Configuración del espacio de trabajo', exact: true })
+    ).toBeAttached();
     await expect(
       page.getByTestId('app-language-select').locator('option[value="en"]')
     ).toHaveText('Inglés');

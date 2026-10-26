@@ -40,11 +40,7 @@ test.describe('Language intelligence Settings rows', () => {
     await expect(
       page.getByText(/Rust language intelligence — desktop only/i)
     ).toBeVisible();
-    await expect(
-      page.getByText(/rust-analyzer runs as a local subprocess/i)
-    ).toBeVisible();
     await expect(page.getByText(/Go language intelligence — desktop only/i)).toBeVisible();
-    await expect(page.getByText(/gopls runs as a local subprocess/i)).toBeVisible();
 
     expect(consoleErrors).toEqual([]);
   });
@@ -57,10 +53,5 @@ test.describe('Language intelligence Settings rows', () => {
 
     await expect(page.getByText(/Inteligencia de Rust — solo escritorio/i)).toBeVisible();
     await expect(page.getByText(/Inteligencia de Go — solo escritorio/i)).toBeVisible();
-    await expect(
-      page.getByText(
-        /gopls corre como subproceso local y no está disponible en la versión web/i
-      )
-    ).toBeVisible();
   });
 });

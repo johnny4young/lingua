@@ -187,7 +187,7 @@ test.describe('Automated axe scans', () => {
   test("What's New overlay", async ({ page }) => {
     await openPaletteAction(page, "what's new", /What's New/i);
     await expect(
-      page.getByRole('heading', { name: /release notes and recent changes/i })
+      page.getByRole('heading', { name: "What's New", exact: true })
     ).toBeVisible();
     await expect(page.getByRole('dialog', { name: /what's new/i })).toBeVisible();
     await auditA11y(page);
