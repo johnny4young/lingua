@@ -20,7 +20,8 @@ action and a preview of exactly what is sent.
 ## Proposed decision
 
 1. **BYO-API-key, provider-agnostic.** The user supplies their own endpoint +
-   API key (their account, their data-processing terms). Default wire shape is
+   API key (their account, their data-processing terms); a server on
+   `localhost` or `127.0.0.1` takes none. Default wire shape is
    the widely-supported **OpenAI-compatible `/chat/completions`** JSON, which
    also targets Anthropic (compat endpoint), local servers (Ollama, LM Studio,
    llama.cpp), and gateways. Lingua ships **no default key and no default
@@ -152,7 +153,10 @@ Local profile, any other host becomes My endpoint with its key.
 
 Every JSON and error body is read incrementally with a 2 MiB wire cap; SSE gets
 16 MiB because each token carries a JSON envelope. SSE pending lines are capped
-at 256 KiB; generated text at 256 KiB UTF-8.
+at 256 KiB; generated text at 256 KiB UTF-8. Those renderer budgets apply as
+they stand to a direct `fetch` (web, and Local on desktop). On desktop, My
+endpoint reaches the renderer through main, whose 4 MiB body cap and 20 000
+SSE message cap apply first; either one ends the run as a `limit` failure.
 The default inactivity deadline remains 60 seconds, with a separate five-minute
 absolute ceiling that keepalives cannot extend. `[DONE]`, cancellation, and
 budget failures close the reader; normal EOF remains compatible with local

@@ -44,8 +44,8 @@ Ollama reflects CORS for any origin, LM Studio needs its CORS toggle.
    My endpoint; notebook, SQL and HTTP open the dialog.
 
 On desktop, My endpoint goes through main's HTTP proxy, so a remote provider
-needs no CORS. Main blocks private hosts there; a server on this machine
-belongs in the Local profile.
+needs no CORS, and the proxy refuses private-network hosts. A `localhost` or
+`127.0.0.1` address is sent directly from the renderer, like Local.
 
 ## Option B — agent-driven Playwright smoke (no CSP change relied on)
 

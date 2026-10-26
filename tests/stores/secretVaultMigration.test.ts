@@ -61,6 +61,26 @@ afterEach(() => {
   localStorage.clear();
 });
 
+describe('lingua-ai v1 upgrade', () => {
+  it('keeps the vault marker when the vault is not ready on the upgrade boot', async () => {
+    vault.mode = 'session';
+    vault.values.set('ai.api-key', 'sk-in-vault');
+    localStorage.setItem(
+      'lingua-ai',
+      JSON.stringify({ state: { endpoint: 'https://api.example.com/v1', apiKeyInVault: true, model: 'gpt' }, version: 1 })
+    );
+    const { syncAiKeyWithVault } = await bootAiStore();
+    await syncAiKeyWithVault();
+    expect(persisted('lingua-ai')).toMatchObject({ mode: 'remote', apiKeyInVault: true });
+    expect(persisted('lingua-ai')).not.toHaveProperty('remoteApiKey');
+
+    vault.mode = 'encrypted';
+    const next = await bootAiStore();
+    await next.syncAiKeyWithVault();
+    expect(next.useAiConfigStore.getState().apiKey).toBe('sk-in-vault');
+  });
+});
+
 describe('AI key in the secret vault', () => {
   it('moves a legacy plaintext key into the vault and out of localStorage', async () => {
     localStorage.setItem(

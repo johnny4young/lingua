@@ -143,7 +143,12 @@ export const useAiConfigStore = create<AiConfigState>()(
         mode: state.mode,
         local: state.local,
         remote: state.remote,
-        ...(vaultOwnsApiKey ? { apiKeyInVault: vaultHasKey } : { remoteApiKey: state.remoteApiKey }),
+        // Before the vault check runs (a migration writes at once), keep its marker unless a key was typed.
+        ...(vaultOwnsApiKey
+          ? { apiKeyInVault: vaultHasKey }
+          : state.apiKeyInVault && !state.remoteApiKey
+            ? { apiKeyInVault: true }
+            : { remoteApiKey: state.remoteApiKey }),
       }),
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<AiConfigState> | undefined) };
