@@ -7,6 +7,7 @@ import { chmod, mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 assert.notEqual(process.platform, 'win32', 'POSIX live smoke; Windows tree termination is covered in CI');
 const root = process.cwd();
@@ -51,7 +52,7 @@ try {
   }, 'Renderer server did not become ready');
   for (const phase of ['debugger-cleanup', 'early-parent-close', 'window-close', 'app-quit']) {
     const profile = path.join(fixture, phase);
-    app = await _electron.launch({ executablePath: electronBinary, args: [root], cwd: root, env: {
+    app = await _electron.launch({ executablePath: electronBinary, args: [...isolatedCredentialStoreArgs(), root], cwd: root, env: {
       ...process.env, LINGUA_SMOKE_USER_DATA_DIR: profile, LINGUA_RENDERER_URL: rendererUrl,
       ELECTRON_RUN_AS_NODE: undefined,
     }, timeout: 30000 });

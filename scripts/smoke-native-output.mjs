@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron } from 'playwright';
 import { assertUnicodeCapture, unicodeFixture } from './lib/nativeOutputSmoke.mjs';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const root = process.cwd();
 const artifacts = path.join(root, 'output/playwright/native-output');
@@ -19,7 +20,7 @@ let failure = null;
 try {
   app = await _electron.launch({
     executablePath: createRequire(import.meta.url)('electron'),
-    args: [root],
+    args: [...isolatedCredentialStoreArgs(), root],
     cwd: root,
     env: {
       ...process.env,

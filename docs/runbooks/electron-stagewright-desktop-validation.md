@@ -69,8 +69,10 @@ The script:
 
 1. Rebuilds Lingua's Electron main/preload bundles for `http://localhost:5174/`.
 2. Starts the renderer Vite server unless `--reuse-server` is passed.
-3. Starts the `electron-stagewright` MCP server over stdio.
-4. Launches Lingua through `electron_launch`.
+3. Starts the `electron-stagewright` MCP server over stdio, pinned to
+   `@electron-stagewright/core@0.7.0` and `playwright@1.64.1`.
+4. Launches Lingua through `electron_launch` with a mock credential store
+   (`--use-mock-keychain` on macOS, `--password-store=basic` on Linux).
 5. Verifies `#root` is visible, takes an interactive accessibility snapshot,
    captures a screenshot, and fails on renderer console errors.
 6. Writes artifacts under `output/stagewright/desktop-smoke/`.
@@ -82,6 +84,14 @@ pnpm run smoke:desktop:stagewright -- --reuse-server
 pnpm run smoke:desktop:stagewright -- --renderer-url http://localhost:5174/
 pnpm run smoke:desktop:stagewright -- --timeout-ms 90000
 ```
+
+Every Electron launch in `scripts/` takes its switches from
+`scripts/lib/electronLaunchArgs.mjs`. Without them, `safeStorage` reads the
+real "Electron Safe Storage" keychain item; after an Electron upgrade the new
+binary is not in that item's access list, macOS shows an access prompt, and
+the main process blocks until someone answers it, so `electron_launch` times
+out with no error. A launch that hangs only right after an Electron bump is
+that prompt.
 
 ## Agent-driven UI checks
 

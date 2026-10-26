@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url';
 import { _electron, chromium, expect } from 'playwright/test';
 import { getCurrentFuseWire, FuseV1Options } from '@electron/fuses';
 import { mintDevLicense } from './dev-license-shared.mjs';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 const root = process.cwd();
 const packaged = process.argv.includes('--packaged');
 const fixtureServers = process.argv.includes('--fixture-servers');
@@ -156,7 +157,7 @@ try {
   } else {
     app = await _electron.launch({
       executablePath: createRequire(import.meta.url)('electron'),
-      args: [root],
+      args: [...isolatedCredentialStoreArgs(), root],
       cwd: root,
       env: {
         ...env,

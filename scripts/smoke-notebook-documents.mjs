@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { _electron, expect } from 'playwright/test';
 import { mintDevLicense } from './dev-license-shared.mjs';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const root = process.cwd();
 const packaged = process.argv.includes('--packaged');
@@ -97,7 +98,7 @@ try {
     : createRequire(import.meta.url)('electron');
   app = await _electron.launch({
     executablePath,
-    args: packaged ? [] : [root],
+    args: [...isolatedCredentialStoreArgs(), ...(packaged ? [] : [root])],
     cwd: root,
     env: {
       ...env,
