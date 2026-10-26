@@ -77,7 +77,6 @@ The format follows Keep a Changelog and groups changes by release.
 - Run, HTTP, SQL and pipeline capsules recorded in the desktop app now say desktop instead of web.
 - HTTP requests queued during an earlier reconnect send resume when it finishes; queued writes still wait for Send now.
 - Fast typing in the SQL editor no longer drops keystrokes or saves an older draft; Run and Format use the newest text.
-- Switching SQL queries with identical text resets the previous query's undo history and keeps the Run glyphs.
 
 ### Security
 - The desktop local MCP server moves to the patched @modelcontextprotocol packages (server 2.3.1, node 2.1.1), which fix one HTTP client's messages reaching another on a shared transport and a request that could exhaust memory during validation.
@@ -89,6 +88,11 @@ The format follows Keep a Changelog and groups changes by release.
 - The HTTP response header keeps its timing and size on one line; a long status text is shortened first.
 - Quick Open describes an unsaved tab as "Unsaved · edited 2 min ago" instead of showing its internal id, and shows the project-relative path for files on disk.
 - SQL result columns are labeled with DuckDB type names (VARCHAR, INTEGER, DECIMAL(6,2)), the same names the column profile uses; the Arrow name is in the tooltip.
+
+## [1.6.3] — 2026-10-26
+
+### Fixed
+- Switching SQL queries with identical text resets the previous query's undo history and keeps the Run glyphs.
 
 ## [1.6.2] — 2026-10-19
 
