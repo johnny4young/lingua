@@ -1,6 +1,6 @@
 /**
- * The desktop engine for saved database connections: statements go to the
- * SQL host through `window.lingua.db` one at a time and come back in the
+ * The engine for database connections: statements go through the bridge
+ * (main's SQL host on desktop, the browser's HTTP engines on the web) one at a time and come back in the
  * Local engine's shape, with the rest of a windowed result behind a cursor.
  */
 
@@ -8,11 +8,15 @@ import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbBridge, SqlDbFixHint, SqlDbRunResult } from '../../shared/sqlDb';
 import type { DuckDbExecuteOutcome, SqlResultCursor } from './duckdbClient';
 import { appPlatform } from '../utils/appPlatform';
+import { createWebSqlDb } from './sqlWebDb';
 
 export type RemoteOutcome = DuckDbExecuteOutcome & { engine: SqlRemoteEngine; fix?: SqlDbFixHint; affectedRows?: number };
 
-/** The bridge on desktop builds; null on web, where only Local runs. */
-export const sqlDbBridge = (): SqlDbBridge | null => (appPlatform() === 'desktop' ? (window.lingua?.db ?? null) : null);
+let webBridge: SqlDbBridge | null = null;
+
+/** Main's bridge on desktop; on the web, the browser's own for session-only Turso and Neon connections. */
+export const sqlDbBridge = (): SqlDbBridge | null =>
+  appPlatform() === 'desktop' ? (window.lingua?.db ?? null) : (webBridge ??= createWebSqlDb());
 
 const PAGE_BYTES = 64 * 1024 * 1024;
 

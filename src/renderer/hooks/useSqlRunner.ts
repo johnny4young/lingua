@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { capHistorySql } from '../../shared/sqlHistory';
-import { isWriteSqlStatementOn, redactSqlSecrets } from '../../shared/sqlStatements';
+import { isWriteSqlStatementOn, provesReadsOnly, redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
@@ -70,7 +70,7 @@ export interface SqlPlanResult {
 export type SqlResultView = { kind: 'result'; index: number } | { kind: 'messages' } | { kind: 'plan' };
 
 /** The SQL behind each query's newest response, so Profile and the strip use exactly what ran. */
-export const sessionRunSources = new Map<string, { recordedAt: string; query: string }>();
+export const sessionRunSources = new Map<string, { recordedAt: string; query: string; connectionId?: string }>();
 
 /** Rows read past the window with Load more, for one response; session only. */
 interface SqlMoreRows {
@@ -169,8 +169,9 @@ const setRunState = (patch: Partial<SqlRunState>) => useSqlRunState.setState(pat
 
 const isResult = (status: SqlResponseV1['status']) => status === 'success' || status === 'too-large';
 
-function recordRun(queryId: string, sql: string, response: SqlResponseV1, connectionId?: string): void {
-  const capped = capHistorySql(redactSqlSecrets(sql));
+function recordRun(queryId: string, sql: string, response: SqlResponseV1, connection?: Pick<SqlDbConnectionView, 'id' | 'engine'>): void {
+  const connectionId = connection?.id;
+  const capped = capHistorySql(redactSqlSecrets(sql, connection?.engine));
   useWorkspaceSqlStore.getState().recordHistory({
     version: 1,
     id: crypto.randomUUID(),
@@ -240,7 +241,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const onStatement = (index: number, outcome: DuckDbExecuteOutcome) => {
         const response = toSqlResponse(outcome);
         results.push({ sql: statements[index] ?? '', response });
-        recordRun(query.id, statements[index] ?? '', response, remote?.connection.id);
+        recordRun(query.id, statements[index] ?? '', response, remote?.connection);
       };
       const db = sqlDbBridge();
       const outcomes: DuckDbExecuteOutcome[] =
@@ -265,14 +266,14 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       if (results.length === 0 && outcomes[0]) {
         const response = toSqlResponse(outcomes[0]);
         results.push({ sql: statements[0] ?? '', response });
-        recordRun(query.id, statements[0] ?? '', response, remote?.connection.id);
+        recordRun(query.id, statements[0] ?? '', response, remote?.connection);
       }
       const last = results[results.length - 1];
       if (!last) return;
       if (outcomes.some((outcome) => outcome.stillRunning)) setRunState({ stuck: true });
       const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
       for (const id of sessionRunSources.keys()) if (!liveIds.has(id)) sessionRunSources.delete(id);
-      sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql });
+      sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql, ...(remote ? { connectionId: remote.connection.id } : {}) });
       useWorkspaceSqlStore.getState().recordResponse(query.id, last.response);
       const cursor = outcomes[outcomes.length - 1]?.cursor;
       const key = moreRowsKey(query.id, last.response.recordedAt);
@@ -335,8 +336,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       // Remote engines explain through their own EXPLAIN, shown as rows.
       const toRun = connection && mode === 'explain' ? [`EXPLAIN ${statements[0]}`] : statements;
       let confirmName: string | undefined;
-      // A read-only SQL Server connection cannot refuse a write on the server, so it asks too.
-      if (connection?.env === 'prod' || connection?.confirmWrites || (connection?.readOnly && connection.engine === 'sqlserver')) {
+      // An engine with no read-only session (SQL Server, D1) cannot refuse a write on the server, so it asks too.
+      if (connection?.env === 'prod' || connection?.confirmWrites || (connection?.readOnly && provesReadsOnly(connection.engine))) {
         const writes = toRun.filter((statement) => isWriteSqlStatementOn(connection.engine, statement));
         if (writes.length > 0) {
           const typed = await requestWriteConfirm(connection, writes);

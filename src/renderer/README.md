@@ -52,15 +52,20 @@ that release transition so a new engine cannot reopen partially cleared data.
 Full-result export (`COPY … TO` a virtual file, or rows through the result
 cursor) lives in [`runtime/duckdbExport.ts`](runtime/duckdbExport.ts), and
 foreign-key metadata in [`runtime/sqlForeignKeys.ts`](runtime/sqlForeignKeys.ts).
-Saved database connections run through
+Database connections run through
 [`runtime/sqlRemote.ts`](runtime/sqlRemote.ts), which sends one statement at a
-time to the desktop SQL host over `window.lingua.db` and pages the rest of a
-result through the same `SqlResultCursor`; the bridge is absent on web. Anything
+time through `sqlDbBridge()` and pages the rest of a result through the same
+`SqlResultCursor`: on desktop the bridge is `window.lingua.db` (main's SQL
+host), on web [`runtime/sqlWebDb.ts`](runtime/sqlWebDb.ts) (Turso and Neon for
+the tab, secrets in module memory). Anything
 that re-runs a result on DuckDB (Profile, Save as table, full export) checks the
-response's `engine` first. Staged row edits on an Explorer table (Labs) keep
+response's `engine` first; Copy to Local
+([`runtime/sqlCopyToLocal.ts`](runtime/sqlCopyToLocal.ts)) is the one hand-off
+for a connection's result, re-running it on the connection and filling a new
+Local table. Staged row edits on an Explorer table (Labs) keep
 their state in [`hooks/useSqlRowEdits.ts`](hooks/useSqlRowEdits.ts), with the
 overlay rows and change set in `components/SqlWorkspace/sqlRowEditModel.ts`;
-Commit goes through `window.lingua.db.applyEdits` on a connection and
+Commit goes through the same bridge's `applyEdits` on a connection and
 [`runtime/sqlLocalEdits.ts`](runtime/sqlLocalEdits.ts) on Local.
 
 The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`
@@ -195,8 +200,8 @@ publishing a result. A failed run overlays a View console action that moves
 focus to the Console tab; editing and running again removes the recovery UI.
 The retained successful document is restored only for the same editor tab, so
 a failed refresh cannot display another tab's preview.
-| [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`, `DebuggerBreakpointList.tsx`, `DebuggerWatchList.tsx` | Shared JS/TS/Python/Go/Rust pause controls and paused-frame display; advanced breakpoint modes stay JS/TS-only and native watches disclose side effects |
-| [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`                              | BYO-key "Explain this error" consent + result dialog       |
+| [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx` (lazy, via `DebuggerDrawerHost.tsx`), `DebuggerStepHud.tsx` (lazy, via `DebuggerStepHudHost.tsx`), `useDebuggerControls.ts`, `DebuggerBreakpointList.tsx`, `DebuggerWatchList.tsx` | Shared JS/TS/Python/Go/Rust pause controls, the step HUD under the paused line and paused-frame display; advanced breakpoint modes stay JS/TS-only and native watches disclose side effects |
+| [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`, `ExplainErrorPanel.tsx` (lazy, via `ExplainPanelHost.tsx`), `ErrorLineRow.tsx` (lazy, the actions at the end of a failing line), `useExplainConversation.ts` | BYO-key "Explain this error": the consent dialog for SQL/HTTP/notebook, the panel anchored beside the editor for code tabs, the failing-line actions, and the shared conversation hook |
 | [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
 | [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`, `PlaygroundUrlImportForm.tsx`   | cURL, notebooks, Postman, Bruno file/folder, and bounded playground URL previews before opening workspace tabs; paste, file and drop are explicit (opening the overlay never reads the clipboard); directory reads live in `hooks/brunoDirectoryImport.ts` and URL policy lives in `shared/importers/playgroundUrlImport.ts` |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
@@ -588,6 +593,10 @@ collection state:
   dependency-safe request/response contract used by import detection and
   preview. Keep only closed enums, limits, data shapes, UTF-8 sizing, and the
   blank-request factory there.
+- [`../shared/httpSnapshot.ts`](../shared/httpSnapshot.ts) scrubs and diffs a
+  response against the request's snapshot and suggests tests from a response.
+- [`../shared/httpChain.ts`](../shared/httpChain.ts) derives chain tags, their
+  order and chain-layer rows from capture rules; requests store only `chainRules`.
 - [`../shared/httpPipeline.ts`](../shared/httpPipeline.ts) owns the dependency-
   free, 20-step bounded schema for named sequential HTTP pipelines. Pipelines
   reference saved request ids instead of copying requests, and the store prunes
@@ -617,7 +626,8 @@ collection state:
   must not add a desktop-only direct network path around this bridge.
 - [`../shared/httpWorkspaceCurl.ts`](../shared/httpWorkspaceCurl.ts) owns
   shell-safe cURL serialization and request-body fidelity. Copy surfaces import
-  it directly and mask active environment secrets before calling it.
+  it directly and mask the secrets of every variable scope it resolves against
+  (`scopedEnvironmentFor`) before calling it.
 - [`../shared/httpWorkspaceCaptures.ts`](../shared/httpWorkspaceCaptures.ts)
   owns response selectors and environment-write candidates for request
   chaining.
@@ -625,6 +635,13 @@ collection state:
   builds assertion evaluation on that selector leaf. Response and editor surfaces
   import these modules directly so neither domain depends on the complete
   behavioral facade.
+- [`components/HttpWorkspace/httpJsonTreeModel.ts`](components/HttpWorkspace/httpJsonTreeModel.ts)
+  owns the response tree's node pointers, search and the capture paths it
+  offers; a path is offered only when the capture walker reads it back to the
+  same value. `HttpRequestEditor` registers the handler that turns a picked
+  value into a capture rule, so the rule lands in the editor's draft, not
+  behind it. `httpUrlState` in `../shared/httpEnvironment.ts` decides when Send
+  is on and returns only a verdict, never the resolved URL.
 - [`../shared/httpWorkspace.ts`](../shared/httpWorkspace.ts) preserves the
   historical public API as a compatibility-only facade. Production code must
   import schema, persistence, headers, query, cURL, capture, and assertion
@@ -651,11 +668,13 @@ collection state:
 - The SQL tab puts the connection bar (Local · DuckDB, or the query's saved connection) on top, the Explorer
   beside the editor and the results under it. On Local the Explorer reads its tree
   through [`runtime/sqlExplorerCatalog.ts`](runtime/sqlExplorerCatalog.ts)
-  (tables, views, columns, row counts, macros); `lingua_ledger` stays out of
+  (tables, views, columns, row counts, macros, and the connection a copied
+  table came from, read from its comment); `lingua_ledger` stays out of
   the tree but in editor completion. A table opened from the Explorer shows its
   rows under a generated SQL strip without adding a run to history.
   [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
-  Export dialog's Save as table, Send to Python tab and Save as run capsule;
+  Export dialog's Save as table (Copy to Local on a connection's result), Send to
+  Python tab and Save as run capsule;
   [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
   table previews (on a connection too), with Edit table rows on the table's
   edit target or why it is read-only, and on Local foreign-key follow and
@@ -752,7 +771,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |
-| [debuggerStore.ts](stores/debuggerStore.ts) | runtime-agnostic persisted breakpoint modes/watch expressions plus session-only JS/TS/Python/Go/Rust paused frames and results; `runtime/debuggerControlBridge.ts` routes controls while `runtime/nativeDebuggerBridge.ts` owns the shared lazy desktop lifecycle and the Python/Go/Rust wrappers supply runtime-specific bridges |
+| [explainPanelStore.ts](stores/explainPanelStore.ts) | the anchored explain panel's error, its pin and one in-memory conversation per tab (never persisted, so code stays off storage); threads of closed tabs are dropped |
+| [debuggerStore.ts](stores/debuggerStore.ts) | runtime-agnostic persisted breakpoint modes/watch expressions plus session-only JS/TS/Python/Go/Rust paused frames, results and the previous pause the step changes compare with; `runtime/debuggerControlBridge.ts` routes controls while `runtime/nativeDebuggerBridge.ts` owns the shared lazy desktop lifecycle and the Python/Go/Rust wrappers supply runtime-specific bridges |
 | [licenseStore.ts](stores/licenseStore.ts)   | license token, verification status, device/recovery metadata — thin factory+facade that picks web vs desktop and re-exports the public types |
 | license split — shared leaves: [licenseTypes.ts](stores/licenseTypes.ts) (`LicenseStatus`/`ServerSyncState`/`RecoverHint`/`LicenseState` + status consts + `LicenseSet`/`LicenseGet`), [licenseBridge.ts](stores/licenseBridge.ts) (`readLicenseBridge` + `LicenseBridge`, including the single IPC Result compatibility adapter), [licenseWebVerify.ts](stores/licenseWebVerify.ts) (embedded Ed25519 key + local verify), [licenseServerMappers.ts](stores/licenseServerMappers.ts) (server verdict → local status), [licenseTokenHelpers.ts](stores/licenseTokenHelpers.ts) (issuedAt/issuedTo decode + stale-token pickup) | imported by both flows; no facade cycle |
 | license split — web flow: [licenseWebActions.ts](stores/licenseWebActions.ts) (setLicenseToken/clearLicense/removeDevice/clearRecoverHint), [licenseWebRevalidate.ts](stores/licenseWebRevalidate.ts) (revalidate), [licenseWebStore.ts](stores/licenseWebStore.ts) (state creator + persist + cross-tab); desktop flow: [licenseDesktopStore.ts](stores/licenseDesktopStore.ts) (bridge-delegating, no persist) | the two stores never import each other |
@@ -760,11 +780,12 @@ Use the closest store that already owns the product concept instead of adding cr
 | [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | records a `license` trust event on each verify (active/grace) or rejection (invalid, by reason code); wired by the facade so the seam stays thin |
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
 | [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
+| [httpOfflineQueueStore.ts](stores/httpOfflineQueueStore.ts) | HTTP sends held while offline: one request id each, in memory only |
 | [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace queries (scratch and saved), open query tabs, results, run history, folded Explorer, imported table sources |
 | [sqlConnectionsStore.ts](stores/sqlConnectionsStore.ts) | the desktop database connection catalog read from main (saved and session-only connections, Free count, keychain availability); never persisted in the renderer and never holds a password |
 | [sqlRemoteCatalogStore.ts](stores/sqlRemoteCatalogStore.ts) | each database connection's catalog as the Explorer reads it (schemas, objects, columns, object detail), in memory for the session; Refresh bumps a generation that drops late answers |
 | [sqlQueryTabCount.ts](stores/sqlQueryTabCount.ts) | leaf handles on the lazy SQL store: the open query tab count for the Free tab budget (persisted slice until the store registers) and the live reset Clear everything calls |
-| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata; on desktop secret environment values persist blanked and live in the secret vault |
+| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments, collection variables and active request metadata; on desktop secret values of every scope persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
 | [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |

@@ -5,8 +5,13 @@
  * a connection; they live in the secret store or in main's memory.
  */
 
-const SQL_REMOTE_ENGINES = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'clickhouse'] as const;
+const SQL_REMOTE_ENGINES = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'clickhouse', 'libsql', 'neon', 'd1'] as const;
 export type SqlRemoteEngine = (typeof SQL_REMOTE_ENGINES)[number];
+/** Engines reached with HTTPS requests instead of a database socket: Turso (libSQL), Neon and Cloudflare D1. */
+type SqlHttpEngine = Extract<SqlRemoteEngine, 'libsql' | 'neon' | 'd1'>;
+export const isHttpSqlEngine = (engine: SqlEngineKind | undefined): engine is SqlHttpEngine => engine === 'libsql' || engine === 'neon' || engine === 'd1';
+/** What a browser opens itself: Turso and Neon answer cross-origin requests, D1's API does not. */
+export const WEB_SQL_ENGINES: readonly SqlRemoteEngine[] = ['libsql', 'neon'];
 /** `duckdb` is the Local engine in the renderer; the rest run in the SQL host. */
 export type SqlEngineKind = 'duckdb' | SqlRemoteEngine;
 
@@ -42,6 +47,12 @@ export interface SqlConnectionSsh extends SqlSshHop {
 
 export const MAX_SSH_JUMPS = 3;
 
+/** Cloudflare D1: the account and database an API token reaches. */
+export interface SqlConnectionD1 {
+  accountId: string;
+  databaseId: string;
+}
+
 interface SqlConnectionSsl {
   mode: SqlSslMode;
   caPath?: string;
@@ -62,6 +73,8 @@ export interface SqlConnectionV1 {
   ssl?: SqlConnectionSsl;
   /** SQLite: absolute path of the database file. */
   path?: string;
+  /** Cloudflare D1, which has no host of its own: requests go to Cloudflare's API. */
+  d1?: SqlConnectionD1;
   /** A server engine through an SSH tunnel; the database host is resolved by the bastion. */
   ssh?: SqlConnectionSsh;
   env?: SqlConnectionEnv;
@@ -85,10 +98,20 @@ const DEFAULT_PORTS: Readonly<Record<Exclude<SqlRemoteEngine, 'sqlite'>, number>
   sqlserver: 1433,
   // ClickHouse's HTTPS interface; its plain HTTP one listens on 8123.
   clickhouse: 8443,
+  libsql: 443,
+  neon: 443,
+  d1: 443,
 };
 
 /** ClickHouse's plain HTTP port, the default when TLS is off. */
 const CLICKHOUSE_HTTP_PORT = 8123;
+/** A local libSQL server (sqld) answers plain HTTP here. */
+const LIBSQL_HTTP_PORT = 8080;
+/** Neon's HTTPS API answers for every database under neon.tech, and only those get a password sent to it. */
+const NEON_HOST_RE = /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+\.neon\.tech$/i;
+const D1_ACCOUNT_RE = /^[0-9a-f]{32}$/i;
+const D1_DATABASE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const D1_API_HOST = 'api.cloudflare.com';
 
 const MAX_CONNECTION_NAME = 80;
 const MAX_HOST = 253;
@@ -162,6 +185,22 @@ function parseSsh(value: unknown): SqlConnectionSsh | null {
   return { ...hop, auth, secretMode, ...(auth === 'key' ? { keyPath: keyPath! } : {}), ...(jumps ? { jumps } : {}) };
 }
 
+function parseD1(value: unknown): SqlConnectionD1 | null {
+  if (!isRecord(value)) return null;
+  const accountId = text(value.accountId, 32);
+  const databaseId = text(value.databaseId, 36);
+  // Both go into the API's URL path, so nothing but the ids' own shapes passes.
+  if (!accountId || !databaseId || !D1_ACCOUNT_RE.test(accountId) || !D1_DATABASE_RE.test(databaseId)) return null;
+  return { accountId: accountId.toLowerCase(), databaseId: databaseId.toLowerCase() };
+}
+
+/** TLS is on or off for libSQL: a browser cannot relax certificate checks, so neither does the desktop. */
+function libsqlSsl(value: unknown): SqlConnectionSsl | null {
+  if (value === undefined) return { mode: 'verify-full' };
+  if (!isRecord(value) || !oneOf(SQL_SSL_MODES, value.mode)) return null;
+  return { mode: value.mode === 'disable' ? 'disable' : 'verify-full' };
+}
+
 function parseSsl(value: unknown): SqlConnectionSsl | null {
   if (!isRecord(value) || !oneOf(SQL_SSL_MODES, value.mode)) return null;
   const ca = filePath(value.caPath);
@@ -203,16 +242,28 @@ export function parseConnectionDraft(value: unknown): SqlConnectionDraft | null 
     if (!path || value.passwordMode !== 'none') return null;
     return { ...base, path };
   }
+  if (value.engine === 'd1') {
+    const d1 = parseD1(value.d1);
+    // The API token is the only way in.
+    if (!d1 || value.passwordMode === 'none') return null;
+    return { ...base, d1 };
+  }
   const host = text(value.host, MAX_HOST);
   if (!host || !HOST_RE.test(host)) return null;
-  const ssl = value.ssl === undefined ? { mode: 'verify-full' as const } : parseSsl(value.ssl);
+  if (value.engine === 'neon' && !NEON_HOST_RE.test(host)) return null;
+  const http = isHttpSqlEngine(value.engine);
+  const ssl =
+    value.engine === 'neon' ? { mode: 'verify-full' as const } : value.engine === 'libsql' ? libsqlSsl(value.ssl) : value.ssl === undefined ? { mode: 'verify-full' as const } : parseSsl(value.ssl);
   if (!ssl) return null;
-  const port = value.port === undefined ? defaultPort(value.engine, ssl.mode) : value.port;
+  // Neon is always its HTTPS API, whatever port a pasted Postgres URL named.
+  const port = value.engine === 'neon' || value.port === undefined ? defaultPort(value.engine, ssl.mode) : value.port;
   if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65_535) return null;
-  const database = text(value.database, MAX_IDENT);
-  const user = text(value.user, MAX_IDENT);
+  // libSQL signs in with a token alone.
+  const database = value.engine === 'libsql' ? undefined : text(value.database, MAX_IDENT);
+  const user = value.engine === 'libsql' ? undefined : text(value.user, MAX_IDENT);
   if (database === null || user === null) return null;
-  const ssh = value.ssh === undefined ? undefined : parseSsh(value.ssh);
+  // An HTTPS request has no tunnel to go through.
+  const ssh = value.ssh === undefined || http ? undefined : parseSsh(value.ssh);
   if (ssh === null) return null;
   return { ...base, host, port, ...(database ? { database } : {}), ...(user ? { user } : {}), ssl, ...(ssh ? { ssh } : {}) };
 }
@@ -272,8 +323,11 @@ export function withoutUrlPassword(raw: string): string {
   }
   try {
     const url = new URL(raw.trim());
-    if (!url.password) return raw;
+    // A libSQL URL carries its token as a query parameter.
+    const token = /^libsql:$/i.test(url.protocol) && url.searchParams.has('authToken');
+    if (!url.password && !token) return raw;
     url.password = '';
+    if (token) url.searchParams.delete('authToken');
     return url.toString();
   } catch {
     return raw;
@@ -371,10 +425,35 @@ function parseSqlServerProperties(input: string): ParsedConnectionUrl | { error:
   return password ? { draft, password } : { draft };
 }
 
-/** postgres://, mysql://, sqlserver:// or mssql://, clickhouse:// or sqlite:/absolute/path into a draft. */
+/** `libsql://host?authToken=…`, as Turso prints it; `tls=0` is a local server over plain HTTP. */
+function parseLibsqlUrl(input: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return { error: 'invalid-url' };
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  if (!host) return { error: 'missing-host' };
+  const token = url.searchParams.get('authToken') ?? undefined;
+  const mode: SqlSslMode = url.searchParams.get('tls') === '0' ? 'disable' : 'verify-full';
+  const draft: SqlConnectionDraft = {
+    name: host.split('.')[0] || host,
+    engine: 'libsql',
+    host,
+    port: url.port ? Number(url.port) : defaultPort('libsql', mode),
+    ssl: { mode },
+    readOnly: false,
+    passwordMode: token ? 'keychain' : 'none',
+  };
+  return token ? { draft, password: token } : { draft };
+}
+
+/** postgres://, mysql://, sqlserver:// or mssql://, clickhouse://, libsql:// or sqlite:/absolute/path into a draft. */
 export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
   const input = raw.trim();
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(input)?.[1]?.toLowerCase();
+  if (scheme === 'libsql') return parseLibsqlUrl(input);
   if (scheme === 'sqlite') {
     const path = decode(input.slice('sqlite:'.length).replace(/^\/\/(?=\/|[A-Za-z]:)/, ''));
     if (!isAbsoluteFilePath(path)) return { error: 'relative-path' };
@@ -418,9 +497,34 @@ export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: 
   return password ? { draft, password } : { draft };
 }
 
-/** The port an engine listens on by default; ClickHouse's depends on TLS. */
+/** The port an engine listens on by default; ClickHouse's and libSQL's depend on TLS. */
 export const defaultPort = (engine: Exclude<SqlRemoteEngine, 'sqlite'>, sslMode: SqlSslMode = 'verify-full'): number =>
-  engine === 'clickhouse' && sslMode === 'disable' ? CLICKHOUSE_HTTP_PORT : DEFAULT_PORTS[engine];
+  sslMode !== 'disable' ? DEFAULT_PORTS[engine] : engine === 'clickhouse' ? CLICKHOUSE_HTTP_PORT : engine === 'libsql' ? LIBSQL_HTTP_PORT : DEFAULT_PORTS[engine];
+
+/** A Postgres draft for a Neon host, as the Neon engine reaches it: Neon's HTTPS API instead of a TCP session. */
+export function asNeonDraft(draft: SqlConnectionDraft): SqlConnectionDraft | null {
+  if (draft.engine !== 'postgres' || !draft.host || !NEON_HOST_RE.test(draft.host)) return null;
+  const { ssh: _ssh, ...rest } = draft;
+  return { ...rest, engine: 'neon', port: DEFAULT_PORTS.neon, ssl: { mode: 'verify-full' } };
+}
+
+/**
+ * Where an HTTP engine's requests go: Neon's API host next to the database's,
+ * Cloudflare's API for D1, the server itself for libSQL. Main resolves and
+ * pins this host; null for the socket engines.
+ */
+export function httpEndpoint(connection: Pick<SqlConnectionV1, 'engine' | 'host' | 'port' | 'ssl'>): { host: string; port: number; tls: boolean } | null {
+  switch (connection.engine) {
+    case 'd1':
+      return { host: D1_API_HOST, port: DEFAULT_PORTS.d1, tls: true };
+    case 'neon':
+      return connection.host ? { host: connection.host.replace(/^[^.]+\./, 'api.'), port: DEFAULT_PORTS.neon, tls: true } : null;
+    case 'libsql':
+      return connection.host ? { host: connection.host, port: connection.port ?? DEFAULT_PORTS.libsql, tls: connection.ssl?.mode !== 'disable' } : null;
+    default:
+      return null;
+  }
+}
 
 /** The port a client such as DBeaver or TablePlus assumes when it stores none; they reach ClickHouse over plain HTTP. */
 export const clientDefaultPort = (engine: Exclude<SqlRemoteEngine, 'sqlite'>): number => defaultPort(engine, engine === 'clickhouse' ? 'disable' : 'verify-full');
@@ -438,8 +542,9 @@ export function sameSshTarget(a: SqlConnectionDraft['ssh'], b: SqlConnectionDraf
 export const connectionSecretId = (connectionId: string) => `db.${connectionId}`;
 
 /** One-line label of where a connection points, without user or password. */
-export function connectionTarget(connection: Pick<SqlConnectionV1, 'engine' | 'host' | 'port' | 'database' | 'path'>): string {
+export function connectionTarget(connection: Pick<SqlConnectionV1, 'engine' | 'host' | 'port' | 'database' | 'path' | 'd1'>): string {
   if (connection.engine === 'sqlite') return connection.path ?? '';
+  if (connection.engine === 'd1') return connection.d1 ? `D1 ${connection.d1.databaseId}` : 'D1';
   const port = connection.port && connection.port !== DEFAULT_PORTS[connection.engine] ? `:${connection.port}` : '';
   return `${connection.host ?? ''}${port}${connection.database ? `/${connection.database}` : ''}`;
 }

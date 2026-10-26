@@ -30,14 +30,17 @@ afterEach(() => {
 });
 
 describe('sqlDbBridge', () => {
-  it('is the desktop bridge, whose platform is the OS name, and null on web', () => {
+  it('is the desktop bridge, whose platform is the OS name, and the browser\'s own session-only bridge on web', async () => {
     const db = {} as SqlDbBridge;
     (window as { lingua?: unknown }).lingua = { platform: 'darwin', db };
     expect(sqlDbBridge()).toBe(db);
     (window as { lingua?: unknown }).lingua = { platform: 'win32', db };
     expect(sqlDbBridge()).toBe(db);
     (window as { lingua?: unknown }).lingua = { platform: 'web' };
-    expect(sqlDbBridge()).toBeNull();
+    const web = sqlDbBridge();
+    expect(web).not.toBe(db);
+    expect(sqlDbBridge()).toBe(web);
+    expect(await web!.catalog()).toMatchObject({ connections: [], adhoc: [], sessionOnly: true });
   });
 });
 

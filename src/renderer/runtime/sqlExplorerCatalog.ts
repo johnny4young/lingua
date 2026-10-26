@@ -1,3 +1,4 @@
+import { parseLocalCopyOrigin } from '../../shared/sqlCopyToLocal';
 import type { DuckDbConnection } from './duckdbClient';
 import type {
   SqlCatalog,
@@ -69,7 +70,7 @@ export async function loadSqlCatalog(connection: DuckDbConnection): Promise<SqlC
 
   try {
     const sizes = await connection.query(
-      'SELECT schema_name, table_name, estimated_size FROM duckdb_tables() WHERE NOT internal'
+      'SELECT schema_name, table_name, estimated_size, comment FROM duckdb_tables() WHERE NOT internal'
     );
     for (const row of sizes.rows) {
       const tableName = row['table_name'];
@@ -77,6 +78,8 @@ export async function loadSqlCatalog(connection: DuckDbConnection): Promise<SqlC
       const table = tables.get(displayName(row['schema_name'], tableName));
       const size = Number(row['estimated_size']);
       if (table && Number.isFinite(size)) table.rowCount = size;
+      const copiedFrom = parseLocalCopyOrigin(row['comment']);
+      if (table && copiedFrom) table.copiedFrom = copiedFrom;
     }
   } catch {
     // No counts on engines without duckdb_tables().

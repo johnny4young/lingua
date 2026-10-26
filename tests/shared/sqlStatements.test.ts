@@ -4,6 +4,7 @@ import {
   isSqlServerReadBatch,
   isWriteSqlStatement,
   isWriteSqlStatementOn,
+  provesReadsOnly,
   redactSqlSecrets,
   splitSqlStatements,
   statementAtOffset,
@@ -173,5 +174,127 @@ describe('SQL Server batches', () => {
     expect(isWriteSqlStatementOn('sqlserver', 'EXPLAIN DELETE FROM dbo.orders')).toBe(false);
     expect(isWriteSqlStatementOn('postgres', 'SELECT 1 EXEC x')).toBe(true);
     expect(isWriteSqlStatementOn('postgres', 'SELECT 1')).toBe(false);
+  });
+});
+
+describe('D1 reads', () => {
+  it('counts only one SELECT, WITH or VALUES statement with no write as a read', () => {
+    for (const read of ['SELECT * FROM users', "SELECT replace(name, 'a', 'b') FROM users", 'WITH x AS (SELECT 1) SELECT * FROM x', 'VALUES (1)', "SELECT 'a; DELETE FROM t'"]) {
+      expect(isWriteSqlStatementOn('d1', read), read).toBe(false);
+    }
+    for (const write of ['SELECT 1; SELECT 2', 'SELECT 1; DELETE FROM t', 'WITH x AS (SELECT 1) REPLACE INTO t SELECT * FROM x', 'PRAGMA foreign_keys = OFF', 'PRAGMA table_list', 'EXPLAIN SELECT 1', 'DELETE FROM t']) {
+      expect(isWriteSqlStatementOn('d1', write), write).toBe(true);
+    }
+    expect(provesReadsOnly('d1')).toBe(true);
+    expect(provesReadsOnly('libsql')).toBe(false);
+  });
+});
+
+describe('SQLite family writes', () => {
+  // Postgres hides code in nested comments, $$ bodies and E'' strings; SQLite has none of them.
+  const smuggled = [
+    'WITH x AS (SELECT 1) /* /* */ DELETE FROM t -- */',
+    'SELECT 1 /* /* */; DROP TABLE t -- */',
+    'SELECT $$; DROP TABLE t; --$$',
+    'WITH x AS (SELECT $$) DELETE FROM t --$$',
+    "SELECT E'\\'; DELETE FROM t; --'",
+  ];
+
+  it('reads text by SQLite rules, so nothing Postgres-shaped hides a write on D1, libSQL or a SQLite file', () => {
+    for (const engine of ['d1', 'libsql', 'sqlite'] as const) {
+      for (const sql of smuggled) expect(isWriteSqlStatementOn(engine, sql), `${engine}: ${sql}`).toBe(true);
+    }
+  });
+
+  it('keeps names and strings as SQLite quotes them', () => {
+    for (const read of ['SELECT "a;b", [c;d], `e;f` FROM t', "SELECT 'it''s; fine' FROM t", 'SELECT 1; ', 'SELECT 1 -- trailing; DELETE']) {
+      expect(isWriteSqlStatementOn('d1', read), read).toBe(false);
+      expect(isWriteSqlStatementOn('libsql', read), read).toBe(false);
+    }
+    expect(isWriteSqlStatementOn('libsql', 'SELECT 1; SELECT 2')).toBe(true);
+  });
+});
+
+describe('MySQL and ClickHouse writes', () => {
+  // Each reads as one SELECT by Postgres rules, while MySQL sees INTO OUTFILE as code.
+  const mysqlSmuggled = [
+    "SELECT 1 --1 INTO OUTFILE '/tmp/x'",
+    "SELECT 1 /* /* */ INTO OUTFILE '/tmp/x' /* */",
+    'SELECT "\\"" INTO OUTFILE \'/tmp/x\' FIELDS TERMINATED BY ""',
+    "SELECT 'a\\'' , 1 INTO OUTFILE '/tmp/x' -- '",
+    "SELECT 1 AS `'`, 2 INTO OUTFILE \"/tmp/x\" FIELDS TERMINATED BY `'`",
+    'SELECT 1 AS $$, 2 INTO OUTFILE "/tmp/x" FIELDS TERMINATED BY "$$"',
+    "SELECT 1 # '\n INTO OUTFILE '/tmp/x' -- '",
+  ];
+
+  it('reads text by MySQL rules, so no Postgres-shaped token hides a write', () => {
+    for (const sql of mysqlSmuggled) expect(isWriteSqlStatementOn('mysql', sql), sql).toBe(true);
+    expect(isWriteSqlStatementOn('mysql', 'SELECT 1 --1; DELETE FROM t')).toBe(true);
+  });
+
+  it('checks every sql_mode reading of the quotes on MySQL', () => {
+    // Under NO_BACKSLASH_ESCAPES the string ends at the second quote and INTO is code.
+    expect(isWriteSqlStatementOn('mysql', "SELECT 'a\\' INTO OUTFILE '/tmp/x' -- '")).toBe(true);
+    // Under ANSI_QUOTES a double-quoted name takes no backslash escape.
+    expect(isWriteSqlStatementOn('mysql', 'SELECT "a\\" INTO OUTFILE \'/tmp/x\' -- "')).toBe(true);
+  });
+
+  it('counts MySQL locking reads, assignments and named locks as writes', () => {
+    for (const sql of ['SELECT * FROM t LOCK IN SHARE MODE', 'SELECT * FROM t FOR SHARE', 'SELECT @a := 1', "SELECT GET_LOCK('x', 10)", 'SELECT RELEASE_ALL_LOCKS()']) {
+      expect(isWriteSqlStatementOn('mysql', sql), sql).toBe(true);
+    }
+  });
+
+  it('counts unclosed text, several statements and executable comments as writes', () => {
+    for (const engine of ['mysql', 'clickhouse'] as const) {
+      for (const sql of ["SELECT 'open", 'SELECT 1 /* open', 'SELECT 1; SELECT 2', 'SELECT 1 /*!, (SELECT 1) */', 'SELECT 1 /*M! , 2 */', '']) {
+        expect(isWriteSqlStatementOn(engine, sql), `${engine}: ${sql}`).toBe(true);
+      }
+    }
+  });
+
+  it('reads ClickHouse text by its own rules: nested comments, heredocs and backslash escapes', () => {
+    for (const sql of [
+      "SELECT 1 /* /* */ FROM t INTO OUTFILE 'x' /* */",
+      "SELECT 'a\\'' , 1 FROM t INTO OUTFILE 'x' -- '",
+      'SELECT `a\\`` , 1 FROM t INTO OUTFILE \'x\' -- `',
+      "SELECT $x$ $$ $x$, 1 INTO OUTFILE 'x'",
+    ]) {
+      expect(isWriteSqlStatementOn('clickhouse', sql), sql).toBe(true);
+    }
+  });
+
+  it('lets reads through as each server quotes them', () => {
+    for (const [engine, sql] of [
+      ['mysql', "SELECT 'it''s; DELETE', \"a;\"\" DROP\" FROM t"],
+      ['mysql', 'SELECT `del;ete` FROM `update` # ; DELETE FROM t'],
+      ['mysql', 'SELECT 1 -- ; DELETE FROM t'],
+      ['mysql', 'SELECT a$b FROM t;'],
+      ['clickhouse', 'SELECT 1 --; DELETE FROM t'],
+      ['clickhouse', 'SELECT 1 /* outer /* inner */ ; DELETE */'],
+      ['clickhouse', 'SELECT $q$; DELETE FROM t$q$, a$b$c FROM t'],
+      ['clickhouse', 'SELECT count() FROM events SETTINGS max_threads = 2'],
+    ] as const) {
+      expect(isWriteSqlStatementOn(engine, sql), `${engine}: ${sql}`).toBe(false);
+    }
+  });
+});
+
+describe('redactSqlSecrets on MySQL and ClickHouse', () => {
+  it.each([
+    ['mysql', 'CREATE USER app IDENTIFIED BY "hunter2"', "CREATE USER app IDENTIFIED BY '•••'"],
+    ['mysql', "ALTER USER app IDENTIFIED BY 'hun\\'ter2'", "ALTER USER app IDENTIFIED BY '•••'"],
+    ['mysql', 'SELECT * FROM t WHERE dsn = "mysql://root:hunter2@db/x"', "SELECT * FROM t WHERE dsn = '•••'"],
+    ['mysql', "SET PASSWORD = 'hunter2'", "SET PASSWORD = '•••'"],
+    ['clickhouse', "SELECT * FROM mysql('db:3306', 'x', 't', 'root', 'hun\\'ter2')", "SELECT * FROM mysql('•••', '•••', '•••', '•••', '•••')"],
+    ['clickhouse', 'SELECT * FROM url($$https://u:pw@h/x.csv$$)', "SELECT * FROM url('•••')"],
+    ['clickhouse', "CREATE USER app IDENTIFIED BY 'open", "CREATE USER app IDENTIFIED BY '•••'"],
+  ] as const)('%s masks %j', (engine, sql, expected) => {
+    expect(redactSqlSecrets(sql, engine)).toBe(expected);
+  });
+
+  it('keeps ordinary strings and names', () => {
+    expect(redactSqlSecrets('SELECT \'plain\', "also", `name` FROM t', 'mysql')).toBe('SELECT \'plain\', "also", `name` FROM t');
+    expect(redactSqlSecrets('SELECT "col" FROM t WHERE x = \'y\'', 'clickhouse')).toBe('SELECT "col" FROM t WHERE x = \'y\'');
   });
 });

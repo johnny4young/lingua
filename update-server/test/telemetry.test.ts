@@ -1206,7 +1206,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
 
   it('SQL engines and connection test steps stay in sync', () => {
     expect([...WORKER_SQL_ENGINES_SET].sort()).toEqual([...RENDERER_SQL_ENGINES_SET].sort());
-    expect([...WORKER_SQL_ENGINES_SET].sort()).toEqual(['clickhouse', 'duckdb', 'mysql', 'postgres', 'sqlite', 'sqlserver']);
+    expect([...WORKER_SQL_ENGINES_SET].sort()).toEqual(['clickhouse', 'd1', 'duckdb', 'libsql', 'mysql', 'neon', 'postgres', 'sqlite', 'sqlserver']);
     expect([...WORKER_SQL_CONNECTION_TEST_STEPS_SET].sort()).toEqual([...RENDERER_SQL_CONNECTION_TEST_STEPS_SET].sort());
     expect([...RENDERER_SQL_CONNECTION_TEST_STEPS_SET].filter((step) => step !== 'none').sort()).toEqual([...SQL_DB_TEST_STEPS].sort());
   });

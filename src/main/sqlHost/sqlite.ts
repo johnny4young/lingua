@@ -5,20 +5,9 @@
 
 import { accessSync, constants } from 'node:fs';
 import { constants as sqlite, DatabaseSync, type StatementSync } from 'node:sqlite';
-import { expectOneRow, type DriverRows, type DriverSession } from './driver';
+import { expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
 import type { HostSessionConfig } from './protocol';
-import { introspectSqlite } from './sqliteCatalog';
-
-/** Declared column types, by SQLite affinity, in the names the grid knows. */
-function columnType(declared: string | null | undefined): string {
-  const type = (declared ?? '').toUpperCase();
-  if (type === '') return 'VALUE';
-  if (/INT/.test(type)) return type === 'INTEGER' || type === 'BIGINT' || type === 'SMALLINT' ? type : 'BIGINT';
-  if (/REAL|FLOA|DOUB/.test(type)) return 'DOUBLE';
-  if (/DECIMAL|NUMERIC/.test(type)) return 'DECIMAL';
-  if (/BLOB/.test(type)) return 'BLOB';
-  return type;
-}
+import { introspectSqlite, sqliteColumnType } from '../../shared/sqlCatalog/sqlite';
 
 /**
  * Opens one file and nothing else: ATTACH, and VACUUM INTO which goes
@@ -32,7 +21,7 @@ function open(path: string, readOnly: boolean): DatabaseSync {
 
 function rowsOf(statement: StatementSync): DriverRows {
   statement.setReadBigInts(true);
-  const columns = statement.columns().map((column) => ({ name: column.name, type: columnType(column.type) }));
+  const columns = statement.columns().map((column) => ({ name: column.name, type: sqliteColumnType(column.type) }));
   const iterator = statement.iterate() as Iterator<Record<string, unknown>>;
   let done = false;
   return {

@@ -53,7 +53,14 @@ export const ROW_EDIT_BUDGET_MS = 60_000;
 const ROWID = 'rowid';
 
 /** Engines whose tables take staged edits: each statement runs in a transaction and reports the rows it touched. */
-export const ROW_EDIT_ENGINES: ReadonlySet<SqlEngineKind> = new Set(['duckdb', 'postgres', 'mysql', 'sqlite', 'sqlserver']);
+export const ROW_EDIT_ENGINES: ReadonlySet<SqlEngineKind> = new Set(['duckdb', 'postgres', 'mysql', 'sqlite', 'sqlserver', 'libsql', 'neon']);
+
+/** The table staged edits apply to, from the columns and primary key the engine reported; null without a whole key. */
+export function rowEditTableFrom(engine: SqlEngineKind, schema: string, name: string, columns: ReadonlyArray<{ name: string; primaryKey?: boolean }>): RowEditTable | null {
+  const primaryKey = columns.filter((column) => column.primaryKey).map((column) => column.name);
+  if (primaryKey.length === 0) return null;
+  return { engine, schema, name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } };
+}
 
 export const keyColumns = (table: RowEditTable): string[] => (table.key.kind === 'pk' ? table.key.columns : [ROWID]);
 
@@ -84,7 +91,7 @@ export function rowEditProblem(table: RowEditTable, changes: RowEditChanges): 'e
  * The statements in the order they run: updates, deletes, then inserts.
  * `inline` writes the values as literals (DuckDB, which takes no
  * parameters here, and the review the user reads); otherwise they are bound
- * as `$n` on Postgres, `@pn` on SQL Server and `?` on MySQL and SQLite.
+ * as `$n` on Postgres and Neon, `@pn` on SQL Server and `?` on MySQL and the SQLite family.
  */
 export function rowEditStatements(table: RowEditTable, changes: RowEditChanges, inline: boolean): RowEditStatement[] {
   const dialect = sqlDialect(table.engine);
@@ -116,7 +123,7 @@ export function rowEditStatements(table: RowEditTable, changes: RowEditChanges, 
     const sql = build((item) => {
       if (inline) return item === null ? 'NULL' : dialect.stringLiteral(item);
       params.push(item);
-      return table.engine === 'postgres' ? `$${params.length}` : table.engine === 'sqlserver' ? `@p${params.length}` : '?';
+      return table.engine === 'postgres' || table.engine === 'neon' ? `$${params.length}` : table.engine === 'sqlserver' ? `@p${params.length}` : '?';
     });
     return { sql, params };
   }

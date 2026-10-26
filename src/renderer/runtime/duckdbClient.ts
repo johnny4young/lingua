@@ -50,6 +50,7 @@ import {
 import { quoteSqlTableReference } from '../../shared/sqlQuote';
 import { splitSqlStatements } from '../../shared/sqlStatements';
 import type { RowEditFailure } from '../../shared/sqlRowEdits';
+import { localCopyCheck, localCopyCheckFailure, localCopyComment, localCopyCreate, localCopyInsert, localCopyLines, type LocalCopyColumn, type LocalCopyOrigin } from '../../shared/sqlCopyToLocal';
 import {
   buildImportStatements,
   readerSql,
@@ -1504,6 +1505,63 @@ export async function importFileAsTable(args: {
     } catch {
       /* best-effort */
     }
+  }
+}
+
+/**
+ * Creates `table` and fills it from `batches` in one transaction, then
+ * records where it came from. A failed batch or Cancel rolls everything
+ * back, so a half-copied table never exists.
+ */
+export async function copyBatchesIntoTable(args: {
+  table: string;
+  columns: ReadonlyArray<LocalCopyColumn>;
+  /** Each column's name in the incoming rows, in table order. */
+  sourceNames: ReadonlyArray<string>;
+  batches: AsyncIterable<ReadonlyArray<Record<string, unknown>>>;
+  origin: LocalCopyOrigin;
+  signal?: AbortSignal;
+}): Promise<{ rowCount: number }> {
+  const engine = await getDuckDbEngine();
+  if (typeof engine.registerFile !== 'function') {
+    throw new Error('This SQL engine cannot register files for import.');
+  }
+  const encoder = new TextEncoder();
+  const connection = await engine.connect();
+  let rowCount = 0;
+  let open = false;
+  try {
+    await connection.query('BEGIN TRANSACTION');
+    open = true;
+    await connection.query(localCopyCreate(args.table, args.columns));
+    for await (const batch of args.batches) {
+      if (args.signal?.aborted) throw new DOMException('The copy was cancelled.', 'AbortError');
+      if (batch.length === 0) continue;
+      const name = virtualFileName('json');
+      await engine.registerFile(name, encoder.encode(localCopyLines(batch, args.sourceNames, args.columns)));
+      try {
+        const check = localCopyCheck(args.columns, name);
+        if (check) {
+          const failure = localCopyCheckFailure(args.columns, (await connection.query(check)).rows[0]);
+          if (failure) throw failure;
+        }
+        await connection.query(localCopyInsert(args.table, args.columns, name));
+      } finally {
+        await engine.dropFile?.(name).catch(() => undefined);
+      }
+      rowCount += batch.length;
+    }
+    if (args.signal?.aborted) throw new DOMException('The copy was cancelled.', 'AbortError');
+    await connection.query(localCopyComment(args.table, args.origin));
+    await connection.query('COMMIT');
+    open = false;
+    if (resolvedStorageMode === 'opfs') await connection.query('CHECKPOINT').catch(() => undefined);
+    return { rowCount };
+  } catch (err) {
+    if (open) await connection.query('ROLLBACK').catch(() => undefined);
+    throw err;
+  } finally {
+    await connection.close().catch(() => undefined);
   }
 }
 

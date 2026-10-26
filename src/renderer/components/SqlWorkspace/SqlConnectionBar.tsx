@@ -9,7 +9,7 @@ import '../../i18n/sqlConnectionsCatalog';
 
 /** Saved connections in the picker; absent while the Database connections flag is off. */
 export interface SqlConnectionPickerRemote {
-  /** False on the web build: the picker says why only Local is listed. */
+  /** False on the web build: the picker says which engines need Desktop. */
   desktop: boolean;
   catalog: SqlDbCatalogView | null;
   /** The active query's connection; undefined is Local. */
@@ -72,10 +72,11 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
   const matches = (text: string) => needle.length === 0 || text.toLowerCase().includes(needle);
   const localMatches = matches(`${localName} ${LOCAL_ENGINE}`);
   const desktop = remote?.desktop === true;
-  const catalog = desktop ? remote?.catalog : null;
+  const catalog = remote?.catalog ?? null;
+  const sessionOnly = catalog?.sessionOnly === true;
   const all = catalog ? [...catalog.connections, ...catalog.adhoc] : [];
   const active = remote?.activeId ? all.find((entry) => entry.id === remote.activeId) : undefined;
-  const missing = Boolean(remote?.activeId) && desktop && catalog !== null && !active;
+  const missing = Boolean(remote?.activeId) && catalog !== null && !active;
   const saved = (catalog?.connections ?? []).filter((entry) => matches(`${entry.name} ${ENGINE_LABEL[entry.engine]} ${entry.group ?? ''}`));
   const adhoc = (catalog?.adhoc ?? []).filter((entry) => matches(`${entry.name} ${ENGINE_LABEL[entry.engine]}`));
 
@@ -209,20 +210,24 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                       {t('sqlWorkspace.connection.desktopOnly')}
                     </span>
                   </span>
-                  <span className="mt-1 block text-caption leading-relaxed text-fg-muted">{t('sqlWorkspace.connection.desktopOnlyReason')}</span>
+                  <span className="mt-1 block text-caption leading-relaxed text-fg-muted">
+                    {t(catalog ? 'sqlWorkspace.connection.desktopOnlyReasonWeb' : 'sqlWorkspace.connection.desktopOnlyReason')}
+                  </span>
                 </li>
               ) : null}
               {catalog ? (
                 <>
-                  <li role="presentation" data-testid="sql-connection-saved-count" className="px-2 pb-[3px] pt-[9px] font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
-                    {catalog.limit === null
-                      ? t('sqlWorkspace.connection.savedUnlimited', { count: catalog.used })
-                      : t('sqlWorkspace.connection.savedOfLimit', { used: catalog.used, limit: catalog.limit })}
-                  </li>
+                  {sessionOnly ? null : (
+                    <li role="presentation" data-testid="sql-connection-saved-count" className="px-2 pb-[3px] pt-[9px] font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
+                      {catalog.limit === null
+                        ? t('sqlWorkspace.connection.savedUnlimited', { count: catalog.used })
+                        : t('sqlWorkspace.connection.savedOfLimit', { used: catalog.used, limit: catalog.limit })}
+                    </li>
+                  )}
                   {saved.map(row)}
                   {adhoc.length > 0 ? (
                     <li role="presentation" className="px-2 pb-[3px] pt-[9px] font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
-                      {t('sqlWorkspace.connection.session')}
+                      {t(sessionOnly ? 'sqlWorkspace.connection.thisTab' : 'sqlWorkspace.connection.session')}
                     </li>
                   ) : null}
                   {adhoc.map(row)}
@@ -259,6 +264,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                 >
                   {t('sqlWorkspace.connection.openUrl')}
                 </button>
+                {sessionOnly ? null : (
                 <button
                   type="button"
                   data-testid="sql-connection-manage"
@@ -270,6 +276,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                 >
                   {t('sqlWorkspace.connection.manager.manage')}
                 </button>
+                )}
               </div>
             ) : null}
           </div>

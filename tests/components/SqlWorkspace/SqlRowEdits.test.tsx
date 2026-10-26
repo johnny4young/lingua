@@ -140,7 +140,7 @@ describe('staged row edits', () => {
     expect(cell(0, 'city').textContent).toBe('Bogota');
   });
 
-  it('keeps a notice to its table, and refuses a connection commit without the desktop bridge', async () => {
+  it('keeps a notice to its table, and refuses a commit on a connection the bridge does not know', async () => {
     const user = userEvent.setup();
     const remote: SqlTablePreview = {
       ...localPreview,
@@ -151,7 +151,7 @@ describe('staged row edits', () => {
     fireEvent.contextMenu(cell(0, 'city'));
     await user.click(screen.getByTestId('sql-cell-menu-set-null'));
     await user.click(screen.getByTestId('sql-edit-commit'));
-    expect(screen.getByTestId('sql-edit-notice').textContent).toBe('The changes could not be saved.');
+    expect(screen.getByTestId('sql-edit-notice').textContent).toBe('Unknown connection.');
     expect(applyLocalEdits).not.toHaveBeenCalled();
     rerender(<Harness preview={{ ...localPreview, table: { name: 'customers' } }} reload={vi.fn()} />);
     expect(screen.queryByTestId('sql-edit-notice')).toBeNull();

@@ -12,7 +12,54 @@ import {
   type SqlDbIntrospectResult,
   type SqlDbObjectInfo,
   type SqlDbObjectKind,
-} from '../../shared/sqlDb';
+} from '../sqlDb';
+
+const TYPE_NAMES: Readonly<Record<number, string>> = {
+  16: 'BOOLEAN',
+  17: 'BLOB',
+  18: 'CHAR',
+  19: 'NAME',
+  20: 'BIGINT',
+  21: 'SMALLINT',
+  23: 'INTEGER',
+  25: 'TEXT',
+  26: 'OID',
+  114: 'JSON',
+  142: 'XML',
+  700: 'REAL',
+  701: 'DOUBLE',
+  790: 'MONEY',
+  1042: 'CHAR',
+  1043: 'VARCHAR',
+  1082: 'DATE',
+  1083: 'TIME',
+  1114: 'TIMESTAMP',
+  1184: 'TIMESTAMP WITH TIME ZONE',
+  1186: 'INTERVAL',
+  1266: 'TIME WITH TIME ZONE',
+  1700: 'DECIMAL',
+  2950: 'UUID',
+  3802: 'JSONB',
+};
+
+/** A result column's type from its OID and modifier, as the grid names it. */
+export function postgresColumnType(oid: number, modifier = -1): string {
+  if (oid === 1700 && modifier > 4) {
+    const mod = modifier - 4;
+    return `DECIMAL(${(mod >> 16) & 0xffff},${mod & 0xffff})`;
+  }
+  return TYPE_NAMES[oid] ?? `OID ${oid}`;
+}
+
+/** Rows the planner expects, from `EXPLAIN (FORMAT JSON)` output as text or parsed. */
+export function explainRowEstimate(plan: unknown): number | null {
+  const parsed = typeof plan === 'string' ? JSON.parse(plan) : plan;
+  const plan0 = Array.isArray(parsed) ? parsed[0]?.Plan : undefined;
+  // A write's top node reports 0; the scan below it holds the estimate.
+  const node = plan0?.['Node Type'] === 'ModifyTable' && Array.isArray(plan0.Plans) ? plan0.Plans[0] : plan0;
+  const rows = node?.['Plan Rows'];
+  return typeof rows === 'number' ? rows : null;
+}
 
 type Rows = Array<Record<string, unknown>>;
 export type CatalogQuery = (sql: string, values: unknown[]) => Promise<Rows>;

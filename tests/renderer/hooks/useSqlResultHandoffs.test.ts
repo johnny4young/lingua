@@ -131,4 +131,30 @@ describe('SQL result hand-offs', () => {
     expect(header).toBe('# Rows from x import js #: 1 of 1');
     expect(second).toBe('rows = [');
   });
+
+  it('offers Copy to Local only for one statement that reads on the connection the result came from', () => {
+    (window as { lingua?: unknown }).lingua = { platform: 'darwin', db: {} };
+    const remote = { ...response, engine: 'postgres' as const };
+    const copy = (sql: string, engine: 'postgres' | 'd1' = 'postgres') =>
+      renderHook(() =>
+        useSqlResultHandoffs({
+          response: remote,
+          copySource: { connectionId: 'c_dev', connectionName: 'orders-dev', sql, name: 'result', engine },
+          source: { origin: 'editor', sql },
+          query: undefined,
+          existingTableNames: ['result'],
+          timeoutMs: 1000,
+          onTableCreated: vi.fn(),
+        })
+      ).result.current.saveAsTable;
+    try {
+      expect(copy('SELECT * FROM orders;')).toMatchObject({ copy: true, suggestedName: 'result_2' });
+      expect(copy("UPDATE orders SET city = 'Lima'")).toBeUndefined();
+      expect(copy('SELECT 1; SELECT 2')).toBeUndefined();
+      // The connection's own engine decides: D1 reads only SELECT, WITH or VALUES.
+      expect(copy('PRAGMA table_list', 'd1')).toBeUndefined();
+    } finally {
+      delete (window as { lingua?: unknown }).lingua;
+    }
+  });
 });

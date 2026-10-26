@@ -92,6 +92,8 @@ describe('SqlResultPreview', () => {
     expect(city!.className).not.toContain('text-right');
     expect(orders!.className).toContain('text-right');
     expect(revenue!.className).toContain('text-right');
+    expect(orders!.style.color).toBe('var(--color-syntax-number)');
+    expect(city!.style.color).toBe('');
     const nullCell = second!.querySelector('td[data-null="true"]')!;
     expect(nullCell.textContent).toBe('null');
     expect(nullCell.className).toContain('italic');
@@ -416,7 +418,7 @@ describe('SqlResultPreview', () => {
       await user.clear(name);
       await user.type(name, 'top_cities');
       await user.click(screen.getByTestId('sql-export-save-table'));
-      expect(onSave).toHaveBeenCalledWith('top_cities');
+      expect(onSave).toHaveBeenCalledWith('top_cities', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 

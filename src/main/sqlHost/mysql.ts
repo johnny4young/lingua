@@ -6,7 +6,7 @@ import net from 'node:net';
 import mysql from 'mysql2';
 import type { Connection, ConnectionOptions, FieldPacket, Query } from 'mysql2';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from './driver';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
 import { introspectMysql } from './mysqlCatalog';
 import type { HostSessionConfig } from './protocol';
 

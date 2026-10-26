@@ -8,7 +8,8 @@ import net from 'node:net';
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { RowEditStatement } from '../../shared/sqlRowEdits';
-import { classifyConnectError, EditFailedError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
+import { classifyConnectError, EditFailedError, readRowPage, type DriverRows, type DriverSession, type RowPager } from '../../shared/sqlDriver';
+import { toJsonCell, type DriverFactory } from './driver';
 import { createTunnelPool, TunnelError, type Tunnel, type TunnelPool } from './tunnel';
 import type {
   HostCancelResult,
@@ -21,7 +22,6 @@ import type {
   HostTestResult,
 } from './protocol';
 
-const READ_BATCH = 500;
 const TCP_PROBE_MS = 10_000;
 
 interface Session {
@@ -33,12 +33,9 @@ interface Session {
   queue: Promise<unknown>;
 }
 
-interface Run {
+interface Run extends RowPager {
   connectionId: string;
   session: DriverSession;
-  rows: DriverRows;
-  pending: Array<Record<string, unknown>>;
-  done: boolean;
 }
 
 const mapRow = (row: Record<string, unknown>) =>
@@ -164,27 +161,8 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
     if (run) await run.rows.close().catch(() => undefined);
   }
 
-  /** Fills a page within `maxRows` and `maxBytes`, keeping what did not fit for the next one. */
-  async function readPage(run: Run, maxRows: number, maxBytes: number): Promise<HostFetchResult> {
-    const rows: Array<Record<string, unknown>> = [];
-    let bytes = 0;
-    while (rows.length < maxRows) {
-      if (run.pending.length === 0) {
-        if (run.done) break;
-        const page = await run.rows.next(Math.min(READ_BATCH, maxRows - rows.length));
-        run.pending = page.rows.map(mapRow);
-        run.done = page.done;
-        if (run.pending.length === 0) break;
-      }
-      const row = run.pending[0]!;
-      const size = Buffer.byteLength(JSON.stringify(row));
-      if (rows.length > 0 && bytes + size > maxBytes) break;
-      rows.push(row);
-      bytes += size;
-      run.pending.shift();
-    }
-    return { rows, done: run.done && run.pending.length === 0, bytes };
-  }
+  const readPage = (run: Run, maxRows: number, maxBytes: number): Promise<HostFetchResult> =>
+    readRowPage(run, maxRows, maxBytes, mapRow, (row) => Buffer.byteLength(JSON.stringify(row)));
 
   async function execute(request: Extract<HostRequest, { type: 'execute' }>): Promise<HostExecuteResult> {
     const { config, runId, sql, readWrite, window } = request;

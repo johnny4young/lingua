@@ -193,6 +193,7 @@ export function isReadOnlySqlStatement(statement: string): boolean {
   return READ_LEAD.test(code) && !WRITE_WORD.test(code);
 }
 
+const EXPLAIN_ANALYZE = /^explain\s*(\([\s\S]*\banaly[sz]e\b|analy[sz]e\b)/i;
 const REMOTE_READ_LEAD = /^(select|with|values|table|show|describe|desc|explain)\b/i;
 
 /**
@@ -209,7 +210,7 @@ export function isWriteSqlStatement(statement: string): boolean {
   return (
     WRITE_WORD.test(code) ||
     /\b(into|execute)\b/i.test(code) ||
-    /^explain\s*(\([\s\S]*\banaly[sz]e\b|analy[sz]e\b)/i.test(code)
+    EXPLAIN_ANALYZE.test(code)
   );
 }
 
@@ -277,9 +278,205 @@ export function isSqlServerReadBatch(sql: string): boolean {
   return /^(select|with)\b/i.test(body) && !body.includes(';') && !TSQL_STATEMENT.test(body);
 }
 
-/** Whether a statement may write on `engine`: SQL Server gets its own fail-closed check; Explain there plans without running. */
+/**
+ * SQLite text as SQLite reads it, with strings, names and comments blanked:
+ * block comments do not nest and there are no dollar or E'' strings, so a
+ * Postgres-shaped token cannot hide a statement from the checks below.
+ */
+function sqliteCode(sql: string): { code: string; statements: number } {
+  let code = '';
+  let statements = 0;
+  let pieceHasCode = false;
+  let i = 0;
+  const skipTo = (end: number) => {
+    code += ' ';
+    i = end;
+  };
+  while (i < sql.length) {
+    const ch = sql[i]!;
+    const next = sql[i + 1];
+    if (ch === '-' && next === '-') {
+      const end = sql.indexOf('\n', i);
+      skipTo(end === -1 ? sql.length : end);
+    } else if (ch === '/' && next === '*') {
+      const end = sql.indexOf('*/', i + 2);
+      skipTo(end === -1 ? sql.length : end + 2);
+    } else if (ch === "'" || ch === '"' || ch === '`' || ch === '[') {
+      const close = ch === '[' ? ']' : ch;
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === close) {
+          if (close !== ']' && sql[j + 1] === close) {
+            j += 2;
+            continue;
+          }
+          break;
+        }
+        j += 1;
+      }
+      pieceHasCode = true;
+      skipTo(Math.min(j + 1, sql.length));
+    } else if (ch === ';') {
+      if (pieceHasCode) statements += 1;
+      pieceHasCode = false;
+      code += ';';
+      i += 1;
+    } else {
+      if (!/\s/.test(ch)) pieceHasCode = true;
+      code += ch;
+      i += 1;
+    }
+  }
+  if (pieceHasCode) statements += 1;
+  return { code: code.trim().replace(/;\s*$/, ''), statements };
+}
+
+/**
+ * A write on the SQLite family (a file, libSQL, D1): anything but one statement
+ * that leads with a read and holds no write word. D1's API has no read-only
+ * mode, so there a read must also lead with SELECT, WITH or VALUES.
+ */
+function isSqliteWrite(statement: string, d1 = false): boolean {
+  const { code, statements } = sqliteCode(statement);
+  if (statements !== 1 || (d1 && !/^(select|with|values)\b/i.test(code))) return true;
+  return !REMOTE_READ_LEAD.test(code) || WRITE_WORD.test(code) || /\b(into|execute)\b/i.test(code);
+}
+
+interface Dialect {
+  /** Quotes whose body takes backslash escapes. */
+  escapes: string;
+  /** Quotes that open a string rather than a name. */
+  strings: string;
+  /** MySQL needs whitespace, a control character or the end after `--`. */
+  dashNeedsSpace: boolean;
+  /** ClickHouse nests block comments and has `$tag$` heredocs. */
+  clickhouse: boolean;
+}
+
+// MySQL's sql_mode decides how quotes end (ANSI_QUOTES, NO_BACKSLASH_ESCAPES), so every reading is checked.
+const MYSQL_DIALECTS: readonly Dialect[] = [
+  { escapes: `'"`, strings: `'"`, dashNeedsSpace: true, clickhouse: false },
+  { escapes: "'", strings: `'"`, dashNeedsSpace: true, clickhouse: false },
+  { escapes: '', strings: `'"`, dashNeedsSpace: true, clickhouse: false },
+];
+const CLICKHOUSE_DIALECTS: readonly Dialect[] = [{ escapes: `'"\``, strings: "'", dashNeedsSpace: false, clickhouse: true }];
+
+const dialectsFor = (engine: SqlEngineKind | undefined) => (engine === 'mysql' ? MYSQL_DIALECTS : engine === 'clickhouse' ? CLICKHOUSE_DIALECTS : null);
+
+interface DialectScan {
+  code: string;
+  statements: number;
+  unclosed: boolean;
+  /** [start, end) of each string, heredoc included. */
+  literals: Array<[number, number]>;
+}
+
+/** MySQL or ClickHouse text as that server reads it, with strings, names and comments blanked. Line comments end at either line break, which shows more code, never less. */
+function dialectScan(sql: string, dialect: Dialect): DialectScan {
+  let code = '';
+  let statements = 0;
+  let pieceHasCode = false;
+  let unclosed = false;
+  const literals: Array<[number, number]> = [];
+  let i = 0;
+  const skipTo = (end: number) => {
+    code += ' ';
+    i = end;
+  };
+  while (i < sql.length) {
+    const ch = sql[i]!;
+    const next = sql[i + 1];
+    const after = sql[i + 2];
+    if (ch === '#' || (ch === '-' && next === '-' && (!dialect.dashNeedsSpace || after === undefined || after <= ' ' || after === '\x7f'))) {
+      let end = i + 1;
+      while (end < sql.length && sql[end] !== '\n' && sql[end] !== '\r') end += 1;
+      skipTo(end);
+    } else if (ch === '/' && next === '*') {
+      let depth = 1;
+      let j = i + 2;
+      while (j < sql.length && depth > 0) {
+        if (dialect.clickhouse && sql[j] === '/' && sql[j + 1] === '*') {
+          depth += 1;
+          j += 2;
+        } else if (sql[j] === '*' && sql[j + 1] === '/') {
+          depth -= 1;
+          j += 2;
+        } else j += 1;
+      }
+      if (depth > 0) unclosed = true;
+      skipTo(j);
+    } else if (ch === "'" || ch === '"' || ch === '`') {
+      const escapes = dialect.escapes.includes(ch);
+      let j = i + 1;
+      let closed = false;
+      while (j < sql.length) {
+        if (escapes && sql[j] === '\\') {
+          j += 2;
+        } else if (sql[j] === ch && sql[j + 1] === ch) {
+          j += 2;
+        } else if (sql[j] === ch) {
+          closed = true;
+          break;
+        } else j += 1;
+      }
+      const end = closed ? j + 1 : sql.length;
+      if (!closed) unclosed = true;
+      if (dialect.strings.includes(ch)) literals.push([i, end]);
+      pieceHasCode = true;
+      skipTo(end);
+    } else if (dialect.clickhouse && ch === '$' && !IDENTIFIER_CHAR.test(sql[i - 1] ?? '') && heredocEnd(sql, i) !== -1) {
+      const end = heredocEnd(sql, i);
+      literals.push([i, end]);
+      pieceHasCode = true;
+      skipTo(end);
+    } else if (ch === ';') {
+      if (pieceHasCode) statements += 1;
+      pieceHasCode = false;
+      code += ';';
+      i += 1;
+    } else {
+      if (!/\s/.test(ch)) pieceHasCode = true;
+      code += ch;
+      i += 1;
+    }
+  }
+  if (pieceHasCode) statements += 1;
+  return { code: code.trim().replace(/;\s*$/, ''), statements, unclosed, literals };
+}
+
+/** End of a ClickHouse heredoc: the tag is everything up to the next `$`, closed by the same tag. -1 when it is not one. */
+function heredocEnd(sql: string, start: number): number {
+  const tagEnd = sql.indexOf('$', start + 1);
+  if (tagEnd === -1) return -1;
+  const tag = sql.slice(start, tagEnd + 1);
+  const close = sql.indexOf(tag, tagEnd + 1);
+  return close === -1 ? -1 : close + tag.length;
+}
+
+/** Reads on MySQL that still lock or change the session: shared locks, assignments and named locks. */
+const MYSQL_SESSION_WRITE = /:=|\block\s+in\s+share\s+mode\b|\bfor\s+share\b|\b(get_lock|release_lock|release_all_locks)\s*\(/i;
+
+/** A write on MySQL or ClickHouse: anything but one closed statement that leads with a read and holds no write word, under every reading of its quotes. */
+function isDialectWrite(statement: string, dialects: readonly Dialect[], mysql: boolean): boolean {
+  // MySQL and MariaDB run the inside of /*! … */ and /*M! … */ as code.
+  if (/\/\*M?!/.test(statement)) return true;
+  return dialects.some((dialect) => {
+    const { code, statements, unclosed } = dialectScan(statement, dialect);
+    if (unclosed || statements !== 1 || !REMOTE_READ_LEAD.test(code)) return true;
+    return WRITE_WORD.test(code) || /\b(into|execute)\b/i.test(code) || EXPLAIN_ANALYZE.test(code) || (mysql && MYSQL_SESSION_WRITE.test(code));
+  });
+}
+
+/** Engines with no read-only session of their own: a read-only connection there runs only statements proven to read. */
+export const provesReadsOnly = (engine: SqlEngineKind | undefined): boolean => engine === 'sqlserver' || engine === 'd1';
+
+/** Whether a statement may write on `engine`: SQL Server, the SQLite family, MySQL and ClickHouse get their own fail-closed checks; Explain on SQL Server plans without running. */
 export function isWriteSqlStatementOn(engine: SqlEngineKind | undefined, statement: string): boolean {
   if (engine === 'sqlserver') return !/^\s*explain\s/i.test(statement) && !isSqlServerReadBatch(statement);
+  if (engine === 'd1') return isSqliteWrite(statement, true);
+  if (engine === 'sqlite' || engine === 'libsql') return isSqliteWrite(statement);
+  const dialects = dialectsFor(engine);
+  if (dialects) return isDialectWrite(statement, dialects, engine === 'mysql');
   return isWriteSqlStatement(statement);
 }
 
@@ -307,9 +504,12 @@ const SECRET_LITERAL =
 /**
  * Masks string literals that may hold credentials before SQL is kept in the
  * run History: every literal of a SECRET, ATTACH, SET, RESET or PRAGMA statement,
- * and any URL literal with user info or a token-like query parameter.
+ * and any URL literal with user info or a token-like query parameter. On
+ * MySQL and ClickHouse, literals are found by that server's quoting rules.
  */
-export function redactSqlSecrets(sql: string): string {
+export function redactSqlSecrets(sql: string, engine?: SqlEngineKind): string {
+  const dialects = dialectsFor(engine);
+  if (dialects) return redactDialectSecrets(sql, dialects);
   const secretStatement = SECRET_STATEMENT.test(codeOnly(sql));
   let out = '';
   let i = 0;
@@ -324,6 +524,29 @@ export function redactSqlSecrets(sql: string): string {
     const ch = sql[i];
     const isLiteral = ch === "'" || ch === '$' || ((ch === 'E' || ch === 'e') && sql[i + 1] === "'");
     out += isLiteral && (secretStatement || SECRET_LITERAL.test(token)) ? "'•••'" : token;
+    i = end;
+  }
+  return out;
+}
+
+/** Masks every span that is a string under any reading of the quotes; an unclosed one masks the rest of the text. */
+function redactDialectSecrets(sql: string, dialects: readonly Dialect[]): string {
+  const scans = dialects.map((dialect) => dialectScan(sql, dialect));
+  const secretStatement = scans.some((scan) => SECRET_STATEMENT.test(scan.code));
+  const inLiteral = new Uint8Array(sql.length);
+  for (const scan of scans) for (const [start, end] of scan.literals) inLiteral.fill(1, start, end);
+  let out = '';
+  let i = 0;
+  while (i < sql.length) {
+    if (!inLiteral[i]) {
+      out += sql[i];
+      i += 1;
+      continue;
+    }
+    let end = i;
+    while (end < sql.length && inLiteral[end]) end += 1;
+    const token = sql.slice(i, end);
+    out += secretStatement || SECRET_LITERAL.test(token) ? "'•••'" : token;
     i = end;
   }
   return out;

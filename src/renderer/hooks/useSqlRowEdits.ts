@@ -1,7 +1,7 @@
 /**
  * Staged edits on the table opened from the Explorer: the change set, the
- * review, and Commit in one transaction, on Local or through main for a
- * connection. A new read of the table starts a new change set.
+ * review, and Commit in one transaction, on Local or through the bridge for
+ * a connection. A new read of the table starts a new change set.
  */
 
 import { useCallback, useState } from 'react';

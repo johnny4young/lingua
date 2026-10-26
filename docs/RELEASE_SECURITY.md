@@ -52,6 +52,16 @@ release checklist.
   `tests/shared/sqlDialect.test.ts`). By
   hand: a packaged build connects to each engine, since Electron's BoringSSL
   words TLS errors differently from Node's OpenSSL.
+- Confirm the HTTP engines (Turso, Neon, D1) send a token or password only
+  to the host main resolved and pinned (Neon only under `neon.tech`, D1 only
+  `api.cloudflare.com`), refuse a request to another origin and an unverified
+  certificate, never put a token in the URL field, the catalog or a capsule,
+  enforce read-only on the server for Turso and Neon and by proven reads for
+  D1, and that the web bridge keeps tokens in tab memory only, sends no cookies
+  or referrer, follows no redirect and opens only HTTPS
+  (`tests/shared/sqlHttp.test.ts`, `tests/main/sqlHost/httpEngines.test.ts`,
+  `tests/renderer/runtime/sqlWebDb.test.ts`, `tests/shared/sqlRunGuard.test.ts`,
+  `tests/integration/sqlHttpEngines.test.ts`).
 - Confirm staged row edits reach main as a change set, not SQL; that main
   refuses read-only and production connections and an unconfirmed commit with
   Confirm every write, checks every key and column against its own read of the

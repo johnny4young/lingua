@@ -8,12 +8,15 @@
  */
 
 import {
+  HTTP_CHAIN_RULES,
   HTTP_METHODS,
   MAX_REQUEST_BODY_BYTES,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
+  SNAPSHOT_MAX_BODY_BYTES,
   utf8ByteLength,
 } from './httpWorkspaceSchema';
+import type { HttpEnvVariableV1 } from './httpEnvironment';
 import type {
   HttpAssertion,
   HttpAssertionComparator,
@@ -21,7 +24,9 @@ import type {
   HttpAuthKind,
   HttpCaptureRule,
   HttpCaptureSource,
+  HttpChainRule,
   HttpMethod,
+  HttpResponseSnapshot,
   HttpQueryParam,
   HttpRequestAuth,
   HttpRequestBody,
@@ -29,6 +34,7 @@ import type {
   HttpRequestHeader,
   HttpRequestV1,
   HttpResponseHeader,
+  HttpResponseTiming,
   HttpResponseV1,
   HttpTransportKind,
 } from './httpWorkspaceSchema';
@@ -262,6 +268,7 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     if (value.timeoutMs <= 0) return null;
     timeoutMs = Math.min(value.timeoutMs, MAX_REQUEST_TIMEOUT_MS);
   }
+  const snapshot = parseSnapshot(value.snapshot);
   return {
     version: 1,
     id: value.id,
@@ -276,6 +283,9 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     ...(captures !== undefined ? { captures } : {}),
     ...(assertions !== undefined ? { assertions } : {}),
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+    ...(Array.isArray(value.variables) ? { variables: parseEnvVariables(value.variables) } : {}),
+    ...(isRecord(value.chainRules) ? { chainRules: parseChainRules(value.chainRules) } : {}),
+    ...(snapshot ? { snapshot } : {}),
     createdAt,
     updatedAt,
   };
@@ -384,6 +394,8 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     if (typeof value.closeReason !== 'string') return null;
     closeReason = value.closeReason;
   }
+  // Timing is diagnostic: a malformed one is dropped, not the response.
+  const timing: HttpResponseTiming | undefined = value.timing === undefined ? undefined : (parseResponseTiming(value.timing) ?? undefined);
   return {
     version: 1,
     ...(value.transport !== undefined ? { transport: value.transport } : {}),
@@ -404,5 +416,98 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     ...(messageCount !== undefined ? { messageCount } : {}),
     ...(closeCode !== undefined ? { closeCode } : {}),
     ...(closeReason !== undefined ? { closeReason } : {}),
+    ...(timing !== undefined ? { timing } : {}),
+    ...(typeof value.environmentId === 'string' && value.environmentId.length > 0 ? { environmentId: value.environmentId } : {}),
+  };
+}
+
+const TIMING_FIELDS = ['dnsMs', 'connectMs', 'tlsMs', 'waitingMs', 'downloadMs', 'redirects', 'redirectMs'] as const;
+
+function parseResponseTiming(value: unknown): HttpResponseTiming | null {
+  if (!isRecord(value)) return null;
+  const timing: Partial<Record<(typeof TIMING_FIELDS)[number], number>> = {};
+  for (const field of TIMING_FIELDS) {
+    const raw = value[field];
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return null;
+    if (field === 'redirects' && !Number.isInteger(raw)) return null;
+    timing[field] = raw;
+  }
+  return timing as HttpResponseTiming;
+}
+
+/**
+ * Coerce one raw row into an `HttpEnvVariableV1`, or `null` if the row
+ * is not a usable binding. Unlike the request parser (which rejects the
+ * whole entry on a bad row), invalid variable rows are DROPPED by
+ * `parseHttpEnvironment` and request variables so a single hand-corrupted row cannot brick an
+ * otherwise-valid environment. `secret` defaults to `false` when absent
+ * (forward-compat: an environment persisted before the secret flag
+ * existed loads as all-non-secret).
+ *
+ * `id` is kept when it is a non-empty string, otherwise
+ * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
+ * parser is intentionally non-pure: rows persisted before ids existed (and
+ * rows from an imported / hand-written JSON, whose ids are deliberately
+ * stripped on export) have no id, and the React list + drag reorder need a
+ * stable one. The backfill touches only this opaque id — it never
+ * fabricates key/value/secret data.
+ */
+function parseEnvVariable(value: unknown): HttpEnvVariableV1 | null {
+  if (!isRecord(value)) return null;
+  const key = value.key;
+  const varValue = value.value;
+  if (typeof key !== 'string' || key.length === 0) return null;
+  if (typeof varValue !== 'string') return null;
+  const secret = value.secret === true;
+  const id =
+    typeof value.id === 'string' && value.id.length > 0
+      ? value.id
+      : crypto.randomUUID();
+  return { id, key, value: varValue, secret };
+}
+
+/** Variable rows from untrusted JSON; invalid rows drop, a non-array gives none. */
+export function parseEnvVariables(value: unknown): HttpEnvVariableV1[] {
+  if (!Array.isArray(value)) return [];
+  const variables: HttpEnvVariableV1[] = [];
+  for (const raw of value) {
+    const parsed = parseEnvVariable(raw);
+    if (parsed !== null) variables.push(parsed);
+  }
+  return variables;
+}
+
+/** Known rules per variable key; anything else drops. */
+function parseChainRules(value: Record<string, unknown>): Partial<Record<string, HttpChainRule>> {
+  const rules: Partial<Record<string, HttpChainRule>> = {};
+  for (const [key, rule] of Object.entries(value)) {
+    const known = HTTP_CHAIN_RULES.find((candidate) => candidate === rule);
+    if (known && key.length > 0) rules[key] = known;
+  }
+  return rules;
+}
+
+/** A stored snapshot, or null when any part of it is malformed. */
+function parseSnapshot(value: unknown): HttpResponseSnapshot | null {
+  if (!isRecord(value) || value.version !== 1) return null;
+  if (typeof value.status !== 'number' || typeof value.body !== 'string' || typeof value.recordedAt !== 'string') return null;
+  if (!Number.isInteger(value.status) || value.status < 0 || value.status > 999 || !Number.isFinite(Date.parse(value.recordedAt))) return null;
+  if (utf8ByteLength(value.body) > SNAPSHOT_MAX_BODY_BYTES) return null;
+  const scrubbers = value.scrubbers;
+  if (!isRecord(scrubbers)) return null;
+  const flags = ['timestamps', 'uuids', 'ids', 'hostname'] as const;
+  if (flags.some((flag) => typeof scrubbers[flag] !== 'boolean') || typeof scrubbers.regex !== 'string') return null;
+  return {
+    version: 1,
+    status: value.status,
+    body: value.body,
+    recordedAt: value.recordedAt,
+    scrubbers: {
+      timestamps: scrubbers.timestamps as boolean,
+      uuids: scrubbers.uuids as boolean,
+      ids: scrubbers.ids as boolean,
+      hostname: scrubbers.hostname as boolean,
+      regex: scrubbers.regex,
+    },
   };
 }
