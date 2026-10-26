@@ -1,6 +1,19 @@
 {
-  "generatedAt": "2026-10-19T23:13:13.657Z",
+  "generatedAt": "2026-10-26T14:28:56.036Z",
   "entries": [
+    {
+      "version": "1.6.3",
+      "date": "2026-10-26",
+      "sections": [
+        {
+          "heading": "Fixed",
+          "items": [
+            "After an explanation fails, Retry shows the current code in the consent preview and sends exactly that preview when you choose Send."
+          ]
+        }
+      ],
+      "raw": "### Fixed\n- After an explanation fails, Retry shows the current code in the consent preview and sends exactly that preview when you choose Send."
+    },
     {
       "version": "1.6.2",
       "date": "2026-10-19",
