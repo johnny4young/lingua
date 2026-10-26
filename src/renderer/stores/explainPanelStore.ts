@@ -10,19 +10,18 @@ export interface ExplainTarget {
   column: number | null;
 }
 
-interface ExplainThread {
+interface ExplainThreads {
   errorMessage: string;
-  /** The endpoint the payload was approved for; another endpoint starts over from the preview. */
-  endpoint: string;
-  transcript: readonly ChatMessage[];
+  /** Keyed by the endpoint each payload was approved for; a new endpoint starts from the preview. */
+  byEndpoint: Record<string, readonly ChatMessage[]>;
 }
 
 interface ExplainPanelState {
   target: ExplainTarget | null;
   /** A pinned panel stays open when the next run changes or clears the error. */
   pinned: boolean;
-  /** One conversation per tab, in memory only, so code never reaches storage. */
-  threads: Record<string, ExplainThread>;
+  /** One conversation per tab and endpoint, in memory only, so code never reaches storage. */
+  threads: Record<string, ExplainThreads>;
   open: (target: ExplainTarget) => void;
   close: () => void;
   setPinned: (pinned: boolean) => void;
@@ -41,10 +40,14 @@ export const useExplainPanelStore = create<ExplainPanelState>()((set, get) => ({
   close: () => set({ target: null, pinned: false }),
   setPinned: (pinned) => set({ pinned }),
   saveThread: (tabId, errorMessage, endpoint, transcript) =>
-    set((state) => ({ threads: { ...state.threads, [tabId]: { errorMessage, endpoint, transcript } } })),
+    set((state) => {
+      const current = state.threads[tabId];
+      const byEndpoint = current?.errorMessage === errorMessage ? current.byEndpoint : {};
+      return { threads: { ...state.threads, [tabId]: { errorMessage, byEndpoint: { ...byEndpoint, [endpoint]: transcript } } } };
+    }),
   threadFor: (tabId, errorMessage, endpoint) => {
-    const thread = get().threads[tabId];
-    return thread && thread.errorMessage === errorMessage && thread.endpoint === endpoint ? thread.transcript : [];
+    const threads = get().threads[tabId];
+    return threads?.errorMessage === errorMessage ? (threads.byEndpoint[endpoint] ?? []) : [];
   },
   keepThreads: (openTabIds) =>
     set((state) => {

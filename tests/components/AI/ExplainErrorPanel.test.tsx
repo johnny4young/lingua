@@ -39,6 +39,7 @@ beforeEach(() => {
 describe('anchored explain panel', () => {
   it('switches between the two profiles and restarts from the consent preview', async () => {
     const impl = answer('Remote answer.');
+    impl.mockResolvedValueOnce({ ok: true, content: 'Remote answer.' }).mockResolvedValueOnce({ ok: true, content: 'Local answer.' });
     render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
     expect(screen.getByTestId('ai-explain-mode-caption').textContent).toBe('m at api.example.com');
     expect(screen.getByTestId('ai-explain-mode-local')).toHaveProperty('disabled', true);
@@ -52,9 +53,15 @@ describe('anchored explain panel', () => {
     expect(screen.getByTestId('ai-explain-mode-caption').textContent).toBe('qwen on localhost:11434 · nothing leaves this machine');
     expect(screen.getByTestId('ai-explain-send')).toBeTruthy();
     expect(screen.queryByText('Remote answer.')).toBeNull();
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByText('Local answer.');
 
+    // Each mode keeps its own thread.
     fireEvent.click(screen.getByTestId('ai-explain-mode-remote'));
     expect(screen.getByText('Remote answer.')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('ai-explain-mode-local'));
+    expect(screen.getByText('Local answer.')).toBeTruthy();
+    expect(impl).toHaveBeenCalledTimes(2);
   });
 
   it('names what the active profile is missing', () => {
