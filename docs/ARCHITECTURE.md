@@ -528,14 +528,10 @@ cross-origin requests: connections live for the tab only, their token or
 password stays in that module's memory and is never stored, requests go with
 `fetch` (no cookies, no referrer, no redirects, HTTPS only), and the same run
 and edit guards (`sqlRunGuard.ts`) apply. D1's API refuses browsers, so it is
-desktop-only, as are the socket engines. On the web, each run reserves its
-cancellation state before awaiting the driver handshake. A cancellation received
-during connection prevents that run's SQL from being dispatched when the handshake
-completes; it does not abort the shared handshake itself. A cursor whose run has
-been closed returns a fetch error, so a partial result cannot be mistaken for a
-complete one.
-
-Reproduction: [sqlWebRunLifecycle regression](WEB_SQL_RUN_LIFECYCLE_TESTING.md).
+desktop-only, as are the socket engines. A web run registers for Cancel
+before the driver handshake, so a Cancel during connection keeps its SQL from
+being sent, and fetching from a closed run returns an error rather than an
+empty end of result.
 
 Copy to Local (`runtime/sqlCopyToLocal.ts`, with its SQL built in
 `src/shared/sqlCopyToLocal.ts`) runs a read statement again through the

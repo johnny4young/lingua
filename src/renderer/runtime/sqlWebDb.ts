@@ -224,69 +224,66 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       const { writes, refusal } = runGuard(entry, sql, options);
       if (refusal) return fail('sql-error', refusal, 'confirm-needed');
       const pending: PendingRun = { cancelled: false };
+      const cancelled = () => fail('cancelled', 'Query cancelled');
       waiting.set(runId, pending);
-      for (const [id, run] of runs) if (run.connectionId === connectionId) await closeRun(id);
-      if (pending.cancelled) {
-        waiting.delete(runId);
-        return fail('cancelled', 'Query cancelled');
-      }
-      let session: DriverSession;
       try {
-        session = await sessionFor(entry);
-      } catch (err) {
-        waiting.delete(runId);
-        if (pending.cancelled) return fail('cancelled', 'Query cancelled');
-        const detail = refused(entry, classifyConnectError(err));
-        return fail('connection-failed', detail.message, detail.fix);
-      }
-      pending.session = session;
-      if (pending.cancelled) {
-        waiting.delete(runId);
-        return fail('cancelled', 'Query cancelled');
-      }
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        void session.cancel();
-      }, options.timeoutMs);
-      try {
-        const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
-        if (pending.cancelled) {
-          await rows.close().catch(() => undefined);
-          return fail('cancelled', 'Query cancelled');
+        for (const [id, run] of runs) if (run.connectionId === connectionId) await closeRun(id);
+        if (pending.cancelled) return cancelled();
+        let session: DriverSession;
+        try {
+          session = await sessionFor(entry);
+        } catch (err) {
+          if (pending.cancelled) return cancelled();
+          const detail = refused(entry, classifyConnectError(err));
+          return fail('connection-failed', detail.message, detail.fix);
         }
-        const run: Run = { connectionId, session, rows, pending: [], done: false };
-        runs.set(runId, run);
-        const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
-        if (pending.cancelled) {
+        pending.session = session;
+        if (pending.cancelled) return cancelled();
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          void session.cancel();
+        }, options.timeoutMs);
+        try {
+          const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
+          if (pending.cancelled) {
+            await rows.close().catch(() => undefined);
+            return cancelled();
+          }
+          const run: Run = { connectionId, session, rows, pending: [], done: false };
+          runs.set(runId, run);
+          const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
+          if (pending.cancelled) {
+            await closeRun(runId);
+            return cancelled();
+          }
+          const hasMore = !page.done;
+          if (!hasMore) await closeRun(runId);
+          return {
+            status: hasMore ? 'too-large' : 'success',
+            engine: entry.engine,
+            columns: rows.columns,
+            rows: page.rows,
+            rowCount: page.rows.length,
+            tooLarge: hasMore,
+            rowCountIsLowerBound: hasMore,
+            hasMore,
+            durationMs: Math.round(performance.now() - started),
+            ...(rows.affectedRows !== undefined ? { affectedRows: rows.affectedRows } : {}),
+          };
+        } catch (err) {
           await closeRun(runId);
-          return fail('cancelled', 'Query cancelled');
+          if (timedOut) return fail('timeout', 'Query exceeded timeout');
+          if (pending.cancelled) return cancelled();
+          const message = err instanceof Error ? err.message : String(err);
+          if (/cancel/i.test(message)) return fail('cancelled', message);
+          const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err)) : null;
+          return detail ? fail('connection-failed', detail.message, detail.fix) : fail('sql-error', message);
+        } finally {
+          clearTimeout(timer);
         }
-        const hasMore = !page.done;
-        if (!hasMore) await closeRun(runId);
-        return {
-          status: hasMore ? 'too-large' : 'success',
-          engine: entry.engine,
-          columns: rows.columns,
-          rows: page.rows,
-          rowCount: page.rows.length,
-          tooLarge: hasMore,
-          rowCountIsLowerBound: hasMore,
-          hasMore,
-          durationMs: Math.round(performance.now() - started),
-          ...(rows.affectedRows !== undefined ? { affectedRows: rows.affectedRows } : {}),
-        };
-      } catch (err) {
-        await closeRun(runId);
-        if (timedOut) return fail('timeout', 'Query exceeded timeout');
-        if (pending.cancelled) return fail('cancelled', 'Query cancelled');
-        const message = err instanceof Error ? err.message : String(err);
-        if (/cancel/i.test(message)) return fail('cancelled', message);
-        const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err)) : null;
-        return detail ? fail('connection-failed', detail.message, detail.fix) : fail('sql-error', message);
       } finally {
         waiting.delete(runId);
-        clearTimeout(timer);
       }
     },
 
