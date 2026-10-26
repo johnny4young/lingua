@@ -94,6 +94,7 @@ The format follows Keep a Changelog and groups changes by release.
 - The HTTP response header keeps its timing and size on one line; a long status text is shortened first.
 - Quick Open describes an unsaved tab as "Unsaved · edited 2 min ago" instead of showing its internal id, and shows the project-relative path for files on disk.
 - SQL result columns are labeled with DuckDB type names (VARCHAR, INTEGER, DECIMAL(6,2)), the same names the column profile uses; the Arrow name is in the tooltip.
+- After Explain fails, editing the code and pressing Retry shows the edited code in the preview, which is what Send then sends.
 
 ## [1.6.2] — 2026-10-19
 

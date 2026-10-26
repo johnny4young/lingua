@@ -556,6 +556,10 @@ Run Capsule export keeps capture and discoverability separate from delivery:
 - Failed control or pipeline chunks log diagnostic context and surface
   localized reload guidance through the global status-notice surface.
 
+Retry after a failed first attempt clears that attempt and its saved tab thread,
+so the consent preview shows the current request Send will submit; a failed
+follow-up resends the approved conversation directly.
+
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:
 
