@@ -130,7 +130,7 @@ export const useAiConfigStore = create<AiConfigState>()(
         storeKeyInVault(apiKey);
       },
       clear: () => {
-        set({ mode: 'remote', local: EMPTY_LOCAL, remote: EMPTY_REMOTE, remoteApiKey: '', ...activeFields({ mode: 'remote', local: EMPTY_LOCAL, remote: EMPTY_REMOTE, remoteApiKey: '' }) });
+        set({ mode: 'remote', local: EMPTY_LOCAL, remote: EMPTY_REMOTE, remoteApiKey: '', apiKeyInVault: false, ...activeFields({ mode: 'remote', local: EMPTY_LOCAL, remote: EMPTY_REMOTE, remoteApiKey: '' }) });
         storeKeyInVault('');
       },
     }),

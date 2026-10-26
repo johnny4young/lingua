@@ -79,6 +79,23 @@ describe('lingua-ai v1 upgrade', () => {
     await next.syncAiKeyWithVault();
     expect(next.useAiConfigStore.getState().apiKey).toBe('sk-in-vault');
   });
+
+  it('does not bring a key cleared before the vault was ready back on the next boot', async () => {
+    vault.mode = 'session';
+    vault.values.set('ai.api-key', 'sk-in-vault');
+    localStorage.setItem(
+      'lingua-ai',
+      JSON.stringify({ state: { endpoint: 'https://api.example.com/v1', apiKeyInVault: true, model: 'gpt' }, version: 1 })
+    );
+    const first = await bootAiStore();
+    await first.syncAiKeyWithVault();
+    first.useAiConfigStore.getState().clear();
+
+    vault.mode = 'encrypted';
+    const next = await bootAiStore();
+    await next.syncAiKeyWithVault();
+    expect(next.useAiConfigStore.getState().remoteApiKey).toBe('');
+  });
 });
 
 describe('AI key in the secret vault', () => {
