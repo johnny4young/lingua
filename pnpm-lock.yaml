@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  monaco-editor>dompurify: ^3.4.16
+  monaco-editor>dompurify: ^3.4.17
   ssh2>cpu-features: '-'
   brace-expansion@1.1.15: ^1.1.21
   nanoid: ^3.3.18
@@ -185,8 +185,8 @@ importers:
         specifier: ^3.26.0
         version: 3.26.0
       dompurify:
-        specifier: ^3.4.16
-        version: 3.4.16
+        specifier: ^3.4.17
+        version: 3.4.17
       electron:
         specifier: ^44.9.1
         version: 44.9.1
@@ -2779,8 +2779,8 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  dompurify@3.4.16:
-    resolution: {integrity: sha512-sqo+pNp3qRhCIpbgRi1y8Tgk27Bo2Ry7w0dC1NBeNTdZChWjz9Xb/KOoZbRP/R6pQZ80Qw8YhXw13hWWBbMRnQ==}
+  dompurify@3.4.17:
+    resolution: {integrity: sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==}
 
   dotenv-expand@11.0.7:
     resolution: {integrity: sha512-zIHwmZPRshsCdpMDyVsqGmgyP0yT8GAgXUnkdAoJisxvf33k7yO6OuoKmcTGuXPWSsm8Oh88nZicRLA9Y0rUeA==}
@@ -6782,7 +6782,7 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  dompurify@3.4.16:
+  dompurify@3.4.17:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -7640,7 +7640,7 @@ snapshots:
 
   monaco-editor@0.55.1(patch_hash=22ea7c27d6cb39a89c779e6b6fb2ca7aec6b5a04824cccda7948c476db9d6b54):
     dependencies:
-      dompurify: 3.4.16
+      dompurify: 3.4.17
       marked: 14.0.0
 
   monaco-vim@0.4.4(monaco-editor@0.55.1(patch_hash=22ea7c27d6cb39a89c779e6b6fb2ca7aec6b5a04824cccda7948c476db9d6b54)):

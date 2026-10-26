@@ -367,7 +367,7 @@ Server and `EXPLAIN ESTIMATE` under `readonly = 2` on ClickHouse), and refuses
 a write to a production connection without the typed connection name
 (`runGuard` in `src/shared/sqlRunGuard.ts`, through `isWriteSqlStatementOn`); that confirm is a guard against mistakes, since a
 renderer that knows the name can pass it. The nineteen `sql-db:*` channels in
-`ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
+`ipc/sqlDb.ts` validate every argument and scope runs to the calling window. Fetching a closed run, or one owned by another window, returns an error instead of an empty end of result.
 
 SSH tunnels (`sqlHost/tunnel.ts`) sign in to the bastion with a password, a
 key and its passphrase, or the agent, through up to three jump hosts that sign
@@ -1500,6 +1500,8 @@ interpolated when it finally sends. Hosts that answer without the internet
 transports and pipelines never queue. Whenever the app is online with held
 entries, including when the HTTP tab opens after the connection came back,
 held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
+The drain picks each next entry from the live queue, so one queued while a send
+is pending is not stranded.
 
 With the `httpScopes` Labs flag, variables resolve from three scopes:
 collection (`collectionVariables` in the workspace store), the active
