@@ -367,7 +367,7 @@ Server and `EXPLAIN ESTIMATE` under `readonly = 2` on ClickHouse), and refuses
 a write to a production connection without the typed connection name
 (`runGuard` in `src/shared/sqlRunGuard.ts`, through `isWriteSqlStatementOn`); that confirm is a guard against mistakes, since a
 renderer that knows the name can pass it. The nineteen `sql-db:*` channels in
-`ipc/sqlDb.ts` validate every argument and scope runs to the calling window. Fetching a closed or unknown owner-scoped run returns a generic closed-result error at the main service boundary, so a missing cursor never becomes successful EOF. The refusal contains no other window's rows or connection details.
+`ipc/sqlDb.ts` validate every argument and scope runs to the calling window. Fetching a closed run, or one owned by another window, returns an error instead of an empty end of result.
 
 SSH tunnels (`sqlHost/tunnel.ts`) sign in to the bastion with a password, a
 key and its passphrase, or the agent, through up to three jump hosts that sign
