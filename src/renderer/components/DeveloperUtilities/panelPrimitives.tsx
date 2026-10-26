@@ -25,7 +25,7 @@ export function PanelSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="um-card grid gap-4">
+    <section className="um-card grid content-start gap-4">
       <div className="grid gap-1">
         <h3 className="um-card-title">{title}</h3>
         {description ? <p className="um-card-subtitle">{description}</p> : null}
