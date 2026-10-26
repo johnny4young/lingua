@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -28,8 +29,9 @@ const defaultRendererUrl = 'http://localhost:5174';
 // peer for the default launch transport. The npm prefix stays outside the
 // Lingua repo so npm does not treat the transitive @playwright/test copy as a
 // satisfying local package while leaving Electron Stagewright unable to resolve
-// the Playwright peer from its own temp package tree. A local checkout can
-// still be forced with ELECTRON_STAGEWRIGHT_CLI or --stagewright-cli.
+// the Playwright peer from its own temp package tree. Versions are pinned so a
+// new release cannot change a run. A local checkout can still be forced with
+// ELECTRON_STAGEWRIGHT_CLI or --stagewright-cli.
 const defaultStagewrightCommand = 'npx';
 const defaultStagewrightNpxPrefix = process.env.ELECTRON_STAGEWRIGHT_NPX_PREFIX ?? os.tmpdir();
 const defaultStagewrightArgs = [
@@ -37,9 +39,9 @@ const defaultStagewrightArgs = [
   defaultStagewrightNpxPrefix,
   '-y',
   '--package',
-  '@electron-stagewright/core',
+  '@electron-stagewright/core@0.7.0',
   '--package',
-  'playwright',
+  'playwright@1.64.1',
   'electron-stagewright',
 ];
 const serverReadyTimeoutMs = 30_000;
@@ -506,6 +508,7 @@ async function runStagewrightSmoke(options, rendererUrl) {
       {
         main: repoRoot,
         executablePath: electronExecutablePath,
+        args: isolatedCredentialStoreArgs(),
         cwd: repoRoot,
         env: {
           LINGUA_RENDERER_URL: rendererUrl,

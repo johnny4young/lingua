@@ -6,18 +6,18 @@ const screenshotDir = path.resolve(process.cwd(), 'output/playwright/project-tes
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('project tests bilingual evidence', () => {
+test.describe('Tests dock tab bilingual evidence', () => {
   test.beforeAll(() => {
     fs.rmSync(screenshotDir, { recursive: true, force: true });
     fs.mkdirSync(screenshotDir, { recursive: true });
   });
 
-  for (const [locale, title, result] of [
-    ['en', 'Project tests', 'Passed'],
-    ['es', 'Pruebas del proyecto', 'Aprobadas'],
+  for (const [locale, copy] of [
+    ['en', { summary: '6 tests in 4 files · found with', failedAt: 'Failed at line 10', counts: '4 passed1 failed1 skipped', fixed: '5 passed0 failed1 skipped', show: 'Show output', noProject: 'Open a project to see its tests' }],
+    ['es', { summary: '6 pruebas en 4 archivos · encontradas con', failedAt: 'Falló en la línea 10', counts: '4 aprobadas1 fallida1 omitida', fixed: '5 aprobadas0 fallidas1 omitida', show: 'Mostrar salida', noProject: 'Abre un proyecto para ver sus pruebas' }],
   ] as const) {
-    test(`${locale} detected-runner result`, async ({ page }, testInfo) => {
-      await page.setViewportSize({ width: 1440, height: 1100 });
+    test(`${locale} results by file, a single-test run and the raw output`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 1280, height: 520 });
       const consoleErrors: string[] = [];
       page.on('console', message => {
         if (message.type() === 'error') consoleErrors.push(message.text());
@@ -25,40 +25,41 @@ test.describe('project tests bilingual evidence', () => {
       page.on('pageerror', error => consoleErrors.push(error.message));
 
       await page.goto(`/?e2e=project-tests&locale=${locale}`);
-      await expect(page.getByTestId('project-tests-overlay')).toBeVisible();
-      await expect(page.getByRole('heading', { name: title })).toBeVisible();
-      await expect(page.getByText(result, { exact: true })).toBeVisible();
-      await expect(page.getByRole('radio')).toHaveCount(5);
-      await expect(page.getByTestId('project-tests-stdout')).toContainText('7 tests passed');
-      // Preserve the existing legacy-buffer fixture, then exercise actual store/UI
-      // streaming, failed completion and recovery through the gated bridge fixture.
-      for (const outcome of [locale === 'es' ? 'Fallaron' : 'Failed', result]) {
-        await page.getByTestId('project-tests-run').click();
-        await expect(page.getByTestId('project-tests-live-ordered')).toContainText(
-          'first\nwarning\nlast'
-        );
-        await page.evaluate(() => window.dispatchEvent(new Event('e2e-project-tests-complete')));
-        await expect(page.getByText(outcome, { exact: true })).toBeVisible();
-        await expect(page.getByTestId('project-tests-ordered')).toContainText(
-          'first\nwarning\nlast'
-        );
-        await expect(page.getByTestId('project-tests-stdout')).toHaveCount(0);
-        await expect(page.getByTestId('project-tests-stderr')).toHaveCount(0);
-      }
-      await expect(
-        page.getByText(locale === 'es' ? 'Salida (orden de captura)' : 'Output (capture order)', {
-          exact: true,
-        })
-      ).toBeVisible();
+      const panel = page.getByTestId('tests-panel');
+      await expect(panel.getByTestId('tests-summary')).toContainText(copy.summary);
+      await expect(panel.getByTestId('tests-counts')).toHaveText(copy.counts);
+      await expect(panel.getByText(copy.failedAt)).toBeVisible();
+      await expect(panel.getByTestId('tests-file')).toHaveCount(4);
+      const shot = path.join(screenshotDir, `tests-${locale}.png`);
+      await page.screenshot({ path: shot, animations: 'disabled' });
+      await testInfo.attach(`tests-${locale}.png`, { path: shot, contentType: 'image/png' });
 
-      const filePath = path.join(screenshotDir, `project-tests-${locale}.png`);
-      await page.screenshot({ path: filePath, fullPage: false, animations: 'disabled' });
-      await testInfo.attach(`project-tests-${locale}.png`, {
-        path: filePath,
-        contentType: 'image/png',
-      });
+      await panel.getByTestId('tests-filter-failed').click();
+      await expect(panel.getByTestId('tests-file')).toHaveCount(1);
+      await panel.getByTestId('tests-filter-all').click();
 
+      const failed = panel.locator('[data-testid="tests-case"][data-status="failed"]');
+      await failed.hover();
+      await failed.getByTestId('tests-run-test').click();
+      await expect(panel.getByTestId('tests-stop')).toBeVisible();
+      await page.evaluate(() => window.dispatchEvent(new Event('e2e-project-tests-complete')));
+      await expect(panel.getByTestId('tests-counts')).toHaveText(copy.fixed);
+
+      await panel.getByRole('button', { name: copy.show }).click();
+      await expect(panel.getByTestId('tests-output')).toContainText('first\nwarning\nlast');
       expect(consoleErrors).toEqual([]);
+    });
+
+    test(`${locale} empty state with recent projects`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 1280, height: 520 });
+      await page.goto(`/?e2e=project-tests&locale=${locale}&state=no-project`);
+      const panel = page.getByTestId('tests-panel');
+      await expect(panel.getByText(copy.noProject)).toBeVisible();
+      await expect(panel.getByTestId('tests-recent-project')).toHaveCount(3);
+      await expect(panel.getByTestId('tests-recent-project').first()).toContainText('Vitest');
+      const shot = path.join(screenshotDir, `tests-empty-${locale}.png`);
+      await page.screenshot({ path: shot, animations: 'disabled' });
+      await testInfo.attach(`tests-empty-${locale}.png`, { path: shot, contentType: 'image/png' });
     });
   }
 });

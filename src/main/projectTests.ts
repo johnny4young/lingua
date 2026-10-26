@@ -15,16 +15,30 @@ import {
   PROJECT_TEST_OUTPUT_TRUNCATION_MARKER as OUTPUT_TRUNCATION_MARKER,
 } from '../shared/projectTestOutput';
 import { constants as fsConstants } from 'node:fs';
-import { access, readFile, readdir, stat } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, realpath, rm, stat } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import {
+  createGoTestCollector,
+  parseCargoTestOutput,
+  parseJestStyleReport,
+  parsePytestJunit,
+  type ParsedProjectTestCases,
+} from './projectTestReports';
 import { detectNode } from './node-runner';
 import type {
   ProjectTestCandidate,
   ProjectTestDetectionResult,
   ProjectTestFramework,
   ProjectTestRunResult,
+  ProjectTestScope,
 } from '../shared/projectTests';
-import { isProjectTestFramework, isProjectTestRunId } from '../shared/projectTests';
+import {
+  isProjectTestFramework,
+  isProjectTestRelativePath,
+  isProjectTestRunId,
+  parseProjectTestScope,
+} from '../shared/projectTests';
 import { resolvePythonInterpreter } from '../shared/python/interpreter';
 import {
   NODE_TOOLCHAIN_KEYS,
@@ -43,12 +57,45 @@ import { resolveHostExecutable } from './runners/hostExecutable';
 const PROJECT_TEST_TIMEOUT_MS = 5 * 60 * 1000;
 const PROJECT_TEST_KILL_ESCALATION_MS = 300;
 const CONFIG_READ_LIMIT_BYTES = 512 * 1024;
+const REPORT_READ_LIMIT_BYTES = 16 * 1024 * 1024;
+// go test -json repeats each line inside an event; the raw stream needs room.
+const GO_JSON_OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
+
+type ProjectTestReport = 'jest-json' | 'pytest-junit' | 'go-json' | 'cargo-text';
 
 interface ProjectTestExecutionSpec {
   candidate: ProjectTestCandidate;
   command: string;
   args: string[];
   env: NodeJS.ProcessEnv;
+  report: ProjectTestReport;
+  /** Arguments that write the report and narrow the run; null when the scope cannot be expressed. */
+  scopedArgs: (scope: ProjectTestScope, reportFile: string) => string[] | null;
+  modulePath?: string;
+}
+
+/** A literal match for a runner that only takes a regular expression. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function exactPattern(text: string): string {
+  return `^${escapeRegExp(text)}$`;
+}
+
+/** Vitest joins suite and test names with ` > ` since v3, a space before. */
+function vitestNamePattern(path: string[]): string {
+  return `^${path.map(escapeRegExp).join('(?: | > )')}$`;
+}
+
+function cargoTargetArgs(file: string): string[] | null {
+  if (file === 'src/lib.rs') return ['--lib'];
+  if (file === 'src/main.rs') return ['--bins'];
+  const integration = /^tests\/([\w-]+)\.rs$/u.exec(file);
+  if (integration) return ['--test', integration[1]!];
+  const binary = /^src\/bin\/([\w-]+)\.rs$/u.exec(file);
+  if (binary) return ['--bin', binary[1]!];
+  return null;
 }
 
 interface ProjectTestRuntimeOptions {
@@ -57,6 +104,8 @@ interface ProjectTestRuntimeOptions {
   spawnImpl?: (options: SpawnNativeRunOptions) => Promise<SpawnNativeRunResult>;
   onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   signal?: AbortSignal;
+  /** Unvalidated renderer input; absent means the whole suite. */
+  scope?: unknown;
 }
 
 interface ActiveProjectTestRun {
@@ -306,6 +355,14 @@ async function executionSpecs(
       command: node ?? '',
       args: [entry, 'run', '--no-color'],
       env,
+      report: 'jest-json',
+      scopedArgs: (scope, reportFile) => [
+        '--reporter=default',
+        '--reporter=json',
+        `--outputFile.json=${reportFile}`,
+        ...(scope.kind === 'all' ? [] : [scope.file]),
+        ...(scope.kind === 'test' ? ['-t', vitestNamePattern(scope.path)] : []),
+      ],
     });
   }
 
@@ -340,6 +397,13 @@ async function executionSpecs(
       command: node ?? '',
       args: [entry, '--runInBand', '--colors=false'],
       env,
+      report: 'jest-json',
+      scopedArgs: (scope, reportFile) => [
+        '--json',
+        `--outputFile=${reportFile}`,
+        ...(scope.kind === 'all' ? [] : ['--runTestsByPath', scope.file]),
+        ...(scope.kind === 'test' ? ['-t', exactPattern(scope.path.join(' '))] : []),
+      ],
     });
   }
 
@@ -380,6 +444,14 @@ async function executionSpecs(
       command: executable ?? 'python',
       args: ['-m', 'pytest', '-q', '--color=no'],
       env,
+      report: 'pytest-junit',
+      scopedArgs: (scope, reportFile) => [
+        '-o',
+        'junit_family=xunit1',
+        `--junitxml=${reportFile}`,
+        ...(scope.kind === 'file' ? [scope.file] : []),
+        ...(scope.kind === 'test' ? [[scope.file, ...scope.path].join('::')] : []),
+      ],
     });
   }
 
@@ -391,11 +463,18 @@ async function executionSpecs(
       hostEnv
     );
     const executable = await resolveHostExecutable(['go'], env, platform);
+    const goMod = await readSmallText(path.join(rootPath, 'go.mod'));
     specs.push({
       candidate: candidate('go', 'go test ./...', ['go.mod'], executable !== null),
       command: executable ?? 'go',
-      args: ['test', './...'],
+      args: ['test', '-json'],
       env,
+      report: 'go-json',
+      modulePath: /^module\s+"?([^"\s]+)"?/mu.exec(goMod ?? '')?.[1] ?? '',
+      scopedArgs: scope => [
+        scope.kind === 'all' ? './...' : scope.file === '.' ? '.' : `./${scope.file}`,
+        ...(scope.kind === 'test' ? ['-run', scope.path.map(exactPattern).join('/')] : []),
+      ],
     });
   }
 
@@ -420,10 +499,74 @@ async function executionSpecs(
       command: executable ?? 'cargo',
       args: ['test', '--color', 'never'],
       env,
+      report: 'cargo-text',
+      scopedArgs: scope => {
+        const target = scope.kind === 'all' ? [] : cargoTargetArgs(scope.file);
+        // libtest reads the name after `--`, so it must be a Rust path, never an option.
+        if (target === null || (scope.kind === 'test' && !scope.path.every(part => /^[A-Za-z_]\w*$/u.test(part)))) {
+          return null;
+        }
+        return [
+          '--no-fail-fast',
+          ...target,
+          ...(scope.kind === 'test' ? ['--', '--exact', scope.path.join('::')] : []),
+        ];
+      },
     });
   }
 
   return specs;
+}
+
+async function scopeTargetExists(rootPath: string, relative: string): Promise<boolean> {
+  try {
+    await stat(path.join(rootPath, ...relative.split('/')));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readReport(file: string): Promise<string | null> {
+  try {
+    const metadata = await stat(file);
+    if (!metadata.isFile() || metadata.size > REPORT_READ_LIMIT_BYTES) return null;
+    return await readFile(file, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+/** Reports come from project code: keep only paths that stay inside the root. */
+function containedCases(parsed: ParsedProjectTestCases | null): ParsedProjectTestCases | null {
+  if (!parsed) return null;
+  const cases = parsed.cases
+    .filter(entry => isProjectTestRelativePath(entry.file))
+    .map(entry => {
+      if (entry.failureFile === undefined || isProjectTestRelativePath(entry.failureFile)) return entry;
+      const { failureFile: _dropped, failureLine: _line, ...rest } = entry;
+      return rest;
+    });
+  return { cases, truncated: parsed.truncated };
+}
+
+async function readProjectTestCases(
+  report: ProjectTestReport,
+  rootPath: string,
+  reportFile: string,
+  transcript: string,
+  go: ReturnType<typeof createGoTestCollector> | null
+): Promise<ParsedProjectTestCases | null> {
+  if (report === 'go-json') return go ? go.finish() : null;
+  if (report === 'cargo-text') return parseCargoTestOutput(transcript);
+  const text = await readReport(reportFile);
+  if (text === null) return null;
+  if (report === 'pytest-junit') return parsePytestJunit(text);
+  const parsed = parseJestStyleReport(text, rootPath);
+  if (!parsed || parsed.cases.length > 0) return parsed;
+  // Runners report real paths; the approved root may be a symlink to them.
+  const real = await realpath(rootPath).catch(() => rootPath);
+  return real === rootPath ? parsed : parseJestStyleReport(text, real);
 }
 
 export async function detectProjectTests(
@@ -498,67 +641,98 @@ export async function runProjectTests(
       };
     }
 
-    let transcript: ProjectTestTranscript | undefined;
-    const pipeSizes = { stdout: 0, stderr: 0 };
-    const clippedPipes = new Set<'stdout' | 'stderr'>();
-    const capture = (stream: 'stdout' | 'stderr', chunk: string) => {
-      if (clippedPipes.has(stream)) return;
-      const remaining = PROJECT_TEST_MAX_OUTPUT_BYTES - pipeSizes[stream];
-      let text = chunk;
-      if (chunk.length > remaining) {
-        let end = remaining;
-        const last = chunk.charCodeAt(end - 1);
-        if (last >= 0xd800 && last <= 0xdbff) end--;
-        text = chunk.slice(0, end) + OUTPUT_TRUNCATION_MARKER;
-        clippedPipes.add(stream);
+    const scope = parseProjectTestScope(options.scope);
+    if (!scope || (scope.kind !== 'all' && !(await scopeTargetExists(rootPath, scope.file)))) {
+      return emptyProjectTestRunResult('invalid-request', framework, PROJECT_TEST_TIMEOUT_MS);
+    }
+    const reportDir =
+      spec.report === 'jest-json' || spec.report === 'pytest-junit'
+        ? await mkdtemp(path.join(os.tmpdir(), 'lingua-tests-'))
+        : null;
+    try {
+      const reportFile = reportDir
+        ? path.join(reportDir, spec.report === 'pytest-junit' ? 'report.xml' : 'report.json')
+        : '';
+      const scopedArgs = spec.scopedArgs(scope, reportFile);
+      if (!scopedArgs) {
+        return emptyProjectTestRunResult('invalid-request', framework, PROJECT_TEST_TIMEOUT_MS);
       }
-      pipeSizes[stream] += chunk.length;
-      transcript = appendProjectTestOutput(transcript, text);
-      options.onOutput?.(stream, text);
-    };
-    const execute = options.spawnImpl ?? spawnNativeRun;
-    const result = await execute({
-      command: spec.command,
-      args: spec.args,
-      cwd: rootPath,
-      env: spec.env,
-      timeoutMs: PROJECT_TEST_TIMEOUT_MS,
-      killEscalationMs: PROJECT_TEST_KILL_ESCALATION_MS,
-      maxOutputBytes: PROJECT_TEST_MAX_OUTPUT_BYTES,
-      stdoutTruncationMarker: OUTPUT_TRUNCATION_MARKER,
-      stderrTruncationMarker: OUTPUT_TRUNCATION_MARKER,
-      signal: controller.signal,
-      onStdout: chunk => capture('stdout', chunk),
-      onStderr: chunk => capture('stderr', chunk),
-    });
-    const kind: ProjectTestRunResult['kind'] = result.killed
-      ? 'stopped'
-      : result.timedOut
-        ? 'timed-out'
-        : result.spawnError
-          ? 'unavailable'
-          : result.exitCode === 0
-            ? 'success'
-            : 'failed';
-    return {
-      kind,
-      framework,
-      command: spec.candidate.command,
-      ...(transcript === undefined ? {} : { orderedOutput: transcript.text }),
-      stdout: result.stdout,
-      stderr: result.stderr || result.spawnError?.message || '',
-      exitCode: result.exitCode,
-      executionTime: result.executionTime,
-      timeoutMs: PROJECT_TEST_TIMEOUT_MS,
-      ...(result.spawnError
-        ? {
-            unavailableReason:
-              framework === 'vitest' || framework === 'jest'
-                ? ('node-not-found' as const)
-                : ('toolchain-not-found' as const),
-          }
-        : {}),
-    };
+      const go = spec.report === 'go-json' ? createGoTestCollector(spec.modulePath ?? '') : null;
+      let transcript: ProjectTestTranscript | undefined;
+      const shown = { stdout: '', stderr: '' };
+      const pipeSizes = { stdout: 0, stderr: 0 };
+      const clippedPipes = new Set<'stdout' | 'stderr'>();
+      const show = (stream: 'stdout' | 'stderr', chunk: string) => {
+        if (!chunk || clippedPipes.has(stream)) return;
+        const remaining = PROJECT_TEST_MAX_OUTPUT_BYTES - pipeSizes[stream];
+        let text = chunk;
+        if (chunk.length > remaining) {
+          let end = remaining;
+          const last = chunk.charCodeAt(end - 1);
+          if (last >= 0xd800 && last <= 0xdbff) end--;
+          text = chunk.slice(0, end) + OUTPUT_TRUNCATION_MARKER;
+          clippedPipes.add(stream);
+        }
+        pipeSizes[stream] += chunk.length;
+        shown[stream] += text;
+        transcript = appendProjectTestOutput(transcript, text);
+        options.onOutput?.(stream, text);
+      };
+      const capture = (stream: 'stdout' | 'stderr', chunk: string) =>
+        show(stream, go && stream === 'stdout' ? go.push(chunk) : chunk);
+      const execute = options.spawnImpl ?? spawnNativeRun;
+      const result = await execute({
+        command: spec.command,
+        args: [...spec.args, ...scopedArgs],
+        cwd: rootPath,
+        env: spec.env,
+        timeoutMs: PROJECT_TEST_TIMEOUT_MS,
+        killEscalationMs: PROJECT_TEST_KILL_ESCALATION_MS,
+        maxOutputBytes: go ? GO_JSON_OUTPUT_LIMIT_BYTES : PROJECT_TEST_MAX_OUTPUT_BYTES,
+        stdoutTruncationMarker: OUTPUT_TRUNCATION_MARKER,
+        stderrTruncationMarker: OUTPUT_TRUNCATION_MARKER,
+        signal: controller.signal,
+        onStdout: chunk => capture('stdout', chunk),
+        onStderr: chunk => capture('stderr', chunk),
+      });
+      if (go) show('stdout', go.flush());
+      const parsed = containedCases(
+        await readProjectTestCases(spec.report, rootPath, reportFile, transcript?.text ?? '', go).catch(() => null)
+      );
+      const kind: ProjectTestRunResult['kind'] = result.killed
+        ? 'stopped'
+        : result.timedOut
+          ? 'timed-out'
+          : result.spawnError
+            ? 'unavailable'
+            : result.exitCode === 0
+              ? 'success'
+              : 'failed';
+      return {
+        kind,
+        framework,
+        command: spec.candidate.command,
+        ...(transcript === undefined ? {} : { orderedOutput: transcript.text }),
+        // Go's raw cap is larger for its JSON, so return the bounded text that was shown.
+        stdout: go ? shown.stdout : result.stdout,
+        stderr: (go ? shown.stderr : result.stderr) || result.spawnError?.message || '',
+        exitCode: result.exitCode,
+        executionTime: result.executionTime,
+        timeoutMs: PROJECT_TEST_TIMEOUT_MS,
+        ...(result.spawnError
+          ? {
+              unavailableReason:
+                framework === 'vitest' || framework === 'jest'
+                  ? ('node-not-found' as const)
+                  : ('toolchain-not-found' as const),
+            }
+          : {}),
+        scope,
+        ...(parsed ? { cases: parsed.cases, ...(parsed.truncated ? { casesTruncated: true } : {}) } : {}),
+      };
+    } finally {
+      if (reportDir) await rm(reportDir, { recursive: true, force: true }).catch(() => undefined);
+    }
   } finally {
     options.signal?.removeEventListener('abort', stopForOwnerLifecycle);
     if (activeRuns.get(runId)?.controller === controller) activeRuns.delete(runId);

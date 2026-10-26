@@ -24,7 +24,6 @@
 import { Loader2, SendHorizontal, X } from 'lucide-react';
 import { Fragment, useDeferredValue, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
 import type {
   HttpAssertion,
@@ -129,7 +128,6 @@ export function HttpResponsePreview({
   snapshots,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
-  const sendCombo = useShortcutLabel('run-toggle');
   // Evaluate assertions against the settled response. Enabled
   // rows only; disabled rows are excluded by runAssertions.
   const assertionResults = useMemo(() => {
@@ -195,7 +193,6 @@ export function HttpResponsePreview({
         <EmptyState
           icon={<Loader2 size={18} className="animate-spin" aria-hidden="true" />}
           title={t('httpWorkspace.response.loading')}
-          description={t('httpWorkspace.response.empty.body', { combo: sendCombo })}
         />
       </div>
     );
@@ -211,7 +208,6 @@ export function HttpResponsePreview({
         <EmptyState
           icon={<SendHorizontal size={18} aria-hidden="true" />}
           title={t('httpWorkspace.response.empty.title')}
-          description={t('httpWorkspace.response.empty.body', { combo: sendCombo })}
         />
       </div>
     );

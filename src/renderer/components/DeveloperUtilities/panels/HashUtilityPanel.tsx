@@ -152,7 +152,6 @@ export function HashUtilityPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <PanelSection
         title={t('utilities.tool.hash.title')}
-        description={t('utilities.tool.hash.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
           <label className="grid gap-1 text-body-sm text-muted">

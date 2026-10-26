@@ -18,6 +18,7 @@ import type { ChatMessage } from '../../shared/ai/explainError';
 import { utf8ByteLength } from '../../shared/utf8';
 import { readAiResponseBody, AiResponseError, AI_RESPONSE_LIMITS } from './aiResponseBody';
 import { createProxyAiFetch } from './aiProxyFetch';
+import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 
 /** Default request timeout. */
 const DEFAULT_AI_TIMEOUT_MS = 60_000;
@@ -156,6 +157,13 @@ export async function runChatCompletion(
 
   try {
     if (controller.signal.aborted) throw new AiResponseError('cancelled');
+    const local = isLocalAiEndpoint(normalizedConfig.endpoint);
+    recordTrustEventBestEffort({
+      feature: 'ai',
+      action: 'sent',
+      sensitivity: local ? 'low' : 'high',
+      summary: local ? 'Sent to a model on this machine' : `Sent to ${new URL(normalizedConfig.endpoint).host}`,
+    });
     const response = await fetchImpl(normalizedConfig.endpoint, {
       method: 'POST',
       headers: {

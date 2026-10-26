@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm, readFile, access, chmod } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const root = process.cwd();
 const artifacts = path.join(root, 'output/playwright/node-preparation');
@@ -50,7 +51,7 @@ try {
   assert(ready, 'Renderer server ready');
   app = await _electron.launch({
     executablePath: electronBinary,
-    args: [root],
+    args: [...isolatedCredentialStoreArgs(), root],
     cwd: root,
     env: {
       ...process.env,

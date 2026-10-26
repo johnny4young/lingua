@@ -38,7 +38,6 @@ export function JsonUtilityPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.45fr)] 2xl:grid-cols-[minmax(20rem,0.65fr)_minmax(42rem,1.7fr)]">
       <PanelSection
         title={t('utilities.tool.json.title')}
-        description={t('utilities.tool.json.panelDescription')}
       >
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.field.input')}</FieldLabel>
@@ -75,7 +74,6 @@ export function JsonUtilityPanel() {
 
       <PanelSection
         title={t('utilities.tool.json.viewerTitle')}
-        description={t('utilities.tool.json.viewerDescription')}
       >
         {analysis.errorKey ? (
           <StatusMessage message={t('utilities.tool.json.invalid')} tone="error" />

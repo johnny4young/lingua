@@ -329,9 +329,6 @@ export function StdinInputPanel() {
               {t('stdin.panel.lineCountBadge', { count: filledCount, promptFn })}
             </MonoBadge>
           </div>
-          <p className="text-caption text-fg-subtle">
-            {t('stdin.panel.descriptionShort', { promptFn })}
-          </p>
           {/* Ordered queue */}
           <div className="min-h-[96px] flex-1 overflow-auto rounded-lg border border-border-subtle bg-bg-inset">
             <DndContext
@@ -579,9 +576,7 @@ function SortableStdinRow({
       data-next={isNext ? 'true' : 'false'}
       className={cn(
         'grid grid-cols-[18px_22px_28px_minmax(0,1fr)_auto_120px] items-center gap-2 px-3 py-1.5',
-        isNext &&
-          'bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-l-2 border-l-accent',
-        !isNext && 'border-l-2 border-l-transparent',
+        isNext && 'bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)]',
       )}
     >
       <button

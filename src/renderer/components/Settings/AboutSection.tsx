@@ -81,7 +81,7 @@ export function AboutSection({
 
   return (
     <div className="space-y-7">
-      <SettingsSection eyebrow={t('about.title')} description={t('about.description')}>
+      <SettingsSection eyebrow={t('about.title')}>
         {/* Hero identity tile — LG glyph + product name, above the spec card. */}
         <div className="flex items-start gap-3 rounded-lg border border-border-subtle bg-bg-inset p-4">
           <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-4xl bg-primary text-body font-semibold text-primary-foreground shadow-[0_14px_35px_color-mix(in_srgb,var(--color-accent)_25%,transparent)]">
@@ -90,9 +90,6 @@ export function AboutSection({
           <div className="min-w-0 flex-1">
             <p className="font-display text-h2 font-semibold tracking-[-0.04em] text-fg-base">
               {productName}
-            </p>
-            <p className="mt-1 text-body leading-6 text-fg-subtle">
-              {t('about.hero.copy')}
             </p>
           </div>
         </div>
@@ -122,10 +119,8 @@ export function AboutSection({
         </SpecCard>
       </SettingsSection>
 
-      <SettingsSection eyebrow={t('about.links.label')} description={t('about.links.hint')}>
+      <SettingsSection eyebrow={t('about.links.label')}>
         <SpecCard>
-          {/* The enclosing SettingsSection already prints this description
-              verbatim, so the row keeps its label and drops the repeat. */}
           <SpecRow
             label={t('about.links.label')}
             control={
@@ -156,7 +151,7 @@ export function AboutSection({
           />
           <SpecRow
             label={t('about.actions.label')}
-            description={t('about.actions.hint')}
+            strong
             control={
               <div className="flex flex-wrap justify-end gap-2">
                 {onStartGuidedTour && (
@@ -198,7 +193,7 @@ export function AboutSection({
           />
           <SpecRow
             label={t('about.actions.whatsNewOnUpdate.label')}
-            description={t('about.actions.whatsNewOnUpdate.hint')}
+            strong
             control={
               <div data-testid="settings-whats-new-notices-toggle">
                 <Toggle
@@ -213,7 +208,7 @@ export function AboutSection({
           />
           <SpecRow
             label={t('about.actions.contextualHints.label')}
-            description={t('about.actions.contextualHints.hint')}
+            strong
             control={
               <div data-testid="settings-contextual-hints-toggle">
                 <Toggle
@@ -226,7 +221,7 @@ export function AboutSection({
           />
           <SpecRow
             label={t('about.actions.showTourOnStartup.label')}
-            description={t('about.actions.showTourOnStartup.hint')}
+            strong
             control={
               <div data-testid="settings-show-tour-toggle">
                 <Toggle

@@ -318,4 +318,18 @@ describe('runChatCompletion', () => {
     expect(res).toMatchObject({ ok: false, kind: 'config' });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+  it('logs each send in the trust log with metadata only', async () => {
+    const { useTrustEventStore } = await import('../../../src/renderer/stores/trustEventStore');
+    useTrustEventStore.getState().clear();
+    const fetchImpl = vi.fn(async () => jsonResponse({ choices: [{ message: { content: 'ok' } }] })) as unknown as typeof fetch;
+    await runChatCompletion(request, config, { fetchImpl });
+    await runChatCompletion(request, { endpoint: 'http://localhost:11434/v1/chat/completions', apiKey: '', model: 'q' }, { fetchImpl });
+    const events = useTrustEventStore.getState().events.filter((event) => event.feature === 'ai');
+    expect(events.map((event) => [event.sensitivity, event.summary])).toEqual([
+      ['high', 'Sent to api.example.com'],
+      ['low', 'Sent to a model on this machine'],
+    ]);
+    expect(JSON.stringify(events)).not.toContain('sk-secret-key-value');
+    expect(JSON.stringify(events)).not.toContain('explain this');
+  });
 });

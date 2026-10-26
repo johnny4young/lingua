@@ -87,7 +87,7 @@ test.describe('Automated axe scans', () => {
 
   test('Settings — General tab', async ({ page }) => {
     await openSettings(page);
-    await expect(page.getByRole('dialog', { name: /tune the shell/i })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /^workspace settings$/i })).toBeVisible();
     await openSettingsTab(page, 'general');
     await auditA11y(page);
   });
@@ -187,7 +187,7 @@ test.describe('Automated axe scans', () => {
   test("What's New overlay", async ({ page }) => {
     await openPaletteAction(page, "what's new", /What's New/i);
     await expect(
-      page.getByRole('heading', { name: /release notes and recent changes/i })
+      page.getByRole('heading', { name: "What's New", exact: true })
     ).toBeVisible();
     await expect(page.getByRole('dialog', { name: /what's new/i })).toBeVisible();
     await auditA11y(page);
@@ -281,10 +281,10 @@ test.describe('Keyboard-only flows', () => {
 
   test('Settings opens via Cmd+, and dismisses with Escape', async ({ page }) => {
     await page.keyboard.press('ControlOrMeta+Comma');
-    await expect(page.getByRole('heading', { name: /tune the shell/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^workspace settings$/i })).toBeVisible();
 
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('heading', { name: /tune the shell/i })).toBeHidden();
+    await expect(page.getByRole('heading', { name: /^workspace settings$/i })).toBeHidden();
   });
 
   test('Settings tabs are reachable by Tab/arrow navigation', async ({ page }) => {
@@ -317,7 +317,7 @@ test.describe('Focus restoration', () => {
     await trigger.focus();
     await expect(trigger).toBeFocused();
     await trigger.press('Enter');
-    await expect(page.getByRole('heading', { name: /tune the shell/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^workspace settings$/i })).toBeVisible();
 
     await closeSettings(page);
     await expect(trigger).toBeFocused();

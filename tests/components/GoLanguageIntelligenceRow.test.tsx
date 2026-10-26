@@ -53,7 +53,6 @@ describe('GoLanguageIntelligenceRow', () => {
     useGoLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'web-build' });
     render(<GoLanguageIntelligenceRow />);
     expect(screen.getByText(/desktop only/i)).toBeTruthy();
-    expect(screen.getByText(/local subprocess/i)).toBeTruthy();
   });
 
   it('renders the restart button when degraded and calls the IPC on click', async () => {

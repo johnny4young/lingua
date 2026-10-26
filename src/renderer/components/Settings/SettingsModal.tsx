@@ -36,7 +36,6 @@ import { ICON_GLYPH } from '../ui/iconScale';
 import { EyebrowMono } from '../ui/primitives';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import {
-  currentShortcutDisplayPlatform,
   formatShortcutCombo,
   KEYBOARD_SHORTCUTS,
   matchesCombo,
@@ -138,9 +137,6 @@ function SettingsTopBar({
         onSelect={onSearchSelect}
       />
       <div className="flex items-center gap-2">
-        <span className="settings-modal-esc-key">
-          <Kbd>Esc</Kbd>
-        </span>
         <IconButton onClick={onClose} tooltip={t('settings.close')}>
           <X size={ICON_GLYPH.md} />
         </IconButton>
@@ -260,7 +256,6 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
         <div className="flex items-center gap-2">
           <Braces size={13} className="text-fg-subtle" aria-hidden />
           <EyebrowMono>{t('settings.effectiveConfig.label')}</EyebrowMono>
-          <span className="text-caption text-fg-muted">{t('settings.effectiveConfig.hint')}</span>
         </div>
       </summary>
       <button
@@ -279,39 +274,6 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
       </button>
       <pre className="effective-config-tile-body whitespace-pre">{json}</pre>
     </details>
-  );
-}
-
-interface SettingsStatusBarProps {
-  active: TabId;
-}
-
-function SettingsStatusBar({ active }: SettingsStatusBarProps) {
-  const { t } = useTranslation();
-  const platform = currentShortcutDisplayPlatform();
-  return (
-    <div className="settings-status-bar">
-      <span className="inline-flex items-center gap-1.5">
-        <span aria-hidden className="inline-block size-1.5 rounded-full bg-success" />
-        <span className="font-mono">{t('settings.sync.label')}</span>
-      </span>
-      <span className="text-fg-subtle">·</span>
-      <span className="font-mono">
-        {t('settings.footer.trail', { section: t(`settings.tabs.${active}`) })}
-      </span>
-      <span className="flex-1" />
-      <span className="settings-status-shortcuts items-center gap-1.5">
-        <Kbd>{formatShortcutCombo({ tokens: ['Mod', '1'] }, platform)}</Kbd>
-        <span aria-hidden className="text-fg-subtle">–</span>
-        <Kbd>{formatShortcutCombo({ tokens: ['Mod', '0'] }, platform)}</Kbd>
-        <span className="text-fg-muted">{t('settings.statusBar.section')}</span>
-      </span>
-      <span className="settings-status-shortcuts text-fg-subtle">·</span>
-      <span className="settings-status-shortcuts items-center gap-1.5">
-        <Kbd>Esc</Kbd>
-        <span className="text-fg-muted">{t('settings.statusBar.escape')}</span>
-      </span>
-    </div>
   );
 }
 
@@ -569,20 +531,9 @@ export function SettingsModal({
       case 'shortcuts':
         return (
           <SettingsSearchTarget id="section-shortcuts">
-            <SettingsSection
-              eyebrow={t('settings.shortcuts.eyebrow')}
-              description={t('settings.shortcuts.description')}
-            >
+            <SettingsSection eyebrow={t('settings.shortcuts.eyebrow')}>
               <ShortcutsPreviewCard />
-              <div className="flex items-center justify-between gap-4 rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-[13px]">
-                <div className="min-w-0">
-                  <div className="text-body font-medium text-fg-base">
-                    {t('settings.shortcuts.linkLabel')}
-                  </div>
-                  <div className="mt-[2px] max-w-[52ch] text-caption leading-relaxed text-fg-subtle">
-                    {t('settings.shortcuts.linkHint')}
-                  </div>
-                </div>
+              <div className="flex justify-end">
                 <button
                   type="button"
                   className="button-primary shrink-0 text-body-sm"
@@ -641,7 +592,7 @@ export function SettingsModal({
         style={{ height: 'min(86vh, 820px)' }}
       >
         <h2 id="settings-modal-title" className="sr-only">
-          {t('settings.subtitle')}
+          {t('settings.title')}
         </h2>
 
         {/* Rail spans all rows on the left */}
@@ -684,8 +635,6 @@ export function SettingsModal({
           <EffectiveConfigTile tab={activeTab} />
         </div>
 
-        {/* Status bar */}
-        <SettingsStatusBar active={activeTab} />
       </OverlayCard>
     </OverlayBackdrop>
   );

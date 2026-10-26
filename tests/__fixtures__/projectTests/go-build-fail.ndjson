@@ -1,0 +1,14 @@
+{"ImportPath":"example.com/shop/internal/broken.test","Action":"build-output","Output":"# example.com/shop/internal/broken\n"}
+{"ImportPath":"example.com/shop/internal/broken.test","Action":"build-output","Output":"internal/broken/b_test.go:5:38: expected operand, found ';'\n"}
+{"ImportPath":"example.com/shop/internal/broken.test","Action":"build-fail"}
+{"Time":"2026-10-26T10:11:33.443533-05:00","Action":"start","Package":"example.com/shop/internal/broken"}
+{"Time":"2026-10-26T10:11:33.443565-05:00","Action":"output","Package":"example.com/shop/internal/broken","Output":"FAIL\texample.com/shop/internal/broken [setup failed]\n","OutputType":"frame"}
+{"Time":"2026-10-26T10:11:33.443571-05:00","Action":"fail","Package":"example.com/shop/internal/broken","Elapsed":0,"FailedBuild":"example.com/shop/internal/broken.test"}
+{"Time":"2026-10-26T10:11:33.957569-05:00","Action":"start","Package":"example.com/shop"}
+{"Time":"2026-10-26T10:11:34.293148-05:00","Action":"run","Package":"example.com/shop","Test":"TestRoot"}
+{"Time":"2026-10-26T10:11:34.293365-05:00","Action":"output","Package":"example.com/shop","Test":"TestRoot","Output":"=== RUN   TestRoot\n","OutputType":"frame"}
+{"Time":"2026-10-26T10:11:34.293444-05:00","Action":"output","Package":"example.com/shop","Test":"TestRoot","Output":"--- PASS: TestRoot (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-26T10:11:34.293479-05:00","Action":"pass","Package":"example.com/shop","Test":"TestRoot","Elapsed":0}
+{"Time":"2026-10-26T10:11:34.29349-05:00","Action":"output","Package":"example.com/shop","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-10-26T10:11:34.294329-05:00","Action":"output","Package":"example.com/shop","Output":"ok  \texample.com/shop\t0.336s\n"}
+{"Time":"2026-10-26T10:11:34.295451-05:00","Action":"pass","Package":"example.com/shop","Elapsed":0.338}

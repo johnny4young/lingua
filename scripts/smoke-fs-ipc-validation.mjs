@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { _electron } from 'playwright';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const root = process.cwd();
 const url = 'http://127.0.0.1:5187';
@@ -39,7 +40,7 @@ try {
 
   app = await _electron.launch({
     executablePath: electronBinary,
-    args: [root],
+    args: [...isolatedCredentialStoreArgs(), root],
     cwd: root,
     env: {
       ...process.env,

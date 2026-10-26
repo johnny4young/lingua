@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { asRootId } from '../../src/shared/fs/brandedIds';
 import type { ProjectTestDetectionResult } from '../../src/shared/projectTests';
-import { useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
+import { mergeProjectTestCases, useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useNativeExecutionGateStore } from '../../src/renderer/stores/nativeExecutionGateStore';
 
@@ -212,7 +212,7 @@ describe('projectTestStore', () => {
     });
     await pending;
 
-    expect(run).toHaveBeenCalledWith(rootA, 'cargo', activeRunId);
+    expect(run).toHaveBeenCalledWith(rootA, 'cargo', activeRunId, { kind: 'all' });
     expect(useProjectTestStore.getState()).toMatchObject({
       status: 'ready',
       activeRunId: null,
@@ -269,5 +269,29 @@ describe('projectTestStore', () => {
     useNativeExecutionGateStore.getState().confirm();
 
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('mergeProjectTestCases', () => {
+  const tc = (file: string, name: string, status: 'passed' | 'failed' | 'skipped' = 'passed') => ({ file, path: [name], status });
+  const list = [tc('a.test.ts', 'one'), tc('a.test.ts', 'two', 'failed'), tc('b.test.ts', 'three')];
+
+  it('replaces only the tests of a file run, in place', () => {
+    const merged = mergeProjectTestCases(list, { kind: 'file', file: 'a.test.ts' }, [tc('a.test.ts', 'one'), tc('a.test.ts', 'two'), tc('z.test.ts', 'other')]);
+    expect(merged.map((entry) => `${entry.file}:${entry.path[0]}:${entry.status}`)).toEqual([
+      'a.test.ts:one:passed',
+      'a.test.ts:two:passed',
+      'b.test.ts:three:passed',
+    ]);
+  });
+
+  it('updates one test and ignores the siblings a name filter reports as skipped', () => {
+    const merged = mergeProjectTestCases(list, { kind: 'test', file: 'a.test.ts', path: ['two'] }, [tc('a.test.ts', 'one', 'skipped'), tc('a.test.ts', 'two')]);
+    expect(merged.map((entry) => entry.status)).toEqual(['passed', 'passed', 'passed']);
+  });
+
+  it('takes the whole list from a full run, and from a first scoped run', () => {
+    expect(mergeProjectTestCases(list, { kind: 'all' }, [tc('c.test.ts', 'x')])).toEqual([tc('c.test.ts', 'x')]);
+    expect(mergeProjectTestCases(null, { kind: 'file', file: 'a.test.ts' }, [tc('a.test.ts', 'one')])).toEqual([tc('a.test.ts', 'one')]);
   });
 });

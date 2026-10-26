@@ -9,9 +9,9 @@ import en from '../../src/renderer/i18n/locales/en/common.json';
 import es from '../../src/renderer/i18n/locales/es/common.json';
 
 describe('contextual hint catalog', () => {
-  it('keeps a closed 20-entry catalog with unique ids and localized keys', () => {
-    expect(CONTEXTUAL_HINTS).toHaveLength(20);
-    expect(new Set(CONTEXTUAL_HINTS.map(hint => hint.id)).size).toBe(20);
+  it('keeps a closed 19-entry catalog with unique ids and localized keys', () => {
+    expect(CONTEXTUAL_HINTS).toHaveLength(19);
+    expect(new Set(CONTEXTUAL_HINTS.map(hint => hint.id)).size).toBe(19);
     expect(CONTEXTUAL_HINTS.every(hint => hint.i18nKey.startsWith('hints.'))).toBe(true);
 
     const locales = [en, es] as ReadonlyArray<Record<string, string>>;

@@ -55,7 +55,6 @@ export function ColorUtilityPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
       <PanelSection
         title={t('utilities.tool.color.title')}
-        description={t('utilities.tool.color.panelDescription')}
       >
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.color.fieldInput')}</FieldLabel>

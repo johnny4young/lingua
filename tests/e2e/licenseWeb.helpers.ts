@@ -87,7 +87,7 @@ function trackConsoleErrors(page: Page): string[] {
 }
 
 function buildE2eDevice(deviceId: string) {
-  const now = Date.now();
+  const now = Math.floor(Date.now() / 1000);
   return {
     id: `device-${deviceId}`,
     deviceId,
@@ -366,7 +366,7 @@ export async function dismissWhatsNew(page: Page): Promise<void> {
 
 export async function openSettings(page: Page): Promise<void> {
   const heading = page.getByRole('heading', {
-    name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
+    name: /^(workspace settings|configuración del espacio de trabajo)$/i,
   });
   // A single gesture can land in a dead window under CI load: the pill's
   // 1s trial click fails while the app is still hydrating, and the keyboard
@@ -417,7 +417,7 @@ export async function openSettingsTab(page: Page, tabId: SettingsTabId): Promise
 
 export async function closeSettings(page: Page): Promise<void> {
   const settingsHeading = page.getByRole('heading', {
-    name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
+    name: /^(workspace settings|configuración del espacio de trabajo)$/i,
   });
 
   if (!(await settingsHeading.isVisible().catch(() => false))) {

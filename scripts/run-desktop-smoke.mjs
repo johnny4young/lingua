@@ -14,6 +14,7 @@ import {
 import { assertPackagedMacProjectTerminalRuntime } from './lib/packagedProjectTerminal.mjs';
 import { inspectDesktopSmokeResult } from './lib/desktopSmokeSummary.mjs';
 import { mintDevLicense } from './dev-license-shared.mjs';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -283,7 +284,7 @@ async function main() {
     const launchedAtMs = Date.now();
     child = spawn(
       binary,
-      ['--lingua-desktop-smoke', `--lingua-smoke-artifact-dir=${artifactDir}`],
+      [...isolatedCredentialStoreArgs(), '--lingua-desktop-smoke', `--lingua-smoke-artifact-dir=${artifactDir}`],
       {
         cwd: repoRoot,
         stdio: 'inherit',
@@ -317,6 +318,7 @@ async function main() {
         path.join(repoRoot, 'scripts', 'run-electron-desktop.mjs'),
         '--sync-main',
         '--',
+        ...isolatedCredentialStoreArgs(),
         '--lingua-desktop-smoke',
         `--lingua-smoke-artifact-dir=${artifactDir}`,
         `--lingua-smoke-license-token=${smokeLicense.token}`,

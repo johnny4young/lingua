@@ -32,7 +32,6 @@ export function Base64UtilityPanel() {
       <UtilityToolbar utilityId="base64" primary={input} run={runApply} setPrimary={setInput} />
       <TwoPaneTransformPanel
         title={t('utilities.tool.base64.title')}
-        description={t('utilities.tool.base64.panelDescription')}
         input={input}
         onInputChange={setInput}
         output={output}

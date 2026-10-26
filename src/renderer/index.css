@@ -2078,7 +2078,7 @@
   }
 
   .settings-rail-row {
-    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
     width: 100%;
   }
 
@@ -2087,7 +2087,7 @@
   }
 
   .settings-rail-row[data-active='true'] {
-    @apply border-l-accent bg-bg-panel text-fg-base font-medium;
+    @apply bg-bg-panel text-fg-base font-medium;
   }
 
   .settings-rail-row[data-dim='true'] {
@@ -2116,12 +2116,6 @@
     @apply max-h-64 overflow-auto p-4 font-mono text-caption leading-relaxed text-fg-base;
   }
 
-  /* Settings v2 status bar — visually rhymes with the editor status
-     bar so the modal feels like part of the editor. */
-  .settings-status-bar {
-    @apply flex h-7 items-center gap-3 border-t border-border/80 bg-bg-panel-alt/70 px-4 font-mono text-caption text-fg-subtle;
-  }
-
   .settings-modal-shell {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
@@ -2141,11 +2135,7 @@
   .settings-modal-panel {
     grid-row: 3;
   }
-  .settings-status-bar {
-    grid-row: 4;
-  }
-  .settings-modal-breadcrumb,
-  .settings-status-shortcuts {
+  .settings-modal-breadcrumb {
     display: flex;
   }
   .settings-modal-panel {
@@ -2187,15 +2177,7 @@
       grid-row: 4;
       padding: 16px;
     }
-    .settings-status-bar {
-      grid-row: 5;
-      min-width: 0;
-      overflow: hidden;
-    }
     .settings-modal-breadcrumb,
-    .settings-modal-esc-key,
-    .settings-status-shortcuts,
-    .settings-rail-heading,
     .settings-rail-group-label,
     .settings-rail-shortcut {
       display: none;

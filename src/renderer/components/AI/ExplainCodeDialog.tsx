@@ -219,7 +219,7 @@ export function ExplainCodeDialog({
                   <p
                     key={index}
                     data-testid="ai-explain-code-followup-question"
-                    className="rounded border-l-2 border-accent bg-bg-panel-alt px-3 py-2 text-fg-muted"
+                    className="rounded border border-border-subtle bg-bg-panel-alt px-3 py-2 text-fg-muted"
                   >
                     {message.content}
                   </p>

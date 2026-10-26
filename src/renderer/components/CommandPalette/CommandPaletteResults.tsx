@@ -186,9 +186,10 @@ function renderEntry(
         <span className="truncate text-body font-medium text-fg-base">
           {command.label}
         </span>
-        <span className="truncate text-body-sm text-fg-subtle">
-          {command.description}
-        </span>
+        {/* A command's name says what it does; snippets, templates and status notes still show. */}
+        {command.category === 'action' && !command.showDescription ? null : (
+          <span className="truncate text-body-sm text-fg-subtle">{command.description}</span>
+        )}
       </div>
       {recentMeta?.relativeTime ? (
         <span

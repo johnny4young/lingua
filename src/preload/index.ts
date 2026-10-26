@@ -279,8 +279,8 @@ contextBridge.exposeInMainWorld('lingua', {
 
   projectTests: {
     detect: (rootId: RootId) => typedInvoke('project-tests:detect', rootId),
-    run: (rootId: RootId, framework: ProjectTestFramework, runId: string) =>
-      typedInvoke('project-tests:run', rootId, framework, runId),
+    run: (rootId: RootId, framework: ProjectTestFramework, runId: string, scope?: ProjectTestScope) =>
+      typedInvoke('project-tests:run', rootId, framework, runId, scope),
     stop: (rootId: RootId, runId: string) =>
       typedInvoke('project-tests:stop', rootId, runId),
     onOutput: (handler: (event: ProjectTestOutputEvent) => void) =>

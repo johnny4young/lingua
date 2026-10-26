@@ -224,9 +224,6 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
             >
               {t('capsule.compare.title')}
             </h2>
-            <p className="mt-1 text-body-sm leading-[1.5] text-muted">
-              {t('capsule.compare.subtitle')}
-            </p>
           </div>
           <IconButton
             onClick={onClose}

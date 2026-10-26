@@ -452,9 +452,6 @@ function renderQuickOpenResults(
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {file.source === 'open-tab' && (
-          <StatusBadge tone="neutral">{t('quickOpen.badge.open')}</StatusBadge>
-        )}
         {file.source === 'recent' && (
           <StatusBadge tone="neutral">{t('quickOpen.badge.recent')}</StatusBadge>
         )}

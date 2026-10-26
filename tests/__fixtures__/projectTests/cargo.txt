@@ -1,0 +1,41 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/shop-834a3ef62efcd36c)
+
+running 3 tests
+test tests::later ... ignored
+test tests::sums ... ok
+test tests::rounds ... FAILED
+
+failures:
+
+---- tests::rounds stdout ----
+
+thread 'tests::rounds' (81554333) panicked at src/lib.rs:14:19:
+assertion `left == right` failed: rounding
+  left: 4
+ right: 5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::rounds
+
+test result: FAILED. 1 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+     Running tests/flow.rs (target/debug/deps/flow-b05ce5840721bdba)
+
+running 1 test
+test checkout_works ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests shop
+
+running 1 test
+test src/lib.rs - add (line 3) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+error: 1 target failed:
+    `--lib`

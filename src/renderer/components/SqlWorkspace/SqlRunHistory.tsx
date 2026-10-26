@@ -68,10 +68,10 @@ export function SqlRunHistory({
                 data-active={isActive}
                 aria-current={isActive ? 'true' : undefined}
                 className={cn(
-                  'mb-0.5 flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                   isActive
-                    ? 'border-l-accent bg-bg-inset text-fg-base'
-                    : 'border-l-transparent text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
+                    ? 'bg-bg-inset font-medium text-fg-base'
+                    : 'text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
                 )}
               >
                 <StatusBadge tone={tone} dot>

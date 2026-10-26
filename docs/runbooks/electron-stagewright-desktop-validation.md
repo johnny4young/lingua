@@ -29,9 +29,9 @@ args = [
   "/tmp",
   "-y",
   "--package",
-  "@electron-stagewright/core",
+  "@electron-stagewright/core@0.7.0",
   "--package",
-  "playwright",
+  "playwright@1.64.1",
   "electron-stagewright",
   "--screenshot-dir",
   "/abs/path/to/lingua/output/stagewright/screenshots"
@@ -69,8 +69,10 @@ The script:
 
 1. Rebuilds Lingua's Electron main/preload bundles for `http://localhost:5174/`.
 2. Starts the renderer Vite server unless `--reuse-server` is passed.
-3. Starts the `electron-stagewright` MCP server over stdio.
-4. Launches Lingua through `electron_launch`.
+3. Starts the `electron-stagewright` MCP server over stdio, pinned to
+   `@electron-stagewright/core@0.7.0` and `playwright@1.64.1`.
+4. Launches Lingua through `electron_launch` with a mock credential store
+   (`--use-mock-keychain` on macOS, `--password-store=basic` on Linux).
 5. Verifies `#root` is visible, takes an interactive accessibility snapshot,
    captures a screenshot, and fails on renderer console errors.
 6. Writes artifacts under `output/stagewright/desktop-smoke/`.
@@ -83,6 +85,14 @@ pnpm run smoke:desktop:stagewright -- --renderer-url http://localhost:5174/
 pnpm run smoke:desktop:stagewright -- --timeout-ms 90000
 ```
 
+Every Electron launch in `scripts/` takes its switches from
+`scripts/lib/electronLaunchArgs.mjs`. Without them, `safeStorage` reads the
+real "Electron Safe Storage" keychain item; after an Electron upgrade the new
+binary is not in that item's access list, macOS shows an access prompt, and
+the main process blocks until someone answers it, so `electron_launch` times
+out with no error. A launch that hangs only right after an Electron bump is
+that prompt.
+
 ## Agent-driven UI checks
 
 When the MCP tools are available in a future Codex session, prefer this flow:
@@ -93,7 +103,8 @@ When the MCP tools are available in a future Codex session, prefer this flow:
 2. Launch from the repo root so Electron reads `package.json#main` and app
    metadata. Also pass the repo's Electron binary, because the published MCP
    server runs from an `npx` temp install rather than Lingua's `node_modules`:
-   `electron_launch({ main: "/abs/path/to/lingua", executablePath: "$(node -p 'require(\"electron\")')", cwd: "/abs/path/to/lingua", env: { LINGUA_RENDERER_URL: "http://localhost:5174/" } })`.
+   `electron_launch({ main: "/abs/path/to/lingua", executablePath: "$(node -p 'require(\"electron\")')", cwd: "/abs/path/to/lingua", args: ["--use-mock-keychain"], env: { LINGUA_RENDERER_URL: "http://localhost:5174/" } })`.
+   On Linux pass `--password-store=basic` instead (see the keychain note above).
 3. Inspect with `electron_snapshot` or `electron_find` before interacting.
 4. Prefer `electron_expect_*` tools over manual read/compare/retry loops.
 5. End every pass with `electron_console_logs({ type: "error" })`.
@@ -102,3 +113,24 @@ When the MCP tools are available in a future Codex session, prefer this flow:
 If Stagewright cannot reach the flow because it requires the renderer's existing
 desktop-smoke bridge or native runtime matrix, fall back to `pnpm run
 smoke:desktop`.
+
+## Gallery capture: Project tests
+
+The site gallery shows the Tests tab from a real desktop run, so its evidence
+comes from this flow rather than a web spec.
+
+1. Create a small Vitest project outside `/tmp` (temp roots are blocked) with
+   its own `git init`, so the status bar shows its branch instead of Lingua's,
+   and one failing test.
+2. Write `{"version":1,"roots":["<project path>"]}` to
+   `<userData>/filesystem-approvals.json` and launch with
+   `LINGUA_SMOKE_USER_DATA_DIR=<userData>`. Use `http://localhost:5174/` as the
+   renderer URL; the dev server listens on `::1` only.
+3. Set the TypeScript workflow default to Run in Settings, so opening a source
+   file does not auto-run it in the worker.
+4. Open the project, run all tests, open the source under test, select the
+   failing case and capture at 1440 px wide in English and Spanish.
+5. Scale each capture to 1440 × 879, save it to
+   `output/stagewright/project-tests/project-tests-{en,es}.png`, copy it over
+   `website/public/screenshots/v1.0/`, and run
+   `npm --prefix website run record:showcase-evidence`.

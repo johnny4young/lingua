@@ -56,7 +56,6 @@ describe('RustLanguageIntelligenceRow', () => {
     useRustLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'web-build' });
     render(<RustLanguageIntelligenceRow />);
     expect(screen.getByText(/desktop only/i)).toBeTruthy();
-    expect(screen.getByText(/local subprocess/i)).toBeTruthy();
   });
 
   it('renders the restart button when degraded and calls the IPC on click', async () => {

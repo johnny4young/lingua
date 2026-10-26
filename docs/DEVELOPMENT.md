@@ -435,7 +435,7 @@ The packaged variant runs against the actual `Lingua.app` produced by `pnpm run 
 
 Project suites use **host Node.js**, not the Electron executable. Do not enable
 `RunAsNode` to make Vitest/Jest work. Install Node and the project's own test
-framework dependencies, then refresh detection in Project tests.
+framework dependencies, then choose Detect again in the Tests tab.
 
 On macOS, after `pnpm run package:desktop`, run this targeted smoke with an
 installed Jest entrypoint (the root already supplies Vitest):

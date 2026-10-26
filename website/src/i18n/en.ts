@@ -190,9 +190,9 @@ export const en = {
         {
           id: 'project-tests',
           availability: 'Desktop · local toolchains',
-          alt: 'Lingua project test runner showing detected Vitest, Jest, Pytest, Go, and Cargo suites plus a successful bounded run',
+          alt: 'Tests tab in the Lingua desktop app with Vitest results grouped by file and one failing test showing its assertion at line 10',
           title: 'Detect and run the project’s own tests',
-          body: 'Compare the exact detected runner and command before launching Vitest, Jest, Pytest, Go, or Cargo. Output streams live, Stop is always available, and execution stays no-shell and bounded.',
+          body: 'Vitest, Jest, Pytest, Go, or Cargo results land in the Tests tab, grouped by file with the failing line. Run one file or one test again; execution stays no-shell and bounded.',
         },
         {
           id: 'local-mcp',

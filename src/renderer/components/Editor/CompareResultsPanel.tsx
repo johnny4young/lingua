@@ -245,14 +245,14 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
             </thead>
             <tbody>
               {diff.rows.map((row, idx) => {
-                const stripe =
+                const tint =
                   row.kind === 'added'
-                    ? 'border-l-success'
+                    ? 'bg-success-bg/30'
                     : row.kind === 'removed'
-                      ? 'border-l-error'
+                      ? 'bg-error-bg/30'
                       : row.kind === 'changed'
-                        ? 'border-l-accent'
-                        : 'border-l-transparent';
+                        ? 'bg-primary-soft/40'
+                        : idx % 2 === 1 && 'bg-bg-panel-alt/35';
                 const deltaChip =
                   row.kind === 'added'
                     ? { glyph: '+', tone: 'bg-success-bg/70 text-success-fg' }
@@ -266,17 +266,9 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
                     key={`${row.kind}-${row.line}-${idx}`}
                     data-testid={`compare-row-${row.kind}`}
                     data-diff-kind={row.kind}
-                    className={cn(
-                      'align-top border-b border-border/30',
-                      idx % 2 === 1 && 'bg-bg-panel-alt/35',
-                    )}
+                    className={cn('align-top border-b border-border/30', tint)}
                   >
-                    <td
-                      className={cn(
-                        'border-l-2 px-3 py-1 text-right text-fg-subtle font-semibold tabular-nums',
-                        stripe,
-                      )}
-                    >
+                    <td className="px-3 py-1 text-right text-fg-subtle font-semibold tabular-nums">
                       {row.line}
                     </td>
                     <td className="whitespace-pre-wrap break-words px-2 py-1 text-fg-muted">

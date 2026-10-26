@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { cn } from '../../utils/cn';
 
@@ -8,7 +7,6 @@ const STRIP_RUNS = 5;
 /** Last five runs as bars scaled to the slowest; a bar opens Compare when it applies. */
 export function RunHistoryStrip({ onCompare }: { onCompare?: () => void }) {
   const { t } = useTranslation();
-  const compareCombo = useShortcutLabel('run-toggle-compare-snapshot');
   const entries = useExecutionHistoryStore(state => state.entries);
   const runs = entries.slice(-STRIP_RUNS);
   if (runs.length === 0) return null;
@@ -59,11 +57,6 @@ export function RunHistoryStrip({ onCompare }: { onCompare?: () => void }) {
           );
         })}
       </div>
-      {onCompare && compareCombo ? (
-        <span className="truncate text-caption text-fg-subtle">
-          {t('dock.runHistory.compareHint', { combo: compareCombo })}
-        </span>
-      ) : null}
     </div>
   );
 }

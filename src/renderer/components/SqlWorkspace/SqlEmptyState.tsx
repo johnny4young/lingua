@@ -38,7 +38,6 @@ export function SqlEmptyState({
         <EmptyState
           icon={<Database size={19} aria-hidden="true" />}
           title={t('sqlWorkspace.empty.title')}
-          description={t('sqlWorkspace.empty.body')}
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
               <button

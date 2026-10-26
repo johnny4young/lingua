@@ -85,20 +85,10 @@ export function EditorEmptyState() {
               <span className="absolute inset-1 rounded-2xl border border-border-subtle/60" />
             </div>
             <div>
-              <p className="panel-title">{t('emptyState.brandLabel')}</p>
               <h1 className="font-display text-display font-semibold tracking-[-0.04em] text-fg-base sm:text-display-lg">
                 Lingua
               </h1>
             </div>
-          </div>
-
-          <div className="max-w-2xl space-y-3">
-            <p className="max-w-xl text-balance font-display text-h1 font-semibold leading-tight tracking-[-0.04em] text-fg-base sm:text-display">
-              {t('emptyState.headline')}
-            </p>
-            <p className="max-w-xl text-body leading-7 text-fg-muted sm:text-body-lg">
-              {t('emptyState.description')}
-            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -151,9 +141,6 @@ export function EditorEmptyState() {
           <div className="flex items-center justify-between border-b border-border-subtle/60 bg-bg-panel-alt/60 px-5 py-4">
             <div>
               <p className="panel-title">{t('emptyState.startingPoints.title')}</p>
-              <p className="mt-1 text-body text-fg-muted">
-                {t('emptyState.startingPoints.description')}
-              </p>
             </div>
             <div className="status-pill">
               {t('emptyState.templatesCount', { count: TOTAL_TEMPLATE_COUNT })}

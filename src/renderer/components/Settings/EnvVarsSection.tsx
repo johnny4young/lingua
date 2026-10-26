@@ -67,7 +67,6 @@ export function EnvVarsSection() {
             <ScopeHeading
               icon={<Globe size={14} aria-hidden="true" />}
               title={t('envVars.globalTitle')}
-              description={t('envVars.global.appliesToAllHint')}
             />
             <ScopeEditor
               testidPrefix="env-vars"
@@ -293,11 +292,7 @@ function ProjectScopeEditor({
       <ScopeHeading
         icon={<FolderTree size={14} aria-hidden="true" />}
         title={t('envVars.projectTitle')}
-        description={
-          projectName
-            ? t('envVars.projectDescription', { project: projectName })
-            : t('envVars.projectDescriptionNoProject')
-        }
+        description={projectName ?? t('envVars.projectDescriptionNoProject')}
       />
       {activeProjectId === null ? (
         <ScopeEmpty testid="env-vars-project-no-active" message={t('envVars.noActiveProject')} />

@@ -34,6 +34,7 @@ export function buildSelectionTransferCommands(
         }
       ),
       disabled: !editorSelectionAvailable,
+      showDescription: !editorSelectionAvailable,
     },
     {
       ...buildActionCommand(
@@ -50,6 +51,7 @@ export function buildSelectionTransferCommands(
         }
       ),
       disabled: !editorSelectionAvailable,
+      showDescription: !editorSelectionAvailable,
     },
   ];
 }

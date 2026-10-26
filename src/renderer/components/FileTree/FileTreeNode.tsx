@@ -236,12 +236,12 @@ export function FileTreeNode({
     >
       <div
         data-active={isActiveFile ? 'true' : undefined}
-        className={`group flex items-center gap-1 rounded-xl border-l-2 px-1.5 py-1 text-body-sm transition-colors ${
+        className={`group flex items-center gap-1 rounded-xl px-1.5 py-1 text-body-sm transition-colors ${
           isActiveFile
-            ? 'border-primary bg-primary-soft'
+            ? 'bg-primary-soft font-medium'
             : hovered || focusWithin
-              ? 'border-transparent bg-surface-strong/78'
-              : 'border-transparent hover:bg-surface-strong/58'
+              ? 'bg-surface-strong/78'
+              : 'hover:bg-surface-strong/58'
         }`}
         style={{ paddingLeft: `${indent + 4}px` }}
         onMouseEnter={() => setHovered(true)}

@@ -301,7 +301,7 @@ interface IpcInvokeContract {
     result: ProjectTestDetectionResult;
   };
   'project-tests:run': {
-    args: [rootId: RootId, framework: ProjectTestFramework, runId: string];
+    args: [rootId: RootId, framework: ProjectTestFramework, runId: string, scope?: ProjectTestScope];
     result: ProjectTestRunResult;
   };
   'project-tests:stop': {

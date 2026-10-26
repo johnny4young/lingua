@@ -77,6 +77,18 @@ describe('renderer locale bundle boundary', () => {
     }
   });
 
+  it('keeps the Tests tab copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('projectTests.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/tests.json');
+    expect(rendererI18n).toContain("import('./locales/es/tests.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/testsCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/tests.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/ProjectTests/TestsPanel.tsx'), 'utf8')).toContain("import '../../i18n/testsCatalog'");
+  });
+
   it('keeps the newer Labs flag copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')

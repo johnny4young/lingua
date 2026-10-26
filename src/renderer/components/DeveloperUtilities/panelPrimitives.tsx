@@ -20,14 +20,15 @@ export function PanelSection({
   children,
 }: {
   title: string;
-  description: string;
+  /** Only for a line the user needs, such as what stays on the device. */
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="um-card grid gap-4">
+    <section className="um-card grid content-start gap-4">
       <div className="grid gap-1">
         <h3 className="um-card-title">{title}</h3>
-        <p className="um-card-subtitle">{description}</p>
+        {description ? <p className="um-card-subtitle">{description}</p> : null}
       </div>
       {children}
     </section>
@@ -355,7 +356,7 @@ export function TwoPaneTransformPanel({
   outputClassName,
 }: {
   title: string;
-  description: string;
+  description?: string;
   input: string;
   onInputChange: (value: string) => void;
   output: string;

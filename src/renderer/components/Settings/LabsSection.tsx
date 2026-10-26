@@ -14,7 +14,6 @@ export function LabsSection() {
   return (
     <SettingsSection
       eyebrow={t('settings.labs.title')}
-      description={t('settings.labs.description')}
     >
       <SpecCard>
         {FEATURE_FLAG_IDS.map((id, index) => (

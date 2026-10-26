@@ -397,23 +397,10 @@ function NotebookCodeCellRowImpl({
       className={cn(
         'relative grid gap-2 rounded-md border bg-background-elevated/60 p-3 pl-4 transition-colors outline-none',
         isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/60',
-        // Edit mode tints the accent bar a touch stronger so the two
-        // modes read at a glance (Jupyter's green/blue gutter).
+        isActive && mode === 'edit' && 'bg-primary-soft/25',
         'focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/25'
       )}
     >
-      {/* Left accent bar — the at-a-glance active-cell affordance. Edit
-          mode uses the primary accent; command mode a quieter tint. */}
-      {isActive ? (
-        <span
-          aria-hidden="true"
-          data-testid="notebook-cell-accent"
-          className={cn(
-            'absolute inset-y-1 left-0 w-[3px] rounded-full',
-            mode === 'edit' ? 'bg-primary' : 'bg-primary/40'
-          )}
-        />
-      ) : null}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {/* Language selector. JS / TS / Python are all

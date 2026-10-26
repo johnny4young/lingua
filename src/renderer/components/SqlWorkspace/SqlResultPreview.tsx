@@ -335,7 +335,6 @@ export function SqlResultPreview({
           <EmptyState
             icon={<Hash size={19} aria-hidden="true" />}
             title={t('sqlWorkspace.response.emptyTitle')}
-            description={t('sqlWorkspace.response.emptyBody')}
             action={
               canRun && onRun ? (
                 <button

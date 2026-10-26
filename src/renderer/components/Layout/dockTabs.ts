@@ -11,6 +11,7 @@ const DOCK_TAB_ORDER: readonly DockTabId[] = [
   'compare',
   'variables',
   'project-terminal',
+  'tests',
   'debugger',
   'browser-preview',
   'dependencies',

@@ -89,7 +89,7 @@ These are deterministic captures from a released product build, not design mocku
     <td width="50%"><img src="website/public/screenshots/v1.0/project-terminal-en.png" alt="Project terminal active inside a synthetic polyglot checkout" /><br /><strong>Project terminal</strong> — an explicit local-shell boundary rooted in the approved project.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="website/public/screenshots/v1.0/project-tests-en.png" alt="Project test runner showing detected JavaScript, Python, Go, and Rust suites" /><br /><strong>Project tests</strong> — detected commands, live bounded output, and stop control.</td>
+    <td width="50%"><img src="website/public/screenshots/v1.0/project-tests-en.png" alt="Tests tab with Vitest results grouped by file and one failing test showing its assertion" /><br /><strong>Project tests</strong> — per-test results by file, and one file or one test run again.</td>
     <td width="50%"><img src="website/public/screenshots/v1.0/local-mcp-en.png" alt="Active loopback-only local MCP server with a masked session token and read-only trust guarantees" /><br /><strong>Local MCP</strong> — a project-scoped, read-only doorway for trusted AI clients.</td>
   </tr>
 </table>

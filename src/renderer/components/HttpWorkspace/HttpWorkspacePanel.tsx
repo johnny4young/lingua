@@ -146,7 +146,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // the one in flight (per-request execution tracking).
   // While a chain sends its sources, its request counts as running, so Send turns into Stop.
   const [chainRunningFor, setChainRunningFor] = useState<string | null>(null);
-  const isExecuting = (executingRequestId !== null && executingRequestId === activeRequestId) || chainRunningFor === activeRequestId;
+  const isExecuting =
+    activeRequestId !== null && (executingRequestId === activeRequestId || chainRunningFor === activeRequestId);
   const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);

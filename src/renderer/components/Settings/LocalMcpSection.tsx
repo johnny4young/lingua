@@ -262,10 +262,7 @@ export function LocalMcpSection() {
         ) : null}
       </SettingsSection>
 
-      <SettingsSection
-        eyebrow={t('settings.localMcp.security.title')}
-        description={t('settings.localMcp.security.description')}
-      >
+      <SettingsSection eyebrow={t('settings.localMcp.security.title')}>
         <div className="grid gap-3 md:grid-cols-2">
           {(['loopback', 'token', 'readOnly', 'lifecycle'] as const).map(item => (
             <div

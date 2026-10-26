@@ -137,10 +137,8 @@ test.describe('Settings — About section', () => {
     await gotoApp(page);
     await openSettings(page);
 
-    // Deterministic copy — proves i18n interpolation is not stuck on keys.
-    await expect(
-      page.getByText('Lingua keeps fast multi-language experiments inside one focused editor shell.')
-    ).toBeVisible();
+    // Deterministic copy — proves i18n is not stuck on keys.
+    await expect(page.getByText('Release actions')).toBeVisible();
 
     // The Tour trigger is the canonical way users discover the guided tour.
     await expect(page.getByTestId('about-start-tour')).toBeVisible();

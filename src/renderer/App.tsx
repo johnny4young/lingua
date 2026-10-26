@@ -329,7 +329,6 @@ function AppChrome({
   // producers request the snippets surface through the typed bus.
   useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
   useCommandListener('overlay.openRecipes', () => openOverlay('recipes'));
-  useCommandListener('overlay.openProjectTests', () => openOverlay('project-tests'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 

@@ -140,6 +140,7 @@ type ProjectTestFramework = import('./shared/projectTests').ProjectTestFramework
 type ProjectTestDetectionResult = import('./shared/projectTests').ProjectTestDetectionResult;
 type ProjectTestRunResult = import('./shared/projectTests').ProjectTestRunResult;
 type ProjectTestOutputEvent = import('./shared/projectTests').ProjectTestOutputEvent;
+type ProjectTestScope = import('./shared/projectTests').ProjectTestScope;
 
 // Deno / Bun desktop runtime IPC shapes. Both runtimes share one
 // generic backend (src/main/altJsRuntimes.ts), so they share these types.
@@ -665,7 +666,8 @@ interface LinguaAPI {
     run: (
       rootId: RootId,
       framework: ProjectTestFramework,
-      runId: string
+      runId: string,
+      scope?: ProjectTestScope
     ) => Promise<ProjectTestRunResult>;
     stop: (rootId: RootId, runId: string) => Promise<{ stopped: boolean }>;
     onOutput: (handler: (event: ProjectTestOutputEvent) => void) => () => void;

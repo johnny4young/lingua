@@ -32,7 +32,6 @@ export function LanguagesSection() {
       <LanguageSupportScorecard />
       <SettingsSection
         eyebrow={t('settings.languages.perLanguage.title')}
-        description={t('settings.languages.perLanguage.description')}
       >
         <SpecCard>
           <RustLanguageIntelligenceRow />

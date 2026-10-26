@@ -31,6 +31,8 @@ export interface CommandEntry {
   keywords: string[];
   /** Still searchable, but cannot be activated until its prerequisite exists. */
   disabled?: boolean;
+  /** The description states a requirement or status, so a command row shows it. */
+  showDescription?: boolean;
   /** Keycap for a shortcut outside the remappable catalog; catalog ones resolve by id. */
   shortcut?: string;
   action: () => void;

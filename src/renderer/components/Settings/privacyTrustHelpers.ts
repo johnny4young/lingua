@@ -156,6 +156,9 @@ export function buildNetworkActivityRows(args: {
    * recent network call.
    */
   readonly dependencyInstallLastAt?: number | null;
+  /** True when an AI profile can send; the row's last call is the latest explicit AI send. */
+  readonly aiConfigured?: boolean;
+  readonly aiLastAt?: number | null;
 }): ReadonlyArray<NetworkActivityRow> {
   return [
     {
@@ -189,10 +192,9 @@ export function buildNetworkActivityRows(args: {
     },
     {
       feature: 'ai',
-      // AI surfaces ship in a later work; mark unavailable until
-      // they land so the row honestly reads "nothing here yet".
-      status: 'unavailable',
-      lastCallAt: null,
+      // Sends only on an explicit action, after the consent preview.
+      status: args.aiConfigured ? 'enabled' : 'disabled',
+      lastCallAt: args.aiLastAt ?? null,
     },
     {
       feature: 'dependencies',

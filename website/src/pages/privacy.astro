@@ -5,7 +5,7 @@ import Legal from '~/layouts/Legal.astro';
 <Legal
   title="Privacy"
   description="What Lingua collects, what it never collects, and how to revoke consent. Telemetry is off by default."
-  lastUpdated="2026-05-04"
+  lastUpdated="2026-10-26"
   locale="en"
 >
   <p>
@@ -41,6 +41,22 @@ import Legal from '~/layouts/Legal.astro';
   <p>
     Crash reports are opt-in under the same consent flow. Reports include a stack trace and
     Lingua version — they do not include your code, your input, or file paths.
+  </p>
+
+  <h2>AI features</h2>
+  <p>
+    Explain error, Explain selection, Ask AI in SQL and the cron phrase composer are off until you
+    set a model in Settings. Lingua ships no remote endpoint or key, and sends nothing until you
+    choose Send after seeing the exact payload. Secret-looking values are redacted first, and SQL
+    sends table and column names and types, never rows.
+  </p>
+  <ul>
+    <li><strong>Local</strong> sends only to <code>localhost</code> or <code>127.0.0.1</code>, such as Ollama. Nothing leaves the device.</li>
+    <li><strong>My endpoint</strong> sends to the provider you configure, under your account and its terms.</li>
+  </ul>
+  <p>
+    The key stays in the system keychain when one is available, otherwise in local storage.
+    Conversations are never saved, and telemetry never carries prompts, answers, endpoints or keys.
   </p>
 
   <h2>This website</h2>

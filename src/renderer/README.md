@@ -87,7 +87,7 @@ first render before a DOM measurement exists.
 
 All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
 full-width editor. Its tab row always lists Console; Input, Compare, Variables,
-Terminal (desktop, with a project open), Debugger, Browser preview,
+Terminal and Tests (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
 and carries the run controls: auto-log, run status, recent runs, time, capsule
 export and share. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
@@ -212,7 +212,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
-| [`components/ProjectTests/`](components/ProjectTests)     | `ProjectTestsOverlay.tsx`                             | Desktop project-suite discovery, runner selection, live output, stop, and result UX |
+| [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab)                      | Desktop project-suite discovery, runner selection, live output, stop, and result UX |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
 | [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
@@ -761,7 +761,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [consoleEntryBatcher.ts](stores/consoleEntryBatcher.ts) | per-frame coalescing of streamed console entries into one `addEntries` update |
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
-| [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, and active project-test run lifecycle |
+| [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, per-test cases merged across scoped runs, the Failed only filter, and active project-test run lifecycle |
 | [projectTerminalStore.ts](stores/projectTerminalStore.ts) | transient project binding, native-execution gate, PTY session id, bounded output chunks, and stop/restart lifecycle; never persisted |
 | [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, lazy stale state, persisted replay evidence, and active cell — thin assembly point that composes the focused notebook\* modules below |
 | notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookReactivity.ts](stores/notebookReactivity.ts) (execution evidence, conservative invalidation, and persisted-ledger validation), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/invalidation/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from leaves, never back from the assembled store |
@@ -1078,7 +1078,7 @@ Keep tests close to the behavior they validate, even though the repository uses 
 | Settings UX                             | `tests/components/SettingsModal.test.tsx` plus section-specific tests         |
 | File/project tree logic                 | `tests/stores/projectStore.test.ts`, tree-related component tests             |
 | File/project navigation                 | `tests/components/QuickOpen.test.tsx`, `tests/components/ProjectSearch.test.tsx`, `tests/hooks/useProjectIndexSync.test.tsx`, `tests/stores/projectIndexStore.test.ts`, `tests/stores/recentFilesStore.test.ts` |
-| Project test discovery and execution    | `tests/main/projectTests.test.ts`, `tests/stores/projectTestStore.test.ts`, `tests/components/ProjectTestsOverlay.test.tsx` |
+| Project test discovery and execution    | `tests/main/projectTests.test.ts`, `tests/stores/projectTestStore.test.ts`, `tests/components/TestsPanel.test.tsx` |
 | Project terminal lifecycle              | `tests/main/projectTerminal.test.ts`, `tests/stores/projectTerminalStore.test.ts`, `tests/components/ProjectTerminal/ProjectTerminalPanel.test.tsx`, `tests/components/AppLayout.test.tsx` |
 | Execution formatting and inline results | `tests/utils/executionPresentation.test.ts`, runner tests, results dock tests |
 | Notebook behavior                       | `tests/stores/notebookStore.test.ts`, `tests/renderer/runtime/notebookSession.test.ts`, `tests/hooks/useNotebookRun.test.ts`, `tests/components/Notebook/*` |

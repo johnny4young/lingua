@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const root = process.cwd();
 const require = createRequire(import.meta.url);
@@ -81,7 +82,7 @@ if (config.scenario === 'quit-during-load') {
 require(config.main);
 `
       );
-      const child = spawn(executable, [fixture], {
+      const child = spawn(executable, [...isolatedCredentialStoreArgs(), fixture], {
         cwd: root,
         env: {
           ...process.env,

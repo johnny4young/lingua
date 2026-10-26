@@ -59,17 +59,17 @@
     },
     {
       "id": "project-tests",
-      "spec": "tests/e2e/projectTestsVisual.spec.ts",
+      "spec": "docs/runbooks/electron-stagewright-desktop-validation.md",
       "sources": {
-        "en": "output/playwright/project-tests/project-tests-en.png",
-        "es": "output/playwright/project-tests/project-tests-es.png"
+        "en": "output/stagewright/project-tests/project-tests-en.png",
+        "es": "output/stagewright/project-tests/project-tests-es.png"
       },
       "images": {
         "en": "/screenshots/v1.0/project-tests-en.png",
         "es": "/screenshots/v1.0/project-tests-es.png"
       },
       "width": 1440,
-      "height": 1100
+      "height": 879
     },
     {
       "id": "local-mcp",

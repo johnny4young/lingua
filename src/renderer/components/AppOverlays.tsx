@@ -48,9 +48,6 @@ const SnippetsModal = lazy(async () => ({
 const ProjectTemplatesOverlay = lazy(async () => ({
   default: (await import('./Welcome/ProjectTemplatesOverlay')).ProjectTemplatesOverlay,
 }));
-const ProjectTestsOverlay = lazy(async () => ({
-  default: (await import('./ProjectTests/ProjectTestsOverlay')).ProjectTestsOverlay,
-}));
 const CapsuleImportOverlay = lazy(async () => ({
   default: (await import('./CapsuleImport')).CapsuleImportOverlay,
 }));
@@ -180,7 +177,9 @@ export function AppOverlays({
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRunActiveTab={() => void run()}
           onOpenProject={() => useProjectStore.getState().openProject()}
-          onOpenProjectTests={() => openOverlay('project-tests')}
+          onOpenProjectTests={
+            window.lingua?.projectTests ? () => useUIStore.getState().openBottomPanel('tests') : undefined
+          }
           onOpenProjectTerminal={
             useProjectStore.getState().currentProject && window.lingua?.projectTerminal
               ? () => useUIStore.getState().openBottomPanel('project-terminal')
@@ -221,7 +220,6 @@ export function AppOverlays({
         />
       )}
       {overlay === 'project-templates' && <ProjectTemplatesOverlay onClose={closeOverlay} />}
-      {overlay === 'project-tests' && <ProjectTestsOverlay onClose={closeOverlay} />}
       {overlay === 'capsule-import' && <CapsuleImportOverlay onClose={closeOverlay} />}
       {overlay === 'capsule-list' && <CapsuleListOverlay onClose={closeOverlay} />}
       {overlay === 'import-preview' && <ImportPreviewOverlay onClose={closeOverlay} />}

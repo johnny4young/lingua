@@ -7,6 +7,7 @@ import { mintDevLicense } from './dev-license-shared.mjs';
 import { mkdtemp, mkdir, writeFile, rm, readFile, access, chmod } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 if (process.platform === 'win32') throw new Error('This compiler-wrapper smoke requires POSIX; use Windows CI for tree termination.');
 const root = process.cwd();
@@ -63,7 +64,7 @@ try {
   assert(ready, 'Renderer server ready');
   app = await _electron.launch({
     executablePath: electronBinary,
-    args: [root],
+    args: [...isolatedCredentialStoreArgs(), root],
     cwd: root,
     env: {
       ...smokeEnv,

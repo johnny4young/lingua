@@ -115,8 +115,10 @@ const copy = t(locale).press;
     text-underline-offset: 3px;
   }
   .brand-pending {
-    border-left: 2px solid var(--color-warning);
-    padding-left: 1.25rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
     color: var(--color-text-muted);
   }
   .brand-pending h2 {

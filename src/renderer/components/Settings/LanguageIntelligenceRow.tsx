@@ -102,9 +102,10 @@ export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
       : status.reason === 'startup-failed'
         ? `${copyNamespace}.unavailable.startupFailed.label`
         : `${copyNamespace}.unavailable.missing.label`;
+  // On the web the label and badge already say the server is desktop-only.
   const hintKey =
     status.reason === 'web-build'
-      ? `${copyNamespace}.unavailable.webBuild.hint`
+      ? null
       : status.reason === 'startup-failed'
         ? `${copyNamespace}.unavailable.startupFailed.hint`
         : `${copyNamespace}.unavailable.missing.hint`;
@@ -113,7 +114,9 @@ export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
     <SpecRow
       last={last}
       label={t(labelKey)}
-      description={status.detail ? `${t(hintKey)} · ${status.detail}` : t(hintKey)}
+      description={
+        hintKey ? (status.detail ? `${t(hintKey)} · ${status.detail}` : t(hintKey)) : status.detail || undefined
+      }
       control={
         <span data-testid={`settings-${language}-lsp-status`}>
           <StatusBadge tone="warning">{t(`${copyNamespace}.unavailable.badge`)}</StatusBadge>

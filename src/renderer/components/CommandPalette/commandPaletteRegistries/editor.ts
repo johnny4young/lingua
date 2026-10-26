@@ -50,6 +50,8 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
       : nativeRuntimeAvailability
         ? nativeJsRuntimeHintKey(mode, nativeRuntimeAvailability[mode])
         : readyKey);
+  const showsRuntimeStatus = (mode: NativeJsRuntimeMode) =>
+    isWebBuild || (nativeRuntimeAvailability !== undefined && nativeRuntimeAvailability[mode] !== 'installed');
   const chooseNativeRuntime = (mode: NativeJsRuntimeMode) => {
     if (nativeRuntimeAvailability?.[mode] === 'missing') {
       onMissingNativeRuntime?.(mode);
@@ -473,13 +475,13 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
               onClose();
             }
           ),
-          buildActionCommand(
+          { ...buildActionCommand(
             'action-runtime-mode-node',
             translate('commandPalette.action.runtimeMode.node.label'),
             nativeRuntimeDescription('node', 'commandPalette.action.runtimeMode.node.description'),
             ['runtime', 'mode', 'node', 'desktop', 'fs', 'path'],
             () => chooseNativeRuntime('node')
-          ),
+          ), showDescription: showsRuntimeStatus('node') },
           buildActionCommand(
             'action-runtime-mode-browser-preview',
             translate('commandPalette.action.runtimeMode.browserPreview.label'),
@@ -491,20 +493,20 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
             }
           ),
           // Deno / Bun desktop runtimes.
-          buildActionCommand(
+          { ...buildActionCommand(
             'action-runtime-mode-deno',
             translate('commandPalette.action.runtimeMode.deno.label'),
             nativeRuntimeDescription('deno', 'commandPalette.action.runtimeMode.deno.description'),
             ['runtime', 'mode', 'deno', 'desktop', 'ts', 'sandbox'],
             () => chooseNativeRuntime('deno')
-          ),
-          buildActionCommand(
+          ), showDescription: showsRuntimeStatus('deno') },
+          { ...buildActionCommand(
             'action-runtime-mode-bun',
             translate('commandPalette.action.runtimeMode.bun.label'),
             nativeRuntimeDescription('bun', 'commandPalette.action.runtimeMode.bun.description'),
             ['runtime', 'mode', 'bun', 'desktop', 'ts', 'fast'],
             () => chooseNativeRuntime('bun')
-          ),
+          ), showDescription: showsRuntimeStatus('bun') },
         ] as CommandEntry[])
       : []),
   ];

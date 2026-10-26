@@ -130,7 +130,7 @@ export function SqlExplorer({
           className={cn(
             'group flex h-5 items-center gap-[5px] pr-2.5 font-mono text-caption',
             selected
-              ? 'bg-accent-tint shadow-[inset_2px_0_0_var(--color-accent)]'
+              ? 'bg-accent-tint font-semibold'
               : 'hover:bg-bg-panel-alt'
           )}
         >

@@ -142,9 +142,6 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
             >
               {t('executionHistory.compare.modal.title')}
             </h2>
-            <p className="mt-1 text-body-sm leading-[1.5] text-muted">
-              {t('executionHistory.compare.modal.subtitle')}
-            </p>
           </div>
           <IconButton
             onClick={onClose}

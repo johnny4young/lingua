@@ -45,6 +45,7 @@ export const buildLibraryCommands: CommandPaletteRegistry = ({ args, translate }
       ...command,
       description: `${command.description} · ${boundary}`,
       keywords: [...command.keywords, boundary.toLowerCase()],
+      showDescription: true,
     };
   };
 

@@ -190,9 +190,9 @@ export const es = {
         {
           id: 'project-tests',
           availability: 'Escritorio · toolchains locales',
-          alt: 'Runner de pruebas de Lingua con suites Vitest, Jest, Pytest, Go y Cargo detectadas, más una ejecución acotada exitosa',
+          alt: 'Pestaña Pruebas de la app de escritorio de Lingua con resultados de Vitest agrupados por archivo y una prueba fallida con su aserción en la línea 10',
           title: 'Detecta y ejecuta las pruebas del proyecto',
-          body: 'Compara el runner y el comando exactos antes de iniciar Vitest, Jest, Pytest, Go o Cargo. La salida llega en vivo, Detener siempre está disponible y la ejecución permanece acotada y sin shell.',
+          body: 'Los resultados de Vitest, Jest, Pytest, Go o Cargo llegan a la pestaña Pruebas, agrupados por archivo con la línea que falla. Vuelve a ejecutar un archivo o una prueba; la ejecución sigue acotada y sin shell.',
         },
         {
           id: 'local-mcp',

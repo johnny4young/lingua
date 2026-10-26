@@ -140,15 +140,9 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
         {/* Sidebar — version timeline */}
         <aside className="flex w-full shrink-0 flex-col border-b border-border/80 bg-background/55 lg:w-[280px] lg:border-b-0 lg:border-r">
           <div className="surface-header px-5 pt-5 pb-3">
-            <Eyebrow className="mb-0.5">{t('whatsNew.title')}</Eyebrow>
             <h2 className="font-display text-h3 font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
-              {t('whatsNew.subtitle')}
+              {t('whatsNew.title')}
             </h2>
-            <p className="mt-1 text-caption leading-[1.45] text-muted">
-              {t('whatsNew.versionsCount', {
-                count: entries.length,
-              })}
-            </p>
             <div className="relative mt-3">
               <Search
                 size={12}
@@ -222,11 +216,9 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                       >
                         {entry.version}
                       </span>
-                      <span className="mt-0.5 text-caption text-muted">
-                        {entry.unreleased
-                          ? t('whatsNew.entry.unreleased')
-                          : (entry.date ?? '—')}
-                      </span>
+                      {entry.unreleased ? null : (
+                        <span className="mt-0.5 text-caption text-muted">{entry.date ?? '—'}</span>
+                      )}
                       {isCurrent ? (
                         <Pill tone="accent" className="mt-1.5 self-start">
                           {t('whatsNew.entry.currentBadge')}
@@ -259,9 +251,6 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                     </Pill>
                   ) : null}
                 </div>
-                <p className="mt-1 max-w-2xl text-body-sm leading-[1.5] text-muted">
-                  {t('whatsNew.description')}
-                </p>
               </div>
             ) : (
               <div>
@@ -298,7 +287,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                           {section.title}
                         </h4>
                       </div>
-                      <ul className="space-y-1.5 border-l-2 border-border/60 pl-4">
+                      <ul className="space-y-1.5">
                         {section.items.map((item) => (
                           <li
                             key={item}

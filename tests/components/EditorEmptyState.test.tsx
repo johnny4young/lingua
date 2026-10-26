@@ -73,12 +73,10 @@ describe('EditorEmptyState', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders the localized brand label and headline from i18n', () => {
+  it('names the product without a tagline', () => {
     render(<EditorEmptyState />);
-    expect(screen.getByText('Developer Workbench')).toBeTruthy();
-    expect(
-      screen.getByText(/Run experiments fast/i)
-    ).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Lingua' })).toBeTruthy();
+    expect(screen.queryByText('Developer Workbench')).toBeNull();
   });
 
   it('renders the pluralized template count from i18n', () => {
@@ -112,8 +110,6 @@ describe('EditorEmptyState', () => {
 
     render(<EditorEmptyState />);
 
-    expect(screen.getByText('Estación de desarrollo')).toBeTruthy();
-    expect(screen.getByText(/Ejecuta experimentos rápido/i)).toBeTruthy();
     expect(screen.getByText('Puntos de partida')).toBeTruthy();
     expect(screen.getByText('2 plantillas')).toBeTruthy();
   });

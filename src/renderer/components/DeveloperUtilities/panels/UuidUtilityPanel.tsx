@@ -55,7 +55,6 @@ export function UuidUtilityPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
       <PanelSection
         title={t('utilities.tool.uuid.title')}
-        description={t('utilities.tool.uuid.panelDescription')}
       >
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.uuid.version.label')}</FieldLabel>

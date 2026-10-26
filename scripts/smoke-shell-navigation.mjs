@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { isolatedCredentialStoreArgs } from './lib/electronLaunchArgs.mjs';
 
 const root = process.cwd();
 const require = createRequire(import.meta.url);
@@ -128,7 +129,7 @@ try {
     try {
       app = await _electron.launch({
         executablePath,
-        args: [root],
+        args: [...isolatedCredentialStoreArgs(), root],
         cwd: root,
         env: {
           ...process.env,

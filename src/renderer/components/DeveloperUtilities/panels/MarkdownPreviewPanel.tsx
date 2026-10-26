@@ -64,7 +64,6 @@ export function MarkdownPreviewPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.markdownPreview.title')}
-        description={t('utilities.tool.markdownPreview.panelDescription')}
       >
         <label className="flex items-center gap-2 text-body text-foreground">
           <input
