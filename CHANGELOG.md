@@ -63,6 +63,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - On desktop, the first query after cancelling or timing out a long SQL query no longer fails with The SQL host stopped.
+- Web database connections remember Cancel during the initial handshake and do not dispatch that run afterward. Reading a result invalidated by another run reports an error instead of silently ending a partial result.
 - Long values in an HTTP response body no longer wrap back to the first column and break the indentation: Wrap is off by default, and when it is on, a wrapped value stays at its own indent.
 - SQL results show LIST and STRUCT columns as arrays and objects instead of Arrow internals.
 - Run Ledger toggle, export and clear events now appear in Privacy › Recent activity; they were dropped before they reached the feed.
@@ -72,6 +73,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Danger-coloured text that rendered without a colour now uses the error colour.
 - Settings selects given a custom width, such as the execution timeout ones, keep their styling instead of rendering as plain browser selects.
 - Run, HTTP, SQL and pipeline capsules recorded in the desktop app now say desktop instead of web.
+- HTTP requests queued during an earlier reconnect send resume when it finishes; queued writes still wait for Send now.
 
 ### Security
 - The desktop local MCP server moves to the patched @modelcontextprotocol packages (server 2.3.1, node 2.1.1), which fix one HTTP client's messages reaching another on a shared transport and a request that could exhaust memory during validation.

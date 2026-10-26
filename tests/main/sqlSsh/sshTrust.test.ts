@@ -2,13 +2,13 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { utils } from 'ssh2';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createHostKeyStore } from '../../../src/main/sqlSsh/hostKeyStore';
 import { hostKeyAlgorithms, judgeHostKey, knownHostKeys, sshFingerprint, sshKeyType } from '../../../src/main/sqlSsh/knownHosts';
 import { resolveSshConfig } from '../../../src/main/sqlSsh/sshConfig';
+import { generateSshKeyPair } from '../../__fixtures__/sshKeys';
 
-const publicLine = (type: 'ed25519' | 'ecdsa') => utils.generateKeyPairSync(type, type === 'ecdsa' ? { bits: 256 } : {}).public;
+const publicLine = (type: 'ed25519' | 'ecdsa') => generateSshKeyPair(type).public;
 const keyBuffer = (line: string) => Buffer.from(line.split(' ')[1]!, 'base64');
 const hashed = (token: string) => {
   const salt = randomBytes(20);
