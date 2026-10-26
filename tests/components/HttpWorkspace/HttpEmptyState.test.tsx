@@ -7,11 +7,7 @@ describe('HttpEmptyState', () => {
   it('renders the title, body, and a primary New request CTA', () => {
     render(<HttpEmptyState onCreate={vi.fn()} />);
     expect(screen.getByText('No request selected')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Create your first HTTP request to send it and see the response inline.'
-      )
-    ).toBeTruthy();
+
     expect(screen.getByTestId('http-workspace-empty-create')).toBeTruthy();
   });
 

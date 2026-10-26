@@ -439,9 +439,6 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                 >
                   {t('shortcuts.title')}
                 </h2>
-                <p className="mt-1 max-w-2xl text-body-sm leading-[1.5] text-muted">
-                  {t('shortcuts.description')}
-                </p>
               </div>
             </div>
             <IconButton

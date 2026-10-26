@@ -91,7 +91,6 @@ export function UrlParserPanel() {
     <div className="grid gap-4">
       <PanelSection
         title={t('utilities.tool.urlParser.title')}
-        description={t('utilities.tool.urlParser.panelDescription')}
       >
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.field.input')}</FieldLabel>

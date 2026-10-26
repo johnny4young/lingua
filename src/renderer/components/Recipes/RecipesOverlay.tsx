@@ -209,9 +209,6 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
             >
               {t('recipes.overlay.title')}
             </h2>
-            <p className="mt-0.5 text-body-sm text-fg-subtle">
-              {t('recipes.overlay.description')}
-            </p>
           </div>
         }
         footerLegend={<ModalFooterLegend navigate select={false} open close />}

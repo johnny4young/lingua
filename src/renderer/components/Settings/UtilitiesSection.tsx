@@ -7,7 +7,6 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { Toggle } from './shared';
 import { SpecCard, SpecRow, SettingsSection, UnlockProLink } from '../ui/SpecRow';
-import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 
 /**
  * Developer Utilities settings.
@@ -23,7 +22,6 @@ import { useShortcutLabel } from '../../hooks/useShortcutLabel';
  */
 export function UtilitiesSection() {
   const { t } = useTranslation();
-  const utilitiesCombo = useShortcutLabel('overlay-developer-utilities');
   const consent = useSettingsStore(state => state.utilitiesClipboardOnFocusConsent);
   const setConsent = useSettingsStore(state => state.setUtilitiesClipboardOnFocusConsent);
   const clearAllHistory = useUtilityHistoryStore(state => state.clearHistory);
@@ -72,10 +70,7 @@ export function UtilitiesSection() {
   };
 
   return (
-    <SettingsSection
-      eyebrow={t('utilities.settings.title')}
-      description={t('utilities.settings.description', { combo: utilitiesCombo })}
-    >
+    <SettingsSection eyebrow={t('utilities.settings.title')}>
       <SpecCard>
         <SpecRow
           label={t('utilities.settings.clipboardOnFocus.label')}

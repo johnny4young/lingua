@@ -34,7 +34,6 @@ export function HttpEmptyState({ onCreate }: { onCreate: () => void }) {
       <EmptyState
         icon={<SendHorizontal size={18} aria-hidden="true" />}
         title={t('httpWorkspace.empty.title')}
-        description={t('httpWorkspace.empty.body')}
         action={
           <div className="flex flex-col items-center gap-3">
             <button
@@ -51,7 +50,6 @@ export function HttpEmptyState({ onCreate }: { onCreate: () => void }) {
                 data-testid="http-workspace-empty-import-hint"
                 className="flex flex-col items-center gap-1.5 text-caption text-fg-subtle"
               >
-                <span>{t('httpWorkspace.empty.importPrompt')}</span>
                 <span className="flex items-center gap-1.5">
                   <Kbd>{importCombo}</Kbd>
                   {t('httpWorkspace.empty.importAction')}

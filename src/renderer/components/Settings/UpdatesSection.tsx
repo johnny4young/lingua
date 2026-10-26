@@ -96,16 +96,16 @@ export function UpdatesSection() {
   );
 
   return (
-    <SettingsSection eyebrow={t('updates.title')} description={t('updates.description')}>
+    <SettingsSection eyebrow={t('updates.title')}>
       <SpecCard>
         <SpecRow
           label={t('updates.status.label')}
-          description={t('updates.status.hint')}
+          strong
           control={statusControl}
         />
         <SpecRow
           label={t('updates.actions.label')}
-          description={t('updates.actions.hint')}
+          strong
           control={actionsControl}
           last
         />

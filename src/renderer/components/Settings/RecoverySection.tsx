@@ -209,7 +209,7 @@ export function RecoverySection() {
   const factoryAction = scopeActions.find((action) => action.scope === 'factory');
 
   return (
-    <SettingsSection eyebrow={t('recovery.title')} description={t('recovery.description')}>
+    <SettingsSection eyebrow={t('recovery.title')}>
       <div id="settings-recovery" className="flex flex-col gap-7">
         {/* Routine, recoverable resets — quiet surface, button-secondary. */}
         <SpecCard>

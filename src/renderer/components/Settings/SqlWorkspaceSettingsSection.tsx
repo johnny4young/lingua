@@ -133,7 +133,6 @@ export function SqlWorkspaceSettingsSection() {
   return (
     <SettingsSection
       eyebrow={t('settings.editor.sqlWorkspace.title')}
-      description={t('settings.editor.sqlWorkspace.description')}
     >
       <SpecCard>
         <SpecRow

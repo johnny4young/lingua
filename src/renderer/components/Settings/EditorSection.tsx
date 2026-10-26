@@ -160,7 +160,7 @@ export function EditorSection() {
   return (
     // Editor, Per-language and SQL render as sibling SettingsSections, each a section chip.
     <div className="space-y-6">
-      <SettingsSection eyebrow={t('editor.title')} description={t('editor.description')}>
+      <SettingsSection eyebrow={t('editor.title')}>
       {/* FIELDS card — each option keeps its place as a spec row whose
           Select/Stepper control sits on the right. The font preview
           stays directly under the font-family row inside its cell. */}
@@ -186,7 +186,7 @@ export function EditorSection() {
         <SpecRow
           searchTargetId="editor-font-family"
           label={t('editor.fontFamily.label')}
-          description={t('editor.fontFamily.hint')}
+          strong
           control={
             <div className="grid w-72 gap-2">
               <Select
@@ -220,7 +220,7 @@ export function EditorSection() {
         <SpecRow
           searchTargetId="editor-font-size"
           label={t('editor.fontSize.label')}
-          description={t('editor.fontSize.hint')}
+          strong
           control={
             <div className="flex items-center gap-2">
               <StepperButton type="button" onClick={() => setFontSize(Math.max(10, fontSize - 1))}>
@@ -371,13 +371,13 @@ export function EditorSection() {
         <SpecRow
           searchTargetId="editor-word-wrap"
           label={t('editor.wordWrap.label')}
-          description={t('editor.wordWrap.hint')}
+          strong
           control={<Toggle value={wordWrap} onChange={toggleWordWrap} />}
         />
 
         <SpecRow
           label={t('editor.minimap.label')}
-          description={t('editor.minimap.hint')}
+          strong
           control={<Toggle value={minimap} onChange={toggleMinimap} />}
         />
 
@@ -404,7 +404,7 @@ export function EditorSection() {
         <SpecRow
           searchTargetId="editor-restore-session"
           label={t('editor.restoreSession.label')}
-          description={t('editor.restoreSession.hint')}
+          strong
           control={
             <Select
               value={restoreSessionMode}
@@ -505,7 +505,7 @@ export function EditorSection() {
         <SpecRow
           searchTargetId="editor-status-bar"
           label={t('settings.editor.showStatusBar.label')}
-          description={t('settings.editor.showStatusBar.hint')}
+          strong
           control={
             <Toggle
               value={showStatusBar}
@@ -534,7 +534,7 @@ export function EditorSection() {
             so the results dock header stays quiet by default. */}
         <SpecRow
           label={t('runtime.timeout.countdown.label')}
-          description={t('runtime.timeout.countdown.hint')}
+          strong
           control={
             <Toggle
               value={showTimeoutCountdown}

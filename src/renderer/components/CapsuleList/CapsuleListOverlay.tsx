@@ -732,9 +732,6 @@ function CapsuleShell({
           >
             {t('capsuleList.overlay.title')}
           </div>
-          <div className="mt-0.5 text-body-sm text-fg-subtle">
-            {t('capsuleList.overlay.subtitle')}
-          </div>
         </div>
       }
       footerLegend={<ModalFooterLegend navigate={false} select={false} close />}

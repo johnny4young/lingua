@@ -107,10 +107,7 @@ export function PrivacySection() {
           <AiSourceRow last />
         </SpecCard>
       </SettingsSection>
-      <SettingsSection
-        eyebrow={t('settings.privacy.ledger.title')}
-        description={t('settings.privacy.ledger.hint')}
-      >
+      <SettingsSection eyebrow={t('settings.privacy.ledger.title')}>
         <SpecCard>
           <RunLedgerRows />
         </SpecCard>

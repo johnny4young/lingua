@@ -100,8 +100,6 @@ describe('DeveloperUtilitiesModal', () => {
       screen.getByRole('heading', { name: 'Built-in utilities' }).className
     ).toContain('sr-only');
     expect(screen.queryByText('Copy output')).toBeNull();
-    // The tool count moved into the list footer.
-    expect(screen.getByTestId('utility-list-count').textContent).toMatch(/\d+ tools/u);
 
     await user.click(screen.getByTestId('utility-item-json'));
 

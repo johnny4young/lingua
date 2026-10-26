@@ -44,7 +44,6 @@ export function HtmlEntityPanel() {
     <div className="grid gap-4">
       <PanelSection
         title={t('utilities.tool.htmlEntity.title')}
-        description={t('utilities.tool.htmlEntity.panelDescription')}
       >
         <div className="grid gap-2">
           <label className="grid gap-1 text-body-sm text-muted">

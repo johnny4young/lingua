@@ -69,7 +69,6 @@ export function OnboardingSection() {
   return (
     <SettingsSection
       eyebrow={t('onboarding.section.title')}
-      description={t('onboarding.section.hint')}
     >
       {/* Affine reset toggles — one spec card, divided rows. */}
       <SpecCard>

@@ -176,7 +176,7 @@ describe('LicenseSection', () => {
     );
     render(<LicenseSection />);
     expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Monthly');
-    expect(screen.getByText(/Your plan unlocks paid workflows/)).toBeTruthy();
+    expect(screen.queryByText(/Your plan unlocks paid workflows/)).toBeNull();
     expect(screen.getByTestId('license-clear')).toBeTruthy();
     // accessibility pass — the bespoke Remove-license button carries the focus ring.
     expect(screen.getByTestId('license-clear').className).toContain('focus-ring');

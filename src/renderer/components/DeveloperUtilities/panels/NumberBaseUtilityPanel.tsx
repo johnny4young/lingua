@@ -104,7 +104,6 @@ export function NumberBaseUtilityPanel() {
   return (
     <PanelSection
       title={t('utilities.tool.numberBase.title')}
-      description={t('utilities.tool.numberBase.panelDescription')}
     >
       <div className="grid gap-3">
         {views.map((view) => {

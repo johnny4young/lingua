@@ -226,7 +226,8 @@ function getDateFormatter(locale: string): Intl.DateTimeFormat {
 
 function formatRelativeTime(lastSeenAtSeconds: number, locale: string): string {
   const lastSeenMs = lastSeenAtSeconds * 1000;
-  const delta = Date.now() - lastSeenMs;
+  // A clock ahead of this device's reads as just now, never as the future.
+  const delta = Math.max(0, Date.now() - lastSeenMs);
   const sec = Math.round(delta / 1000);
   const min = Math.round(delta / 60_000);
   const hr = Math.round(delta / 3_600_000);

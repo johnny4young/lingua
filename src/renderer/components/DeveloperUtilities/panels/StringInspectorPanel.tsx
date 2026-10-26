@@ -29,7 +29,6 @@ export function StringInspectorPanel() {
     <div className="grid gap-4">
       <PanelSection
         title={t('utilities.tool.stringInspector.title')}
-        description={t('utilities.tool.stringInspector.panelDescription')}
       >
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.stringInspector.input.label')}</FieldLabel>

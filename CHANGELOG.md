@@ -27,6 +27,7 @@ The format follows Keep a Changelog and groups changes by release.
 - An HTTP response in JSON opens as a tree with one value per line: fold any node, see each object's and array's size, expand cut-off long strings, and search keys and values with the matching nodes unfolded. Hovering a value offers Capture, which adds a capture rule for its path, and values a rule already captures say so. The tree is a single keyboard stop: arrow keys move and fold, Enter or Space folds or shows a cut value, and C captures.
 
 ### Changed
+- Less filler text: Settings sections, the empty editor, the Console, Utilities, the Command Palette, Quick Open, SQL and HTTP empty states, What's New and several dialogs drop taglines and hints that restated their labels. Settings loses its footer bar and Esc chip; commands in the palette show a second line only when it states a requirement or status. Settings search still finds rows by those words.
 - Selected and highlighted rows no longer draw a coloured strip on their left edge. The Settings rail, the Explorer's open file, SQL queries, history and explorer objects, the slowest plan step, the next input line and the active notebook cell use a background tint and heavier text instead; Compare tints changed rows by kind.
 - Settings › Privacy lists each AI send with where it went and no content, and its AI row now reads enabled once a model is set. PRIVACY.md explains what Explain sends and where, for Local and for My endpoint.
 - HTTP Send explains why it is off: a hint under the URL says to enter a URL, to give a missing variable a value, or to use a full URL with its scheme, and Send and Cmd/Ctrl+Enter wait until the URL is valid once its variables are filled in. The URL highlights each {{variable}}, red when the active environment lacks it, its placeholder reads as a placeholder, and the Auth tab shows the scheme in use.
@@ -66,6 +67,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- The HTTP workspace no longer shows Sending request… when no request is selected, a device seen with a clock ahead no longer reads as seen in the future, and Plugins → Refresh is off in the web app, which has no plugin folder.
 - Loading more rows of a SQL result that another run replaced reports an error instead of silently ending the partial result, on desktop as on the web.
 - Web database connections remember Cancel during the initial handshake and do not dispatch that run afterward.
 - On the web, a database token you just replaced is no longer forgotten when an older request with the previous token fails to authenticate.

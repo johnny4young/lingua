@@ -69,7 +69,6 @@ export function PluginsSection() {
   return (
     <Section
       title={t('plugins.title')}
-      description={t('plugins.description')}
     >
       <div className="rounded-3xl border border-border/80 bg-background-elevated/72 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -82,6 +81,7 @@ export function PluginsSection() {
           <button
             type="button"
             onClick={() => void refresh()}
+            disabled={window.lingua?.platform === 'web'}
             className="button-secondary shrink-0"
           >
             {t('plugins.actions.refresh')}
@@ -94,7 +94,6 @@ export function PluginsSection() {
           <EmptyState
             icon={<Puzzle size={18} aria-hidden="true" />}
             title={t('plugins.empty')}
-            description={t('plugins.description')}
           />
         </div>
       ) : (

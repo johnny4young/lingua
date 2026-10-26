@@ -538,9 +538,6 @@ function DeveloperUtilitiesWorkspaceBody({
         </div>
         {toolList ? (
           <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-3 py-2">
-            <span className="font-mono text-caption text-fg-subtle" data-testid="utility-list-count">
-              {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
-            </span>
             <span className="flex-1" />
             <Tooltip content={t('utilities.list.collapse', { combo: toggleCombo })} side="top">
               <button
@@ -576,17 +573,11 @@ export function DeveloperUtilitiesModal({
       >
         {t('utilities.title')}
       </h2>
-      <p className="mt-0.5 truncate text-body-sm text-fg-subtle">{t('utilities.description')}</p>
     </div>
   );
 
   const footerLegend = <UtilityCopyShortcutHint />;
 
-  const trailing = (
-    <span className="font-mono text-caption text-fg-subtle">
-      {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
-    </span>
-  );
 
   return (
     <ModalShell
@@ -597,7 +588,6 @@ export function DeveloperUtilitiesModal({
       closeLabel={t('utilities.close')}
       header={header}
       footerLegend={footerLegend}
-      trailing={trailing}
       bodyClassName="h-[min(70vh,640px)] overflow-hidden"
     >
       <DeveloperUtilitiesWorkspaceBody

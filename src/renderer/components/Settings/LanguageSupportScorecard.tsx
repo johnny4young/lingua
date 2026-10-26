@@ -158,20 +158,14 @@ export function LanguageSupportScorecard({
   }, [surface]);
 
   return (
-    <SettingsSection
-      eyebrow={t('languageSupport.scorecard.title')}
-      description={t('languageSupport.scorecard.description')}
-    >
+    <SettingsSection eyebrow={t('languageSupport.scorecard.title')}>
       <div
         ref={containerRef}
         className="rounded-lg border border-border-subtle bg-bg-inset"
         data-testid="language-support-scorecard"
         data-surface={surface}
       >
-        <div className="flex items-center justify-between gap-3 px-[18px] py-3">
-          <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
-            {t('languageSupport.scorecard.tableLabel')}
-          </span>
+        <div className="flex items-center justify-end gap-3 px-[18px] py-3">
           <div className="flex items-center gap-2">
             {/* Web/Desktop platform filter. `all` is the
                 cross-platform view; `web`/`desktop` collapse each cell to its

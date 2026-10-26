@@ -694,20 +694,10 @@ export function ConsolePanel() {
       >
         {visibleEntries.length === 0 ? (
           <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-16 text-center">
-            <p className="mb-1 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted">
-              {t('console.title')}
-            </p>
             <p className="font-sans text-body font-medium text-foreground">
               {entries.length === 0 ? t('console.empty.output') : t('console.empty.filtered')}
             </p>
-            {entries.length === 0 ? (
-              <>
-                <p className="mt-1 max-w-md font-sans text-caption leading-[1.45] text-muted">
-                  {t('console.empty.hint')}
-                </p>
-                <ContextualHint surface="console" className="mt-4" />
-              </>
-            ) : null}
+            {entries.length === 0 ? <ContextualHint surface="console" className="mt-4" /> : null}
           </div>
         ) : (
           <>

@@ -36,7 +36,6 @@ export function TimestampUtilityPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
       <PanelSection
         title={t('utilities.tool.timestamp.title')}
-        description={t('utilities.tool.timestamp.panelDescription')}
       >
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.field.input')}</FieldLabel>

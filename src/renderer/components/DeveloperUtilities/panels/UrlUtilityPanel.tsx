@@ -32,7 +32,6 @@ export function UrlUtilityPanel() {
       <UtilityToolbar utilityId="url" primary={input} run={runApply} setPrimary={setInput} />
       <TwoPaneTransformPanel
         title={t('utilities.tool.url.title')}
-        description={t('utilities.tool.url.panelDescription')}
         input={input}
         onInputChange={setInput}
         output={output}

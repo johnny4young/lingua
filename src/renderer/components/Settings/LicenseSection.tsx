@@ -356,12 +356,10 @@ export function LicenseSection() {
       eyebrow={t('license.title')}
       description={
         <>
-          <span className="block">
-            {t(status.kind === 'active' || status.kind === 'grace'
-              ? 'license.benefits.active'
-              : 'license.benefits.free')}
-          </span>
-          <span className="mt-1 block">{t('license.benefits.platform')}</span>
+          {status.kind === 'active' || status.kind === 'grace' ? null : (
+            <span className="mb-1 block">{t('license.benefits.free')}</span>
+          )}
+          <span className="block">{t('license.benefits.platform')}</span>
           <a
             href={pricingUrl}
             target="_blank"
@@ -382,7 +380,7 @@ export function LicenseSection() {
         <SpecRow
           last
           label={t('license.current.label')}
-          description={t('license.current.hint')}
+          strong
           control={
             <div className="flex items-center gap-2">
               <span data-testid="license-status-pill" aria-live="polite">
@@ -438,7 +436,7 @@ export function LicenseSection() {
           <SpecRow
             last
             label={t('license.keyFingerprint.label')}
-            description={t('license.keyFingerprint.hint')}
+            strong
             control={
               <div className="flex items-center gap-2">
                 <code

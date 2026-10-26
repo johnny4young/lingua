@@ -7,7 +7,6 @@ import {
   currentShortcutDisplayPlatform,
   formatShortcutCombo,
 } from '../../data/keyboardShortcuts';
-import { EyebrowMono } from '../ui/primitives';
 import { RAIL_ITEMS, type TabId } from './settingsRailModel';
 
 interface SettingsRailProps {
@@ -58,9 +57,7 @@ export function SettingsRail({
 
   return (
     <aside className="settings-rail" role="tablist" aria-label={t('settings.rail.ariaLabel')}>
-      <div className="settings-rail-heading px-4 pb-3 pt-5">
-        <EyebrowMono className="text-fg-subtle">{t('settings.title')}</EyebrowMono>
-      </div>
+      <div className="pt-4" />
       {groups.map(group => (
         <div key={group} className="settings-rail-group pb-2">
           <p className="settings-rail-group-label">{t(`settings.rail.${group}`)}</p>

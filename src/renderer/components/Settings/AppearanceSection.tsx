@@ -15,19 +15,16 @@ const APP_THEMES = [
   {
     id: 'dark' as const,
     labelKey: 'appearance.theme.dark.label',
-    descriptionKey: 'appearance.theme.dark.description',
     icon: MoonStar,
   },
   {
     id: 'light' as const,
     labelKey: 'appearance.theme.light.label',
-    descriptionKey: 'appearance.theme.light.description',
     icon: SunMedium,
   },
   {
     id: 'system' as const,
     labelKey: 'appearance.theme.system.label',
-    descriptionKey: 'appearance.theme.system.description',
     icon: Monitor,
   },
 ];
@@ -92,7 +89,7 @@ export function AppearanceSection() {
   };
 
   return (
-    <SettingsSection eyebrow={t('appearance.title')} description={t('appearance.description')}>
+    <SettingsSection eyebrow={t('appearance.title')}>
       {/*
        * The two field Selects (theme pack + language)
        * are read-only-shaped metadata rows grouped into ONE SpecCard.
@@ -123,7 +120,7 @@ export function AppearanceSection() {
         <SpecRow
           searchTargetId="appearance-language"
           label={t('language.label')}
-          description={t('language.hint')}
+          strong
           last
           control={
             <Select
@@ -165,9 +162,6 @@ export function AppearanceSection() {
                   <Icon size={16} />
                 </span>
               </div>
-              <p className="mt-1.5 text-body-sm leading-5 text-fg-subtle">
-                {t(option.descriptionKey)}
-              </p>
               <div className="mt-3 flex gap-2">
                 {option.id === 'system' ? (
                   <>

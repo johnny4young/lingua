@@ -18,7 +18,6 @@ export const CONTEXTUAL_HINTS: readonly ContextualHintEntry[] = [
   { id: 'console-run', i18nKey: 'hints.console.run', surface: 'console' },
   { id: 'console-watch', i18nKey: 'hints.console.watch', surface: 'console' },
   { id: 'console-auto-log', i18nKey: 'hints.console.autoLog', surface: 'console' },
-  { id: 'console-filters', i18nKey: 'hints.console.filters', surface: 'console' },
   { id: 'console-timestamps', i18nKey: 'hints.console.timestamps', surface: 'console' },
   { id: 'console-image-paste', i18nKey: 'hints.console.imagePaste', surface: 'console' },
   { id: 'console-source-links', i18nKey: 'hints.console.sourceLinks', surface: 'console' },

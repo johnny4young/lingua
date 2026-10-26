@@ -62,11 +62,6 @@ describe('AppearanceSection', () => {
     render(<AppearanceSection />);
 
     expect(screen.getByText('Apariencia')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Lingua aplica presets visuales que mantienen alineados el shell y el editor sin tocar los ajustes de ejecución ni del entorno.'
-      )
-    ).toBeTruthy();
     expect(screen.getByText('Oscuro')).toBeTruthy();
     expect(screen.getByText('Claro')).toBeTruthy();
   });

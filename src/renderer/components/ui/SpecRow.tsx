@@ -25,6 +25,8 @@ export interface SpecRowProps {
   searchTargetId?: string;
   /** Marks a Pro-only row with a lock badge after the label. */
   pro?: boolean;
+  /** A setting row keeps a prominent label without a description; metadata rows stay quiet. */
+  strong?: boolean;
 }
 
 export function SpecRow({
@@ -34,6 +36,7 @@ export function SpecRow({
   last = false,
   searchTargetId,
   pro = false,
+  strong,
 }: SpecRowProps) {
   const labelId = useId();
   const onlyControl = Children.count(control) === 1 ? Children.only(control) : null;
@@ -64,7 +67,7 @@ export function SpecRow({
             // A described row leans on a heavier, higher-contrast label;
             // a bare metadata row stays quiet. Mirrors the mockup's
             // `fontWeight: desc ? 550 : 450` / `color: desc ? fg : fgMut`.
-            description ? 'font-medium text-fg-base' : 'font-normal text-fg-muted'
+            (strong ?? Boolean(description)) ? 'font-medium text-fg-base' : 'font-normal text-fg-muted'
           )}
         >
           {label}

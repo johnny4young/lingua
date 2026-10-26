@@ -146,7 +146,7 @@ for (const width of [512, 640, 720]) {
       await page.getByTestId('action-pill-overflow-settings').click();
       await expect(
         page.getByRole('heading', {
-          name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
+          name: /^(workspace settings|configuración del espacio de trabajo)$/i,
         })
       ).toBeVisible();
     });

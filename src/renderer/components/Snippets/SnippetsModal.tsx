@@ -319,9 +319,6 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
             >
               {t('snippets.header')}
             </h2>
-            <p className="truncate text-body-sm text-fg-subtle">
-              {t('snippets.detail.description')}
-            </p>
           </div>
         </div>
       }

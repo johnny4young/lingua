@@ -39,7 +39,7 @@ export function LayoutSection() {
   const { t } = useTranslation();
 
   return (
-    <SettingsSection eyebrow={t('layout.title')} description={t('layout.description')}>
+    <SettingsSection eyebrow={t('layout.title')}>
       {/*
        * The layout presets are selectable preview cards,
        * which the proto keeps as a bespoke custom grid (NOT SpecRows).
@@ -67,7 +67,6 @@ export function LayoutSection() {
               <LayoutIcon preset={preset.id} active={selected} />
               <div>
                 <p className="text-body-sm font-medium text-fg-base">{label}</p>
-                <p className="mt-1 text-caption leading-5 text-fg-subtle">{description}</p>
               </div>
             </button>
           );

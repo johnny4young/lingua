@@ -97,7 +97,7 @@ test.describe('Command palette', () => {
   test("What's New palette entry opens the release notes overlay", async ({ page }) => {
     await openPaletteAction(page, 'whats new', /What's New/i);
     await expect(
-      page.getByRole('heading', { name: 'Release notes and recent changes' })
+      page.getByRole('heading', { name: "What's New", exact: true })
     ).toBeVisible();
     await dismissWhatsNew(page);
   });

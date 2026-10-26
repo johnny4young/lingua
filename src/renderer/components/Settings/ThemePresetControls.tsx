@@ -161,7 +161,7 @@ export function ThemePresetControls() {
       <SpecCard>
         <SpecRow
           label={t('settings.themePreset.label')}
-          description={t('settings.themePreset.hint')}
+          strong
           last
           control={
             <div className="flex flex-wrap items-center justify-end gap-2">

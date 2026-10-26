@@ -113,7 +113,6 @@ export function CronParserPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.cron.title')}
-        description={t('utilities.tool.cron.panelDescription')}
       >
         <CronPhraseComposer onExpression={setExpression} />
         <div className="grid gap-2">

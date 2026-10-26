@@ -88,6 +88,14 @@ describe('HttpWorkspacePanel', () => {
     useAnnouncerStore.setState({ message: '', nonce: 0 });
   });
 
+  it('shows no sending state while no request is selected', () => {
+    render(<HttpWorkspacePanel />);
+    for (const preview of screen.queryAllByTestId('http-response-preview')) {
+      expect(preview.dataset.state).not.toBe('executing');
+    }
+    expect(screen.queryByText('Sending request…')).toBeNull();
+  });
+
   it('renders live stream progress before recording the settled response', async () => {
     const user = userEvent.setup();
     executeHttpRequestMock.mockImplementation(async (_request, options) => {

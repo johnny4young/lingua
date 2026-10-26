@@ -299,7 +299,6 @@ export function PrivacyTrustSection() {
 
       <SettingsSection
         eyebrow={t('settings.privacy.network.title')}
-        description={t('settings.privacy.network.hint')}
         chip={t('settings.privacy.network.chip')}
       >
         <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
@@ -403,7 +402,6 @@ export function PrivacyTrustSection() {
 
       <SettingsSection
         eyebrow={t('settings.privacy.redaction.title')}
-        description={t('settings.privacy.redaction.hint')}
         chip={t('settings.privacy.redaction.chip')}
       >
         <RedactionPreviewBlock input={pasteInput} result={previewResult} onChange={setPasteInput} />

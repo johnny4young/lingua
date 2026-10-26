@@ -27,7 +27,6 @@ export function StringCasePanel() {
     <div className="grid gap-4">
       <PanelSection
         title={t('utilities.tool.stringCase.title')}
-        description={t('utilities.tool.stringCase.panelDescription')}
       >
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.stringCase.input.label')}</FieldLabel>

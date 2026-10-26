@@ -68,7 +68,6 @@ export function YamlJsonPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]">
       <PanelSection
         title={t('utilities.tool.yamlJson.title')}
-        description={t('utilities.tool.yamlJson.panelDescription')}
       >
         <div className="grid gap-2 md:grid-cols-2">
           <label className="grid gap-1 text-body-sm text-muted">

@@ -329,9 +329,6 @@ export function StdinInputPanel() {
               {t('stdin.panel.lineCountBadge', { count: filledCount, promptFn })}
             </MonoBadge>
           </div>
-          <p className="text-caption text-fg-subtle">
-            {t('stdin.panel.descriptionShort', { promptFn })}
-          </p>
           {/* Ordered queue */}
           <div className="min-h-[96px] flex-1 overflow-auto rounded-lg border border-border-subtle bg-bg-inset">
             <DndContext
