@@ -67,6 +67,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- When Explain this error fails on its first request, Retry shows What gets sent again with the current code, and reopening the panel offers Send instead of an empty conversation.
 - The HTTP workspace no longer shows Sending request… when no request is selected, a device seen with a clock ahead no longer reads as seen in the future, and Plugins → Refresh is off in the web app, which has no plugin folder.
 - Loading more rows of a SQL result that another run replaced reports an error instead of silently ending the partial result, on desktop as on the web.
 - Web database connections remember Cancel during the initial handshake and do not dispatch that run afterward.
@@ -94,7 +95,6 @@ The format follows Keep a Changelog and groups changes by release.
 - The HTTP response header keeps its timing and size on one line; a long status text is shortened first.
 - Quick Open describes an unsaved tab as "Unsaved · edited 2 min ago" instead of showing its internal id, and shows the project-relative path for files on disk.
 - SQL result columns are labeled with DuckDB type names (VARCHAR, INTEGER, DECIMAL(6,2)), the same names the column profile uses; the Arrow name is in the tooltip.
-- After Explain fails, editing the code and pressing Retry shows the edited code in the preview, which is what Send then sends.
 
 ## [1.6.2] — 2026-10-19
 

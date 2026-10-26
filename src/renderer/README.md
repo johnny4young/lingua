@@ -556,10 +556,6 @@ Run Capsule export keeps capture and discoverability separate from delivery:
 - Failed control or pipeline chunks log diagnostic context and surface
   localized reload guidance through the global status-notice surface.
 
-Retry after a failed first attempt clears that attempt and its saved tab thread,
-so the consent preview shows the current request Send will submit; a failed
-follow-up resends the approved conversation directly.
-
 The main-editor AI explanation flow keeps its request slot separate from its
 paid implementation:
 
@@ -775,7 +771,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |
-| [explainPanelStore.ts](stores/explainPanelStore.ts) | the anchored explain panel's error, its pin and, per tab, one in-memory conversation per endpoint for the current error (never persisted, so code stays off storage); a new error or a closed tab drops them |
+| [explainPanelStore.ts](stores/explainPanelStore.ts) | the anchored explain panel's error, its pin and, per tab, one in-memory conversation per endpoint for the current error (never persisted, so code stays off storage); a new error or a closed tab drops them, and a failed first request is never kept, so Retry and a reopened panel start from the current preview |
 | [debuggerStore.ts](stores/debuggerStore.ts) | runtime-agnostic persisted breakpoint modes/watch expressions plus session-only JS/TS/Python/Go/Rust paused frames, results and the previous pause the step changes compare with; `runtime/debuggerControlBridge.ts` routes controls while `runtime/nativeDebuggerBridge.ts` owns the shared lazy desktop lifecycle and the Python/Go/Rust wrappers supply runtime-specific bridges |
 | [licenseStore.ts](stores/licenseStore.ts)   | license token, verification status, device/recovery metadata — thin factory+facade that picks web vs desktop and re-exports the public types |
 | license split — shared leaves: [licenseTypes.ts](stores/licenseTypes.ts) (`LicenseStatus`/`ServerSyncState`/`RecoverHint`/`LicenseState` + status consts + `LicenseSet`/`LicenseGet`), [licenseBridge.ts](stores/licenseBridge.ts) (`readLicenseBridge` + `LicenseBridge`, including the single IPC Result compatibility adapter), [licenseWebVerify.ts](stores/licenseWebVerify.ts) (embedded Ed25519 key + local verify), [licenseServerMappers.ts](stores/licenseServerMappers.ts) (server verdict → local status), [licenseTokenHelpers.ts](stores/licenseTokenHelpers.ts) (issuedAt/issuedTo decode + stale-token pickup) | imported by both flows; no facade cycle |

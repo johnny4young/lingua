@@ -289,7 +289,7 @@ function ExplainConversationPanel({
               </>
             ) : null}
 
-            {phase.kind === 'done' || phase.kind === 'error' ? (
+            {phase.kind === 'done' || (phase.kind === 'error' && exchanges.length > 0) ? (
               <>
                 <label className="flex h-[34px] items-center gap-2 rounded-md border border-border-strong bg-bg-inset px-2">
                   <Sparkles size={13} className="shrink-0 text-fg-subtle" aria-hidden="true" />

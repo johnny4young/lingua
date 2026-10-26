@@ -91,6 +91,8 @@ describe('anchored explain panel', () => {
     render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
     fireEvent.click(screen.getByTestId('ai-explain-send'));
     await screen.findByTestId('ai-explain-error');
+    expect(useExplainPanelStore.getState().threadFor('t1', target.errorMessage, useAiConfigStore.getState().endpoint)).toEqual([]);
+    expect(screen.queryByTestId('ai-explain-followup-input')).toBeNull();
     act(() => useEditorStore.getState().updateContent('t1', edited));
     fireEvent.click(screen.getByTestId('ai-explain-retry'));
     const preview = screen.getByTestId('ai-explain-preview').textContent;
@@ -104,6 +106,17 @@ describe('anchored explain panel', () => {
     expect(useExplainPanelStore.getState().threadFor('t1', target.errorMessage, useAiConfigStore.getState().endpoint)).toEqual([
       ...messages, { role: 'assistant', content: 'Synthetic answer.' },
     ]);
+  });
+
+  it('reopens a failed first attempt at the consent preview', async () => {
+    const impl = vi.fn().mockResolvedValue({ ok: false, kind: 'network', message: 'Synthetic failure' });
+    const { unmount } = render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
+    fireEvent.click(screen.getByTestId('ai-explain-send'));
+    await screen.findByTestId('ai-explain-error');
+    unmount();
+    render(<ExplainErrorPanel target={target} runChatCompletionImpl={impl} />);
+    expect(screen.getByTestId('ai-explain-send')).toBeTruthy();
+    expect(screen.getByTestId('ai-explain-preview').textContent).toContain(CODE);
   });
 
   it('names the file and line and sends nothing until Send', () => {
