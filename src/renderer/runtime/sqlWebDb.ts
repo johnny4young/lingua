@@ -6,7 +6,7 @@
  */
 
 import { parseConnectionDraft, httpEndpoint, WEB_SQL_ENGINES, type SqlConnectionDraft, type SqlConnectionV1 } from '../../shared/sqlConnections';
-import { failedRun, type SqlDbBridge, type SqlDbCatalogView, type SqlDbConnectionView, type SqlDbRunResult, type SqlDbSaveResult, type SqlDbTestStep } from '../../shared/sqlDb';
+import { closedSqlResult, failedRun, type SqlDbBridge, type SqlDbCatalogView, type SqlDbConnectionView, type SqlDbRunResult, type SqlDbSaveResult, type SqlDbTestStep } from '../../shared/sqlDb';
 import { classifyConnectError, EditFailedError, readRowPage, SqlConnectError, type DriverSession, type RowPager, type SqlDriverError } from '../../shared/sqlDriver';
 import { openLibsql } from '../../shared/sqlHttp/libsql';
 import { openNeon } from '../../shared/sqlHttp/neon';
@@ -288,7 +288,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
 
     async fetch(runId, limit, maxBytes) {
       const run = runs.get(runId);
-      if (!run) return { rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.' };
+      if (!run) return closedSqlResult();
       try {
         const page = await readRowPage(run, limit, maxBytes, same, rowSize);
         if (page.done) await closeRun(runId);
