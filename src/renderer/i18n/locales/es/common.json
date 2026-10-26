@@ -32,7 +32,7 @@
   "ai.askSql.askAgain": "Preguntar de nuevo",
   "ai.askSql.insert": "Insertar en el editor",
   "ai.explain.upsell": "La asistencia con IA es una función de pago. Mejora tu plan para explicar errores con tu propio endpoint de IA.",
-  "ai.explain.unconfigured": "Agrega tu endpoint de IA, la clave y el modelo en Configuración → Cuenta → IA para explicar errores.",
+  "ai.explain.unconfigured": "Configura un modelo en Configuración → Cuenta → IA para explicar errores: un servidor local, o tu propio endpoint y clave.",
   "ai.settings.title": "Asistencia con IA",
   "ai.settings.mode.label": "Enviar a",
   "ai.settings.mode.local": "Local · Ollama",

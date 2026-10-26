@@ -28,6 +28,7 @@ import {
 
 /** Which profile the AI features send to: a server on this machine, or the user's own endpoint. */
 export type AiMode = 'local' | 'remote';
+export const AI_MODES: readonly AiMode[] = ['local', 'remote'];
 
 export interface AiProfile {
   /** Full chat-completions URL. */

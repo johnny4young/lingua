@@ -25,5 +25,9 @@
   "errorRow.copyStack": "Copy stack",
   "errorRow.copied": "Copied",
   "errorRow.addBreakpoint": "Add breakpoint",
-  "ai.panel.applyOnlyIntro": "This replaces the current code with the AI suggestion without running it. Review the change:"
+  "ai.panel.applyOnlyIntro": "This replaces the current code with the AI suggestion without running it. Review the change:",
+  "ai.panel.mode.localCaption": "{{model}} on {{host}} · nothing leaves this machine",
+  "ai.panel.mode.remoteCaption": "{{model}} at {{host}}",
+  "ai.panel.mode.localUnset": "Pick a local model in Settings → Account → AI. Ollama or LM Studio must be running.",
+  "ai.panel.mode.remoteUnset": "Add your endpoint, API key, and model in Settings → Account → AI."
 }

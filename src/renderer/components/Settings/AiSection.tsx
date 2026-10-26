@@ -16,11 +16,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SecretStorageNote } from '../ui/SecretStorageNote';
 import { SettingsSection } from '../ui/SpecRow';
-import { DEFAULT_LOCAL_AI_ENDPOINT, useAiConfigStore, type AiMode } from '../../stores/aiConfigStore';
+import { AI_MODES, DEFAULT_LOCAL_AI_ENDPOINT, useAiConfigStore } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 
 const OLLAMA_MODELS_URL = 'http://localhost:11434/v1/models';
-const AI_MODES: readonly AiMode[] = ['local', 'remote'];
 /** A local server answers in milliseconds; don't hang the Settings pane. */
 const DETECT_TIMEOUT_MS = 3000;
 

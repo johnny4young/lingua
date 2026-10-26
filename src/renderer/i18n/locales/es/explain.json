@@ -25,5 +25,9 @@
   "errorRow.copyStack": "Copiar stack trace",
   "errorRow.copied": "Copiado",
   "errorRow.addBreakpoint": "Agregar punto de interrupción",
-  "ai.panel.applyOnlyIntro": "Esto reemplaza el código actual con la sugerencia de la IA sin ejecutarlo. Revisa el cambio:"
+  "ai.panel.applyOnlyIntro": "Esto reemplaza el código actual con la sugerencia de la IA sin ejecutarlo. Revisa el cambio:",
+  "ai.panel.mode.localCaption": "{{model}} en {{host}} · nada sale de este equipo",
+  "ai.panel.mode.remoteCaption": "{{model}} en {{host}}",
+  "ai.panel.mode.localUnset": "Elige un modelo local en Configuración → Cuenta → IA. Ollama o LM Studio debe estar en ejecución.",
+  "ai.panel.mode.remoteUnset": "Agrega tu endpoint, la clave de API y el modelo en Configuración → Cuenta → IA."
 }

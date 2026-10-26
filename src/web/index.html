@@ -27,9 +27,9 @@
         DELIBERATE, documented product exception: the web HTTP workspace
         is a first-class feature whose entire purpose is issuing
         user-initiated `fetch` calls to arbitrary HTTPS endpoints, so its
-        origins cannot be enumerated in an allowlist. Users still cannot
-        make plain-HTTP requests (no `http:`), preserving mixed-content
-        protections. The desktop-native SSRF-guarded proxy
+        origins cannot be enumerated in an allowlist. There is no bare
+        `http:`: plain HTTP reaches loopback only (next item), preserving
+        mixed-content protections for every other host. The desktop-native SSRF-guarded proxy
         does NOT change this: the WEB build has no main process, so its
         HTTP workspace must use the browser `fetch` path and therefore
         keeps the broad `https:`. `wss:` was removed  — nothing in
@@ -37,8 +37,10 @@
         was pure attack surface with no consumer.
       - `http://localhost:*` and `http://127.0.0.1:*` are the only plain-http
         origins: they let the Local AI mode reach a server on this machine
-        (Ollama, LM Studio, llama.cpp). Loopback cannot exfiltrate off the
-        device. See docs/LOCAL_AI_ADR.md.
+        (Ollama, LM Studio, llama.cpp). Any port, because each server picks
+        its own. The cost: page code can also reach other services listening
+        on loopback, which still answer only when their CORS allows this
+        origin. See docs/LOCAL_AI_ADR.md.
       - `img-src https:` lets the HTTP response preview render image
         bodies that the server returns under a recognised content-type.
     -->

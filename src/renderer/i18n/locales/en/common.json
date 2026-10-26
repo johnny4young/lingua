@@ -32,7 +32,7 @@
   "ai.askSql.askAgain": "Ask again",
   "ai.askSql.insert": "Insert into editor",
   "ai.explain.upsell": "AI assistance is a paid feature. Upgrade to explain errors with your own AI endpoint.",
-  "ai.explain.unconfigured": "Add your AI endpoint, API key, and model in Settings → Account → AI to explain errors.",
+  "ai.explain.unconfigured": "Set up a model in Settings → Account → AI to explain errors: a local server, or your own endpoint and key.",
   "ai.settings.title": "AI assistance",
   "ai.settings.mode.label": "Send to",
   "ai.settings.mode.local": "Local · Ollama",
