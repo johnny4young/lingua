@@ -75,6 +75,35 @@ describe('web SQL run lifecycle', () => {
     expect(await db.cancel('unknown')).toEqual({ cancelled: false });
   });
 
+  it('settles a cancelled run whose handshake never answers', async () => {
+    const started = deferred<void>();
+    const db = createWebSqlDb(async () => {
+      started.resolve();
+      return new Promise<never>(() => undefined);
+    });
+    const id = await open(db);
+    const running = db.execute('stuck', id, 'SELECT 1', { timeoutMs: 1_000 });
+    await started.promise;
+    await db.cancel('stuck');
+    expect((await running).status).toBe('cancelled');
+  });
+
+  it('keeps the result of a statement that answered before a late Cancel', async () => {
+    const answered = deferred<ReturnType<typeof pipeline>>();
+    const sent = deferred<void>();
+    const db = createWebSqlDb(async (request) => {
+      if (statement(request).includes('sqlite_version')) return pipeline(version);
+      sent.resolve();
+      return answered.promise;
+    });
+    const id = await open(db);
+    const running = db.execute('late', id, 'INSERT INTO t VALUES (1)', { timeoutMs: 1_000, readWrite: { confirmName: 'synthetic' } });
+    await sent.promise;
+    answered.resolve(pipeline({ cols: [], rows: [], affected_row_count: 1 }));
+    await db.cancel('late');
+    expect(await running).toMatchObject({ status: 'success', affectedRows: 1 });
+  });
+
   it('rejects an invalidated cursor instead of reporting a complete partial result', async () => {
     const db = createWebSqlDb(async (request) => pipeline(statement(request).includes('sqlite_version') ? version : {
       cols: [{ name: 'n' }],

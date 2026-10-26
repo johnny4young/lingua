@@ -59,6 +59,8 @@ interface Run extends RowPager {
 interface PendingRun {
   session?: DriverSession;
   cancelled: boolean;
+  /** Settles a wait on the driver handshake, which itself cannot be aborted. */
+  cancel: () => void;
 }
 
 export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): SqlDbBridge {
@@ -223,40 +225,37 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       if (!entry) return fail('connection-failed', 'Unknown connection.');
       const { writes, refusal } = runGuard(entry, sql, options);
       if (refusal) return fail('sql-error', refusal, 'confirm-needed');
-      const pending: PendingRun = { cancelled: false };
+      let onCancel!: () => void;
+      const cancelRequested = new Promise<null>((resolve) => {
+        onCancel = () => resolve(null);
+      });
+      const pending: PendingRun = { cancelled: false, cancel: onCancel };
       const cancelled = () => fail('cancelled', 'Query cancelled');
       waiting.set(runId, pending);
       try {
         for (const [id, run] of runs) if (run.connectionId === connectionId) await closeRun(id);
         if (pending.cancelled) return cancelled();
-        let session: DriverSession;
+        let session: DriverSession | null;
         try {
-          session = await sessionFor(entry);
+          session = await Promise.race([sessionFor(entry), cancelRequested]);
         } catch (err) {
-          if (pending.cancelled) return cancelled();
           const detail = refused(entry, classifyConnectError(err));
+          if (pending.cancelled) return cancelled();
           return fail('connection-failed', detail.message, detail.fix);
         }
+        if (!session || pending.cancelled) return cancelled();
         pending.session = session;
-        if (pending.cancelled) return cancelled();
         let timedOut = false;
         const timer = setTimeout(() => {
           timedOut = true;
           void session.cancel();
         }, options.timeoutMs);
         try {
+          // Once the statement is sent, a late Cancel cannot unsend it: keep its result.
           const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
-          if (pending.cancelled) {
-            await rows.close().catch(() => undefined);
-            return cancelled();
-          }
           const run: Run = { connectionId, session, rows, pending: [], done: false };
           runs.set(runId, run);
           const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
-          if (pending.cancelled) {
-            await closeRun(runId);
-            return cancelled();
-          }
           const hasMore = !page.done;
           if (!hasMore) await closeRun(runId);
           return {
@@ -302,7 +301,10 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
 
     async cancel(runId) {
       const pending = waiting.get(runId);
-      if (pending) pending.cancelled = true;
+      if (pending) {
+        pending.cancelled = true;
+        pending.cancel();
+      }
       const session = runs.get(runId)?.session ?? pending?.session;
       return { cancelled: session ? await session.cancel() : Boolean(pending) };
     },
