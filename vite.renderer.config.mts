@@ -109,7 +109,7 @@ export default defineConfig({
             // `new Worker(new URL(...))`, so neither gets a group.
             { name: 'react', test: /node_modules\/(?:react|react-dom|scheduler)\//, priority: 50 },
             { name: 'zustand', test: /node_modules\/zustand\//, priority: 50 },
-            { name: 'lucide', test: /node_modules\/lucide-react\//, priority: 50 },
+            // No icon group: one would pull every icon a lazy chunk uses into the initial bundle.
             { name: 'i18next', test: /node_modules\/(?:i18next|react-i18next)\//, priority: 50 },
             // vega-embed chart renderer stays in its own chunk so the charting
             // bundle only loads when <RichValueChart> mounts.

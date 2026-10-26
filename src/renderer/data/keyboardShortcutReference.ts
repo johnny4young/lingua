@@ -262,6 +262,11 @@ const SHORTCUT_METADATA = {
     descriptionKey: 'shortcuts.item.debuggerStepOut.description',
     keywords: ['debugger', 'step', 'out'],
   },
+  'ai-jump-to-error': {
+    labelKey: 'shortcuts.item.aiJumpToError.label',
+    descriptionKey: 'shortcuts.item.aiJumpToError.description',
+    keywords: ['explain', 'error', 'jump', 'ai'],
+  },
 } as const satisfies Record<ShortcutId, ShortcutReferenceMetadata>;
 
 export const SHORTCUT_GROUPS = [

@@ -1450,6 +1450,17 @@ network access. Existing HTTP, WebSocket and IPC suites continue covering their
 transport-specific behavior. The extraction changes ownership only; it does not
 extend accepted destinations or promise an additional sandbox.
 
+Each proxied hop is timed (`httpProxyTiming.ts`): the guarded lookup gives
+DNS, and a connector wrapped around undici's `buildConnector` marks when the
+socket was requested, when TCP connected and when it was ready after TLS, then
+the proxy marks the response headers and the end of the body. Because that
+connector replaces the one `Agent` would build, it carries `allowH2: false` and
+the pinned lookup itself. Only the hop that answered is split into phases;
+earlier redirect hops are counted and summed. Streams carry no timing, and the
+web build has none, since `fetch` exposes only the total. A response's
+`timing` is optional; a malformed one in persisted history is dropped and the
+response kept.
+
 The HTTP workspace has one renderer orchestration path for environment
 interpolation, capture chaining, assertion evaluation, secret masking, history,
 and Capsules. Only the network transport varies by platform:
@@ -1481,21 +1492,66 @@ and Capsules. Only the network transport varies by platform:
   (`2001:db8::/32`, `3fff::/20`) are private too. The `localhost` fast path
   also matches the trailing-dot spelling (`localhost.`).
 
+Offline, the HTTP editor holds a send instead of failing it
+(`stores/httpOfflineQueueStore.ts`, `useHttpOfflineSend.ts`). The queue is in
+memory only and keeps one request id per request, with no request content, so
+no resolved secret is ever stored: the request is read from the collection and
+interpolated when it finally sends. Hosts that answer without the internet
+(loopback, private and link-local addresses, single-label names, and names under
+`.localhost`, `.local`, `.test`, `.internal`, `.lan` or `.home.arpa`), streamed
+transports and pipelines never queue. Whenever the app is online with held
+entries, including when the HTTP tab opens after the connection came back,
+held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
+
+With the `httpScopes` Labs flag, variables resolve from three scopes:
+collection (`collectionVariables` in the workspace store), the active
+environment and the request's own `variables`. `layeredEnvironment` in
+`src/shared/httpEnvironment.ts` joins them into one environment whose rows run
+from lowest to highest precedence, so the existing last-row-wins lookups,
+secret masking and response scrubbing apply to every scope unchanged;
+`variableSources` says which scope supplies each key for the colours. Secret
+values of the new scopes follow the environments' vault rules, and
+`maskSecretsForCapsule` also blanks secret request variables. With the flag
+off the request resolves against the active environment alone, as before.
+
+With the `httpChainTags` Labs flag, a variable that another request's
+capture rule writes is a chain tag (`src/shared/httpChain.ts`): the graph is
+read from the capture rules, never stored, and each request keeps only a
+per-tag sending rule (`chainRules`). Tag values form a `chain` layer between
+the environment and the request in `layeredEnvironment`, read from the
+source's latest response when it is 2xx (the first capturer in list order wins), so masking and scrubbing apply as for any scope;
+a tag whose key is secret elsewhere, or looks like a credential, stays secret.
+Before a send, `HttpWorkspacePanel` sends the sources the rules ask for in
+dependency order (`chainOrder`), each with chains skipped, one chain at a
+time, and stops on any response outside 2xx; a cycle, a chain deeper than 20
+or a stream source is refused before sending. When a value the chain just
+captured sets a request's scheme or host (`chainedOrigin`), that send waits for
+the user to confirm the resolved origin. Explicit pipelines also skip chains.
+
+With the `httpSnapshots` Labs flag, a request can keep a snapshot
+(`HttpRequestV1.snapshot`): the status and the recorded body, already masked
+like every recorded response, capped at 256 KB, plus its scrubbers.
+`src/shared/httpSnapshot.ts` scrubs both sides at compare time and diffs them
+by JSON path (by line otherwise); a non-empty diff counts as a failed check in
+the response strip and fails a pipeline step.
+
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
-active environment fresh for each step, and stop after transport, HTTP, or
-assertion failure unless the saved pipeline says to continue. SSE and WebSocket
+active environment fresh for each step, and stop after transport, HTTP, assertion or (with `httpSnapshots`) snapshot
+failure unless the saved pipeline says to continue. SSE and WebSocket
 sessions are intentionally excluded because a long-lived connection has no
 deterministic next-step boundary.
 
 ### Encrypted secret vault
 
-The HTTP workspace's secret environment values, the AI API key and saved
+The HTTP workspace's secret variable values (environment, collection and request), the AI API key and saved
 database connection passwords live in the desktop secret vault, not in
 localStorage. `src/main/secretStore.ts` encrypts
 each value with Electron `safeStorage` and writes one file per id under
 `userData/secrets` (atomic tmp + rename, mode 0600). Ids are namespaced
-(`ai.api-key`, `http-env.<environment>.<variable>`, `db.<connection id>`) and limited to a
+(`ai.api-key`, `http-env.<environment>.<variable>`, `db.<connection id>`; the HTTP
+collection uses `collection` and a request `request-<id>` as the environment
+segment) and limited to a
 filename-safe charset by `src/shared/secretVault.ts`; the `secrets:*` handlers
 in `src/main/ipc/secrets.ts` validate every id, prefix and value size before
 touching the store. `db.` ids are main-only: the `secrets:*` channels refuse

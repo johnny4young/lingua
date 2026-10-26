@@ -21,7 +21,6 @@
  *     `onPatch` — no explicit Save button.
  */
 
-import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
@@ -49,22 +48,43 @@ import {
   type HttpRequestV1,
   type HttpTransportKind,
 } from '../../../shared/httpWorkspaceSchema';
+import { generateHttpCode } from '../../../shared/httpCodegen';
 import {
-  HTTP_CODEGEN_TARGETS,
-  HTTP_CODEGEN_LABELS,
-  generateHttpCode,
-  type HttpCodegenTarget,
-} from '../../../shared/httpCodegen';
-import { maskSecretsForCapsule, type HttpEnvironmentV1 } from '../../../shared/httpEnvironment';
+  environmentColor,
+  findUnresolvedVariables,
+  httpUrlState,
+  maskSecretsForCapsule,
+  type HttpEnvironmentV1,
+} from '../../../shared/httpEnvironment';
 import { writeToClipboard } from '../../utils/clipboard';
 import { useUIStore } from '../../stores/uiStore';
+import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { tryParseCurl } from './curlImport';
 import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
 import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpRequestBuilderTabs';
 import { HttpTransportSelect } from './HttpTransportSelect';
+import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
+import { HttpSendButton, type HttpSendQueue } from './HttpSendButton';
+import { HttpChainSection } from './HttpChainSection';
+import { requestLabel } from '../../../shared/httpChain';
+import { ENVIRONMENT_TINTS } from './httpScopeColors';
+import {
+  rowsFromOtherEnvironments,
+  useScopedEnvironment,
+  type HttpEnvironmentFocus,
+  type HttpSendOptions,
+} from './httpScopes';
+import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
+import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
+import { useHttpAssertionTarget, type HttpAssertionTarget } from './useHttpAssertionTarget';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
+
+const chainSourceLabel = (id: string): string => {
+  const source = useWorkspaceToolStore.getState().getRequest(id);
+  return source ? requestLabel(source) : id;
+};
 
 export interface HttpRequestEditorProps {
   request: HttpRequestV1;
@@ -76,7 +96,7 @@ export interface HttpRequestEditorProps {
    */
   onPatch: (requestId: string, patch: Partial<HttpRequestV1>) => void;
   /** Send the current request. Caller disables during in-flight. */
-  onSend: (request: HttpRequestV1) => void;
+  onSend: (request: HttpRequestV1, options?: HttpSendOptions) => void;
   /** Cancel the in-flight request. Optional (no-op when absent). */
   onStop?: () => void;
   isExecuting: boolean;
@@ -90,24 +110,17 @@ export interface HttpRequestEditorProps {
   environments?: ReadonlyArray<HttpEnvironmentV1>;
   activeEnvironmentId?: string | null;
   onSelectEnvironment?: (id: string | null) => void;
-  onManageEnvironment?: () => void;
+  /** Open the environment manager, optionally on one row to fill in. */
+  onManageEnvironment?: (focus?: HttpEnvironmentFocus) => void;
+  /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
+  captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
+  /** Filled with the handler that adds an assertion suggested from the response. */
+  assertionTargetRef?: React.MutableRefObject<HttpAssertionTarget | null>;
+  /** Offline queue state for this request; absent where sends never queue. */
+  queue?: HttpSendQueue;
 }
 
 const NO_ENVIRONMENTS: ReadonlyArray<HttpEnvironmentV1> = [];
-
-// Copy-as menu formats. Labels are library / tool names (cURL, fetch,
-// axios, requests) — proper nouns, not translatable UI copy — so they
-// live as constants rather than i18n keys.
-const COPY_FORMATS: ReadonlyArray<{
-  id: 'curl' | HttpCodegenTarget;
-  label: string;
-}> = [
-  { id: 'curl', label: 'cURL' },
-  ...HTTP_CODEGEN_TARGETS.map(target => ({
-    id: target,
-    label: HTTP_CODEGEN_LABELS[target],
-  })),
-];
 
 export function HttpRequestEditor({
   request,
@@ -119,6 +132,9 @@ export function HttpRequestEditor({
   activeEnvironmentId = null,
   onSelectEnvironment,
   onManageEnvironment,
+  captureTargetRef,
+  assertionTargetRef,
+  queue,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
   const sendCombo = useShortcutLabel('run-toggle');
@@ -148,6 +164,7 @@ export function HttpRequestEditor({
     () => environments.find(e => e.id === activeEnvironmentId) ?? null,
     [environments, activeEnvironmentId]
   );
+  // Collection and request variables join the environment with the scopes flag on.
 
   // A LIVE request snapshot for the
   // resolution preview, rebuilt from the in-editor draft state on every
@@ -165,6 +182,10 @@ export function HttpRequestEditor({
     }),
     [request, transport, method, url, headers, params, auth, body]
   );
+  const { scopes, env: scopedEnv, sources, tags, check, deferred } = useScopedEnvironment(previewRequest, activeEnv);
+  const envColor = scopes ? environmentColor(activeEnv) : undefined;
+  const tint = envColor ? ENVIRONMENT_TINTS[envColor] : undefined;
+  const [openTag, setOpenTag] = useState<string | null>(null);
 
   // Debounced auto-save. One timer covers all fields so a
   // rapid edit across URL + params + headers + body settles to a
@@ -328,13 +349,33 @@ export function HttpRequestEditor({
     return draft;
   }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]);
 
-  const sendCurrentDraft = useCallback(() => {
-    if (isExecuting) return;
-    const draft = flushDraftBeforeSend();
-    if (!draft) return;
-    onSend(draft);
-  }, [flushDraftBeforeSend, isExecuting, onSend]);
-  useWorkspaceRunTarget('http', sendCurrentDraft);
+  const urlState = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.send), [url, transport, scopedEnv, deferred.send]);
+  const missingTag = !urlState.ok && urlState.reason === 'unresolved' ? tags.find((tag) => tag.key === urlState.key) : undefined;
+  const urlFix = useMemo(() => {
+    if (!scopes || !activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
+    const rows = rowsFromOtherEnvironments(findUnresolvedVariables(previewRequest, scopedEnv), environments, activeEnv.id);
+    if (rows.length === 0) return undefined;
+    return {
+      envName: activeEnv.name || t('httpWorkspace.environment.unnamed'),
+      onAdd: () => {
+        useWorkspaceToolStore.getState().updateEnvironmentVariables(activeEnv.id, (variables) => [...variables, ...rows]);
+        const secret = rows.find((row) => row.secret);
+        if (secret) onManageEnvironment?.({ environmentId: activeEnv.id, variableId: secret.id });
+      },
+    };
+  }, [scopes, activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
+  const chainUrlOk = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.chain).ok, [url, transport, scopedEnv, deferred.chain]);
+  const sendCurrentDraft = useCallback(
+    (options?: HttpSendOptions) => {
+      if (isExecuting || !(options?.forceChain ? chainUrlOk : urlState.ok)) return;
+      const draft = flushDraftBeforeSend();
+      if (!draft) return;
+      if (options) onSend(draft, options);
+      else onSend(draft);
+    },
+    [flushDraftBeforeSend, isExecuting, onSend, urlState.ok, chainUrlOk]
+  );
+  useWorkspaceRunTarget('http', () => sendCurrentDraft());
 
   // Copy as cURL — build a shell command from the resolved draft (URL
   // incl. params, composed headers incl. injected auth, body) and copy
@@ -352,9 +393,9 @@ export function HttpRequestEditor({
   // vars are masked to `{{key}}` (never resolved into the clipboard) for
   // every format, identically to the cURL path.
   const copyAs = useCallback(
-    async (format: 'curl' | HttpCodegenTarget) => {
+    async (format: HttpCopyFormat) => {
       const draft = buildDraftRequest();
-      const masked = activeEnv ? maskSecretsForCapsule(draft, activeEnv) : draft;
+      const masked = scopedEnv ? maskSecretsForCapsule(draft, scopedEnv) : draft;
       const snippet =
         format === 'curl' ? buildCurlCommand(masked) : generateHttpCode(masked, format);
       const ok = await writeToClipboard(snippet);
@@ -365,29 +406,8 @@ export function HttpRequestEditor({
           : 'httpWorkspace.editor.copyCurl.failed',
       });
     },
-    [buildDraftRequest, activeEnv]
+    [buildDraftRequest, scopedEnv]
   );
-
-  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
-  const copyMenuRef = useRef<HTMLDivElement | null>(null);
-  // Close the copy menu on outside click / Escape.
-  useEffect(() => {
-    if (!copyMenuOpen) return;
-    const onPointerDown = (event: PointerEvent): void => {
-      if (!copyMenuRef.current?.contains(event.target as Node)) {
-        setCopyMenuOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setCopyMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [copyMenuOpen]);
 
   // Flush on unmount so an edit typed <500 ms before the editor
   // unmounts (tab close, panel teardown) still lands on its request.
@@ -467,6 +487,10 @@ export function HttpRequestEditor({
     applyCaptures([...captures, createBlankCaptureRule()]);
   }, [captures, applyCaptures]);
 
+  const openCaptureTab = useCallback(() => setBuilderTab('capture'), []);
+  const envKeys = useMemo(() => new Set(activeEnv?.variables.map(variable => variable.key) ?? []), [activeEnv]);
+  useHttpTreeCapture(captureTargetRef, captures, applyCaptures, openCaptureTab, envKeys);
+
   const handleUpdateCapture = useCallback(
     (index: number, patch: Partial<HttpCaptureRule>) => {
       const next = captures.slice();
@@ -495,6 +519,8 @@ export function HttpRequestEditor({
     [scheduleAutoSave]
   );
 
+  const openTestsTab = useCallback(() => setBuilderTab('assert'), []);
+  useHttpAssertionTarget(assertionTargetRef, assertions, applyAssertions, openTestsTab);
   const handleAddAssertion = useCallback(() => {
     applyAssertions([...assertions, createBlankAssertion()]);
   }, [assertions, applyAssertions]);
@@ -636,7 +662,8 @@ export function HttpRequestEditor({
           environments={environments}
           activeEnvironmentId={activeEnvironmentId}
           onSelect={onSelectEnvironment ?? (() => undefined)}
-          onManage={onManageEnvironment ?? (() => undefined)}
+          onManage={() => onManageEnvironment?.()}
+          {...(tint ? { tint } : {})}
         />
       </div>
 
@@ -672,9 +699,10 @@ export function HttpRequestEditor({
             </option>
           ))}
         </select>
-        <input
-          type="text"
-          data-testid="http-request-editor-url"
+        <HttpUrlField
+          value={url}
+          env={check.env}
+          {...(check.sources ? { sources: check.sources } : {})}
           placeholder={t(
             transport === 'websocket'
               ? 'httpWorkspace.editor.url.websocketPlaceholder'
@@ -682,90 +710,52 @@ export function HttpRequestEditor({
                 ? 'httpWorkspace.editor.url.ssePlaceholder'
                 : 'httpWorkspace.editor.url.placeholder'
           )}
-          aria-label={t('httpWorkspace.editor.url.ariaLabel')}
-          value={url}
-          onChange={event => handleUrlChange(event.target.value)}
+          ariaLabel={t('httpWorkspace.editor.url.ariaLabel')}
+          {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
+          onChange={handleUrlChange}
           onPaste={handleUrlPaste}
-          className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 font-mono text-body-sm text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
         />
-        {/* Copy-as menu — cURL + code snippets (fetch / axios / Python). */}
-        <div ref={copyMenuRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setCopyMenuOpen(open => !open)}
-            disabled={url.trim().length === 0 || transport !== 'http'}
-            data-testid="http-request-editor-copy-menu"
-            aria-haspopup="menu"
-            aria-expanded={copyMenuOpen}
-            aria-label={t('httpWorkspace.editor.copyAs.label')}
-            title={t('httpWorkspace.editor.copyAs.label')}
-            className="focus-ring inline-flex h-8 items-center justify-center gap-0.5 rounded-md border border-border-subtle px-2 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Copy size={14} aria-hidden="true" />
-            <ChevronDown size={12} aria-hidden="true" />
-          </button>
-          {copyMenuOpen ? (
-            <div
-              role="menu"
-              data-testid="http-request-editor-copy-menu-list"
-              className="absolute right-0 top-9 z-20 min-w-[180px] overflow-hidden rounded-md border border-border-subtle bg-bg-base py-1 shadow-e3"
-            >
-              {COPY_FORMATS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="menuitem"
-                  data-testid={`http-request-editor-copy-${id}`}
-                  onClick={() => {
-                    setCopyMenuOpen(false);
-                    void copyAs(id);
-                  }}
-                  className="focus-ring block w-full px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        {/* Send is the SLATE accent primary per the proto
-            (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
-            SQL Run shares the same accent primary. Label +
-            shortcut hint show inline. */}
-        {isExecuting ? (
-          // In-flight → the primary button becomes Stop (cancels the
-          // request; the previous response stays on screen).
-          <button
-            type="button"
-            onClick={onStop}
-            data-testid="http-request-editor-stop"
-            aria-label={t('httpWorkspace.editor.stop.label')}
-            title={t('httpWorkspace.editor.stop.label')}
-            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-bg-inset px-3 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-muted"
-          >
-            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-            <Square size={12} aria-hidden="true" />
-            <span>{t('httpWorkspace.editor.stop.label')}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={sendCurrentDraft}
-            disabled={url.trim().length === 0}
-            data-testid="http-request-editor-send"
-            aria-label={t('httpWorkspace.editor.send.label')}
-            title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint', { combo: sendCombo })}`}
-            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <SendHorizontal size={14} aria-hidden="true" />
-            <span>{t('httpWorkspace.editor.send.label')}</span>
-          </button>
-        )}
+        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} />
+        <HttpSendButton
+          isExecuting={isExecuting}
+          disabled={!urlState.ok}
+          {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
+          combo={sendCombo}
+          {...(queue ? { queue } : {})}
+          onSend={() => sendCurrentDraft()}
+          {...(onStop ? { onStop } : {})}
+          {...(tint ? { tint } : {})}
+        />
       </div>
+
+      {urlState.ok ? null : (
+        <HttpUrlHint
+          state={urlState}
+          transport={transport}
+          hasEnvironment={activeEnv !== null}
+          {...(urlFix ? { fix: urlFix } : {})}
+          {...(missingTag ? { chainSource: chainSourceLabel(missingTag.sourceId) } : {})}
+        />
+      )}
 
       {/* Resolution preview beneath the
           URL. Resolved URL (secrets masked) + variable-state chips. */}
-      <HttpEnvironmentPreview request={previewRequest} env={activeEnv} />
+      <HttpEnvironmentPreview
+        request={previewRequest}
+        env={scopedEnv}
+        {...(sources ? { sources } : {})}
+        {...(tags.length > 0 ? { chainKeys: new Set(tags.map((tag) => tag.key)), openTag, onOpenTag: (key: string) => setOpenTag(key || null) } : {})}
+      />
+      {tags.length > 0 ? (
+        <HttpChainSection
+          request={previewRequest}
+          tags={tags}
+          secretKeys={new Set(scopedEnv?.variables.filter((row) => row.secret).map((row) => row.key))}
+          openKey={openTag}
+          onClose={() => setOpenTag(null)}
+          onRun={() => sendCurrentDraft({ forceChain: true })}
+        />
+      ) : null}
 
       <HttpRequestBuilderTabs
         method={method}
@@ -793,6 +783,15 @@ export function HttpRequestEditor({
         onAddAssertion={handleAddAssertion}
         onUpdateAssertion={handleUpdateAssertion}
         onRemoveAssertion={handleRemoveAssertion}
+        {...(scopes
+          ? {
+              variables: {
+                rows: request.variables ?? [],
+                onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
+              },
+            }
+          : {})}
+        {...(tint ? { tint } : {})}
       />
     </div>
   );

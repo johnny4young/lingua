@@ -145,6 +145,28 @@ test.describe('Debugger ', () => {
     await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
   });
 
+  test('the step HUD under the paused line steps and resumes', async ({ page }) => {
+    await replaceEditorText(page, ['const value = 21;', 'const doubled = value * 2;', 'const label = `value:${doubled}`;', 'console.log(label);'].join('\n'));
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Control+Shift+B');
+    await clickDebug(page);
+    const hud = page.getByTestId('debugger-step-hud');
+    await expect(hud).toContainText('Paused · line 3');
+    await page.getByRole('tab', { name: /^Console/ }).click();
+    await expect(page.getByTestId('console-paused-summary')).toContainText('Paused at line 3');
+    await page.getByTestId('console-paused-summary').getByRole('button', { name: 'Open Debugger' }).click();
+    const pausedLine = await page.locator('.monaco-editor .lingua-debugger-paused-line').boundingBox();
+    const hudBox = await hud.boundingBox();
+    expect(hudBox!.y).toBeGreaterThanOrEqual(pausedLine!.y + pausedLine!.height - 1);
+    await page.getByTestId('debugger-hud-step-over').click();
+    await expect(hud).toContainText('Paused · line 4');
+    await expect(page.locator('.monaco-editor .lingua-debugger-inline-value')).toHaveText('label → value:42');
+    await expect(page.getByTestId('debugger-locals').locator('li[data-change="new"]')).toContainText('label: value:42');
+    await page.getByTestId('debugger-hud-continue').click();
+    await waitForRunCompleted(page);
+    await expect(hud).toHaveCount(0);
+  });
+
   test('Debug skips a conditional breakpoint when its expression is false', async ({ page }) => {
     await replaceEditorText(
       page,

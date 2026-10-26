@@ -13,6 +13,7 @@ import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { useSessionStore } from '../../../src/renderer/stores/sessionStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
+import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import {
   createBlankHttpRequest,
   type HttpResponseV1,
@@ -993,3 +994,393 @@ describe('HttpWorkspacePanel — collection workspace (rail-driven)', () => {
     expect(env?.variables.find((v) => v.key === 'TOKEN')).toBeUndefined();
   });
 });
+
+describe('HttpWorkspacePanel — variable scopes', () => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const envOf = (id: string, name: string, variables: Array<{ key: string; value: string; secret?: boolean }>) => ({
+    version: 1 as const,
+    id,
+    name,
+    variables: variables.map((variable, index) => ({ id: `${id}-${index}`, secret: false, ...variable })),
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspaceToolStoreForTests();
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpScopes: true } });
+    useUIStore.setState({ statusNotice: null });
+    executeHttpRequestMock.mockReset();
+    executeHttpRequestMock.mockResolvedValue(makeResponse());
+  });
+
+  async function sendUrl(url: string) {
+    const user = userEvent.setup();
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-request-list-create'));
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: url } });
+    return user;
+  }
+
+  it('sends with request over environment over collection', async () => {
+    useWorkspaceToolStore.setState({
+      environments: [envOf('e1', 'staging', [{ key: 'base', value: 'https://staging.example' }, { key: 'repo', value: 'env-repo' }])],
+      activeEnvironmentId: 'e1',
+      collectionVariables: [
+        { id: 'c1', key: 'base', value: 'https://collection.example', secret: false },
+        { id: 'c2', key: 'owner', value: 'octocat', secret: false },
+      ],
+    });
+    const user = await sendUrl('{{base}}/repos/{{owner}}/{{repo}}');
+    const id = useWorkspaceToolStore.getState().requests[0]!.id;
+    useWorkspaceToolStore.getState().updateRequestVariables(id, () => [{ id: 'r1', key: 'repo', value: 'lingua', secret: false }]);
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalled());
+    expect(executeHttpRequestMock.mock.calls[0]![0].url).toBe('https://staging.example/repos/octocat/lingua');
+  });
+
+  it('ignores the new scopes with the flag off', async () => {
+    useSettingsStore.setState({ featureFlags: {} });
+    useWorkspaceToolStore.setState({ collectionVariables: [{ id: 'c1', key: 'owner', value: 'octocat', secret: false }] });
+    const user = await sendUrl('https://api.example.com/{{owner}}');
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(executeHttpRequestMock).not.toHaveBeenCalled();
+  });
+
+  const twoEnvironments = () =>
+    useWorkspaceToolStore.setState({
+      environments: [
+        envOf('prod', 'prod', [{ key: 'base', value: 'https://api.example.com' }]),
+        envOf('staging', 'staging', [{ key: 'pageSize', value: '50' }, { key: 'token', value: 'stg-secret', secret: true }]),
+      ],
+      activeEnvironmentId: 'prod',
+    });
+  const prodRows = () =>
+    useWorkspaceToolStore
+      .getState()
+      .environments.find((env) => env.id === 'prod')!
+      .variables.map(({ key, value, secret }) => ({ key, value, secret }));
+
+  it('offers Add to the active environment under the URL when another one defines the missing value', async () => {
+    twoEnvironments();
+    const user = await sendUrl('{{base}}/repos?per_page={{pageSize}}');
+    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
+    await user.click(screen.getByTestId('http-request-editor-url-hint-add'));
+    expect(prodRows()).toEqual([
+      { key: 'base', value: 'https://api.example.com', secret: false },
+      { key: 'pageSize', value: '50', secret: false },
+    ]);
+    await waitFor(() => expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(false));
+  });
+
+  it('offers Add to in the blocked-send notice, bringing a secret as its key and opening it to fill in', async () => {
+    twoEnvironments();
+    const seeded = {
+      ...createBlankHttpRequest({ id: 'h1', now: NOW }),
+      url: '{{base}}/repos',
+      headers: [{ name: 'Authorization', value: 'Bearer {{token}}', enabled: true }],
+    };
+    useWorkspaceToolStore.getState().createRequest(seeded);
+    const user = userEvent.setup();
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1));
+    const action = useUIStore.getState().statusNotice!.actions![0]!;
+    expect(action).toMatchObject({ labelKey: 'httpWorkspace.environment.unresolved.addTo', labelValues: { env: 'prod' } });
+    expect(executeHttpRequestMock).not.toHaveBeenCalled();
+    action.onClick();
+    expect(prodRows()).toContainEqual({ key: 'token', value: '', secret: true });
+    expect(JSON.stringify(useWorkspaceToolStore.getState().environments.find((env) => env.id === 'prod'))).not.toContain('stg-secret');
+    await waitFor(() => expect(document.activeElement?.getAttribute('type')).toBe('password'));
+    expect(screen.getByTestId('http-environment-manager')).toBeTruthy();
+  });
+});
+
+describe('HttpWorkspacePanel — chain tags', () => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const API = 'https://api.example.com';
+  const source = {
+    ...createBlankHttpRequest({ id: 'src', now: NOW }),
+    name: 'List repos',
+    url: `${API}/users/octocat/repos`,
+    captures: [{ id: 'cap', source: 'body-json' as const, path: '[0].owner.login', targetVariable: 'owner', enabled: true }],
+  };
+  const target = { ...createBlankHttpRequest({ id: 'tgt', now: NOW }), name: 'Get repo', url: `${API}/repos/{{owner}}/lingua` };
+  const repos = (login: string, extra: Partial<HttpResponseV1> = {}) => makeResponse({ body: JSON.stringify([{ owner: { login } }]), ...extra });
+
+  function seed(rules?: Record<string, 'last' | 'source-first' | 'stale'>, sourceFirst?: HttpResponseV1) {
+    useWorkspaceToolStore.setState({
+      requests: [{ ...target, ...(rules ? { chainRules: rules } : {}) }, source],
+      activeRequestId: 'tgt',
+      responsesByRequestId: { src: [repos('recorded', { recordedAt: new Date().toISOString() })] },
+    });
+    executeHttpRequestMock.mockImplementation(async (outbound: { url: string }) =>
+      outbound.url.endsWith('/users/octocat/repos') ? (sourceFirst ?? repos('fresh')) : makeResponse({ url: outbound.url })
+    );
+  }
+  const sentUrls = () => executeHttpRequestMock.mock.calls.map((call) => (call[0] as { url: string }).url);
+
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspaceToolStoreForTests();
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpChainTags: true } });
+    useUIStore.setState({ statusNotice: null });
+    executeHttpRequestMock.mockReset();
+  });
+
+  it('reads a tag from the source last response without sending it', async () => {
+    seed();
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(sentUrls()).toEqual([`${API}/repos/recorded/lingua`]));
+  });
+
+  it('sends the source first when the tag says so, then uses its fresh value', async () => {
+    seed({ owner: 'source-first' });
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, `${API}/repos/fresh/lingua`]));
+  });
+
+  it('lets Send through when the tag has no value yet but sends its source first', async () => {
+    seed({ owner: 'source-first' });
+    useWorkspaceToolStore.setState({ responsesByRequestId: {} });
+    render(<HttpWorkspacePanel />);
+    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(false);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, `${API}/repos/fresh/lingua`]));
+  });
+
+  it('keeps Send off while a Use last response tag has no value', () => {
+    seed();
+    useWorkspaceToolStore.setState({ responsesByRequestId: {} });
+    render(<HttpWorkspacePanel />);
+    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('stops the chain on a source response outside 2xx', async () => {
+    seed({ owner: 'source-first' }, repos('moved', { status: 301, statusText: 'Moved' }));
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.stopped', values: { name: 'List repos', status: '301' } })
+    );
+    expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
+  });
+
+  it('refuses a chain whose tags form a cycle', async () => {
+    seed({ owner: 'source-first' });
+    useWorkspaceToolStore.setState((state) => ({
+      requests: state.requests.map((request) =>
+        request.id === 'src'
+          ? { ...request, url: `${API}/users/{{repoName}}/repos` }
+          : { ...request, captures: [{ id: 'c2', source: 'body-json' as const, path: 'name', targetVariable: 'repoName', enabled: true }] }
+      ),
+    }));
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.cycle' }));
+    expect(executeHttpRequestMock).not.toHaveBeenCalled();
+  });
+
+  it('runs every source from the derived view, whatever the tag rule', async () => {
+    seed();
+    render(<HttpWorkspacePanel />);
+    expect(screen.getAllByTestId('http-chain-node').map((node) => node.dataset.request)).toEqual(['src', 'tgt']);
+    await userEvent.click(screen.getByTestId('http-chain-run'));
+    await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, `${API}/repos/fresh/lingua`]));
+  });
+
+  it('runs the chain even while a Use last response tag has no value yet', async () => {
+    seed();
+    useWorkspaceToolStore.setState({ responsesByRequestId: {} });
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-chain-run'));
+    await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, `${API}/repos/fresh/lingua`]));
+  });
+
+  it('runs one chain at a time, with Send turned into Stop while its sources go out', async () => {
+    seed({ owner: 'source-first' });
+    let release: () => void = () => undefined;
+    executeHttpRequestMock.mockImplementation(async (outbound: { url: string }) => {
+      if (outbound.url.endsWith('/users/octocat/repos')) {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return repos('fresh');
+      }
+      return makeResponse({ url: outbound.url });
+    });
+    render(<HttpWorkspacePanel />);
+    // Two clicks in one tick reach the panel before React re-renders Send as Stop.
+    const sendButton = screen.getByTestId('http-request-editor-send');
+    fireEvent.click(sendButton);
+    fireEvent.click(screen.getByTestId('http-chain-run'));
+    await waitFor(() => expect(screen.queryByTestId('http-request-editor-stop')).not.toBeNull());
+    release();
+    await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, `${API}/repos/fresh/lingua`]));
+    expect(useUIStore.getState().statusNotice).toBeNull();
+  });
+
+  it('reports a stopped chain as information, not an error', async () => {
+    seed({ owner: 'source-first' });
+    // Like the real client, the source settles only when Stop aborts it, and never throws.
+    executeHttpRequestMock.mockImplementation(
+      (_outbound, options: { signal: AbortSignal }) =>
+        new Promise((resolve) => {
+          options.signal.addEventListener('abort', () => resolve(makeResponse({ kind: 'network-error', status: 0, statusText: '' })));
+        })
+    );
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await userEvent.click(await screen.findByTestId('http-request-editor-stop'));
+    await waitFor(() => expect(useUIStore.getState().statusNotice).toMatchObject({ tone: 'info', messageKey: 'httpWorkspace.chain.stopped' }));
+  });
+
+  it('does not read a response recorded under another environment', () => {
+    seed();
+    const env = (id: string) => ({ version: 1 as const, id, name: id, variables: [], createdAt: NOW, updatedAt: NOW });
+    useWorkspaceToolStore.setState({
+      environments: [env('prod'), env('stg')],
+      activeEnvironmentId: 'prod',
+      responsesByRequestId: { src: [repos('staging-owner', { environmentId: 'stg' })] },
+    });
+    render(<HttpWorkspacePanel />);
+    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('records the active environment on each response', async () => {
+    seed();
+    useWorkspaceToolStore.setState({
+      environments: [{ version: 1 as const, id: 'prod', name: 'prod', variables: [], createdAt: NOW, updatedAt: NOW }],
+      activeEnvironmentId: 'prod',
+      responsesByRequestId: { src: [repos('owner', { environmentId: 'prod' })] },
+    });
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(useWorkspaceToolStore.getState().responsesByRequestId.tgt?.[0]?.environmentId).toBe('prod'));
+  });
+
+  describe('a host that comes from the chain', () => {
+    const next = { ...source, captures: [{ id: 'cap', source: 'body-json' as const, path: 'next', targetVariable: 'nextBase', enabled: true }] };
+    const follow = { ...target, url: '{{nextBase}}/items', chainRules: { nextBase: 'source-first' as const } };
+    function seedHost() {
+      useWorkspaceToolStore.setState({ requests: [follow, next], activeRequestId: 'tgt', responsesByRequestId: {} });
+      executeHttpRequestMock.mockImplementation(async (outbound: { url: string }) =>
+        outbound.url.endsWith('/users/octocat/repos') ? makeResponse({ body: JSON.stringify({ next: 'https://other.example' }) }) : makeResponse({ url: outbound.url })
+      );
+    }
+
+    it('waits for the user to confirm the host before sending', async () => {
+      seedHost();
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() =>
+        expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.confirm', values: { name: 'Get repo', origin: 'https://other.example' } })
+      );
+      expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
+      const action = useUIStore.getState().statusNotice!.actions![0]!;
+      useUIStore.getState().dismissStatusNotice('cta');
+      action.onClick();
+      await waitFor(() => expect(sentUrls()).toEqual([`${API}/users/octocat/repos`, 'https://other.example/items']));
+    });
+
+    it('does not send when the confirmation is dismissed', async () => {
+      seedHost();
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() => expect(useUIStore.getState().statusNotice?.messageKey).toBe('httpWorkspace.chain.confirm'));
+      useUIStore.getState().dismissStatusNotice('manual');
+      await waitFor(() => expect(useUIStore.getState().statusNotice).toMatchObject({ tone: 'info', messageKey: 'httpWorkspace.chain.stopped' }));
+      expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
+    });
+
+    it('cancels the confirmation with Stop', async () => {
+      seedHost();
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() => expect(useUIStore.getState().statusNotice?.messageKey).toBe('httpWorkspace.chain.confirm'));
+      await userEvent.click(screen.getByTestId('http-request-editor-stop'));
+      await waitFor(() => expect(useUIStore.getState().statusNotice?.messageKey).toBe('httpWorkspace.chain.stopped'));
+      expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
+    });
+
+    it('asks nothing when the host was already visible', async () => {
+      useWorkspaceToolStore.setState({ requests: [{ ...follow, chainRules: {} }, next], activeRequestId: 'tgt', responsesByRequestId: { src: [makeResponse({ body: JSON.stringify({ next: 'https://other.example' }) })] } });
+      executeHttpRequestMock.mockResolvedValue(makeResponse());
+      render(<HttpWorkspacePanel />);
+      await userEvent.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() => expect(sentUrls()).toEqual(['https://other.example/items']));
+      expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('httpWorkspace.chain.confirm');
+    });
+  });
+
+  it('leaves tags alone with the flag off', async () => {
+    useSettingsStore.setState({ featureFlags: {} });
+    seed({ owner: 'source-first' });
+    render(<HttpWorkspacePanel />);
+    expect(screen.queryByTestId('http-chain')).toBeNull();
+    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
+  });
+});
+
+describe('HttpWorkspacePanel — snapshot assertions', () => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspaceToolStoreForTests();
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpSnapshots: true } });
+    executeHttpRequestMock.mockReset();
+  });
+
+  it('adds a suggested assertion to the request draft and opens Tests', async () => {
+    const request = { ...createBlankHttpRequest({ id: 'r1', now: NOW }), name: 'Repo', url: 'https://api.example.com/repo' };
+    useWorkspaceToolStore.setState({ requests: [request], activeRequestId: 'r1', responsesByRequestId: { r1: [makeResponse({ body: '{"name":"janusly"}' })] } });
+    render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getAllByTestId('http-response-suggestion')[0]!);
+    expect(screen.getByTestId('http-request-editor-tab-assert').dataset.active).toBe('true');
+    expect(screen.getByTestId('http-request-editor-tab-assert').textContent).toBe('Tests1');
+    await waitFor(() => expect(useWorkspaceToolStore.getState().requests[0]?.assertions).toHaveLength(1));
+  });
+
+  it('offers the snapshot only on the newest response, whose body is kept', async () => {
+    const snapshot = { version: 1 as const, status: 200, body: '{"stars":12}', recordedAt: NOW, scrubbers: { timestamps: true, uuids: true, ids: true, hostname: false, regex: '' } };
+    const request = { ...createBlankHttpRequest({ id: 'r1', now: NOW }), url: 'https://api.example.com/repo', snapshot };
+    useWorkspaceToolStore.setState({
+      requests: [request],
+      activeRequestId: 'r1',
+      responsesByRequestId: { r1: [makeResponse({ body: '{"stars":12}' }), makeResponse({ body: '' })] },
+    });
+    render(<HttpWorkspacePanel />);
+    expect(screen.getByTestId('http-response-snapshot-row').dataset.pass).toBe('true');
+    await userEvent.click(screen.getAllByTestId('http-response-history-row')[1]!);
+    expect(screen.queryByTestId('http-response-snapshot-row')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Snapshot' })).toBeNull();
+  });
+
+  it('fails a pipeline step whose response differs from its snapshot', async () => {
+    const user = userEvent.setup();
+    const store = useWorkspaceToolStore.getState();
+    const snapshot = { version: 1 as const, status: 200, body: '{"stars":12}', recordedAt: NOW, scrubbers: { timestamps: true, uuids: true, ids: true, hostname: false, regex: '' } };
+    const requests = ['one', 'two'].map((id) => ({ ...createBlankHttpRequest({ id, name: id }), url: `https://api.example.com/${id}` }));
+    store.createRequests([{ ...requests[0]!, snapshot }, requests[1]!]);
+    store.createHttpPipeline({
+      version: 1,
+      id: 'p',
+      name: 'Snapshot flow',
+      steps: requests.map((request, index) => ({ id: `s${index}`, requestId: request.id, enabled: true })),
+      stopOnFailure: true,
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    executeHttpRequestMock.mockResolvedValue(makeResponse({ body: '{"stars":14}' }));
+    render(<HttpWorkspacePanel />);
+    await user.click(screen.getByTestId('http-pipeline-open'));
+    await user.click(screen.getByRole('button', { name: 'Run pipeline' }));
+    await waitFor(() => expect(screen.getByText('Pipeline finished with failures.')).not.toBeNull());
+    expect(executeHttpRequestMock).toHaveBeenCalledTimes(1);
+  });
+});
+
