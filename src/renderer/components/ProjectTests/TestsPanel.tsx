@@ -123,9 +123,14 @@ function ProjectTests({ binding }: { binding: ProjectTestBinding }) {
 
   if (status === 'detecting' || rootId !== binding.rootId) {
     return (
-      <div role="status" className="m-auto flex items-center gap-2 text-fg-subtle">
-        <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-        {t('projectTests.detecting')}
+      <div className="m-auto flex flex-col items-center gap-2 text-fg-subtle">
+        <div role="status" className="flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+          {t('projectTests.detecting')}
+        </div>
+        <button type="button" className="button-secondary" disabled>
+          {t('projectTests.refresh')}
+        </button>
       </div>
     );
   }
@@ -145,6 +150,9 @@ function ProjectTests({ binding }: { binding: ProjectTestBinding }) {
       <div className="m-auto flex max-w-md flex-col items-center gap-2 px-4 text-center">
         <h2 className="text-body font-semibold text-fg-base">{t('projectTests.empty.none.title')}</h2>
         <p className="text-fg-subtle">{t('projectTests.empty.none.description')}</p>
+        <button type="button" className="button-secondary" onClick={() => void detect(binding)}>
+          {t('projectTests.refresh')}
+        </button>
       </div>
     );
   }
