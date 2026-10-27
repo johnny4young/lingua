@@ -9,6 +9,7 @@ import {
   Group,
   Panel,
   useDefaultLayout,
+  type GroupImperativeHandle,
   type PanelImperativeHandle,
 } from 'react-resizable-panels';
 import { FileTreeHost } from '../FileTree/FileTreeHost';
@@ -300,11 +301,24 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
     storage: localStorage,
   });
   const layout = vertical ? verticalLayout : horizontalLayout;
+  const groupRef = useRef<GroupImperativeHandle | null>(null);
   const dockPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const previousVerticalRef = useRef(vertical);
   const programmaticRef = useRef(false);
   const collapsedSize = vertical || !dockShown ? 0 : DOCK_ROW_PX;
 
   useLayoutEffect(() => {
+    // Restore each orientation's sizes without replacing the Group: its editor
+    // subtree owns the open Utilities panels and their in-memory drafts.
+    if (previousVerticalRef.current !== vertical) {
+      previousVerticalRef.current = vertical;
+      programmaticRef.current = true;
+      groupRef.current?.setLayout(layout.defaultLayout ?? {
+        'workspace-panel': vertical ? 60 : 66,
+        'console-panel': vertical ? 40 : 34,
+      });
+      programmaticRef.current = false;
+    }
     const panel = dockPanelRef.current;
     if (!panel) return;
     programmaticRef.current = true;
@@ -314,7 +328,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
       panel.collapse();
     }
     programmaticRef.current = false;
-  }, [dockExpanded, collapsedSize]);
+  }, [dockExpanded, collapsedSize, vertical, layout.defaultLayout]);
 
   // Dragging the dock shut or open is the same choice as the hide button.
   const handleDockResize = () => {
@@ -332,7 +346,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
     <div className="flex h-full min-h-0">
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <Group
-          key={vertical ? 'beside' : 'below'}
+          groupRef={groupRef}
           orientation={vertical ? 'horizontal' : 'vertical'}
           defaultLayout={layout.defaultLayout}
           onLayoutChanged={layout.onLayoutChanged}

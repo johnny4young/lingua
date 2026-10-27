@@ -686,6 +686,23 @@ describe('AppLayout responsive shell', () => {
     );
   });
 
+  it('keeps the Utilities workspace mounted through theme and repeated layout changes', async () => {
+    editorTabs = [{ id: 'utilities-tab', kind: 'utilities', language: 'javascript' }];
+    activeTabId = 'utilities-tab';
+    useSettingsStore.setState({ layoutPreset: 'vertical' });
+
+    render(<AppLayout />);
+    const workspace = await screen.findByTestId('developer-utilities-workspace');
+
+    act(() => useSettingsStore.getState().setTheme('light'));
+    expect(screen.getByTestId('developer-utilities-workspace')).toBe(workspace);
+
+    for (const layoutPreset of ['horizontal', 'vertical', 'editor-only', 'vertical', 'horizontal'] as const) {
+      act(() => useSettingsStore.getState().setLayoutPreset(layoutPreset));
+      expect(await screen.findByTestId('developer-utilities-workspace')).toBe(workspace);
+    }
+  });
+
   it.each([
     ['notebook', 'notebook-view'],
     ['sql', 'sql-workspace-panel'],
