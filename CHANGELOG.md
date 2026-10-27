@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Fixed
+- Running one Vitest file or test now selects that exact file, so a matching path in a nested project or a longer filename cannot run alongside it.
+
 ### Added
 - Tests is a results dock tab in the desktop app, after Terminal, with the number of failed tests on the tab. Run all tests lists every test grouped by file with passed, failed and skipped counts and the line where each failure happened; All / Failed only narrows the list, and Run file and Run this test rerun just that part. It works for Vitest, Jest, Pytest, Go and Cargo, keeps the runner's own log under Show output, and without a project offers Open project folder… and up to three recent projects with the runner each one uses. It replaces the Project tests window.
 - A failing line gets a red tint, an alert mark and, at its end, Copy stack and Add breakpoint. With Pro it also offers Explain, which opens a panel next to the editor that leaves the code editable, names the file and line (Cmd/Ctrl+J jumps back), can be pinned, shows exactly what gets sent and can include the last runtime values, off by default and redacted. Answers offer Apply & re-run, Apply only, Copy, Helpful / Not helpful and suggested follow-ups; the thread stays with the tab in memory.

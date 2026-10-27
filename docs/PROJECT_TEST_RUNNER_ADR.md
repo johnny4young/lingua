@@ -44,7 +44,17 @@ Detection reports every matching runner, including configured runners whose depe
 The Tests tab lists each test and can run one file or one test, so two of the original exclusions are lifted, with the same ownership rules:
 
 - **Structured results.** Main adds each runner's own reporter and parses it into project-relative cases (`file`, suite path, status, duration, failing file and line, a capped message); no absolute path reaches the renderer, and a path outside the root is dropped. Vitest and Jest write their JSON report, pytest its JUnit XML (`junit_family=xunit1`), each to a temporary folder main creates and deletes after the run. Go streams `go test -json`, which main turns back into plain `go test` text for the raw output. Cargo has no stable machine format, so main reads libtest's text and passes `--no-fail-fast`. The raw transcript stays available.
-- **Scoped runs.** The renderer may send a scope: the whole suite, one project-relative file (a Go package directory), or one test by its suite path. Main rejects absolute paths, `..`, segments that start with `-` or `@` (an option or a pytest argument file), control characters and targets that do not exist, then builds the arguments itself: a file or `--runTestsByPath` for Vitest and Jest, a pytest node id, `./dir` and an anchored `-run` per subtest level for Go, and `--lib`, `--test <name>`, `--bin <name>` or `--bins` (for `src/main.rs`) plus `--exact` for Cargo. Names reach Vitest, Jest and Go as escaped, anchored patterns and pytest and Cargo as literal arguments, never through a shell; a Cargo name must be a Rust path, since libtest would read anything else after `--` as an option. Every path a report returns is checked the same way, and a case outside the root is dropped. Rust doc tests are listed but cannot be run on their own.
+- **Scoped runs.** The renderer may send a scope: the whole suite, one project-relative file (a Go package directory), or one test by its suite path. Main rejects absolute paths, `..`, segments that start with `-` or `@` (an option or a pytest argument file), control characters and targets that do not exist, then builds the arguments itself: an exact Vitest specification or `--runTestsByPath` for Jest, a pytest node id, `./dir` and an anchored `-run` per subtest level for Go, and `--lib`, `--test <name>`, `--bin <name>` or `--bins` (for `src/main.rs`) plus `--exact` for Cargo. Names reach Vitest, Jest and Go as escaped, anchored patterns and pytest and Cargo as literal arguments, never through a shell; a Cargo name must be a Rust path, since libtest would read anything else after `--` as an option. Every path a report returns is checked the same way, and a case outside the root is dropped. Rust doc tests are listed but cannot be run on their own.
+
+Vitest scoped runs use the project-local Node API to discover configured test
+specifications and compare their normalized absolute module paths before running
+any tests. Its CLI file arguments are substring filters, including for absolute
+paths. The child initializes reporters without running tests, keeps project
+configuration and sequencers, applies the anchored name pattern for a single
+test, and closes Vitest in a finally block. A file excluded by the project's
+configuration fails explicitly. This requires the specification API available
+in Vitest 3 and later; older runners fail rather than falling back to a broader
+CLI run. Whole-suite runs retain the local CLI entrypoint.
 
 ## Consequences
 

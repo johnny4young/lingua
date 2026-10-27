@@ -14,8 +14,9 @@ import {
   PROJECT_TEST_MAX_OUTPUT_BYTES,
   PROJECT_TEST_OUTPUT_TRUNCATION_MARKER as OUTPUT_TRUNCATION_MARKER,
 } from '../shared/projectTestOutput';
+import { scopedVitestRunner } from './projectTestVitest';
 import { constants as fsConstants } from 'node:fs';
-import { access, mkdtemp, readFile, readdir, realpath, rm, stat } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -356,12 +357,10 @@ async function executionSpecs(
       args: [entry, 'run', '--no-color'],
       env,
       report: 'jest-json',
-      scopedArgs: (scope, reportFile) => [
+      scopedArgs: (_scope, reportFile) => [
         '--reporter=default',
         '--reporter=json',
         `--outputFile.json=${reportFile}`,
-        ...(scope.kind === 'all' ? [] : [scope.file]),
-        ...(scope.kind === 'test' ? ['-t', vitestNamePattern(scope.path)] : []),
       ],
     });
   }
@@ -657,6 +656,18 @@ export async function runProjectTests(
       if (!scopedArgs) {
         return emptyProjectTestRunResult('invalid-request', framework, PROJECT_TEST_TIMEOUT_MS);
       }
+      let args = [...spec.args, ...scopedArgs];
+      if (framework === 'vitest' && scope.kind !== 'all' && reportDir) {
+        const runner = path.join(reportDir, 'vitest-scoped.mjs');
+        await writeFile(runner, scopedVitestRunner, 'utf8');
+        args = [
+          runner,
+          spec.args[0]!,
+          path.resolve(rootPath, scope.file),
+          reportFile,
+          scope.kind === 'test' ? vitestNamePattern(scope.path) : '',
+        ];
+      }
       const go = spec.report === 'go-json' ? createGoTestCollector(spec.modulePath ?? '') : null;
       let transcript: ProjectTestTranscript | undefined;
       const shown = { stdout: '', stderr: '' };
@@ -683,7 +694,7 @@ export async function runProjectTests(
       const execute = options.spawnImpl ?? spawnNativeRun;
       const result = await execute({
         command: spec.command,
-        args: [...spec.args, ...scopedArgs],
+        args,
         cwd: rootPath,
         env: spec.env,
         timeoutMs: PROJECT_TEST_TIMEOUT_MS,
