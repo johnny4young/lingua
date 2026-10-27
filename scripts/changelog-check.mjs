@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -69,6 +70,21 @@ export function parseTopChangelogVersion(changelogText) {
   return match?.[1] ?? null;
 }
 
+function unreleasedNotes(text) {
+  const heading = /^## \[Unreleased\][^\n]*\n/mu.exec(text);
+  if (!heading) return [];
+  const rest = text.slice(heading.index + heading[0].length);
+  const next = rest.search(/^## /mu);
+  return rest.slice(0, next < 0 ? undefined : next).split(/\r?\n/u)
+    .map(line => line.trim()).filter(line => /^[-*]\s+\S/u.test(line));
+}
+
+function hasNewUnreleasedNote(current, previous) {
+  if (typeof previous !== 'string') return false;
+  const existing = new Set(unreleasedNotes(previous));
+  return unreleasedNotes(current).some(note => !existing.has(note));
+}
+
 /**
  * Shared policy engine for local `changelog:check` and release CI. It keeps
  * package.json, the top CHANGELOG entry, the latest tag, and an optional
@@ -78,6 +94,7 @@ export function parseTopChangelogVersion(changelogText) {
 export function validateChangelogState({
   packageVersion,
   changelogText,
+  previousChangelogText = null,
   latestTag = '',
   releaseTag = '',
   commitsSinceLatestTag = [],
@@ -124,9 +141,10 @@ export function validateChangelogState({
   if (latestTagVersion && topVersion) {
     try {
       const changelogIsAheadOfTag = compareVersions(topVersion, latestTagVersion) > 0;
-      if (userFacingCommits.length > 0 && !changelogIsAheadOfTag) {
+      const documentedUnreleased = !releaseTag && hasNewUnreleasedNote(changelogText, previousChangelogText);
+      if (userFacingCommits.length > 0 && !changelogIsAheadOfTag && !documentedUnreleased) {
         errors.push(
-          `${userFacingCommits.length} user-facing commit(s) since ${latestTag} need a new CHANGELOG.md release entry or "Changelog: none".`
+          `${userFacingCommits.length} user-facing commit(s) since ${latestTag} need a new CHANGELOG.md release entry, a new Unreleased note outside release mode, or "Changelog: none".`
         );
       }
     } catch {
@@ -160,7 +178,8 @@ function printHelp() {
   console.log(`Usage: pnpm run changelog:check -- [--from <ref>] [--to <ref>] [--release-tag <vX.Y.Z>]
 
 Checks that package.json, CHANGELOG.md, and the latest tag are not drifting.
-Use --release-tag in release automation to require an exact tag/version match.
+Outside release mode, a new Unreleased bullet since the base ref satisfies release notes.
+Use --release-tag in release automation to require an exact tag/version match and a versioned entry.
 Use "Changelog: none" in a commit body for explicit non-user-facing fixes.`);
 }
 
@@ -192,9 +211,20 @@ export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
   const commitsSinceLatestTag = latestTag
     ? collectGitCommits({ from: latestTag, to: values.to, cwd })
     : [];
+  let previousChangelogText = null;
+  if (latestTag && !releaseTag) {
+    try {
+      previousChangelogText = execFileSync('git', ['show', '--no-ext-diff', '--end-of-options', `${latestTag}:CHANGELOG.md`], {
+        cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch {
+      // Missing base notes cannot establish that Unreleased gained a note.
+    }
+  }
   const result = validateChangelogState({
     packageVersion: packageJson.version,
     changelogText,
+    previousChangelogText,
     latestTag,
     releaseTag,
     commitsSinceLatestTag,
