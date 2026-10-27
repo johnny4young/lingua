@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { createGoTestCollector, parseJestStyleReport } from '../../src/main/projectTestReports';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { asRootId } from '../../src/shared/fs/brandedIds';
 import type { ProjectTestDetectionResult } from '../../src/shared/projectTests';
@@ -275,6 +278,33 @@ describe('projectTestStore', () => {
 describe('mergeProjectTestCases', () => {
   const tc = (file: string, name: string, status: 'passed' | 'failed' | 'skipped' = 'passed') => ({ file, path: [name], status });
   const list = [tc('a.test.ts', 'one'), tc('a.test.ts', 'two', 'failed'), tc('b.test.ts', 'three')];
+
+  it('retains a parsed Go build failure on an individual rerun without importing unrelated passes', () => {
+    const collector = createGoTestCollector('example.com/shop');
+    collector.push(readFileSync('tests/__fixtures__/projectTests/go-build-fail.ndjson', 'utf8'));
+    collector.flush();
+    const incoming = collector.finish().cases;
+    const previous = [tc('internal/broken', 'TestX'), tc('internal/other', 'TestOther')];
+    const merged = mergeProjectTestCases(previous, { kind: 'test', file: 'internal/broken', path: ['TestX'] }, incoming);
+    expect(merged).toEqual([
+      { ...previous[0], stale: true }, { ...previous[1], stale: true },
+      expect.objectContaining({ file: 'internal/broken', path: [], status: 'failed', runnable: false, failureLine: 5 }),
+    ]);
+    expect(merged.some(entry => entry.path.includes('TestRoot'))).toBe(false);
+  });
+
+  it('treats a Jest file failure the same way and clears it after a successful rerun', () => {
+    const parsed = parseJestStyleReport(JSON.stringify({ testResults: [{
+      name: path.resolve('a.test.ts'), status: 'failed', assertionResults: [], message: 'SyntaxError: unexpected token',
+    }] }), process.cwd())!;
+    const scope = { kind: 'test' as const, file: 'a.test.ts', path: ['one'] };
+    const blocked = mergeProjectTestCases(list, scope, parsed.cases);
+    expect(blocked).toContainEqual(expect.objectContaining({ file: 'a.test.ts', path: [], status: 'failed', runnable: false }));
+    expect(blocked[0]).toMatchObject({ stale: true });
+    const recovered = mergeProjectTestCases(blocked, scope, [tc('a.test.ts', 'one')]);
+    expect(recovered.filter(entry => entry.file === 'a.test.ts' && entry.path.length === 0)).toEqual([]);
+    expect(recovered.find(entry => entry.path[0] === 'one')).toEqual(tc('a.test.ts', 'one'));
+  });
 
   it('replaces only the tests of a file run, in place', () => {
     const merged = mergeProjectTestCases(list, { kind: 'file', file: 'a.test.ts' }, [tc('a.test.ts', 'one'), tc('a.test.ts', 'two'), tc('z.test.ts', 'other')]);

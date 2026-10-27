@@ -46,6 +46,15 @@ The Tests tab lists each test and can run one file or one test, so two of the or
 - **Structured results.** Main adds each runner's own reporter and parses it into project-relative cases (`file`, suite path, status, duration, failing file and line, a capped message); no absolute path reaches the renderer, and a path outside the root is dropped. Vitest and Jest write their JSON report, pytest its JUnit XML (`junit_family=xunit1`), each to a temporary folder main creates and deletes after the run. Go streams `go test -json`, which main turns back into plain `go test` text for the raw output. Cargo has no stable machine format, so main reads libtest's text and passes `--no-fail-fast`. The raw transcript stays available.
 - **Scoped runs.** The renderer may send a scope: the whole suite, one project-relative file (a Go package directory), or one test by its suite path. Main rejects absolute paths, `..`, segments that start with `-` or `@` (an option or a pytest argument file), control characters and targets that do not exist, then builds the arguments itself: a file or `--runTestsByPath` for Vitest and Jest, a pytest node id, `./dir` and an anchored `-run` per subtest level for Go, and `--lib`, `--test <name>`, `--bin <name>` or `--bins` (for `src/main.rs`) plus `--exact` for Cargo. Names reach Vitest, Jest and Go as escaped, anchored patterns and pytest and Cargo as literal arguments, never through a shell; a Cargo name must be a Rust path, since libtest would read anything else after `--` as an option. Every path a report returns is checked the same way, and a case outside the root is dropped. Rust doc tests are listed but cannot be run on their own.
 
+A scoped file or build failure can have no test name, or name a dependency
+rather than the requested target. The renderer retains those diagnostics as
+current failures and opens the runner output. It keeps earlier results as
+explicitly not run history and excludes them from current outcome counts;
+unrelated incoming passes cannot become results of the selected test. A later
+reported result replaces its own history and clears the file's earlier build
+diagnostic. These history markers are transient renderer state, not runner
+outcomes or persisted data.
+
 ## Consequences
 
 The feature covers the common zero-configuration project path without exposing a general shell. Custom commands, free-form filters, watch mode, coverage flags, monorepo traversal outside the approved root, and remote execution remain out of scope. Adding a runner requires extending the closed shared contract, detection evidence, fixed argv, environment policy, UI copy, and tests together.
