@@ -34,12 +34,6 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
   public-trust release. A ready secret-name pair still requires both workflow
   signature summaries and a clean Windows 11 validation before publication.
 
-For ordinary changes, add a note under Unreleased. Outside release mode,
-`changelog:check` accepts a new bullet compared with its base ref (the latest
-tag by default); an unchanged or empty Unreleased section does not satisfy
-that check. Release mode (`--release-tag`) still requires the versioned entry
-and the existing exact package/changelog/tag alignment.
-
 ## Release steps
 
 1. Run `pnpm run changelog:draft`, finish the release notes, and run

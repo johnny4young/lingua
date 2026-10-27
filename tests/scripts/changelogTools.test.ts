@@ -96,29 +96,6 @@ describe('changelog automation scripts', () => {
     expect(result.errors.join('\n')).toContain('need a new CHANGELOG.md release entry');
   });
 
-  it('accepts a new Unreleased note for a normal change without changing release versions', () => {
-    const previous = '## [Unreleased]\n\n### Fixed\n- Existing fix.\n\n## [0.2.3] — 2026-04-30\n';
-    const state = {
-      packageVersion: '0.2.3', latestTag: 'v0.2.3',
-      previousChangelogText: previous,
-      changelogText: previous.replace('- Existing fix.', '- New fix.\n- Existing fix.'),
-      commitsSinceLatestTag: [{ hash: '1', shortHash: '1', subject: 'fix(tests): select the exact file', body: '' }],
-    };
-    expect(validateChangelogState(state).ok).toBe(true);
-    expect(validateChangelogState({ ...state, releaseTag: 'v0.2.3' }).ok).toBe(false);
-    expect(validateChangelogState({ ...state, packageVersion: '0.2.2' }).ok).toBe(false);
-  });
-
-  it.each(['unchanged', 'empty', 'missing-base'])('rejects %s Unreleased notes as a substitute for a new note', kind => {
-    const previous = '## [Unreleased]\n\n### Fixed\n- Existing fix.\n\n## [0.2.3] — 2026-04-30\n';
-    expect(validateChangelogState({
-      packageVersion: '0.2.3', latestTag: 'v0.2.3',
-      previousChangelogText: kind === 'missing-base' ? null : previous,
-      changelogText: kind === 'empty' ? previous.replace('- Existing fix.', '') : kind === 'missing-base' ? previous.replace('- Existing fix.', '- New fix.') : previous,
-      commitsSinceLatestTag: [{ hash: '1', shortHash: '1', subject: 'fix(tests): select the exact file', body: '' }],
-    }).ok).toBe(false);
-  });
-
   it('passes when the top changelog entry and package version are ahead of the latest tag', () => {
     const result = validateChangelogState({
       packageVersion: '0.2.4',
