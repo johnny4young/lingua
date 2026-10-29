@@ -15,27 +15,27 @@ import {
   XCircle,
 } from 'lucide-react';
 import '../../i18n/testsCatalog';
-import type { ProjectTestCase, ProjectTestCaseStatus, ProjectTestScope } from '../../../shared/projectTests';
+import type { ProjectTestCaseStatus, ProjectTestScope } from '../../../shared/projectTests';
 import { useProjectStore } from '../../stores/projectStore';
-import { useProjectTestStore, type ProjectTestBinding } from '../../stores/projectTestStore';
+import { useProjectTestStore, isProjectTestRunFailure, type ProjectTestDisplayCase, type ProjectTestBinding } from '../../stores/projectTestStore';
 import { cn } from '../../utils/cn';
 
 const MAX_RECENTS = 3;
 
 interface FileGroup {
   file: string;
-  cases: ProjectTestCase[];
-  counts: Record<ProjectTestCaseStatus, number>;
+  cases: ProjectTestDisplayCase[];
+  counts: Record<ProjectTestCaseStatus | 'notRun', number>;
 }
 
-function countByStatus(cases: readonly ProjectTestCase[]): Record<ProjectTestCaseStatus, number> {
-  const counts = { passed: 0, failed: 0, skipped: 0 };
-  for (const entry of cases) counts[entry.status] += 1;
+function countByStatus(cases: readonly ProjectTestDisplayCase[]): Record<ProjectTestCaseStatus | 'notRun', number> {
+  const counts = { passed: 0, failed: 0, skipped: 0, notRun: 0 };
+  for (const entry of cases) counts[entry.stale ? 'notRun' : entry.status] += 1;
   return counts;
 }
 
-function groupByFile(cases: readonly ProjectTestCase[]): FileGroup[] {
-  const groups = new Map<string, ProjectTestCase[]>();
+function groupByFile(cases: readonly ProjectTestDisplayCase[]): FileGroup[] {
+  const groups = new Map<string, ProjectTestDisplayCase[]>();
   for (const entry of cases) {
     const group = groups.get(entry.file);
     if (group) group.push(entry);
@@ -44,7 +44,7 @@ function groupByFile(cases: readonly ProjectTestCase[]): FileGroup[] {
   return [...groups].map(([file, entries]) => ({ file, cases: entries, counts: countByStatus(entries) }));
 }
 
-const caseKey = (entry: Pick<ProjectTestCase, 'file' | 'path'>) => `${entry.file}\u0000${entry.path.join('\u0000')}`;
+const caseKey = (entry: Pick<ProjectTestDisplayCase, 'file' | 'path'>) => `${entry.file}\u0000${entry.path.join('\u0000')}`;
 
 function matchesScope(scope: ProjectTestScope | null, file: string, path?: string[]): boolean {
   if (!scope) return false;
@@ -53,7 +53,7 @@ function matchesScope(scope: ProjectTestScope | null, file: string, path?: strin
   return scope.kind === 'file' || (path !== undefined && caseKey({ file, path }) === caseKey(scope));
 }
 
-function StatusIcon({ status }: { status: ProjectTestCaseStatus }) {
+function StatusIcon({ status }: { status: ProjectTestCaseStatus | 'notRun' }) {
   if (status === 'passed') return <CheckCircle2 size={14} className="shrink-0 text-success-fg" aria-hidden="true" />;
   if (status === 'failed') return <XCircle size={14} className="shrink-0 text-error-fg" aria-hidden="true" />;
   return <MinusCircle size={14} className="shrink-0 text-fg-subtle" aria-hidden="true" />;
@@ -145,6 +145,9 @@ function ProjectTests({ binding }: { binding: ProjectTestBinding }) {
       <div className="m-auto flex max-w-md flex-col items-center gap-2 px-4 text-center">
         <h2 className="text-body font-semibold text-fg-base">{t('projectTests.empty.none.title')}</h2>
         <p className="text-fg-subtle">{t('projectTests.empty.none.description')}</p>
+        <button type="button" className="button-secondary" onClick={() => void detect(binding)}>
+          {t('projectTests.refresh')}
+        </button>
       </div>
     );
   }
@@ -182,9 +185,10 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const noReport = result !== null && result.cases === undefined && (result.kind === 'success' || result.kind === 'failed');
   // A compile error fails the run before any test reports, so the log is the only answer.
   const noCases = result?.kind === 'failed' && result.cases !== undefined && result.cases.length === 0;
+  const runFailure = result?.kind === 'failed' && result.cases?.some(isProjectTestRunFailure);
   const notice = result && !['success', 'failed'].includes(result.kind) ? result.kind : null;
   const output = running ? (liveOutput.transcript?.text ?? '') : (result?.orderedOutput ?? [result?.stdout, result?.stderr].filter(Boolean).join('\n'));
-  const showOutput = outputOpen || noReport || noCases;
+  const showOutput = outputOpen || noReport || noCases || runFailure;
 
   const runScope = (scope: ProjectTestScope) => void run(binding, scope);
   const toggleGroup = (file: string) =>
@@ -272,6 +276,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                   {t('projectTests.skipped', { count: counts.skipped })}
                 </span>
               ) : null}
+              {counts.notRun > 0 ? <span className="text-fg-subtle">{t('projectTests.notRun', { count: counts.notRun })}</span> : null}
             </span>
             <span className="h-[18px] w-px bg-border-subtle" aria-hidden="true" />
             <div role="radiogroup" aria-label={t('projectTests.filter.label')} className="inline-flex rounded-lg border border-border-subtle bg-bg-inset p-0.5">
@@ -302,7 +307,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
           {t(`projectTests.unavailable.${candidate.unavailableReason}`)}
         </p>
       ) : null}
-      {notice || error === 'run-failed' || noReport || noCases || casesTruncated ? (
+      {notice || error === 'run-failed' || noReport || noCases || runFailure || casesTruncated ? (
         <p className="flex items-start gap-2 border-b border-border-subtle px-4 py-2 text-fg-muted" data-testid="tests-notice">
           <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning-fg" aria-hidden="true" />
           {error === 'run-failed'
@@ -311,6 +316,8 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
               ? [t(`projectTests.result.${notice}`), notice === 'unavailable' && result?.unavailableReason ? t(`projectTests.unavailable.${result.unavailableReason}`) : '']
                   .filter(Boolean)
                   .join(' · ')
+              : runFailure
+                ? t('projectTests.runFailure')
               : noReport
                 ? t('projectTests.noReport')
                 : noCases
@@ -327,7 +334,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
         ) : (
           visibleGroups.map(group => {
             const open = !collapsed.has(group.file);
-            const visibleCases = filter === 'failed' ? group.cases.filter(entry => entry.status === 'failed') : group.cases;
+            const visibleCases = filter === 'failed' ? group.cases.filter(entry => entry.status === 'failed' && !entry.stale) : group.cases;
             const fileRunning = running && matchesScope(runningScope, group.file);
             return (
               <div key={group.file} role="treeitem" aria-level={1} aria-expanded={open} aria-selected={false} data-testid="tests-file">
@@ -345,6 +352,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                         ['failed', 'text-error-fg'],
                         ['passed', group.counts.failed > 0 ? 'text-fg-subtle' : 'text-success-fg'],
                         ['skipped', 'text-fg-subtle'],
+                        ['notRun', 'text-fg-subtle'],
                       ] as const
                     )
                       .filter(([status]) => group.counts[status] > 0)
@@ -380,12 +388,12 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                           aria-level={2}
                           aria-selected={isSelected}
                           data-testid="tests-case"
-                          data-status={entry.status}
+                          data-status={entry.stale ? 'not-run' : entry.status}
                           className={cn('group/case border-b border-border-subtle', isSelected ? 'bg-accent-tint' : 'hover:bg-bg-panel-alt')}
                         >
                           <div className="flex min-h-8 items-center gap-2.5 py-1 pl-11 pr-4">
                             <button type="button" onClick={() => setSelected(isSelected ? null : key)} className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 text-left">
-                              <StatusIcon status={entry.status} />
+                              <span className={cn('flex shrink-0', entry.stale && 'opacity-50')}><StatusIcon status={entry.status} /></span>
                               <span className={cn('truncate text-fg-base', isSelected && 'font-medium')}>
                                 {entry.path.length > 0 ? (
                                   <>
@@ -396,7 +404,8 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                                   t('projectTests.fileFailed')
                                 )}
                               </span>
-                              {entry.status === 'failed' && entry.failureLine && entry.failureFile === entry.file ? (
+                              {entry.stale ? <span className="shrink-0 text-fg-subtle">{t('projectTests.previousResult')}</span> : null}
+                              {!entry.stale && entry.status === 'failed' && entry.failureLine && entry.failureFile === entry.file ? (
                                 <span className="shrink-0 text-error-fg">{t('projectTests.failedAt', { line: entry.failureLine })}</span>
                               ) : null}
                             </button>

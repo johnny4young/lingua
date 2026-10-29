@@ -27,7 +27,7 @@ Main resolves `rootId` through the existing filesystem capability registry, re-d
 | Go     | `go.mod`                                                                | `go test ./...`                   |
 | Cargo  | `Cargo.toml`                                                            | `cargo test --color never`        |
 
-Detection reports every matching runner, including configured runners whose dependency or toolchain is missing. JavaScript runners use their project-local entry point under `node_modules`; Python prefers `.venv`/`venv`; host tools are accepted only from absolute `PATH` entries.
+Detection reports every matching runner, including configured runners whose dependency or toolchain is missing. The empty state keeps an explicit Detect again action so a newly added root configuration can be found without reopening the project. It never starts a test run. JavaScript runners use their project-local entry point under `node_modules`; Python prefers `.venv`/`venv`; host tools are accepted only from absolute `PATH` entries.
 
 ## Security and lifecycle
 
@@ -55,6 +55,16 @@ test, and closes Vitest in a finally block. A file excluded by the project's
 configuration fails explicitly. This requires the specification API available
 in Vitest 3 and later; older runners fail rather than falling back to a broader
 CLI run. Whole-suite runs retain the local CLI entrypoint.
+
+A scoped file or build failure can have no test name, or name a dependency
+rather than the requested target. The renderer retains those diagnostics as
+current failures and opens the runner output. It keeps earlier results in the
+requested scope as explicitly not run history and excludes them from current
+outcome counts; results outside the scope stay as they were, and
+unrelated incoming passes cannot become results of the selected test. A later
+reported result replaces its own history and clears the file's earlier build
+diagnostic. These history markers are transient renderer state, not runner
+outcomes or persisted data.
 
 ## Consequences
 
