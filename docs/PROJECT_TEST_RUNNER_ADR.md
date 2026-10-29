@@ -62,9 +62,10 @@ current failures and opens the runner output. It keeps earlier results in the
 requested scope as explicitly not run history and excludes them from current
 outcome counts; results outside the scope stay as they were, and
 unrelated incoming passes cannot become results of the selected test. A later
-reported result replaces its own history and clears the file's earlier build
-diagnostic. These history markers are transient renderer state, not runner
-outcomes or persisted data.
+reported result replaces its own history and clears the earlier build
+diagnostics of that scope, including the dependency ones its run reported.
+These history markers are transient renderer state, not runner outcomes or
+persisted data.
 
 ## Consequences
 

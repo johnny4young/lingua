@@ -18,8 +18,11 @@ import { useSettingsStore } from './settingsStore';
 import { useNativeExecutionGateStore } from './nativeExecutionGateStore';
 import { useProjectStore } from './projectStore';
 
-/** Renderer-only history marker; never a runner-reported outcome or persisted state. */
-export type ProjectTestDisplayCase = ProjectTestCase & { stale?: true };
+/**
+ * Renderer-only markers; never runner-reported outcomes or persisted state.
+ * `reportedBy` is the scoped file whose run reported an off-scope diagnostic.
+ */
+export type ProjectTestDisplayCase = ProjectTestCase & { stale?: true; reportedBy?: string };
 
 export const isProjectTestRunFailure = (entry: ProjectTestCase): boolean =>
   entry.status === 'failed' && entry.runnable === false && entry.path.length === 0;
@@ -73,27 +76,30 @@ export function mergeProjectTestCases(
     scope.kind === 'test' ? sameTest(entry, scope) : entry.file === scope.file;
   const failures = incoming.filter(isProjectTestRunFailure);
   const fresh = incoming.filter(entry => inScope(entry) || isProjectTestRunFailure(entry));
+  // Each scoped run replaces the diagnostics its earlier runs reported, dependency ones included.
+  const cleared = prior.filter(
+    entry => !(isProjectTestRunFailure(entry) && (entry.file === scope.file || entry.reportedBy === scope.file))
+  );
   if (failures.length > 0) {
     // Build/file diagnostics have no test name and may belong to a dependency,
     // so keep them even off-scope. Earlier results in scope become history;
     // results outside the scope were not touched by this run.
     return [
-      ...prior.filter(entry => !fresh.some(next => sameTest(entry, next)))
+      ...cleared.filter(entry => !fresh.some(next => sameTest(entry, next)))
         .map(entry => (inScope(entry) ? { ...entry, stale: true as const } : entry)),
-      ...fresh,
+      ...fresh.map(entry => (entry.file === scope.file ? entry : { ...entry, reportedBy: scope.file })),
     ];
   }
   if (scope.kind === 'test') {
     const test = fresh.find(entry => sameTest(entry, scope));
     if (!test) return prior.map(entry => sameTest(entry, scope) ? { ...entry, stale: true } : entry);
-    const history = prior.filter(entry => !(entry.file === scope.file && isProjectTestRunFailure(entry)));
-    const at = history.findIndex(entry => sameTest(entry, scope));
-    return at < 0 ? [...history, test] : history.map((entry, index) => (index === at ? test : entry));
+    const at = cleared.findIndex(entry => sameTest(entry, scope));
+    return at < 0 ? [...cleared, test] : cleared.map((entry, index) => (index === at ? test : entry));
   }
-  const at = prior.findIndex(entry => entry.file === scope.file);
-  const rest = prior.filter(entry => entry.file !== scope.file);
+  const at = cleared.findIndex(entry => entry.file === scope.file);
+  const rest = cleared.filter(entry => entry.file !== scope.file);
   if (at < 0) return [...rest, ...fresh];
-  const before = prior.slice(0, at).filter(entry => entry.file !== scope.file);
+  const before = cleared.slice(0, at).filter(entry => entry.file !== scope.file);
   return [...before, ...fresh, ...rest.slice(before.length)];
 }
 

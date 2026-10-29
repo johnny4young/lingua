@@ -306,6 +306,25 @@ describe('mergeProjectTestCases', () => {
     expect(recovered.find(entry => entry.path[0] === 'one')).toEqual(tc('a.test.ts', 'one'));
   });
 
+  it('clears a dependency build failure once the run that reported it passes', () => {
+    const collector = createGoTestCollector('example.com/shop');
+    collector.push([
+      { ImportPath: 'example.com/shop/internal/dep [example.com/shop/internal/broken.test]', Action: 'build-output', Output: 'internal/dep/dep.go:3:1: syntax error\n' },
+      { ImportPath: 'example.com/shop/internal/dep [example.com/shop/internal/broken.test]', Action: 'build-fail' },
+      { Action: 'fail', Package: 'example.com/shop/internal/broken', FailedBuild: 'example.com/shop/internal/broken.test' },
+    ].map(event => `${JSON.stringify(event)}\n`).join(''));
+    collector.flush();
+    const previous = [tc('internal/broken', 'TestX'), tc('internal/other', 'TestOther')];
+    const scope = { kind: 'test' as const, file: 'internal/broken', path: ['TestX'] };
+    const blocked = mergeProjectTestCases(previous, scope, collector.finish().cases);
+    expect(blocked).toContainEqual(expect.objectContaining({ file: 'internal/dep', path: [], runnable: false, failureLine: 3 }));
+
+    expect(mergeProjectTestCases(blocked, scope, [tc('internal/broken', 'TestX')])).toEqual(previous);
+    expect(mergeProjectTestCases(blocked, { kind: 'file', file: 'internal/broken' }, [tc('internal/broken', 'TestX')])).toEqual(previous);
+    expect(mergeProjectTestCases(blocked, { kind: 'file', file: 'internal/other' }, [tc('internal/other', 'TestOther')]))
+      .toContainEqual(expect.objectContaining({ file: 'internal/dep', path: [] }));
+  });
+
   it('replaces only the tests of a file run, in place', () => {
     const merged = mergeProjectTestCases(list, { kind: 'file', file: 'a.test.ts' }, [tc('a.test.ts', 'one'), tc('a.test.ts', 'two'), tc('z.test.ts', 'other')]);
     expect(merged.map((entry) => `${entry.file}:${entry.path[0]}:${entry.status}`)).toEqual([
