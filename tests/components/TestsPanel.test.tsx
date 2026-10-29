@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -205,6 +205,38 @@ describe('TestsPanel', () => {
     await user.selectOptions(await screen.findByTestId('tests-runner'), 'go');
     await user.click(screen.getByTestId('tests-run-all'));
     await waitFor(() => expect(useProjectStore.getState().recentProjects[0]!.testRunner).toBe('go'));
+  });
+
+  it.each([['en', 'Detect again'], ['es', 'Detectar de nuevo']])('detects a newly configured runner from the empty state in %s without running tests', async (locale, label) => {
+    await i18next.changeLanguage(locale);
+    openProject();
+    const bridge = installBridge();
+    let finish!: (value: ProjectTestDetectionResult) => void;
+    bridge.detect.mockResolvedValueOnce({ kind: 'none', candidates: [] }).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await screen.findByRole('button', { name: label });
+    await waitFor(() => expect((screen.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: label }));
+    expect(screen.getByRole('status')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: label })).toBeNull();
+    expect(bridge.detect).toHaveBeenCalledTimes(2);
+    expect(bridge.run).not.toHaveBeenCalled();
+    await act(async () => finish(detection));
+    expect((await screen.findByTestId('tests-run-all') as HTMLButtonElement).disabled).toBe(false);
+    expect(bridge.detect).toHaveBeenNthCalledWith(2, 'root-1');
+    expect(bridge.run).not.toHaveBeenCalled();
+  });
+
+  it('keeps Detect again after a repeated empty detection', async () => {
+    openProject();
+    const bridge = installBridge();
+    bridge.detect.mockResolvedValue({ kind: 'none', candidates: [] });
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await user.click(await screen.findByRole('button', { name: 'Detect again' }));
+    expect(await screen.findByRole('button', { name: 'Detect again' })).toBeTruthy();
+    expect(bridge.detect).toHaveBeenCalledTimes(2);
   });
 
   it('explains a runner that needs setup and finds it again after Detect again', async () => {
