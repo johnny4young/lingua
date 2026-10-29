@@ -56,5 +56,9 @@
   "projectTests.result.invalid-request": "Solicitud no válida",
   "projectTests.empty.none.description": "Agrega una dependencia de Vitest o Jest, una configuración de Pytest, go.mod o Cargo.toml en la raíz del proyecto y detecta de nuevo.",
   "projectTests.refresh": "Detectar de nuevo",
-  "projectTests.noCases": "La ejecución falló antes de que alguna prueba reportara un resultado."
+  "projectTests.noCases": "La ejecución falló antes de que alguna prueba reportara un resultado.",
+  "projectTests.runFailure": "El ejecutor informó un error de archivo o compilación.",
+  "projectTests.previousResult": "Sin ejecutar · resultado anterior",
+  "projectTests.notRun_one": "{{count}} sin ejecutar",
+  "projectTests.notRun_other": "{{count}} sin ejecutar"
 }

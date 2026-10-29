@@ -68,6 +68,8 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - Utilities keeps unfinished inputs when switching between vertical, horizontal and editor-only layouts; drafts still clear when the Utilities tab closes or the app reloads.
+- A scoped test rerun now keeps file and build failures visible, opens their output, and labels retained historical results as not run instead of counting old passes as current results.
+- The Tests empty state now offers Detect again after adding a test configuration to the open project, without reopening the folder or running tests automatically.
 - When Explain this error fails on its first request, Retry shows What gets sent again with the current code, and reopening the panel offers Send instead of an empty conversation.
 - The HTTP workspace no longer shows Sending request… when no request is selected, a device seen with a clock ahead no longer reads as seen in the future, and Plugins → Refresh is off in the web app, which has no plugin folder.
 - Loading more rows of a SQL result that another run replaced reports an error instead of silently ending the partial result, on desktop as on the web.
