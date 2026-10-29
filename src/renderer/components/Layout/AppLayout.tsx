@@ -321,6 +321,9 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
       groupRef.current?.setLayout(layout.defaultLayout ?? defaultSplit);
       programmaticRef.current = false;
     }
+  }, [vertical, layout.defaultLayout, defaultSplit]);
+
+  useLayoutEffect(() => {
     const panel = dockPanelRef.current;
     if (!panel) return;
     programmaticRef.current = true;
@@ -330,7 +333,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
       panel.collapse();
     }
     programmaticRef.current = false;
-  }, [dockExpanded, collapsedSize, vertical, layout.defaultLayout, defaultSplit]);
+  }, [dockExpanded, collapsedSize, vertical]);
 
   // Dragging the dock shut or open is the same choice as the hide button.
   const handleDockResize = () => {
