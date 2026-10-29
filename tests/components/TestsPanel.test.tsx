@@ -218,8 +218,8 @@ describe('TestsPanel', () => {
     await screen.findByRole('button', { name: label });
     await waitFor(() => expect((screen.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(false));
     await user.click(screen.getByRole('button', { name: label }));
-    expect((screen.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: label }));
+    expect(screen.getByRole('status')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: label })).toBeNull();
     expect(bridge.detect).toHaveBeenCalledTimes(2);
     expect(bridge.run).not.toHaveBeenCalled();
     await act(async () => finish(detection));

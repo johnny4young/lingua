@@ -123,14 +123,9 @@ function ProjectTests({ binding }: { binding: ProjectTestBinding }) {
 
   if (status === 'detecting' || rootId !== binding.rootId) {
     return (
-      <div className="m-auto flex flex-col items-center gap-2 text-fg-subtle">
-        <div role="status" className="flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-          {t('projectTests.detecting')}
-        </div>
-        <button type="button" className="button-secondary" disabled>
-          {t('projectTests.refresh')}
-        </button>
+      <div role="status" className="m-auto flex items-center gap-2 text-fg-subtle">
+        <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+        {t('projectTests.detecting')}
       </div>
     );
   }
