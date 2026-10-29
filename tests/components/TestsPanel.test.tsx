@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { createGoTestCollector } from '../../src/main/projectTestReports';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -170,6 +172,30 @@ describe('TestsPanel', () => {
 
     await user.click(within(screen.getAllByTestId('tests-file')[1]!).getByTestId('tests-run-file'));
     expect(bridge.run).toHaveBeenLastCalledWith('root-1', 'vitest', expect.any(String), { kind: 'file', file: 'cart/tax.test.ts' });
+  });
+
+  it('shows a Go build failure after a previously passed individual test', async () => {
+    openProject();
+    const bridge = installBridge();
+    bridge.detect.mockResolvedValueOnce({ kind: 'ready', candidates: [{ framework: 'go', command: 'go test ./...', evidence: ['go.mod'], available: true }] });
+    bridge.run.mockResolvedValueOnce(result({ kind: 'success', framework: 'go', cases: [
+      { file: 'internal/broken', path: ['TestX'], status: 'passed' },
+      { file: 'internal/other', path: ['TestOther'], status: 'passed' },
+    ] }));
+    const collector = createGoTestCollector('example.com/shop');
+    const output = collector.push(readFileSync('tests/__fixtures__/projectTests/go-build-fail.ndjson', 'utf8')) + collector.flush();
+    bridge.run.mockResolvedValueOnce(result({ framework: 'go', scope: { kind: 'test', file: 'internal/broken', path: ['TestX'] }, cases: collector.finish().cases, orderedOutput: output }));
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await user.click(await screen.findByTestId('tests-run-all'));
+    await screen.findByText('TestX');
+    const row = screen.getAllByTestId('tests-case').find(entry => entry.textContent?.includes('TestX'))!;
+    await user.click(within(row).getByTestId('tests-run-test'));
+    expect((await screen.findByTestId('tests-notice')).textContent).toContain('file or build failure');
+    expect(screen.getByTestId('tests-output').textContent).toContain("expected operand, found ';'");
+    expect(screen.getAllByTestId('tests-case').map(entry => entry.dataset.status)).toEqual(['not-run', 'failed', 'passed']);
+    expect(screen.getByTestId('tests-counts').textContent).toBe('1 passed1 failed1 not run');
+    expect(screen.queryByText('TestRoot')).toBeNull();
   });
 
   it('opens the raw output when the report could not be read', async () => {

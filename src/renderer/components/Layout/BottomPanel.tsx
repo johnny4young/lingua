@@ -123,7 +123,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const dockCombo = useShortcutLabel('view-toggle-console');
   const currentProject = useProjectStore(state => state.currentProject);
   const consoleCount = useConsoleStore(state => state.entries.length);
-  const failedTests = useProjectTestStore(state => state.cases?.filter(entry => entry.status === 'failed').length ?? 0);
+  const failedTests = useProjectTestStore(state => state.cases?.filter(entry => entry.status === 'failed' && !entry.stale).length ?? 0);
   // Lines staged for the next run, so the Input tab says so before it is opened.
   const stdinLines = useEditorStore(
     s => (getActiveTab(s)?.stdinBuffer ?? '').split('\n').filter(line => line !== '').length
