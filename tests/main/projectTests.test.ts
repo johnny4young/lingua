@@ -736,6 +736,19 @@ describe('scoped project test runs', () => {
     }
   );
 
+  it('fails a scoped Vitest run for a file outside the configured test set', async () => {
+    const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
+    await write('node_modules/vitest/vitest.mjs', `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`);
+    await write('vitest.config.mjs', "export default { test: { globals: true, include: ['src/**/*.test.ts'] } };\n");
+    const sentinel = JSON.stringify(path.join(rootPath, 'executed.txt'));
+    await write('src/cart.test.ts', `import { appendFileSync } from 'node:fs';\nit('runs', () => { appendFileSync(${sentinel}, 'included'); });`);
+    await write('tools/cart.test.ts', `import { appendFileSync } from 'node:fs';\nit('runs', () => { appendFileSync(${sentinel}, 'excluded'); });`);
+    const result = await runProjectTests(rootPath, 'vitest', 'real-excluded', { scope: { kind: 'file', file: 'tools/cart.test.ts' } });
+    expect(result.kind).toBe('failed');
+    expect(result.stderr).toContain('not a configured Vitest test file');
+    await expect(stat(path.join(rootPath, 'executed.txt'))).rejects.toThrow();
+  });
+
   it('runs one real Vitest test and reports the others as skipped', async () => {
     const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
     await write('node_modules/vitest/vitest.mjs', `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`);
