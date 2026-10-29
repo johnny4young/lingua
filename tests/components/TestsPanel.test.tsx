@@ -193,8 +193,8 @@ describe('TestsPanel', () => {
     await user.click(within(row).getByTestId('tests-run-test'));
     expect((await screen.findByTestId('tests-notice')).textContent).toContain('file or build failure');
     expect(screen.getByTestId('tests-output').textContent).toContain("expected operand, found ';'");
-    expect(screen.getAllByTestId('tests-case').map(entry => entry.dataset.status)).toEqual(['not-run', 'failed', 'not-run']);
-    expect(screen.getByTestId('tests-counts').textContent).toBe('0 passed1 failed2 not run');
+    expect(screen.getAllByTestId('tests-case').map(entry => entry.dataset.status)).toEqual(['not-run', 'failed', 'passed']);
+    expect(screen.getByTestId('tests-counts').textContent).toBe('1 passed1 failed1 not run');
     expect(screen.queryByText('TestRoot')).toBeNull();
   });
 

@@ -48,8 +48,9 @@ The Tests tab lists each test and can run one file or one test, so two of the or
 
 A scoped file or build failure can have no test name, or name a dependency
 rather than the requested target. The renderer retains those diagnostics as
-current failures and opens the runner output. It keeps earlier results as
-explicitly not run history and excludes them from current outcome counts;
+current failures and opens the runner output. It keeps earlier results in the
+requested scope as explicitly not run history and excludes them from current
+outcome counts; results outside the scope stay as they were, and
 unrelated incoming passes cannot become results of the selected test. A later
 reported result replaces its own history and clears the file's earlier build
 diagnostic. These history markers are transient renderer state, not runner

@@ -74,12 +74,12 @@ export function mergeProjectTestCases(
   const failures = incoming.filter(isProjectTestRunFailure);
   const fresh = incoming.filter(entry => inScope(entry) || isProjectTestRunFailure(entry));
   if (failures.length > 0) {
-    // Build/file diagnostics have no test name and may belong to a dependency.
-    // Keep them even when they don't match the requested test. Anything not
-    // actually reported in this scope is history, never a new passing result.
+    // Build/file diagnostics have no test name and may belong to a dependency,
+    // so keep them even off-scope. Earlier results in scope become history;
+    // results outside the scope were not touched by this run.
     return [
       ...prior.filter(entry => !fresh.some(next => sameTest(entry, next)))
-        .map(entry => ({ ...entry, stale: true as const })),
+        .map(entry => (inScope(entry) ? { ...entry, stale: true as const } : entry)),
       ...fresh,
     ];
   }

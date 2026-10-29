@@ -57,7 +57,7 @@
   "projectTests.empty.none.description": "Add a Vitest or Jest dependency, a Pytest configuration, go.mod, or Cargo.toml at the project root, then detect again.",
   "projectTests.refresh": "Detect again",
   "projectTests.noCases": "The run failed before any test reported a result.",
-  "projectTests.runFailure": "The runner reported a file or build failure. See output.",
+  "projectTests.runFailure": "The runner reported a file or build failure.",
   "projectTests.previousResult": "Not run · previous result",
   "projectTests.notRun_one": "{{count}} not run",
   "projectTests.notRun_other": "{{count}} not run"

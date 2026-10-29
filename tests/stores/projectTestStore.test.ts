@@ -287,7 +287,7 @@ describe('mergeProjectTestCases', () => {
     const previous = [tc('internal/broken', 'TestX'), tc('internal/other', 'TestOther')];
     const merged = mergeProjectTestCases(previous, { kind: 'test', file: 'internal/broken', path: ['TestX'] }, incoming);
     expect(merged).toEqual([
-      { ...previous[0], stale: true }, { ...previous[1], stale: true },
+      { ...previous[0], stale: true }, previous[1],
       expect.objectContaining({ file: 'internal/broken', path: [], status: 'failed', runnable: false, failureLine: 5 }),
     ]);
     expect(merged.some(entry => entry.path.includes('TestRoot'))).toBe(false);
