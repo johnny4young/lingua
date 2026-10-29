@@ -228,6 +228,17 @@ describe('TestsPanel', () => {
     expect(bridge.run).not.toHaveBeenCalled();
   });
 
+  it('keeps Detect again after a repeated empty detection', async () => {
+    openProject();
+    const bridge = installBridge();
+    bridge.detect.mockResolvedValue({ kind: 'none', candidates: [] });
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await user.click(await screen.findByRole('button', { name: 'Detect again' }));
+    expect(await screen.findByRole('button', { name: 'Detect again' })).toBeTruthy();
+    expect(bridge.detect).toHaveBeenCalledTimes(2);
+  });
+
   it('explains a runner that needs setup and finds it again after Detect again', async () => {
     openProject();
     const bridge = installBridge();
