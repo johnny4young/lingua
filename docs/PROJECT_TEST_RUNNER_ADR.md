@@ -27,7 +27,7 @@ Main resolves `rootId` through the existing filesystem capability registry, re-d
 | Go     | `go.mod`                                                                | `go test ./...`                   |
 | Cargo  | `Cargo.toml`                                                            | `cargo test --color never`        |
 
-Detection reports every matching runner, including configured runners whose dependency or toolchain is missing. JavaScript runners use their project-local entry point under `node_modules`; Python prefers `.venv`/`venv`; host tools are accepted only from absolute `PATH` entries.
+Detection reports every matching runner, including configured runners whose dependency or toolchain is missing. The empty state keeps an explicit Detect again action so a newly added root configuration can be found without reopening the project. It never starts a test run. JavaScript runners use their project-local entry point under `node_modules`; Python prefers `.venv`/`venv`; host tools are accepted only from absolute `PATH` entries.
 
 ## Security and lifecycle
 

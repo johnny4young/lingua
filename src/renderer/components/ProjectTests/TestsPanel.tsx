@@ -145,6 +145,9 @@ function ProjectTests({ binding }: { binding: ProjectTestBinding }) {
       <div className="m-auto flex max-w-md flex-col items-center gap-2 px-4 text-center">
         <h2 className="text-body font-semibold text-fg-base">{t('projectTests.empty.none.title')}</h2>
         <p className="text-fg-subtle">{t('projectTests.empty.none.description')}</p>
+        <button type="button" className="button-secondary" onClick={() => void detect(binding)}>
+          {t('projectTests.refresh')}
+        </button>
       </div>
     );
   }
