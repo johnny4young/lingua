@@ -250,6 +250,7 @@ The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
 persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes
 through `utils/explorerToggle.ts`, which targets that list on a Utilities tab
 and the project explorer elsewhere. The modal keeps the full card list.
+The main panel group keeps its editor subtree mounted across layout changes, preserving visited Utilities panels and their local drafts until the Utilities tab closes or the app reloads; each orientation restores its own saved panel sizes.
 
 Quick Open (`Cmd/Ctrl+P`) lists files. A workspace on screen can put its own
 rows first through `utils/quickOpenScope.ts`: the SQL panel registers database
