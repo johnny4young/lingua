@@ -68,6 +68,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - Utilities keeps unfinished inputs when switching between vertical, horizontal and editor-only layouts; drafts still clear when the Utilities tab closes or the app reloads.
+- Running one Vitest file or test now selects that exact file, so a matching path in a nested project or a longer filename cannot run alongside it.
 - A scoped test rerun now keeps file and build failures visible, opens their output, and labels retained historical results as not run instead of counting old passes as current results.
 - The Tests empty state now offers Detect again after adding a test configuration to the open project, without reopening the folder or running tests automatically.
 - When Explain this error fails on its first request, Retry shows What gets sent again with the current code, and reopening the panel offers Send instead of an empty conversation.
