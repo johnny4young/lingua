@@ -281,6 +281,10 @@ interface MainContentProps {
 }
 
 const DOCK_ROW_PX = 34;
+const DEFAULT_SPLIT = {
+  beside: { 'workspace-panel': 60, 'console-panel': 40 },
+  below: { 'workspace-panel': 66, 'console-panel': 34 },
+} as const;
 
 /**
  * One stable tree for every dock state, so folding or opening the dock never
@@ -301,6 +305,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
     storage: localStorage,
   });
   const layout = vertical ? verticalLayout : horizontalLayout;
+  const defaultSplit = DEFAULT_SPLIT[vertical ? 'beside' : 'below'];
   const groupRef = useRef<GroupImperativeHandle | null>(null);
   const dockPanelRef = useRef<PanelImperativeHandle | null>(null);
   const previousVerticalRef = useRef(vertical);
@@ -313,10 +318,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
     if (previousVerticalRef.current !== vertical) {
       previousVerticalRef.current = vertical;
       programmaticRef.current = true;
-      groupRef.current?.setLayout(layout.defaultLayout ?? {
-        'workspace-panel': vertical ? 60 : 66,
-        'console-panel': vertical ? 40 : 34,
-      });
+      groupRef.current?.setLayout(layout.defaultLayout ?? defaultSplit);
       programmaticRef.current = false;
     }
     const panel = dockPanelRef.current;
@@ -328,7 +330,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
       panel.collapse();
     }
     programmaticRef.current = false;
-  }, [dockExpanded, collapsedSize, vertical, layout.defaultLayout]);
+  }, [dockExpanded, collapsedSize, vertical, layout.defaultLayout, defaultSplit]);
 
   // Dragging the dock shut or open is the same choice as the hide button.
   const handleDockResize = () => {
@@ -355,7 +357,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
         >
           <Panel
             id="workspace-panel"
-            defaultSize={vertical ? '60%' : '66%'}
+            defaultSize={`${defaultSplit['workspace-panel']}%`}
             minSize={vertical ? 420 : 260}
           >
             <EditorArea />
@@ -366,7 +368,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
             panelRef={dockPanelRef}
             collapsible
             collapsedSize={collapsedSize}
-            defaultSize={vertical ? '40%' : '34%'}
+            defaultSize={`${defaultSplit['console-panel']}%`}
             minSize={vertical ? 260 : 160}
             onResize={handleDockResize}
           >
