@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -625,7 +625,12 @@ describe('scoped project test runs', () => {
 
   it('narrows each runner to a file or one test with literal arguments', async () => {
     const vitest = await argvFor('vitest', { kind: 'test', file: 'src/cart.test.ts', path: ['cart', 'rounds (a|b)'] });
-    expect(vitest.args?.slice(5)).toEqual(['src/cart.test.ts', '-t', '^cart(?: | > )rounds \\(a\\|b\\)$']);
+    expect(vitest.args).toEqual([
+      path.join(rootPath, 'node_modules/vitest/vitest.mjs'),
+      path.join(rootPath, 'src/cart.test.ts'),
+      expect.stringMatching(/report\.json$/u),
+      '^cart(?: | > )rounds \\(a\\|b\\)$',
+    ]);
     const jest = await argvFor('jest', { kind: 'file', file: 'src/cart.test.ts' });
     expect(jest.args?.slice(4)).toEqual(['--runTestsByPath', 'src/cart.test.ts']);
     const pytest = await argvFor('pytest', { kind: 'test', file: 'tests/test_cart.py', path: ['TestCheckout', 'test_flow[1]'] });
@@ -701,6 +706,35 @@ describe('scoped project test runs', () => {
     expect(result.stdout).toContain('--- FAIL: TestRounds');
     expect(shown.join('')).not.toContain('"Action"');
   });
+
+  it.each(['file', 'test'] as const)(
+    'executes only the exact Vitest file for a %s scope',
+    async kind => {
+      const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
+      await write(
+        'node_modules/vitest/vitest.mjs',
+        `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`
+      );
+      await write(
+        'vitest.config.mjs',
+        'export default { test: { globals: true, maxWorkers: 1 } };\n'
+      );
+      const fixture = (sentinel: string) => `import { appendFileSync } from 'node:fs';
+      describe('cart', () => { it('rounds', () => { appendFileSync(${JSON.stringify(path.join(rootPath, 'executed.txt'))}, ${JSON.stringify(sentinel + '\n')}); expect(1).toBe(1); }); });`;
+      await write('src/cart.test.ts', fixture('selected'));
+      await write('packages/demo/src/cart.test.ts', fixture('nested'));
+      await write('src/cart.test.ts.extra.test.ts', fixture('suffix'));
+      const result = await runProjectTests(rootPath, 'vitest', `real-exact-${kind}`, {
+        scope:
+          kind === 'file'
+            ? { kind, file: 'src/cart.test.ts' }
+            : { kind, file: 'src/cart.test.ts', path: ['cart', 'rounds'] },
+      });
+      expect(result.kind, result.stderr).toBe('success');
+      expect(await readFile(path.join(rootPath, 'executed.txt'), 'utf8')).toBe('selected\n');
+      expect(result.cases?.map(entry => entry.file)).toEqual(['src/cart.test.ts']);
+    }
+  );
 
   it('runs one real Vitest test and reports the others as skipped', async () => {
     const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
