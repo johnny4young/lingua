@@ -17,25 +17,25 @@ import {
 import '../../i18n/testsCatalog';
 import type { ProjectTestCaseStatus, ProjectTestScope } from '../../../shared/projectTests';
 import { useProjectStore } from '../../stores/projectStore';
-import { useProjectTestStore, isProjectTestRunFailure, type ProjectTestDisplayCase as ProjectTestCase, type ProjectTestBinding } from '../../stores/projectTestStore';
+import { useProjectTestStore, isProjectTestRunFailure, type ProjectTestDisplayCase, type ProjectTestBinding } from '../../stores/projectTestStore';
 import { cn } from '../../utils/cn';
 
 const MAX_RECENTS = 3;
 
 interface FileGroup {
   file: string;
-  cases: ProjectTestCase[];
+  cases: ProjectTestDisplayCase[];
   counts: Record<ProjectTestCaseStatus | 'notRun', number>;
 }
 
-function countByStatus(cases: readonly ProjectTestCase[]): Record<ProjectTestCaseStatus | 'notRun', number> {
+function countByStatus(cases: readonly ProjectTestDisplayCase[]): Record<ProjectTestCaseStatus | 'notRun', number> {
   const counts = { passed: 0, failed: 0, skipped: 0, notRun: 0 };
   for (const entry of cases) counts[entry.stale ? 'notRun' : entry.status] += 1;
   return counts;
 }
 
-function groupByFile(cases: readonly ProjectTestCase[]): FileGroup[] {
-  const groups = new Map<string, ProjectTestCase[]>();
+function groupByFile(cases: readonly ProjectTestDisplayCase[]): FileGroup[] {
+  const groups = new Map<string, ProjectTestDisplayCase[]>();
   for (const entry of cases) {
     const group = groups.get(entry.file);
     if (group) group.push(entry);
@@ -44,7 +44,7 @@ function groupByFile(cases: readonly ProjectTestCase[]): FileGroup[] {
   return [...groups].map(([file, entries]) => ({ file, cases: entries, counts: countByStatus(entries) }));
 }
 
-const caseKey = (entry: Pick<ProjectTestCase, 'file' | 'path'>) => `${entry.file}\u0000${entry.path.join('\u0000')}`;
+const caseKey = (entry: Pick<ProjectTestDisplayCase, 'file' | 'path'>) => `${entry.file}\u0000${entry.path.join('\u0000')}`;
 
 function matchesScope(scope: ProjectTestScope | null, file: string, path?: string[]): boolean {
   if (!scope) return false;
@@ -390,7 +390,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                         >
                           <div className="flex min-h-8 items-center gap-2.5 py-1 pl-11 pr-4">
                             <button type="button" onClick={() => setSelected(isSelected ? null : key)} className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 text-left">
-                              <StatusIcon status={entry.stale ? 'notRun' : entry.status} />
+                              <span className={cn('flex shrink-0', entry.stale && 'opacity-50')}><StatusIcon status={entry.status} /></span>
                               <span className={cn('truncate text-fg-base', isSelected && 'font-medium')}>
                                 {entry.path.length > 0 ? (
                                   <>
