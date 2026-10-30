@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CLI_OUTPUT_PAYLOAD_BYTES } from '../../src/shared/capsuleVerification';
 import {
   DEFAULT_REPRO_REQUEST,
   REPRO_CONTROLS,
@@ -126,6 +127,36 @@ describe('parseReproPolicy', () => {
       raw => ({ ...raw, limits: { ...raw.limits, memoryBytes: '64m' } }),
       'limit-out-of-range',
       'limits.memoryBytes',
+    ],
+    [
+      'a missing network mode',
+      raw => {
+        const { network: _omitted, ...rest } = raw;
+        return rest;
+      },
+      'invalid-shape',
+      'network',
+    ],
+    [
+      'a missing scratch area',
+      raw => {
+        const { scratch: _omitted, ...filesystem } = raw.filesystem;
+        return { ...raw, filesystem };
+      },
+      'invalid-shape',
+      'filesystem.scratch',
+    ],
+    [
+      'missing denial evidence mode',
+      raw => ({ ...raw, evidence: {} }),
+      'invalid-shape',
+      'evidence.denials',
+    ],
+    [
+      'an output limit the CLI would clip',
+      raw => ({ ...raw, limits: { ...raw.limits, outputBytes: CLI_OUTPUT_PAYLOAD_BYTES + 1 } }),
+      'limit-out-of-range',
+      'limits.outputBytes',
     ],
     [
       'a missing optional limit instead of null',

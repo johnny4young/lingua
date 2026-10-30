@@ -40,8 +40,9 @@ keep their current semantics.
   coverage.
 
 Envelope paths must already be in Unicode NFC, and the entry may not match a
-supplemental file case-insensitively, because macOS file systems would stage
-both spellings to one file. The staging writer still creates every file
+supplemental file, nor two files each other, once case is folded (`ß` and `ss`,
+`ſ` and `s` included), because macOS file systems would stage both spellings
+to one file. The staging writer still creates every file
 exclusively, so a collision these checks miss fails instead of overwriting.
 
 Neither artifact may contain an absolute host path, a capability id, a project
@@ -53,13 +54,13 @@ relative path; anything outside is recorded as `outside` with no path.
 
 `ReproPolicyV1` (`src/shared/reproPolicy.ts`) has a closed shape:
 
-| Field                                     | Values in v1                                                      |
-| ----------------------------------------- | ----------------------------------------------------------------- |
-| `filesystem.inputs`                       | `read-only` (staged source and files)                             |
-| `filesystem.scratch`, `filesystem.output` | `none` or `read-write`, both disposable                           |
-| `network`                                 | `deny` only; an allowlist needs its own ADR                       |
-| `limits`                                  | wall clock, output bytes, process count, optional memory and disk |
-| `evidence.denials`                        | `required` or `if-available`                                      |
+| Field                                     | Values in v1                                                                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `filesystem.inputs`                       | `read-only` (staged source and files)                                                                       |
+| `filesystem.scratch`, `filesystem.output` | `none` or `read-write`, both disposable                                                                     |
+| `network`                                 | `deny` only; an allowlist needs its own ADR                                                                 |
+| `limits`                                  | wall clock, output bytes (at most what the CLI captures unclipped), process count, optional memory and disk |
+| `evidence.denials`                        | `required` or `if-available`                                                                                |
 
 Three policies stay distinct:
 
@@ -101,11 +102,15 @@ A receipt is summarized on separate axes so one cannot hide another:
 
 The overall result is `refused`, `fail` (a denial or an output mismatch, even if
 the program caught the error and printed the expected text), `incomplete`
-(enforcement gaps, required evidence not complete, collection failure, or an
-inconclusive comparison), or `pass`.
+(clipped output, a timeout or a stop, as in strict CLI verification; enforcement
+gaps; required evidence not complete; collection failure; or an inconclusive
+comparison), or `pass`. A denial outranks everything; an interrupted run
+outranks an output mismatch.
 
-A receipt supports consistency checks against an envelope and a policy. It does
-not authenticate its sender, attest a remote machine or prove code is safe.
+Required controls and the evidence requirement come from the approved policy,
+never from flags the receipt carries about itself. `checkReproReceipt` confirms
+a receipt names the approved content and policy digests. It does not
+authenticate its sender, attest a remote machine or prove code is safe.
 
 ### First backend: macOS Seatbelt
 

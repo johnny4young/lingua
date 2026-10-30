@@ -128,18 +128,23 @@ function validateRuntime(raw: unknown): ReproRuntimeV1 | null {
   return { name, major };
 }
 
-// macOS file systems ignore Unicode normalization, so an NFC and an NFD spelling
-// would stage to one file; only NFC paths are accepted.
+// macOS file systems ignore Unicode normalization and fold case, so two spellings
+// of one name would stage to one file: only NFC is accepted, and collisions are
+// compared case-folded (upper then lower also folds ß and ſ).
 function isNfc(path: string): boolean {
   return path.normalize('NFC') === path;
+}
+
+function collisionKey(path: string): string {
+  return path.toLocaleUpperCase('en-US').toLocaleLowerCase('en-US');
 }
 
 function validateEntry(raw: unknown, files: readonly CapsuleWorkspaceFileInput[]): string | null {
   if (typeof raw !== 'string') return null;
   const entry = normalizeCapsuleWorkspacePath(raw);
   if (!entry || entry !== raw || !isNfc(entry) || !ENTRY_EXTENSION_RE.test(entry)) return null;
-  const key = entry.toLocaleLowerCase('en-US');
-  return files.some(file => file.path.toLocaleLowerCase('en-US') === key) ? null : entry;
+  const key = collisionKey(entry);
+  return files.some(file => collisionKey(file.path) === key) ? null : entry;
 }
 
 function validateCapsule(raw: unknown): { ok: true; value: RunCapsuleV1 } | Rejection {
@@ -176,7 +181,16 @@ function validateFiles(
   const notNfc = files.find(file => typeof file.path === 'string' && !isNfc(file.path));
   if (notNfc) return { ok: false, reason: 'invalid-path', detail: notNfc.path };
   // The workspace guard rejects an empty list; an envelope may have none.
-  return files.length === 0 ? { ok: true, files: [] } : validateCapsuleWorkspaceFileInputs(files);
+  if (files.length === 0) return { ok: true, files: [] };
+  const validated = validateCapsuleWorkspaceFileInputs(files);
+  if (!validated.ok) return validated;
+  const seen = new Set<string>();
+  for (const file of validated.files) {
+    const key = collisionKey(file.path);
+    if (seen.has(key)) return { ok: false, reason: 'duplicate-path', detail: file.path };
+    seen.add(key);
+  }
+  return validated;
 }
 
 export async function buildReproEnvelope(

@@ -7,14 +7,15 @@
  */
 
 import { computeContentHash } from './contentHash';
-import { MAX_STREAM_BYTES } from './runCapsule';
+import { CLI_OUTPUT_PAYLOAD_BYTES } from './capsuleVerification';
 
 const MIB = 1024 * 1024;
 
 /** Schema bounds only; a backend may still refuse a value it cannot enforce. */
 export const REPRO_LIMIT_BOUNDS = {
   wallClockMs: { min: 100, max: 5 * 60_000 },
-  outputBytes: { min: 1, max: MAX_STREAM_BYTES },
+  // The most a supervisor captures before clipping; more could never compare cleanly.
+  outputBytes: { min: 1, max: CLI_OUTPUT_PAYLOAD_BYTES },
   processes: { min: 1, max: 16 },
   memoryBytes: { min: 32 * MIB, max: 8 * 1024 * MIB },
   diskBytes: { min: 1 * MIB, max: 1024 * MIB },
@@ -45,7 +46,7 @@ export const DEFAULT_REPRO_REQUEST: ReproPolicyV1 = {
   network: 'deny',
   limits: {
     wallClockMs: 30_000,
-    outputBytes: MAX_STREAM_BYTES,
+    outputBytes: CLI_OUTPUT_PAYLOAD_BYTES,
     processes: 1,
     memoryBytes: null,
     diskBytes: null,
@@ -89,6 +90,14 @@ export function findUnknownKey(
   return Object.keys(value).find(key => !allowed.includes(key)) ?? null;
 }
 
+/** Name of the first key in `required` that `value` lacks, or null. */
+function findMissingKey(
+  value: Record<string, unknown>,
+  required: readonly string[]
+): string | null {
+  return required.find(key => !Object.hasOwn(value, key)) ?? null;
+}
+
 type LimitName = keyof typeof REPRO_LIMIT_BOUNDS;
 
 function isLimitInRange(name: LimitName, value: unknown): value is number {
@@ -108,13 +117,19 @@ function isWritableArea(value: unknown): value is ReproWritableArea {
 /** Validate an untrusted policy object; unknown keys are rejected, never ignored. */
 export function parseReproPolicy(raw: unknown): ParseReproPolicyResult {
   if (!isRecord(raw)) return { ok: false, reason: 'invalid-shape', detail: 'policy' };
-  const unknown = findUnknownKey(raw, ['filesystem', 'network', 'limits', 'evidence']);
+  const topKeys = ['filesystem', 'network', 'limits', 'evidence'];
+  const unknown = findUnknownKey(raw, topKeys);
   if (unknown) return { ok: false, reason: 'unknown-key', detail: unknown };
+  const missing = findMissingKey(raw, topKeys);
+  if (missing) return { ok: false, reason: 'invalid-shape', detail: missing };
 
   const { filesystem, limits, evidence } = raw;
   if (!isRecord(filesystem)) return { ok: false, reason: 'invalid-shape', detail: 'filesystem' };
-  const unknownFs = findUnknownKey(filesystem, ['inputs', 'scratch', 'output']);
+  const fsKeys = ['inputs', 'scratch', 'output'];
+  const unknownFs = findUnknownKey(filesystem, fsKeys);
   if (unknownFs) return { ok: false, reason: 'unknown-key', detail: `filesystem.${unknownFs}` };
+  const missingFs = findMissingKey(filesystem, fsKeys);
+  if (missingFs) return { ok: false, reason: 'invalid-shape', detail: `filesystem.${missingFs}` };
   if (filesystem.inputs !== 'read-only') {
     return { ok: false, reason: 'unsupported-value', detail: 'filesystem.inputs' };
   }
@@ -132,9 +147,12 @@ export function parseReproPolicy(raw: unknown): ParseReproPolicyResult {
   const limitNames = Object.keys(REPRO_LIMIT_BOUNDS) as LimitName[];
   const unknownLimit = findUnknownKey(limits, limitNames);
   if (unknownLimit) return { ok: false, reason: 'unknown-key', detail: `limits.${unknownLimit}` };
+  const missingLimit = findMissingKey(limits, limitNames);
+  if (missingLimit) {
+    return { ok: false, reason: 'invalid-shape', detail: `limits.${missingLimit}` };
+  }
   for (const name of limitNames) {
     const value = limits[name];
-    if (!(name in limits)) return { ok: false, reason: 'invalid-shape', detail: `limits.${name}` };
     const optional = name === 'memoryBytes' || name === 'diskBytes';
     if (optional && value === null) continue;
     if (!isLimitInRange(name, value)) {
@@ -146,6 +164,9 @@ export function parseReproPolicy(raw: unknown): ParseReproPolicyResult {
   const unknownEvidence = findUnknownKey(evidence, ['denials']);
   if (unknownEvidence) {
     return { ok: false, reason: 'unknown-key', detail: `evidence.${unknownEvidence}` };
+  }
+  if (!Object.hasOwn(evidence, 'denials')) {
+    return { ok: false, reason: 'invalid-shape', detail: 'evidence.denials' };
   }
   if (evidence.denials !== 'required' && evidence.denials !== 'if-available') {
     return { ok: false, reason: 'unsupported-value', detail: 'evidence.denials' };

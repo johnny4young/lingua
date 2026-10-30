@@ -106,6 +106,23 @@ describe('buildReproEnvelope', () => {
       'LIB/Sum.mjs',
     ],
     [
+      'an entry that collides with a supplemental file only after case folding',
+      { entry: 'lib/\u017fum.mjs' },
+      'invalid-entry',
+      'lib/\u017fum.mjs',
+    ],
+    [
+      'two supplemental files that fold to one name',
+      {
+        files: [
+          { ...UTIL_FILE, path: 'lib/stra\u00dfe.mjs' },
+          { ...UTIL_FILE, path: 'lib/STRASSE.mjs' },
+        ],
+      },
+      'duplicate-path',
+      'lib/STRASSE.mjs',
+    ],
+    [
       'an entry spelled in decomposed Unicode (NFD)',
       { entry: 'café.mjs' },
       'invalid-entry',

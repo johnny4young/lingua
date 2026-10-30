@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_REPRO_DENIALS,
+  checkReproReceipt,
   parseReproReceipt,
   summarizeReproReceipt,
   type ReproLaunchedReceiptV1,
   type ReproRefusedReceiptV1,
   type ReproVerdict,
 } from '../../src/shared/reproReceipt';
-import { REPRO_CONTROLS, type ReproControlStatus } from '../../src/shared/reproPolicy';
+import {
+  DEFAULT_REPRO_REQUEST,
+  REPRO_CONTROLS,
+  type ReproControlStatus,
+  type ReproPolicyV1,
+} from '../../src/shared/reproPolicy';
 import { tamperJson } from './jsonTamper';
 
 const DIGEST_A = 'a'.repeat(64);
@@ -207,6 +213,30 @@ describe('parseReproReceipt', () => {
       'missingControls',
     ],
     [
+      'a successful run with a non-zero exit code',
+      () =>
+        tamperJson(launched(), raw => {
+          raw.execution.exitCode = 1;
+        }),
+      'execution',
+    ],
+    [
+      'a successful run ended by a signal',
+      () =>
+        tamperJson(launched(), raw => {
+          raw.execution.signal = 'SIGKILL';
+        }),
+      'execution',
+    ],
+    [
+      'an unenforceable refusal without a probed backend',
+      () =>
+        tamperJson(refused(), raw => {
+          raw.host.backend = null;
+        }),
+      'host',
+    ],
+    [
       'a refused receipt carrying execution',
       () => tamperJson(refused(), raw => Object.assign(raw, { execution: launched().execution })),
       'execution',
@@ -226,11 +256,47 @@ describe('parseReproReceipt', () => {
   });
 });
 
+describe('checkReproReceipt', () => {
+  const approval = { contentDigest: DIGEST_A, policyDigest: DIGEST_B };
+
+  it.each<[string, ReproLaunchedReceiptV1 | ReproRefusedReceiptV1, string]>([
+    ['a receipt bound to the approval', launched(), 'consistent'],
+    ['a refusal bound to the approval', refused(), 'consistent'],
+    ['a receipt for other inputs', launched({ contentDigest: DIGEST_C }), 'content-mismatch'],
+    [
+      'a receipt for another policy',
+      launched({ approvedPolicyDigest: DIGEST_C }),
+      'policy-mismatch',
+    ],
+  ])('reports %s as %s', (_name, receipt, expected) => {
+    expect(checkReproReceipt(receipt, approval)).toBe(expected);
+  });
+});
+
 describe('summarizeReproReceipt', () => {
-  it.each<[string, ReproLaunchedReceiptV1 | ReproRefusedReceiptV1, ReproVerdict]>([
+  /** The macOS outcome for a matching run: enforced, but no denial log to observe. */
+  const UNOBSERVED_PASS: ReproVerdict = {
+    overall: 'pass',
+    output: 'pass',
+    enforcement: 'enforced',
+    compliance: 'not-observed',
+    evidence: 'unavailable',
+  };
+  const EVIDENCE_REQUIRED: ReproPolicyV1 = {
+    ...DEFAULT_REPRO_REQUEST,
+    evidence: { denials: 'required' },
+  };
+  const MEMORY_BOUNDED: ReproPolicyV1 = {
+    ...DEFAULT_REPRO_REQUEST,
+    limits: { ...DEFAULT_REPRO_REQUEST.limits, memoryBytes: 64 * 1024 * 1024 },
+  };
+  const DENIED_READ = { operation: 'file-read', area: 'outside' } as const;
+
+  it.each<[string, ReproLaunchedReceiptV1 | ReproRefusedReceiptV1, ReproPolicyV1, ReproVerdict]>([
     [
       'a refused launch runs nothing',
       refused(),
+      DEFAULT_REPRO_REQUEST,
       {
         overall: 'refused',
         output: 'not-run',
@@ -242,72 +308,81 @@ describe('summarizeReproReceipt', () => {
     [
       'a match with complete evidence and no denials is a clean pass',
       launched({ evidence: { coverage: 'complete', denials: [] } }),
-      {
-        overall: 'pass',
-        output: 'pass',
-        enforcement: 'enforced',
-        compliance: 'clean',
-        evidence: 'complete',
-      },
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, compliance: 'clean', evidence: 'complete' },
     ],
     [
       'a match without denial evidence passes but is not observed as clean',
       launched(),
-      {
-        overall: 'pass',
-        output: 'pass',
-        enforcement: 'enforced',
-        compliance: 'not-observed',
-        evidence: 'unavailable',
-      },
+      DEFAULT_REPRO_REQUEST,
+      UNOBSERVED_PASS,
     ],
     [
       'a caught denial fails even when the output matches',
-      launched({
-        evidence: { coverage: 'complete', denials: [{ operation: 'file-read', area: 'outside' }] },
-      }),
-      {
-        overall: 'fail',
-        output: 'pass',
-        enforcement: 'enforced',
-        compliance: 'violated',
-        evidence: 'complete',
-      },
+      launched({ evidence: { coverage: 'complete', denials: [DENIED_READ] } }),
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'fail', compliance: 'violated', evidence: 'complete' },
     ],
     [
       'a denial in partial evidence still fails',
+      launched({ evidence: { coverage: 'partial', denials: [DENIED_READ] } }),
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'fail', compliance: 'violated', evidence: 'partial' },
+    ],
+    [
+      'a denial fails even when the output was clipped',
       launched({
-        evidence: { coverage: 'partial', denials: [{ operation: 'network', area: 'outside' }] },
+        execution: { ...launched().execution, outputTruncated: true },
+        evidence: { coverage: 'complete', denials: [DENIED_READ] },
       }),
-      {
-        overall: 'fail',
-        output: 'pass',
-        enforcement: 'enforced',
-        compliance: 'violated',
-        evidence: 'partial',
-      },
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'fail', compliance: 'violated', evidence: 'complete' },
     ],
     [
       'an output mismatch fails',
       launched({ comparison: 'fail' }),
-      {
-        overall: 'fail',
-        output: 'fail',
-        enforcement: 'enforced',
-        compliance: 'not-observed',
-        evidence: 'unavailable',
-      },
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'fail', output: 'fail' },
+    ],
+    [
+      'clipped output is incomplete even when the comparison says pass',
+      launched({ execution: { ...launched().execution, outputTruncated: true } }),
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'incomplete' },
+    ],
+    [
+      'a timeout is incomplete rather than an output failure',
+      launched({
+        execution: {
+          ...launched().execution,
+          status: 'timeout',
+          exitCode: null,
+          signal: 'SIGKILL',
+        },
+        comparison: 'fail',
+      }),
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'incomplete', output: 'fail' },
+    ],
+    [
+      'a stopped run is incomplete',
+      launched({
+        execution: {
+          ...launched().execution,
+          status: 'stopped',
+          exitCode: null,
+          signal: 'SIGTERM',
+        },
+        comparison: 'fail',
+      }),
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'incomplete', output: 'fail' },
     ],
     [
       'an inconclusive comparison is incomplete',
       launched({ comparison: 'inconclusive' }),
-      {
-        overall: 'incomplete',
-        output: 'inconclusive',
-        enforcement: 'enforced',
-        compliance: 'not-observed',
-        evidence: 'unavailable',
-      },
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'incomplete', output: 'inconclusive' },
     ],
     [
       'required evidence that is only partial is incomplete',
@@ -315,39 +390,28 @@ describe('summarizeReproReceipt', () => {
         controls: withControl({ control: 'denial-evidence', support: 'enforced', required: true }),
         evidence: { coverage: 'partial', denials: [] },
       }),
-      {
-        overall: 'incomplete',
-        output: 'pass',
-        enforcement: 'enforced',
-        compliance: 'not-observed',
-        evidence: 'partial',
-      },
+      EVIDENCE_REQUIRED,
+      { ...UNOBSERVED_PASS, overall: 'incomplete', evidence: 'partial' },
+    ],
+    [
+      'a receipt that marks required evidence as optional is still judged by the policy',
+      launched(),
+      EVIDENCE_REQUIRED,
+      { ...UNOBSERVED_PASS, overall: 'incomplete', enforcement: 'gaps' },
     ],
     [
       'a failed evidence collector is incomplete even when evidence was optional',
       launched({ evidence: { coverage: 'collection-failed', denials: [] } }),
-      {
-        overall: 'incomplete',
-        output: 'pass',
-        enforcement: 'enforced',
-        compliance: 'not-observed',
-        evidence: 'collection-failed',
-      },
+      DEFAULT_REPRO_REQUEST,
+      { ...UNOBSERVED_PASS, overall: 'incomplete', evidence: 'collection-failed' },
     ],
     [
       'a required control that was only sampled is incomplete',
-      launched({
-        controls: withControl({ control: 'memory-limit', support: 'sampled', required: true }),
-      }),
-      {
-        overall: 'incomplete',
-        output: 'pass',
-        enforcement: 'gaps',
-        compliance: 'not-observed',
-        evidence: 'unavailable',
-      },
+      launched(),
+      MEMORY_BOUNDED,
+      { ...UNOBSERVED_PASS, overall: 'incomplete', enforcement: 'gaps' },
     ],
-  ])('%s', (_name, receipt, expected) => {
-    expect(summarizeReproReceipt(receipt)).toEqual(expected);
+  ])('%s', (_name, receipt, approvedPolicy, expected) => {
+    expect(summarizeReproReceipt(receipt, approvedPolicy)).toEqual(expected);
   });
 });

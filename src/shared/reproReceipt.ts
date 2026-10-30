@@ -8,15 +8,18 @@
  */
 
 import type { CapsuleVerdict } from './capsuleVerification';
-import { normalizeCapsuleWorkspacePath } from './capsuleWorkspace';
+import { containsControlCharacter, normalizeCapsuleWorkspacePath } from './capsuleWorkspace';
+import type { ReproApprovalV1 } from './reproEnvelope';
 import { utf8ByteLength, type RunCapsuleStatus } from './runCapsule';
 import {
   REPRO_CONTROLS,
   findUnknownKey,
   isRecord,
+  requiredReproControls,
   type ReproBackendIdentity,
   type ReproControl,
   type ReproControlStatus,
+  type ReproPolicyV1,
 } from './reproPolicy';
 
 const REPRO_RECEIPT_KIND = 'lingua-repro-receipt' as const;
@@ -119,10 +122,8 @@ function isIdentity(value: unknown): value is string {
     typeof value === 'string' &&
     value.length > 0 &&
     value.length <= MAX_IDENTITY_CHARS &&
-    !Array.from(value).some(character => {
-      const codePoint = character.codePointAt(0) ?? 0;
-      return codePoint <= 0x1f || codePoint === 0x7f || character === '/' || character === '\\';
-    })
+    !containsControlCharacter(value) &&
+    !/[/\\]/u.test(value)
   );
 }
 
@@ -203,7 +204,8 @@ function parseExecution(raw: unknown): ReproExecutionV1 | null {
     !isIsoDate(startedAt) ||
     !isIsoDate(endedAt) ||
     Date.parse(endedAt) < Date.parse(startedAt) ||
-    typeof outputTruncated !== 'boolean'
+    typeof outputTruncated !== 'boolean' ||
+    (status === 'success' && (exitCode !== 0 || signal !== null))
   ) {
     return null;
   }
@@ -295,6 +297,8 @@ export function parseReproReceipt(json: string): ParseReproReceiptResult {
     ) {
       return invalid('missingControls');
     }
+    // Only a probed backend can report which controls it lacks.
+    if (refusalReason === 'unenforceable' && !host.backend) return invalid('host');
     return {
       ok: true,
       value: {
@@ -344,7 +348,26 @@ export interface ReproVerdict {
   readonly evidence: ReproEvidenceCoverage | 'not-run';
 }
 
-export function summarizeReproReceipt(receipt: ReproReceiptV1): ReproVerdict {
+export type ReproReceiptCheck = 'consistent' | 'content-mismatch' | 'policy-mismatch';
+
+/** Whether a receipt describes the reviewed inputs and policy; it authenticates nothing. */
+export function checkReproReceipt(
+  receipt: ReproReceiptV1,
+  approval: ReproApprovalV1
+): ReproReceiptCheck {
+  if (receipt.contentDigest !== approval.contentDigest) return 'content-mismatch';
+  if (receipt.approvedPolicyDigest !== approval.policyDigest) return 'policy-mismatch';
+  return 'consistent';
+}
+
+/**
+ * Required controls come from the approved policy, never from the receipt's own
+ * flags. Check the receipt against the approval with `checkReproReceipt` first.
+ */
+export function summarizeReproReceipt(
+  receipt: ReproReceiptV1,
+  approvedPolicy: ReproPolicyV1
+): ReproVerdict {
   if (receipt.launch === 'refused') {
     return {
       overall: 'refused',
@@ -354,8 +377,11 @@ export function summarizeReproReceipt(receipt: ReproReceiptV1): ReproVerdict {
       evidence: 'not-run',
     };
   }
-  const { controls, comparison, evidence } = receipt;
-  const enforcement = controls.every(status => !status.required || status.support === 'enforced')
+  const { controls, comparison, evidence, execution } = receipt;
+  const required = requiredReproControls(approvedPolicy);
+  const enforcement = required.every(
+    control => controls.find(status => status.control === control)?.support === 'enforced'
+  )
     ? 'enforced'
     : 'gaps';
   const compliance =
@@ -364,18 +390,22 @@ export function summarizeReproReceipt(receipt: ReproReceiptV1): ReproVerdict {
       : evidence.coverage === 'complete'
         ? 'clean'
         : 'not-observed';
-  const evidenceRequired = controls.some(
-    status => status.control === 'denial-evidence' && status.required
-  );
+  // Mirrors strict CLI verification: clipped or interrupted output is missing evidence.
+  const executionIncomplete =
+    execution.outputTruncated || execution.status === 'timeout' || execution.status === 'stopped';
 
   let overall: ReproVerdict['overall'];
-  if (compliance === 'violated' || comparison === 'fail') {
+  if (compliance === 'violated') {
+    overall = 'fail';
+  } else if (executionIncomplete) {
+    overall = 'incomplete';
+  } else if (comparison === 'fail') {
     overall = 'fail';
   } else if (
     enforcement === 'gaps' ||
     comparison === 'inconclusive' ||
     evidence.coverage === 'collection-failed' ||
-    (evidenceRequired && evidence.coverage !== 'complete')
+    (approvedPolicy.evidence.denials === 'required' && evidence.coverage !== 'complete')
   ) {
     overall = 'incomplete';
   } else {
