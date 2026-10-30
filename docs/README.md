@@ -37,6 +37,7 @@ planning is intentionally excluded from the published repository.
 - [`LOCAL_AI_ADR.md`](./LOCAL_AI_ADR.md) — consent-first, bring-your-own-endpoint AI.
 - [`PROJECT_TEST_RUNNER_ADR.md`](./PROJECT_TEST_RUNNER_ADR.md) — capability-scoped test discovery, fixed-command desktop execution, per-test results and scoped runs.
 - [`NOTEBOOK_DOCUMENTS.md`](./NOTEBOOK_DOCUMENTS.md) — manual project-file notebook Open/Save/Save As, conflicts and recovery.
+- [`PERMISSIONED_REPRO_ADR.md`](./PERMISSIONED_REPRO_ADR.md) — proposed envelope, policy, receipt and macOS-first backend for running a reproduction under an approved permission set.
 - [`PYTHON_NOTEBOOK_KERNEL_ADR.md`](./PYTHON_NOTEBOOK_KERNEL_ADR.md) — per-notebook Python state and isolation.
 - [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) — vendored runtime integrity and remote oversized assets.
 - [`RUNTIME_MODES_ADR.md`](./RUNTIME_MODES_ADR.md) — worker, desktop Node, Deno, Bun, and browser-preview execution.

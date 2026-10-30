@@ -94,7 +94,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function containsControlCharacter(value: string): boolean {
+export function containsControlCharacter(value: string): boolean {
   return Array.from(value).some(character => {
     const codePoint = character.codePointAt(0) ?? 0;
     return codePoint <= 0x1f || codePoint === 0x7f;
@@ -137,7 +137,8 @@ export function normalizeCapsuleWorkspacePath(rawPath: string): string | null {
   return parts.join('/');
 }
 
-function validateFileInputs(files: readonly CapsuleWorkspaceFileInput[]):
+/** Path, language, duplicate and size guards shared with other multi-file artifacts. */
+export function validateCapsuleWorkspaceFileInputs(files: readonly CapsuleWorkspaceFileInput[]):
   | { readonly ok: true; readonly files: readonly CapsuleWorkspaceFileInput[] }
   | {
       readonly ok: false;
@@ -194,7 +195,7 @@ export async function buildCapsuleWorkspace(
   if (!Array.isArray(files)) {
     return { ok: false, reason: 'invalid-shape', detail: 'files' };
   }
-  const validated = validateFileInputs(files);
+  const validated = validateCapsuleWorkspaceFileInputs(files);
   if (!validated.ok) return validated;
   if (!Number.isFinite(createdAtMs)) {
     return { ok: false, reason: 'invalid-shape', detail: 'createdAt' };
@@ -332,7 +333,7 @@ export function parseCapsuleWorkspace(json: string): ParseCapsuleWorkspaceResult
     inputs.push({ path: file.path, language: file.language, content: file.content });
     hashes.push(file.contentHash);
   }
-  const validated = validateFileInputs(inputs);
+  const validated = validateCapsuleWorkspaceFileInputs(inputs);
   if (!validated.ok) return validated;
 
   const files = validated.files.map((file, index) => ({
