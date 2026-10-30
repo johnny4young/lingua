@@ -29,6 +29,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - Files opened from a project start in Run mode, so Scratchpad no longer executes a module on its own the moment it opens. Loose tabs keep the per-language default.
+- The Explorer header keeps New file and New folder, and moves Collapse all folders, the project tests and terminal actions, Refresh and Export project as zip into a ⋯ menu, so the project name fits.
 - Less filler text: Settings sections, the empty editor, the Console, Utilities, the Command Palette, Quick Open, SQL and HTTP empty states, What's New and several dialogs drop taglines and hints that restated their labels. Settings loses its footer bar and Esc chip; commands in the palette show a second line only when it states a requirement or status. Settings search still finds rows by those words.
 - Selected and highlighted rows no longer draw a coloured strip on their left edge. The Settings rail, the Explorer's open file, SQL queries, history and explorer objects, the slowest plan step, the next input line and the active notebook cell use a background tint and heavier text instead; Compare tints changed rows by kind.
 - Settings › Privacy lists each AI send with where it went and no content, and its AI row now reads enabled once a model is set, plus a key for My endpoint. PRIVACY.md explains what each AI feature sends and where, for Local and for My endpoint.

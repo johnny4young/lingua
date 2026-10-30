@@ -2516,6 +2516,7 @@
   "fileTree.actions.exportProject": "Export project as zip",
   "fileTree.actions.projectTests": "Detect and run project tests",
   "fileTree.actions.projectTerminal": "Open project terminal",
+  "fileTree.actions.more": "More project actions",
   "fileTree.emptyState.title": "Project explorer",
   "fileTree.emptyState.noProject": "No project open",
   "fileTree.emptyState.createProject": "Create project",
