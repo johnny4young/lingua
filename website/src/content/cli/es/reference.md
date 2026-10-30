@@ -16,6 +16,9 @@ Esta referencia sigue el mismo catálogo estructurado que genera `lingua --help`
 | `lingua capsule validate <file>` | Valida una `RunCapsuleV1` sin ejecutarla. |
 | `lingua capsule replay <file>` | Verifica y repite una Capsule confiable de una sola fuente. |
 | `lingua capsule verify <file>` | Comparación estricta del source capturado; comando de build desde source, aún no publicado. |
+| `lingua repro pack <capsule> --entry <path>` | Empaqueta una Capsule de JavaScript y los archivos que elijas en un sobre de reproducción; experimental. |
+| `lingua repro review <envelope>` | Muestra lo que pide una reproducción y su token de aprobación; no ejecuta nada. |
+| `lingua repro run <envelope> --approve <token>` | Ejecuta una reproducción aprobada dentro de un backend de contención, o la rechaza; experimental. |
 | `lingua run <file-or-directory>` | Ejecuta un archivo o proyecto convencional. |
 | `lingua list utilities` | Imprime el registro actual de utilidades. |
 | `lingua completion [bash\|zsh\|fish\|install]` | Detecta e instala autocompletado o genera el script de un shell. |
@@ -31,6 +34,10 @@ Esta referencia sigue el mismo catálogo estructurado que genera `lingua --help`
 | `--stdin <file>` | `run` | Envía el contenido del archivo como stdin. |
 | `--timeout <ms>` | `run`, `capsule replay`, `capsule verify` | Detiene después de 100–300000 ms. |
 | `--env NAME=value` | `run`, `capsule replay`, `capsule verify` | Repítela para agregar una variable explícita. |
+| `--entry <path>` | `repro pack` | Ruta relativa `.mjs` o `.cjs` donde queda el código de la Capsule. |
+| `--file <path>` | `repro pack` | Repítela para agregar un archivo, relativo a `--root`. |
+| `--node <major>` | `repro pack` | Versión mayor de Node.js que pide la reproducción. |
+| `--approve <token>` | `repro run` | Token de aprobación que imprime `repro review`. |
 | `--json` | comandos con datos | Emite un documento JSON estructurado. |
 | `--quiet` | comandos con datos | Oculta diagnósticos de Lingua, no la salida del comando. |
 | `--yes` | `completion` | Aprueba los cambios detectados sin pedir confirmación. |
@@ -84,3 +91,7 @@ Las guías prácticas documentan los envelopes correctos específicos. Los códi
 `lingua capsule verify-suite <suite> --root <directory> --json`
 
 `--target <file>` ejecuta el archivo relativo guardado actual igual que el código capturado (mismo modo de runtime y directorio de trabajo del baseline); `--root <directory>` limita los destinos de la suite y usa el directorio actual por defecto. La suite v1 contiene baselines completos sin cambios, ejecuta hasta 20 casos/4 MiB en serie con un presupuesto total de cinco minutos y devuelve verdict estricto por caso. Importar o mostrar una vista previa nunca ejecuta código. Disponible desde el CLI 1.6.0.
+
+## Reproducciones con permisos (experimental, compilaciones desde código)
+
+`lingua repro pack <capsule> --entry main.mjs --file lib/sum.mjs --root <directory> > repro.json` empaqueta una Capsule de JavaScript y los archivos que elijas en un sobre que niega la red y solo permite escrituras desechables. Se rechaza un archivo que un enlace simbólico saca de la raíz o que no es UTF-8. `lingua repro review repro.json` revisa cada hash, lista los controles obligatorios e imprime un token de aprobación sin ejecutar nada. `lingua repro run repro.json --approve <token> --json` se niega antes de lanzar salvo que un backend de contención aplique cada control obligatorio; todavía no hay ninguno, así que siempre se niega: código 1 si la aprobación ya no corresponde y 3 en los demás casos, con el recibo del rechazo en stdout.

@@ -16,6 +16,9 @@ This reference follows the same structured catalog used to generate `lingua --he
 | `lingua capsule validate <file>` | Validate a `RunCapsuleV1` without execution. |
 | `lingua capsule replay <file>` | Verify and replay a trusted single-source Capsule. |
 | `lingua capsule verify <file>` | Strict captured-source comparison; source-build / unreleased command. |
+| `lingua repro pack <capsule> --entry <path>` | Wrap a JavaScript Capsule and chosen files into a reproduction envelope; experimental. |
+| `lingua repro review <envelope>` | Show what a reproduction asks for and its approval token; executes nothing. |
+| `lingua repro run <envelope> --approve <token>` | Run an approved reproduction in a containment backend, or refuse; experimental. |
 | `lingua run <file-or-directory>` | Execute a source file or conventional project root. |
 | `lingua list utilities` | Print the live utility registry. |
 | `lingua completion [bash\|zsh\|fish\|install]` | Detect and install completions, or generate one shell script. |
@@ -31,6 +34,10 @@ This reference follows the same structured catalog used to generate `lingua --he
 | `--stdin <file>` | `run` | Forward file contents as program stdin. |
 | `--timeout <ms>` | `run`, `capsule replay`, `capsule verify` | Stop after 100–300000 ms. |
 | `--env NAME=value` | `run`, `capsule replay`, `capsule verify` | Repeat to add an explicit environment value. |
+| `--entry <path>` | `repro pack` | Relative `.mjs` or `.cjs` path the capsule source is staged at. |
+| `--file <path>` | `repro pack` | Repeat to add a supplemental file, relative to `--root`. |
+| `--node <major>` | `repro pack` | Node.js major the reproduction requests. |
+| `--approve <token>` | `repro run` | Approval token printed by `repro review`. |
 | `--json` | data-producing commands | Emit one structured JSON document. |
 | `--quiet` | data-producing commands | Suppress Lingua diagnostics, not command output. |
 | `--yes` | `completion` | Approve detected completion changes without prompting. |
@@ -84,3 +91,7 @@ Command-specific success envelopes are documented in the task guides. Existing e
 `lingua capsule verify-suite <suite> --root <directory> --json`
 
 `--target <file>` runs the current saved relative file exactly like captured source (baseline runtime mode and working directory); `--root <directory>` constrains suite targets and defaults to cwd. Suite v1 embeds complete unchanged baselines, runs at most 20 cases/4 MiB serially with a five-minute total budget, and reports per-case strict verdicts. Import/preview never executes. Available in CLI 1.6.0 and later.
+
+## Permissioned reproductions (experimental, source builds)
+
+`lingua repro pack <capsule> --entry main.mjs --file lib/sum.mjs --root <directory> > repro.json` wraps a JavaScript Capsule and chosen files into an envelope that denies network and allows only disposable writes. A file that a symbolic link takes outside the root, or that is not UTF-8, is refused. `lingua repro review repro.json` checks every hash, lists the required controls and prints an approval token without executing anything. `lingua repro run repro.json --approve <token> --json` refuses before launch unless a containment backend enforces every required control; none ships yet, so it always refuses: exit 1 for a stale approval, exit 3 otherwise, with the refusal receipt on stdout.
