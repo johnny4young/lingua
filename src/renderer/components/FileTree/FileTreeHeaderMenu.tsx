@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { IconButton } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
 
+const MIN_WIDTH = 220;
+
 export interface FileTreeHeaderAction {
   id: string;
   label: string;
@@ -72,8 +74,11 @@ export function FileTreeHeaderMenu({ actions }: { actions: FileTreeHeaderAction[
           role="menu"
           aria-label={t('fileTree.actions.more')}
           onKeyDown={onKeyDown}
-          style={{ maxWidth }}
-          className="dropdown-rich absolute right-0 top-[calc(100%+0.4rem)] z-50 w-max min-w-[220px]"
+          style={{ maxWidth, minWidth: Math.min(MIN_WIDTH, maxWidth ?? MIN_WIDTH) }}
+          onBlur={event => {
+            if (!rootRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
+          }}
+          className="dropdown-rich absolute right-0 top-[calc(100%+0.4rem)] z-50 w-max"
         >
           {actions.map(action => (
             <button

@@ -160,7 +160,7 @@ export function createDocumentOpenActions(
         filePath,
         // Same JS/TS default mode as openFile().
         runtimeMode: runtimeModeForNewTab(language),
-        // Same per-language workflow-mode default.
+        // A file picked on its own keeps the Settings workflow default, unlike a project file.
         workflowMode: workflowModeForNewTab(language),
       };
 

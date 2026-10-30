@@ -146,6 +146,17 @@ describe('TestsPanel', () => {
     await waitFor(() => expect(screen.getByTestId('tests-counts').textContent).toBe('2 aprobadas1 fallida1 omitida'));
   });
 
+  it('shows the message in the list when the failing file cannot be opened', async () => {
+    openProject();
+    installBridge();
+    useEditorStore.setState({ openFile: vi.fn().mockRejectedValue(new Error('gone')), requestReveal: vi.fn(), clearPendingReveal: vi.fn() });
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await user.click(await screen.findByTestId('tests-run-all'));
+    await user.click(await screen.findByText('rounds cents'));
+    expect((await screen.findByTestId('tests-failure')).textContent).toBe('expected 1211 to be 1210.5');
+  });
+
   it('keeps the message in the list when the runner gave no location', async () => {
     openProject();
     const bridge = installBridge();

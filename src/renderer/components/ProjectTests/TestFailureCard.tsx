@@ -24,7 +24,9 @@ export function TestFailureCard({ editor, monaco }: TestFailureCardProps) {
   const entry = useProjectTestStore(state => {
     const focused = state.focusedFailure;
     return focused
-      ? state.cases?.find(test => test.file === focused.file && test.path.join('\u0000') === focused.path.join('\u0000'))
+      ? state.cases?.find(
+          test => test.file === focused.file && test.path.length === focused.path.length && test.path.every((part, index) => part === focused.path[index])
+        )
       : undefined;
   });
   const rootId = useProjectTestStore(state => state.rootId);
@@ -67,7 +69,9 @@ export function TestFailureCard({ editor, monaco }: TestFailureCardProps) {
     fit();
     const layout = editor.onDidLayoutChange(fit);
     const keys = editor.onKeyDown(event => {
-      if (event.browserEvent.key === 'Escape') useProjectTestStore.getState().focusFailure(null);
+      // Esc first closes whatever editor widget is open (suggestions, find, hints).
+      const widgetOpen = editor.getDomNode()?.querySelector('.suggest-widget.visible, .find-widget.visible, .parameter-hints-widget.visible');
+      if (event.browserEvent.key === 'Escape' && !widgetOpen) useProjectTestStore.getState().focusFailure(null);
     });
     return () => {
       layout.dispose();

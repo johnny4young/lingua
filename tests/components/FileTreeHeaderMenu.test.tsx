@@ -45,5 +45,20 @@ describe('FileTreeHeaderMenu', () => {
     await user.click(trigger);
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole('menu')).toBeNull();
+
+    await user.click(trigger);
+    await user.keyboard('{End}');
+    await user.tab();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('stays inside the space left of its trigger on a narrow sidebar', async () => {
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ right: 150 } as DOMRect);
+    render(<FileTreeHeaderMenu actions={actions()} />);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'More project actions' }));
+    const menu = screen.getByRole('menu');
+    expect(menu.style.maxWidth).toBe('142px');
+    expect(menu.style.minWidth).toBe('142px');
+    rect.mockRestore();
   });
 });

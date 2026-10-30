@@ -11,6 +11,8 @@ import { asRootId } from '../../src/shared/fs/brandedIds';
 const initialEditor = useEditorStore.getState();
 const initialTests = useProjectTestStore.getState();
 
+const editorNode = document.createElement('div');
+
 function fakeEditor() {
   const zones: Array<{ afterLineNumber: number; heightInPx: number }> = [];
   const widgets: monacoTypes.editor.IContentWidget[] = [];
@@ -18,6 +20,7 @@ function fakeEditor() {
   const disposable = { dispose: vi.fn() };
   const editor = {
     getModel: () => ({ getLineCount: () => 20 }),
+    getDomNode: () => editorNode,
     changeViewZones: (callback: (accessor: { addZone: (zone: never) => string; removeZone: (id: string) => void }) => void) =>
       callback({
         addZone: zone => {
@@ -137,6 +140,11 @@ describe('TestFailureCard', () => {
       { kind: 'test', file: 'cart/total.test.ts', path: ['cartTotal', 'rounds cents'] }
     );
 
+    // Esc goes to an open suggestion list first.
+    editorNode.innerHTML = '<div class="suggest-widget visible"></div>';
+    act(() => fake.pressEscape());
+    expect(useProjectTestStore.getState().focusedFailure).not.toBeNull();
+    editorNode.innerHTML = '';
     act(() => fake.pressEscape());
     expect(useProjectTestStore.getState().focusedFailure).toBeNull();
 

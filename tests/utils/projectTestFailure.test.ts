@@ -7,6 +7,7 @@ describe('summarizeProjectTestFailure', () => {
     ['Vitest deep', "AssertionError: expected [ 1, 2 ] to deeply equal [ 1, 3 ]", 'expected [ 1, 2 ] to deeply equal [ 1, 3 ]', '[ 1, 2 ]', '[ 1, 3 ]'],
     ['Jest', 'Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 1210.5\nReceived: 1211', 'expect(received).toBe(expected) // Object.is equality', '1211', '1210.5'],
     ['pytest', 'assert 1211 == 1210.5', 'assert 1211 == 1210.5', '1211', '1210.5'],
+    ['pytest with the exception name', 'AssertionError: assert 1211 == 1210.5', 'assert 1211 == 1210.5', '1211', '1210.5'],
     ['Cargo', 'assertion `left == right` failed: rounding\n  left: 4\n right: 5', 'assertion `left == right` failed: rounding', '4', '5'],
     ['Go', 'total_test.go:9: expected 1210.5 but got 1000.42', 'expected 1210.5 but got 1000.42', '1000.42', '1210.5'],
     ['Go got/want', 'total_test.go:9: got 3, want 4', 'got 3, want 4', '3', '4'],

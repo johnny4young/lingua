@@ -38,7 +38,7 @@ const PATTERNS: Array<(message: string) => [string, string] | null> = [
   },
   // pytest assertion rewriting: assert actual == expected
   message => {
-    const match = /^assert (.+?) == (.+)$/mu.exec(message);
+    const match = /^(?:\w*Error:\s*)?assert (.+?) == (.+)$/mu.exec(message);
     return match ? [match[1]!, match[2]!] : null;
   },
   // Hand-written Go messages

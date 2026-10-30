@@ -174,6 +174,8 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const detect = useProjectTestStore(state => state.detect);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [selected, setSelected] = useState<string | null>(null);
+  // A located failure whose file could not be opened keeps its message in the list.
+  const [unopened, setUnopened] = useState<string | null>(null);
   const [outputOpen, setOutputOpen] = useState(false);
 
   const running = status === 'running';
@@ -398,7 +400,10 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                               onClick={() => {
                                 if (opensInEditor(entry)) {
                                   setSelected(key);
-                                  void openTestFailure(entry);
+                                  setUnopened(null);
+                                  void openTestFailure(entry).then(opened => {
+                                    if (!opened) setUnopened(key);
+                                  });
                                 } else setSelected(isSelected ? null : key);
                               }}
                               className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 text-left">
@@ -432,7 +437,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                               </button>
                             ) : null}
                           </div>
-                          {isSelected && entry.failureMessage && !opensInEditor(entry) ? (
+                          {isSelected && entry.failureMessage && (!opensInEditor(entry) || unopened === key) ? (
                             <pre className="mx-4 mb-2 ml-11 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-micro text-fg-base" data-testid="tests-failure">
                               {entry.failureMessage}
                             </pre>
