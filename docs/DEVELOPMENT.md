@@ -594,12 +594,16 @@ dialog. This does not replace normal rendering or release-package acceptance.
 
 ### Project-test observed-output smoke
 
-After building desktop bundles, run
+After building desktop bundles (`pnpm run build:desktop-bundles`), run
 `node scripts/smoke-project-test-output.mjs [path-to-electron-executable]`.
 It launches the real main/preload with a local Vite renderer, an isolated profile,
 and a disposable project whose host Node process emits interleaved stdout/stderr.
-It checks live and final order, failure then recovery, EN/light and ES/dark,
-1024/1280/1440 widths and native 100/125/200% zoom, with zero renderer errors.
+It opens the Tests dock tab from the Explorer header, runs all tests with the
+output expanded, and checks that the live output reads `first`, `warning`, `last`
+while the run is still going, that the run ends failed with the same final
+order, and that a later passing run recovers. It covers EN/light and ES/dark,
+1024/1280/1440 widths and native 100/125/200% zoom, requiring the output to stay
+inside the window and uncovered, with zero renderer errors.
 Screenshots and results are in `output/playwright/project-test-output-ui/`.
 The picker is stubbed to the explicit fixture; execution and IPC are not stubbed.
 This complements the packaged Vitest/Jest and release-fuse smoke, not replaces it.
