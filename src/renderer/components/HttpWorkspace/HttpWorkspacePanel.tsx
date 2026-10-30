@@ -323,6 +323,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         tone: 'warning',
         messageKey: 'httpWorkspace.chain.confirm',
         values: { name: requestLabel(request), origin },
+        sticky: true,
         actions: [{ labelKey: 'httpWorkspace.chain.confirmSend', onClick: () => settle(true) }],
         // The CTA dismisses the notice before its click runs; every other close cancels.
         onDismiss: mode => {

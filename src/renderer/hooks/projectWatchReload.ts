@@ -149,6 +149,7 @@ async function pushReloadNotice(tabId: string): Promise<void> {
       ? 'git.externalReload.dirty.body'
       : 'git.externalReload.clean.body',
     values: { fileName: candidate.tabName },
+    sticky: true,
     actions: [
       {
         labelKey: candidate.isDirty
@@ -177,6 +178,7 @@ function pushBatchedReloadNotice(tabIds: ReadonlyArray<string>): void {
     tone: 'warning',
     messageKey: 'git.externalReload.batch.body',
     values: { count: tabs.length },
+    sticky: true,
     actions: [
       {
         labelKey: 'git.externalReload.batch.action',

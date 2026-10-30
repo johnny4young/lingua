@@ -50,15 +50,15 @@ function pushRecoveryNotice(
   retryDetection: RetryDetection,
   messageKey: RecoveryMessageKey
 ): void {
-  const currentNotice = useUIStore.getState().statusNotice;
-  if (
-    (currentNotice?.messageKey === 'nativeToolchain.missing.message' ||
-      currentNotice?.messageKey === 'nativeToolchain.retry.stillMissing' ||
-      currentNotice?.messageKey === 'nativeToolchain.retry.checkFailed') &&
-    currentNotice.values?.toolchain === spec.label
-  ) {
-    return;
-  }
+  const { statusNotice, statusNoticeQueue } = useUIStore.getState();
+  const alreadyShown = [statusNotice, ...statusNoticeQueue].some(
+    notice =>
+      (notice?.messageKey === 'nativeToolchain.missing.message' ||
+        notice?.messageKey === 'nativeToolchain.retry.stillMissing' ||
+        notice?.messageKey === 'nativeToolchain.retry.checkFailed') &&
+      notice.values?.toolchain === spec.label
+  );
+  if (alreadyShown) return;
 
   useUIStore.getState().pushStatusNotice({
     tone: 'warning',
@@ -66,6 +66,7 @@ function pushRecoveryNotice(
     // onboarding priority so a first-run toast cannot silently discard the
     // install/retry path; same-priority notices replace in arrival order.
     priority: 'high',
+    sticky: true,
     messageKey,
     values: { toolchain: spec.label },
     actions: [

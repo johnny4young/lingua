@@ -7,6 +7,7 @@
  * synchronously before React renders so the chrome does not jump after mount.
  */
 import { create } from 'zustand';
+import { advanceSlots, pushToSlots } from './statusNoticeQueue';
 
 export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
 export type BottomPanelTab =
@@ -65,26 +66,7 @@ export interface StatusNoticeAction {
 
 export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
 
-/**
- * Priority tier for notice replacement.
- *
- * Surfaced during pre-commit review: the
- * onboarding first-run toast was being clobbered within ~600 ms by
- * an unrelated boot-time notice push, so fresh-install users never
- * saw the Save-as-snippet CTA. The 134 existing `pushStatusNotice`
- * callers all run at the implicit `'normal'` tier, which preserves
- * the prior "last writer wins" behaviour. Onboarding pushes
- * `'high'`; `pushStatusNotice` refuses to overwrite an outstanding
- * `'high'` notice with a `'normal'` one and instead drops the
- * incoming notice silently (it still emits its own `onDismiss('auto')`
- * for telemetry attribution). Errors, warnings and explicit dismiss
- * paths always win regardless of priority.
- *
- * `'low'` is reserved for future ambient surfaces (telemetry
- * heartbeats, idle background hints) so they can never displace
- * either onboarding (`'high'`) or routine product feedback
- * (`'normal'`).
- */
+/** Queue order: `'high'` waits ahead of `'normal'`, which waits ahead of `'low'`. See docs/STATUS_NOTICE_PRIORITY_ADR.md. */
 type StatusNoticePriority = 'low' | 'normal' | 'high';
 
 export interface StatusNotice {
@@ -113,6 +95,8 @@ export interface StatusNotice {
    * Incoming errors and warnings always bypass the priority check.
    */
   priority?: StatusNoticePriority;
+  /** Stays until acted on instead of leaving after 8 s; for notices that ask a decision. Errors always do. */
+  sticky?: boolean;
   /**
    * Optional callback fired when this
    * notice REFUSES a lower-priority replacement attempt. Lets the
@@ -241,6 +225,8 @@ interface UIState {
   setActiveBottomPanel: (tab: BottomPanelTab) => void;
   setSidebarVisible: (v: boolean) => void;
   setConsoleVisible: (v: boolean) => void;
+  /** Notices waiting for the visible one to go, in the order they will show. */
+  statusNoticeQueue: StatusNotice[];
   pushStatusNotice: (notice: Omit<StatusNotice, 'id'>) => void;
   /**
    * `mode` records how the dismiss happened so the
@@ -262,14 +248,13 @@ interface UIState {
 
 let statusNoticeCounter = 0;
 
-/**
- * Priority comparator helper. `'high'` >
- * `'normal'` > `'low'`. Pure function for testability.
- */
-function priorityRank(priority: StatusNoticePriority): number {
-  if (priority === 'high') return 2;
-  if (priority === 'low') return 0;
-  return 1;
+/** The pusher learns once how its notice went away; a throwing callback never blocks the queue. */
+function notifyDismiss(notice: StatusNotice, mode: StatusNoticeDismissMode): void {
+  try {
+    notice.onDismiss?.(mode);
+  } catch {
+    // onDismiss is fire-and-forget.
+  }
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -277,6 +262,7 @@ export const useUIStore = create<UIState>((set) => ({
   consoleVisible: true,
   activeBottomPanel: 'console',
   statusNotice: null,
+  statusNoticeQueue: [],
   actionPillPosition: readPersistedPosition(ACTION_PILL_POSITION_KEY),
   commandBarDocked: readPersistedBoolean(COMMAND_BAR_DOCKED_KEY, true),
   variablesCardPosition: readPersistedPosition(VARIABLES_CARD_POSITION_KEY),
@@ -298,73 +284,28 @@ export const useUIStore = create<UIState>((set) => ({
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {
-    // priority-respecting replacement.
-    // A `'normal'` (the implicit default for the 134 legacy callers)
-    // notice CANNOT overwrite an outstanding `'high'` notice. The
-    // incoming notice is dropped and its own `onDismiss('auto')`
-    // fires so the pusher's telemetry stays honest. Errors and warnings
-    // override priority — a real problem always reaches the user.
-    const previous = useUIStore.getState().statusNotice;
-    const incomingPriority: StatusNoticePriority = notice.priority ?? 'normal';
-    const outstandingPriority: StatusNoticePriority =
-      previous?.priority ?? 'normal';
-    const incomingBypassesPriority = notice.tone === 'error' || notice.tone === 'warning';
-    if (
-      previous &&
-      !incomingBypassesPriority &&
-      priorityRank(incomingPriority) < priorityRank(outstandingPriority)
-    ) {
-      // Outstanding notice has strictly higher priority and the
-      // incoming push is not an error — refuse the swap. Fire the
-      // incoming notice's onDismiss so the pusher knows it was
-      // never visible, AND fire the outstanding notice's optional
-      // onSurvived callback so the surviving pusher can attribute
-      // telemetry (`onboarding.toast_clobbered` records the survived
-      // stage so we can correlate clobber attempts to choreography
-      // stage).
-      if (notice.onDismiss) {
-        try {
-          notice.onDismiss('auto');
-        } catch {
-          // onDismiss is fire-and-forget.
-        }
-      }
-      if (previous.onSurvived) {
-        try {
-          previous.onSurvived();
-        } catch {
-          // onSurvived is fire-and-forget.
-        }
-      }
-      return;
-    }
-    // If a previous notice is still up when a new one
-    // arrives (race between toast 1 + toast 2), close the outgoing
-    // notice as `'auto'` so the pusher's telemetry doesn't lose the
-    // signal. Mirrors the spec edge-case "toast 2 reemplaza toast 1
-    // limpiamente, NO stacking de banners".
-    if (previous?.onDismiss) {
-      try {
-        previous.onDismiss('auto');
-      } catch {
-        // Swallow — the new notice still has to land. The onDismiss
-        // contract is fire-and-forget.
-      }
-    }
     statusNoticeCounter += 1;
-    set({ statusNotice: { ...notice, id: statusNoticeCounter } });
+    const state = useUIStore.getState();
+    const change = pushToSlots(
+      { visible: state.statusNotice, queue: state.statusNoticeQueue },
+      { ...notice, id: statusNoticeCounter }
+    );
+    set({ statusNotice: change.slots.visible, statusNoticeQueue: change.slots.queue });
+    for (const dropped of change.dropped) notifyDismiss(dropped, 'auto');
+    if (change.survived?.onSurvived) {
+      try {
+        change.survived.onSurvived();
+      } catch {
+        // onSurvived is fire-and-forget.
+      }
+    }
   },
   dismissStatusNotice: (mode: StatusNoticeDismissMode = 'manual') => {
-    const previous = useUIStore.getState().statusNotice;
-    if (!previous) return;
-    if (previous.onDismiss) {
-      try {
-        previous.onDismiss(mode);
-      } catch {
-        // Swallow — the notice still has to clear.
-      }
-    }
-    set({ statusNotice: null });
+    const state = useUIStore.getState();
+    if (!state.statusNotice) return;
+    const next = advanceSlots({ visible: state.statusNotice, queue: state.statusNoticeQueue });
+    set({ statusNotice: next.visible, statusNoticeQueue: next.queue });
+    notifyDismiss(state.statusNotice, mode);
   },
   setActionPillPosition: (pos) => {
     writePersisted(ACTION_PILL_POSITION_KEY, pos);
