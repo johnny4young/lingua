@@ -50,6 +50,22 @@ printf '%s\\n' "\${COMPREPLY[@]}"
     expect(result.stdout.trim()).toBe('json-format');
   });
 
+  it.each([
+    [['lingua', 'repro', 'pa'], 'pack'],
+    [['lingua', 'repro', 'pack', '--en'], '--entry'],
+    [['lingua', 'repro', 'run', '--ap'], '--approve'],
+  ])('completes %j in bash', (words, expected) => {
+    const script = `${renderCompletion('bash')}
+COMP_WORDS=(${words.join(' ')})
+COMP_CWORD=${words.length - 1}
+_lingua
+printf '%s\\n' "\${COMPREPLY[@]}"
+`;
+    const result = spawnSync('bash', [], { input: script, encoding: 'utf8' });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout.trim()).toBe(expected);
+  });
+
   it('passes zsh syntax validation when zsh is installed', () => {
     const available = spawnSync('zsh', ['--version'], { encoding: 'utf8' }).status === 0;
     if (!available) return;

@@ -112,6 +112,16 @@ never from flags the receipt carries about itself. `checkReproReceipt` confirms
 a receipt names the approved content and policy digests. It does not
 authenticate its sender, attest a remote machine or prove code is safe.
 
+### CLI surface
+
+`lingua repro pack` builds an envelope from a capsule and chosen files,
+`lingua repro review` verifies it and prints an approval token (SHA-256 over
+the content and approved-policy digests), and `lingua repro run` needs that
+token. The local ceiling is the default request until it becomes configurable,
+so approval currently equals the request or something narrower. Backends plug
+in through `src/cli/runtime/containment.ts`; a probe that throws counts as no
+backend. Until one can launch, `run` always refuses with a receipt.
+
 ### First backend: macOS Seatbelt
 
 The issue proposed Windows with Microsoft Execution Containers first. The first

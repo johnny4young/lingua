@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { CLI_EXIT_CODES } from '../../src/cli/exit-codes';
 import { dispatch } from '../../src/cli/lingua';
+import { parseReproEnvelope } from '../../src/shared/reproEnvelope';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 import { createFakeIo } from './io-fake';
 
@@ -142,6 +143,63 @@ describe('dispatch', () => {
       ok: true,
       comparison: { matches: true },
       run: { stdout: '3\n' },
+    });
+  });
+});
+
+describe('dispatch repro', () => {
+  const files = {
+    [path.join('/work', 'run.capsule.json')]: JSON.stringify(FIXTURE_MINIMAL_JS),
+    [path.join('/work/fixtures', 'lib', 'sum.mjs')]: 'export const sum = (a, b) => a + b;\n',
+  };
+
+  it('forwards --root, --file and --node to pack', async () => {
+    const { io, state } = createFakeIo({ files });
+
+    const code = await dispatch(
+      [
+        'repro',
+        'pack',
+        '/work/run.capsule.json',
+        '--entry',
+        'main.cjs',
+        '--file',
+        'lib/sum.mjs',
+        '--root',
+        '/work/fixtures',
+        '--node',
+        '22',
+      ],
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    const parsed = parseReproEnvelope(state.stdout);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.entry).toBe('main.cjs');
+    expect(parsed.value.runtime.major).toBe(22);
+    expect(parsed.value.files.map(file => file.path)).toEqual(['lib/sum.mjs']);
+  });
+
+  it('forwards --approve and the CLI version to run', async () => {
+    const { io: packIo, state: packed } = createFakeIo({ files });
+    await dispatch(['repro', 'pack', '/work/run.capsule.json', '--entry', 'main.mjs'], packIo);
+    const envelope = { '/work/repro.json': packed.stdout };
+    const { io: reviewIo, state: reviewed } = createFakeIo({ files: envelope });
+    await dispatch(['repro', 'review', '/work/repro.json', '--json'], reviewIo);
+    const token = (JSON.parse(reviewed.stdout) as { approval: { token: string } }).approval.token;
+    const { io, state } = createFakeIo({ files: envelope });
+
+    const code = await dispatch(
+      ['repro', 'run', '/work/repro.json', '--approve', token, '--json'],
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.unsupportedCapability);
+    expect(JSON.parse(state.stdout)).toMatchObject({
+      reason: 'backend-unavailable',
+      receipt: { host: { lingua: '0.0.0-dev' } },
     });
   });
 });
