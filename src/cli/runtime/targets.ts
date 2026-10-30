@@ -502,8 +502,17 @@ async function executableIsOnPath(
   platform: NodeJS.Platform = process.platform,
   env: NodeJS.ProcessEnv = process.env
 ): Promise<boolean> {
+  return (await findExecutableOnPath(executable, platform, env)) !== null;
+}
+
+/** First PATH entry holding `executable`, honouring PATHEXT on Windows. */
+export async function findExecutableOnPath(
+  executable: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<string | null> {
   const pathValue = env.PATH ?? env.Path ?? env.path;
-  if (!pathValue) return false;
+  if (!pathValue) return null;
 
   const windows = platform === 'win32';
   const pathApi = windows ? path.win32 : path.posix;
@@ -523,10 +532,10 @@ async function executableIsOnPath(
     const candidates =
       windows && !hasExtension ? extensions.map(extension => base + extension) : [base];
     for (const candidate of candidates) {
-      if (await isExecutableFile(candidate, platform)) return true;
+      if (await isExecutableFile(candidate, platform)) return candidate;
     }
   }
-  return false;
+  return null;
 }
 
 function commandName(name: string): string {

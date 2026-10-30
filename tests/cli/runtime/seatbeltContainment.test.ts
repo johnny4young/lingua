@@ -145,20 +145,25 @@ await attempt('write-output', () => fs.writeFileSync(new URL('../output/result.t
     '1. cannot read a secret outside staging by absolute path, alias or a symlink it creates',
     async () => {
       const aliased = canaryPath.replace('/private/', '/private/./');
+      // macOS temp paths live under /private/var, which /var links to.
+      const varAlias = canaryPath.replace(/^\/private\/var\//u, '/var/');
       const { outcome, results } = await launch(
         `${ATTEMPT}
 import fs from 'node:fs';
-const [secret, alias] = process.argv.slice(2);
+const [secret, alias, varAlias] = process.argv.slice(2);
 await attempt('absolute', () => fs.readFileSync(secret, 'utf8'));
 await attempt('alias', () => fs.readFileSync(alias, 'utf8'));
+await attempt('var-alias', () => fs.readFileSync(varAlias, 'utf8'));
 await attempt('symlink', () => { fs.symlinkSync(secret, 'link.txt'); return fs.readFileSync('link.txt', 'utf8'); });
 `,
-        { args: [canaryPath, aliased] }
+        { args: [canaryPath, aliased, varAlias] }
       );
 
       expect(outcome.result.stdout).not.toContain(CANARY);
       expect(results.absolute?.allowed).toBe(false);
+      expect(varAlias.startsWith('/var/')).toBe(true);
       expect(results.alias?.allowed).toBe(false);
+      expect(results['var-alias']?.allowed).toBe(false);
       expect(results.symlink?.allowed).toBe(false);
     },
     SLOW

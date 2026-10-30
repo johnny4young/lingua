@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compileSeatbeltProfile } from '../../../src/cli/runtime/seatbelt';
+import { SEATBELT_AMBIENT_GRANTS, compileSeatbeltProfile } from '../../../src/cli/runtime/seatbelt';
 import { DEFAULT_REPRO_REQUEST, type ReproPolicyV1 } from '../../../src/shared/reproPolicy';
 
 const STAGING = {
@@ -64,6 +64,12 @@ describe('compileSeatbeltProfile', () => {
     expect(lines[reallow]).toContain('(literal "/Users/dev/.local/share/fnm")');
     expect(lines[reallow]).toContain('(literal "/Users")');
     expect(lines[reallow]).not.toContain('(subpath "/Users');
+  });
+
+  it('declares the re-allowed parent directories among its ambient grants', () => {
+    expect(SEATBELT_AMBIENT_GRANTS).toContain(
+      'read file metadata of each parent directory of the Node.js binary and the staging root'
+    );
   });
 
   it('escapes quotes and backslashes in paths', () => {

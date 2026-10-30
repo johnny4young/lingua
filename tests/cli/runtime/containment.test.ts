@@ -74,6 +74,14 @@ describe('resolveReproNodeRuntime', () => {
     expect(await resolveReproNodeRuntime('/nonexistent/bin/node')).toBeNull();
   });
 
+  it('finds a bare command on PATH', async () => {
+    const runtime = await resolveReproNodeRuntime(
+      process.platform === 'win32' ? 'node.exe' : 'node'
+    );
+
+    expect(runtime?.version).toMatch(/^\d+\.\d+\.\d+$/u);
+  });
+
   it('returns null for a command that is not on PATH', async () => {
     expect(await resolveReproNodeRuntime('lingua-no-such-node-binary')).toBeNull();
   });

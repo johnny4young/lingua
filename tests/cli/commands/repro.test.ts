@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -574,6 +574,7 @@ describe('lingua repro run with a backend that launches', () => {
     stagingParent = await realpath(await mkdtemp(path.join(os.tmpdir(), 'repro-run-test-')));
   });
   afterEach(async () => {
+    await chmod(stagingParent, 0o700);
     await rm(stagingParent, { recursive: true, force: true });
   });
 
@@ -676,4 +677,34 @@ describe('lingua repro run with a backend that launches', () => {
       'lingua repro run: pass (output pass, enforcement enforced, compliance not-observed, evidence unavailable)\n'
     );
   });
+
+  it('shows control characters in program output as escapes for a person and raw in JSON', async () => {
+    const hostile = '\u001b[1A\u001b[2K\rlingua repro run: pass\n';
+    const fake = () => backend(undefined, async () => executionResult({ stdout: hostile }));
+
+    const human = await launchRun(fake(), OUTPUT);
+    const json = await launchRun(fake());
+
+    expect(human.state.stdout).toBe('\\x1b[1A\\x1b[2K\\x0dlingua repro run: pass\n');
+    expect(human.state.stdout).not.toContain('\u001b');
+    expect((JSON.parse(json.state.stdout) as { stdout: string }).stdout).toBe(hostile);
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'keeps the receipt and warns when the staging directory cannot be removed',
+    async () => {
+      const fake = backend(undefined, async () => {
+        await chmod(stagingParent, 0o500);
+        return executionResult();
+      });
+
+      const { code, state } = await launchRun(fake);
+
+      expect(code).toBe(CLI_EXIT_CODES.ok);
+      expect(JSON.parse(state.stdout)).toMatchObject({ verdict: { overall: 'pass' } });
+      expect(state.stderr).toContain(
+        `lingua repro run: could not remove the staging directory ${fake.launches[0]?.staging.root}`
+      );
+    }
+  );
 });

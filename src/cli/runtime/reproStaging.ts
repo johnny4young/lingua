@@ -39,7 +39,7 @@ function stagedPath(inputs: string, relative: string): string {
   return path.join(inputs, ...relative.split('/'));
 }
 
-/** Throws ReproStagingError; the caller owns cleanup through disposeReproStaging. */
+/** Throws ReproStagingError after removing anything it created; on success the caller disposes. */
 export async function stageReproEnvelope(
   envelope: ReproEnvelopeV1,
   parent: string = tmpdir()
@@ -52,7 +52,7 @@ export async function stageReproEnvelope(
     output: path.join(root, 'output'),
     entry: stagedPath(path.join(root, 'inputs'), envelope.entry),
   };
-  const files = [
+  const files: StagedFile[] = [
     {
       path: envelope.entry,
       content: envelope.capsule.source.content,
@@ -61,22 +61,41 @@ export async function stageReproEnvelope(
     ...envelope.files,
   ];
   try {
-    for (const area of [staging.inputs, staging.scratch, staging.output]) {
-      await mkdir(area, { mode: 0o700 });
-    }
-    for (const file of files) {
-      const target = stagedPath(staging.inputs, file.path);
-      await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
-      // `wx` fails instead of following or replacing anything already there.
-      await writeFile(target, file.content, { flag: 'wx', mode: 0o600 });
-    }
+    await writeStagedInputs(staging, files);
+    await verifyStagedInputs(staging, files);
+    return staging;
   } catch (error) {
-    throw new ReproStagingError(
-      'staging-failed',
-      error instanceof Error ? error.message : String(error)
-    );
+    await disposeReproStaging(staging);
+    throw error instanceof ReproStagingError
+      ? error
+      : new ReproStagingError(
+          'staging-failed',
+          error instanceof Error ? error.message : String(error)
+        );
   }
+}
 
+type StagedFile = { path: string; content: string; contentHash: string };
+
+async function writeStagedInputs(
+  staging: ReproStaging,
+  files: readonly StagedFile[]
+): Promise<void> {
+  for (const area of [staging.inputs, staging.scratch, staging.output]) {
+    await mkdir(area, { mode: 0o700 });
+  }
+  for (const file of files) {
+    const target = stagedPath(staging.inputs, file.path);
+    await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+    // `wx` fails instead of following or replacing anything already there.
+    await writeFile(target, file.content, { flag: 'wx', mode: 0o600 });
+  }
+}
+
+async function verifyStagedInputs(
+  staging: ReproStaging,
+  files: readonly StagedFile[]
+): Promise<void> {
   for (const file of files) {
     const target = stagedPath(staging.inputs, file.path);
     let staged: string;
@@ -90,7 +109,6 @@ export async function stageReproEnvelope(
     }
     await chmod(target, 0o444);
   }
-  return staging;
 }
 
 export async function disposeReproStaging(staging: Pick<ReproStaging, 'root'>): Promise<void> {

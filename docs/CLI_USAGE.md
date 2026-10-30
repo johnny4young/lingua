@@ -567,7 +567,9 @@ lingua repro run ./repro.json --approve <token> --json
   network, no child processes and writes only to scratch and output, then
   compares status, stdout and stderr exactly with the capsule. A match exits 0,
   a mismatch or a denial exits 5 and missing evidence exits 6. Denials are not
-  observable on macOS, so compliance reads `not-observed`, never `clean`. With
-  `--json`, stdout carries the receipt, the verdict and the program output.
+  observable on macOS, so compliance reads `not-observed`, never `clean`. In
+  human mode control characters in the program output are shown as `\xNN`
+  escapes so it cannot rewrite the terminal; with `--json`, stdout carries the
+  receipt, the verdict and the exact program output.
 
 There is no fallback to `capsule replay`, a wider policy or an unsandboxed run.

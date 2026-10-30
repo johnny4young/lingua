@@ -38,7 +38,7 @@ import {
 import type { CliColorMode } from '../commandModel';
 import { CLI_EXIT_CODES, type CliExitCode } from '../exit-codes';
 import type { CliIo } from '../io';
-import { emitCliFailure, renderCliNotice } from '../presentation';
+import { emitCliFailure, neutralizeControlCharacters, renderCliNotice } from '../presentation';
 import {
   probeContainment,
   resolveReproNodeRuntime,
@@ -397,10 +397,11 @@ function refusedReceipt(
   };
 }
 
-const VERDICT_EXIT_CODES: Record<Exclude<ReproVerdict['overall'], 'refused'>, CliExitCode> = {
+const VERDICT_EXIT_CODES: Record<ReproVerdict['overall'], CliExitCode> = {
   pass: CLI_EXIT_CODES.ok,
   fail: CLI_EXIT_CODES.verificationFailed,
   incomplete: CLI_EXIT_CODES.verificationInconclusive,
+  refused: CLI_EXIT_CODES.unsupportedCapability,
 };
 
 async function launchReproduction(
@@ -458,7 +459,6 @@ async function launchReproduction(
       evidence: outcome.evidence,
     };
     const verdict = summarizeReproReceipt(receipt, review.approved);
-    if (verdict.overall === 'refused') return CLI_EXIT_CODES.internal;
 
     if (args.json) {
       io.writeStdout(
@@ -471,9 +471,9 @@ async function launchReproduction(
         })}\n`
       );
     } else {
-      // Workload output is untrusted text, shown exactly as the capped streams hold it.
-      io.writeStdout(result.stdout);
-      io.writeStderr(result.stderr);
+      // Workload output is untrusted; --json keeps the exact bytes.
+      io.writeStdout(neutralizeControlCharacters(result.stdout));
+      io.writeStderr(neutralizeControlCharacters(result.stderr));
       if (!args.quiet) {
         const summary = `${label}: ${verdict.overall} (output ${verdict.output}, enforcement ${verdict.enforcement}, compliance ${verdict.compliance}, evidence ${verdict.evidence})`;
         io.writeStderr(
@@ -483,7 +483,13 @@ async function launchReproduction(
     }
     return VERDICT_EXIT_CODES[verdict.overall];
   } finally {
-    await disposeReproStaging(staging);
+    try {
+      await disposeReproStaging(staging);
+    } catch (error) {
+      io.writeStderr(
+        `${renderCliNotice(io, args.color, `${label}: could not remove the staging directory ${staging.root}: ${errorMessage(error)}`)}\n`
+      );
+    }
   }
 }
 

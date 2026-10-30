@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from 'vitest';
-import { emitCliFailure, shouldUseColor } from '../../src/cli/presentation';
+import {
+  emitCliFailure,
+  neutralizeControlCharacters,
+  shouldUseColor,
+} from '../../src/cli/presentation';
 import { createFakeIo } from './io-fake';
 
 describe('CLI presentation', () => {
@@ -43,5 +47,19 @@ describe('CLI presentation', () => {
       reason: 'invalid-arguments',
       detail: 'Bad input.',
     });
+  });
+});
+
+describe('neutralizeControlCharacters', () => {
+  it.each([
+    ['ESC sequences and carriage returns', 'a\u001b[2K\rb', 'a\\x1b[2K\\x0db'],
+    ['C1 control introducers', 'x\u009by', 'x\\x9by'],
+    ['DEL', 'x\u007fy', 'x\\x7fy'],
+  ])('escapes %s', (_name, input, expected) => {
+    expect(neutralizeControlCharacters(input)).toBe(expected);
+  });
+
+  it('keeps newlines, tabs and non-ASCII text', () => {
+    expect(neutralizeControlCharacters('línea 1\n\tcafé ☕')).toBe('línea 1\n\tcafé ☕');
   });
 });

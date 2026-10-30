@@ -67,6 +67,7 @@ describe('stageReproEnvelope', () => {
       message: 'lib/deep/sum.mjs changed while staging.',
     });
     await expect(stageReproEnvelope(tampered, parent)).rejects.toBeInstanceOf(ReproStagingError);
+    expect(await readdir(parent)).toEqual([]);
   });
 
   it('removes the whole root, read-only inputs included', async () => {

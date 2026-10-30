@@ -7,8 +7,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { access, realpath } from 'node:fs/promises';
-import { constants } from 'node:fs';
+import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { ReproBackendProbe, ReproPolicyV1 } from '../../shared/reproPolicy';
@@ -16,7 +15,8 @@ import type { ReproEvidenceV1 } from '../../shared/reproReceipt';
 import type { CliExecutionResult } from './execution';
 import type { ReproStaging } from './reproStaging';
 import { seatbeltBackend } from './seatbelt';
-import { nodeRuntimeExecutable } from './targets';
+import { buildCliRuntimeEnvironment } from './environment';
+import { findExecutableOnPath, nodeRuntimeExecutable } from './targets';
 
 export interface ReproNodeRuntime {
   /** Canonical path; profiles allow exactly this binary. */
@@ -68,27 +68,11 @@ export async function probeContainment(
   return null;
 }
 
-async function findOnPath(command: string, searchPath: string | undefined): Promise<string | null> {
-  for (const directory of (searchPath ?? '').split(path.delimiter)) {
-    if (!path.isAbsolute(directory)) continue;
-    const candidate = path.join(directory, command);
-    try {
-      await access(candidate, constants.X_OK);
-      return candidate;
-    } catch {
-      // Keep looking.
-    }
-  }
-  return null;
-}
-
 /** The Node.js binary a reproduction would run with, resolved outside any sandbox. */
 export async function resolveReproNodeRuntime(
   executable: string = nodeRuntimeExecutable()
 ): Promise<ReproNodeRuntime | null> {
-  const found = path.isAbsolute(executable)
-    ? executable
-    : await findOnPath(executable, process.env.PATH);
+  const found = path.isAbsolute(executable) ? executable : await findExecutableOnPath(executable);
   if (!found) return null;
   try {
     const resolved = await realpath(found);
@@ -96,7 +80,7 @@ export async function resolveReproNodeRuntime(
       execFile(
         resolved,
         ['-p', 'process.versions.node'],
-        { timeout: 5_000, env: {} },
+        { timeout: 5_000, env: buildCliRuntimeEnvironment([]) },
         (error, stdout) => (error ? reject(error) : resolve(stdout.trim()))
       );
     });

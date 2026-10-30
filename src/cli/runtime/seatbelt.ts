@@ -42,6 +42,7 @@ export const SEATBELT_AMBIENT_GRANTS: readonly string[] = [
   'write /dev/null',
   'list /',
   `read file metadata outside ${METADATA_DENIED_SUBPATHS.join(' and ')}`,
+  'read file metadata of each parent directory of the Node.js binary and the staging root',
   'read sysctl values',
 ];
 
