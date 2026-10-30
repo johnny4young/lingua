@@ -138,6 +138,20 @@ describe('editorStore — workflowMode ', () => {
     });
   });
 
+  describe('openFile', () => {
+    it('opens project files in Run so Scratchpad does not execute them on its own', async () => {
+      const original = window.lingua;
+      window.lingua = { ...original, fs: { ...original?.fs, read: vi.fn().mockResolvedValue('export const a = 1;\n') } } as unknown as LinguaAPI;
+      try {
+        await useEditorStore.getState().openFile('root-a', 'src/total.ts', 'total.ts', 'typescript');
+        expect(useEditorStore.getState().tabs[0]?.workflowMode).toBe('run');
+        expect(createDefaultTab('typescript').workflowMode).toBe('scratchpad');
+      } finally {
+        window.lingua = original;
+      }
+    });
+  });
+
   describe('setTabWorkflowMode', () => {
     it('flips the workflow mode and emits toolbar-sourced telemetry', () => {
       const { addTab, setTabWorkflowMode } = useEditorStore.getState();
