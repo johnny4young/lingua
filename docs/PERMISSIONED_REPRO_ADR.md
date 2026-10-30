@@ -39,6 +39,11 @@ keep their current semantics.
   outcome, the existing strict comparison verdict, and denial evidence with its
   coverage.
 
+Envelope paths must already be in Unicode NFC, and the entry may not match a
+supplemental file case-insensitively, because macOS file systems would stage
+both spellings to one file. The staging writer still creates every file
+exclusively, so a collision these checks miss fails instead of overwriting.
+
 Neither artifact may contain an absolute host path, a capability id, a project
 root, environment values or credentials. Denial records name a logical area
 (`inputs`, `scratch`, `output`, or `outside`) and, inside the staging root, a

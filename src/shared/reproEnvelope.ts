@@ -128,10 +128,16 @@ function validateRuntime(raw: unknown): ReproRuntimeV1 | null {
   return { name, major };
 }
 
+// macOS file systems ignore Unicode normalization, so an NFC and an NFD spelling
+// would stage to one file; only NFC paths are accepted.
+function isNfc(path: string): boolean {
+  return path.normalize('NFC') === path;
+}
+
 function validateEntry(raw: unknown, files: readonly CapsuleWorkspaceFileInput[]): string | null {
   if (typeof raw !== 'string') return null;
   const entry = normalizeCapsuleWorkspacePath(raw);
-  if (!entry || entry !== raw || !ENTRY_EXTENSION_RE.test(entry)) return null;
+  if (!entry || entry !== raw || !isNfc(entry) || !ENTRY_EXTENSION_RE.test(entry)) return null;
   const key = entry.toLocaleLowerCase('en-US');
   return files.some(file => file.path.toLocaleLowerCase('en-US') === key) ? null : entry;
 }
@@ -167,6 +173,8 @@ function countObviousSecrets(
 function validateFiles(
   files: readonly CapsuleWorkspaceFileInput[]
 ): { ok: true; files: readonly CapsuleWorkspaceFileInput[] } | Rejection {
+  const notNfc = files.find(file => typeof file.path === 'string' && !isNfc(file.path));
+  if (notNfc) return { ok: false, reason: 'invalid-path', detail: notNfc.path };
   // The workspace guard rejects an empty list; an envelope may have none.
   return files.length === 0 ? { ok: true, files: [] } : validateCapsuleWorkspaceFileInputs(files);
 }

@@ -106,6 +106,18 @@ describe('buildReproEnvelope', () => {
       'LIB/Sum.mjs',
     ],
     [
+      'an entry spelled in decomposed Unicode (NFD)',
+      { entry: 'café.mjs' },
+      'invalid-entry',
+      'café.mjs',
+    ],
+    [
+      'a supplemental path spelled in decomposed Unicode (NFD)',
+      { files: [{ ...UTIL_FILE, path: 'lib/café.mjs' }] },
+      'invalid-path',
+      'lib/café.mjs',
+    ],
+    [
       'a runtime other than node',
       { runtime: { name: 'deno', major: 2 } as never },
       'unsupported-runtime',
