@@ -560,9 +560,14 @@ lingua repro run ./repro.json --approve <token> --json
   local ceiling, lists the required controls, says whether a backend on this
   host can enforce them, and prints the approval token for this exact content
   and policy.
-- `run` refuses before launch when the token does not match, when no backend is
-  available, or when a required control is not enforced. No backend ships yet,
-  so every run is refused: exit 1 for a stale approval, exit 3 otherwise. With
-  `--json`, stdout carries the refusal receipt and its verdict.
+- `run` refuses before launch when the token does not match (exit 1), or when
+  no backend is available, a required control is not enforced, or the host
+  Node.js major differs from the request (exit 3). On macOS it stages the
+  reviewed bytes in a private directory and runs them under Seatbelt with no
+  network, no child processes and writes only to scratch and output, then
+  compares status, stdout and stderr exactly with the capsule. A match exits 0,
+  a mismatch or a denial exits 5 and missing evidence exits 6. Denials are not
+  observable on macOS, so compliance reads `not-observed`, never `clean`. With
+  `--json`, stdout carries the receipt, the verdict and the program output.
 
 There is no fallback to `capsule replay`, a wider policy or an unsandboxed run.

@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   runReproPackCommand,
   runReproReviewCommand,
@@ -6,7 +9,12 @@ import {
   type ReproRunArgs,
 } from '../../../src/cli/commands/repro';
 import { CLI_EXIT_CODES } from '../../../src/cli/exit-codes';
-import type { ReproContainmentBackend } from '../../../src/cli/runtime/containment';
+import type {
+  ReproContainmentBackend,
+  ReproLaunchRequest,
+  ReproNodeRuntime,
+} from '../../../src/cli/runtime/containment';
+import type { CliExecutionResult } from '../../../src/cli/runtime/execution';
 import {
   buildReproEnvelope,
   computeReproApprovalToken,
@@ -29,19 +37,49 @@ const OUTPUT = { json: false, quiet: false } as const;
 const JSON_OUTPUT = { json: true, quiet: false } as const;
 const MANDATORY_CONTROLS = requiredReproControls(DEFAULT_REPRO_REQUEST);
 
+const NODE_24: ReproNodeRuntime = { path: '/opt/node/bin/node', version: '24.21.0' };
+
+function executionResult(overrides: Partial<CliExecutionResult> = {}): CliExecutionResult {
+  return {
+    status: 'success',
+    target: 'main.mjs',
+    runtime: 'node 24.21.0',
+    durationMs: 12,
+    exitCode: 0,
+    signal: null,
+    stdout: FIXTURE_MINIMAL_JS.result.stdout ?? '',
+    stderr: '',
+    ...overrides,
+  };
+}
+
+/** A backend that enforces everything unless told otherwise and records each launch. */
 function backend(
-  overrides: Partial<Record<ReproControl, ReproControlSupport>> = {}
-): ReproContainmentBackend {
+  overrides: Partial<Record<ReproControl, ReproControlSupport>> = {},
+  launch: (request: ReproLaunchRequest) => Promise<CliExecutionResult> = async () =>
+    executionResult()
+): ReproContainmentBackend & { launches: ReproLaunchRequest[] } {
   const controls = Object.fromEntries(
     REPRO_CONTROLS.map(control => [control, 'enforced'])
   ) as Record<ReproControl, ReproControlSupport>;
+  const launches: ReproLaunchRequest[] = [];
   return {
     id: 'fake-backend',
+    launches,
     async probe() {
       return {
         backend: { id: 'fake-backend', version: '1' },
         controls: { ...controls, ...overrides },
         ambientGrants: [],
+      };
+    },
+    async launch(request) {
+      launches.push(request);
+      return {
+        result: await launch(request),
+        startedAt: new Date('2026-10-29T12:00:00.000Z'),
+        endedAt: new Date('2026-10-29T12:00:00.250Z'),
+        evidence: { coverage: 'unavailable', denials: [] },
       };
     },
   };
@@ -61,7 +99,15 @@ async function envelopeJson(): Promise<string> {
 
 async function reviewToken(json: string): Promise<string> {
   const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
-  await runReproReviewCommand({ ...JSON_OUTPUT, envelopePath: '/work/repro.json' }, io);
+  await runReproReviewCommand(
+    {
+      ...JSON_OUTPUT,
+      envelopePath: '/work/repro.json',
+      backends: [],
+      resolveNode: async () => NODE_24,
+    },
+    io
+  );
   return (JSON.parse(state.stdout) as { approval: { token: string } }).approval.token;
 }
 
@@ -72,6 +118,7 @@ function runArgs(overrides: Partial<ReproRunArgs> & Pick<ReproRunArgs, 'approve'
     linguaVersion: '1.6.2',
     now: () => new Date('2026-10-29T12:00:00.000Z'),
     backends: [],
+    resolveNode: async () => NODE_24,
     ...overrides,
   };
 }
@@ -303,12 +350,18 @@ describe('lingua repro review', () => {
     const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
 
     const code = await runReproReviewCommand(
-      { ...OUTPUT, envelopePath: '/work/repro.json', backends: [] },
+      {
+        ...OUTPUT,
+        envelopePath: '/work/repro.json',
+        backends: [],
+        resolveNode: async () => NODE_24,
+      },
       io
     );
 
     expect(code).toBe(CLI_EXIT_CODES.ok);
-    expect(state.stdout).toContain('entry    main.mjs · node 24');
+    expect(state.stdout).toContain('entry    main.mjs\n');
+    expect(state.stdout).toContain('runtime  node 24.21.0\n');
     expect(state.stdout).toContain('network  deny');
     expect(state.stdout).toMatch(/backend {2}none on \S+ \S+; run refuses before launch/u);
     expect(state.stdout).toContain(`approve  lingua repro run /work/repro.json --approve ${token}`);
@@ -324,6 +377,29 @@ describe('lingua repro review', () => {
     expect(state.stdout).toContain(
       `approve  lingua repro run '/work/bug repro'\\''s.json' --approve ${token}`
     );
+  });
+
+  it.each<[string, ReproNodeRuntime | null, string]>([
+    [
+      'another Node major',
+      { path: '/opt/node22/bin/node', version: '22.11.0' },
+      'runtime  node 24 requested; found 22.11.0; run refuses before launch',
+    ],
+    [
+      'no Node.js at all',
+      null,
+      'runtime  node 24 requested; Node.js not found; run refuses before launch',
+    ],
+  ])('warns before approval when the host has %s', async (_name, node, line) => {
+    const json = await envelopeJson();
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+
+    await runReproReviewCommand(
+      { ...OUTPUT, envelopePath: '/work/repro.json', backends: [], resolveNode: async () => node },
+      io
+    );
+
+    expect(state.stdout).toContain(line);
   });
 
   it('names the controls a probed backend cannot enforce', async () => {
@@ -440,12 +516,17 @@ describe('lingua repro run', () => {
     });
   });
 
-  it('still refuses when a backend enforces everything but cannot launch yet', async () => {
-    const { code, body } = await run({ backends: [backend()] });
+  it('refuses before staging when the host Node major differs from the request', async () => {
+    const fake = backend();
+    const { code, body } = await run({
+      backends: [fake],
+      resolveNode: async () => ({ path: '/opt/node22/bin/node', version: '22.11.0' }),
+    });
 
     expect(code).toBe(CLI_EXIT_CODES.unsupportedCapability);
-    expect(body.reason).toBe('backend-unavailable');
-    expect(body.detail).toBe('fake-backend cannot launch reproductions yet; nothing was run.');
+    expect(body.reason).toBe('runtime-unavailable');
+    expect(body.detail).toBe('node 24 requested; found 22.11.0; nothing was run.');
+    expect(fake.launches).toEqual([]);
   });
 
   it('binds the receipt to the digests review printed', async () => {
@@ -453,7 +534,15 @@ describe('lingua repro run', () => {
     const { io: reviewIo, state: reviewState } = createFakeIo({
       files: { '/work/repro.json': json },
     });
-    await runReproReviewCommand({ ...JSON_OUTPUT, envelopePath: '/work/repro.json' }, reviewIo);
+    await runReproReviewCommand(
+      {
+        ...JSON_OUTPUT,
+        envelopePath: '/work/repro.json',
+        backends: [],
+        resolveNode: async () => NODE_24,
+      },
+      reviewIo
+    );
     const { approval } = JSON.parse(reviewState.stdout) as {
       approval: { contentDigest: string; policyDigest: string; token: string };
     };
@@ -476,5 +565,115 @@ describe('lingua repro run', () => {
 
     expect(state.stdout).toBe('');
     expect(state.stderr).toContain('lingua repro run: error[backend-unavailable]');
+  });
+});
+
+describe('lingua repro run with a backend that launches', () => {
+  let stagingParent: string;
+  beforeEach(async () => {
+    stagingParent = await realpath(await mkdtemp(path.join(os.tmpdir(), 'repro-run-test-')));
+  });
+  afterEach(async () => {
+    await rm(stagingParent, { recursive: true, force: true });
+  });
+
+  async function launchRun(
+    fake: ReturnType<typeof backend>,
+    output: { json: boolean; quiet: boolean } = JSON_OUTPUT
+  ) {
+    const json = await envelopeJson();
+    const token = await reviewToken(json);
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+    const code = await runReproRunCommand(
+      runArgs({ ...output, approve: token, backends: [fake], stagingParent }),
+      io
+    );
+    return { code, state };
+  }
+
+  it('runs the staged entry and reports a launched receipt that passes', async () => {
+    const fake = backend(undefined, async request => {
+      expect(await readFile(request.staging.entry, 'utf8')).toBe(FIXTURE_MINIMAL_JS.source.content);
+      expect(await readFile(path.join(request.staging.inputs, 'lib', 'sum.mjs'), 'utf8')).toBe(
+        HELPER
+      );
+      return executionResult();
+    });
+
+    const { code, state } = await launchRun(fake);
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    const body = JSON.parse(state.stdout) as {
+      ok: boolean;
+      receipt: unknown;
+      verdict: unknown;
+      stdout: string;
+    };
+    expect(body).toMatchObject({
+      ok: true,
+      stdout: '3\n',
+      verdict: { overall: 'pass', output: 'pass', compliance: 'not-observed' },
+    });
+    expect(parseReproReceipt(JSON.stringify(body.receipt))).toMatchObject({
+      ok: true,
+      value: {
+        launch: 'launched',
+        comparison: 'pass',
+        host: { runtime: 'node 24.21.0', backend: { id: 'fake-backend', version: '1' } },
+        execution: { status: 'success', exitCode: 0, outputTruncated: false },
+      },
+    });
+    expect(fake.launches[0]?.node).toEqual(NODE_24);
+    expect(fake.launches[0]?.policy).toEqual(DEFAULT_REPRO_REQUEST);
+  });
+
+  it('removes the private staging root after the run', async () => {
+    const fake = backend();
+
+    await launchRun(fake);
+
+    expect(fake.launches[0]?.staging.root.startsWith(stagingParent)).toBe(true);
+    expect(await readdir(stagingParent)).toEqual([]);
+  });
+
+  it('removes the staging root even when the backend throws', async () => {
+    const fake = backend(undefined, async () => {
+      throw new Error('sandbox crashed');
+    });
+
+    await expect(launchRun(fake)).rejects.toThrow('sandbox crashed');
+    expect(await readdir(stagingParent)).toEqual([]);
+  });
+
+  it.each<[string, Partial<CliExecutionResult>, number, string]>([
+    ['different output', { stdout: '4\n' }, CLI_EXIT_CODES.verificationFailed, 'fail'],
+    [
+      'a timeout',
+      { status: 'timeout', exitCode: null, signal: 'SIGKILL', reason: 'timeout' },
+      CLI_EXIT_CODES.verificationInconclusive,
+      'incomplete',
+    ],
+    [
+      'clipped output',
+      { truncated: { stdout: true, stderr: false } },
+      CLI_EXIT_CODES.verificationInconclusive,
+      'incomplete',
+    ],
+  ])('maps %s to its verdict and exit code', async (_name, overrides, exitCode, overall) => {
+    const { code, state } = await launchRun(
+      backend(undefined, async () => executionResult(overrides))
+    );
+
+    expect(code).toBe(exitCode);
+    expect(JSON.parse(state.stdout)).toMatchObject({ verdict: { overall } });
+  });
+
+  it('prints the program output and the verdict for a person', async () => {
+    const { state } = await launchRun(backend(), OUTPUT);
+
+    expect(state.stdout).toBe('3\n');
+    expect(state.stderr).toBe(
+      'lingua repro run: pass (output pass, enforcement enforced, compliance not-observed, evidence unavailable)\n'
+    );
   });
 });

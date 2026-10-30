@@ -10,6 +10,7 @@
 import { release } from 'node:os';
 import path from 'node:path';
 
+import { capsuleStrictVerificationRefusal } from '../../shared/capsuleVerification';
 import { normalizeCapsuleWorkspacePath } from '../../shared/capsuleWorkspace';
 import {
   approveReproEnvelope,
@@ -20,19 +21,38 @@ import {
 } from '../../shared/reproEnvelope';
 import {
   DEFAULT_REPRO_REQUEST,
+  computeReproEffectivePolicyDigest,
   requiredReproControls,
   resolveReproEffectivePolicy,
-  type ReproBackendProbe,
   type ReproControl,
+  type ReproEffectivePolicy,
   type ReproPolicyV1,
 } from '../../shared/reproPolicy';
-import { summarizeReproReceipt, type ReproRefusedReceiptV1 } from '../../shared/reproReceipt';
+import {
+  summarizeReproReceipt,
+  type ReproLaunchedReceiptV1,
+  type ReproReceiptHostV1,
+  type ReproRefusedReceiptV1,
+  type ReproVerdict,
+} from '../../shared/reproReceipt';
 import type { CliColorMode } from '../commandModel';
 import { CLI_EXIT_CODES, type CliExitCode } from '../exit-codes';
 import type { CliIo } from '../io';
 import { emitCliFailure, renderCliNotice } from '../presentation';
-import { probeContainment, type ReproContainmentBackend } from '../runtime/containment';
+import {
+  probeContainment,
+  resolveReproNodeRuntime,
+  type ProbedBackend,
+  type ReproContainmentBackend,
+  type ReproNodeRuntime,
+} from '../runtime/containment';
+import {
+  ReproStagingError,
+  disposeReproStaging,
+  stageReproEnvelope,
+} from '../runtime/reproStaging';
 import { errorMessage, loadCapsule, readFailureReason } from './capsule';
+import { strictCapsuleVerdict } from './capsuleVerify';
 
 /** The recipient's ceiling until it becomes configurable; approval can only narrow to it. */
 const LOCAL_CEILING: ReproPolicyV1 = DEFAULT_REPRO_REQUEST;
@@ -54,12 +74,15 @@ export interface ReproPackArgs extends OutputArgs {
 export interface ReproReviewArgs extends OutputArgs {
   envelopePath: string;
   backends?: readonly ReproContainmentBackend[];
+  resolveNode?: () => Promise<ReproNodeRuntime | null>;
 }
 
 export interface ReproRunArgs extends ReproReviewArgs {
   approve: string;
   linguaVersion: string;
   now?: () => Date;
+  /** Where the private staging root is created; defaults to the OS temp directory. */
+  stagingParent?: string;
 }
 
 function languageForPath(filePath: string): string {
@@ -185,22 +208,20 @@ interface PreparedReview {
   contentDigest: string;
   policyDigest: string;
   token: string;
-  probe: ReproBackendProbe | null;
+  backend: ProbedBackend | null;
+  effective: ReproEffectivePolicy | null;
   /** Required controls the probed backend cannot enforce; every required one when there is no backend. */
   missing: readonly ReproControl[];
+  node: ReproNodeRuntime | null;
 }
 
 type PrepareResult =
   { ok: true; value: PreparedReview } | { ok: false; reason: string; detail: string };
 
-async function prepareReview(
-  envelopePath: string,
-  io: CliIo,
-  backends?: readonly ReproContainmentBackend[]
-): Promise<PrepareResult> {
+async function prepareReview(args: ReproReviewArgs, io: CliIo): Promise<PrepareResult> {
   let raw: string;
   try {
-    raw = await io.readFile(envelopePath);
+    raw = await io.readFile(args.envelopePath);
   } catch (error) {
     return { ok: false, reason: readFailureReason(error), detail: errorMessage(error) };
   }
@@ -216,8 +237,8 @@ async function prepareReview(
       detail: `${approval.path} does not match its recorded hash.`,
     };
   }
-  const probe = await probeContainment(backends);
-  const resolved = probe ? resolveReproEffectivePolicy(approval.policy, probe) : null;
+  const backend = await probeContainment(args.backends);
+  const resolved = backend ? resolveReproEffectivePolicy(approval.policy, backend.probe) : null;
   return {
     ok: true,
     value: {
@@ -226,18 +247,28 @@ async function prepareReview(
       contentDigest: approval.approval.contentDigest,
       policyDigest: approval.approval.policyDigest,
       token: await computeReproApprovalToken(approval.approval),
-      probe,
+      backend,
+      effective: resolved?.ok ? resolved.value : null,
       missing: resolved
         ? resolved.ok
           ? []
           : resolved.missing
         : requiredReproControls(approval.policy),
+      node: await (args.resolveNode ?? resolveReproNodeRuntime)(),
     },
   };
 }
 
 function hostLabel(): string {
   return `${process.platform} ${process.arch}`;
+}
+
+function nodeMajor(node: ReproNodeRuntime): number {
+  return Number(node.version.split('.')[0]);
+}
+
+function runtimeMatches(review: PreparedReview): boolean {
+  return review.node !== null && nodeMajor(review.node) === review.envelope.runtime.major;
 }
 
 function describeWrites(policy: ReproPolicyV1): string {
@@ -259,11 +290,19 @@ function describeLimits(policy: ReproPolicyV1): string {
 }
 
 function describeBackend(review: PreparedReview): string {
-  if (!review.probe) return `none on ${hostLabel()}; run refuses before launch`;
-  const { id, version } = review.probe.backend;
+  if (!review.backend) return `none on ${hostLabel()}; run refuses before launch`;
+  const { id, version } = review.backend.probe.backend;
   return review.missing.length > 0
     ? `${id} ${version} cannot enforce ${review.missing.join(', ')}; run refuses before launch`
     : `${id} ${version}`;
+}
+
+function describeRuntime(review: PreparedReview): string {
+  const wanted = `node ${review.envelope.runtime.major}`;
+  if (!review.node) return `${wanted} requested; Node.js not found; run refuses before launch`;
+  return runtimeMatches(review)
+    ? `node ${review.node.version}`
+    : `${wanted} requested; found ${review.node.version}; run refuses before launch`;
 }
 
 export async function runReproReviewCommand(
@@ -271,7 +310,7 @@ export async function runReproReviewCommand(
   io: CliIo
 ): Promise<CliExitCode> {
   const label = 'lingua repro review';
-  const prepared = await prepareReview(args.envelopePath, io, args.backends);
+  const prepared = await prepareReview(args, io);
   if (!prepared.ok) {
     emitCliFailure(io, args, { label, reason: prepared.reason, detail: prepared.detail });
     return CLI_EXIT_CODES.userInputError;
@@ -285,6 +324,7 @@ export async function runReproReviewCommand(
         ok: true,
         entry: envelope.entry,
         runtime: envelope.runtime,
+        hostRuntime: review.node?.version ?? null,
         files: envelope.files.map(({ path: filePath, contentHash }) => ({
           path: filePath,
           contentHash,
@@ -293,7 +333,7 @@ export async function runReproReviewCommand(
         request: envelope.request,
         approvedPolicy: review.approved,
         requiredControls: requiredReproControls(review.approved),
-        backend: review.probe?.backend ?? null,
+        backend: review.backend?.probe.backend ?? null,
         missingControls: review.missing,
         approval: {
           contentDigest: review.contentDigest,
@@ -307,12 +347,13 @@ export async function runReproReviewCommand(
   if (args.quiet) return CLI_EXIT_CODES.ok;
 
   const rows: Array<[string, string]> = [
-    ['entry', `${envelope.entry} · node ${envelope.runtime.major}`],
+    ['entry', envelope.entry],
     ...envelope.files.map((file): [string, string] => [
       'file',
       `${file.path} ${file.contentHash.slice(0, 12)}`,
     ]),
     ['secrets', String(envelope.privacy.obviousSecretsDetected)],
+    ['runtime', describeRuntime(review)],
     ['network', review.approved.network],
     ['writes', describeWrites(review.approved)],
     ['limits', describeLimits(review.approved)],
@@ -322,6 +363,20 @@ export async function runReproReviewCommand(
   ];
   io.writeStdout(rows.map(([key, value]) => `${key.padEnd(9)}${value}`).join('\n') + '\n');
   return CLI_EXIT_CODES.ok;
+}
+
+function receiptHost(
+  review: PreparedReview,
+  args: ReproRunArgs,
+  launched: boolean
+): ReproReceiptHostV1 {
+  return {
+    lingua: args.linguaVersion,
+    os: `${process.platform} kernel ${release()}`,
+    arch: process.arch,
+    runtime: launched && review.node ? `node ${review.node.version}` : null,
+    backend: review.backend?.probe.backend ?? null,
+  };
 }
 
 function refusedReceipt(
@@ -335,46 +390,131 @@ function refusedReceipt(
     createdAt: (args.now?.() ?? new Date()).toISOString(),
     contentDigest: review.contentDigest,
     approvedPolicyDigest: review.policyDigest,
-    host: {
-      lingua: args.linguaVersion,
-      os: `${process.platform} kernel ${release()}`,
-      arch: process.arch,
-      runtime: null,
-      backend: review.probe?.backend ?? null,
-    },
+    host: receiptHost(review, args, false),
     launch: 'refused',
     refusalReason,
     missingControls: refusalReason === 'unenforceable' ? review.missing : [],
   };
 }
 
+const VERDICT_EXIT_CODES: Record<Exclude<ReproVerdict['overall'], 'refused'>, CliExitCode> = {
+  pass: CLI_EXIT_CODES.ok,
+  fail: CLI_EXIT_CODES.verificationFailed,
+  incomplete: CLI_EXIT_CODES.verificationInconclusive,
+};
+
+async function launchReproduction(
+  review: PreparedReview,
+  backend: ProbedBackend,
+  effective: ReproEffectivePolicy,
+  node: ReproNodeRuntime,
+  args: ReproRunArgs,
+  io: CliIo
+): Promise<CliExitCode> {
+  const label = 'lingua repro run';
+  const { capsule } = review.envelope;
+  let staging;
+  try {
+    staging = await stageReproEnvelope(review.envelope, args.stagingParent);
+  } catch (error) {
+    emitCliFailure(io, args, {
+      label,
+      reason: error instanceof ReproStagingError ? error.reason : 'staging-failed',
+      detail: errorMessage(error),
+    });
+    return CLI_EXIT_CODES.runtimeError;
+  }
+
+  try {
+    const outcome = await backend.backend.launch({
+      staging,
+      policy: review.approved,
+      node,
+      args: capsule.input.args ?? [],
+      ...(capsule.input.stdin !== undefined ? { stdin: capsule.input.stdin } : {}),
+    });
+    const { result } = outcome;
+    const receipt: ReproLaunchedReceiptV1 = {
+      kind: 'lingua-repro-receipt',
+      version: 1,
+      createdAt: (args.now?.() ?? new Date()).toISOString(),
+      contentDigest: review.contentDigest,
+      approvedPolicyDigest: review.policyDigest,
+      host: receiptHost(review, args, true),
+      launch: 'launched',
+      effectivePolicyDigest: await computeReproEffectivePolicyDigest(effective),
+      controls: effective.controls,
+      execution: {
+        status: result.status,
+        exitCode: result.exitCode,
+        signal: result.signal,
+        startedAt: outcome.startedAt.toISOString(),
+        endedAt: outcome.endedAt.toISOString(),
+        outputTruncated: Boolean(result.truncated?.stdout || result.truncated?.stderr),
+      },
+      comparison: capsuleStrictVerificationRefusal(capsule)
+        ? 'inconclusive'
+        : strictCapsuleVerdict(capsule, result).verdict,
+      evidence: outcome.evidence,
+    };
+    const verdict = summarizeReproReceipt(receipt, review.approved);
+    if (verdict.overall === 'refused') return CLI_EXIT_CODES.internal;
+
+    if (args.json) {
+      io.writeStdout(
+        `${JSON.stringify({
+          ok: verdict.overall === 'pass',
+          receipt,
+          verdict,
+          stdout: result.stdout,
+          stderr: result.stderr,
+        })}\n`
+      );
+    } else {
+      // Workload output is untrusted text, shown exactly as the capped streams hold it.
+      io.writeStdout(result.stdout);
+      io.writeStderr(result.stderr);
+      if (!args.quiet) {
+        const summary = `${label}: ${verdict.overall} (output ${verdict.output}, enforcement ${verdict.enforcement}, compliance ${verdict.compliance}, evidence ${verdict.evidence})`;
+        io.writeStderr(
+          `${renderCliNotice(io, args.color, summary, verdict.overall === 'pass' ? 'success' : 'warning')}\n`
+        );
+      }
+    }
+    return VERDICT_EXIT_CODES[verdict.overall];
+  } finally {
+    await disposeReproStaging(staging);
+  }
+}
+
 export async function runReproRunCommand(args: ReproRunArgs, io: CliIo): Promise<CliExitCode> {
   const label = 'lingua repro run';
-  const prepared = await prepareReview(args.envelopePath, io, args.backends);
+  const prepared = await prepareReview(args, io);
   if (!prepared.ok) {
     emitCliFailure(io, args, { label, reason: prepared.reason, detail: prepared.detail });
     return CLI_EXIT_CODES.userInputError;
   }
   const review = prepared.value;
+  const { backend, effective, node } = review;
 
   let receipt: ReproRefusedReceiptV1;
   let detail: string;
-  let exitCode: CliExitCode;
+  let exitCode: CliExitCode = CLI_EXIT_CODES.unsupportedCapability;
   if (args.approve.trim().toLowerCase() !== review.token) {
     receipt = refusedReceipt(review, 'approval-invalid', args);
     detail = `The approval does not match this envelope and policy. Review it again with lingua repro review ${shellQuote(args.envelopePath)}.`;
     exitCode = CLI_EXIT_CODES.userInputError;
-  } else if (review.probe && review.missing.length > 0) {
-    receipt = refusedReceipt(review, 'unenforceable', args);
-    detail = `${review.probe.backend.id} cannot enforce ${review.missing.join(', ')}; nothing was run.`;
-    exitCode = CLI_EXIT_CODES.unsupportedCapability;
-  } else {
-    // Launching arrives with the first backend; until then nothing here can run code.
+  } else if (!backend) {
     receipt = refusedReceipt(review, 'backend-unavailable', args);
-    detail = review.probe
-      ? `${review.probe.backend.id} cannot launch reproductions yet; nothing was run.`
-      : `No containment backend is available on ${hostLabel()}; nothing was run.`;
-    exitCode = CLI_EXIT_CODES.unsupportedCapability;
+    detail = `No containment backend is available on ${hostLabel()}; nothing was run.`;
+  } else if (!effective) {
+    receipt = refusedReceipt(review, 'unenforceable', args);
+    detail = `${backend.probe.backend.id} cannot enforce ${review.missing.join(', ')}; nothing was run.`;
+  } else if (!node || !runtimeMatches(review)) {
+    receipt = refusedReceipt(review, 'runtime-unavailable', args);
+    detail = `${describeRuntime(review).replace('; run refuses before launch', '')}; nothing was run.`;
+  } else {
+    return launchReproduction(review, backend, effective, node, args, io);
   }
 
   emitCliFailure(io, args, {

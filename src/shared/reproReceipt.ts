@@ -33,7 +33,12 @@ const HASH_RE = /^[a-f0-9]{64}$/u;
 const DENIAL_OPERATIONS = ['file-read', 'file-write', 'network', 'process-spawn', 'other'] as const;
 const DENIAL_AREAS = ['inputs', 'scratch', 'output', 'outside'] as const;
 const EVIDENCE_COVERAGES = ['complete', 'partial', 'unavailable', 'collection-failed'] as const;
-const REFUSAL_REASONS = ['backend-unavailable', 'unenforceable', 'approval-invalid'] as const;
+const REFUSAL_REASONS = [
+  'backend-unavailable',
+  'unenforceable',
+  'approval-invalid',
+  'runtime-unavailable',
+] as const;
 const RUN_STATUSES = ['success', 'error', 'timeout', 'stopped'] as const;
 const COMPARISON_VERDICTS = ['pass', 'fail', 'inconclusive'] as const;
 const CONTROL_SUPPORTS = ['enforced', 'sampled', 'unsupported'] as const;
@@ -50,7 +55,7 @@ interface ReproDenialV1 {
   readonly path?: string;
 }
 
-interface ReproReceiptHostV1 {
+export interface ReproReceiptHostV1 {
   readonly lingua: string;
   readonly os: string;
   readonly arch: string;
@@ -83,7 +88,7 @@ interface ReproExecutionV1 {
   readonly outputTruncated: boolean;
 }
 
-interface ReproEvidenceV1 {
+export interface ReproEvidenceV1 {
   readonly coverage: ReproEvidenceCoverage;
   readonly denials: readonly ReproDenialV1[];
 }

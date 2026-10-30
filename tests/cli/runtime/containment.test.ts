@@ -1,7 +1,9 @@
+import process from 'node:process';
 import { describe, expect, it } from 'vitest';
 import {
   CONTAINMENT_BACKENDS,
   probeContainment,
+  resolveReproNodeRuntime,
   type ReproContainmentBackend,
 } from '../../../src/cli/runtime/containment';
 import { REPRO_CONTROLS, type ReproBackendProbe } from '../../../src/shared/reproPolicy';
@@ -20,12 +22,21 @@ function backend(
   id: string,
   probe: () => Promise<ReproBackendProbe | null>
 ): ReproContainmentBackend {
-  return { id, probe };
+  return {
+    id,
+    probe,
+    async launch() {
+      throw new Error('not launched in these tests');
+    },
+  };
 }
 
 describe('probeContainment', () => {
-  it('ships no backend yet, so the default probe finds none', async () => {
-    expect(CONTAINMENT_BACKENDS).toEqual([]);
+  it('ships the macOS Seatbelt backend as the only backend', () => {
+    expect(CONTAINMENT_BACKENDS.map(entry => entry.id)).toEqual(['macos-seatbelt']);
+  });
+
+  it.skipIf(process.platform === 'darwin')('finds no backend outside macOS', async () => {
     expect(await probeContainment()).toBeNull();
   });
 
@@ -37,6 +48,7 @@ describe('probeContainment', () => {
     ]);
 
     expect(result?.backend.id).toBe('present');
+    expect(result?.probe.backend.id).toBe('present');
   });
 
   it('treats a probe that throws as an absent backend', async () => {
@@ -47,5 +59,22 @@ describe('probeContainment', () => {
     ]);
 
     expect(result).toBeNull();
+  });
+});
+
+describe('resolveReproNodeRuntime', () => {
+  it('reports the canonical path and version of the Node.js running the tests', async () => {
+    const runtime = await resolveReproNodeRuntime(process.execPath);
+
+    expect(runtime?.version).toBe(process.versions.node);
+    expect(runtime?.path).toMatch(/node(\.exe)?$/u);
+  });
+
+  it('returns null for a binary that does not exist', async () => {
+    expect(await resolveReproNodeRuntime('/nonexistent/bin/node')).toBeNull();
+  });
+
+  it('returns null for a command that is not on PATH', async () => {
+    expect(await resolveReproNodeRuntime('lingua-no-such-node-binary')).toBeNull();
   });
 });

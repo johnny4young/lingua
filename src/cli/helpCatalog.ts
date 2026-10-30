@@ -166,7 +166,7 @@ export const CLI_HELP_CATALOG = {
       invocation: 'lingua repro run <envelope> --approve <token> [--json] [--quiet]',
       summary: 'Run an approved reproduction inside a containment backend, or refuse.',
       description:
-        'Experimental. Refuses before launch when the approval is stale or a required control cannot be enforced; no backend ships yet, so it always refuses. --json prints the refusal receipt.',
+        'Experimental. Runs the reviewed bytes under macOS Seatbelt and compares the output with the capsule; refuses before launch on a stale approval, a missing backend or runtime, or an unenforced control. --json prints the receipt.',
       flags: ['approve', 'json', 'quiet', 'color', 'help'],
       examples: [
         {

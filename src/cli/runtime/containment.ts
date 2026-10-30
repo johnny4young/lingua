@@ -2,31 +2,106 @@
 /**
  * Containment backends for permissioned reproductions.
  *
- * A backend reports what it can enforce on this host before anything runs.
- * No backend ships yet, so every permissioned run is refused before launch.
+ * A backend reports what it can enforce on this host before anything runs,
+ * and launches only inside a staging root the supervisor owns.
  */
 
-import type { ReproBackendProbe } from '../../shared/reproPolicy';
+import { execFile } from 'node:child_process';
+import { access, realpath } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import path from 'node:path';
+
+import type { ReproBackendProbe, ReproPolicyV1 } from '../../shared/reproPolicy';
+import type { ReproEvidenceV1 } from '../../shared/reproReceipt';
+import type { CliExecutionResult } from './execution';
+import type { ReproStaging } from './reproStaging';
+import { seatbeltBackend } from './seatbelt';
+import { nodeRuntimeExecutable } from './targets';
+
+export interface ReproNodeRuntime {
+  /** Canonical path; profiles allow exactly this binary. */
+  readonly path: string;
+  readonly version: string;
+}
+
+export interface ReproLaunchRequest {
+  readonly staging: ReproStaging;
+  readonly policy: ReproPolicyV1;
+  readonly node: ReproNodeRuntime;
+  readonly args: ReadonlyArray<string>;
+  readonly stdin?: string;
+}
+
+export interface ReproLaunchOutcome {
+  readonly result: CliExecutionResult;
+  readonly startedAt: Date;
+  readonly endedAt: Date;
+  readonly evidence: ReproEvidenceV1;
+}
 
 export interface ReproContainmentBackend {
   readonly id: string;
   /** Null when the backend cannot run on this host at all. */
   probe(): Promise<ReproBackendProbe | null>;
+  launch(request: ReproLaunchRequest): Promise<ReproLaunchOutcome>;
 }
 
-export const CONTAINMENT_BACKENDS: readonly ReproContainmentBackend[] = [];
+export const CONTAINMENT_BACKENDS: readonly ReproContainmentBackend[] = [seatbeltBackend];
+
+export interface ProbedBackend {
+  readonly backend: ReproContainmentBackend;
+  readonly probe: ReproBackendProbe;
+}
 
 /** First backend that answers its probe on this host, or null. A probe that throws counts as absent. */
 export async function probeContainment(
   backends: readonly ReproContainmentBackend[] = CONTAINMENT_BACKENDS
-): Promise<ReproBackendProbe | null> {
+): Promise<ProbedBackend | null> {
   for (const backend of backends) {
     try {
       const probe = await backend.probe();
-      if (probe) return probe;
+      if (probe) return { backend, probe };
     } catch {
       // Fail closed: an unanswered probe is the same as no backend.
     }
   }
   return null;
+}
+
+async function findOnPath(command: string, searchPath: string | undefined): Promise<string | null> {
+  for (const directory of (searchPath ?? '').split(path.delimiter)) {
+    if (!path.isAbsolute(directory)) continue;
+    const candidate = path.join(directory, command);
+    try {
+      await access(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Keep looking.
+    }
+  }
+  return null;
+}
+
+/** The Node.js binary a reproduction would run with, resolved outside any sandbox. */
+export async function resolveReproNodeRuntime(
+  executable: string = nodeRuntimeExecutable()
+): Promise<ReproNodeRuntime | null> {
+  const found = path.isAbsolute(executable)
+    ? executable
+    : await findOnPath(executable, process.env.PATH);
+  if (!found) return null;
+  try {
+    const resolved = await realpath(found);
+    const version = await new Promise<string>((resolve, reject) => {
+      execFile(
+        resolved,
+        ['-p', 'process.versions.node'],
+        { timeout: 5_000, env: {} },
+        (error, stdout) => (error ? reject(error) : resolve(stdout.trim()))
+      );
+    });
+    return /^\d+\.\d+\.\d+$/u.test(version) ? { path: resolved, version } : null;
+  } catch {
+    return null;
+  }
 }
