@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { pushUpsellNotice } from '../../src/renderer/utils/upsellNotice';
+import { pushUpsellNotice, resetUpsellNoticesForTests } from '../../src/renderer/utils/upsellNotice';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import {
   _resetCommandBusForTesting,
@@ -8,7 +8,8 @@ import {
 
 describe('pushUpsellNotice', () => {
   beforeEach(() => {
-    useUIStore.getState().dismissStatusNotice();
+    resetUpsellNoticesForTests();
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
   });
 
   afterEach(() => {
@@ -48,6 +49,20 @@ describe('pushUpsellNotice', () => {
       messageKey: 'upsell.freeCeilingReached',
       priority: 'high',
     });
+  });
+
+  it('makes the pitch once per feature and still answers later blocks', () => {
+    const block = (featureLabel: string) => pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel });
+    block('additional open tabs');
+    useUIStore.getState().dismissStatusNotice();
+
+    block('additional open tabs');
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'upsell.freeCeilingReached', values: { feature: 'additional open tabs' } });
+    expect(useUIStore.getState().statusNotice?.actions).toBeUndefined();
+    expect(useUIStore.getState().statusNotice?.priority).toBeUndefined();
+
+    block('run capsules');
+    expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1);
   });
 
   it('routes the shared CTA through the App license-settings command', () => {

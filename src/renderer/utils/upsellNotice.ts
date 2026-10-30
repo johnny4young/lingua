@@ -16,7 +16,25 @@ export interface UpsellNoticeInput {
   detail?: string;
 }
 
+// Features whose upsell already showed with its CTA this session.
+const pitched = new Set<string>();
+
+/** Test hook: a fresh session. */
+export function resetUpsellNoticesForTests(): void {
+  pitched.clear();
+}
+
 export function pushUpsellNotice(input: UpsellNoticeInput): void {
+  // A blocked action always answers, but each feature makes its pitch once a session.
+  if (pitched.has(input.featureLabel)) {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: input.messageKey,
+      values: { feature: input.featureLabel },
+    });
+    return;
+  }
+  pitched.add(input.featureLabel);
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: input.messageKey,
