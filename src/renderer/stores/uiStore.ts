@@ -87,24 +87,14 @@ export interface StatusNotice {
    * The dispatcher guarantees at-most-once delivery per notice.
    */
   onDismiss?: (mode: StatusNoticeDismissMode) => void;
-  /**
-   * Replacement priority. Default
-   * `'normal'` preserves the legacy "last writer wins" behaviour
-   * for the 134 existing callers. `'high'` is for onboarding /
-   * choreographed toasts that must survive any same-tone push.
-   * Incoming errors and warnings always bypass the priority check.
-   */
+  /** Queue order and which notice may replace the visible one; errors and warnings ignore it. */
   priority?: StatusNoticePriority;
   /** Stays until acted on instead of leaving after 8 s; for notices that ask a decision. Errors always do. */
   sticky?: boolean;
   /**
-   * Optional callback fired when this
-   * notice REFUSES a lower-priority replacement attempt. Lets the
-   * pusher (e.g. `useOnboardingChoreography`) emit
-   * `onboarding.toast_clobbered` telemetry so we can see in
-   * production how often the new priority field saves a toast.
-   * Fire-and-forget; can fire multiple times per notice if multiple
-   * clobber attempts happen during its lifetime.
+   * Fires when a lower-priority push waits behind this visible notice, so the
+   * pusher can attribute `onboarding.toast_clobbered`. Fire-and-forget; may fire
+   * several times per notice.
    */
   onSurvived?: () => void;
 }

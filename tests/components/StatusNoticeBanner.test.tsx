@@ -116,6 +116,14 @@ describe('StatusNoticeBanner', () => {
     }
   });
 
+  it('tells dialogs where the row starts and forgets it once the row goes', () => {
+    useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'onboarding.firstRun.message' });
+    render(<StatusNoticeBanner />);
+    expect(document.documentElement.style.getPropertyValue('--notice-row-offset')).toMatch(/^\d+px$/);
+    act(() => useUIStore.getState().dismissStatusNotice());
+    expect(document.documentElement.style.getPropertyValue('--notice-row-offset')).toBe('');
+  });
+
   it('pauses auto-dismiss while hovered and resumes on leave', () => {
     vi.useFakeTimers();
     try {

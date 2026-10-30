@@ -26,7 +26,8 @@ export function resetUpsellNoticesForTests(): void {
 
 export function pushUpsellNotice(input: UpsellNoticeInput): void {
   // A blocked action always answers, but each feature makes its pitch once a session.
-  if (pitched.has(input.featureLabel)) {
+  const pitch = `${input.messageKey}:${input.featureLabel}`;
+  if (pitched.has(pitch)) {
     useUIStore.getState().pushStatusNotice({
       tone: 'info',
       messageKey: input.messageKey,
@@ -34,7 +35,7 @@ export function pushUpsellNotice(input: UpsellNoticeInput): void {
     });
     return;
   }
-  pitched.add(input.featureLabel);
+  pitched.add(pitch);
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: input.messageKey,

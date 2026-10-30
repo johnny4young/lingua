@@ -1,7 +1,7 @@
 /**
  * accessibility pass — the single polite live region for the app.
  *
- * Mounted once near `StatusNoticeBanner`. Subscribes to the shared
+ * Mounted once in `App.tsx`. Subscribes to the shared
  * {@link useAnnouncerStore} and renders the latest message into a
  * visually-hidden `aria-live="polite"` region so screen readers announce
  * dynamic state changes (result counts, run completion) that are

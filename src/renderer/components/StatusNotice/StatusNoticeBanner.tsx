@@ -30,6 +30,25 @@ export function StatusNoticeBanner() {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const paused = notice !== null && (hoveredId === notice.id || focusedId === notice.id);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const hasNotice = notice !== null;
+
+  // Dialogs end where the row starts, so a notice never covers one.
+  useEffect(() => {
+    const root = document.documentElement;
+    const row = rowRef.current;
+    if (!hasNotice || !row) return;
+    const publish = () => root.style.setProperty('--notice-row-offset', `${Math.max(0, window.innerHeight - row.getBoundingClientRect().top)}px`);
+    publish();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish);
+    observer?.observe(row);
+    window.addEventListener('resize', publish);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', publish);
+      root.style.removeProperty('--notice-row-offset');
+    };
+  }, [hasNotice]);
   useEffect(() => {
     ctaFiredRef.current = false;
   }, [notice?.id]);
@@ -77,6 +96,7 @@ export function StatusNoticeBanner() {
 
   return (
     <div
+      ref={rowRef}
       role={notice.tone === 'error' ? 'alert' : 'status'}
       aria-live={notice.tone === 'error' ? 'assertive' : 'polite'}
       data-testid="status-notice-banner"

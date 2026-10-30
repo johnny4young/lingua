@@ -450,6 +450,7 @@ export function AppLayout({
   const compactDrawerRef = useRef<HTMLDivElement | null>(null);
   const persistentSidebarRef = useRef<HTMLDivElement | null>(null);
   const shellUnderlayRef = useRef<HTMLDivElement | null>(null);
+  const statusBarRef = useRef<HTMLDivElement | null>(null);
   const wasCompactDrawerOpenRef = useRef(false);
   const shellLayout = useDefaultLayout({
     id: 'lingua-shell-layout',
@@ -472,10 +473,13 @@ export function AppLayout({
       return;
     }
 
+    const statusBar = statusBarRef.current;
     shellUnderlay.toggleAttribute('inert', isCompactDrawerOpen);
+    statusBar?.toggleAttribute('inert', isCompactDrawerOpen);
 
     return () => {
       shellUnderlay.removeAttribute('inert');
+      statusBar?.removeAttribute('inert');
     };
   }, [isCompactDrawerOpen]);
 
@@ -666,12 +670,10 @@ export function AppLayout({
             </div>
           </div>
         )}
-        {/* Persistent bottom status bar. Last child of the
-            shell-underlay flex-col so it pins to the bottom of the flow AND
-            inherits the inert + aria-hidden the underlay receives while the
-            compact drawer is open. Self-renders null when showStatusBar is
-            OFF. */}
-        <StatusNoticeBanner />
+      </div>
+      {/* Notices stay reachable over the compact drawer; the status bar does not. */}
+      <StatusNoticeBanner />
+      <div ref={statusBarRef} aria-hidden={isCompactDrawerOpen ? 'true' : undefined} className="contents">
         <StatusBar />
       </div>
       {isCompactDrawerOpen && (

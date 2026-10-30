@@ -1286,7 +1286,7 @@ describe('HttpWorkspacePanel — chain tags', () => {
       render(<HttpWorkspacePanel />);
       await userEvent.click(screen.getByTestId('http-request-editor-send'));
       await waitFor(() =>
-        expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.confirm', values: { name: 'Get repo', origin: 'https://other.example' } })
+        expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.confirm', sticky: true, values: { name: 'Get repo', origin: 'https://other.example' } })
       );
       expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
       const action = useUIStore.getState().statusNotice!.actions![0]!;

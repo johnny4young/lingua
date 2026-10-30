@@ -254,10 +254,8 @@ function handleFirstSnippetSave(track: TelemetryTrack): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: 'onboarding.firstSnippet.message',
-    // Same priority rationale as the
-    // first-run toast above; the library-tip toast must survive any
-    // normal-tier notice push for the ~6 s the user needs to read
-    // it.
+    // Same priority rationale as the first-run toast above: a normal-tier
+    // push waits behind the library tip instead of replacing it.
     priority: 'high',
     // clobber-attempt telemetry.
     onSurvived: () => {

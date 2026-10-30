@@ -63,6 +63,12 @@ describe('pushUpsellNotice', () => {
 
     block('run capsules');
     expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1);
+
+    // A different message for the same feature still makes its own pitch.
+    useUIStore.getState().dismissStatusNotice();
+    pushUpsellNotice({ messageKey: 'upsell.desktopLanguageOnWeb', featureLabel: 'additional open tabs' });
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'upsell.desktopLanguageOnWeb' });
+    expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1);
   });
 
   it('routes the shared CTA through the App license-settings command', () => {

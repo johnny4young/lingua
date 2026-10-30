@@ -37,9 +37,13 @@ function insert(queue: StatusNotice[], notice: StatusNotice, atFront = false): {
   const at = atFront ? 0 : next.findIndex(entry => rank(entry) < rank(notice));
   next.splice(at < 0 ? next.length : at, 0, notice);
   const dropped: StatusNotice[] = [];
+  // A decision is never dropped; past the cap the least important other notice goes.
   while (next.length > MAX_QUEUED) {
-    let lowest = next.length - 1;
-    for (let index = next.length - 1; index >= 0; index -= 1) if (rank(next[index]!) < rank(next[lowest]!)) lowest = index;
+    let lowest = -1;
+    for (let index = next.length - 1; index >= 0; index -= 1) {
+      if (!isStickyNotice(next[index]!) && (lowest < 0 || rank(next[index]!) < rank(next[lowest]!))) lowest = index;
+    }
+    if (lowest < 0) break;
     dropped.push(...next.splice(lowest, 1));
   }
   return { queue: next, dropped };

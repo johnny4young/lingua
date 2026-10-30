@@ -82,8 +82,10 @@ Ship option 2 (priority field). Rationale:
   read as `'normal'` priority by default and keep their
   last-writer-wins behaviour against other `'normal'` pushes.
 - The 6 s auto-dismiss TTL stays. Error notices still require manual
-  dismissal in the banner.
-- The single-slot store shape stays. Notices do NOT queue.
+  dismissal in the banner. *(Superseded by the 2026-10-30 amendment: 8 s,
+  sticky decisions.)*
+- The single-slot store shape stays. Notices do NOT queue. *(Superseded by
+  the 2026-10-30 amendment: notices queue.)*
 
 ### Migration path
 
@@ -99,7 +101,10 @@ If `onboarding.toast_clobbered` never fires in production over a
 underlying clobbering caller would have been fixed elsewhere, or
 the scenario stopped existing. Remove the field, drop the priority
 check in `pushStatusNotice`, and revert the two onboarding annotations.
-The 134 legacy callers are unaffected by the removal.
+The 134 legacy callers are unaffected by the removal. *(Since the
+2026-10-30 amendment, priority also sets queue order, so removing it
+flattens the queue, and `onboarding.toast_clobbered` counts
+lower-priority pushes that waited rather than refused swaps.)*
 
 ## Coupled invariants
 
@@ -122,16 +127,18 @@ Accepted. Shipped 2026-05-22. Amended 2026-10-30: notices now queue (below).
 
 The single slot let a later push silently replace a notice that still needed
 an answer, and the bottom-right toast covered the templates on the welcome
-screen and the debugger's Watches card. The replacement rules above are
-superseded by these:
+screen and the debugger's Watches card. The replacement, TTL and single-slot
+rules above are superseded by these:
 
 - **One visible, in its own row.** The notice docks in a row above the status
   bar (at the bottom of the window when the status bar is off), so it covers
-  no content. It stays above an open dialog so a notice pushed from inside one
-  is still reachable.
+  no content. It stays above an open dialog and the compact sidebar drawer so
+  a notice pushed from inside one is still reachable, and dialogs end above
+  the row (`--notice-row-offset`).
 - **Queued by priority.** Waiting notices show `'high'` before `'normal'`
   before `'low'`, oldest first within a tier, at most five; past that the
-  least important waiting notice is dropped with `onDismiss('auto')`.
+  least important waiting notice that is not a decision is dropped with
+  `onDismiss('auto')`.
 - **Sticky decisions.** Errors and notices with `sticky: true` (the session
   restore prompt, toolchain recovery, an external file change, an HTTP chain
   confirmation) stay until acted on; everything else leaves after 8 s,

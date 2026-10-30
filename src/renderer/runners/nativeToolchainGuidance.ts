@@ -62,9 +62,8 @@ function pushRecoveryNotice(
 
   useUIStore.getState().pushStatusNotice({
     tone: 'warning',
-    // Missing native execution is a blocking recovery surface. Match the
-    // onboarding priority so a first-run toast cannot silently discard the
-    // install/retry path; same-priority notices replace in arrival order.
+    // A blocking recovery surface: sticky, so later notices wait behind it,
+    // and high priority keeps it ahead of them in the queue.
     priority: 'high',
     sticky: true,
     messageKey,

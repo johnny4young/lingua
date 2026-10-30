@@ -65,6 +65,20 @@ describe('status notice queue', () => {
     expect(dropped).toEqual(['limit']);
   });
 
+  it('never drops a waiting decision to honour the cap', () => {
+    const { slots, dropped } = pushAll(
+      notice('restore', { sticky: true }),
+      notice('reload', { sticky: true, actions: action }),
+      notice('a', { priority: 'high', actions: action }),
+      notice('b', { priority: 'high', actions: action }),
+      notice('c', { priority: 'high', actions: action }),
+      notice('d', { priority: 'high', actions: action }),
+      notice('e', { priority: 'high', actions: action })
+    );
+    expect(keys(slots)).toContain('reload');
+    expect(dropped).toEqual(['e']);
+  });
+
   it('caps the backlog by dropping the least important notice', () => {
     const { slots, dropped } = pushAll(
       notice('restore', { sticky: true }),
