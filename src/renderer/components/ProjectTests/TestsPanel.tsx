@@ -19,6 +19,7 @@ import type { ProjectTestCaseStatus, ProjectTestScope } from '../../../shared/pr
 import { useProjectStore } from '../../stores/projectStore';
 import { useProjectTestStore, isProjectTestRunFailure, type ProjectTestDisplayCase, type ProjectTestBinding } from '../../stores/projectTestStore';
 import { cn } from '../../utils/cn';
+import { openTestFailure, opensInEditor } from './openTestFailure';
 
 const MAX_RECENTS = 3;
 
@@ -392,7 +393,15 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                           className={cn('group/case border-b border-border-subtle', isSelected ? 'bg-accent-tint' : 'hover:bg-bg-panel-alt')}
                         >
                           <div className="flex min-h-8 items-center gap-2.5 py-1 pl-11 pr-4">
-                            <button type="button" onClick={() => setSelected(isSelected ? null : key)} className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (opensInEditor(entry)) {
+                                  setSelected(key);
+                                  void openTestFailure(entry);
+                                } else setSelected(isSelected ? null : key);
+                              }}
+                              className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 text-left">
                               <span className={cn('flex shrink-0', entry.stale && 'opacity-50')}><StatusIcon status={entry.status} /></span>
                               <span className={cn('truncate text-fg-base', isSelected && 'font-medium')}>
                                 {entry.path.length > 0 ? (
@@ -423,7 +432,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                               </button>
                             ) : null}
                           </div>
-                          {isSelected && entry.failureMessage ? (
+                          {isSelected && entry.failureMessage && !opensInEditor(entry) ? (
                             <pre className="mx-4 mb-2 ml-11 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-micro text-fg-base" data-testid="tests-failure">
                               {entry.failureMessage}
                             </pre>
