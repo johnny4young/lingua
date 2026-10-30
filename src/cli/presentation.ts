@@ -71,7 +71,7 @@ export function emitCliFailure(io: CliIo, options: CliOutputOptions, failure: Cl
 
   const label = styleCliText(io, options.color, 'stderr', 'bold', failure.label);
   const marker = styleCliText(io, options.color, 'stderr', 'red', `error[${failure.reason}]`);
-  io.writeStderr(`${label}: ${marker}: ${failure.detail}\n`);
+  io.writeStderr(`${label}: ${marker}: ${neutralizeControlCharacters(failure.detail)}\n`);
 }
 
 /** Color only headings/labels; never mutate examples or command payloads. */
@@ -99,7 +99,13 @@ export function renderCliNotice(
   text: string,
   tone: 'success' | 'warning' = 'warning'
 ): string {
-  return styleCliText(io, mode, 'stderr', tone === 'success' ? 'green' : 'yellow', text);
+  return styleCliText(
+    io,
+    mode,
+    'stderr',
+    tone === 'success' ? 'green' : 'yellow',
+    neutralizeControlCharacters(text)
+  );
 }
 
 /**

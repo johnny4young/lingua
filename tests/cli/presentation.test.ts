@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   emitCliFailure,
   neutralizeControlCharacters,
+  renderCliNotice,
   shouldUseColor,
 } from '../../src/cli/presentation';
 import { createFakeIo } from './io-fake';
@@ -61,5 +62,33 @@ describe('neutralizeControlCharacters', () => {
 
   it('keeps newlines, tabs and non-ASCII text', () => {
     expect(neutralizeControlCharacters('línea 1\n\tcafé ☕')).toBe('línea 1\n\tcafé ☕');
+  });
+});
+
+describe('diagnostics built from untrusted text', () => {
+  it('neutralizes control characters in a human failure detail', () => {
+    const { io, state } = createFakeIo();
+
+    emitCliFailure(
+      io,
+      { json: false, quiet: false, color: 'never' },
+      {
+        label: 'lingua repro review',
+        reason: 'invalid-json',
+        detail: 'Unexpected token \u001b]52;c;',
+      }
+    );
+
+    expect(state.stderr).toBe(
+      'lingua repro review: error[invalid-json]: Unexpected token \\x1b]52;c;\n'
+    );
+  });
+
+  it('neutralizes control characters in a notice', () => {
+    const { io } = createFakeIo();
+
+    expect(renderCliNotice(io, 'never', 'removed \u001b[2Kstaging')).toBe(
+      'removed \\x1b[2Kstaging'
+    );
   });
 });

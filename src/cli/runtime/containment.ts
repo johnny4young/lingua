@@ -70,9 +70,17 @@ export async function probeContainment(
 
 /** The Node.js binary a reproduction would run with, resolved outside any sandbox. */
 export async function resolveReproNodeRuntime(
-  executable: string = nodeRuntimeExecutable()
+  executable: string = nodeRuntimeExecutable(),
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<ReproNodeRuntime | null> {
-  const found = path.isAbsolute(executable) ? executable : await findExecutableOnPath(executable);
+  // A relative PATH entry would let a binary planted in the working directory become the runtime.
+  const absolutePath = (env.PATH ?? '')
+    .split(path.delimiter)
+    .filter(entry => path.isAbsolute(entry))
+    .join(path.delimiter);
+  const found = path.isAbsolute(executable)
+    ? executable
+    : await findExecutableOnPath(executable, process.platform, { ...env, PATH: absolutePath });
   if (!found) return null;
   try {
     const resolved = await realpath(found);

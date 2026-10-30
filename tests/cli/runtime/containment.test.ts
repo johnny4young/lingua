@@ -1,3 +1,5 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import process from 'node:process';
 import { describe, expect, it } from 'vitest';
 import {
@@ -81,6 +83,24 @@ describe('resolveReproNodeRuntime', () => {
 
     expect(runtime?.version).toMatch(/^\d+\.\d+\.\d+$/u);
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'ignores a node planted in a relative PATH entry but finds it through an absolute one',
+    async () => {
+      const planted = await mkdtemp(path.join(process.cwd(), '.repro-planted-'));
+      try {
+        await writeFile(path.join(planted, 'node'), '#!/bin/sh\necho 99.0.0\n', { mode: 0o755 });
+        const relative = path.relative(process.cwd(), planted);
+
+        expect(await resolveReproNodeRuntime('node', { PATH: relative })).toBeNull();
+        expect(await resolveReproNodeRuntime('node', { PATH: planted })).toMatchObject({
+          version: '99.0.0',
+        });
+      } finally {
+        await rm(planted, { recursive: true, force: true });
+      }
+    }
+  );
 
   it('returns null for a command that is not on PATH', async () => {
     expect(await resolveReproNodeRuntime('lingua-no-such-node-binary')).toBeNull();
