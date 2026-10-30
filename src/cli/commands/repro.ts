@@ -317,6 +317,7 @@ export async function runReproReviewCommand(
   }
   const review = prepared.value;
   const { envelope } = review;
+  const ambientGrants = review.backend?.probe.ambientGrants ?? [];
 
   if (args.json) {
     io.writeStdout(
@@ -335,6 +336,8 @@ export async function runReproReviewCommand(
         requiredControls: requiredReproControls(review.approved),
         backend: review.backend?.probe.backend ?? null,
         missingControls: review.missing,
+        effectivePolicy: review.effective,
+        ambientGrants,
         approval: {
           contentDigest: review.contentDigest,
           policyDigest: review.policyDigest,
@@ -359,9 +362,23 @@ export async function runReproReviewCommand(
     ['limits', describeLimits(review.approved)],
     ['evidence', `denials ${review.approved.evidence.denials}`],
     ['backend', describeBackend(review)],
+    ['effective', review.effective ? 'available' : 'unavailable; run refuses before launch'],
+    ...(review.effective?.controls ?? []).map(
+      ({ control, support, required }): [string, string] => [
+        'control',
+        `${control}: ${support} (${required ? 'required' : 'optional'})`,
+      ]
+    ),
+    ...(ambientGrants.length > 0
+      ? ambientGrants
+      : [review.backend ? 'none' : 'unavailable (no backend)']
+    ).map((grant): [string, string] => ['ambient', neutralizeControlCharacters(grant)]),
     ['approve', `lingua repro run ${shellQuote(args.envelopePath)} --approve ${review.token}`],
   ];
-  io.writeStdout(rows.map(([key, value]) => `${key.padEnd(9)}${value}`).join('\n') + '\n');
+  io.writeStdout(
+    rows.map(([key, value]) => `${key.padEnd(Math.max(9, key.length + 1))}${value}`).join('\n') +
+      '\n'
+  );
   return CLI_EXIT_CODES.ok;
 }
 

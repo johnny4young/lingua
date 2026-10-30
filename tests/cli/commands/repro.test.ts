@@ -26,6 +26,7 @@ import {
   requiredReproControls,
   type ReproControl,
   type ReproControlSupport,
+  type ReproEffectivePolicy,
 } from '../../../src/shared/reproPolicy';
 import { parseReproReceipt } from '../../../src/shared/reproReceipt';
 import { FIXTURE_FULL_TS, FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
@@ -57,7 +58,8 @@ function executionResult(overrides: Partial<CliExecutionResult> = {}): CliExecut
 function backend(
   overrides: Partial<Record<ReproControl, ReproControlSupport>> = {},
   launch: (request: ReproLaunchRequest) => Promise<CliExecutionResult> = async () =>
-    executionResult()
+    executionResult(),
+  ambientGrants: readonly string[] = []
 ): ReproContainmentBackend & { launches: ReproLaunchRequest[] } {
   const controls = Object.fromEntries(
     REPRO_CONTROLS.map(control => [control, 'enforced'])
@@ -70,7 +72,7 @@ function backend(
       return {
         backend: { id: 'fake-backend', version: '1' },
         controls: { ...controls, ...overrides },
-        ambientGrants: [],
+        ambientGrants,
       };
     },
     async launch(request) {
@@ -333,12 +335,16 @@ describe('lingua repro review', () => {
     const body = JSON.parse(state.stdout) as {
       approval: { contentDigest: string; policyDigest: string; token: string };
       backend: unknown;
+      effectivePolicy: unknown;
+      ambientGrants: string[];
       missingControls: string[];
       requiredControls: string[];
       files: Array<{ path: string }>;
     };
     expect(body.approval.token).toBe(await computeReproApprovalToken(body.approval));
     expect(body.backend).toBeNull();
+    expect(body.effectivePolicy).toBeNull();
+    expect(body.ambientGrants).toEqual([]);
     expect(body.requiredControls).toEqual(MANDATORY_CONTROLS);
     expect(body.missingControls).toEqual(MANDATORY_CONTROLS);
     expect(body.files.map(file => file.path)).toEqual(['lib/sum.mjs']);
@@ -364,7 +370,153 @@ describe('lingua repro review', () => {
     expect(state.stdout).toContain('runtime  node 24.21.0\n');
     expect(state.stdout).toContain('network  deny');
     expect(state.stdout).toMatch(/backend {2}none on \S+ \S+; run refuses before launch/u);
+    expect(state.stdout).toContain('effective unavailable; run refuses before launch\n');
+    expect(state.stdout).toContain('ambient  unavailable (no backend)\n');
     expect(state.stdout).toContain(`approve  lingua repro run /work/repro.json --approve ${token}`);
+  });
+
+  it('reports effective controls and exact ambient grants as JSON without changing approval', async () => {
+    const json = await envelopeJson();
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+    const ambientGrants = ['read /synthetic/runtime', 'read synthetic\u001b[2K\rmetadata'];
+    const fake = backend(
+      { 'memory-limit': 'unsupported', 'disk-limit': 'unsupported', 'denial-evidence': 'sampled' },
+      undefined,
+      ambientGrants
+    );
+
+    const code = await runReproReviewCommand(
+      {
+        ...JSON_OUTPUT,
+        envelopePath: '/work/repro.json',
+        backends: [fake],
+        resolveNode: async () => NODE_24,
+      },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(state.stderr).toBe('');
+    const body = JSON.parse(state.stdout) as {
+      effectivePolicy: ReproEffectivePolicy;
+      ambientGrants: string[];
+      approval: { token: string };
+      missingControls: string[];
+    };
+    expect(body.effectivePolicy).toEqual({
+      approved: DEFAULT_REPRO_REQUEST,
+      backend: { id: 'fake-backend', version: '1' },
+      controls: REPRO_CONTROLS.map(control => ({
+        control,
+        support:
+          control === 'denial-evidence'
+            ? 'sampled'
+            : ['memory-limit', 'disk-limit'].includes(control)
+              ? 'unsupported'
+              : 'enforced',
+        required: MANDATORY_CONTROLS.includes(control),
+      })),
+      ambientGrants,
+    });
+    expect(body.ambientGrants).toEqual(ambientGrants);
+    expect(body.missingControls).toEqual([]);
+    expect(body.approval.token).toBe(await reviewToken(json));
+    expect(fake.launches).toEqual([]);
+  });
+
+  it('shows effective controls and inert ambient grants before the human approval hint', async () => {
+    const json = await envelopeJson();
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+    const fake = backend(
+      {
+        'memory-limit': 'unsupported',
+        'disk-limit': 'unsupported',
+        'denial-evidence': 'unsupported',
+      },
+      undefined,
+      ['read /synthetic/runtime', 'read synthetic\u001b[2K\rmetadata']
+    );
+
+    const code = await runReproReviewCommand(
+      {
+        ...OUTPUT,
+        envelopePath: '/work/repro.json',
+        backends: [fake],
+        resolveNode: async () => NODE_24,
+      },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(state.stderr).toBe('');
+    expect(state.stdout).toContain('effective available\n');
+    expect(state.stdout).toContain('control  filesystem-isolation: enforced (required)\n');
+    expect(state.stdout).toContain('control  denial-evidence: unsupported (optional)\n');
+    expect(state.stdout).toContain('control  memory-limit: unsupported (optional)\n');
+    expect(state.stdout).toContain('control  disk-limit: unsupported (optional)\n');
+    expect(state.stdout).toContain('ambient  read /synthetic/runtime\n');
+    expect(state.stdout).toContain('ambient  read synthetic\\x1b[2K\\x0dmetadata\n');
+    expect(state.stdout).not.toContain('\u001b');
+    expect(state.stdout).not.toContain('\r');
+    expect(state.stdout.indexOf('ambient  ')).toBeLessThan(state.stdout.indexOf('approve  '));
+    expect(fake.launches).toEqual([]);
+  });
+
+  it.each([false, true])(
+    'keeps ambient grants visible when a required control is missing (json: %s)',
+    async jsonOutput => {
+      const json = await envelopeJson();
+      const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+      const ambientGrants = ['read /synthetic/runtime'];
+      const fake = backend({ 'network-deny': 'unsupported' }, undefined, ambientGrants);
+
+      const code = await runReproReviewCommand(
+        {
+          ...OUTPUT,
+          json: jsonOutput,
+          envelopePath: '/work/repro.json',
+          backends: [fake],
+          resolveNode: async () => NODE_24,
+        },
+        io
+      );
+
+      expect(code).toBe(CLI_EXIT_CODES.ok);
+      if (jsonOutput) {
+        expect(JSON.parse(state.stdout)).toMatchObject({
+          effectivePolicy: null,
+          ambientGrants,
+          missingControls: ['network-deny'],
+        });
+      } else {
+        expect(state.stdout).toContain('effective unavailable; run refuses before launch\n');
+        expect(state.stdout).toContain('ambient  read /synthetic/runtime\n');
+        expect(state.stdout).toContain('cannot enforce network-deny; run refuses before launch');
+      }
+      expect(fake.launches).toEqual([]);
+    }
+  );
+
+  it('distinguishes a backend with no ambient grants and preserves quiet output', async () => {
+    const json = await envelopeJson();
+    const fake = backend();
+    for (const quiet of [false, true]) {
+      const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+      await runReproReviewCommand(
+        {
+          ...OUTPUT,
+          quiet,
+          envelopePath: '/work/repro.json',
+          backends: [fake],
+          resolveNode: async () => NODE_24,
+        },
+        io
+      );
+      if (quiet) expect(state.stdout).toBe('');
+      else expect(state.stdout).toContain('ambient  none\n');
+      expect(state.stderr).toBe('');
+    }
+    expect(fake.launches).toEqual([]);
   });
 
   it('quotes an envelope path a shell would split in the approve hint', async () => {
