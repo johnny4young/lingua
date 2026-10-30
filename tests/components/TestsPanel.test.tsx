@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestsPanel } from '../../src/renderer/components/ProjectTests/TestsPanel';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useNativeExecutionGateStore } from '../../src/renderer/stores/nativeExecutionGateStore';
 import { useProjectStore } from '../../src/renderer/stores/projectStore';
 import { useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
@@ -17,6 +18,7 @@ const initialProject = useProjectStore.getState();
 const initialProjectTests = useProjectTestStore.getState();
 const initialSettings = useSettingsStore.getState();
 const initialGate = useNativeExecutionGateStore.getState();
+const initialEditor = useEditorStore.getState();
 
 const detection: ProjectTestDetectionResult = {
   kind: 'ready',
@@ -87,6 +89,7 @@ describe('TestsPanel', () => {
     useProjectTestStore.setState(initialProjectTests, true);
     useSettingsStore.setState(initialSettings, true);
     useNativeExecutionGateStore.setState(initialGate, true);
+    useEditorStore.setState(initialEditor, true);
     vi.clearAllMocks();
   });
 
@@ -124,8 +127,14 @@ describe('TestsPanel', () => {
     expect(screen.getByText('Failed at line 10')).toBeTruthy();
     expect(useProjectStore.getState().recentProjects[0]!.testRunner).toBe('vitest');
 
+    const openFile = vi.fn().mockResolvedValue(undefined);
+    const requestReveal = vi.fn();
+    useEditorStore.setState({ openFile, requestReveal });
     await user.click(screen.getByText('rounds cents'));
-    expect(screen.getByTestId('tests-failure').textContent).toBe('expected 1211 to be 1210.5');
+    expect(requestReveal).toHaveBeenCalledWith({ filePath: '/tmp/checkout/cart/total.test.ts', line: 10 });
+    expect(openFile).toHaveBeenCalledWith('root-1', 'cart/total.test.ts', 'total.test.ts', 'typescript', '/tmp/checkout/cart/total.test.ts');
+    expect(useProjectTestStore.getState().focusedFailure).toEqual({ file: 'cart/total.test.ts', path: ['cartTotal', 'rounds cents'] });
+    expect(screen.queryByTestId('tests-failure')).toBeNull();
   });
 
   it('uses the singular for one result in Spanish', async () => {
@@ -135,6 +144,29 @@ describe('TestsPanel', () => {
     render(<TestsPanel />);
     await userEvent.setup().click(await screen.findByTestId('tests-run-all'));
     await waitFor(() => expect(screen.getByTestId('tests-counts').textContent).toBe('2 aprobadas1 fallida1 omitida'));
+  });
+
+  it('shows the message in the list when the failing file cannot be opened', async () => {
+    openProject();
+    installBridge();
+    useEditorStore.setState({ openFile: vi.fn().mockRejectedValue(new Error('gone')), requestReveal: vi.fn(), clearPendingReveal: vi.fn() });
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await user.click(await screen.findByTestId('tests-run-all'));
+    await user.click(await screen.findByText('rounds cents'));
+    expect((await screen.findByTestId('tests-failure')).textContent).toBe('expected 1211 to be 1210.5');
+  });
+
+  it('keeps the message in the list when the runner gave no location', async () => {
+    openProject();
+    const bridge = installBridge();
+    bridge.run.mockResolvedValueOnce(result({ cases: [{ file: 'cart/total.test.ts', path: ['cartTotal', 'rounds cents'], status: 'failed', failureMessage: 'boom' }] }));
+    const user = userEvent.setup();
+    render(<TestsPanel />);
+    await user.click(await screen.findByTestId('tests-run-all'));
+    await user.click(await screen.findByText('rounds cents'));
+    expect(screen.getByTestId('tests-failure').textContent).toBe('boom');
+    expect(useProjectTestStore.getState().focusedFailure).toBeNull();
   });
 
   it('narrows the list to failed tests', async () => {

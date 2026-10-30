@@ -89,10 +89,8 @@ export function createDocumentOpenActions(
         // disk-backed JS/TS opens adopt the per-app
         // default runtime mode; non-JS/TS files leave the field unset.
         runtimeMode: runtimeModeForNewTab(language),
-        // disk-backed opens also adopt the per-app
-        // default workflow mode so the toolbar segment has a value to
-        // reflect on first render.
-        workflowMode: workflowModeForNewTab(language),
+        // Project files are modules of a larger program, so Scratchpad's auto-run would execute them out of context.
+        workflowMode: workflowModeForNewTab(language, 'run'),
       };
 
       set(state => ({
@@ -162,7 +160,7 @@ export function createDocumentOpenActions(
         filePath,
         // Same JS/TS default mode as openFile().
         runtimeMode: runtimeModeForNewTab(language),
-        // Same per-language workflow-mode default.
+        // A file picked on its own keeps the Settings workflow default, unlike a project file.
         workflowMode: workflowModeForNewTab(language),
       };
 

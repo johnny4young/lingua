@@ -160,11 +160,16 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Ruby's `auto` preference quietly keeps using the bundled WASM runtime when system Ruby is absent. The guidance appears when `system` Ruby was explicitly selected.
 - Installation walkthroughs live in [Getting started](https://linguacode.dev/docs/getting-started) and its [Spanish version](https://linguacode.dev/es/docs/getting-started).
 
+## Project files
+
+- Files opened from an approved folder (the Explorer, Quick Open, project search, the Tests tab, deep links and template scaffolds) start in **Run** mode, whatever the per-language default in Settings, so a module never runs on its own the moment it opens. Switch the tab to Scratchpad from the run control when you want auto-run. New tabs and files picked with **File › Open…** keep the Settings default; restored sessions keep each tab's mode.
+- The Explorer header keeps **New file** and **New folder**; **Collapse all folders**, **Detect and run project tests**, **Open project terminal**, **Refresh** and **Export project as zip** are in its **⋯** menu.
+
 ## Project test runner
 
-- In the desktop app, **Tests** is a results dock tab, after Terminal. The flask action in the Explorer header and **Run project tests** in the Command Palette open it. Without a project it offers **Open project folder…** and up to three recent projects with the runner each one last used.
+- In the desktop app, **Tests** is a results dock tab, after Terminal. **Detect and run project tests** in the Explorer header menu (**⋯**) and **Run project tests** in the Command Palette open it. Without a project it offers **Open project folder…** and up to three recent projects with the runner each one last used.
 - Lingua detects every matching root-level runner in deterministic order: Vitest, Jest, Pytest, Go, then Cargo. With more than one, the toolbar picks between them. A configured runner can remain unavailable until its project-local package or host toolchain is installed; **Detect again** (the refresh button) finds it without a restart.
-- **Run all tests** lists every test grouped by file (Go groups by package) with passed, failed and skipped counts, and the dock tab shows how many failed. **All / Failed only** narrows the list. Hovering a file offers **Run file**, and a test **Run this test**; a scoped run updates only that part of the list. A failed test shows the line of its assertion, and selecting it shows the message. Rust doc tests are listed but run only with the whole suite.
+- **Run all tests** lists every test grouped by file (Go groups by package) with passed, failed and skipped counts, and the dock tab shows how many failed. **All / Failed only** narrows the list. Hovering a file offers **Run file**, and a test **Run this test**; a scoped run updates only that part of the list. A failed test shows the line of its assertion. Selecting it opens that file at the line, tinted, with a card under it: expected against received when the runner states both (otherwise its first line), **Run this test again** when the test can run on its own, and a close button; Esc also closes it, and it closes by itself once the test passes. A failure without a file and line shows its message in the list instead. Rust doc tests are listed but run only with the whole suite.
 - **Show output** has the runner's own log, which opens by itself when its report cannot be read. The first native run asks you to acknowledge that the suite and its dependencies execute as ordinary local processes. Continue only for projects you trust.
 - **Stop** terminates the owned process tree; Lingua also stops it after five minutes and caps each output stream so a noisy suite cannot grow renderer memory without bound.
 - Lingua never invokes a shell or accepts a command from the renderer, but this
@@ -174,7 +179,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 ## Project terminal
 
 - Open a local project in the desktop app, then choose the terminal action in
-  the Explorer header, search for **Open project terminal** in the Command
+  the Explorer header menu (**⋯**), search for **Open project terminal** in the Command
   Palette, or select **Terminal** in the results dock.
 - The panel first explains the trust boundary. Choose **Start terminal** to
   launch your default system shell in the approved project root. Opening a

@@ -60,5 +60,11 @@
   "projectTests.runFailure": "The runner reported a file or build failure.",
   "projectTests.previousResult": "Not run · previous result",
   "projectTests.notRun_one": "{{count}} not run",
-  "projectTests.notRun_other": "{{count}} not run"
+  "projectTests.notRun_other": "{{count}} not run",
+  "projectTests.card.label": "Failed test {{name}}",
+  "projectTests.card.title": "This test failed",
+  "projectTests.card.expected": "expected",
+  "projectTests.card.received": "but got",
+  "projectTests.card.runAgain": "Run this test again",
+  "projectTests.card.close": "Close"
 }

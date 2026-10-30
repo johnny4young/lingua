@@ -43,6 +43,7 @@ import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
 import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
+import { TestFailureCardHost } from '../ProjectTests/TestFailureCardHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 
 configureMonaco();
@@ -491,6 +492,7 @@ export function CodeEditor() {
           lineEndReserve={errorActionsReserve}
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <TestFailureCardHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}
           monaco={monacoInstance}
