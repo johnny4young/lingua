@@ -90,6 +90,12 @@ try {
       const { useSettingsStore } = await import('/src/renderer/stores/settingsStore.ts');
       useSettingsStore.getState().setLanguage(language);
       useSettingsStore.getState().setTheme(language === 'en' ? 'light' : 'dark');
+      useSettingsStore.setState({
+        suppressTourAutoStart: true,
+        hasCompletedOnboardingFirstRun: true,
+        telemetryConsent: 'declined',
+        restoreSessionMode: 'never',
+      });
     }, language);
     await page.reload();
     await page.locator('[data-testid="app-chrome"]').waitFor();
@@ -108,9 +114,23 @@ try {
       useSettingsStore.setState({ nativeExecutionAcknowledged: true });
       const { useUIStore } = await import('/src/renderer/stores/uiStore.ts');
       useUIStore.getState().setSidebarVisible(true);
+      const { useProjectTestStore } = await import('/src/renderer/stores/projectTestStore.ts');
+      window.__projectTestStore = useProjectTestStore;
     });
+    // The Explorer header keeps the Tests entry either inline or behind its overflow menu.
+    const more = page.getByTestId('file-tree-more');
+    if (await more.isVisible()) await more.click();
     await page.getByTestId('file-tree-project-tests').click();
-    await page.getByTestId('project-tests-overlay').waitFor();
+    const panel = page.getByTestId('tests-panel');
+    const runAll = panel.getByTestId('tests-run-all');
+    const output = panel.getByTestId('tests-output');
+    await runAll.waitFor();
+    // Narrow windows draw the Explorer as a drawer over the dock.
+    await page.evaluate(() =>
+      import('/src/renderer/stores/uiStore.ts').then(({ useUIStore }) =>
+        useUIStore.getState().setSidebarVisible(false)
+      )
+    );
     assert.equal(
       await page.locator('html').getAttribute('data-theme'),
       language === 'en' ? 'light' : 'dark'
@@ -119,16 +139,21 @@ try {
       path.join(fixture, 'node_modules/vitest/vitest.mjs'),
       'process.stdout.write("first\\n"); setTimeout(() => process.stderr.write("warning\\n"), 100); setTimeout(() => process.stdout.write("last\\n"), 200); setTimeout(() => process.exit(1), 2000);'
     );
-    await page.getByTestId('project-tests-run').click();
-    await page
-      .getByTestId('project-tests-live-ordered')
-      .getByText('first', { exact: false })
-      .waitFor();
-    await page.getByText(language === 'en' ? 'Failed' : 'Fallaron', { exact: true }).waitFor();
-    assert.equal(
-      await page.getByTestId('project-tests-ordered').textContent(),
-      'first\nwarning\nlast\n'
+    if (!(await output.isVisible())) await panel.getByTestId('tests-output-toggle').click();
+    await runAll.click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-testid="tests-stop"]') &&
+        document.querySelector('[data-testid="tests-output"]')?.textContent ===
+          'first\nwarning\nlast\n'
     );
+    await page.waitForFunction(() => window.__projectTestStore.getState().status !== 'running');
+    assert.equal(
+      await page.evaluate(() => window.__projectTestStore.getState().result?.kind),
+      'failed'
+    );
+    await runAll.waitFor();
+    assert.equal(await output.textContent(), 'first\nwarning\nlast\n');
     for (const width of [1024, 1280, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       for (const zoom of [1, 1.25, 2]) {
@@ -138,17 +163,24 @@ try {
           zoom
         );
         await page.waitForTimeout(100);
-        await page.getByTestId('project-tests-ordered').scrollIntoViewIfNeeded();
-        const visible = await page.getByTestId('project-tests-ordered').evaluate(element => {
+        await output.scrollIntoViewIfNeeded();
+        const visible = await output.evaluate(element => {
           const rect = element.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + Math.min(rect.height / 2, 8)
+          );
           return (
+            element.contains(hit) &&
+            rect.height > 0 &&
             rect.top >= 0 &&
             rect.left >= 0 &&
-            rect.bottom <= window.innerHeight &&
-            rect.right <= window.innerWidth
+            // Fractional zoom rounds the layout viewport down a subpixel.
+            rect.bottom <= window.innerHeight + 1 &&
+            rect.right <= window.innerWidth + 1
           );
         });
-        assert(visible, 'Observed output remains reachable at this viewport and native zoom');
+        assert(visible, `Observed output remains reachable at ${width}px, zoom ${zoom}`);
         await page.mouse.move(0, 0);
         await page.screenshot({
           path: path.join(artifacts, `project-tests-${language}-${width}-${zoom}.png`),
@@ -162,9 +194,11 @@ try {
       path.join(fixture, 'node_modules/vitest/vitest.mjs'),
       'console.log("recovered");'
     );
-    await page.getByTestId('project-tests-run').click();
-    await page.getByText(language === 'en' ? 'Passed' : 'Aprobadas', { exact: true }).waitFor();
-    assert.equal(await page.getByTestId('project-tests-ordered').textContent(), 'recovered\n');
+    await runAll.click();
+    await page.waitForFunction(
+      () => window.__projectTestStore.getState().result?.kind === 'success'
+    );
+    assert.equal(await output.textContent(), 'recovered\n');
     results.push({ language, observedOrder: true, failedRun: true, recovery: true });
   }
   assert.deepEqual(errors, []);
