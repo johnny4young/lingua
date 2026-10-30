@@ -26,7 +26,7 @@ const REPRO_RECEIPT_KIND = 'lingua-repro-receipt' as const;
 const REPRO_RECEIPT_VERSION = 1 as const;
 
 export const MAX_REPRO_DENIALS = 256;
-export const MAX_REPRO_RECEIPT_BYTES = 256 * 1024;
+const MAX_REPRO_RECEIPT_BYTES = 256 * 1024;
 const MAX_IDENTITY_CHARS = 128;
 const HASH_RE = /^[a-f0-9]{64}$/u;
 
@@ -38,19 +38,19 @@ const RUN_STATUSES = ['success', 'error', 'timeout', 'stopped'] as const;
 const COMPARISON_VERDICTS = ['pass', 'fail', 'inconclusive'] as const;
 const CONTROL_SUPPORTS = ['enforced', 'sampled', 'unsupported'] as const;
 
-export type ReproDenialOperation = (typeof DENIAL_OPERATIONS)[number];
-export type ReproDenialArea = (typeof DENIAL_AREAS)[number];
-export type ReproEvidenceCoverage = (typeof EVIDENCE_COVERAGES)[number];
-export type ReproRefusalReason = (typeof REFUSAL_REASONS)[number];
+type ReproDenialOperation = (typeof DENIAL_OPERATIONS)[number];
+type ReproDenialArea = (typeof DENIAL_AREAS)[number];
+type ReproEvidenceCoverage = (typeof EVIDENCE_COVERAGES)[number];
+type ReproRefusalReason = (typeof REFUSAL_REASONS)[number];
 
 /** A path is kept only inside a staging area, relative to it; `outside` never has one. */
-export interface ReproDenialV1 {
+interface ReproDenialV1 {
   readonly operation: ReproDenialOperation;
   readonly area: ReproDenialArea;
   readonly path?: string;
 }
 
-export interface ReproReceiptHostV1 {
+interface ReproReceiptHostV1 {
   readonly lingua: string;
   readonly os: string;
   readonly arch: string;
@@ -74,7 +74,7 @@ export interface ReproRefusedReceiptV1 extends ReproReceiptBaseV1 {
   readonly missingControls: readonly ReproControl[];
 }
 
-export interface ReproExecutionV1 {
+interface ReproExecutionV1 {
   readonly status: RunCapsuleStatus;
   readonly exitCode: number | null;
   readonly signal: string | null;
@@ -83,7 +83,7 @@ export interface ReproExecutionV1 {
   readonly outputTruncated: boolean;
 }
 
-export interface ReproEvidenceV1 {
+interface ReproEvidenceV1 {
   readonly coverage: ReproEvidenceCoverage;
   readonly denials: readonly ReproDenialV1[];
 }

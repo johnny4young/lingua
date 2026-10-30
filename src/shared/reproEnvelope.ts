@@ -37,8 +37,8 @@ import {
 const REPRO_ENVELOPE_KIND = 'lingua-repro-envelope' as const;
 const REPRO_ENVELOPE_VERSION = 1 as const;
 
-export const MAX_REPRO_ENVELOPE_BYTES = MAX_CAPSULE_WORKSPACE_BYTES;
-export const REPRO_NODE_MAJOR_RANGE = { min: 18, max: 99 } as const;
+const MAX_REPRO_ENVELOPE_BYTES = MAX_CAPSULE_WORKSPACE_BYTES;
+const REPRO_NODE_MAJOR_RANGE = { min: 18, max: 99 } as const;
 
 const HASH_RE = /^[a-f0-9]{64}$/u;
 // The extension fixes the module format without a package.json.
@@ -55,7 +55,7 @@ const ENVELOPE_KEYS = [
   'privacy',
 ] as const;
 
-export interface ReproRuntimeV1 {
+interface ReproRuntimeV1 {
   readonly name: 'node';
   readonly major: number;
 }
@@ -82,7 +82,7 @@ export interface ReproEnvelopeV1 {
   readonly privacy: ReproEnvelopePrivacyV1;
 }
 
-export type ReproEnvelopeRejectReason =
+type ReproEnvelopeRejectReason =
   | Exclude<CapsuleWorkspaceRejectReason, 'invalid-json' | 'unsupported-version'>
   | 'invalid-json'
   | 'unsupported-version'

@@ -12,7 +12,7 @@ import { CLI_OUTPUT_PAYLOAD_BYTES } from './capsuleVerification';
 const MIB = 1024 * 1024;
 
 /** Schema bounds only; a backend may still refuse a value it cannot enforce. */
-export const REPRO_LIMIT_BOUNDS = {
+const REPRO_LIMIT_BOUNDS = {
   wallClockMs: { min: 100, max: 5 * 60_000 },
   // The most a supervisor captures before clipping; more could never compare cleanly.
   outputBytes: { min: 1, max: CLI_OUTPUT_PAYLOAD_BYTES },
@@ -21,7 +21,7 @@ export const REPRO_LIMIT_BOUNDS = {
   diskBytes: { min: 1 * MIB, max: 1024 * MIB },
 } as const;
 
-export type ReproWritableArea = 'none' | 'read-write';
+type ReproWritableArea = 'none' | 'read-write';
 
 export interface ReproPolicyV1 {
   readonly filesystem: {
@@ -71,7 +71,7 @@ export type ReproControl = (typeof REPRO_CONTROLS)[number];
 /** `sampled` means a supervisor polls from outside; it never satisfies a required control. */
 export type ReproControlSupport = 'enforced' | 'sampled' | 'unsupported';
 
-export type ReproPolicyRejectReason =
+type ReproPolicyRejectReason =
   'invalid-shape' | 'unknown-key' | 'unsupported-value' | 'limit-out-of-range';
 
 export type ParseReproPolicyResult =
@@ -280,7 +280,7 @@ function canonicalReproPolicy(policy: ReproPolicyV1): ReproPolicyV1 {
   };
 }
 
-export function canonicalReproPolicyJson(policy: ReproPolicyV1): string {
+function canonicalReproPolicyJson(policy: ReproPolicyV1): string {
   return JSON.stringify(canonicalReproPolicy(policy));
 }
 
