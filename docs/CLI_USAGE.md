@@ -552,9 +552,10 @@ lingua repro run ./repro.json --approve <token> --json
 
 - `pack` prints the envelope to stdout. The capsule source becomes the entry
   (`.mjs` or `.cjs`); each `--file` is read relative to `--root` and stored with
-  its hash. The request denies network, keeps inputs read-only and allows only
-  disposable scratch and output areas. Possible secrets are reported on stderr;
-  file contents are not changed.
+  its hash. A file that resolves outside the root through a symbolic link, or
+  is not UTF-8 text, is refused. The request denies network, keeps inputs
+  read-only and allows only disposable scratch and output areas. Possible
+  secrets are reported on stderr; file contents are not changed.
 - `review` executes nothing. It checks every hash, narrows the request to the
   local ceiling, lists the required controls, says whether a backend on this
   host can enforce them, and prints the approval token for this exact content

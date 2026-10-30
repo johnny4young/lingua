@@ -18,6 +18,10 @@ export interface FakeIoState {
 export interface FakeIoOptions {
   stdin?: string | null;
   files?: Record<string, string>;
+  /** Exact bytes for readFileBytes; falls back to the UTF-8 encoding of `files`. */
+  bytes?: Record<string, Uint8Array>;
+  /** Symlink targets for realPath; any other path resolves to itself. */
+  realPaths?: Record<string, string>;
   /** Throws on readFile to exercise ENOENT etc. */
   readFileError?: NodeJS.ErrnoException;
   stdoutSupportsColor?: boolean;
@@ -57,6 +61,14 @@ export function createFakeIo(options: FakeIoOptions = {}): { io: CliIo; state: F
         throw err;
       }
       return entry;
+    },
+    async readFileBytes(path) {
+      const bytes = options.bytes?.[path];
+      if (bytes) return bytes;
+      return new TextEncoder().encode(await io.readFile(path));
+    },
+    async realPath(path) {
+      return options.realPaths?.[path] ?? path;
     },
     async readStdin() {
       return options.stdin ?? null;

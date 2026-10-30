@@ -32,7 +32,7 @@ import { CLI_EXIT_CODES, type CliExitCode } from '../exit-codes';
 import type { CliIo } from '../io';
 import { emitCliFailure, renderCliNotice } from '../presentation';
 import { probeContainment, type ReproContainmentBackend } from '../runtime/containment';
-import { loadCapsule } from './capsule';
+import { errorMessage, loadCapsule, readFailureReason } from './capsule';
 
 /** The recipient's ceiling until it becomes configurable; approval can only narrow to it. */
 const LOCAL_CEILING: ReproPolicyV1 = DEFAULT_REPRO_REQUEST;
@@ -69,16 +69,52 @@ function languageForPath(filePath: string): string {
   return 'plaintext';
 }
 
-function readErrorReason(error: unknown): string {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? (error as { code?: unknown }).code
-      : undefined;
-  return code === 'ENOENT' ? 'file-not-found' : 'read-failed';
+const strictUtf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+
+/** Leaves plain paths alone and single-quotes anything a shell would split or expand. */
+function shellQuote(value: string): string {
+  return /^[\w@%+=:,./-]+$/u.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+type PackedFile = { path: string; language: string; content: string };
+
+/** Reads one --file, refusing anything that resolves outside the root or is not UTF-8 text. */
+async function readPackedFile(
+  io: CliIo,
+  root: string,
+  realRoot: string,
+  file: string
+): Promise<{ ok: true; value: PackedFile } | { ok: false; reason: string; detail: string }> {
+  if (normalizeCapsuleWorkspacePath(file) !== file) {
+    return {
+      ok: false,
+      reason: 'invalid-path',
+      detail: `${file} must be a relative path inside the root, with / separators.`,
+    };
+  }
+  const target = path.join(root, ...file.split('/'));
+  let bytes: Uint8Array;
+  try {
+    const realTarget = await io.realPath(target);
+    if (!realTarget.startsWith(`${realRoot}${path.sep}`)) {
+      return {
+        ok: false,
+        reason: 'outside-root',
+        detail: `${file} resolves outside the root through a symbolic link.`,
+      };
+    }
+    bytes = await io.readFileBytes(target);
+  } catch (error) {
+    return { ok: false, reason: readFailureReason(error), detail: errorMessage(error) };
+  }
+  try {
+    return {
+      ok: true,
+      value: { path: file, language: languageForPath(file), content: strictUtf8.decode(bytes) },
+    };
+  } catch {
+    return { ok: false, reason: 'not-utf8', detail: `${file} is not UTF-8 text.` };
+  }
 }
 
 export async function runReproPackCommand(args: ReproPackArgs, io: CliIo): Promise<CliExitCode> {
@@ -94,27 +130,25 @@ export async function runReproPackCommand(args: ReproPackArgs, io: CliIo): Promi
   }
 
   const root = path.resolve(args.root ?? '.');
-  const files = [];
+  let realRoot: string;
+  try {
+    realRoot = await io.realPath(root);
+  } catch (error) {
+    emitCliFailure(io, args, {
+      label,
+      reason: readFailureReason(error),
+      detail: errorMessage(error),
+    });
+    return CLI_EXIT_CODES.userInputError;
+  }
+  const files: PackedFile[] = [];
   for (const file of args.files) {
-    if (normalizeCapsuleWorkspacePath(file) !== file) {
-      emitCliFailure(io, args, {
-        label,
-        reason: 'invalid-path',
-        detail: `${file} must be a relative path inside the root, with / separators.`,
-      });
+    const read = await readPackedFile(io, root, realRoot, file);
+    if (!read.ok) {
+      emitCliFailure(io, args, { label, reason: read.reason, detail: read.detail });
       return CLI_EXIT_CODES.userInputError;
     }
-    try {
-      const content = await io.readFile(path.join(root, ...file.split('/')));
-      files.push({ path: file, language: languageForPath(file), content });
-    } catch (error) {
-      emitCliFailure(io, args, {
-        label,
-        reason: readErrorReason(error),
-        detail: errorMessage(error),
-      });
-      return CLI_EXIT_CODES.userInputError;
-    }
+    files.push(read.value);
   }
 
   const built = await buildReproEnvelope({
@@ -168,7 +202,7 @@ async function prepareReview(
   try {
     raw = await io.readFile(envelopePath);
   } catch (error) {
-    return { ok: false, reason: readErrorReason(error), detail: errorMessage(error) };
+    return { ok: false, reason: readFailureReason(error), detail: errorMessage(error) };
   }
   const parsed = parseReproEnvelope(raw);
   if (!parsed.ok) {
@@ -284,7 +318,7 @@ export async function runReproReviewCommand(
     ['limits', describeLimits(review.approved)],
     ['evidence', `denials ${review.approved.evidence.denials}`],
     ['backend', describeBackend(review)],
-    ['approve', `lingua repro run ${args.envelopePath} --approve ${review.token}`],
+    ['approve', `lingua repro run ${shellQuote(args.envelopePath)} --approve ${review.token}`],
   ];
   io.writeStdout(rows.map(([key, value]) => `${key.padEnd(9)}${value}`).join('\n') + '\n');
   return CLI_EXIT_CODES.ok;
@@ -303,7 +337,7 @@ function refusedReceipt(
     approvedPolicyDigest: review.policyDigest,
     host: {
       lingua: args.linguaVersion,
-      os: `${process.platform} ${release()}`,
+      os: `${process.platform} kernel ${release()}`,
       arch: process.arch,
       runtime: null,
       backend: review.probe?.backend ?? null,
@@ -326,9 +360,9 @@ export async function runReproRunCommand(args: ReproRunArgs, io: CliIo): Promise
   let receipt: ReproRefusedReceiptV1;
   let detail: string;
   let exitCode: CliExitCode;
-  if (args.approve !== review.token) {
+  if (args.approve.trim().toLowerCase() !== review.token) {
     receipt = refusedReceipt(review, 'approval-invalid', args);
-    detail = `The approval does not match this envelope and policy. Review it again with lingua repro review ${args.envelopePath}.`;
+    detail = `The approval does not match this envelope and policy. Review it again with lingua repro review ${shellQuote(args.envelopePath)}.`;
     exitCode = CLI_EXIT_CODES.userInputError;
   } else if (review.probe && review.missing.length > 0) {
     receipt = refusedReceipt(review, 'unenforceable', args);

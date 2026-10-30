@@ -132,6 +132,80 @@ describe('lingua repro pack', () => {
   });
 
   it.each<
+    [string, { realPaths?: Record<string, string>; bytes?: Record<string, Uint8Array> }, string]
+  >([
+    [
+      'a file that resolves outside the root through a symlink',
+      { realPaths: { '/work/lib/sum.mjs': '/home/me/.aws/credentials' } },
+      'outside-root',
+    ],
+    [
+      'a file that is not UTF-8 text',
+      { bytes: { '/work/lib/sum.mjs': new Uint8Array([0x63, 0x61, 0x66, 0xe9]) } },
+      'not-utf8',
+    ],
+  ])('refuses %s', async (_name, io, reason) => {
+    const { io: fake, state } = createFakeIo({ files: capsuleFiles, ...io });
+
+    const code = await runReproPackCommand(
+      {
+        ...JSON_OUTPUT,
+        capsulePath: '/work/run.capsule.json',
+        entry: 'main.mjs',
+        files: ['lib/sum.mjs'],
+        root: '/work',
+      },
+      fake
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.userInputError);
+    expect(JSON.parse(state.stdout)).toMatchObject({ ok: false, reason });
+  });
+
+  it('packs a file whose symlink stays inside a symlinked root', async () => {
+    const { io, state } = createFakeIo({
+      files: capsuleFiles,
+      realPaths: { '/work': '/private/work', '/work/lib/sum.mjs': '/private/work/src/sum.mjs' },
+    });
+
+    const code = await runReproPackCommand(
+      {
+        ...OUTPUT,
+        capsulePath: '/work/run.capsule.json',
+        entry: 'main.mjs',
+        files: ['lib/sum.mjs'],
+        root: '/work',
+      },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(parseReproEnvelope(state.stdout).ok).toBe(true);
+  });
+
+  it('keeps a byte-order mark as part of the packed content', async () => {
+    const withBom = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(HELPER)]);
+    const { io, state } = createFakeIo({
+      files: capsuleFiles,
+      bytes: { '/work/lib/sum.mjs': withBom },
+    });
+
+    await runReproPackCommand(
+      {
+        ...OUTPUT,
+        capsulePath: '/work/run.capsule.json',
+        entry: 'main.mjs',
+        files: ['lib/sum.mjs'],
+        root: '/work',
+      },
+      io
+    );
+
+    const parsed = parseReproEnvelope(state.stdout);
+    expect(parsed.ok && parsed.value.files[0]?.content).toBe(`\uFEFF${HELPER}`);
+  });
+
+  it.each<
     [
       string,
       Record<string, string>,
@@ -240,6 +314,18 @@ describe('lingua repro review', () => {
     expect(state.stdout).toContain(`approve  lingua repro run /work/repro.json --approve ${token}`);
   });
 
+  it('quotes an envelope path a shell would split in the approve hint', async () => {
+    const json = await envelopeJson();
+    const token = await reviewToken(json);
+    const { io, state } = createFakeIo({ files: { "/work/bug repro's.json": json } });
+
+    await runReproReviewCommand({ ...OUTPUT, envelopePath: "/work/bug repro's.json" }, io);
+
+    expect(state.stdout).toContain(
+      `approve  lingua repro run '/work/bug repro'\\''s.json' --approve ${token}`
+    );
+  });
+
   it('names the controls a probed backend cannot enforce', async () => {
     const json = await envelopeJson();
     const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
@@ -316,6 +402,24 @@ describe('lingua repro run', () => {
     expect(parseReproReceipt(JSON.stringify(body.receipt))).toMatchObject({
       ok: true,
       value: { refusalReason: 'approval-invalid', missingControls: [] },
+    });
+  });
+
+  it('accepts a token pasted in uppercase with surrounding spaces', async () => {
+    const json = await envelopeJson();
+    const token = await reviewToken(json);
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+
+    await runReproRunCommand(runArgs({ approve: `  ${token.toUpperCase()}\n` }), io);
+
+    expect(JSON.parse(state.stdout)).toMatchObject({ reason: 'backend-unavailable' });
+  });
+
+  it('labels the recorded OS release as the kernel release', async () => {
+    const { body } = await run();
+
+    expect(body.receipt).toMatchObject({
+      host: { os: expect.stringMatching(/^\S+ kernel \S+$/u) },
     });
   });
 
