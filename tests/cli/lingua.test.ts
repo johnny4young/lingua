@@ -188,18 +188,15 @@ describe('dispatch repro', () => {
     const envelope = { '/work/repro.json': packed.stdout };
     const { io: reviewIo, state: reviewed } = createFakeIo({ files: envelope });
     await dispatch(['repro', 'review', '/work/repro.json', '--json'], reviewIo);
-    const token = (JSON.parse(reviewed.stdout) as { approval: { token: string } }).approval.token;
+    const { approval } = JSON.parse(reviewed.stdout) as {
+      approval: { token: string; policyDigest: string };
+    };
     const { io, state } = createFakeIo({ files: envelope });
 
-    const code = await dispatch(
-      ['repro', 'run', '/work/repro.json', '--approve', token, '--json'],
-      io
-    );
+    await dispatch(['repro', 'run', '/work/repro.json', '--approve', approval.token, '--json'], io);
 
-    expect(code).toBe(CLI_EXIT_CODES.unsupportedCapability);
     expect(JSON.parse(state.stdout)).toMatchObject({
-      reason: 'backend-unavailable',
-      receipt: { host: { lingua: '0.0.0-dev' } },
+      receipt: { approvedPolicyDigest: approval.policyDigest, host: { lingua: '0.0.0-dev' } },
     });
   });
 });

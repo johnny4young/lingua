@@ -176,6 +176,16 @@ describe('CI workflow', () => {
     expect(evidence?.with?.path).not.toContain('profile');
   });
 
+  it('runs the Seatbelt containment fixtures on every macOS run as a blocking gate', () => {
+    const steps = stepsOf(workflow, 'desktop-bundles');
+    const fixtures = steps.find(
+      step => step.run === 'pnpm exec vitest run tests/cli/runtime/seatbeltContainment.test.ts'
+    );
+
+    expect(fixtures?.if).toBe("matrix.os == 'macos-latest'");
+    expect(fixtures?.['continue-on-error']).toBeUndefined();
+  });
+
   it('gates the independently managed update-server and website in the subprojects job', () => {
     const steps = stepsOf(workflow, 'subprojects');
     const updateServer = steps.find(step => step['working-directory'] === 'update-server');

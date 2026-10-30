@@ -312,6 +312,11 @@ jobs:
       - name: Desktop bundle config
         if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
         run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+      # Permissioned reproductions need the real Seatbelt sandbox, which only
+      # macOS runners have; the unit job skips these fixtures elsewhere.
+      - name: Seatbelt containment fixtures
+        if: matrix.os == 'macos-latest'
+        run: pnpm exec vitest run tests/cli/runtime/seatbeltContainment.test.ts
       # macOS provides a native display session without disabling Chromium's
       # sandbox. This is the built app + real Node IPC, not browser/CLI smoke.
       - name: Native Unicode capture and Stop smoke

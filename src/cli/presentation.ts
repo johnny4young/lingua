@@ -71,7 +71,7 @@ export function emitCliFailure(io: CliIo, options: CliOutputOptions, failure: Cl
 
   const label = styleCliText(io, options.color, 'stderr', 'bold', failure.label);
   const marker = styleCliText(io, options.color, 'stderr', 'red', `error[${failure.reason}]`);
-  io.writeStderr(`${label}: ${marker}: ${failure.detail}\n`);
+  io.writeStderr(`${label}: ${marker}: ${neutralizeControlCharacters(failure.detail)}\n`);
 }
 
 /** Color only headings/labels; never mutate examples or command payloads. */
@@ -99,5 +99,27 @@ export function renderCliNotice(
   text: string,
   tone: 'success' | 'warning' = 'warning'
 ): string {
-  return styleCliText(io, mode, 'stderr', tone === 'success' ? 'green' : 'yellow', text);
+  return styleCliText(
+    io,
+    mode,
+    'stderr',
+    tone === 'success' ? 'green' : 'yellow',
+    neutralizeControlCharacters(text)
+  );
+}
+
+/**
+ * Shows untrusted text inertly: every C0/C1 control character except newline
+ * and tab becomes a visible \xNN escape, so it cannot move the cursor, rewrite
+ * earlier lines or send terminal commands.
+ */
+export function neutralizeControlCharacters(text: string): string {
+  let result = '';
+  for (const character of text) {
+    const code = character.codePointAt(0) ?? 0;
+    const control =
+      (code <= 0x1f && code !== 0x0a && code !== 0x09) || (code >= 0x7f && code <= 0x9f);
+    result += control ? `\\x${code.toString(16).padStart(2, '0')}` : character;
+  }
+  return result;
 }
