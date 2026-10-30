@@ -17,6 +17,7 @@ import { EditorTabs } from '../Editor/EditorTabs';
 import { FloatingVariablesCardHost } from '../Editor/FloatingVariablesCardHost';
 import { AppChrome, CommandBar } from '../Chrome';
 import { StatusBar } from '../StatusBar/StatusBar';
+import { StatusNoticeBanner } from '../StatusNotice/StatusNoticeBanner';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
@@ -670,6 +671,7 @@ export function AppLayout({
             inherits the inert + aria-hidden the underlay receives while the
             compact drawer is open. Self-renders null when showStatusBar is
             OFF. */}
+        <StatusNoticeBanner />
         <StatusBar />
       </div>
       {isCompactDrawerOpen && (
