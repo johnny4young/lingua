@@ -10,6 +10,10 @@
  *   lingua capsule replay <file> [--timeout <ms>] [--json] [--quiet]
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
+ *   lingua repro pack <capsule> --entry <path> [--file <path> ...] [--root <dir>]
+ *                    [--node <major>]
+ *   lingua repro review <envelope> [--json] [--quiet]
+ *   lingua repro run <envelope> --approve <token> [--json] [--quiet]
  *   lingua list utilities [--json]
  *   lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]
  *   lingua --version
@@ -45,6 +49,9 @@ export type CliCommandName =
   | 'capsule-replay'
   | 'capsule-verify'
   | 'capsule-verify-suite'
+  | 'repro-pack'
+  | 'repro-review'
+  | 'repro-run'
   | 'run'
   | 'list-utilities'
   | 'completion'
@@ -73,6 +80,14 @@ export interface ParsedArgs {
     timeoutMs?: number;
     target?: string;
     root?: string;
+    /** `--entry <path>`. Only used by `repro pack`. */
+    entry?: string;
+    /** `--file <path>` repeated. Only used by `repro pack`. */
+    files: ReadonlyArray<string>;
+    /** `--node <major>`. Only used by `repro pack`. */
+    nodeMajor?: number;
+    /** `--approve <token>`. Only used by `repro run`. */
+    approve?: string;
     /** Explicit environment entries passed to an executed program. */
     env: ReadonlyArray<{ key: string; value: string }>;
     /** Arguments after `--`, forwarded byte-for-byte to `run` targets. */
@@ -97,6 +112,10 @@ interface InProgressFlags {
   timeoutMs?: number;
   target?: string;
   root?: string;
+  entry?: string;
+  files: string[];
+  nodeMajor?: number;
+  approve?: string;
   env: Array<{ key: string; value: string }>;
   programArgs: string[];
   options: Array<{ key: string; value: string }>;
@@ -143,6 +162,9 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
   if (first === 'capsule') {
     return parseCapsule(args.slice(1), extracted.color);
   }
+  if (first === 'repro') {
+    return parseRepro(args.slice(1), extracted.color);
+  }
   if (first === 'list') {
     return parseList(args.slice(1), extracted.color);
   }
@@ -160,6 +182,7 @@ function freshFlags(color: CliColorMode = 'auto'): InProgressFlags {
     color,
     options: [],
     env: [],
+    files: [],
     programArgs: [],
     help: false,
     yes: false,
@@ -184,6 +207,10 @@ function finalize(
       ...(flags.timeoutMs !== undefined ? { timeoutMs: flags.timeoutMs } : {}),
       ...(flags.target !== undefined ? { target: flags.target } : {}),
       ...(flags.root !== undefined ? { root: flags.root } : {}),
+      ...(flags.entry !== undefined ? { entry: flags.entry } : {}),
+      files: flags.files,
+      ...(flags.nodeMajor !== undefined ? { nodeMajor: flags.nodeMajor } : {}),
+      ...(flags.approve !== undefined ? { approve: flags.approve } : {}),
       options: flags.options,
       env: flags.env,
       programArgs: flags.programArgs,
@@ -422,6 +449,86 @@ function parseCapsuleReplay(
   }
   assertSingleTarget(`lingua capsule ${command.slice(8)}`, positionals, flags.help, '<file>');
   return finalize(command, positionals, flags);
+}
+
+const REPRO_SUBCOMMANDS = 'pack <capsule>, review <envelope>, run <envelope>';
+
+const REPRO_VALUE_FLAGS = {
+  'repro-pack': ['--entry', '--file', '--root', '--node'],
+  'repro-review': [],
+  'repro-run': ['--approve'],
+} as const;
+
+function parseRepro(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
+  if (rest.length === 0) {
+    throw new CliUsageError(`lingua repro requires a subcommand. Available: ${REPRO_SUBCOMMANDS}`);
+  }
+  const sub = rest[0]!;
+  if (sub === '--help' || sub === '-h') {
+    return finalize('repro-review', [], { ...freshFlags(color), help: true });
+  }
+  const command =
+    sub === 'pack'
+      ? 'repro-pack'
+      : sub === 'review'
+        ? 'repro-review'
+        : sub === 'run'
+          ? 'repro-run'
+          : null;
+  if (!command) {
+    throw new CliUsageError(`Unknown repro subcommand "${sub}". Available: ${REPRO_SUBCOMMANDS}`);
+  }
+  const allowed: readonly string[] = REPRO_VALUE_FLAGS[command];
+  const flags = freshFlags(color);
+  const positionals: string[] = [];
+  for (let index = 1; index < rest.length; index += 1) {
+    const arg = rest[index]!;
+    if (parseGlobalFlag(arg, flags)) continue;
+    const name = arg.split('=')[0]!;
+    if (allowed.includes(name)) {
+      const value = arg.includes('=')
+        ? nonEmptyInlineValue(arg, name)
+        : requireFlagValue(rest, index++, name);
+      if (name === '--file') {
+        flags.files.push(value);
+      } else if (name === '--node') {
+        if (flags.nodeMajor !== undefined) throw new CliUsageError('--node may be supplied once.');
+        flags.nodeMajor = parseNodeMajor(value);
+      } else {
+        const key = name.slice(2) as 'entry' | 'root' | 'approve';
+        if (flags[key] !== undefined) throw new CliUsageError(`${name} may be supplied once.`);
+        flags[key] = value;
+      }
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      throw new CliUsageError(
+        `Unknown flag "${arg}" for "lingua repro ${sub}". Allowed: ${[...allowed, '--json', '--quiet', '--color', '--help'].join(', ')}`
+      );
+    }
+    positionals.push(arg);
+  }
+  assertSingleTarget(
+    `lingua repro ${sub}`,
+    positionals,
+    flags.help,
+    command === 'repro-pack' ? '<capsule>' : '<envelope>'
+  );
+  if (!flags.help && command === 'repro-pack' && flags.entry === undefined) {
+    throw new CliUsageError('lingua repro pack requires --entry <path>.');
+  }
+  if (!flags.help && command === 'repro-run' && flags.approve === undefined) {
+    throw new CliUsageError(
+      'lingua repro run requires --approve <token> from lingua repro review.'
+    );
+  }
+  return finalize(command, positionals, flags);
+}
+
+function parseNodeMajor(raw: string): number {
+  if (!/^\d+$/u.test(raw))
+    throw new CliUsageError('--node must be a Node.js major version, such as 24');
+  return Number(raw);
 }
 
 function parseList(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {

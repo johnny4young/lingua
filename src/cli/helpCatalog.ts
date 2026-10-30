@@ -129,6 +129,53 @@ export const CLI_HELP_CATALOG = {
       ],
     },
     {
+      id: 'repro-pack',
+      topLevel: 'repro',
+      invocation:
+        'lingua repro pack <capsule> --entry <path> [--file <path> ...] [--root <directory>] [--node <major>]',
+      summary: 'Wrap a JavaScript Run Capsule and chosen files into a reproduction envelope.',
+      description:
+        'Experimental. Prints the envelope to stdout with a deny-network request; nothing is executed. Files are read relative to --root.',
+      flags: ['entry', 'file', 'root', 'node', 'json', 'quiet', 'color', 'help'],
+      examples: [
+        {
+          command:
+            'lingua repro pack ./run.capsule.json --entry main.mjs --file lib/sum.mjs > repro.json',
+          description: 'Pack a capsule and one helper module.',
+        },
+      ],
+    },
+    {
+      id: 'repro-review',
+      topLevel: 'repro',
+      invocation: 'lingua repro review <envelope> [--json] [--quiet]',
+      summary: 'Show what a reproduction asks for and the token that approves it.',
+      description:
+        'Experimental. Verifies every file hash, narrows the request to the local ceiling and reports which required controls this host can enforce. Nothing is executed.',
+      flags: ['json', 'quiet', 'color', 'help'],
+      examples: [
+        {
+          command: 'lingua repro review ./repro.json',
+          description: 'Review an envelope before approving it.',
+        },
+      ],
+    },
+    {
+      id: 'repro-run',
+      topLevel: 'repro',
+      invocation: 'lingua repro run <envelope> --approve <token> [--json] [--quiet]',
+      summary: 'Run an approved reproduction inside a containment backend, or refuse.',
+      description:
+        'Experimental. Refuses before launch when the approval is stale or a required control cannot be enforced; no backend ships yet, so it always refuses. --json prints the refusal receipt.',
+      flags: ['approve', 'json', 'quiet', 'color', 'help'],
+      examples: [
+        {
+          command: 'lingua repro run ./repro.json --approve <token> --json',
+          description: 'Get the receipt for an approved reproduction.',
+        },
+      ],
+    },
+    {
       id: 'run',
       topLevel: 'run',
       invocation:
@@ -193,8 +240,32 @@ export const CLI_HELP_CATALOG = {
     {
       id: 'root',
       syntax: '--root <directory>',
-      summary: 'Resolve suite targets inside this directory; defaults to cwd.',
-      commands: ['capsule-verify-suite'],
+      summary: 'Resolve suite targets or packed files inside this directory; defaults to cwd.',
+      commands: ['capsule-verify-suite', 'repro-pack'],
+    },
+    {
+      id: 'entry',
+      syntax: '--entry <path>',
+      summary: 'Relative .mjs or .cjs path the capsule source is staged at.',
+      commands: ['repro-pack'],
+    },
+    {
+      id: 'file',
+      syntax: '--file <path>',
+      summary: 'Repeat to add a supplemental file, relative to --root.',
+      commands: ['repro-pack'],
+    },
+    {
+      id: 'node',
+      syntax: '--node <major>',
+      summary: 'Node.js major the reproduction requests; defaults to the current one.',
+      commands: ['repro-pack'],
+    },
+    {
+      id: 'approve',
+      syntax: '--approve <token>',
+      summary: 'Approval token printed by lingua repro review.',
+      commands: ['repro-run'],
     },
     {
       id: 'input',
@@ -236,6 +307,9 @@ export const CLI_HELP_CATALOG = {
         'capsule-replay',
         'capsule-verify',
         'capsule-verify-suite',
+        'repro-pack',
+        'repro-review',
+        'repro-run',
         'run',
         'list-utilities',
       ],
@@ -250,6 +324,9 @@ export const CLI_HELP_CATALOG = {
         'capsule-replay',
         'capsule-verify',
         'capsule-verify-suite',
+        'repro-pack',
+        'repro-review',
+        'repro-run',
         'run',
         'list-utilities',
       ],
@@ -276,6 +353,9 @@ export const CLI_HELP_CATALOG = {
         'capsule-replay',
         'capsule-verify',
         'capsule-verify-suite',
+        'repro-pack',
+        'repro-review',
+        'repro-run',
         'run',
         'list-utilities',
         'completion',
@@ -297,6 +377,9 @@ export const CLI_HELP_CATALOG = {
         'capsule-replay',
         'capsule-verify',
         'capsule-verify-suite',
+        'repro-pack',
+        'repro-review',
+        'repro-run',
         'run',
         'list-utilities',
         'completion',

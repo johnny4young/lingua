@@ -12,6 +12,10 @@
  *   lingua capsule replay <file> [--timeout <ms>] [--json] [--quiet]
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
+ *   lingua repro pack <capsule> --entry <path> [--file <path> ...] [--root <dir>]
+ *                    [--node <major>]
+ *   lingua repro review <envelope> [--json] [--quiet]
+ *   lingua repro run <envelope> --approve <token> [--json] [--quiet]
  *   lingua list utilities [--json] [--quiet]
  *   lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]
  *   lingua --version
@@ -33,6 +37,7 @@ import { runVerifyCapsuleSuiteCommand } from './commands/capsuleSuite';
 import { runVerifyCapsuleCommand } from './commands/capsuleVerify';
 import { runReplayCapsuleCommand, runValidateCapsuleCommand } from './commands/capsule';
 import { runCompletionInstallCommand } from './commands/completionInstall';
+import { runReproPackCommand, runReproReviewCommand, runReproRunCommand } from './commands/repro';
 import { runTargetCommand } from './commands/run';
 import { runListUtilitiesCommand, runUtilityCommand } from './commands/utility';
 import { isCliColorMode, type CliColorMode } from './commandModel';
@@ -225,6 +230,68 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
         json: parsed.flags.json,
         quiet: parsed.flags.quiet,
         color: parsed.flags.color,
+      },
+      io
+    );
+  }
+
+  if (
+    parsed.command === 'repro-pack' ||
+    parsed.command === 'repro-review' ||
+    parsed.command === 'repro-run'
+  ) {
+    const filePath = parsed.positionals[0];
+    const output = {
+      json: parsed.flags.json,
+      quiet: parsed.flags.quiet,
+      color: parsed.flags.color,
+    };
+    if (parsed.command === 'repro-pack') {
+      if (filePath === undefined || parsed.flags.entry === undefined) {
+        emitCliFailure(io, parsed.flags, {
+          label: 'lingua repro pack',
+          reason: 'missing-argument',
+          detail: 'Expected a <capsule> positional and --entry <path>.',
+        });
+        return CLI_EXIT_CODES.userInputError;
+      }
+      return runReproPackCommand(
+        {
+          ...output,
+          capsulePath: filePath,
+          entry: parsed.flags.entry,
+          files: parsed.flags.files,
+          ...(parsed.flags.root !== undefined ? { root: parsed.flags.root } : {}),
+          ...(parsed.flags.nodeMajor !== undefined ? { nodeMajor: parsed.flags.nodeMajor } : {}),
+        },
+        io
+      );
+    }
+    if (filePath === undefined) {
+      emitCliFailure(io, parsed.flags, {
+        label: `lingua repro ${parsed.command.slice('repro-'.length)}`,
+        reason: 'missing-file',
+        detail: 'Expected an <envelope> positional.',
+      });
+      return CLI_EXIT_CODES.userInputError;
+    }
+    if (parsed.command === 'repro-review') {
+      return runReproReviewCommand({ ...output, envelopePath: filePath }, io);
+    }
+    if (parsed.flags.approve === undefined) {
+      emitCliFailure(io, parsed.flags, {
+        label: 'lingua repro run',
+        reason: 'missing-approval',
+        detail: 'Expected --approve <token> from lingua repro review.',
+      });
+      return CLI_EXIT_CODES.userInputError;
+    }
+    return runReproRunCommand(
+      {
+        ...output,
+        envelopePath: filePath,
+        approve: parsed.flags.approve,
+        linguaVersion: resolveCliVersion(),
       },
       io
     );

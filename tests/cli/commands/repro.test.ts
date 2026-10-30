@@ -1,0 +1,376 @@
+import { describe, expect, it } from 'vitest';
+import {
+  runReproPackCommand,
+  runReproReviewCommand,
+  runReproRunCommand,
+  type ReproRunArgs,
+} from '../../../src/cli/commands/repro';
+import { CLI_EXIT_CODES } from '../../../src/cli/exit-codes';
+import type { ReproContainmentBackend } from '../../../src/cli/runtime/containment';
+import {
+  buildReproEnvelope,
+  computeReproApprovalToken,
+  parseReproEnvelope,
+} from '../../../src/shared/reproEnvelope';
+import {
+  DEFAULT_REPRO_REQUEST,
+  REPRO_CONTROLS,
+  requiredReproControls,
+  type ReproControl,
+  type ReproControlSupport,
+} from '../../../src/shared/reproPolicy';
+import { parseReproReceipt } from '../../../src/shared/reproReceipt';
+import { FIXTURE_FULL_TS, FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
+import { FAKE_GITHUB_PAT_SOURCE } from '../../shared/secret.fixtures';
+import { createFakeIo } from '../io-fake';
+
+const HELPER = 'export const sum = (a, b) => a + b;\n';
+const OUTPUT = { json: false, quiet: false } as const;
+const JSON_OUTPUT = { json: true, quiet: false } as const;
+const MANDATORY_CONTROLS = requiredReproControls(DEFAULT_REPRO_REQUEST);
+
+function backend(
+  overrides: Partial<Record<ReproControl, ReproControlSupport>> = {}
+): ReproContainmentBackend {
+  const controls = Object.fromEntries(
+    REPRO_CONTROLS.map(control => [control, 'enforced'])
+  ) as Record<ReproControl, ReproControlSupport>;
+  return {
+    id: 'fake-backend',
+    async probe() {
+      return {
+        backend: { id: 'fake-backend', version: '1' },
+        controls: { ...controls, ...overrides },
+        ambientGrants: [],
+      };
+    },
+  };
+}
+
+async function envelopeJson(): Promise<string> {
+  const built = await buildReproEnvelope({
+    capsule: FIXTURE_MINIMAL_JS,
+    entry: 'main.mjs',
+    runtime: { name: 'node', major: 24 },
+    files: [{ path: 'lib/sum.mjs', language: 'javascript', content: HELPER }],
+    request: DEFAULT_REPRO_REQUEST,
+  });
+  if (!built.ok) throw new Error(`fixture envelope rejected: ${built.reason}`);
+  return built.json;
+}
+
+async function reviewToken(json: string): Promise<string> {
+  const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+  await runReproReviewCommand({ ...JSON_OUTPUT, envelopePath: '/work/repro.json' }, io);
+  return (JSON.parse(state.stdout) as { approval: { token: string } }).approval.token;
+}
+
+function runArgs(overrides: Partial<ReproRunArgs> & Pick<ReproRunArgs, 'approve'>): ReproRunArgs {
+  return {
+    ...JSON_OUTPUT,
+    envelopePath: '/work/repro.json',
+    linguaVersion: '1.6.2',
+    now: () => new Date('2026-10-29T12:00:00.000Z'),
+    backends: [],
+    ...overrides,
+  };
+}
+
+describe('lingua repro pack', () => {
+  const capsuleFiles = {
+    '/work/run.capsule.json': JSON.stringify(FIXTURE_MINIMAL_JS),
+    '/work/lib/sum.mjs': HELPER,
+  };
+
+  it('prints an envelope with the capsule as entry and the chosen file', async () => {
+    const { io, state } = createFakeIo({ files: capsuleFiles });
+
+    const code = await runReproPackCommand(
+      {
+        ...OUTPUT,
+        capsulePath: '/work/run.capsule.json',
+        entry: 'main.mjs',
+        files: ['lib/sum.mjs'],
+        root: '/work',
+        nodeMajor: 24,
+      },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(state.stderr).toBe('');
+    const parsed = parseReproEnvelope(state.stdout);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.entry).toBe('main.mjs');
+    expect(parsed.value.runtime).toEqual({ name: 'node', major: 24 });
+    expect(parsed.value.files.map(file => [file.path, file.language, file.content])).toEqual([
+      ['lib/sum.mjs', 'javascript', HELPER],
+    ]);
+    expect(parsed.value.request).toEqual(DEFAULT_REPRO_REQUEST);
+  });
+
+  it('warns about possible secrets on stderr and still prints the envelope', async () => {
+    const { io, state } = createFakeIo({
+      files: { ...capsuleFiles, '/work/config.mjs': FAKE_GITHUB_PAT_SOURCE },
+    });
+
+    const code = await runReproPackCommand(
+      {
+        ...OUTPUT,
+        capsulePath: '/work/run.capsule.json',
+        entry: 'main.mjs',
+        files: ['config.mjs'],
+        root: '/work',
+      },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(state.stderr).toContain('possible secret(s) in the packed files');
+    expect(parseReproEnvelope(state.stdout).ok).toBe(true);
+  });
+
+  it.each<
+    [
+      string,
+      Record<string, string>,
+      Partial<Parameters<typeof runReproPackCommand>[0]>,
+      number,
+      string,
+    ]
+  >([
+    [
+      'a file outside the root',
+      capsuleFiles,
+      { files: ['../secret.mjs'] },
+      CLI_EXIT_CODES.userInputError,
+      'invalid-path',
+    ],
+    [
+      'a missing file',
+      capsuleFiles,
+      { files: ['lib/missing.mjs'] },
+      CLI_EXIT_CODES.userInputError,
+      'file-not-found',
+    ],
+    [
+      'an entry with an ambiguous module format',
+      capsuleFiles,
+      { entry: 'main.js' },
+      CLI_EXIT_CODES.userInputError,
+      'invalid-entry',
+    ],
+    [
+      'a TypeScript capsule',
+      { '/work/run.capsule.json': JSON.stringify(FIXTURE_FULL_TS) },
+      {},
+      CLI_EXIT_CODES.unsupportedCapability,
+      'unsupported-language',
+    ],
+    [
+      'a Node major below 18',
+      capsuleFiles,
+      { nodeMajor: 17 },
+      CLI_EXIT_CODES.unsupportedCapability,
+      'unsupported-runtime',
+    ],
+  ])(
+    'refuses %s without printing an envelope',
+    async (_name, files, overrides, exitCode, reason) => {
+      const { io, state } = createFakeIo({ files });
+
+      const code = await runReproPackCommand(
+        {
+          ...JSON_OUTPUT,
+          capsulePath: '/work/run.capsule.json',
+          entry: 'main.mjs',
+          files: [],
+          root: '/work',
+          ...overrides,
+        },
+        io
+      );
+
+      expect(code).toBe(exitCode);
+      expect(JSON.parse(state.stdout)).toMatchObject({ ok: false, reason });
+    }
+  );
+});
+
+describe('lingua repro review', () => {
+  it('reports the approval token, required controls and the missing backend as JSON', async () => {
+    const json = await envelopeJson();
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+
+    const code = await runReproReviewCommand(
+      { ...JSON_OUTPUT, envelopePath: '/work/repro.json', backends: [] },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    const body = JSON.parse(state.stdout) as {
+      approval: { contentDigest: string; policyDigest: string; token: string };
+      backend: unknown;
+      missingControls: string[];
+      requiredControls: string[];
+      files: Array<{ path: string }>;
+    };
+    expect(body.approval.token).toBe(await computeReproApprovalToken(body.approval));
+    expect(body.backend).toBeNull();
+    expect(body.requiredControls).toEqual(MANDATORY_CONTROLS);
+    expect(body.missingControls).toEqual(MANDATORY_CONTROLS);
+    expect(body.files.map(file => file.path)).toEqual(['lib/sum.mjs']);
+  });
+
+  it('prints the run command with the token for a person', async () => {
+    const json = await envelopeJson();
+    const token = await reviewToken(json);
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+
+    const code = await runReproReviewCommand(
+      { ...OUTPUT, envelopePath: '/work/repro.json', backends: [] },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(state.stdout).toContain('entry    main.mjs · node 24');
+    expect(state.stdout).toContain('network  deny');
+    expect(state.stdout).toMatch(/backend {2}none on \S+ \S+; run refuses before launch/u);
+    expect(state.stdout).toContain(`approve  lingua repro run /work/repro.json --approve ${token}`);
+  });
+
+  it('names the controls a probed backend cannot enforce', async () => {
+    const json = await envelopeJson();
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+
+    await runReproReviewCommand(
+      {
+        ...OUTPUT,
+        envelopePath: '/work/repro.json',
+        backends: [backend({ 'network-deny': 'unsupported' })],
+      },
+      io
+    );
+
+    expect(state.stdout).toContain(
+      'backend  fake-backend 1 cannot enforce network-deny; run refuses before launch'
+    );
+  });
+
+  it('refuses an envelope whose file no longer matches its hash', async () => {
+    const tampered = (await envelopeJson()).replace('a + b', 'a - b');
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': tampered } });
+
+    const code = await runReproReviewCommand(
+      { ...JSON_OUTPUT, envelopePath: '/work/repro.json' },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.userInputError);
+    expect(JSON.parse(state.stdout)).toMatchObject({ ok: false, reason: 'hash-mismatch' });
+  });
+});
+
+describe('lingua repro run', () => {
+  async function run(overrides: Partial<ReproRunArgs> & { approve?: string } = {}) {
+    const json = await envelopeJson();
+    const token = await reviewToken(json);
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+    const code = await runReproRunCommand(runArgs({ approve: token, ...overrides }), io);
+    const body = JSON.parse(state.stdout) as {
+      ok: boolean;
+      reason: string;
+      detail: string;
+      receipt: unknown;
+      verdict: { overall: string };
+    };
+    return { code, body, token };
+  }
+
+  it('refuses before launch when no backend is available', async () => {
+    const { code, body } = await run();
+
+    expect(code).toBe(CLI_EXIT_CODES.unsupportedCapability);
+    expect(body).toMatchObject({ ok: false, reason: 'backend-unavailable' });
+    expect(body.detail).toContain('nothing was run');
+    expect(body.verdict.overall).toBe('refused');
+    const receipt = parseReproReceipt(JSON.stringify(body.receipt));
+    expect(receipt).toMatchObject({
+      ok: true,
+      value: {
+        launch: 'refused',
+        refusalReason: 'backend-unavailable',
+        missingControls: [],
+        createdAt: '2026-10-29T12:00:00.000Z',
+        host: { lingua: '1.6.2', runtime: null, backend: null },
+      },
+    });
+  });
+
+  it('refuses with the approval-invalid receipt when the token is stale', async () => {
+    const { code, body } = await run({ approve: '0'.repeat(64) });
+
+    expect(code).toBe(CLI_EXIT_CODES.userInputError);
+    expect(body.reason).toBe('approval-invalid');
+    expect(parseReproReceipt(JSON.stringify(body.receipt))).toMatchObject({
+      ok: true,
+      value: { refusalReason: 'approval-invalid', missingControls: [] },
+    });
+  });
+
+  it('lists the controls a probed backend cannot enforce', async () => {
+    const { code, body } = await run({
+      backends: [backend({ 'network-deny': 'unsupported', 'process-limit': 'sampled' })],
+    });
+
+    expect(code).toBe(CLI_EXIT_CODES.unsupportedCapability);
+    expect(body.reason).toBe('unenforceable');
+    expect(parseReproReceipt(JSON.stringify(body.receipt))).toMatchObject({
+      ok: true,
+      value: {
+        refusalReason: 'unenforceable',
+        missingControls: ['network-deny', 'process-limit'],
+        host: { backend: { id: 'fake-backend', version: '1' } },
+      },
+    });
+  });
+
+  it('still refuses when a backend enforces everything but cannot launch yet', async () => {
+    const { code, body } = await run({ backends: [backend()] });
+
+    expect(code).toBe(CLI_EXIT_CODES.unsupportedCapability);
+    expect(body.reason).toBe('backend-unavailable');
+    expect(body.detail).toBe('fake-backend cannot launch reproductions yet; nothing was run.');
+  });
+
+  it('binds the receipt to the digests review printed', async () => {
+    const json = await envelopeJson();
+    const { io: reviewIo, state: reviewState } = createFakeIo({
+      files: { '/work/repro.json': json },
+    });
+    await runReproReviewCommand({ ...JSON_OUTPUT, envelopePath: '/work/repro.json' }, reviewIo);
+    const { approval } = JSON.parse(reviewState.stdout) as {
+      approval: { contentDigest: string; policyDigest: string; token: string };
+    };
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+
+    await runReproRunCommand(runArgs({ approve: approval.token }), io);
+
+    expect((JSON.parse(state.stdout) as { receipt: unknown }).receipt).toMatchObject({
+      contentDigest: approval.contentDigest,
+      approvedPolicyDigest: approval.policyDigest,
+    });
+  });
+
+  it('explains the refusal on stderr and prints nothing on stdout for a person', async () => {
+    const json = await envelopeJson();
+    const token = await reviewToken(json);
+    const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
+
+    await runReproRunCommand(runArgs({ ...OUTPUT, approve: token }), io);
+
+    expect(state.stdout).toBe('');
+    expect(state.stderr).toContain('lingua repro run: error[backend-unavailable]');
+  });
+});

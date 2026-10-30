@@ -535,3 +535,33 @@ even when its comparison reports drift.
 ## Current-file regression suites (unreleased/source builds)
 
 `lingua capsule verify <file> --target <relative-file> --json` checks the current saved file, not the captured source. `lingua capsule verify-suite <suite> --root <directory> --json` consumes suite v1. See [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) for schema, bounds, trust and verdicts. Both commands ship in CLI 1.6.0 and later.
+
+## Permissioned reproductions (experimental, source builds)
+
+`lingua repro` wraps a JavaScript Run Capsule into a reproduction envelope that
+names what the code may do, lets the recipient review it, and runs it only
+inside a containment backend that enforces every required control. The design
+and limits are in the
+[permissioned reproduction ADR](PERMISSIONED_REPRO_ADR.md).
+
+```bash
+lingua repro pack ./run.capsule.json --entry main.mjs --file lib/sum.mjs > repro.json
+lingua repro review ./repro.json
+lingua repro run ./repro.json --approve <token> --json
+```
+
+- `pack` prints the envelope to stdout. The capsule source becomes the entry
+  (`.mjs` or `.cjs`); each `--file` is read relative to `--root` and stored with
+  its hash. The request denies network, keeps inputs read-only and allows only
+  disposable scratch and output areas. Possible secrets are reported on stderr;
+  file contents are not changed.
+- `review` executes nothing. It checks every hash, narrows the request to the
+  local ceiling, lists the required controls, says whether a backend on this
+  host can enforce them, and prints the approval token for this exact content
+  and policy.
+- `run` refuses before launch when the token does not match, when no backend is
+  available, or when a required control is not enforced. No backend ships yet,
+  so every run is refused: exit 1 for a stale approval, exit 3 otherwise. With
+  `--json`, stdout carries the refusal receipt and its verdict.
+
+There is no fallback to `capsule replay`, a wider policy or an unsandboxed run.
