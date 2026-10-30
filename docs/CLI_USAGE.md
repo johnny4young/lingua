@@ -558,8 +558,13 @@ lingua repro run ./repro.json --approve <token> --json
   secrets are reported on stderr; file contents are not changed.
 - `review` executes nothing. It checks every hash, narrows the request to the
   local ceiling, lists the required controls, says whether a backend on this
-  host can enforce them, and prints the approval token for this exact content
-  and policy.
+  host can enforce them, and shows its effective control statuses and ambient
+  host grants before the approval token for this exact content and policy.
+  JSON includes `effectivePolicy` (null when there is no enforceable policy)
+  and `ambientGrants` from the probed backend, even if a required control is
+  missing. Without a backend, `ambientGrants` is empty and human output marks
+  it unavailable. These host-specific details are for local review; do not
+  share them without checking their contents.
 - `run` refuses before launch when the token does not match (exit 1), or when
   no backend is available, a required control is not enforced, or the host
   Node.js major differs from the request (exit 3). On macOS it stages the
