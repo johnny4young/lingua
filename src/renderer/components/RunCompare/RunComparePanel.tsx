@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import '../../i18n/runCompareCatalog';
@@ -7,6 +7,8 @@ import { canOpenComparedRun, openComparedRunInNewTab } from '../../utils/openCap
 import type { RunCompareRecord } from '../../utils/runCompareRecord';
 import { languageShortLabel } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
+import { formatBinarySize } from '../../utils/formatSize';
+import { formatRunDuration } from '../../utils/timeLabels';
 import type { Language } from '../../types/language';
 import { EyebrowMono } from '../ui/primitives';
 import {
@@ -22,21 +24,8 @@ import {
 
 type Translate = ReturnType<typeof useTranslation>['t'];
 
-function formatRunDuration(durationMs: number | null): string {
-  if (durationMs === null) return '—';
-  if (durationMs < 10) return `${durationMs.toFixed(1)} ms`;
-  if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
-  return `${(durationMs / 1000).toFixed(1)} s`;
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
-}
-
 function runtimeText(record: RunCompareRecord): string {
-  const language = record.language === 'http' ? 'HTTP' : record.language === 'sql' ? 'SQL' : languageShortLabel(record.language as Language);
+  const language = languageShortLabel(record.language as Language);
   const runtime = runRuntimeLabel(record);
   return runtime ? `${language} · ${runtime}` : language;
 }
@@ -46,7 +35,7 @@ function resultText(record: RunCompareRecord, t: Translate): string {
   const { summary } = record;
   if (summary?.kind === 'rows') return t('runCompare.summary.rows', { count: summary.count, columns: summary.columns.join(', ') });
   if (summary?.kind === 'http') {
-    return t('runCompare.summary.http', { status: summary.status, statusText: summary.statusText, size: formatSize(summary.bytes) });
+    return t('runCompare.summary.http', { status: summary.status, statusText: summary.statusText, size: formatBinarySize(summary.bytes) });
   }
   return runOutputLine(record) || t('runCompare.noOutput');
 }
@@ -101,9 +90,14 @@ function ComparePane({
   return (
     <div data-testid="run-compare-compare">
       <EyebrowMono>{t('runCompare.compare.title', { from: timeOf(older), to: timeOf(newer) })}</EyebrowMono>
+      {before.truncated || after.truncated ? (
+        <p className="mt-1 text-caption text-warning-fg" data-testid="run-compare-truncated">
+          {t('runCompare.truncated')}
+        </p>
+      ) : null}
       <SectionLabel>{t('runCompare.section.code')}</SectionLabel>
       <DiffRows section={comparison.code} t={t} testId="run-compare-code" />
-      <SectionLabel>{t('runCompare.section.stdout')}</SectionLabel>
+      <SectionLabel>{t('runCompare.section.output')}</SectionLabel>
       <DiffRows section={comparison.stdout} t={t} testId="run-compare-stdout" />
       <SectionLabel>{t('runCompare.section.values')}</SectionLabel>
       {!comparison.valuesTracked ? (
@@ -158,8 +152,15 @@ export function RunComparePanel({ activeTabId }: { activeTabId: string | null })
   // Until the user ticks a box, follow the active tab's last two runs.
   const [picked, setPicked] = useState<string[] | null>(null);
   const selected = picked ?? defaultRunSelection(entries, activeTabId);
-  const [openedAt] = useState(Date.now);
-  const groups = useMemo(() => groupRunsByDay(entries, Math.max(openedAt, entries.at(-1)?.timestamp ?? 0)), [entries, openedAt]);
+  const [now, setNow] = useState(Date.now);
+  // Move Today to Yesterday at midnight while the tab stays open.
+  useEffect(() => {
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const timer = setTimeout(() => setNow(Date.now()), midnight.getTime() - now + 1000);
+    return () => clearTimeout(timer);
+  }, [now]);
+  const groups = useMemo(() => groupRunsByDay(entries, Math.max(now, entries.at(-1)?.timestamp ?? 0)), [entries, now]);
   const timeFormat = useMemo(() => new Intl.DateTimeFormat(i18n.language, { hour: 'numeric', minute: '2-digit' }), [i18n.language]);
   const dayFormat = useMemo(() => new Intl.DateTimeFormat(i18n.language, { month: 'short', day: 'numeric' }), [i18n.language]);
   const timeOf = (entry: ExecutionHistoryEntry) => timeFormat.format(entry.timestamp);

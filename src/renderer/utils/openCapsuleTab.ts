@@ -106,7 +106,7 @@ export function openCapsuleWorkspaceFileInNewTab(
  * it. Returns false when the run is not editor code (SQL, HTTP, pipelines).
  */
 export function openComparedRunInNewTab(run: { name: string; language: string; code: string }): boolean {
-  const language = canOpenComparedRun(run.language) ? resolveEditorLanguage(run.language) : undefined;
+  const language = resolveEditorLanguage(run.language);
   if (language === undefined) return false;
   useEditorStore.getState().addTab({
     ...createDefaultTab(language),
@@ -118,5 +118,5 @@ export function openComparedRunInNewTab(run: { name: string; language: string; c
 }
 
 export function canOpenComparedRun(language: string): boolean {
-  return language !== 'sql' && resolveEditorLanguage(language) !== undefined;
+  return resolveEditorLanguage(language) !== undefined;
 }

@@ -32,6 +32,14 @@ export function formatRelativeTime(targetMs: number, nowMs: number, locale: stri
 type Translate = (key: string, values?: Record<string, number>) => string;
 
 /** "1 second ago" … "3 hours ago" for this session's runs; never "0 seconds". */
+/** A run's duration: `0.4 ms`, `13 ms`, `18.90 s`; `—` when timing never ran. */
+export function formatRunDuration(durationMs: number | null): string {
+  if (durationMs === null) return '—';
+  if (durationMs < 10) return `${durationMs.toFixed(1)} ms`;
+  if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
+  return `${(durationMs / 1000).toFixed(2)} s`;
+}
+
 export function formatRunAge(timestamp: number, now: number, t: Translate): string {
   const seconds = Math.round(Math.max(0, now - timestamp) / SECOND);
   if (seconds < 60) return t('executionHistory.relative.seconds', { count: Math.max(1, seconds) });

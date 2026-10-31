@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { RunComparePanel } from '@/components/RunCompare/RunComparePanel';
 import { type ExecutionHistoryEntry, useExecutionHistoryStore } from '@/stores/executionHistoryStore';
@@ -53,7 +53,7 @@ describe('run compare panel', () => {
     expect(screen.getByText('Today')).toBeTruthy();
     const rows = screen.getAllByTestId('run-compare-row');
     expect(rows.map(row => row.textContent)).toEqual([
-      expect.stringContaining('Sorting.jsJS · Worker18.9 slength 7'),
+      expect.stringContaining('Sorting.jsJS · Worker18.90 slength 7'),
       expect.stringContaining('ERR'),
       expect.stringContaining('JS · Worker2.5 ms'),
       expect.stringContaining('Untitled querySQL · DuckDB13 ms3 rows · city, orders'),
@@ -63,7 +63,7 @@ describe('run compare panel', () => {
     expect(screen.getByTestId('run-compare-code').textContent).toBe('- const mid = [pivot];+ const mid = arr.filter((x) => x === pivot);');
     expect(screen.getByTestId('run-compare-stdout').textContent).toContain('+ QuickSort: [ 1, 1, 2, 3 ]');
     expect(screen.getByTestId('run-compare-values').textContent).toBe('L11length 6 → length 7');
-    expect(screen.getByTestId('run-compare-exit').textContent).toBe('ok → ok · 2.5 ms → 18.9 s');
+    expect(screen.getByTestId('run-compare-exit').textContent).toBe('ok → ok · 2.5 ms → 18.90 s');
   });
 
   it('replaces the earlier pick with a third and clears the selection', async () => {
@@ -106,6 +106,32 @@ describe('run compare panel', () => {
     act(() => useExecutionHistoryStore.setState({ entries: [...entries, third, fourth] }));
     expect(screen.getByTestId('run-compare-pick')).toBeTruthy();
     expect(screen.getByRole('button', { name: '1 selected, Clear selection' })).toBeTruthy();
+  });
+
+  it('shows the error line for a failed run and says when a run was cut', () => {
+    const failed = {
+      ...entries[3]!, id: 'failed', status: 'error' as const, timestamp: at(0, 50),
+      runCompare: runCompare({ exit: 'error', errorMessage: 'TypeError: arr.filter is not a function\n    at line 4', stdout: 'partial', truncated: true }),
+    };
+    useExecutionHistoryStore.setState({ entries: [...entries, failed] });
+    render(<RunComparePanel activeTabId="tab-1" />);
+    expect(screen.getAllByTestId('run-compare-row')[0]!.textContent).toContain('ERRSorting.jsJS · Worker18.90 sTypeError: arr.filter is not a function');
+    expect(screen.getByTestId('run-compare-truncated').textContent).toBe('One run was cut at its size cap, so the diff covers only what was kept.');
+    expect(screen.getByTestId('run-compare-exit').textContent).toBe('ok → error · 18.90 s → 18.90 s');
+  });
+
+  it('moves today\'s runs under Yesterday at midnight', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      vi.setSystemTime(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59));
+      render(<RunComparePanel activeTabId="tab-1" />);
+      expect(screen.getByText('Today')).toBeTruthy();
+      act(() => { vi.advanceTimersByTime(2 * 60 * 1000); });
+      expect(screen.getByText('Yesterday')).toBeTruthy();
+      expect(screen.queryByText('Today')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('starts empty on a tab without two comparable runs and reads in Spanish', async () => {

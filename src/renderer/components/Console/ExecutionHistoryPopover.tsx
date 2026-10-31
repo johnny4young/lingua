@@ -16,7 +16,7 @@ import {
 import { useEditorStore } from '../../stores/editorStore';
 import { IconButton } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
-import { formatRunAge } from '../../utils/timeLabels';
+import { formatRunAge, formatRunDuration } from '../../utils/timeLabels';
 
 interface ExecutionHistoryPopoverProps {
   /**
@@ -34,13 +34,6 @@ interface ExecutionHistoryPopoverProps {
   onCompare?: (older: ExecutionHistoryEntry, newer: ExecutionHistoryEntry) => void;
   enabled?: boolean;
   onBlocked?: () => void;
-}
-
-function formatDuration(durationMs: number | null): string {
-  if (durationMs === null) return '—';
-  if (durationMs < 10) return `${durationMs.toFixed(1)} ms`;
-  if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
-  return `${(durationMs / 1000).toFixed(2)} s`;
 }
 
 function parseEntryCounter(id: string): number | null {
@@ -393,7 +386,7 @@ export function ExecutionHistoryPopover({
                       </span>
                       <span className="text-body text-foreground">
                         {t('executionHistory.entry.durationMs', {
-                          value: formatDuration(entry.durationMs),
+                          value: formatRunDuration(entry.durationMs),
                         })}
                         {entry.status === 'error' ? (
                           <span className="ml-2 text-error">

@@ -187,11 +187,12 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const snapshotIsRelevant =
         tab !== null && snapshotRing.some(entry => entry.language === tab.language);
       const comparableRuns = runCompareCaptureOn() && useExecutionHistoryStore.getState().entries.length > 0;
-      if (!tab || (!snapshotIsRelevant && !comparableRuns)) {
+      if (!snapshotIsRelevant && !comparableRuns) {
         pushInfoNotice('compare.toggle.shortcutUnavailable');
         return;
       }
       const next = toggleCompareDock();
+      if (!tab) return;
       void trackEvent('runtime.compare_view_toggled', {
         language: tab.language,
         enabled: next,
