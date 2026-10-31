@@ -769,6 +769,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) + [dependencyDetectionRuntime.ts](hooks/dependencyDetectionRuntime.ts) | per-tab dependency cache/install state plus a startup-safe eligibility/debounce hook; parser loading and platform classification activate only when source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
 | [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
+| [importedCapsuleStore.ts](stores/importedCapsuleStore.ts) | capsules opened from Import this session, listed by the capsule browser as not run; memory only |
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |

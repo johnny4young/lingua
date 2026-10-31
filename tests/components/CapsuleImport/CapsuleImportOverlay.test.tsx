@@ -12,6 +12,7 @@ import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useWorkspaceToolStore } from '../../../src/renderer/stores/workspaceToolStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
+import { useImportedCapsuleStore } from '../../../src/renderer/stores/importedCapsuleStore';
 import {
   FIXTURE_MINIMAL_JS,
   FIXTURE_FULL_TS,
@@ -135,6 +136,7 @@ describe('CapsuleImportOverlay', () => {
   });
 
   it('opens the source as a new tab on confirm + fires onClose', () => {
+    useImportedCapsuleStore.setState({ entries: [] });
     const onClose = vi.fn();
     render(<CapsuleImportOverlay onClose={onClose} />);
     fireEvent.change(screen.getByTestId('capsule-import-paste-textarea'), {
@@ -145,6 +147,10 @@ describe('CapsuleImportOverlay', () => {
     expect(useEditorStore.getState().tabs[0]?.content).toBe(
       FIXTURE_MINIMAL_JS.source.content
     );
+    // The opened capsule is listed in the capsule browser as imported.
+    expect(useImportedCapsuleStore.getState().entries.map((entry) => entry.capsule.capsuleId)).toEqual([
+      FIXTURE_MINIMAL_JS.capsuleId,
+    ]);
     expect(onClose).toHaveBeenCalled();
   });
 
