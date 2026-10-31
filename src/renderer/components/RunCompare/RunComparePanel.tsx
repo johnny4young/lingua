@@ -179,7 +179,7 @@ export function RunComparePanel({ activeTabId }: { activeTabId: string | null })
         {liveSelection.length > 0 ? (
           <button
             type="button"
-            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-accent bg-primary-soft px-2.5 text-caption text-accent-fg"
+            className="inline-flex h-[24px] shrink-0 items-center gap-1 rounded-full border border-accent bg-primary-soft px-2.5 text-caption text-accent-fg"
             onClick={() => setPicked([])}
             title={t('runCompare.clearSelection')}
             aria-label={`${t('runCompare.selected', { count: liveSelection.length })}, ${t('runCompare.clearSelection')}`}

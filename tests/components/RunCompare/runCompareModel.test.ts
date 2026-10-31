@@ -112,6 +112,6 @@ describe('run compare model', () => {
       runRuntimeLabel(record({ language: 'http', runtime: 'http-client', summary: { kind: 'http', method: 'GET', status: 200, statusText: 'OK', bytes: 1 } }))
     ).toBe('GET');
     expect(runOutputLine(record({ stdout: 'first\nlast\n\n' }))).toBe('last');
-    expect(runOutputLine(record({ values: [{ line: 1, value: '"Hello"' }] }))).toBe('"Hello"');
+    expect(runOutputLine(record({ stdout: 'QuickSort: [\n  1,\n]\n', values: [{ line: 5, value: 'QuickSort: [ 1 ]' }, { line: 4, value: '7' }] }))).toBe('QuickSort: [ 1 ]');
   });
 });

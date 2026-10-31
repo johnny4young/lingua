@@ -53,7 +53,7 @@ describe('run compare panel', () => {
     expect(screen.getByText('Today')).toBeTruthy();
     const rows = screen.getAllByTestId('run-compare-row');
     expect(rows.map(row => row.textContent)).toEqual([
-      expect.stringContaining('Sorting.jsJS · Worker18.9 sQuickSort: [ 1, 1, 2, 3 ]'),
+      expect.stringContaining('Sorting.jsJS · Worker18.9 slength 7'),
       expect.stringContaining('ERR'),
       expect.stringContaining('JS · Worker2.5 ms'),
       expect.stringContaining('Untitled querySQL · DuckDB13 ms3 rows · city, orders'),

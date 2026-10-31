@@ -152,9 +152,11 @@ export function runRuntimeLabel(record: RunCompareRecord): string {
   return languageHasRuntimeModes(record.language) ? (RUNTIME_LABELS[record.runtime] ?? '') : '';
 }
 
-/** Last stdout line, else the last inline value. */
+/** The inline value on the lowest line, already one line, else the last stdout line. */
 export function runOutputLine(record: RunCompareRecord): string {
+  let last: RunCompareRecord['values'][number] | undefined;
+  for (const item of record.values) if (!last || item.line >= last.line) last = item;
+  if (last?.value) return last.value;
   const lines = record.stdout.split('\n').filter(line => line.trim() !== '');
-  if (lines.length > 0) return lines[lines.length - 1]!;
-  return record.values[record.values.length - 1]?.value ?? '';
+  return lines[lines.length - 1] ?? '';
 }
