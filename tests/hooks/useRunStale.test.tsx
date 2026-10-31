@@ -2,10 +2,11 @@ import { act, render, renderHook, screen } from '@testing-library/react';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
-import { useRunStale, useRunStaleAge } from '@/hooks/useRunStale';
+import { useRef } from 'react';
+import { useRunStale, useRunStaleAgeProperty } from '@/hooks/useRunStale';
 import { RunStalePill } from '@/components/Editor/RunStalePill';
 import { useEditorStore } from '@/stores/editorStore';
-import { useResultStore } from '@/stores/resultStore';
+import { runInputKey, useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 const initialResult = useResultStore.getState();
@@ -19,7 +20,7 @@ beforeEach(async () => {
   initI18n('en');
   await i18next.changeLanguage('en');
   useSettingsStore.setState({ featureFlags: { runState: true } });
-  useResultStore.setState({ ranCode: { tabId: 't1', code: 'const a = 1;', at: 1_000 }, lineResults: [{ line: 1, value: '1', type: 'result' }] });
+  useResultStore.setState({ ranCode: { tabId: 't1', code: 'const a = 1;', input: runInputKey(undefined, undefined), at: 1_000 }, lineResults: [{ line: 1, value: '1', type: 'result' }] });
 });
 
 afterEach(() => {
@@ -37,6 +38,14 @@ describe('run state', () => {
     expect(result.current.stale).toBe(false);
   });
 
+  it('is stale once stdin or the arguments change after the run', () => {
+    openTab('run', 'javascript', 'const a = 1;');
+    const { result } = renderHook(() => useRunStale());
+    expect(result.current.stale).toBe(false);
+    act(() => useEditorStore.getState().setTabStdinBuffer('t1', '5'));
+    expect(result.current.stale).toBe(true);
+  });
+
   it('stays current with the flag off, while running, without results, or for another tab', () => {
     openTab('run');
     const { result } = renderHook(() => useRunStale());
@@ -44,10 +53,10 @@ describe('run state', () => {
     expect(result.current.stale).toBe(false);
     act(() => useResultStore.setState({ isManualRunning: false, lineResults: [], fullOutput: '', error: null }));
     expect(result.current.stale).toBe(false);
-    act(() => useResultStore.setState({ lineResults: [{ line: 1, value: '1', type: 'result' }], ranCode: { tabId: 'other', code: '', at: 1 } }));
+    act(() => useResultStore.setState({ lineResults: [{ line: 1, value: '1', type: 'result' }], ranCode: { tabId: 'other', code: '', input: '', at: 1 } }));
     expect(result.current.stale).toBe(false);
     act(() => {
-      useResultStore.setState({ ranCode: { tabId: 't1', code: 'const a = 1;', at: 1_000 } });
+      useResultStore.setState({ ranCode: { tabId: 't1', code: 'const a = 1;', input: runInputKey(undefined, undefined), at: 1_000 } });
       useSettingsStore.setState({ featureFlags: {} });
     });
     expect(result.current.stale).toBe(false);
@@ -76,6 +85,12 @@ describe('run state', () => {
     expect(result.current.stale).toBe(true);
   });
 
+  it('hides the pill while the results match the code', () => {
+    openTab('run', 'javascript', 'const a = 1;');
+    render(<RunStalePill />);
+    expect(screen.queryByTestId('run-stale-pill')).toBeNull();
+  });
+
   it('shows a STALE pill that explains itself, and ages the results', () => {
     vi.useFakeTimers();
     try {
@@ -84,10 +99,18 @@ describe('run state', () => {
       render(<RunStalePill />);
       expect(screen.getByTestId('run-stale-pill').textContent).toContain('Stale');
       expect(screen.getByTestId('run-stale-pill').getAttribute('title')).toBe('Edited after the last run · values dimmed');
-      const { result } = renderHook(() => useRunStaleAge(1_000));
-      expect(result.current).toBe('12 sec. ago');
+      function Aged({ ranAt }: { ranAt: number | null }) {
+        const ref = useRef<HTMLDivElement>(null);
+        useRunStaleAgeProperty(ref, ranAt);
+        return <div ref={ref} data-testid="aged" />;
+      }
+      const { rerender } = render(<Aged ranAt={1_000} />);
+      const aged = () => screen.getByTestId('aged').style.getPropertyValue('--run-stale-age');
+      expect(aged()).toBe('" · 12 sec. ago"');
       act(() => { vi.advanceTimersByTime(5_000); });
-      expect(result.current).toBe('17 sec. ago');
+      expect(aged()).toBe('" · 17 sec. ago"');
+      rerender(<Aged ranAt={null} />);
+      expect(aged()).toBe('');
     } finally {
       vi.useRealTimers();
     }

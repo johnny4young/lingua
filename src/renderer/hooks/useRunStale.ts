@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { runPolicyDelayMs } from '../../shared/runPolicy';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
-import { useResultStore } from '../stores/resultStore';
+import { runInputKey, useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { formatRelativeTime } from '../utils/timeLabels';
 import { resolveAutoRunSchedule } from './autoRunModel';
@@ -17,7 +17,7 @@ const CURRENT: RunStale = { stale: false, ranAt: null };
 
 /**
  * With Run state on, the visible results are stale once the editor no longer
- * holds the code they ran from. A Scratchpad that runs on its own is only
+ * holds the code, stdin or arguments they ran from. A Scratchpad that runs on its own is only
  * stale while an incomplete edit keeps it from running.
  */
 export function useRunStale(): RunStale {
@@ -30,9 +30,8 @@ export function useRunStale(): RunStale {
   const gated = useResultStore(state => state.autoRunGateReason === 'incomplete');
   const tab = useEditorStore(state => getActiveTab(state));
 
-  if (!on || !tab || !ranCode || ranCode.tabId !== tab.id || !hasResults || running || tab.content === ranCode.code) {
-    return CURRENT;
-  }
+  if (!on || !tab || !ranCode || ranCode.tabId !== tab.id || !hasResults || running) return CURRENT;
+  if (tab.content === ranCode.code && runInputKey(tab.stdinBuffer, tab.inputArgs) === ranCode.input) return CURRENT;
   const workflowMode = tab.workflowMode ?? defaultWorkflowMode(tab.language);
   const schedule = resolveAutoRunSchedule(tab.runtimeMode, tab.content, previewRefresh, runPolicyDelayMs(tab.language, policies));
   const runsItself = workflowMode === 'scratchpad' && schedule.debounceMs !== null;
@@ -40,15 +39,25 @@ export function useRunStale(): RunStale {
   return { stale: true, ranAt: ranCode.at };
 }
 
-/** "12 sec. ago" for stale results, refreshed every 5 s while shown. */
-export function useRunStaleAge(ranAt: number | null): string | null {
+/**
+ * Writes " · 12 sec. ago" to the node's `--run-stale-age` every 5 s while the
+ * results are stale, without re-rendering the editor.
+ */
+export function useRunStaleAgeProperty(ref: RefObject<HTMLElement | null>, ranAt: number | null): void {
   const { i18n } = useTranslation();
-  const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    if (ranAt === null) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 5_000);
-    return () => clearInterval(timer);
-  }, [ranAt]);
-  return ranAt === null ? null : formatRelativeTime(ranAt, Math.max(now, ranAt), i18n.language);
+    const node = ref.current;
+    if (!node || ranAt === null) return;
+    const paint = () =>
+      node.style.setProperty(
+        '--run-stale-age',
+        JSON.stringify(` · ${formatRelativeTime(ranAt, Math.max(Date.now(), ranAt), i18n.language)}`)
+      );
+    paint();
+    const timer = setInterval(paint, 5_000);
+    return () => {
+      clearInterval(timer);
+      node.style.removeProperty('--run-stale-age');
+    };
+  }, [ref, ranAt, i18n.language]);
 }

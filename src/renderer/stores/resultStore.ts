@@ -118,11 +118,17 @@ function nextSnapshotCapturedAt(snapshotRing: readonly ResultSnapshot[]): number
   return Math.max(Date.now(), latestCapturedAt + 1);
 }
 
-/** The code a run started from, so Run state can tell when the results no longer match the editor. */
+/** The code and input a run started from, so Run state can tell when the results no longer match. */
 interface RanCode {
   tabId: string;
   code: string;
+  input: string;
   at: number;
+}
+
+/** Stdin and argv as one comparable key. */
+export function runInputKey(stdin: string | undefined, args: readonly string[] | undefined): string {
+  return JSON.stringify([stdin ?? '', args ?? []]);
 }
 
 interface ResultState {

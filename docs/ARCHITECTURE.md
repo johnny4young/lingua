@@ -973,8 +973,9 @@ running it.
 
 ### Run state
 
-Each run records the code it started from in `resultStore.ranCode` (manual runs
-in `publishRunStart`, Scratchpad in `executeAutoRun`); a tab switch clears it.
+Each run records the code and the stdin and arguments it started from in
+`resultStore.ranCode` (manual runs in `publishRunStart`, Scratchpad in
+`executeAutoRun`); a tab switch clears it.
 With **Run state** on in Labs, `useRunStale` compares it with the editor: the
 results are stale when the code differs, results are visible and nothing is
 running. A Scratchpad whose policy runs on its own is only stale while the
