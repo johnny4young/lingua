@@ -197,8 +197,8 @@ auto-derived — do not edit by hand.
 - **Web build degrades honestly** with the stub in `src/web/adapter.ts`.
   Do not promise Go execution in pure-web without a browser-side compiler
   (not viable today).
-- **Local readiness is distinct from platform and tier.** Desktop menus and
-  the palette probe the Go toolchain on demand; `ENOENT` means missing, while
+- **Local readiness is distinct from platform and tier.** Desktop menus,
+  the palette and an active Go tab probe the Go toolchain on demand; `ENOENT` means missing, while
   a timeout or failed version/root probe means the check failed. The editor
   still opens; a missing Go or Rust toolchain disables Run and opens the
   Console on an empty state with Installation guide, Choose binary… and

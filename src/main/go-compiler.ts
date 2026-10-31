@@ -38,6 +38,7 @@ import {
   findToolchain,
   toolchainCandidates,
   toolchainSearchedPlaces,
+  toolchainSpawnFailure,
   withBinaryDirOnPath,
   type ToolchainProbe,
 } from './runners/toolchainBinary';
@@ -105,6 +106,8 @@ function resolveGoToolchainEnv(
  * by the next run, matching the node-runner convention.
  */
 let cachedGoDetect: { result: GoDetectResult; command: string } | null = null;
+// Bumped by choose-binary so a detect that started earlier cannot cache the old binary.
+let detectGeneration = 0;
 
 type GoDetection = GoDetectResult & { timedOut?: boolean; command?: string };
 
@@ -133,25 +136,26 @@ async function probeGo(
 /** Detect with the same process ownership as compilation. */
 async function detectGo(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<GoDetection> {
   const cacheable = userEnv === undefined;
+  const generation = detectGeneration;
   if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (cacheable && cachedGoDetect) return { ...cachedGoDetect.result, command: cachedGoDetect.command };
   const env = resolveGoToolchainEnv(userEnv);
   const found = await findToolchain(await toolchainCandidates('go'), (command) => probeGo(command, env, signal), signal);
   if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (found.kind === 'found') {
-    if (cacheable) cachedGoDetect = { result: found.value, command: found.command };
+    if (cacheable && generation === detectGeneration) cachedGoDetect = { result: found.value, command: found.command };
     return { ...found.value, command: found.command };
   }
   return found.kind === 'missing'
     ? { installed: false, reason: 'missing', searched: toolchainSearchedPlaces('go'), error: 'Go is not installed. Install it from https://go.dev/dl/' }
     : {
         installed: false, reason: 'check-failed', timedOut: found.timedOut,
-        error: 'Go toolchain check failed. Retry detection or inspect your local Go installation.',
+        error: 'Go toolchain check failed. Detect again or inspect your local Go installation.',
       };
 }
 
 /** The renderer gets availability, never the absolute binary path. */
-function publicGoDetection({ command: _command, ...result }: GoDetection): GoDetectResult {
+function publicGoDetection({ command: _command, goRoot: _goRoot, ...result }: GoDetection): GoDetectResult {
   return result;
 }
 
@@ -219,8 +223,13 @@ async function compileGoToWasm(
     });
     if (signal.aborted || compiled.killed) return stopped();
     if (compiled.timedOut) return { success: false, kind: 'timeout', timeoutMs: 30_000, goVersion };
-    if (compiled.spawnError || compiled.exitCode !== 0) {
-      return { ...failed(compiled.spawnError?.message || compiled.stderr || `Go compiler exited with code ${compiled.exitCode}`), goVersion };
+    if (compiled.spawnError) {
+      // The cached binary vanished or lost its permissions; the next run detects again.
+      cachedGoDetect = null;
+      return { ...failed(toolchainSpawnFailure('Go compiler', compiled.spawnError)), goVersion };
+    }
+    if (compiled.exitCode !== 0) {
+      return { ...failed(compiled.stderr || `Go compiler exited with code ${compiled.exitCode}`), goVersion };
     }
     const wasmStat = await stat(wasmFile);
     if (signal.aborted) return stopped();
@@ -256,7 +265,7 @@ export function registerGoHandlers(): void {
   });
   typedHandle('go:choose-binary', async (event) => {
     try { return await chooseToolchainBinary('go', event.sender, verifyChosenGo); }
-    finally { cachedGoDetect = null; }
+    finally { cachedGoDetect = null; detectGeneration += 1; }
   });
   typedHandle('go:compile', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
     if (typeof source !== 'string') return failed('Go compiler received invalid source.');

@@ -57,6 +57,16 @@ describe('Go cancellation owns every preparation phase', () => {
     if (phase === 2) expect(mocks.rm).toHaveBeenCalledWith(expect.stringMatching(/lingua-go-[^/\\]+$/), { recursive: true, force: true });
   });
 
+  it('reports a compiler that cannot start without the binary path', async () => {
+    mocks.spawn
+      .mockResolvedValueOnce(ok)
+      .mockResolvedValueOnce(ok)
+      .mockResolvedValueOnce({ ...ok, exitCode: -1, spawnError: Object.assign(new Error('spawn /Users/dev/sdk/go/bin/go ENOENT'), { code: 'ENOENT' }) });
+    const result = await handler('go:compile')({ sender: owner() }, 'package main\nfunc main() {}', {}, undefined, 'a');
+    expect(result).toMatchObject({ success: false, kind: 'error', error: 'Go compiler could not start (ENOENT).' });
+    expect(JSON.stringify(result)).not.toContain('/Users/dev');
+  });
+
   it('rejects duplicate IDs and a foreign sender cannot stop the owner', async () => {
     const held = deferred<typeof ok>();
     mocks.spawn.mockReturnValueOnce(held.promise);

@@ -17,6 +17,7 @@ const CHOOSE_ERROR_KEYS: Record<Extract<ToolchainChooseResult, { status: 'invali
   'wrong-name': 'nativeToolchain.choose.wrongName',
   blocked: 'nativeToolchain.choose.blocked',
   'check-failed': 'nativeToolchain.choose.checkFailed',
+  'save-failed': 'nativeToolchain.choose.failed',
 };
 
 const BUTTON =
@@ -49,6 +50,7 @@ function MissingToolchainBody({ toolchain }: { toolchain: NativeLanguageToolchai
     settle(async () => {
       const result = await useNativeToolchainStore.getState().choose(toolchain);
       if (result.status === 'canceled') return null;
+      if (result.status === 'failed') return t('nativeToolchain.choose.failed');
       if (result.status === 'invalid') return t(CHOOSE_ERROR_KEYS[result.reason], { toolchain: label, command });
       pushRetrySuccess(label);
       return null;

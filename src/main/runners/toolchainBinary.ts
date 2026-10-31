@@ -39,14 +39,34 @@ export function toolchainSearchDirs(
 }
 
 /** Home-relative so the empty state never prints the account name. */
-export function displayToolchainPath(value: string, home = os.homedir()): string {
+export function displayToolchainPath(value: string, home = os.homedir(), platform = process.platform): string {
   if (!home) return value;
-  if (value === home) return '~';
-  return value.startsWith(home + path.sep) ? `~${value.slice(home.length)}` : value;
+  const fold = (text: string) => (platform === 'win32' ? text.toLowerCase() : text);
+  const sep = platform === 'win32' ? path.win32.sep : path.posix.sep;
+  if (fold(value) === fold(home)) return '~';
+  return fold(value).startsWith(fold(home + sep)) ? `~${value.slice(home.length)}` : value;
+}
+
+/** A spawn error names the binary's absolute path; the renderer gets the errno only. */
+export function toolchainSpawnFailure(label: string, error: Error): string {
+  return `${label} could not start (${(error as NodeJS.ErrnoException).code ?? 'error'}).`;
 }
 
 export function toolchainSearchedPlaces(id: ToolchainBinaryId): string[] {
   return toolchainSearchDirs(id).map((dir) => displayToolchainPath(dir));
+}
+
+/** POSIX only: refuse a file other local accounts could have planted or swapped. */
+async function isOwnedSafely(candidate: string): Promise<boolean> {
+  if (process.platform === 'win32' || typeof process.getuid !== 'function') return true;
+  const uid = process.getuid();
+  try {
+    const [file, dir] = await Promise.all([stat(candidate), stat(path.dirname(candidate))]);
+    const owned = file.uid === uid || file.uid === 0;
+    return owned && (file.mode & 0o002) === 0 && (dir.mode & 0o002) === 0;
+  } catch {
+    return false;
+  }
 }
 
 async function isExecutableFile(candidate: string): Promise<boolean> {
@@ -79,13 +99,18 @@ export type ToolchainSearch<T> =
 
 /** The chosen binary, the bare command on PATH, then existing fallback files. */
 export async function toolchainCandidates(id: ToolchainBinaryId): Promise<string[]> {
-  const chosen = await chosenToolchainBinaries.get(id);
+  const stored = await chosenToolchainBinaries.get(id);
+  // The file can change after it was picked; it must still pass the same static checks.
+  const chosen = stored && (await passesStaticChecks(id, stored)) === null ? stored : undefined;
   const fallbacks = toolchainSearchDirs(id).map((dir) => path.join(dir, toolchainExecutableName(id)));
   const usable = await Promise.all(fallbacks.map(isExecutableFile));
-  return [...(chosen ? [chosen] : []), COMMANDS[id], ...fallbacks.filter((_, index) => usable[index])];
+  return [...new Set([...(chosen ? [chosen] : []), COMMANDS[id], ...fallbacks.filter((_, index) => usable[index])])];
 }
 
-/** First candidate that answers wins; missing only when none of them exists. */
+/**
+ * First candidate that answers wins; missing only when none of them exists. A
+ * timeout ends the search: the next candidate is often the same binary.
+ */
 export async function findToolchain<T>(
   candidates: readonly string[],
   probe: (command: string) => Promise<ToolchainProbe<T>>,
@@ -96,7 +121,10 @@ export async function findToolchain<T>(
     if (signal?.aborted) return { kind: 'failed' };
     const result = await probe(command);
     if (result.kind === 'found') return { kind: 'found', value: result.value, command };
-    if (result.kind === 'failed') failure ??= result;
+    if (result.kind === 'failed') {
+      if (result.timedOut) return result;
+      failure ??= result;
+    }
   }
   return failure ?? { kind: 'missing' };
 }
@@ -155,19 +183,28 @@ export function configureToolchainBinaryStore(userDataDir: string): void {
 
 /**
  * Check a picked file before it is ever kept: an executable regular file named
- * like the toolchain, outside credential and app-data folders, that answers its
- * version probe (`verify` returns the version, or null).
+ * like the toolchain, outside credential and app-data folders and owned so no
+ * other account can swap it, that answers its version probe (`verify` returns
+ * the version, or null).
  */
+type InvalidReason = Extract<ToolchainChooseResult, { status: 'invalid' }>['reason'];
+
+async function passesStaticChecks(id: ToolchainBinaryId, chosen: string): Promise<InvalidReason | null> {
+  if (!path.isAbsolute(chosen) || !(await isExecutableFile(chosen))) return 'not-executable';
+  if (path.basename(chosen).toLowerCase() !== toolchainExecutableName(id)) return 'wrong-name';
+  // Toolchains legitimately live under /usr and Program Files; credential and app-data folders do not.
+  const blocked = blockedPathFamily(chosen);
+  if ((blocked !== null && blocked !== 'system') || !(await isOwnedSafely(chosen))) return 'blocked';
+  return null;
+}
+
 export async function validateToolchainBinary(
   id: ToolchainBinaryId,
   chosen: string,
   verify: (binary: string) => Promise<string | null>
 ): Promise<ToolchainChooseResult> {
-  if (!path.isAbsolute(chosen) || !(await isExecutableFile(chosen))) return { status: 'invalid', reason: 'not-executable' };
-  if (path.basename(chosen).toLowerCase() !== toolchainExecutableName(id)) return { status: 'invalid', reason: 'wrong-name' };
-  // Toolchains legitimately live under /usr and Program Files; credential and app-data folders do not.
-  const blocked = blockedPathFamily(chosen);
-  if (blocked !== null && blocked !== 'system') return { status: 'invalid', reason: 'blocked' };
+  const reason = await passesStaticChecks(id, chosen);
+  if (reason) return { status: 'invalid', reason };
   const version = await verify(chosen);
   return version ? { status: 'saved', version } : { status: 'invalid', reason: 'check-failed' };
 }
@@ -186,6 +223,12 @@ export async function chooseToolchainBinary(
   const chosen = picked.filePaths[0];
   if (picked.canceled || !chosen) return { status: 'canceled' };
   const result = await validateToolchainBinary(id, chosen, verify);
-  if (result.status === 'saved') await chosenToolchainBinaries.set(id, chosen);
+  if (result.status !== 'saved') return result;
+  try {
+    await chosenToolchainBinaries.set(id, chosen);
+  } catch {
+    // The error names the userData path; the renderer only needs to know it failed.
+    return { status: 'invalid', reason: 'save-failed' };
+  }
   return result;
 }

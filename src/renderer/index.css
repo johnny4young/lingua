@@ -1147,14 +1147,6 @@
     @apply h-3.5 w-3.5 cursor-pointer accent-primary;
   }
 
-  .guided-tour-target {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--app-primary) 82%, transparent),
-      0 0 0 10px color-mix(in srgb, var(--app-primary) 18%, transparent),
-      0 24px 70px color-mix(in srgb, var(--app-primary) 20%, transparent);
-    border-radius: 1rem;
-  }
-
   /* Editor/result copy helpers */
   .inline-result-text {
     color: color-mix(in srgb, var(--app-muted) 92%, transparent);

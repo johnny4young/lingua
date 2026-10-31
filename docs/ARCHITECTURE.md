@@ -2037,7 +2037,8 @@ parent-owned timeout, bounded output and process-group termination. Stop, owner 
 and app shutdown therefore cancel both a hung wrapper and its descendants rather
 than merely ignoring a late detector result. Standalone capability refreshes use
 the same bounded supervisor without acquiring execution authority.
-Settings availability checks and missing-toolchain Retry actions pass only
+Settings availability checks, missing-toolchain Retry actions and the Go/Rust
+Detect again action pass only
 toolchain-discovery environment keys to IPC; explicit Run alone forwards the
 full user/project/tab environment and records project-scope usage. A failed
 version check (timeout, permission error or nonzero result) is a retryable

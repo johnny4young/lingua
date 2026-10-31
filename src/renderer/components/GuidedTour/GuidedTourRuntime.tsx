@@ -272,14 +272,13 @@ export function GuidedTourRuntime({
 
     // A step can run async setup (opening panels, palettes, snippets) before
     // its target exists. Keep a cancellation flag so a fast skip/next does not
-    // apply a stale rectangle or highlight class after the step has changed.
+    // apply a stale rectangle after the step has changed.
     let cancelled = false;
     let highlightedElement: HTMLElement | null = null;
     let targetObserver: ResizeObserver | null = null;
 
     const clearHighlight = () => {
       targetObserver?.disconnect();
-      highlightedElement?.classList.remove('guided-tour-target');
       highlightedElement = null;
     };
 
@@ -293,7 +292,6 @@ export function GuidedTourRuntime({
       }
 
       if (element !== highlightedElement) {
-        element.classList.add('guided-tour-target');
         highlightedElement = element;
         if (typeof ResizeObserver !== 'undefined') {
           targetObserver = new ResizeObserver(updateTarget);

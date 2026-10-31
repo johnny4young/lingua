@@ -17,6 +17,8 @@ import {
   configureToolchainBinaryStore,
   displayToolchainPath,
   findToolchain,
+  toolchainCandidates,
+  toolchainSpawnFailure,
   toolchainSearchDirs,
   validateToolchainBinary,
   withBinaryDirOnPath,
@@ -43,6 +45,12 @@ describe('toolchain binary search', () => {
     expect(displayToolchainPath(home)).toBe('~');
     expect(displayToolchainPath('/usr/local/go/bin')).toBe('/usr/local/go/bin');
     expect(displayToolchainPath(`${home}-other/bin`)).toBe(`${home}-other/bin`);
+    expect(displayToolchainPath('c:\\users\\dev\\.cargo\\bin', 'C:\\Users\\dev', 'win32')).toBe('~\\.cargo\\bin');
+  });
+
+  it('reduces a spawn error to its errno so the binary path stays in main', () => {
+    const error = Object.assign(new Error('spawn /Users/dev/sdk/go/bin/go ENOENT'), { code: 'ENOENT' });
+    expect(toolchainSpawnFailure('Go compiler', error)).toBe('Go compiler could not start (ENOENT).');
   });
 
   it('takes the first candidate that answers and reports missing only when none exists', async () => {
@@ -61,6 +69,12 @@ describe('toolchain binary search', () => {
         command === 'go' ? { kind: 'missing' } : { kind: 'failed', timedOut: true }
       )
     ).toEqual({ kind: 'failed', timedOut: true });
+  });
+
+  it('stops at a timeout instead of waiting on the same binary again', async () => {
+    const probe = vi.fn(async () => ({ kind: 'failed', timedOut: true }) as const);
+    expect(await findToolchain(['go', '/usr/local/go/bin/go'], probe)).toEqual({ kind: 'failed', timedOut: true });
+    expect(probe).toHaveBeenCalledOnce();
   });
 
   it('stops probing once the run is cancelled', async () => {
@@ -134,6 +148,32 @@ describe('chosen toolchain binary', () => {
     expect(await validateToolchainBinary('go', go, verify)).toEqual({ status: 'saved', version: 'go version go1.22' });
   });
 
+  it.skipIf(process.platform === 'win32')('refuses a binary in a folder any account can write to', async () => {
+    const go = await executable('go');
+    await chmod(binDir, 0o777);
+    expect(await validateToolchainBinary('go', go, async () => 'go version')).toEqual({ status: 'invalid', reason: 'blocked' });
+    await chmod(binDir, 0o755);
+    await chmod(go, 0o757);
+    expect(await validateToolchainBinary('go', go, async () => 'go version')).toEqual({ status: 'invalid', reason: 'blocked' });
+  });
+
+  it.skipIf(process.platform === 'win32')('stops using a kept binary that no longer passes the checks', async () => {
+    const go = await executable('go');
+    await chosenToolchainBinaries.set('go', go);
+    expect((await toolchainCandidates('go'))[0]).toBe(go);
+    await chmod(go, 0o644);
+    expect(await toolchainCandidates('go')).not.toContain(go);
+  });
+
+  it.skipIf(process.platform === 'win32')('answers a store write failure without leaking the userData path', async () => {
+    await writeFile(path.join(root, 'userData'), 'not a folder');
+    configureToolchainBinaryStore(path.join(root, 'userData'));
+    mocks.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [await executable('go')] });
+    expect(await chooseToolchainBinary('go', {} as Electron.WebContents, async () => 'go version')).toEqual({
+      status: 'invalid', reason: 'save-failed',
+    });
+  });
+
   it.skipIf(process.platform === 'win32')('saves the picked path with owner-only permissions and ignores a cancel', async () => {
     const sender = {} as Electron.WebContents;
     mocks.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
@@ -153,6 +193,15 @@ describe('chosen toolchain binary', () => {
     mocks.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [await executable('ls')] });
     expect(await chooseToolchainBinary('go', sender, async () => 'go version')).toEqual({ status: 'invalid', reason: 'wrong-name' });
     expect(await chosenToolchainBinaries.get('go')).toBe(go);
+  });
+
+  it.skipIf(process.platform === 'win32')('lists a chosen binary once even when it is also a fallback', async () => {
+    const go = await executable('go');
+    await chosenToolchainBinaries.set('go', go);
+    const candidates = await toolchainCandidates('go');
+    expect(candidates[0]).toBe(go);
+    expect(candidates.filter(candidate => candidate === go)).toHaveLength(1);
+    expect(new Set(candidates).size).toBe(candidates.length);
   });
 
   it('drops a tampered store entry that is not an absolute path', async () => {

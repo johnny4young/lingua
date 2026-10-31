@@ -64,6 +64,11 @@ describe('native toolchain store', () => {
     expect(chooseBinary).not.toHaveBeenCalled();
   });
 
+  it('reports a pick main could not finish instead of throwing', async () => {
+    installShell('darwin', { detect: vi.fn(), chooseBinary: vi.fn().mockRejectedValue(new Error('EACCES')) });
+    expect(await useNativeToolchainStore.getState().choose('rust')).toEqual({ status: 'failed' });
+  });
+
   it('detects again after a binary is saved, and not after a refused one', async () => {
     const detect = vi.fn().mockResolvedValue({ installed: true, version: 'rustc 1.90.0' });
     const chooseBinary = vi

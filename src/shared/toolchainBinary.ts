@@ -7,4 +7,4 @@ export interface ToolchainSearchedPlaces {
 export type ToolchainChooseResult =
   | { status: 'canceled' }
   | { status: 'saved'; version: string }
-  | { status: 'invalid'; reason: 'not-executable' | 'wrong-name' | 'blocked' | 'check-failed' };
+  | { status: 'invalid'; reason: 'not-executable' | 'wrong-name' | 'blocked' | 'check-failed' | 'save-failed' };

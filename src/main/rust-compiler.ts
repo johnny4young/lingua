@@ -38,6 +38,7 @@ import {
   findToolchain,
   toolchainCandidates,
   toolchainSearchedPlaces,
+  toolchainSpawnFailure,
   withBinaryDirOnPath,
   type ToolchainProbe,
 } from './runners/toolchainBinary';
@@ -104,6 +105,8 @@ export function resolveRustRunEnv(
  * node-runner and go-compiler.
  */
 let cachedRustDetect: { result: RustDetectResult; command: string } | null = null;
+// Bumped by choose-binary so a detect that started earlier cannot cache the old binary.
+let detectGeneration = 0;
 
 const activeRuns = new Map<string, { owner?: WebContents; controller: AbortController }>();
 const emptyRun = { stdout: '', stderr: '', exitCode: -1, executionTime: 0 };
@@ -132,20 +135,21 @@ async function probeRust(
 
 async function detectRust(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<RustDetection> {
   const cacheable = userEnv === undefined;
+  const generation = detectGeneration;
   if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (cacheable && cachedRustDetect) return { ...cachedRustDetect.result, command: cachedRustDetect.command };
   const env = resolveRustRunEnv(userEnv);
   const found = await findToolchain(await toolchainCandidates('rust'), (command) => probeRust(command, env, signal), signal);
   if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (found.kind === 'found') {
-    if (cacheable) cachedRustDetect = { result: found.value, command: found.command };
+    if (cacheable && generation === detectGeneration) cachedRustDetect = { result: found.value, command: found.command };
     return { ...found.value, command: found.command };
   }
   return found.kind === 'missing'
     ? { installed: false, reason: 'missing', searched: toolchainSearchedPlaces('rust'), error: 'Rust is not installed. Install it from https://rustup.rs' }
     : {
         installed: false, reason: 'check-failed', timedOut: found.timedOut,
-        error: 'Rust toolchain check failed. Retry detection or inspect your local Rust installation.',
+        error: 'Rust toolchain check failed. Detect again or inspect your local Rust installation.',
       };
 }
 
@@ -206,6 +210,11 @@ async function runRustCode(
       stdoutTruncationMarker: markers.compile, stderrTruncationMarker: markers.compile,
     });
     if (signal.aborted) return stopped();
+    if (compiled.spawnError && !compiled.killed) {
+      // The cached binary vanished or lost its permissions; the next run detects again.
+      cachedRustDetect = null;
+      return failed(toolchainSpawnFailure('Rust compiler', compiled.spawnError));
+    }
     if (compiled.exitCode !== 0 || compiled.spawnError || compiled.timedOut || compiled.killed) {
       return processResult(compiled, 60_000);
     }
@@ -235,7 +244,7 @@ export function registerRustHandlers(): void {
   });
   typedHandle('rust:choose-binary', async (event) => {
     try { return await chooseToolchainBinary('rust', event.sender, verifyChosenRust); }
-    finally { cachedRustDetect = null; }
+    finally { cachedRustDetect = null; detectGeneration += 1; }
   });
   typedHandle('rust:run', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
     if (typeof source !== 'string' || (userEnv !== undefined && !isStringRecord(userEnv))

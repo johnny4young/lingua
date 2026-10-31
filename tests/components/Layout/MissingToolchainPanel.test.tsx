@@ -54,6 +54,16 @@ describe('missing toolchain Dock state', () => {
     expect(detect).not.toHaveBeenCalled();
   });
 
+  it('says so when main cannot finish the pick', async () => {
+    chooseBinary.mockRejectedValueOnce(new Error('EACCES'));
+    render(<MissingToolchainPanel toolchain="go" />);
+    await userEvent.click(screen.getByTestId('missing-toolchain-choose'));
+    await waitFor(() =>
+      expect(screen.getByTestId('missing-toolchain-feedback').textContent).toBe('Lingua could not use that file. Try again.')
+    );
+    expect((screen.getByTestId('missing-toolchain-choose') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('announces success once a chosen binary is detected', async () => {
     chooseBinary.mockResolvedValueOnce({ status: 'saved', version: 'go version go1.22' });
     detect.mockResolvedValueOnce({ installed: true, version: 'go version go1.22', goRoot: '/opt/go' });
@@ -77,7 +87,7 @@ describe('missing toolchain Dock state', () => {
     await i18next.changeLanguage('es');
     useNativeToolchainStore.getState().report('rust', { installed: false, reason: 'missing' });
     render(<MissingToolchainPanel toolchain="rust" />);
-    expect(screen.getByRole('heading', { name: 'No se encontró el toolchain de Rust' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'No se encontraron las herramientas de Rust' })).toBeTruthy();
     expect(screen.getByTestId('missing-toolchain-panel').textContent).toContain('Lingua buscó rustc en el PATH.');
     expect(screen.getByRole('button', { name: 'Elegir binario…' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Detectar de nuevo' })).toBeTruthy();

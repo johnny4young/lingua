@@ -1,6 +1,7 @@
 import { executionKind } from '../utils/executionOutcome';
 import { webExecutionBoundary } from '../utils/runtimeModeSupport';
 import { isLanguageAllowed } from '../../shared/entitlements';
+import { isNativeToolchainMissing } from '../stores/nativeToolchainStore';
 import { isLikelyComplete } from '../../shared/autoRunGating';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { defaultRuntimeTimeoutPreset, presetToMs } from '../../shared/runtimeTimeoutPresets';
@@ -70,7 +71,8 @@ export async function executeAutoRun({
   const desktopOnlyGate =
     executionMode === 'run' && webExecutionBoundary(language, runtimeMode, isWebBuild) !== null;
 
-  if (executionMode === 'view' || desktopOnlyGate || proLanguageGate) {
+  // A missing Go or Rust binary keeps Run disabled; Scratchpad must not re-probe on every edit.
+  if (executionMode === 'view' || desktopOnlyGate || proLanguageGate || isNativeToolchainMissing(language)) {
     clear();
     return;
   }

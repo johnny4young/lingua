@@ -3,7 +3,7 @@ import type { ToolchainChooseResult } from '../../shared/toolchainBinary';
 import { resolveUserEnvForNativeProbe } from '../runners/env';
 import { cachedNativeProbe } from '../utils/nativeProbeCache';
 import { nativeDetectStatus, type NativeJsRuntimeStatus } from '../utils/nativeJsRuntimeStatus';
-import type { NativeLanguageToolchain } from '../utils/nativeLanguageToolchainStatus';
+import { isNativeLanguageToolchain, type NativeLanguageToolchain } from '../utils/nativeLanguageToolchainStatus';
 
 interface NativeToolchainEntry {
   status: NativeJsRuntimeStatus;
@@ -20,7 +20,8 @@ interface DetectAnswer {
 interface NativeToolchainState extends Record<NativeLanguageToolchain, NativeToolchainEntry> {
   report: (id: NativeLanguageToolchain, answer: DetectAnswer) => void;
   probe: (id: NativeLanguageToolchain, options?: { refresh?: boolean }) => Promise<NativeJsRuntimeStatus>;
-  choose: (id: NativeLanguageToolchain) => Promise<ToolchainChooseResult>;
+  /** `failed` means main could not finish the pick (IPC or store error). */
+  choose: (id: NativeLanguageToolchain) => Promise<ToolchainChooseResult | { status: 'failed' }>;
 }
 
 const CHECKING: NativeToolchainEntry = { status: 'checking', searched: [] };
@@ -68,11 +69,20 @@ export const useNativeToolchainStore = create<NativeToolchainState>((set, get) =
   choose: async (id) => {
     const bridge = desktopBridge(id);
     if (!bridge?.chooseBinary) return { status: 'canceled' };
-    const result = await bridge.chooseBinary();
+    const result = await bridge.chooseBinary().catch(() => ({ status: 'failed' }) as const);
     if (result.status === 'saved') await get().probe(id, { refresh: true });
     return result;
   },
 }));
+
+/** Auto-run skips a desktop Go or Rust tab whose binary was last reported missing. */
+export function isNativeToolchainMissing(language: string): boolean {
+  return (
+    isNativeLanguageToolchain(language) &&
+    desktopBridge(language) !== null &&
+    useNativeToolchainStore.getState()[language].status === 'missing'
+  );
+}
 
 export function resetNativeToolchainStoreForTests(): void {
   inFlight.clear();
