@@ -1,6 +1,7 @@
 import type { RunCapsuleV1 } from '../../../shared/runCapsule';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { ImportedCapsuleEntry } from '../../stores/importedCapsuleStore';
+import { formatRunAge } from '../../utils/timeLabels';
 
 export type CapsuleRowResult = 'success' | 'error' | 'timeout' | 'stopped' | 'not-run';
 export type CapsuleResultFilter = 'all' | 'ok' | 'errors';
@@ -13,6 +14,12 @@ export interface CapsuleBrowserRow {
   capsule: RunCapsuleV1;
   timestamp: number;
   result: CapsuleRowResult;
+  /** Name, language and code, lowercased once so search stays cheap per keystroke. */
+  searchText: string;
+}
+
+function searchTextOf(capsule: RunCapsuleV1): string {
+  return `${capsule.tab.name}\n${capsule.tab.language}\n${capsule.source.content}`.toLowerCase();
 }
 
 /** Newest first, capped; imported capsules count against the same cap. */
@@ -25,10 +32,10 @@ export function buildCapsuleRows(
   const rows: CapsuleBrowserRow[] = [];
   for (const entry of [...history].reverse()) {
     if (!entry.lastCapsule) continue;
-    rows.push({ id: entry.id, kind: 'run', capsule: entry.lastCapsule, timestamp: entry.timestamp, result: entry.lastCapsule.result.status });
+    rows.push({ id: entry.id, kind: 'run', capsule: entry.lastCapsule, timestamp: entry.timestamp, result: entry.lastCapsule.result.status, searchText: searchTextOf(entry.lastCapsule) });
   }
   for (const entry of [...imported].reverse()) {
-    rows.push({ id: entry.id, kind: 'imported', capsule: entry.capsule, timestamp: entry.importedAt, result: 'not-run' });
+    rows.push({ id: entry.id, kind: 'imported', capsule: entry.capsule, timestamp: entry.importedAt, result: 'not-run', searchText: searchTextOf(entry.capsule) });
   }
   return rows.sort((a, b) => b.timestamp - a.timestamp).slice(0, cap);
 }
@@ -47,12 +54,7 @@ export function filterCapsuleRows(
   filter: CapsuleResultFilter
 ): CapsuleBrowserRow[] {
   const needle = query.trim().toLowerCase();
-  return rows.filter((row) => {
-    if (!matchesFilter(row.result, filter)) return false;
-    if (!needle) return true;
-    const { tab, source } = row.capsule;
-    return [tab.name, tab.language, source.content].some((text) => text.toLowerCase().includes(needle));
-  });
+  return rows.filter((row) => matchesFilter(row.result, filter) && (!needle || row.searchText.includes(needle)));
 }
 
 /** Orders two rows older then newer for the comparison modal. */
@@ -61,13 +63,6 @@ export function orderForComparison(a: CapsuleBrowserRow, b: CapsuleBrowserRow): 
   return [older.capsule, newer.capsule];
 }
 
-type Translate = (key: string, values?: Record<string, string | number>) => string;
-
-export function formatCapsuleWhen(row: CapsuleBrowserRow, now: number, t: Translate): string {
-  if (row.kind === 'imported') return t('capsuleList.when.imported');
-  const seconds = Math.round(Math.max(0, now - row.timestamp) / 1000);
-  if (seconds < 60) return t('executionHistory.relative.seconds', { count: seconds });
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return t('executionHistory.relative.minutes', { count: minutes });
-  return t('executionHistory.relative.hours', { count: Math.round(minutes / 60) });
+export function formatCapsuleWhen(row: CapsuleBrowserRow, now: number, t: (key: string, values?: Record<string, number>) => string): string {
+  return row.kind === 'imported' ? t('capsuleList.when.imported') : formatRunAge(row.timestamp, now, t);
 }

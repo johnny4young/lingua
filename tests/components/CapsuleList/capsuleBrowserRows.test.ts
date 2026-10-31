@@ -60,12 +60,14 @@ describe('capsule browser rows', () => {
   });
 
   it('searches the name, language and code, ignoring case and outer spaces', () => {
-    const rows = buildCapsuleRows([run('js', FIXTURE_MINIMAL_JS, 1), run('ts', FIXTURE_FULL_TS, 2)], [], 20);
+    const report = { ...FIXTURE_MINIMAL_JS, tab: { ...FIXTURE_MINIMAL_JS.tab, name: 'Weekly-Report.JS' } };
+    const rows = buildCapsuleRows([run('js', FIXTURE_MINIMAL_JS, 1), run('ts', FIXTURE_FULL_TS, 2), run('report', report, 3)], [], 20);
     const ids = (query: string) => filterCapsuleRows(rows, query, 'all').map((row) => row.id);
+    expect(ids('weekly-report')).toEqual(['report']);
     expect(ids('  DEMO.ts ')).toEqual(['ts']);
     expect(ids('typescript')).toEqual(['ts']);
-    expect(ids('1 + 2')).toEqual(['js']);
-    expect(ids('')).toEqual(['ts', 'js']);
+    expect(ids('1 + 2')).toEqual(['report', 'js']);
+    expect(ids('')).toEqual(['report', 'ts', 'js']);
   });
 
   it('orders a comparison older then newer whichever row came first', () => {

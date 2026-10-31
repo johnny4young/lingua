@@ -95,6 +95,8 @@ export function CapsuleActionMenu({
               disabled={item.disabled}
               data-testid={item.testid}
               onClick={() => {
+                // The item unmounts with the menu; focus goes back to the trigger first.
+                rootRef.current?.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')?.focus();
                 setOpen(false);
                 item.onSelect();
               }}

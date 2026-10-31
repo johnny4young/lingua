@@ -19,6 +19,7 @@ import {
   type CommandGroup,
   type CommandGroupId,
 } from './commandPaletteGroups';
+import { formatRunAge } from '../../utils/timeLabels';
 
 const GROUP_ICON: Record<CommandGroupId, ReactNode> = {
   recent: <History size={14} aria-hidden="true" />,
@@ -116,14 +117,7 @@ function relativeTimeLabel(
   t: (key: string, options?: Record<string, unknown>) => string,
   executedAt: number | undefined
 ): string | null {
-  if (executedAt === undefined) return null;
-  const elapsedMs = Math.max(0, Date.now() - executedAt);
-  const seconds = Math.round(elapsedMs / 1000);
-  if (seconds < 60) return t('executionHistory.relative.seconds', { count: Math.max(1, seconds) });
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return t('executionHistory.relative.minutes', { count: minutes });
-  const hours = Math.round(minutes / 60);
-  return t('executionHistory.relative.hours', { count: hours });
+  return executedAt === undefined ? null : formatRunAge(executedAt, Date.now(), t);
 }
 
 function renderEntry(

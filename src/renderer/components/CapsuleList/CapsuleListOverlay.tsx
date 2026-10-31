@@ -100,17 +100,20 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const selected = useMemo(() => filtered.find((row) => row.id === pickedId) ?? filtered[0] ?? null, [filtered, pickedId]);
 
-  const [compareFrom, setCompareFrom] = useState<CapsuleBrowserRow | null>(null);
+  const [comparePick, setCompareFrom] = useState<CapsuleBrowserRow | null>(null);
+  // A pick whose capsule was removed is over.
+  const compareFrom = comparePick && rows.some((row) => row.id === comparePick.id) ? comparePick : null;
+  const listRef = useRef<HTMLDivElement>(null);
   const [comparePair, setComparePair] = useState<[RunCapsuleV1, RunCapsuleV1] | null>(null);
   const [regressionCapsule, setRegressionCapsule] = useState<RunCapsuleV1 | null>(null);
   const [workspaceCapsule, setWorkspaceCapsule] = useState<RunCapsuleV1 | null>(null);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (rows.length === 0) return;
+    if (!canBrowse || rows.length === 0) return;
     const handle = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(handle);
-  }, [rows.length]);
+  }, [canBrowse, rows.length]);
 
   const pickRow = useCallback(
     (row: CapsuleBrowserRow) => {
@@ -304,6 +307,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
               <div
                 role="listbox"
                 aria-label={t('capsuleList.rowsLabel')}
+                ref={listRef}
                 aria-activedescendant={selected ? `${listId}-${selected.id}` : undefined}
                 tabIndex={0}
                 onKeyDown={onListKeyDown}
@@ -380,7 +384,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                       triggerClassName="focus-ring grid size-7 place-items-center rounded-md text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base"
                       trigger={<MoreHorizontal size={16} aria-hidden="true" />}
                       items={[
-                        { id: 'compare', label: t('capsuleList.compare.action'), icon: <GitCompare size={13} aria-hidden="true" />, testid: 'capsule-compare-button', disabled: rows.length < 2, onSelect: () => setCompareFrom(selected) },
+                        { id: 'compare', label: t('capsuleList.compare.action'), icon: <GitCompare size={13} aria-hidden="true" />, testid: 'capsule-compare-button', disabled: rows.length < 2, onSelect: () => {
+                          setCompareFrom(selected);
+                          listRef.current?.focus();
+                        } },
                         { id: 'workspace', label: t('capsuleList.row.createWorkspace'), icon: <Files size={13} aria-hidden="true" />, testid: 'capsule-list-row-create-workspace', onSelect: () => setWorkspaceCapsule(capsule) },
                         { id: 'regression', label: t('capsuleRegression.action'), icon: <FlaskConical size={13} aria-hidden="true" />, testid: 'capsule-prepare-regression', onSelect: () => setRegressionCapsule(capsule) },
                         { id: 'remove', label: t('capsuleList.row.delete'), icon: <Trash2 size={13} aria-hidden="true" />, testid: 'capsule-list-row-delete', danger: true, onSelect: () => handleRemove(selected) },
@@ -388,7 +395,11 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                     />
                   </div>
                 </>
-              ) : null}
+              ) : (
+                <div data-testid="capsule-list-preview-empty" className="grid flex-1 place-items-center text-fg-subtle" aria-hidden="true">
+                  <Package size={20} />
+                </div>
+              )}
             </div>
           </div>
         )}

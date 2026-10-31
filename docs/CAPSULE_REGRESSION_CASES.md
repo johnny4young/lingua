@@ -59,7 +59,7 @@ termination and cleanup use the existing bounded runner, including its kill grac
 ## Prepare and inspect in the app
 
 The Capsules browser retains its existing Execution History entitlement. Select
-**Prepare regression case**, choose an open same-language file in the current
+a capsule and choose **More → Prepare regression case**, choose an open same-language file in the current
 project explicitly, review its current buffer, the captured baseline and possible
 secrets, then export. One case becomes one suite; assemble multiple cases by editing
 the versioned JSON without inventing another oracle. The original baseline hash is

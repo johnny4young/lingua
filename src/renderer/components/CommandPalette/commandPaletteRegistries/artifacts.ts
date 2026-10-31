@@ -106,7 +106,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
       : []),
     // Compare two capsules. Gated on the SAME
     // `onBrowseCapsules` handler: the comparator selection lives inline
-    // in the capsule browser (per-row checkboxes + a Compare button), so
+    // in the capsule browser (More → Compare with…, then a second row), so
     // this command just opens that overlay where the user picks the pair.
     // No separate "compare mode" plumbing is needed. `onClose()` MUST run
     // before `onBrowseCapsules()` (same overlay-survival ordering as

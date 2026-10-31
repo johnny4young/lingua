@@ -35,12 +35,20 @@ import {
 } from '../../shared/runCapsule';
 import { trackEvent } from './telemetry';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
+import { getLanguagePackById } from '../../shared/languagePacks';
+
+const CAPSULE_MARKER_LANGUAGES = new Set(['http', 'pipeline']);
+
+/** An imported capsule can name any language; the trust log only keeps known ones. */
+export function capsuleLanguageForLog(language: string): string {
+  return getLanguagePackById(language)?.id ?? (CAPSULE_MARKER_LANGUAGES.has(language) ? language : 'other');
+}
 
 export type CapsuleExportTrigger =
   | 'settings-export'
   | 'palette-export'
   | 'result-panel-export'
-  // per-row export from the capsule browse overlay.
+  // Share-menu export from the capsule browser.
   | 'list-export'
   | 'settings-export-file';
 
@@ -102,7 +110,7 @@ export async function exportCapsuleToClipboard(
       feature: 'capsule-export',
       action: 'exported',
       sensitivity: 'medium',
-      summary: `${sanitised.tab.language} capsule exported (${sizeBucket})`,
+      summary: `${capsuleLanguageForLog(sanitised.tab.language)} capsule exported (${sizeBucket})`,
     });
     return { ok: true, json };
   } catch {

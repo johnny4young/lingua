@@ -42,6 +42,7 @@ export function CapsuleDetail({ capsule }: { capsule: RunCapsuleV1 }) {
   const input = inputText(capsule);
   const { stdout, stderr, errorMessage } = capsule.result;
   const output = [stdout, stderr].filter(Boolean).join('\n');
+  const truncated = capsule.privacy.omittedFields.some((field) => field === 'result.stdout' || field === 'result.stderr');
   const byteLength = useMemo(() => (detailsOpen ? utf8ByteLength(JSON.stringify(capsule)) : 0), [capsule, detailsOpen]);
 
   return (
@@ -63,7 +64,14 @@ export function CapsuleDetail({ capsule }: { capsule: RunCapsuleV1 }) {
         )}
       </section>
       <section>
-        <h3 className={SECTION}>{t('capsuleList.detail.output')}</h3>
+        <h3 className={SECTION}>
+          {t('capsuleList.detail.output')}
+          {truncated ? (
+            <span data-testid="capsule-detail-output-truncated" className="ml-2 normal-case tracking-normal text-warning-fg">
+              {t('capsuleList.detail.outputTruncated')}
+            </span>
+          ) : null}
+        </h3>
         <div data-testid="capsule-detail-output" role="region" aria-label={t('capsuleList.detail.output')} tabIndex={0} className={cn(BOX, 'focus-ring max-h-[220px] px-3 py-2 leading-[1.35]')}>
           {output ? <pre>{output}</pre> : null}
           {errorMessage ? <pre className="text-error-fg">{errorMessage}</pre> : null}

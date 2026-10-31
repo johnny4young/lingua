@@ -48,6 +48,7 @@ import {
   FIXTURE_FULL_TS,
   FIXTURE_MINIMAL_JS,
   FIXTURE_PYTHON_ERROR,
+  FIXTURE_STOPPED,
   FIXTURE_TIMEOUT,
 } from '../../shared/runCapsule.fixtures';
 
@@ -176,6 +177,44 @@ describe('CapsuleListOverlay — Pro browser', () => {
     expect(screen.getAllByRole('option')[0]!.getAttribute('aria-selected')).toBe('true');
   });
 
+  it('says when the recorded output was cut short', () => {
+    seed(FIXTURE_MINIMAL_JS, { ...FIXTURE_MINIMAL_JS, capsuleId: 'cut', privacy: { redactionVersion: '1', omittedFields: ['result.stdout'] } });
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-detail-output-truncated').textContent).toBe('truncated');
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'ArrowDown' });
+    expect(screen.queryByTestId('capsule-detail-output-truncated')).toBeNull();
+  });
+
+  it('labels a stopped run as Stopped', () => {
+    seed(FIXTURE_STOPPED);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-list-row-result').textContent).toBe('Stopped');
+  });
+
+  it('leaves the detail pane quiet when nothing matches', () => {
+    seed(FIXTURE_MINIMAL_JS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('capsule-list-search'), { target: { value: 'no such capsule' } });
+    expect(screen.getByTestId('capsule-list-preview-empty')).toBeTruthy();
+    expect(screen.queryByTestId('capsule-list-row-open')).toBeNull();
+  });
+
+  it('moves through a menu with the arrow keys and returns focus to its trigger', () => {
+    seed(FIXTURE_MINIMAL_JS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('capsule-list-share'));
+    const menu = screen.getByRole('menu');
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-export'));
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-export-html'));
+    fireEvent.keyDown(menu, { key: 'End' });
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-copy-summary'));
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-export'));
+    fireEvent.click(screen.getByTestId('capsule-list-row-export'));
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-share'));
+  });
+
   it('folds runner and hash under Run details', () => {
     seed(FIXTURE_MINIMAL_JS);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
@@ -279,6 +318,27 @@ describe('CapsuleListOverlay — compare', () => {
     expect(screen.getByTestId('capsule-compare-pane-newer').textContent).toBe(FIXTURE_FULL_TS.source.content);
     expect(trackEvent).toHaveBeenCalledWith('capsule.compared', { sameLanguage: false });
     expect(screen.queryByTestId('capsule-compare-picking')).toBeNull();
+  });
+
+  it('compares from the keyboard: the pick takes focus and Enter chooses the second capsule', () => {
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    choose('capsule-list-more', 'capsule-compare-button');
+    const list = screen.getByRole('listbox');
+    expect(document.activeElement).toBe(list);
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    fireEvent.keyDown(list, { key: 'Enter' });
+    expect(screen.getByTestId('capsule-compare-pane-older').textContent).toBe(FIXTURE_MINIMAL_JS.source.content);
+  });
+
+  it('ends the pick when its capsule is removed', () => {
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    choose('capsule-list-more', 'capsule-compare-button');
+    choose('capsule-list-more', 'capsule-list-row-delete');
+    expect(screen.queryByTestId('capsule-compare-picking')).toBeNull();
+    fireEvent.click(screen.getByTestId('capsule-list-row'));
+    expect(screen.queryByTestId('capsule-compare-modal')).toBeNull();
   });
 
   it('Escape leaves the pick and keeps the dialog open', () => {

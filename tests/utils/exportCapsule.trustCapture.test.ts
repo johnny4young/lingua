@@ -72,4 +72,11 @@ describe('exportCapsuleToClipboard — trust capture ', () => {
     expect(summary).toMatch(/^\S+ capsule exported \(.+\)$/);
     expect(summary).not.toContain(FIXTURE_LICENSE_LEAK_PROBE.tab.content);
   });
+
+  it('logs an unknown imported language as other, never the free text', async () => {
+    const imported = { ...FIXTURE_MINIMAL_JS, tab: { ...FIXTURE_MINIMAL_JS.tab, language: 'token sk-live-123' } };
+    await exportCapsuleToClipboard(imported, 'list-export');
+    expect(useTrustEventStore.getState().events[0]?.summary).toMatch(/^other capsule exported \(.+\)$/);
+  });
 });
+
