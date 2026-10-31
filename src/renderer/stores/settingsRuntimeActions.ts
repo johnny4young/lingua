@@ -16,6 +16,7 @@ import {
   type RuntimeTimeoutPreset,
 } from '../../shared/runtimeTimeoutPresets';
 import { isBrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
+import { isRunPolicy } from '../../shared/runPolicy';
 import {
   SETTINGS_AUTO_LOG_LANGUAGE_SET,
   SETTINGS_INLINE_LINT_LANGUAGE_SET,
@@ -46,6 +47,7 @@ export function createRuntimeActions(
   | 'setWorkflowModeDefault'
   | 'setScratchpadAutoLogDefault'
   | 'setBrowserPreviewRefreshInterval'
+  | 'setRunPolicy'
   | 'setInlineLintEnabled'
   | 'toggleShowStdinPanel'
   | 'setShowStatusBar'
@@ -134,6 +136,12 @@ export function createRuntimeActions(
         state.browserPreviewRefreshIntervalMs === intervalMs
           ? state
           : { browserPreviewRefreshIntervalMs: intervalMs }
+      );
+    },
+    setRunPolicy: (group, policy) => {
+      if (!isRunPolicy(policy)) return;
+      set((state) =>
+        state.runPolicyByGroup[group] === policy ? state : { runPolicyByGroup: { ...state.runPolicyByGroup, [group]: policy } }
       );
     },
     // Flip inline lint for one language. Pure state write (no toggle

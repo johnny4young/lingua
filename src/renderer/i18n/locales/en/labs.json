@@ -6,5 +6,7 @@
   "settings.labs.flag.httpSnapshots.label": "HTTP snapshot assertions",
   "settings.labs.flag.httpSnapshots.description": "Snapshot a response and see later ones as a diff to accept or reject, with scrubbers for timestamps, UUIDs and ids, plus tests suggested from the last response.",
   "settings.labs.flag.runCompare.label": "Compare runs",
-  "settings.labs.flag.runCompare.description": "The Compare tab lists your runs by day and compares any two: code, output, inline values and exit. Needs Pro."
+  "settings.labs.flag.runCompare.description": "The Compare tab lists your runs by day and compares any two: code, output, inline values and exit. Needs Pro.",
+  "settings.labs.flag.runState.label": "Run state",
+  "settings.labs.flag.runState.description": "Marks results as stale once you edit after the last run: an amber border around the editor, dimmed inline values with their age and a STALE pill in the Dock. Settings › Editor gets a run policy per language group: On keystroke, On pause or Manual."
 }

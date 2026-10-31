@@ -7,6 +7,7 @@
  */
 
 import type { BrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
+import type { RunPolicy, RunPolicyByGroup, RunPolicyGroup } from '../../shared/runPolicy';
 import type { FeatureFlagId, FeatureFlagState } from '../../shared/featureFlags';
 import type { NetworkPolicy } from '../../shared/networkPolicy';
 import type { ScorecardPlatform } from '../../shared/languageSupport';
@@ -154,6 +155,8 @@ export interface SettingsState {
    * this preference for one tab without mutating the persisted setting.
    */
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval;
+  /** When Scratchpad runs per language group, read only while Run state is on in Labs. */
+  runPolicyByGroup: RunPolicyByGroup;
   /**
    * per-language inline-lint enablement. Keyed by language id;
    * The default ships `javascript`/`typescript` ON. When `false` for a language,
@@ -462,6 +465,7 @@ export interface SettingsState {
   setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
   /** Set the closed Browser preview refresh interval. */
   setBrowserPreviewRefreshInterval: (intervalMs: BrowserPreviewRefreshInterval) => void;
+  setRunPolicy: (group: RunPolicyGroup, policy: RunPolicy) => void;
   /**
    * Flip inline lint for one language. No-op for languages outside
    * the supported set ({@link SETTINGS_INLINE_LINT_LANGUAGE_SET}). Pure state

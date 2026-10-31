@@ -6,5 +6,7 @@
   "settings.labs.flag.httpSnapshots.label": "Aserciones de snapshot HTTP",
   "settings.labs.flag.httpSnapshots.description": "Guarda una respuesta como snapshot y ve las siguientes como un diff para aceptar o rechazar, con scrubbers para fechas, UUID e ids, y tests sugeridos desde la última respuesta.",
   "settings.labs.flag.runCompare.label": "Comparar ejecuciones",
-  "settings.labs.flag.runCompare.description": "La pestaña Compare lista tus ejecuciones por día y compara dos cualesquiera: código, salida, valores en línea y resultado. Requiere Pro."
+  "settings.labs.flag.runCompare.description": "La pestaña Compare lista tus ejecuciones por día y compara dos cualesquiera: código, salida, valores en línea y resultado. Requiere Pro.",
+  "settings.labs.flag.runState.label": "Estado de ejecución",
+  "settings.labs.flag.runState.description": "Marca los resultados como desactualizados cuando editas después de la última ejecución: un borde ámbar alrededor del editor, valores en línea atenuados con su antigüedad y una pastilla STALE en el Dock. Settings › Editor suma una política de ejecución por grupo de lenguajes: Al teclear, Al pausar o Manual."
 }

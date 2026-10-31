@@ -65,6 +65,7 @@ export function settingsPartialize(state: SettingsState) {
     workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
     scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
     browserPreviewRefreshIntervalMs: state.browserPreviewRefreshIntervalMs,
+    runPolicyByGroup: state.runPolicyByGroup,
     inlineLintEnabledByLanguage: state.inlineLintEnabledByLanguage,
     showStdinPanel: state.showStdinPanel,
     // Persist the status-bar visibility so the user's choice

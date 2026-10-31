@@ -72,6 +72,13 @@ describe('autoRunModel', () => {
     expect(bucketAutoLogCount(21)).toBe('20-plus');
   });
 
+  it('uses the run policy delay for code and leaves Browser preview to its own refresh', () => {
+    expect(resolveAutoRunSchedule('worker', 'void 0;', 300, 500).debounceMs).toBe(500);
+    expect(resolveAutoRunSchedule('worker', 'void 0;', 300, null).debounceMs).toBeNull();
+    expect(resolveAutoRunSchedule('worker', 'void 0;', 300, undefined).debounceMs).toBe(1200);
+    expect(resolveAutoRunSchedule('browser-preview', 'void 0;', 300, null).debounceMs).toBe(300);
+  });
+
   it('uses the generic debounce outside Browser preview', () => {
     expect(resolveAutoRunSchedule('worker', 'void 0;', 300)).toEqual({
       debounceMs: 1_200,

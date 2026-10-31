@@ -5,6 +5,7 @@ import { DEFAULT_KEYMAP_PRESET_ID } from '../data/keymapPresets';
 import { DEFAULT_THEME_PACK_ID } from '../data/themePacks';
 import { defaultRuntimeTimeoutPresetSeed } from '../../shared/runtimeTimeoutPresets';
 import { DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL } from '../../shared/browserPreviewRefresh';
+import { DEFAULT_RUN_POLICY_BY_GROUP } from '../../shared/runPolicy';
 import { DEFAULT_NETWORK_POLICY } from '../../shared/networkPolicy';
 
 /**
@@ -156,6 +157,7 @@ export function createInitialSettingsState() {
     // first-line magic comment overrides the value for one tab.
     browserPreviewRefreshIntervalMs:
       DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL,
+    runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP },
     inlineLintEnabledByLanguage: { ...INLINE_LINT_DEFAULT_SEED },
     // bottom-panel `stdin` tab is offered
     // by default. The user can hide it from Settings → Editor;
