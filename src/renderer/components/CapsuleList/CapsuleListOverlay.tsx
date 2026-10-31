@@ -1,57 +1,34 @@
 /**
- * Capsule browse overlay.
+ * Run capsules browser (⌘⌥C). Pro lists the session's capsules, own runs and
+ * imported ones, with search, one result filter and a detail pane whose
+ * primary action opens an inert tab. Free gets `CapsuleFreeGate`.
  *
- * A Pro-gated master/detail surface over the in-memory run capsules
- * the execution-history store retains (`capsuleEntries()` — the newest
- * `resolveCapsuleCap()` entries that carry a `lastCapsule`). Earlier releases
- * only let the user export the LATEST capsule or import an
- * external one; this overlay finally lets them browse, preview and
- * export ANY retained capsule.
- *
- * Layout (rendered inside the shared `ModalShell`):
- *   - Header (title variant): title + subtitle, with the shell's `x`
- *     close button (`headerClose="button"`). The count moves to the
- *     footer `trailing` slot; the legend rail shows just `esc close`
- *     since navigation here is click-driven, not ↑↓/↵.
- *   - Free tier: an upsell card instead of the list (mirror of
- *     `RecentRunsPill`). The `capsule.browse_opened` telemetry
- *     still fires so the upsell funnel is measurable.
- *   - Pro tier: filter chips (language + status) over a
- *     two-pane grid: left = scrollable capsule rows with per-row
- *     actions (Preview / Export / Open in tab / Copy summary / Delete),
- *     right = `<CapsuleImportPreview>` of the selected
- *     capsule (reused verbatim — pure, no side effects).
- *
- * Capsules are in-memory only and never persisted, so a reload empties
- * the list until the next run. No new IPC, no disk writes; the only
- * mutation is the per-row Delete which strips `lastCapsule` from
- * one history entry.
+ * Capsules live in memory only; the only mutations are Remove (with Undo)
+ * and listing an import.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ChevronDown,
   Copy,
-  ExternalLink,
-  Eye,
+  File,
   FileDown,
   Files,
   FlaskConical,
   GitCompare,
+  MoreHorizontal,
   Package,
+  Search,
+  Share,
   Trash2,
 } from 'lucide-react';
-import {
-  useExecutionHistoryStore,
-  type ExecutionHistoryEntry,
-} from '../../stores/executionHistoryStore';
+import { CAPSULE_LRU_CAP, CAPSULE_LRU_CAP_PRO, useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
+import { emitCommand } from '../../stores/commandBus';
 import { useUIStore } from '../../stores/uiStore';
 import { useEntitlement, useEffectiveTier } from '../../hooks/useEntitlement';
-import {
-  summarizeRunCapsule,
-  utf8ByteLength,
-  type RunCapsuleV1,
-} from '../../../shared/runCapsule';
+import { summarizeRunCapsule, type RunCapsuleV1 } from '../../../shared/runCapsule';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { exportCapsuleAsHtml } from '../../utils/exportCapsuleHtml';
 import { openCapsuleSourceInNewTab } from '../../utils/openCapsuleTab';
@@ -59,747 +36,366 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { cn } from '../../utils/cn';
 import { ModalShell } from '../ui/ModalShell';
-import { ModalFooterLegend } from '../ui/ModalFooterLegend';
-import { StatusBadge } from '../ui/StatusBadge';
 import { EmptyState } from '../ui/EmptyState';
-import { CapsuleImportPreview } from '../CapsuleImport';
 import { CapsuleComparisonModal } from './CapsuleComparisonModal';
 import { readCapsuleListSurfaceForMount } from './capsuleListSurface';
 import { CapsuleWorkspaceExportDialog } from './CapsuleWorkspaceExportDialog';
 import { CapsuleRegressionExportDialog } from './CapsuleRegressionExportDialog';
+import { CapsuleActionMenu } from './CapsuleActionMenu';
+import { CapsuleDialogHeader, CapsuleRowCells } from './CapsuleBrowserParts';
+import { CapsuleDetail } from './CapsuleDetail';
+import { CapsuleFreeGate, ImportButton } from './CapsuleFreeGate';
+import {
+  CAPSULE_ROW_GRID,
+  buildCapsuleRows,
+  filterCapsuleRows,
+  orderForComparison,
+  type CapsuleBrowserRow,
+  type CapsuleResultFilter,
+} from './capsuleBrowserRows';
 
 export interface CapsuleListOverlayProps {
   onClose: () => void;
 }
 
-/** Status filter chip values. `all` disables the status predicate. */
-type StatusFilter = 'all' | 'ok' | 'error';
+const FILTERS: ReadonlyArray<{ id: CapsuleResultFilter; labelKey: string }> = [
+  { id: 'all', labelKey: 'capsuleList.filter.allStatuses' },
+  { id: 'ok', labelKey: 'capsuleList.filter.statusOk' },
+  { id: 'errors', labelKey: 'capsuleList.filter.statusError' },
+];
 
-/**
- * Sort two capsule entries oldest → newest so the
- * comparison modal renders Older / Newer panes deterministically.
- * Mirror of `compareHistoryEntries` in `ExecutionHistoryPopover`:
- * timestamp first, then a stable `id` tie-break for entries captured in
- * the same millisecond (the store ids are monotonic per bucket).
- */
-function compareCapsuleEntries(
-  older: ExecutionHistoryEntry,
-  newer: ExecutionHistoryEntry
-): number {
-  if (older.timestamp !== newer.timestamp) return older.timestamp - newer.timestamp;
-  return older.id.localeCompare(newer.id);
-}
-
-function formatRelative(
-  timestamp: number,
-  now: number,
-  t: (key: string, values?: Record<string, string | number>) => string
-): string {
-  const diff = Math.max(0, now - timestamp);
-  const seconds = Math.round(diff / 1000);
-  if (seconds < 60) {
-    return t('executionHistory.relative.seconds', { count: seconds });
-  }
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) {
-    return t('executionHistory.relative.minutes', { count: minutes });
-  }
-  const hours = Math.round(minutes / 60);
-  return t('executionHistory.relative.hours', { count: hours });
-}
+const SECONDARY_BUTTON =
+  'focus-ring inline-flex h-[34px] items-center gap-2 rounded-md border border-border-subtle bg-bg-panel px-3.5 text-body-sm font-medium text-fg-base hover:border-border-strong';
 
 export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   const { t, i18n } = useTranslation();
   const titleId = useId();
-  const closeRef = useRef(onClose);
-  useEffect(() => {
-    closeRef.current = onClose;
-  }, [onClose]);
-
+  const listId = useId();
   const canBrowse = useEntitlement('EXECUTION_HISTORY');
   const tier = useEffectiveTier();
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
 
-  // Subscribe to the stable `entries` ref and derive the capsule slice
-  // in a `useMemo`. Selecting `capsuleEntries()` directly would return
-  // a fresh array each snapshot and trip zustand v5's update loop —
-  // the same caveat `RecentRunsPill` documents for `byTabId`.
-  const allEntries = useExecutionHistoryStore((s) => s.entries);
+  const history = useExecutionHistoryStore((s) => s.entries);
   const clearCapsule = useExecutionHistoryStore((s) => s.clearCapsule);
   const restoreCapsule = useExecutionHistoryStore((s) => s.restoreCapsule);
-  const capsuleEntries = useMemo<readonly ExecutionHistoryEntry[]>(() => {
-    const out: ExecutionHistoryEntry[] = [];
-    for (let i = allEntries.length - 1; i >= 0; i -= 1) {
-      const entry = allEntries[i]!;
-      if (entry.lastCapsule !== undefined) out.push(entry);
-    }
-    return out;
-  }, [allEntries]);
+  const imported = useImportedCapsuleStore((s) => s.entries);
+  const rows = useMemo(
+    () => (canBrowse ? buildCapsuleRows(history, imported, CAPSULE_LRU_CAP_PRO) : buildCapsuleRows(history, [], CAPSULE_LRU_CAP)),
+    [canBrowse, history, imported]
+  );
 
-  // ─── Telemetry on mount — fires for Free + Pro so the
-  // upsell funnel is measurable. Once per mount via a ref guard.
+  // Fires for Free and Pro so the upsell funnel stays measurable.
   const firedRef = useRef(false);
   useEffect(() => {
     if (firedRef.current) return;
     firedRef.current = true;
-    const surface = readCapsuleListSurfaceForMount('palette');
-    void trackEvent('capsule.browse_opened', { surface, tier });
+    void trackEvent('capsule.browse_opened', { surface: readCapsuleListSurfaceForMount('palette'), tier });
   }, [tier]);
 
-  // ─── Filters ────────────────────────────────────────────
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [languageFilter, setLanguageFilter] = useState<string>('all');
-  const languages = useMemo<readonly string[]>(() => {
-    const seen = new Set<string>();
-    for (const entry of capsuleEntries) {
-      if (entry.lastCapsule) seen.add(entry.lastCapsule.tab.language);
-    }
-    return [...seen];
-  }, [capsuleEntries]);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<CapsuleResultFilter>('all');
+  const filtered = useMemo(() => filterCapsuleRows(rows, query, filter), [rows, query, filter]);
 
-  const filtered = useMemo<readonly ExecutionHistoryEntry[]>(() => {
-    return capsuleEntries.filter((entry) => {
-      if (statusFilter !== 'all' && entry.status !== statusFilter) return false;
-      if (
-        languageFilter !== 'all' &&
-        entry.lastCapsule?.tab.language !== languageFilter
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [capsuleEntries, statusFilter, languageFilter]);
+  // The pick falls back to the first visible row when a filter or a removal hides it.
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const selected = useMemo(() => filtered.find((row) => row.id === pickedId) ?? filtered[0] ?? null, [filtered, pickedId]);
 
-  // ─── Compare selection ──────────────────────────────────
-  // Mirror `ExecutionHistoryPopover`: a free-toggle multiselect whose
-  // Compare action is gated at exactly two. We do NOT cap the set at two
-  // — toggling is unconstrained and only `compareEnabled` enforces the
-  // pair (matching the popover precedent and keeping the toggle UX
-  // predictable). `comparePair` holds the [older, newer] tuple handed to
-  // the modal once the user presses Compare.
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [comparePair, setComparePair] = useState<[RunCapsuleV1, RunCapsuleV1] | null>(
-    null
-  );
+  const [compareFrom, setCompareFrom] = useState<CapsuleBrowserRow | null>(null);
+  const [comparePair, setComparePair] = useState<[RunCapsuleV1, RunCapsuleV1] | null>(null);
   const [regressionCapsule, setRegressionCapsule] = useState<RunCapsuleV1 | null>(null);
   const [workspaceCapsule, setWorkspaceCapsule] = useState<RunCapsuleV1 | null>(null);
 
-  // ─── Selection (drives the right-hand preview) ───────────────────
-  // Track the user's explicit pick, but DERIVE the effective selection
-  // so a pick that filters out (filter change or delete) transparently
-  // falls back to the first visible row — no setState-in-effect, no
-  // stale-but-mounted preview.
-  const [pickedId, setPickedId] = useState<string | null>(null);
-  const selected = useMemo(() => {
-    if (pickedId) {
-      const found = filtered.find((entry) => entry.id === pickedId);
-      if (found) return found;
-    }
-    return filtered[0] ?? null;
-  }, [filtered, pickedId]);
-  const selectedId = selected?.id ?? null;
-  const setSelectedId = setPickedId;
-  // Reviewer fix : memoize the preview byte count on the
-  // selected capsule. A capsule can carry up to ~2 MiB (1 MiB stdout +
-  // 1 MiB stderr); without this, `JSON.stringify` + `utf8ByteLength` ran
-  // on every render — including each 60s relative-timestamp tick below —
-  // blocking the main thread for a value that only changes when the
-  // selection changes.
-  const previewByteLength = useMemo(
-    () =>
-      selected?.lastCapsule
-        ? utf8ByteLength(JSON.stringify(selected.lastCapsule))
-        : 0,
-    [selected]
-  );
-
-  // ─── Compare derivations ────────────────────────────────
-  // Only count selections that survive the current filter so a
-  // filtered-out pick can never form a stale pair. Every capsule entry
-  // carries a `lastCapsule`, so the predicate is just set-membership.
-  const selectedEntries = useMemo(
-    () => filtered.filter((entry) => selectedIds.has(entry.id)),
-    [filtered, selectedIds]
-  );
-  const compareEnabled = selectedEntries.length === 2;
-
-  const toggleSelected = useCallback((id: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  // Filter setters that ALSO clear the compare selection so a selection
-  // made under one filter can't combine with one made under another into
-  // a pair the user never saw side by side. Done imperatively in the
-  // handler (mirror of `ExecutionHistoryPopover`'s reset hygiene) rather
-  // than a setState-in-effect. Overlay-close reset is implicit — the
-  // whole component unmounts.
-  const changeStatusFilter = useCallback((next: StatusFilter) => {
-    setStatusFilter(next);
-    setSelectedIds(new Set());
-  }, []);
-  const changeLanguageFilter = useCallback((next: string) => {
-    setLanguageFilter(next);
-    setSelectedIds(new Set());
-  }, []);
-
-  const handleCompare = useCallback(() => {
-    if (selectedEntries.length !== 2) return;
-    // Sort oldest → newest so the modal renders Older / Newer panes
-    // deterministically. Both entries are capsule entries, so
-    // `lastCapsule` is defined on each.
-    const [older, newer] = [...selectedEntries].sort(compareCapsuleEntries) as [
-      ExecutionHistoryEntry,
-      ExecutionHistoryEntry,
-    ];
-    const olderCapsule = older.lastCapsule;
-    const newerCapsule = newer.lastCapsule;
-    if (!olderCapsule || !newerCapsule) return;
-    setComparePair([olderCapsule, newerCapsule]);
-    void trackEvent('capsule.compared', {
-      sameLanguage: olderCapsule.tab.language === newerCapsule.tab.language,
-    });
-  }, [selectedEntries]);
-
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!canBrowse || capsuleEntries.length === 0) return;
+    if (rows.length === 0) return;
     const handle = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(handle);
-  }, [canBrowse, capsuleEntries.length]);
+  }, [rows.length]);
 
-  // ─── Per-row actions ─────────────────────────────────────────────
+  const pickRow = useCallback(
+    (row: CapsuleBrowserRow) => {
+      if (compareFrom && row.id !== compareFrom.id) {
+        const pair = orderForComparison(compareFrom, row);
+        setComparePair(pair);
+        setCompareFrom(null);
+        void trackEvent('capsule.compared', { sameLanguage: pair[0].tab.language === pair[1].tab.language });
+        return;
+      }
+      setPickedId(row.id);
+    },
+    [compareFrom]
+  );
+
+  // Escape leaves the compare pick before it can close the dialog.
+  const onBodyKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape' || !compareFrom) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setCompareFrom(null);
+  };
+
+  const onListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (filtered.length === 0) return;
+    const index = selected ? filtered.indexOf(selected) : -1;
+    const next =
+      event.key === 'ArrowDown' ? Math.min(index + 1, filtered.length - 1)
+      : event.key === 'ArrowUp' ? Math.max(index - 1, 0)
+      : event.key === 'Home' ? 0
+      : event.key === 'End' ? filtered.length - 1
+      : null;
+    if (next !== null) {
+      event.preventDefault();
+      setPickedId(filtered[next]!.id);
+      document.getElementById(`${listId}-${filtered[next]!.id}`)?.scrollIntoView?.({ block: 'nearest' });
+    } else if (event.key === 'Enter' && selected) {
+      event.preventDefault();
+      pickRow(selected);
+    }
+  };
+
+  const handleImport = useCallback(() => emitCommand('capsule.openImport'), []);
+
+  const handleUpgrade = useCallback(() => {
+    pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel: t('upsell.feature.capsuleBrowse') });
+    void trackEvent('feature.blocked', { entitlement: 'execution-history', tier: 'free' });
+  }, [t]);
+
   const handleExport = useCallback(
-    async (entry: ExecutionHistoryEntry) => {
-      const capsule = entry.lastCapsule;
-      if (!capsule) return;
+    async (capsule: RunCapsuleV1) => {
       const result = await exportCapsuleToClipboard(capsule, 'list-export');
       pushStatusNotice(
         result.ok
-          ? {
-              tone: 'success',
-              messageKey: 'settings.account.runCapsules.copiedNotice',
-            }
-          : {
-              tone: 'warning',
-              messageKey: 'results.actions.exportCapsule.clipboardUnavailable',
-            }
+          ? { tone: 'success', messageKey: 'settings.account.runCapsules.copiedNotice' }
+          : { tone: 'warning', messageKey: 'results.actions.exportCapsule.clipboardUnavailable' }
       );
     },
     [pushStatusNotice]
   );
 
-  // per-row self-contained HTML export (native save dialog on
-  // desktop, blob download on web). Outcome notices mirror handleExport.
   const handleExportHtml = useCallback(
-    async (entry: ExecutionHistoryEntry) => {
-      const capsule = entry.lastCapsule;
-      if (!capsule) return;
+    async (capsule: RunCapsuleV1) => {
       await exportCapsuleAsHtml(capsule, 'list-export-html', {
         t,
         locale: i18n.language,
-        onOk: () =>
-          pushStatusNotice({
-            tone: 'success',
-            messageKey: 'capsuleHtml.notice.saved',
-          }),
-        onError: () =>
-          pushStatusNotice({
-            tone: 'error',
-            messageKey: 'capsuleHtml.notice.failed',
-          }),
+        onOk: () => pushStatusNotice({ tone: 'success', messageKey: 'capsuleHtml.notice.saved' }),
+        onError: () => pushStatusNotice({ tone: 'error', messageKey: 'capsuleHtml.notice.failed' }),
       });
     },
     [i18n.language, pushStatusNotice, t]
   );
 
   const handleCopySummary = useCallback(
-    async (entry: ExecutionHistoryEntry) => {
-      const capsule = entry.lastCapsule;
-      if (!capsule) return;
-      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-        pushStatusNotice({
-          tone: 'warning',
-          messageKey: 'capsuleImport.notice.copyFailed',
-        });
-        return;
-      }
+    async (capsule: RunCapsuleV1) => {
       try {
+        if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
         await navigator.clipboard.writeText(summarizeRunCapsule(capsule));
-        pushStatusNotice({
-          tone: 'success',
-          messageKey: 'capsuleList.notice.summaryCopied',
-        });
+        pushStatusNotice({ tone: 'success', messageKey: 'capsuleList.notice.summaryCopied' });
       } catch {
-        pushStatusNotice({
-          tone: 'warning',
-          messageKey: 'capsuleImport.notice.copyFailed',
-        });
+        pushStatusNotice({ tone: 'warning', messageKey: 'capsuleImport.notice.copyFailed' });
       }
     },
     [pushStatusNotice]
   );
 
-  const handleOpenInTab = useCallback(
-    (entry: ExecutionHistoryEntry) => {
-      const capsule = entry.lastCapsule;
-      if (!capsule) return;
+  const handleOpen = useCallback(
+    (capsule: RunCapsuleV1) => {
       openCapsuleSourceInNewTab(capsule);
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'capsuleImport.notice.openedTab',
-      });
-      closeRef.current();
+      pushStatusNotice({ tone: 'success', messageKey: 'capsuleImport.notice.openedTab' });
+      onClose();
     },
-    [pushStatusNotice]
+    [onClose, pushStatusNotice]
   );
 
-  const handleDelete = useCallback(
-    (entry: ExecutionHistoryEntry) => {
-      // accessibility pass — removing a capsule only strips `lastCapsule`
-      // from a run row that stays in the history; it is fully
-      // recoverable, so it deletes optimistically and offers an Undo
-      // toast instead of confirming. Stash the capsule so Undo can
-      // re-attach it to the same row (its array position never moved).
-      const removed = entry.lastCapsule;
-      clearCapsule(entry.id);
+  // Removing is recoverable, so it acts at once and offers Undo instead of confirming.
+  const handleRemove = useCallback(
+    (row: CapsuleBrowserRow) => {
+      let undo: () => void;
+      if (row.kind === 'run') {
+        clearCapsule(row.id);
+        undo = () => restoreCapsule(row.id, row.capsule);
+      } else {
+        const store = useImportedCapsuleStore.getState();
+        const index = store.entries.findIndex((entry) => entry.id === row.id);
+        const entry = store.entries[index];
+        store.remove(row.id);
+        undo = () => {
+          if (entry) useImportedCapsuleStore.getState().restore(entry, index);
+        };
+      }
       pushStatusNotice({
         tone: 'info',
         messageKey: 'capsuleList.notice.capsuleRemoved',
-        actions: removed
-          ? [
-              {
-                labelKey: 'common.undo',
-                onClick: () => {
-                  // restoreCapsule no-ops if the row already has a
-                  // capsule again, so a double-undo is harmless.
-                  restoreCapsule(entry.id, removed);
-                },
-              },
-            ]
-          : undefined,
+        actions: [{ labelKey: 'common.undo', onClick: undo }],
       });
     },
     [clearCapsule, restoreCapsule, pushStatusNotice]
   );
 
-  const handleUpgrade = useCallback(() => {
-    pushUpsellNotice({
-      messageKey: 'upsell.freeCeilingReached',
-      featureLabel: t('upsell.feature.capsuleBrowse'),
-    });
-    void trackEvent('feature.blocked', {
-      entitlement: 'execution-history',
-      tier: 'free',
-    });
-  }, [t]);
-
-  // ─── Free-tier upsell variant ────────────────────────────────────
   if (!canBrowse) {
-    return (
-      <CapsuleShell
-        titleId={titleId}
-        onClose={onClose}
-        footerTrailing={null}
-      >
-        <div data-testid="capsule-list-upsell">
-          <EmptyState
-            className="py-10"
-            icon={<Package size={18} aria-hidden="true" />}
-            title={t('capsuleList.upsell.title')}
-            description={t('capsuleList.upsell.body')}
-            action={
-              <button
-                type="button"
-                onClick={handleUpgrade}
-                data-testid="capsule-list-upsell-cta"
-                className="button-primary"
-              >
-                {t('capsuleList.upsell.cta')}
-              </button>
-            }
-          />
-        </div>
-      </CapsuleShell>
-    );
+    return <CapsuleFreeGate runs={rows} onClose={onClose} onImport={handleImport} onUpgrade={handleUpgrade} />;
   }
+
+  const capsule = selected?.capsule ?? null;
 
   return (
     <>
-    <CapsuleShell
-      titleId={titleId}
-      onClose={onClose}
-      footerTrailing={
-        <div className="flex items-center gap-3">
-          {capsuleEntries.length > 0 ? (
-            <>
-              <span
-                data-testid="capsule-compare-hint"
-                className="text-caption text-fg-subtle"
-              >
-                {compareEnabled ? null : t('capsule.compare.selectHint')}
-              </span>
-              <button
-                type="button"
-                onClick={handleCompare}
-                disabled={!compareEnabled}
-                data-testid="capsule-compare-button"
-                aria-label={t('capsule.compare.action')}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption text-fg-muted transition-colors hover:border-border-strong hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-subtle disabled:hover:text-fg-muted"
-              >
-                <GitCompare size={12} aria-hidden="true" />
-                {t('capsule.compare.action')}
-              </button>
-            </>
-          ) : null}
-          <span
-            data-testid="capsule-list-count"
-            className="font-mono text-caption text-fg-subtle"
-          >
-            {t('capsuleList.count', { count: capsuleEntries.length })}
-          </span>
-        </div>
-      }
-    >
-      {capsuleEntries.length === 0 ? (
-        <EmptyState
-          className="py-10"
-          icon={<Package size={18} aria-hidden="true" />}
-          title={
-            <span data-testid="capsule-list-empty">
-              {t('capsuleList.empty.title')}
-            </span>
-          }
-          description={t('capsuleList.empty.hint')}
-        />
-      ) : (
-        <div className="grid h-[min(56vh,400px)] min-h-0 grid-rows-[auto_1fr] gap-3">
-          {/* Filter chips */}
-          <div
-            data-testid="capsule-list-filters"
-            className="flex flex-wrap items-center gap-1.5 text-caption"
-          >
-            <FilterChip
-              active={languageFilter === 'all'}
-              onClick={() => changeLanguageFilter('all')}
-              testid="capsule-list-filter-language-all"
-            >
-              {t('capsuleList.filter.allLanguages')}
-            </FilterChip>
-            {languages.map((lang) => (
-              <FilterChip
-                key={lang}
-                active={languageFilter === lang}
-                onClick={() => changeLanguageFilter(lang)}
-                testid={`capsule-list-filter-language-${lang}`}
-              >
-                {lang}
-              </FilterChip>
-            ))}
-            <span
-              className="mx-1 h-3.5 w-px bg-border-subtle"
-              aria-hidden="true"
-            />
-            <FilterChip
-              active={statusFilter === 'all'}
-              onClick={() => changeStatusFilter('all')}
-              testid="capsule-list-filter-status-all"
-            >
-              {t('capsuleList.filter.allStatuses')}
-            </FilterChip>
-            <FilterChip
-              active={statusFilter === 'ok'}
-              onClick={() => changeStatusFilter('ok')}
-              testid="capsule-list-filter-status-ok"
-            >
-              {t('capsuleList.filter.statusOk')}
-            </FilterChip>
-            <FilterChip
-              active={statusFilter === 'error'}
-              onClick={() => changeStatusFilter('error')}
-              testid="capsule-list-filter-status-error"
-            >
-              {t('capsuleList.filter.statusError')}
-            </FilterChip>
-          </div>
-
-          <div className="grid min-h-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            {/* LEFT — capsule rows */}
-            <ul
-              data-testid="capsule-list-rows"
-              className="min-h-0 space-y-1.5 overflow-auto pr-1"
-            >
-              {filtered.map((entry) => {
-                const capsule = entry.lastCapsule!;
-                const isSelected = entry.id === selectedId;
-                const isChecked = selectedIds.has(entry.id);
-                return (
-                  <li key={entry.id}>
-                    <div
-                      data-testid="capsule-list-row"
-                      data-selected={isSelected ? 'true' : 'false'}
+      <ModalShell
+        size="max-w-[1220px]"
+        onClose={onClose}
+        labelledById={titleId}
+        headerClose="button"
+        closeLabel={t('capsuleList.overlay.close')}
+        footer={false}
+        bodyClassName="p-0"
+        bodyMaxHeightClassName="h-[min(708px,calc(88vh-120px))]"
+        header={<CapsuleDialogHeader titleId={titleId} trailing={<ImportButton onImport={handleImport} />} />}
+      >
+        {rows.length === 0 ? (
+          <EmptyState
+            className="py-16"
+            icon={<Package size={18} aria-hidden="true" />}
+            title={<span data-testid="capsule-list-empty">{t('capsuleList.empty.title')}</span>}
+            description={t('capsuleList.empty.hint')}
+          />
+        ) : (
+          <div onKeyDown={onBodyKeyDown} className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(340px,460px)] md:grid-rows-1">
+            <div className="flex min-h-0 flex-col border-b border-border-subtle md:border-b-0 md:border-r">
+              <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border-subtle px-5">
+                <label className="flex h-8 w-full max-w-[300px] items-center gap-2 rounded-md border border-border-subtle bg-bg-inset px-2.5 text-body-sm focus-within:border-border-strong">
+                  <Search size={13} aria-hidden="true" className="shrink-0 text-fg-subtle" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    aria-label={t('capsuleList.search')}
+                    placeholder={t('capsuleList.search')}
+                    data-testid="capsule-list-search"
+                    className="min-w-0 flex-1 bg-transparent text-fg-base placeholder:text-fg-subtle focus:outline-none"
+                  />
+                </label>
+                <div className="flex-1" />
+                <div role="group" aria-label={t('capsuleList.filter.label')} className="flex shrink-0 rounded-[7px] border border-border-subtle bg-bg-inset p-0.5">
+                  {FILTERS.map(({ id, labelKey }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={filter === id}
+                      onClick={() => setFilter(id)}
+                      data-testid={`capsule-list-filter-${id}`}
                       className={cn(
-                        'rounded-md border px-2.5 py-2 text-body-sm transition-colors',
-                        isSelected
-                          ? 'border-border-strong bg-bg-panel-alt'
-                          : 'border-border-subtle bg-bg-inset/40 hover:bg-bg-panel-alt'
+                        'focus-ring h-6 rounded-[5px] px-2.5 text-caption font-medium',
+                        filter === id ? 'bg-bg-panel text-fg-base shadow-e1' : 'text-fg-muted hover:text-fg-base'
                       )}
                     >
-                      <div className="flex items-start gap-2">
-                        {/* Compare multiselect. A real checkbox so
-                            keyboard + screen-reader users can build the pair;
-                            sits outside the row-select button (no nested
-                            interactive controls). */}
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleSelected(entry.id)}
-                          data-testid={`capsule-row-select-${entry.id}`}
-                          aria-label={t('capsule.compare.checkbox.aria', {
-                            language: capsule.tab.language,
-                          })}
-                          className="mt-1 h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(entry.id)}
-                          data-testid="capsule-list-row-select"
-                          className="block min-w-0 flex-1 text-left"
-                        >
-                          <span className="flex items-center gap-2">
-                            <StatusBadge tone="neutral">
-                              {capsule.tab.language}
-                            </StatusBadge>
-                            <StatusBadge
-                              tone={entry.status === 'ok' ? 'success' : 'error'}
-                            >
-                              {entry.status}
-                            </StatusBadge>
-                            <span className="ml-auto font-mono text-eyebrow text-fg-subtle">
-                              {formatRelative(entry.timestamp, now, t)}
-                            </span>
-                          </span>
-                          <span className="mt-1 block truncate text-caption text-fg-subtle">
-                            {summarizeRunCapsule(capsule)}
-                          </span>
-                        </button>
-                      </div>
-                      <div className="mt-2 flex items-center gap-1">
-                        <RowAction
-                          icon={<Eye size={12} aria-hidden="true" />}
-                          label={t('capsuleList.row.preview')}
-                          testid="capsule-list-row-preview"
-                          onClick={() => setSelectedId(entry.id)}
-                        />
-                        <RowAction
-                          icon={<Copy size={12} aria-hidden="true" />}
-                          label={t('capsuleList.row.export')}
-                          testid="capsule-list-row-export"
-                          onClick={() => void handleExport(entry)}
-                        />
-                        <RowAction
-                          icon={<FileDown size={12} aria-hidden="true" />}
-                          label={t('capsuleList.row.exportHtml')}
-                          testid="capsule-list-row-export-html"
-                          onClick={() => void handleExportHtml(entry)}
-                        />
-                        <RowAction
-                          icon={<Files size={12} aria-hidden="true" />}
-                          label={t('capsuleList.row.createWorkspace')}
-                          testid="capsule-list-row-create-workspace"
-                          onClick={() => setWorkspaceCapsule(capsule)}
-                        />
-                        <RowAction
-                          icon={<FlaskConical size={12} aria-hidden="true" />}
-                          label={t('capsuleRegression.action')}
-                          testid="capsule-prepare-regression"
-                          onClick={() => setRegressionCapsule(capsule)}
-                        />
-                        <RowAction
-                          icon={<ExternalLink size={12} aria-hidden="true" />}
-                          label={t('capsuleList.row.openInTab')}
-                          testid="capsule-list-row-open"
-                          onClick={() => handleOpenInTab(entry)}
-                        />
-                        <RowAction
-                          icon={<Copy size={12} aria-hidden="true" />}
-                          label={t('capsuleList.row.copySummary')}
-                          testid="capsule-list-row-copy-summary"
-                          onClick={() => void handleCopySummary(entry)}
-                        />
-                        <RowAction
-                          icon={<Trash2 size={12} aria-hidden="true" />}
-                          label={t('capsuleList.row.delete')}
-                          testid="capsule-list-row-delete"
-                          danger
-                          onClick={() => handleDelete(entry)}
-                        />
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-              {filtered.length === 0 ? (
-                <li
-                  data-testid="capsule-list-filtered-empty"
-                  className="rounded-md border border-dashed border-border-subtle px-3 py-4 text-center text-caption text-fg-subtle"
-                >
-                  {t('capsuleList.filter.noMatches')}
-                </li>
-              ) : null}
-            </ul>
-
-            {/* RIGHT — preview of the selected capsule */}
-            <div
-              className="min-h-0 overflow-auto"
-              data-testid="capsule-list-preview-pane"
-            >
-              {selected?.lastCapsule ? (
-                <CapsuleImportPreview
-                  capsule={selected.lastCapsule}
-                  byteLength={previewByteLength}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset/40 p-6 text-center text-body-sm text-fg-subtle">
-                  {t('capsuleList.preview.placeholder')}
+                      {t(labelKey)}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+              {compareFrom ? (
+                <div data-testid="capsule-compare-picking" className="flex shrink-0 items-center gap-3 border-b border-border-subtle bg-accent/10 px-5 py-2 text-caption text-fg-base">
+                  <GitCompare size={12} aria-hidden="true" className="shrink-0 text-accent-fg" />
+                  <span className="min-w-0 flex-1 truncate">{t('capsuleList.compare.pick', { name: compareFrom.capsule.tab.name })}</span>
+                  <button type="button" onClick={() => setCompareFrom(null)} data-testid="capsule-compare-cancel" className="focus-ring rounded px-1.5 text-fg-muted hover:text-fg-base">
+                    {t('capsuleList.compare.cancel')}
+                  </button>
+                </div>
+              ) : null}
+              <div
+                role="listbox"
+                aria-label={t('capsuleList.rowsLabel')}
+                aria-activedescendant={selected ? `${listId}-${selected.id}` : undefined}
+                tabIndex={0}
+                onKeyDown={onListKeyDown}
+                data-testid="capsule-list-rows"
+                className="focus-ring min-h-0 flex-1 overflow-auto focus-visible:ring-inset"
+              >
+                {filtered.map((row) => {
+                  const isSelected = row.id === selected?.id;
+                  return (
+                    <div
+                      key={row.id}
+                      id={`${listId}-${row.id}`}
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => pickRow(row)}
+                      data-testid="capsule-list-row"
+                      data-kind={row.kind}
+                      data-selected={isSelected ? 'true' : 'false'}
+                      className={cn(
+                        CAPSULE_ROW_GRID,
+                        'h-[52px] cursor-pointer border-b border-border-subtle px-5',
+                        isSelected ? 'bg-accent/10' : 'hover:bg-bg-panel-alt',
+                        compareFrom?.id === row.id && 'opacity-50'
+                      )}
+                    >
+                      <CapsuleRowCells row={row} now={now} />
+                    </div>
+                  );
+                })}
+                {filtered.length === 0 ? (
+                  <p data-testid="capsule-list-filtered-empty" className="px-5 py-6 text-center text-caption text-fg-subtle">
+                    {t('capsuleList.filter.noMatches')}
+                  </p>
+                ) : null}
+              </div>
+              <p className="flex h-10 shrink-0 items-center border-t border-border-subtle px-5 text-caption text-fg-subtle">
+                {t('capsuleList.retention', { count: CAPSULE_LRU_CAP_PRO })}
+              </p>
+            </div>
+
+            <div data-testid="capsule-list-preview-pane" className="flex min-h-0 flex-col">
+              {capsule && selected ? (
+                <>
+                  <div className="min-h-0 flex-1 overflow-auto px-5 pt-[18px] pb-4">
+                    <CapsuleDetail key={selected.id} capsule={capsule} />
+                  </div>
+                  <div className="flex h-16 shrink-0 items-center gap-2 border-t border-border-subtle px-5">
+                    <button type="button" onClick={() => handleOpen(capsule)} data-testid="capsule-list-row-open" className="button-primary inline-flex h-[34px] items-center gap-2 px-[18px]">
+                      <File size={12} aria-hidden="true" />
+                      {t('capsuleList.action.open')}
+                    </button>
+                    <CapsuleActionMenu
+                      label={t('capsuleList.action.share')}
+                      triggerTestId="capsule-list-share"
+                      triggerClassName={SECONDARY_BUTTON}
+                      trigger={
+                        <>
+                          <Share size={12} aria-hidden="true" />
+                          {t('capsuleList.action.share')}
+                          <ChevronDown size={10} aria-hidden="true" />
+                        </>
+                      }
+                      items={[
+                        { id: 'export', label: t('capsuleList.row.export'), icon: <Copy size={13} aria-hidden="true" />, testid: 'capsule-list-row-export', onSelect: () => void handleExport(capsule) },
+                        { id: 'export-html', label: t('capsuleList.row.exportHtml'), icon: <FileDown size={13} aria-hidden="true" />, testid: 'capsule-list-row-export-html', onSelect: () => void handleExportHtml(capsule) },
+                        { id: 'copy-summary', label: t('capsuleList.row.copySummary'), icon: <Copy size={13} aria-hidden="true" />, testid: 'capsule-list-row-copy-summary', onSelect: () => void handleCopySummary(capsule) },
+                      ]}
+                    />
+                    <div className="flex-1" />
+                    <CapsuleActionMenu
+                      label={t('capsuleList.action.more')}
+                      align="right"
+                      triggerTestId="capsule-list-more"
+                      triggerClassName="focus-ring grid size-7 place-items-center rounded-md text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base"
+                      trigger={<MoreHorizontal size={16} aria-hidden="true" />}
+                      items={[
+                        { id: 'compare', label: t('capsuleList.compare.action'), icon: <GitCompare size={13} aria-hidden="true" />, testid: 'capsule-compare-button', disabled: rows.length < 2, onSelect: () => setCompareFrom(selected) },
+                        { id: 'workspace', label: t('capsuleList.row.createWorkspace'), icon: <Files size={13} aria-hidden="true" />, testid: 'capsule-list-row-create-workspace', onSelect: () => setWorkspaceCapsule(capsule) },
+                        { id: 'regression', label: t('capsuleRegression.action'), icon: <FlaskConical size={13} aria-hidden="true" />, testid: 'capsule-prepare-regression', onSelect: () => setRegressionCapsule(capsule) },
+                        { id: 'remove', label: t('capsuleList.row.delete'), icon: <Trash2 size={13} aria-hidden="true" />, testid: 'capsule-list-row-delete', danger: true, onSelect: () => handleRemove(selected) },
+                      ]}
+                    />
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
-        </div>
-      )}
-    </CapsuleShell>
-    {/* The comparator renders as a sibling so it layers above
-        the list overlay. `comparePair` is null until the user presses
-        Compare; closing it clears the pair but leaves the multiselect
-        intact so they can adjust and re-compare. */}
-    <CapsuleComparisonModal
-      capsules={comparePair}
-      onClose={() => setComparePair(null)}
-    />
-    <CapsuleRegressionExportDialog
-      capsule={regressionCapsule}
-      onClose={() => setRegressionCapsule(null)}
-    />
-    <CapsuleWorkspaceExportDialog
-      capsule={workspaceCapsule}
-      onClose={() => setWorkspaceCapsule(null)}
-    />
+        )}
+      </ModalShell>
+      <CapsuleComparisonModal capsules={comparePair} onClose={() => setComparePair(null)} />
+      <CapsuleRegressionExportDialog capsule={regressionCapsule} onClose={() => setRegressionCapsule(null)} />
+      <CapsuleWorkspaceExportDialog capsule={workspaceCapsule} onClose={() => setWorkspaceCapsule(null)} />
     </>
-  );
-}
-
-/**
- * Thin wrapper over the shared `ModalShell` that fixes the capsule
- * overlay's invariant chrome: a TITLE-variant header (title + subtitle
- * with the shell's `x` close button), the `max-w-[720px]` clamp from the
- * design prototype, and a footer whose legend is just `esc close`
- * (navigation here is click-driven, not ↑↓/↵) with the live count in the
- * trailing slot. Body padding stays at the shell default; the populated
- * grid manages its own internal scroll.
- */
-function CapsuleShell({
-  titleId,
-  onClose,
-  footerTrailing,
-  children,
-}: {
-  titleId: string;
-  onClose: () => void;
-  footerTrailing: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  return (
-    <ModalShell
-      size="max-w-[720px]"
-      onClose={onClose}
-      labelledById={titleId}
-      headerClose="button"
-      closeLabel={t('capsuleList.overlay.close')}
-      header={
-        <div data-testid="capsule-list-overlay">
-          <div
-            id={titleId}
-            className="text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
-          >
-            {t('capsuleList.overlay.title')}
-          </div>
-        </div>
-      }
-      footerLegend={<ModalFooterLegend navigate={false} select={false} close />}
-      trailing={footerTrailing}
-    >
-      {children}
-    </ModalShell>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  testid,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  testid: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-testid={testid}
-      data-active={active ? 'true' : 'false'}
-      aria-pressed={active}
-      className={cn(
-        'rounded-full border px-2 py-0.5 font-mono text-eyebrow uppercase tracking-wide',
-        active
-          ? 'border-accent/40 bg-accent/10 text-accent-fg'
-          : 'border-border-subtle bg-bg-inset text-fg-muted hover:text-fg-base'
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function RowAction({
-  icon,
-  label,
-  testid,
-  onClick,
-  danger = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  testid: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-testid={testid}
-      title={label}
-      aria-label={label}
-      className={cn(
-        'inline-flex items-center justify-center rounded p-1 text-fg-subtle transition-colors',
-        danger
-          ? 'hover:bg-error-bg hover:text-error-fg'
-          : 'hover:bg-bg-panel-alt hover:text-fg-base'
-      )}
-    >
-      {icon}
-    </button>
   );
 }

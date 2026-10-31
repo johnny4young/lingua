@@ -85,6 +85,8 @@ interface ModalShellBaseProps {
   footerLegend?: ReactNode;
   /** Footer-right slot — e.g. a result count. */
   trailing?: ReactNode;
+  /** `false` drops the footer bar for overlays that carry their own action row. */
+  footer?: boolean;
   /** The scrollable body region. */
   children: ReactNode;
   /** Width clamp class for the container. Defaults to `max-w-[620px]`. */
@@ -173,6 +175,7 @@ export function ModalShell({
   header,
   footerLegend,
   trailing,
+  footer = true,
   children,
   size = 'max-w-[620px]',
   labelledById,
@@ -342,10 +345,12 @@ export function ModalShell({
         </div>
 
         {/* FOOTER */}
-        <div className="flex items-center justify-between border-t border-border-subtle bg-bg-inset px-[18px] py-[11px]">
-          {footerLegend ?? <DefaultFooterLegend />}
-          {trailing ? <span className="shrink-0">{trailing}</span> : null}
-        </div>
+        {footer ? (
+          <div className="flex items-center justify-between border-t border-border-subtle bg-bg-inset px-[18px] py-[11px]">
+            {footerLegend ?? <DefaultFooterLegend />}
+            {trailing ? <span className="shrink-0">{trailing}</span> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

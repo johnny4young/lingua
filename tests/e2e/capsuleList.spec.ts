@@ -2,10 +2,10 @@
  * Keyboard contract for the capsule browse overlay.
  *
  * Acceptance: Mod+Alt+C opens the browse overlay; Escape closes it.
- * The default web session is Free, so the overlay renders the
- * Pro upsell variant — that observable cross-locale (EN + ES) contract
- * is what this spec locks. The Pro list + per-row actions are covered
- * by the component test suite.
+ * The default web session is Free, so the overlay renders the Free gate
+ * (definition, quota, Import) — that cross-locale (EN + ES) contract is
+ * what this spec locks. The Pro list and its actions are covered by the
+ * component test suite.
  */
 
 import {
@@ -28,9 +28,8 @@ test.describe('Capsule browse — Mod+Alt+C binding', () => {
 
     const dialog = page.getByRole('dialog', { name: /run capsules/i });
     await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByText(/Browse run capsules with Pro/i)
-    ).toBeVisible();
+    await expect(dialog.getByText(/A capsule is a saved run/i)).toBeVisible();
+    await expect(dialog.getByTestId('capsule-list-quota')).toHaveText('Free · 0 of 5 kept');
 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
@@ -52,9 +51,8 @@ test.describe('Capsule browse — Mod+Alt+C binding', () => {
 
     const dialog = page.getByRole('dialog', { name: /run capsules/i });
     await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByText(/Browse run capsules with Pro/i)
-    ).toBeVisible();
+    await expect(dialog.getByText(/A capsule is a saved run/i)).toBeVisible();
+    await expect(dialog.getByTestId('capsule-list-quota')).toHaveText('Free · 0 of 5 kept');
 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
@@ -70,7 +68,8 @@ test.describe('Capsule browse — Mod+Alt+C binding', () => {
       name: /cápsulas de ejecución/i,
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(/Explora cápsulas con Pro/i)).toBeVisible();
+    await expect(dialog.getByText(/Una cápsula es una ejecución guardada/i)).toBeVisible();
+    await expect(dialog.getByTestId('capsule-list-quota')).toHaveText('Free · 0 de 5 guardadas');
 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();

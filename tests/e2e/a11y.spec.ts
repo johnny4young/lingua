@@ -23,6 +23,7 @@
 
 import { mkdirSync } from 'node:fs';
 import {
+  clickRun,
   closeDeveloperUtilities,
   closeSettings,
   closeSnippets,
@@ -39,7 +40,9 @@ import {
   openSnippets,
   paletteInput,
   seedSession,
+  selectWorkflowMode,
   test,
+  waitForRunCompleted,
 } from './licenseWeb.helpers';
 import { auditA11y } from './a11y.helpers';
 
@@ -166,8 +169,16 @@ test.describe('Automated axe scans', () => {
   });
 
   test('Run Capsules browser', async ({ page }) => {
+    // Only manual runs keep a capsule; the seeded tab starts in Scratchpad.
+    await selectWorkflowMode(page, 'run');
+    await clickRun(page);
+    await waitForRunCompleted(page);
     await page.keyboard.press('ControlOrMeta+Alt+C');
     await expect(page.getByRole('dialog', { name: /run capsules/i })).toBeVisible();
+    await expect(page.getByRole('option').first()).toBeVisible();
+    await auditA11y(page);
+    await page.getByTestId('capsule-list-share').click();
+    await expect(page.getByRole('menu')).toBeVisible();
     await auditA11y(page);
   });
 
