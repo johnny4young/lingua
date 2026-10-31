@@ -91,6 +91,8 @@ function safeName(name: unknown): string {
 export function createJsWorkerTimeline(): JsWorkerTimeline {
   const steps: TimelineStep[] = [];
   const frames: TimelineFrame[] = [{ name: '<module>', line: 0 }];
+  const calls = [0];
+  let lastCall = 0;
   let truncated = false;
   let chars = 0;
 
@@ -125,16 +127,21 @@ export function createJsWorkerTimeline(): JsWorkerTimeline {
           truncated = true;
           return;
         }
-        steps.push({ line: frames[frames.length - 1]!.line, frames: kept, vars });
+        steps.push({ line: frames[frames.length - 1]!.line, frames: kept, vars, depth: frames.length - 1, call: calls[calls.length - 1]! });
       } catch {
         truncated = true;
       }
     },
     enter: (name, line) => {
       frames.push({ name: safeName(name), line: safeLine(line) });
+      lastCall += 1;
+      calls.push(lastCall);
     },
     exit: () => {
-      if (frames.length > 1) frames.pop();
+      if (frames.length > 1) {
+        frames.pop();
+        calls.pop();
+      }
     },
     noteConsole: method => {
       const step = steps[steps.length - 1];

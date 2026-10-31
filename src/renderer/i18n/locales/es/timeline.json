@@ -17,5 +17,14 @@
   "timeline.callStack": "Pila de llamadas",
   "timeline.depth": "profundidad {{depth}}",
   "timeline.limited": "Free guarda los últimos {{count}} de {{total}} pasos",
-  "timeline.empty": "La ejecución no tuvo pasos para grabar."
+  "timeline.empty": "La ejecución no tuvo pasos para grabar.",
+  "timeline.backOut": "Salir atrás",
+  "timeline.backOutLabel": "Volver a quien llamó, hacia atrás",
+  "timeline.over": "Sobre",
+  "timeline.overLabel": "Pasar a la siguiente línea de esta llamada",
+  "timeline.out": "Salir",
+  "timeline.outLabel": "Salir a quien llamó",
+  "timeline.unreachable": "No hay un paso al que ir desde aquí",
+  "timeline.legend.echoes": "ecos · la línea {{line}} corrió {{count}}×",
+  "timeline.echoPill": "eco {{position}} de {{count}}"
 }

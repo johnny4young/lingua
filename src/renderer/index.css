@@ -1469,6 +1469,39 @@
   /* The step selected in the Timeline tab. */
   .monaco-editor .lingua-timeline-line {
     background: color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+    transition: background-color 120ms ease-out;
+  }
+
+  /* A move with nowhere to go tints the line red instead of opening anything. */
+  .monaco-editor .lingua-timeline-blocked {
+    background: color-mix(in srgb, var(--color-error) 30%, transparent) !important;
+  }
+
+  /* Monaco may stack the accent line over the tint, so drop it while the tint shows. */
+  .monaco-editor .lingua-timeline-blocked ~ .lingua-timeline-line,
+  .monaco-editor .lingua-timeline-line:has(~ .lingua-timeline-blocked) {
+    background: transparent !important;
+  }
+
+  .monaco-editor .lingua-timeline-unreached {
+    opacity: 0.45;
+  }
+
+  .monaco-editor .lingua-timeline-value,
+  .monaco-editor .lingua-timeline-echo {
+    margin-left: 12px;
+    padding: 0 6px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-bg-inset) 60%, transparent);
+    font-size: 11.5px;
+    color: var(--color-fg-base);
+  }
+
+  .monaco-editor .lingua-timeline-echo {
+    margin-left: 6px;
+    border-color: var(--color-warning-border);
+    color: var(--color-warning-fg);
   }
 
   /* The paused line takes the accent, not the breakpoint red, with an arrow beside the line numbers. */
@@ -2304,6 +2337,11 @@
 .timeline-tick[data-kind='log'],
 .timeline-swatch[data-kind='log'] {
   background: var(--color-info);
+}
+
+.timeline-tick[data-kind='echo'],
+.timeline-swatch[data-kind='echo'] {
+  background: var(--color-warning);
 }
 
 .timeline-tick[data-kind='error'],

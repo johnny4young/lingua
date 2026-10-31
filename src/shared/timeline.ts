@@ -25,6 +25,10 @@ export interface TimelineStep {
   line: number;
   /** Innermost frame last; `<module>` first. */
   frames: TimelineFrame[];
+  /** Call depth, which `frames` loses past its cap. */
+  depth?: number;
+  /** Which call the step ran in, so two calls at the same depth stay apart. */
+  call?: number;
   vars: Array<[name: string, value: string]>;
   /** Console output this step wrote, by its strongest method. */
   log?: 'log' | 'info' | 'warn' | 'error';
@@ -42,6 +46,7 @@ const text = (value: unknown, fallback = ''): string =>
   typeof value === 'string' ? value.slice(0, TIMELINE_VALUE_MAX_CHARS) : fallback;
 const lineOf = (value: unknown): number => (Number.isInteger(value) && (value as number) > 0 ? (value as number) : 0);
 const LOGS = new Set(['log', 'info', 'warn', 'error']);
+const isCount = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 
 /** Re-applies the caps and types to a timeline from the worker, which user code can reach. */
 export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined {
@@ -60,6 +65,8 @@ export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined 
         line: lineOf((frame as TimelineFrame | null)?.line),
       })),
       vars: vars.map(pair => [text(Array.isArray(pair) ? pair[0] : ''), text(Array.isArray(pair) ? pair[1] : '')]),
+      ...(isCount(step.depth) ? { depth: step.depth } : {}),
+      ...(isCount(step.call) ? { call: step.call } : {}),
       ...(typeof step.log === 'string' && LOGS.has(step.log) ? { log: step.log as TimelineStep['log'] } : {}),
       ...(step.error === true ? { error: true as const } : {}),
     });

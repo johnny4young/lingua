@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import { useTimelineStore } from '@/stores/timelineStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useAnnouncerStore } from '@/stores/announcerStore';
 import type { TimelineStep } from '@/../shared/timeline';
 
 const steps: TimelineStep[] = [
@@ -41,7 +42,6 @@ describe('timeline panel', () => {
     expect(strip.querySelectorAll('[data-kind="error"]')).toHaveLength(1);
     expect(screen.getByTestId('timeline-watches').textContent).toContain('pivot1');
     expect(screen.getByTestId('timeline-stack').textContent).toBe('Call stackquickSort :3depth 1<module> :11');
-    expect((screen.getByTestId('timeline-next') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('steps back with the button and walks the strip with the keyboard', async () => {
@@ -71,6 +71,41 @@ describe('timeline panel', () => {
     expect(useTimelineStore.getState().current).toBe(100);
   });
 
+  it('moves by depth with the buttons and keys, and announces a move with nowhere to go', async () => {
+    useTimelineStore.setState({ current: 0 });
+    render(<TimelinePanel />);
+    await userEvent.click(screen.getByTestId('timeline-next'));
+    expect(useTimelineStore.getState().current).toBe(1);
+    await userEvent.click(screen.getByTestId('timeline-backOut'));
+    expect(useTimelineStore.getState().current).toBe(0);
+    const strip = screen.getByTestId('timeline-strip');
+    fireEvent.keyDown(strip, { key: 'ArrowRight' });
+    fireEvent.keyDown(strip, { key: 'ArrowRight', shiftKey: true });
+    expect(useTimelineStore.getState().current).toBe(2);
+    fireEvent.keyDown(strip, { key: 'ArrowLeft', altKey: true });
+    expect(useTimelineStore.getState().current).toBe(0);
+    await userEvent.click(screen.getByTestId('timeline-out'));
+    expect(useTimelineStore.getState().current).toBe(0);
+    expect(useAnnouncerStore.getState().message).toBe('No step to go to from here');
+  });
+
+  it('marks the other runs of the selected line as echoes', () => {
+    const plain = (line: number): TimelineStep => ({ line, frames: [{ name: '<module>', line }], vars: [] });
+    const repeated: TimelineStep[] = [plain(1), plain(2), plain(1), plain(2)];
+    useTimelineStore.setState({ recording: { tabId: 't1', steps: repeated, total: 4, truncated: false, limited: false }, current: 3 });
+    render(<TimelinePanel />);
+    expect(screen.getByTestId('timeline-echoes').textContent).toBe('echoes · line 2 ran 2×');
+    expect(screen.getByTestId('timeline-strip').querySelectorAll('[data-kind="echo"]')).toHaveLength(1);
+  });
+
+  it('keeps the strip to its sample when the selected line ran more often than it has ticks', () => {
+    const loop: TimelineStep[] = Array.from({ length: 2_000 }, (_, i) => ({ line: 5 + (i % 2), frames: [{ name: '<module>', line: 5 }], vars: [] }));
+    useTimelineStore.setState({ recording: { tabId: 't1', steps: loop, total: loop.length, truncated: false, limited: false }, current: 0 });
+    render(<TimelinePanel />);
+    expect(screen.getByTestId('timeline-strip').querySelectorAll('.timeline-tick').length).toBeLessThanOrEqual(401);
+    expect(screen.getByTestId('timeline-echoes').textContent).toContain('1000');
+  });
+
   it('says when Free kept only the last steps, and when the run stopped at the cap', async () => {
     useTimelineStore.setState(state => ({ recording: { ...state.recording!, total: 50, limited: true, truncated: true } }));
     render(<TimelinePanel />);
@@ -91,8 +126,10 @@ describe('timeline in the editor and the Run menu', () => {
   it('highlights the selected line only while the Timeline tab is open', () => {
     useSettingsStore.setState({ featureFlags: { runTimeline: true } });
     const clear = vi.fn();
-    const editor = { createDecorationsCollection: vi.fn(() => ({ clear })), revealLineInCenterIfOutsideViewport: vi.fn() };
-    const monaco = { Range: class { constructor(public a: number) {} } };
+    const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
+    const set = vi.fn();
+    const editor = { getModel: () => model, createDecorationsCollection: vi.fn(() => ({ clear, set })), revealLineInCenterIfOutsideViewport: vi.fn() };
+    const monaco = { Range: class { constructor(public line: number) {} } };
     useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'console' });
     const { rerender } = render(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
     expect(editor.createDecorationsCollection).not.toHaveBeenCalled();
@@ -101,8 +138,68 @@ describe('timeline in the editor and the Run menu', () => {
     expect(editor.revealLineInCenterIfOutsideViewport).toHaveBeenCalledWith(3);
     useTimelineStore.setState({ current: 0 });
     rerender(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
-    expect(clear).toHaveBeenCalled();
+    expect(set).toHaveBeenCalled();
+    expect(editor.createDecorationsCollection).toHaveBeenCalledTimes(1);
     expect(editor.revealLineInCenterIfOutsideViewport).toHaveBeenLastCalledWith(10);
+  });
+
+  it('shows what the line changed, dims unreached lines and flashes a move with nowhere to go', () => {
+    vi.useFakeTimers();
+    try {
+      useSettingsStore.setState({ featureFlags: { runTimeline: true } });
+      useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
+      useTimelineStore.setState({ current: 1 });
+      const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
+      const live: Array<{ decorations: unknown[] }> = [];
+      const editor = {
+        getModel: () => model,
+        createDecorationsCollection: vi.fn((decorations: unknown[]) => {
+          const collection = {
+            decorations,
+            set: (next: unknown[]) => { collection.decorations = next; },
+            clear: () => { collection.decorations = []; },
+          };
+          live.push(collection);
+          return collection;
+        }),
+        revealLineInCenterIfOutsideViewport: vi.fn(),
+      };
+      const monaco = { Range: class { constructor(public line: number, public column: number) {} } };
+      render(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
+      const last = () => JSON.stringify(live.map(collection => collection.decorations));
+      expect(last()).toContain('"content":"pivot = 1"');
+      expect(last()).toContain('"showIfCollapsed":true');
+      expect(last()).toContain('"inlineClassName":"lingua-timeline-unreached"');
+      expect(last()).not.toContain('lingua-timeline-blocked');
+      act(() => { useTimelineStore.getState().go('out', false); });
+      expect(last()).toContain('lingua-timeline-blocked');
+      act(() => { vi.advanceTimersByTime(700); });
+      expect(last()).not.toContain('lingua-timeline-blocked');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('strips bidi and control characters from the value pill', () => {
+    useSettingsStore.setState({ featureFlags: { runTimeline: true } });
+    useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
+    const tricky: TimelineStep[] = [
+      { line: 1, frames: [{ name: '<module>', line: 1 }], vars: [] },
+      { line: 2, frames: [{ name: '<module>', line: 2 }], vars: [['label', '"\u202eevil\nline\u2028x\u200f\u0085"']] },
+    ];
+    useTimelineStore.setState({ recording: { tabId: 't1', steps: tricky, total: 2, truncated: false, limited: false }, current: 0 });
+    const created: unknown[] = [];
+    const editor = {
+      getModel: () => ({ getLineCount: () => 5, getLineMaxColumn: () => 10 }),
+      createDecorationsCollection: vi.fn((decorations: unknown[]) => {
+        created.push(decorations);
+        return { clear: vi.fn(), set: vi.fn() };
+      }),
+      revealLineInCenterIfOutsideViewport: vi.fn(),
+    };
+    const monaco = { Range: class { constructor(public line: number) {} } };
+    render(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
+    expect(JSON.stringify(created)).toContain('"content":"label = \\" evil line x  \\""');
   });
 
   it('offers Record run for JavaScript Worker tabs with the flag on', async () => {
