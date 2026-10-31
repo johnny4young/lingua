@@ -26,6 +26,8 @@ import { create } from 'zustand';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
+import { useSettingsStore } from './settingsStore';
+import { buildRunCompareRecord, type RunCompareRecord, type RunCompareSummary } from '../utils/runCompareRecord';
 
 type ExecutionStatus = 'ok' | 'error';
 
@@ -90,6 +92,8 @@ export interface ExecutionHistoryEntry {
    * `lastCapsule`.
    */
   lastCapsule?: RunCapsuleV1;
+  /** Compare data for the Compare tab, kept only while its Labs flag is on. */
+  runCompare?: RunCompareRecord;
 }
 
 interface ExecutionHistoryRecord {
@@ -118,6 +122,20 @@ interface ExecutionHistoryRecord {
    * cost stays bounded. Omit when the run produced no capsule.
    */
   lastCapsule?: RunCapsuleV1;
+  /** Result line for the Compare tab when the capsule alone cannot say it (SQL rows, HTTP status). */
+  summary?: RunCompareSummary;
+}
+
+/** The Compare tab keeps compare data only for paid tiers with its Labs flag on. */
+export function runCompareCaptureOn(): boolean {
+  try {
+    return (
+      useSettingsStore.getState().featureFlags.runCompare === true &&
+      isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY')
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -169,7 +187,8 @@ function pruneCapsulesToCap(
   let keptCapsules = 0;
   for (let i = entries.length - 1; i >= 0; i -= 1) {
     const entry = entries[i]!;
-    if (entry.lastCapsule !== undefined) {
+    // A pinned run keeps its capsule outside the cap: the user asked for it.
+    if (entry.lastCapsule !== undefined && !entry.pinned) {
       if (keptCapsules < cap) {
         withCapsule.unshift(entry);
         keptCapsules += 1;
@@ -319,6 +338,9 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       ...(input.lastCapsule !== undefined
         ? { lastCapsule: input.lastCapsule }
         : {}),
+      ...(input.lastCapsule !== undefined && runCompareCaptureOn()
+        ? { runCompare: buildRunCompareRecord(input.lastCapsule, input.summary) }
+        : {}),
     };
     set((state) => {
       const next = [...state.entries, entry];
@@ -422,7 +444,7 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
         changed = true;
         return { ...entry, pinned: !entry.pinned };
       });
-      return changed ? { entries } : state;
+      return changed ? { entries: pruneCapsulesToCap(entries) } : state;
     });
   },
 }));
