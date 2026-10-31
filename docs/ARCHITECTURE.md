@@ -738,7 +738,10 @@ only tracks the current line), marks the step that logged or threw, and posts
 one `timeline` message before `done`. `timelineStore` keeps the latest
 recording in memory after `sanitizeTimeline` re-applies the caps in the
 shell (Free keeps its last 20 steps); a later manual run or
-Scratchpad auto-run of the tab drops it. Replay reads the recording and never runs the code again.
+Scratchpad auto-run of the tab drops it. Replay reads the recording and never runs the code again:
+`utils/timelineModel.ts` derives depth moves (Over skips deeper calls, Out
+leaves the call, both backward too), the other runs of a line, what a line
+changed against the next step in the same call, and the lines not reached yet.
 
 ## Notebook lazy-reactivity boundary
 

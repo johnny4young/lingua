@@ -17,5 +17,14 @@
   "timeline.callStack": "Call stack",
   "timeline.depth": "depth {{depth}}",
   "timeline.limited": "Free keeps the last {{count}} of {{total}} steps",
-  "timeline.empty": "The run had no steps to record."
+  "timeline.empty": "The run had no steps to record.",
+  "timeline.backOut": "Back out",
+  "timeline.backOutLabel": "Step back out to the caller",
+  "timeline.over": "Over",
+  "timeline.overLabel": "Step over to the next line in this call",
+  "timeline.out": "Out",
+  "timeline.outLabel": "Step out to the caller",
+  "timeline.unreachable": "No step to go to from here",
+  "timeline.legend.echoes": "echoes · line {{line}} ran {{count}}×",
+  "timeline.echoPill": "echo {{position}} of {{count}}"
 }

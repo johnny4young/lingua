@@ -1,20 +1,32 @@
 import { useMemo, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CornerLeftUp, CornerRightUp, Redo2 } from 'lucide-react';
 import '../../i18n/timelineCatalog';
 import type { TimelineStep } from '../../../shared/timeline';
 import { useTimelineStore } from '../../stores/timelineStore';
+import { announce } from '../../stores/announcerStore';
+import { timelineEchoes, type TimelineMove } from '../../utils/timelineModel';
 import { cn } from '../../utils/cn';
 import { EyebrowMono } from '../ui/primitives';
 
 /** Past this many steps the strip draws marked steps and an even sample, not every tick. */
 const MAX_TICKS = 400;
 
-function ticksFor(steps: readonly TimelineStep[], current: number): number[] {
+function ticksFor(steps: readonly TimelineStep[], current: number, echoes: ReadonlySet<number>): number[] {
   if (steps.length <= MAX_TICKS) return steps.map((_, index) => index);
   const every = Math.ceil(steps.length / MAX_TICKS);
-  return steps.flatMap((step, index) => (index % every === 0 || step.log || step.error || index === current ? [index] : []));
+  return steps.flatMap((step, index) =>
+    index % every === 0 || step.log || step.error || index === current || echoes.has(index) ? [index] : []
+  );
 }
+
+const STEP_BUTTONS = [
+  { id: 'backOut', move: 'out', backward: true, icon: CornerLeftUp },
+  { id: 'back', move: 'into', backward: true, icon: ChevronLeft },
+  { id: 'next', move: 'into', backward: false, icon: ChevronRight },
+  { id: 'over', move: 'over', backward: false, icon: Redo2 },
+  { id: 'out', move: 'out', backward: false, icon: CornerRightUp },
+] as const;
 
 /** Replay of the latest Record run: the strip of steps and the state as of the selected one. */
 export function TimelinePanel() {
@@ -23,19 +35,27 @@ export function TimelinePanel() {
   const current = useTimelineStore(state => state.current);
   const select = useTimelineStore(state => state.select);
   const stepBy = useTimelineStore(state => state.step);
+  const go = useTimelineStore(state => state.go);
   const steps = recording?.steps ?? [];
-  const ticks = useMemo(() => ticksFor(steps, current), [steps, current]);
+  const echoes = useMemo(() => timelineEchoes(steps, current), [steps, current]);
+  const echoSet = useMemo(() => new Set(echoes.indices.length > 1 ? echoes.indices : []), [echoes]);
+  const ticks = useMemo(() => ticksFor(steps, current, echoSet), [steps, current, echoSet]);
   if (!recording) return null;
 
   const step = steps[current];
   const count = steps.length;
   const position = (index: number) => (count <= 1 ? 0 : (index / (count - 1)) * 100);
+  const move = (kind: TimelineMove, backward: boolean) => {
+    if (!go(kind, backward)) announce(t('timeline.unreachable'));
+  };
   const onStripKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const moves: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, PageUp: -10, PageDown: 10 };
+    const pages: Record<string, number> = { PageUp: -10, PageDown: 10 };
     if (event.key === 'Home') select(0);
     else if (event.key === 'End') select(count - 1);
-    else if (moves[event.key] !== undefined) stepBy(moves[event.key]!);
-    else return;
+    else if (pages[event.key] !== undefined) stepBy(pages[event.key]!);
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      move(event.altKey ? 'out' : event.shiftKey ? 'over' : 'into', event.key === 'ArrowLeft');
+    } else return;
     event.preventDefault();
   };
   const onStripClick = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -53,28 +73,20 @@ export function TimelinePanel() {
           {recording.truncated ? ` · ${t('timeline.truncated', { count: recording.total })}` : ''}
         </span>
         <span className="flex-1" />
-        <button
-          type="button"
-          className="button-secondary inline-flex h-[26px] items-center gap-1 px-[9px] text-caption"
-          aria-label={t('timeline.backLabel')}
-          disabled={current === 0}
-          onClick={() => stepBy(-1)}
-          data-testid="timeline-back"
-        >
-          <ChevronLeft size={12} aria-hidden="true" />
-          {t('timeline.back')}
-        </button>
-        <button
-          type="button"
-          className="button-secondary inline-flex h-[26px] items-center gap-1 px-[9px] text-caption"
-          aria-label={t('timeline.nextLabel')}
-          disabled={current >= count - 1}
-          onClick={() => stepBy(1)}
-          data-testid="timeline-next"
-        >
-          {t('timeline.next')}
-          <ChevronRight size={12} aria-hidden="true" />
-        </button>
+        {STEP_BUTTONS.map(button => (
+          <button
+            key={button.id}
+            type="button"
+            className="button-secondary inline-flex h-[26px] shrink-0 items-center gap-1 px-[9px] text-caption"
+            aria-label={t(`timeline.${button.id}Label`)}
+            onClick={() => move(button.move, button.backward)}
+            data-testid={`timeline-${button.id}`}
+          >
+            {button.backward ? <button.icon size={12} aria-hidden="true" /> : null}
+            {t(`timeline.${button.id}`)}
+            {button.backward ? null : <button.icon size={12} aria-hidden="true" />}
+          </button>
+        ))}
       </header>
 
       {count === 0 ? (
@@ -99,7 +111,7 @@ export function TimelinePanel() {
                 <span
                   key={index}
                   data-current={index === current ? 'true' : undefined}
-                  data-kind={steps[index]!.error ? 'error' : steps[index]!.log ? 'log' : undefined}
+                  data-kind={steps[index]!.error ? 'error' : steps[index]!.log ? 'log' : echoSet.has(index) && index !== current ? 'echo' : undefined}
                   className="timeline-tick"
                   style={{ left: `calc(8px + (100% - 16px) * ${position(index) / 100})` }}
                 />
@@ -110,6 +122,12 @@ export function TimelinePanel() {
                 <span className="timeline-swatch" data-kind="current" />
                 {t('timeline.legend.current', { step: current + 1, line: step?.line })}
               </span>
+              {echoSet.size > 0 ? (
+                <span className="inline-flex items-center gap-1.5" data-testid="timeline-echoes">
+                  <span className="timeline-swatch" data-kind="echo" />
+                  {t('timeline.legend.echoes', { line: step?.line, count: echoSet.size })}
+                </span>
+              ) : null}
               <span className="inline-flex items-center gap-1.5">
                 <span className="timeline-swatch" data-kind="log" />
                 {t('timeline.legend.log')}

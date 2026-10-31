@@ -48,6 +48,13 @@ test.describe('Execution timeline', () => {
       await page.getByTestId('timeline-strip').press('ArrowRight');
       await expect(page.getByTestId('timeline-stack')).toContainText('double :1');
       await expect(page.getByTestId('timeline-watches')).toContainText('n1');
+
+      await expect(page.getByTestId('timeline-echoes')).toBeVisible();
+      await expect(page.locator('.lingua-timeline-value')).toHaveCount(1);
+      await page.getByTestId('timeline-out').click();
+      await expect(page.getByTestId('timeline-stack')).not.toContainText('double');
+      await page.getByTestId('timeline-backOut').click();
+      await expect(page.getByTestId('timeline-current')).toContainText(language === 'en' ? 'line 3' : 'línea 3');
     });
   }
 
