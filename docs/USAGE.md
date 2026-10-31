@@ -303,9 +303,9 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Execution timeline (Labs)
 
-- Turn on **Settings › Labs › Execution timeline**, then pick **Record run** in the Run menu on a JavaScript or TypeScript tab that runs in the Worker. The run keeps every step, inside loops, branches and functions too, and opens the **Timeline** tab in the Dock.
-- The strip has one tick per step: blue where the step wrote to the console, red where the run threw, and the current step taller. Click it, or focus it and use the arrow keys, `Page Up`/`Page Down`, `Home` and `End`; **Back** and **Next** move one step. The editor highlights the step's line, and the panel shows the variables and the call stack as of that step. Nothing runs again.
-- A recording keeps up to 5,000 steps and 30 values of 120 characters per step, in memory only; a run that goes further says where it stopped. Free keeps the last 20 steps. Running the tab again, without Record run, drops the recording.
+- Turn on **Settings › Labs › Execution timeline**, then pick **Record run** in the Run menu on a JavaScript or TypeScript tab that runs in the Worker. The run keeps every statement it reaches, inside loop and `if` blocks and functions too, and opens the **Timeline** tab in the Dock. A loop or `if` body without braces, or an arrow function that returns an expression, counts as part of the line that holds it.
+- The strip has one tick per step (past 400 steps, an even sample plus every marked step): blue where the step wrote to the console, red where the run threw, and the current step taller. Click it, or focus it and use the arrow keys, `Page Up`/`Page Down`, `Home` and `End`; **Back** and **Next** move one step. The editor highlights the step's line, and the panel shows the variables and the call stack as of that step, before its line runs. Nothing runs again.
+- A recording keeps up to 5,000 steps, 30 values of 120 characters per step and about 2 million characters of values in all, in memory only; a run that goes further says it stopped recording. Free keeps the last 20 steps. Values are short previews two levels deep; getters show as `[Getter]` and are never called, so recording does not run your code twice. A recorded run does not time lines (`// @time`) or fill the Variables tab. Running the tab again, by hand or by Scratchpad, drops the recording.
 
 ## Run state (Labs)
 

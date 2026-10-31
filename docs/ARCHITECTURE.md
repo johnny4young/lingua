@@ -232,8 +232,8 @@ Pyodide tests cover failure, recovery, notebook namespaces and stream restoratio
 
 JS/TS transforms retain the original expression characters and emit high-resolution
 source maps only when requested by a runner. Maps are passed newest-first through
-the worker protocol: debugger instrumentation, TypeScript transpilation, timing,
-captures and loop guards. Both console origins and execution errors use the same
+the worker protocol: debugger or timeline instrumentation, TypeScript
+transpilation, timing, captures and loop guards. Both console origins and execution errors use the same
 map chain, including structured errors from non-fatal captures. TypeScript parse
 errors use esbuild's structured locations, not numbers extracted from its message.
 
@@ -728,12 +728,17 @@ Record run (Labs) is separate from the debugger. The JS / TS runner asks
 statement in every statement list, on the same line, so nothing pauses and no
 `await` is added; synchronous functions also push and pop a frame, while async
 functions and generators record without one because their bodies interleave.
-Loop-protection guards are skipped. The worker's step buffer keeps line,
-frames and value previews, stops at 5,000 steps or 2 MB of values (and then
+Loop-protection guard statements are not recorded as steps (the protection
+still applies), and record runs skip line timing and scope capture, like Debug.
+The worker's step buffer keeps line, frames and value previews (bounded, two
+levels deep, never calling getters or `toJSON`), never throws into user code,
+stops at 5,000
+steps or 2 million characters of values (and then
 only tracks the current line), marks the step that logged or threw, and posts
 one `timeline` message before `done`. `timelineStore` keeps the latest
-recording in memory (Free keeps its last 20 steps); a later run of the tab
-drops it. Replay reads the recording and never runs the code again.
+recording in memory after `sanitizeTimeline` re-applies the caps in the
+shell (Free keeps its last 20 steps); a later manual run or
+Scratchpad auto-run of the tab drops it. Replay reads the recording and never runs the code again.
 
 ## Notebook lazy-reactivity boundary
 

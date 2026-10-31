@@ -1,3 +1,4 @@
+import { useTimelineStore } from '../stores/timelineStore';
 import { executionKind } from '../utils/executionOutcome';
 import { webExecutionBoundary } from '../utils/runtimeModeSupport';
 import { isLanguageAllowed } from '../../shared/entitlements';
@@ -141,6 +142,7 @@ export async function executeAutoRun({
   setExecutionSource('auto');
   setAutoRunGateReason(gate.reason);
   useResultStore.getState().setRanCode({ tabId: activeTab.id, code, input: runInputKey(stdinBuffer, activeTab.inputArgs), at: Date.now() });
+  useTimelineStore.getState().clearTab(activeTab.id);
 
   let armedDeadlineAt: number | null = null;
   try {

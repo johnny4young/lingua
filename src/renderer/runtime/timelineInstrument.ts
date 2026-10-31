@@ -97,9 +97,32 @@ function snapshotFor(scope: string[]): string {
   return buildLocalSnapshotExpression(names);
 }
 
+/** `var` names a body declares, nested blocks included, functions excluded. */
+function varNames(node: AcornNode, names = new Set<string>()): Set<string> {
+  if (!isNode(node) || isFunction(node)) return names;
+  if (node.type === 'VariableDeclaration' && node.kind === 'var') {
+    for (const name of namesOf([node])) names.add(name);
+  }
+  for (const key of Object.keys(node)) {
+    const value = node[key];
+    if (Array.isArray(value)) for (const child of value) varNames(child, names);
+    else if (isNode(value)) varNames(value, names);
+  }
+  return names;
+}
+
+/** Inside `try {}` a function declaration turns lexical, so one that shares a `var` name would no longer parse. */
+function canWrapBody(body: AcornNode): boolean {
+  const functions = body.body.filter((stmt: AcornNode) => stmt.type === 'FunctionDeclaration').map((stmt: AcornNode) => stmt.id?.name);
+  if (functions.length === 0) return true;
+  const vars = new Set<string>();
+  for (const stmt of body.body) varNames(stmt, vars);
+  return !functions.some((name: string | undefined) => name !== undefined && vars.has(name));
+}
+
 function wrapFrame(node: AcornNode, parent: AcornNode | null, ms: MagicString, translate: LineTranslator): void {
   const body = node.body;
-  if (body?.type !== 'BlockStatement' || body.body.length === 0 || node.async || node.generator) return;
+  if (body?.type !== 'BlockStatement' || body.body.length === 0 || node.async || node.generator || !canWrapBody(body)) return;
   const firstCode = body.body.find((stmt: AcornNode) => !(stmt.type === 'ExpressionStatement' && typeof stmt.directive === 'string'));
   if (!firstCode) return;
   const line = translate(node.loc.start.line);

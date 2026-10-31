@@ -68,4 +68,10 @@ describe('timeline instrumentation', () => {
     expect(code).toContain('__lingua_rec_enter("add", 1)');
     expect(code).toContain('__lingua_rec_enter("run", 5)');
   });
+
+  it('leaves a body whose function declaration shares a var name unwrapped, so it still parses', () => {
+    const { code, result } = record('function f() {\n  var g = 1;\n  return typeof g;\n  function g() {}\n}\nreturn f();');
+    expect(result).toBe('number');
+    expect(code).not.toContain('__lingua_rec_enter("f"');
+  });
 });

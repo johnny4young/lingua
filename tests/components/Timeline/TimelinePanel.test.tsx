@@ -61,7 +61,7 @@ describe('timeline panel', () => {
     useTimelineStore.setState(state => ({ recording: { ...state.recording!, total: 50, limited: true, truncated: true } }));
     render(<TimelinePanel />);
     expect(screen.getByTestId('timeline-limited').textContent).toBe('PROFree keeps the last 3 of 50 steps');
-    expect(screen.getByTestId('timeline-summary').textContent).toBe('50 steps · recorded · stopped at 5,000 steps');
+    expect(screen.getByTestId('timeline-summary').textContent).toBe('50 steps · recorded · stopped recording at its cap');
   });
 
   it('reads in Spanish and explains an empty recording', async () => {

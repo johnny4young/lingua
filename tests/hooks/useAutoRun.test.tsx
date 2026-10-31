@@ -9,6 +9,7 @@ import { useResultStore } from '@/stores/resultStore';
 import { useConsoleStore } from '@/stores/consoleStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 import { loadAutoRunExecution } from '@/hooks/autoRunExecutionLoader';
 import {
   claimNotebookRunner,
@@ -192,6 +193,20 @@ describe('useAutoRun', () => {
     });
     expect(runnerManager.stop).toHaveBeenCalledWith('javascript', undefined);
     expect(useResultStore.getState().isAutoRunning).toBe(false);
+  });
+
+  it('drops the tab recording when Scratchpad runs again', async () => {
+    mockSuccessfulRunner();
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'console.log(1)', isDirty: false, workflowMode: 'scratchpad' }],
+      activeTabId: 'tab-js',
+    });
+    useTimelineStore.setState({ recording: { tabId: 'tab-js', steps: [], total: 0, truncated: false, limited: false }, current: 0 });
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS);
+    });
+    expect(useTimelineStore.getState().recording).toBeNull();
   });
 
   it('buckets auto-log counts into the telemetry allowlist', () => {

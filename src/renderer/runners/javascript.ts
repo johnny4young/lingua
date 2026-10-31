@@ -133,8 +133,7 @@ export class JavaScriptRunner implements LanguageRunner {
     // statements) and BEFORE scope capture so the appended capture code
     // is never attributed to a user statement. Enabled by the Settings
     // toggle (context.lineTiming) OR a `// @time` directive in the
-    // buffer; debug runs never instrument — pause/step already owns
-    // that view.
+    // buffer; debug and record runs never instrument — they own that view.
     let codeWithTiming = codeWithAutoLog;
     if (
       !debug &&

@@ -56,7 +56,7 @@ export interface ExecutionContext {
    * a `__mc_tick(line)` marker so the worker can attribute wall-clock
    * time per statement. A `// @time` magic comment in the buffer
    * enables the same instrumentation regardless of this flag; debug
-   * runs never instrument.
+   * and record runs never instrument.
    */
   lineTiming?: boolean;
   /**

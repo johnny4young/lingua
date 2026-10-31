@@ -86,7 +86,8 @@ and whenever the element or viewport changes; the width hint only guards the
 first render before a DOM measurement exists.
 
 All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
-full-width editor. Its tab row always lists Console; Input, Compare, Variables,
+full-width editor. Its tab row always lists Console; Input, Compare, Timeline
+(Labs, after a Record run), Variables,
 Terminal and Tests (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
 and carries the run controls: auto-log, run status, recent runs, time, capsule

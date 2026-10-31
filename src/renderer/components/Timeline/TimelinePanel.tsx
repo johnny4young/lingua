@@ -2,7 +2,7 @@ import { useMemo, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as R
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import '../../i18n/timelineCatalog';
-import { TIMELINE_MAX_STEPS, type TimelineStep } from '../../../shared/timeline';
+import type { TimelineStep } from '../../../shared/timeline';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { cn } from '../../utils/cn';
 import { EyebrowMono } from '../ui/primitives';
@@ -49,7 +49,7 @@ export function TimelinePanel() {
         <EyebrowMono>{t('timeline.title')}</EyebrowMono>
         <span className="truncate font-mono text-caption text-fg-muted" data-testid="timeline-summary">
           {t('timeline.summary', { count: recording.total })}
-          {recording.truncated ? ` · ${t('timeline.truncated', { max: TIMELINE_MAX_STEPS.toLocaleString() })}` : ''}
+          {recording.truncated ? ` · ${t('timeline.truncated', { count: recording.total })}` : ''}
         </span>
         <span className="flex-1" />
         <button
@@ -119,7 +119,7 @@ export function TimelinePanel() {
               </span>
               {recording.limited ? (
                 <span className="ml-auto inline-flex items-center gap-1.5" data-testid="timeline-limited">
-                  <span className="rounded border border-warning-border bg-warning-bg px-1 font-mono text-micro font-bold text-warning-fg">PRO</span>
+                  <span className="rounded border border-warning-border bg-warning-bg px-1 font-mono text-micro font-bold text-warning-fg">{t('actionPill.badgePro')}</span>
                   {t('timeline.limited', { count, total: recording.total })}
                 </span>
               ) : null}

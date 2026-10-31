@@ -134,4 +134,29 @@ describe('runner scope-capture wiring', () => {
       worker.restore();
     }
   });
+
+  it('checks the timeline the worker posts before it reaches the result', async () => {
+    const originalWorker = globalThis.Worker;
+    class TimelineWorker {
+      private handler: ((event: MessageEvent) => void) | null = null;
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.handler = handler;
+      }
+      postMessage(message: Record<string, unknown>): void {
+        const forged = { steps: [{ line: 'x', frames: [{ name: { evil: true }, line: 1 }], vars: [] }], truncated: 'no' };
+        this.handler?.({ data: { type: 'timeline', runId: message.runId, timeline: forged } } as MessageEvent);
+        this.handler?.({ data: { type: 'done', runId: message.runId, executionTime: 1 } } as MessageEvent);
+      }
+      terminate(): void {}
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: TimelineWorker, writable: true, configurable: true });
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+      const result = await runner.execute('const a = 1;', { record: true });
+      expect(result.timeline).toEqual({ steps: [{ line: 0, frames: [{ name: '<anonymous>', line: 1 }], vars: [] }], truncated: false });
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', { value: originalWorker, writable: true, configurable: true });
+    }
+  });
 });

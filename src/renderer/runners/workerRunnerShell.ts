@@ -20,7 +20,7 @@
  * agree about them.
  */
 
-import type { ExecutionTimeline } from '../../shared/timeline';
+import { sanitizeTimeline, type ExecutionTimeline } from '../../shared/timeline';
 import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import type {
@@ -348,7 +348,7 @@ export class WorkerRunnerShell {
             lineTimings = msg.entries;
             break;
           case 'timeline':
-            timeline = msg.timeline;
+            timeline = sanitizeTimeline(msg.timeline);
             break;
           case 'result':
             result = msg.value;
@@ -507,7 +507,7 @@ export class WorkerRunnerShell {
         // / `readline()` answers. Empty or undefined leaves the native worker
         // behavior in place.
         stdin: context?.stdin,
-        // Variable inspector capture. Debug runs skip it; the debugger drawer
+        // Variable inspector capture. Debug and record runs skip it; the debugger drawer
         // already exposes the paused-frame locals and a second snapshot would
         // race with the resume protocol.
         captureScope: !debug && spec.record !== true && context?.captureScope === true,

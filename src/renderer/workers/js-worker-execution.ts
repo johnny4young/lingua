@@ -134,10 +134,16 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
 
       const source = await createJsWorkerSourceMapper(exec.sourceMaps, exec.sourceLineCount);
       installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames);
-      const timeline = exec.record === true ? createJsWorkerTimeline(marker) : null;
+      const timeline = exec.record === true ? createJsWorkerTimeline() : null;
       if (timeline) watchJsWorkerConsoleForTimeline(timeline);
+      // A timeline that cannot be posted is dropped, so `done` still follows.
       const flushTimeline = () => {
-        if (timeline) ctx.postMessage({ type: 'timeline', runId, timeline: timeline.snapshot() });
+        if (!timeline) return;
+        try {
+          ctx.postMessage({ type: 'timeline', runId, timeline: timeline.snapshot() });
+        } catch {
+          // Nothing to recover; the run result does not depend on it.
+        }
       };
 
       const session = createJsWorkerDebuggerSession(runId);

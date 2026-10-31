@@ -176,7 +176,7 @@ export class TypeScriptRunner implements LanguageRunner {
     // Timing markers BEFORE transpile, mirroring the
     // auto-log strategy: the line number is baked into the call
     // argument, so esbuild's line shifts downstream cannot corrupt the
-    // attribution. Debug runs never instrument.
+    // attribution. Debug and record runs never instrument.
     let codeWithTiming = codeForTranspile;
     if (
       !debug &&
