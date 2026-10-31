@@ -314,6 +314,9 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
         status: last.response.status === 'success' ? 'ok' : 'error',
         durationMs: last.response.durationMs,
         ...(capsule !== undefined ? { lastCapsule: capsule } : {}),
+        ...(isResult(last.response.status)
+          ? { summary: { kind: 'rows' as const, count: last.response.rowCount, columns: last.response.columns.slice(0, 8).map((column) => column.name) } }
+          : {}),
       });
     },
     [timeoutMs, t, announce, onSchemaChanged]

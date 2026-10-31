@@ -79,6 +79,24 @@ describe('Local data summary', () => {
     );
   });
 
+  it('counts and clears runs kept for Compare runs even after their capsules are gone', async () => {
+    sqlBytesMock.mockResolvedValue(0);
+    useImportedCapsuleStore.setState({ entries: [] });
+    useExecutionHistoryStore.setState({
+      entries: [{ id: 'kept', runCompare: { code: 'secret', stdout: 'out' } } as unknown as ExecutionHistoryEntry],
+    });
+    render(<PrivacyTrustSection />);
+    await waitFor(() => expect(sqlBytesMock).toHaveBeenCalled());
+    expect(screen.getByTestId('privacy-local-data-total').textContent).toContain('1 run kept for Compare runs');
+
+    const clearAll = screen.getByTestId('privacy-local-data-clear-all') as HTMLButtonElement;
+    await waitFor(() => expect(clearAll.disabled).toBe(false));
+    fireEvent.click(clearAll);
+    expect(within(screen.getByTestId('privacy-clear-all-items')).getByText('Code and output of 1 run kept for Compare runs')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('privacy-clear-all-confirm'));
+    await waitFor(() => expect(useExecutionHistoryStore.getState().entries[0]?.runCompare).toBeUndefined());
+  });
+
   it('says the SQL database is open when its size cannot be read', async () => {
     sqlBytesMock.mockResolvedValue(null);
     render(<PrivacyTrustSection />);

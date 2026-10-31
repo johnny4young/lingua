@@ -565,6 +565,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           status: response.kind === 'success' ? 'ok' : 'error',
           durationMs: response.durationMs,
           ...(capsule !== undefined ? { lastCapsule: capsule } : {}),
+          ...(response.kind === 'success'
+            ? { summary: { kind: 'http' as const, method: requestToSend.method, status: response.status, statusText: response.statusText, bytes: response.sizeBytes } }
+            : {}),
         });
         return response;
       } catch (err) {

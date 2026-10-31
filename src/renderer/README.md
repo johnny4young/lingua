@@ -215,6 +215,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
+| [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs (Labs): runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
 | [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestFailureCardHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestFailureCard.tsx`), `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, and the failure card under the assertion line |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
@@ -473,7 +474,10 @@ Sharing separates its always-available triggers from both implementations:
 Result comparison has its own activation boundary:
 
 - [`hooks/useLayoutAvailability.ts`](hooks/useLayoutAvailability.ts) keeps the
-  stable-snapshot gate that decides when the dock offers Compare.
+  stable-snapshot gate that decides when the dock offers Compare. With Compare
+  runs on ([`hooks/useRunCompareActive.ts`](hooks/useRunCompareActive.ts)), any
+  recorded run opens the tab, which then loads the lazy
+  [`components/RunCompare/RunComparePanel.tsx`](components/RunCompare/RunComparePanel.tsx).
 - [`components/Editor/CompareResultsPanelHost.tsx`](components/Editor/CompareResultsPanelHost.tsx)
   provides localized loading and reload states without importing the diff
   implementation.
@@ -771,7 +775,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookReactivity.ts](stores/notebookReactivity.ts) (execution evidence, conservative invalidation, and persisted-ledger validation), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/invalidation/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from leaves, never back from the assembled store |
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) + [dependencyDetectionRuntime.ts](hooks/dependencyDetectionRuntime.ts) | per-tab dependency cache/install state plus a startup-safe eligibility/debounce hook; parser loading and platform classification activate only when source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
 | [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
-| [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
+| [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors, Compare runs records |
 | [importedCapsuleStore.ts](stores/importedCapsuleStore.ts) | capsules opened from Import this session, listed by the capsule browser as not run; memory only |
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |

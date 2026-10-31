@@ -27,6 +27,8 @@ import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBri
 import { Tooltip } from '../ui/chrome';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
+import { useRunCompareActive } from '../../hooks/useRunCompareActive';
+import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
@@ -62,6 +64,11 @@ const GitDiffPanel = lazy(async () => {
 const RecipeRunPanel = lazy(async () => {
   const module = await import('../Recipes/RecipeRunPanel');
   return { default: module.RecipeRunPanel };
+});
+
+const RunComparePanel = lazy(async () => {
+  const module = await import('../RunCompare/RunComparePanel');
+  return { default: module.RunComparePanel };
 });
 
 const TestsPanel = lazy(async () => {
@@ -131,7 +138,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const stdinLines = useEditorStore(
     s => (getActiveTab(s)?.stdinBuffer ?? '').split('\n').filter(line => line !== '').length
   );
-  const compareCount = useResultStore(state => comparableSnapshotCountFor(state, activeLanguage));
+  const snapshotCount = useResultStore(state => comparableSnapshotCountFor(state, activeLanguage));
+  const runCompareActive = useRunCompareActive();
+  const runCount = useExecutionHistoryStore(state => state.entries.length);
+  const compareCount = runCompareActive ? runCount : snapshotCount;
   const variableCount = useResultStore(state =>
     scopeSnapshotVariableCountFor(state, activeLanguage)
   );
@@ -276,6 +286,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             <BrowserPreviewPanel />
           ) : effectiveTab === 'stdin' ? (
             <StdinInputPanel />
+          ) : effectiveTab === 'compare' && runCompareActive ? (
+            <Suspense fallback={null}>
+              <RunComparePanel activeTabId={activeTabId ?? null} />
+            </Suspense>
           ) : effectiveTab === 'compare' ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <CompareResultsPanelHost

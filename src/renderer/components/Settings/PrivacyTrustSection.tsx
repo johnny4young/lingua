@@ -120,6 +120,7 @@ export function PrivacyTrustSection() {
   const capsulesRetained =
     useExecutionHistoryStore(s => s.entries.filter(entry => entry.lastCapsule !== undefined).length) +
     useImportedCapsuleStore(s => s.entries.length);
+  const compareRunsRetained = useExecutionHistoryStore(s => s.entries.filter(entry => entry.runCompare !== undefined).length);
   const dependencyInstallLastAt = useDependencyDetectionStore(s => {
     let latest: number | null = null;
     for (const entry of s.installByTab.values()) {
@@ -241,6 +242,7 @@ export function PrivacyTrustSection() {
             <LocalDataSummary
               rows={localRows}
               capsuleCount={capsulesRetained}
+              compareRunCount={compareRunsRetained}
               clearStore={clearStore}
               onCleared={() => setRefreshTick(tick => tick + 1)}
             />

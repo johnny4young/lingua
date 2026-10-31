@@ -164,7 +164,12 @@ describe('SqlWorkspacePanel', () => {
       'sql-query-editor-textarea'
     ) as HTMLTextAreaElement;
     await user.type(textarea, 'SELECT 1');
+    const record = vi.spyOn(useExecutionHistoryStore.getState(), 'record');
     await user.click(screen.getByTestId('sql-query-editor-run'));
+    await waitFor(() => {
+      expect(record).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.objectContaining({ kind: 'rows', count: 2 }) }));
+    });
+    record.mockRestore();
     await waitFor(() => {
       expect(useWorkspaceSqlStore.getState().getLatestResponse(
         useWorkspaceSqlStore.getState().queries[0]!.id

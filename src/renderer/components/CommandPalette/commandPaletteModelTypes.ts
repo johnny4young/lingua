@@ -291,6 +291,8 @@ export interface BuildCommandPaletteModelArgs {
    * to diff against — same UX contract as the toggle button.
    */
   compareSnapshotAvailable?: boolean;
+  /** Compare runs is on and a run exists, so Compare opens the session's runs. */
+  compareShowsRuns?: boolean;
   /**
    * Fires the "Toggle variable inspector"
    * palette action. Caller wires it via
