@@ -183,7 +183,7 @@ function EditorArea() {
           </div>
         ) : null}
       </div>
-      <div className="min-h-0 flex-1">
+      <div data-tour-id="editor-code" className="min-h-0 flex-1">
         {utilitiesTabOpen ? (
           <div className={cn('h-full min-h-0', activeUtilitiesTabId === null && 'hidden')}>
             <WorkspaceErrorBoundary region="utilities">

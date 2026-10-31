@@ -77,7 +77,9 @@ function Harness() {
   return (
     <div>
       {/* The first tour step + the start gate both wait on this selector. */}
-      <div id="guided-tour-editor" />
+      <div id="guided-tour-editor">
+        <div data-tour-id="editor-code" />
+      </div>
       <button type="button" data-tour-id="run-button">
         Run
       </button>
@@ -126,6 +128,19 @@ describe('GuidedTour focus management (accessibility pass)', () => {
     } else {
       delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     }
+  });
+
+  it('shows the step count, Back and the action first, and Skip last', async () => {
+    renderTour();
+    fireEvent.click(screen.getByTestId('trigger'));
+    const dialog = await screen.findByRole('dialog');
+    expect(screen.getByTestId('guided-tour-progress').textContent).toBe('Tour · 1 of 3');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(screen.getByTestId('guided-tour-progress').textContent).toBe('Tour · 2 of 3'));
+    const labels = Array.from(dialog.querySelectorAll('.guided-tour-actions button')).map(button => button.textContent);
+    expect(labels).toEqual(['Back', 'Run sample', 'Skip tour']);
+    const dots = Array.from(dialog.querySelectorAll('.guided-tour-dots > span')).map(dot => dot.getAttribute('data-state'));
+    expect(dots).toEqual(['done', 'current', 'upcoming']);
   });
 
   it('moves focus into the dialog when the tour opens', async () => {

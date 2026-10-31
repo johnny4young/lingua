@@ -215,6 +215,7 @@
   "tour.buttons.finish": "Finish",
   "tour.buttons.skip": "Skip tour",
   "tour.options.dontShowAgain": "Don't show this tour on startup",
+  "tour.progress": "Tour · {{current}} of {{total}}",
   "tour.error.loadFailed": "The guided tour could not load. Try again.",
   "about.actions.showTourOnStartup.label": "Show guided tour on startup",
   "tour.step.editor.title": "Editor workspace",

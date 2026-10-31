@@ -215,6 +215,7 @@
   "tour.buttons.finish": "Finalizar",
   "tour.buttons.skip": "Omitir tour",
   "tour.options.dontShowAgain": "No volver a mostrar este tour al iniciar",
+  "tour.progress": "Tour · {{current}} de {{total}}",
   "tour.error.loadFailed": "No se pudo cargar el tour guiado. Inténtalo de nuevo.",
   "about.actions.showTourOnStartup.label": "Mostrar tour guiado al iniciar",
   "tour.step.editor.title": "Espacio del editor",

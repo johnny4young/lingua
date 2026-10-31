@@ -11,6 +11,7 @@ export type GuidedTourPlacement =
   | 'bottom-end'
   | 'right'
   | 'right-start'
+  | 'inside-end'
   | 'top';
 
 export interface GuidedTourStepOptions {
@@ -64,7 +65,7 @@ export function buildGuidedTourSteps({
       id: 'tour-editor',
       title: t('tour.step.editor.title'),
       text: t('tour.step.editor.text'),
-      attachTo: attachTo(GUIDED_TOUR_SELECTORS.editor, 'right-start'),
+      attachTo: attachTo(GUIDED_TOUR_SELECTORS.editorCode, 'inside-end'),
       buttons: ['skip', 'next'],
     },
     {
