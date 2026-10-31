@@ -1331,6 +1331,7 @@ describe('buildCommandPaletteModel — compare actions ', () => {
     onToggleCompareWithSnapshot?: () => void;
     activeCompareEnabled?: boolean;
     compareSnapshotAvailable?: boolean;
+    compareShowsRuns?: boolean;
     onClose?: () => void;
   }) {
     return buildCommandPaletteModel({
@@ -1339,6 +1340,7 @@ describe('buildCommandPaletteModel — compare actions ', () => {
       onToggleCompareWithSnapshot: args.onToggleCompareWithSnapshot,
       activeCompareEnabled: args.activeCompareEnabled,
       compareSnapshotAvailable: args.compareSnapshotAvailable,
+      compareShowsRuns: args.compareShowsRuns,
       updateStatus: 'idle',
       createTab: vi.fn(),
       createDefaultTab: (language) => ({
@@ -1371,6 +1373,16 @@ describe('buildCommandPaletteModel — compare actions ', () => {
         (command) => command.id === 'action-toggle-compare-with-snapshot'
       )
     ).toBeUndefined();
+  });
+
+  it('offers the session runs with Compare runs on even without a snapshot', () => {
+    const action = buildCompareCommands({
+      onToggleCompareWithSnapshot: vi.fn(),
+      compareSnapshotAvailable: false,
+      compareShowsRuns: true,
+    }).find((command) => command.id === 'action-toggle-compare-with-snapshot');
+    expect(action?.label).toBe('Toggle session runs');
+    expect(action?.description).toBe("Show this session's runs and compare any two.");
   });
 
   it('shows the compare action and calls the toggle handler when available', () => {

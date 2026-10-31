@@ -964,11 +964,11 @@ the Compare dock tab lists the execution history by day and diffs any two runs.
 `executionHistoryStore.record` cuts a `RunCompareRecord`
 (`utils/runCompareRecord.ts`) from each run's capsule: code up to 256 KiB,
 stdout and stderr up to 64 KiB each, up to 200 inline values, the exit status,
-and for SQL and HTTP a row or status summary. The record stays on the history
+and for successful SQL and HTTP runs a row or status summary. The record stays on the history
 entry after the capsule cap strips older capsules, lives in memory only, and
 leaves with the entry at the 50-run cap. The DuckDB Run Ledger keeps its
-metadata-only contract. A pinned run keeps its capsule outside the cap until it
-is unpinned. Restore as new tab opens the earlier run's code in Run mode, never
+metadata-only contract. Removing a run's capsule, or Clear everything in
+Settings › Privacy, drops the record too. Restore as new tab opens the earlier run's code in Run mode, never
 running it.
 
 ## Project lifecycle

@@ -7,7 +7,7 @@ import { ENGINE_LABEL } from '../SqlWorkspace/sqlConnectionStyle';
 
 export const RUN_COMPARE_MAX_DIFF_ROWS = 400;
 
-export type RunCompareDayKey = 'today' | 'yesterday' | 'earlier';
+type RunCompareDayKey = 'today' | 'yesterday' | 'earlier';
 
 export interface RunCompareDayGroup {
   key: RunCompareDayKey;
@@ -52,7 +52,7 @@ export function defaultRunSelection(entries: readonly ExecutionHistoryEntry[], t
   return picks.length === 2 ? picks.map(entry => entry.id) : [];
 }
 
-export type RunCompareDiffRow = { kind: 'add' | 'remove'; text: string } | { kind: 'same'; count: number };
+type RunCompareDiffRow = { kind: 'add' | 'remove'; text: string } | { kind: 'same'; count: number };
 
 export interface RunCompareSection {
   rows: RunCompareDiffRow[];
@@ -83,7 +83,7 @@ function buildSection(before: string, after: string): RunCompareSection {
   };
 }
 
-export interface RunCompareValueChange {
+interface RunCompareValueChange {
   line: number;
   before?: string;
   after?: string;

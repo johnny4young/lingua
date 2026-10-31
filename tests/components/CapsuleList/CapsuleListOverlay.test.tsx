@@ -43,6 +43,7 @@ import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { subscribeCommand, _resetCommandBusForTesting } from '../../../src/renderer/stores/commandBus';
 import { _resetCapsuleListSurfaceForTesting } from '../../../src/renderer/components/CapsuleList/capsuleListSurface';
+import type { RunCompareRecord } from '@/utils/runCompareRecord';
 import type { RunCapsuleV1 } from '../../../src/shared/runCapsule';
 import {
   FIXTURE_FULL_TS,
@@ -280,6 +281,17 @@ describe('CapsuleListOverlay — Pro browser', () => {
     expect(notice?.messageKey).toBe('capsuleList.notice.capsuleRemoved');
     notice!.actions![0]!.onClick();
     expect(useExecutionHistoryStore.getState().capsuleEntries().map((item) => item.id)).toEqual(['e2', 'e1']);
+  });
+
+  it('removes the run copy kept for Compare runs with the capsule, and Undo restores both', () => {
+    seed(FIXTURE_MINIMAL_JS);
+    const runCompare = { code: 'secret', stdout: 'body' } as unknown as RunCompareRecord;
+    useExecutionHistoryStore.setState((state) => ({ entries: state.entries.map((item) => ({ ...item, runCompare })) }));
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    choose('capsule-list-more', 'capsule-list-row-delete');
+    expect(useExecutionHistoryStore.getState().entries[0]?.runCompare).toBeUndefined();
+    useUIStore.getState().statusNotice!.actions![0]!.onClick();
+    expect(useExecutionHistoryStore.getState().entries[0]?.runCompare).toBe(runCompare);
   });
 
   it('removes an imported capsule and Undo puts it back', () => {

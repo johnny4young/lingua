@@ -77,7 +77,7 @@ export const KEYBOARD_SHORTCUTS = [
   },
   {
     // Opens or closes the Compare dock tab (`utils/compareDock.ts`);
-    // shows a notice when no comparable snapshot exists.
+    // shows a notice when there is nothing to compare.
     id: 'run-toggle-compare-snapshot',
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'D'] }],

@@ -28,6 +28,7 @@ import {
   type NativePackageLanguage,
 } from '../../../shared/dependencies/nativeDependencies';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import { useRunCompareActive } from '../../hooks/useRunCompareActive';
 import {
   getActiveEditor,
   getActiveEditorCursorLine,
@@ -139,6 +140,7 @@ export function useCommandPaletteCommands({
   // selector is cheap (returns null when no entry carries one).
   const latestCapsule = useExecutionHistoryStore(state => state.latestCapsule());
   const snapshotRing = useResultStore(state => state.snapshotRing);
+  const runCompareActive = useRunCompareActive();
   const compareDockOpen = useUIStore(state => isCompareDockOpen(state));
   const dependencyDetectionEnabled = useSettingsStore(state => state.dependencyDetectionEnabled);
   const dependencyDetectionEntry = useDependencyDetectionStore(state =>
@@ -517,6 +519,7 @@ export function useCommandPaletteCommands({
             }
           : undefined,
       activeCompareEnabled: compareDockOpen,
+      compareShowsRuns: runCompareActive && executionHistory.length > 0,
       compareSnapshotAvailable: (() => {
         return (
           activeTab !== null && snapshotRing.some(entry => entry.language === activeTab.language)
@@ -701,6 +704,7 @@ export function useCommandPaletteCommands({
     canUseExecutionHistory,
     executionHistory,
     snapshotRing,
+    runCompareActive,
     compareDockOpen,
     onRunActiveTab,
     onOpenProject,

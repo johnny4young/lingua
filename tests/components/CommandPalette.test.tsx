@@ -75,6 +75,7 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
       },
     },
     settingsState: {
+      featureFlags: {} as Record<string, boolean>,
       shortcutOverrides: {},
       setLayoutPreset: vi.fn(),
       vimMode: false,

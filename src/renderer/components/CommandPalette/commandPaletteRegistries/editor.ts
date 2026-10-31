@@ -19,6 +19,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     onToggleCompareWithSnapshot,
     activeCompareEnabled = false,
     compareSnapshotAvailable = false,
+    compareShowsRuns = false,
     onToggleVariableInspector,
     activeVariableInspectorEnabled = false,
     variableInspectorScopeAvailable = false,
@@ -163,22 +164,22 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // Toggle the Compare panel on the
-    // active tab. Hidden when there's no comparator snapshot for
-    // the active language (matches the toggle-button gate). The
-    // description flips between "Show" and "Hide" so the palette
-    // honestly previews the next state.
-    ...(onToggleCompareWithSnapshot && compareSnapshotAvailable
+    // Toggle the Compare panel on the active tab, with the dock's gate: a
+    // comparator snapshot for the active language, or any run while Compare
+    // runs is on. The description previews the next state.
+    ...(onToggleCompareWithSnapshot && (compareSnapshotAvailable || compareShowsRuns)
       ? [
           buildActionCommand(
             'action-toggle-compare-with-snapshot',
-            translate('commandPalette.action.toggleCompare.label'),
+            translate(compareShowsRuns ? 'commandPalette.action.toggleCompare.labelRuns' : 'commandPalette.action.toggleCompare.label'),
             translate(
               activeCompareEnabled
                 ? 'commandPalette.action.toggleCompare.descriptionHide'
-                : 'commandPalette.action.toggleCompare.descriptionShow'
+                : compareShowsRuns
+                  ? 'commandPalette.action.toggleCompare.descriptionShowRuns'
+                  : 'commandPalette.action.toggleCompare.descriptionShow'
             ),
-            ['compare', 'diff', 'snapshot', 'stable', 'previous', 'toggle'],
+            ['compare', 'diff', 'snapshot', 'stable', 'previous', 'toggle', 'history', 'runs'],
             () => {
               onToggleCompareWithSnapshot();
               onClose();

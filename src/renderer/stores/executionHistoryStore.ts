@@ -7,7 +7,9 @@
  * persists across reloads — keeping history in memory is a deliberate
  * privacy choice, same spirit as the telemetry posture. No code
  * body, no stdout / stderr, no file path is captured by default — only the
- * bucketed metadata the future UI actually needs.
+ * bucketed metadata the future UI actually needs. With Compare runs on
+ * (Labs, paid tiers) each entry also keeps a capped copy of its code, output
+ * and inline values for the Compare tab, still in memory only.
  *
  * opt-in code snapshot. When the caller passes a
  * `snapshot` payload (gated upstream by `executionHistorySnapshotEnabled`
@@ -92,7 +94,7 @@ export interface ExecutionHistoryEntry {
    * `lastCapsule`.
    */
   lastCapsule?: RunCapsuleV1;
-  /** Compare data for the Compare tab, kept only while its Labs flag is on. */
+  /** Compare data for the Compare tab, captured only while its Labs flag is on. */
   runCompare?: RunCompareRecord;
 }
 
@@ -187,8 +189,7 @@ function pruneCapsulesToCap(
   let keptCapsules = 0;
   for (let i = entries.length - 1; i >= 0; i -= 1) {
     const entry = entries[i]!;
-    // A pinned run keeps its capsule outside the cap: the user asked for it.
-    if (entry.lastCapsule !== undefined && !entry.pinned) {
+    if (entry.lastCapsule !== undefined) {
       if (keptCapsules < cap) {
         withCapsule.unshift(entry);
         keptCapsules += 1;
@@ -294,7 +295,9 @@ export interface ExecutionHistoryState {
    * row itself never left the `entries` array, so this restores it to
    * its exact prior position in the browse list.
    */
-  restoreCapsule: (id: string, capsule: RunCapsuleV1) => void;
+  restoreCapsule: (id: string, capsule: RunCapsuleV1, runCompare?: RunCompareRecord) => void;
+  /** Drop every captured capsule, Compare record and code snapshot, keeping the run rows. */
+  clearCapturedData: () => void;
   byLanguage: (language: string) => readonly ExecutionHistoryEntry[];
   /**
    * Return only the entries recorded against this
@@ -401,26 +404,37 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
     set((state) => {
       let changed = false;
       const entries = state.entries.map((entry) => {
-        if (entry.id !== id || entry.lastCapsule === undefined) return entry;
+        if (entry.id !== id || (entry.lastCapsule === undefined && entry.runCompare === undefined)) return entry;
         changed = true;
+        // The Compare record copies the capsule's code and output, so it leaves with it.
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { lastCapsule: _dropped, ...rest } = entry;
+        const { lastCapsule: _dropped, runCompare: _compare, ...rest } = entry;
         return rest;
       });
       return changed ? { entries } : state;
     });
   },
 
-  restoreCapsule: (id, capsule) => {
+  restoreCapsule: (id, capsule, runCompare) => {
     set((state) => {
       let changed = false;
       const entries = state.entries.map((entry) => {
         if (entry.id !== id || entry.lastCapsule !== undefined) return entry;
         changed = true;
-        return { ...entry, lastCapsule: capsule };
+        return { ...entry, lastCapsule: capsule, ...(runCompare ? { runCompare } : {}) };
       });
       return changed ? { entries: pruneCapsulesToCap(entries) } : state;
     });
+  },
+
+  clearCapturedData: () => {
+    set((state) => ({
+      entries: state.entries.map((entry) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { lastCapsule: _capsule, runCompare: _compare, ...rest } = entry;
+        return { ...rest, snapshot: null };
+      }),
+    }));
   },
 
   byLanguage: (language) => {
@@ -444,7 +458,7 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
         changed = true;
         return { ...entry, pinned: !entry.pinned };
       });
-      return changed ? { entries: pruneCapsulesToCap(entries) } : state;
+      return changed ? { entries } : state;
     });
   },
 }));

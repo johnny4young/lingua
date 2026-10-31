@@ -12,6 +12,8 @@ import { formatBytes, type LinguaLocalStoreKey, type LocalStoreRow } from './pri
 interface LocalDataSummaryProps {
   rows: ReadonlyArray<LocalStoreRow>;
   capsuleCount: number;
+  /** Runs holding Compare runs code and output. */
+  compareRunCount?: number;
   /** Removes one store without a notice; the summary posts one notice for the batch. */
   clearStore: (key: LinguaLocalStoreKey) => void;
   onCleared: () => void;
@@ -25,6 +27,7 @@ interface LocalDataSummaryProps {
 export function LocalDataSummary({
   rows,
   capsuleCount,
+  compareRunCount = 0,
   clearStore,
   onCleared,
 }: LocalDataSummaryProps) {
@@ -43,7 +46,7 @@ export function LocalDataSummary({
 
   const storesBytes = rows.reduce((sum, row) => sum + row.bytes, 0);
   const storesInUse = rows.filter(row => row.bytes > 0);
-  const nothingToClear = storesInUse.length === 0 && sqlBytes === 0 && capsuleCount === 0;
+  const nothingToClear = storesInUse.length === 0 && sqlBytes === 0 && capsuleCount === 0 && compareRunCount === 0;
   const sqlLabel =
     sqlBytes === undefined
       ? '…'
@@ -70,7 +73,7 @@ export function LocalDataSummary({
         sqlCleared = false;
       }
       const history = useExecutionHistoryStore.getState();
-      for (const entry of history.capsuleEntries()) history.clearCapsule(entry.id);
+      history.clearCapturedData();
       useImportedCapsuleStore.setState({ entries: [] });
       pushStatusNotice(
         sqlCleared
@@ -130,6 +133,7 @@ export function LocalDataSummary({
               <span data-testid="privacy-capsules-retained">
                 {t('settings.privacy.localData.capsules', { count: capsuleCount })}
               </span>
+              {compareRunCount > 0 ? ` · ${t('settings.privacy.localData.compareRuns', { count: compareRunCount })}` : null}
             </span>
           </div>
         }
@@ -140,6 +144,7 @@ export function LocalDataSummary({
           includesLicense={storesInUse.some(row => row.key === 'lingua-license')}
           includesSql={sqlBytes !== 0}
           capsuleCount={capsuleCount}
+          compareRunCount={compareRunCount}
           busy={clearing}
           onConfirm={() => void handleClearEverything()}
           onCancel={() => setConfirming(false)}
@@ -154,6 +159,7 @@ function ClearEverythingModal({
   includesLicense,
   includesSql,
   capsuleCount,
+  compareRunCount,
   busy,
   onConfirm,
   onCancel,
@@ -162,6 +168,7 @@ function ClearEverythingModal({
   includesLicense: boolean;
   includesSql: boolean;
   capsuleCount: number;
+  compareRunCount: number;
   busy: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -206,6 +213,9 @@ function ClearEverythingModal({
             {includesSql ? <li>{t('settings.privacy.localData.confirm.sql')}</li> : null}
             {capsuleCount > 0 ? (
               <li>{t('settings.privacy.localData.confirm.capsules', { count: capsuleCount })}</li>
+            ) : null}
+            {compareRunCount > 0 ? (
+              <li>{t('settings.privacy.localData.confirm.compareRuns', { count: compareRunCount })}</li>
             ) : null}
           </ul>
           <p className="text-body-sm text-fg-subtle">

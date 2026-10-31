@@ -474,7 +474,10 @@ Sharing separates its always-available triggers from both implementations:
 Result comparison has its own activation boundary:
 
 - [`hooks/useLayoutAvailability.ts`](hooks/useLayoutAvailability.ts) keeps the
-  stable-snapshot gate that decides when the dock offers Compare.
+  stable-snapshot gate that decides when the dock offers Compare. With Compare
+  runs on ([`hooks/useRunCompareActive.ts`](hooks/useRunCompareActive.ts)), any
+  recorded run opens the tab, which then loads the lazy
+  [`components/RunCompare/RunComparePanel.tsx`](components/RunCompare/RunComparePanel.tsx).
 - [`components/Editor/CompareResultsPanelHost.tsx`](components/Editor/CompareResultsPanelHost.tsx)
   provides localized loading and reload states without importing the diff
   implementation.

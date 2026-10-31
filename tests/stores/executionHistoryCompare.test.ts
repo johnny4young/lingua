@@ -52,14 +52,25 @@ describe('execution history for Compare runs', () => {
     expect(kept.runCompare?.code).toBe('first');
   });
 
-  it('lets a pinned run keep its capsule past the cap, and gives it back on unpin', () => {
-    const first = record('first');
-    useExecutionHistoryStore.getState().togglePin(first.id);
-    for (let i = 0; i < CAPSULE_LRU_CAP_PRO; i += 1) record(`run ${i}`);
-    const find = () => useExecutionHistoryStore.getState().entries.find(entry => entry.id === first.id)!;
-    expect(find().lastCapsule).toBeDefined();
-    expect(useExecutionHistoryStore.getState().capsuleEntries()).toHaveLength(CAPSULE_LRU_CAP_PRO + 1);
-    useExecutionHistoryStore.getState().togglePin(first.id);
+  it('drops the compare record with its capsule and brings both back on undo', () => {
+    const entry = record('secret code');
+    const capsule = entry.lastCapsule!;
+    const find = () => useExecutionHistoryStore.getState().entries.find(item => item.id === entry.id)!;
+    useExecutionHistoryStore.getState().clearCapsule(entry.id);
     expect(find().lastCapsule).toBeUndefined();
+    expect(find().runCompare).toBeUndefined();
+    useExecutionHistoryStore.getState().restoreCapsule(entry.id, capsule, entry.runCompare);
+    expect(find().runCompare?.code).toBe('secret code');
+  });
+
+  it('clears every capsule, compare record and code snapshot but keeps the run rows', () => {
+    record('one');
+    useExecutionHistoryStore.getState().record({
+      language: 'javascript', status: 'ok', durationMs: 1, snapshot: { code: 'snap', language: 'javascript' },
+    });
+    useExecutionHistoryStore.getState().clearCapturedData();
+    const entries = useExecutionHistoryStore.getState().entries;
+    expect(entries).toHaveLength(2);
+    expect(entries.every(item => !item.lastCapsule && !item.runCompare && item.snapshot === null)).toBe(true);
   });
 });

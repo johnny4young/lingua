@@ -303,9 +303,9 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 ## Compare runs (Labs)
 
 - Turn on **Settings › Labs › Compare runs** (Pro) to turn the **Compare** dock tab into your run history. Runs are grouped by day, newest first, each with its status, file, runtime, duration, a one-line result and the time; SQL and HTTP runs show their rows or status. `Cmd/Ctrl+Shift+D` opens the tab as soon as there is a run.
-- Tick any two runs to see what changed between them: the code, stdout, the inline values by line, and the exit status with both durations. The tab opens with the active tab's last two runs already ticked; ticking a third replaces the earlier pick.
-- **Restore as new tab** opens the earlier run's code in a new tab named after the file and the time, in Run mode, and never overwrites a tab. **Pin as capsule** keeps that run and its capsule past the history caps until you unpin it.
-- The history stays in memory for the session, like Recent runs: up to 50 runs, with code kept up to 256 KiB and stdout and stderr up to 64 KiB each. Runs from before you turned it on are listed but cannot be ticked. It is separate from the Run Ledger below, which never keeps code or output.
+- Tick any two runs to see what changed between them: the code, the output (stdout and stderr), the inline values by line, and the exit status with both durations. The tab opens with the active tab's last two runs already ticked; ticking a third replaces the earlier pick.
+- For code runs, **Restore as new tab** opens the earlier run's code in a new tab named after the file and the time, in Run mode, and never overwrites a tab. **Pin run** keeps the earlier run in the list past the 50-run cap until you unpin it.
+- The history stays in memory for the session, like Recent runs: up to 50 runs plus the ones you pinned, with code kept up to 256 KiB and stdout and stderr up to 64 KiB each. Runs from before you turned it on are listed but cannot be ticked. Settings › Privacy › Local data counts these runs, and Clear everything, or removing a run's capsule, drops their code and output. It is separate from the Run Ledger below, which never keeps code or output.
 
 ## Browser-only limitations
 

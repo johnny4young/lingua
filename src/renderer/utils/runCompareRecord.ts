@@ -5,7 +5,7 @@ export type RunCompareSummary =
   | { kind: 'rows'; count: number; columns: string[] }
   | { kind: 'http'; method: string; status: number; statusText: string; bytes: number };
 
-export interface RunCompareValue {
+interface RunCompareValue {
   line: number;
   value: string;
 }

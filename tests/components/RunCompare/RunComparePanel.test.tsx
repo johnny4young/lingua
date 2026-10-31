@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -78,7 +78,7 @@ describe('run compare panel', () => {
     expect(screen.getByTestId('run-compare-pick').textContent).toBe('Pick two runs to compare.');
   });
 
-  it('restores the earlier run as a named branch tab and pins it as a capsule', async () => {
+  it('restores the earlier run as a named branch tab and pins it', async () => {
     const tabsBefore = useEditorStore.getState().tabs.length;
     render(<RunComparePanel activeTabId="tab-1" />);
     await userEvent.click(screen.getByTestId('run-compare-restore'));
@@ -91,8 +91,21 @@ describe('run compare panel', () => {
 
     await userEvent.click(screen.getByTestId('run-compare-pin'));
     expect(useExecutionHistoryStore.getState().entries.find(entry => entry.id === 'first')?.pinned).toBe(true);
-    expect(screen.getByTestId('run-compare-pin').textContent).toBe('Unpin capsule');
-    expect(screen.getByText('4 runs · 1 pinned as capsule')).toBeTruthy();
+    expect(screen.getByTestId('run-compare-pin').textContent).toBe('Unpin run');
+    expect(screen.getByText('4 runs · 1 pinned')).toBeTruthy();
+  });
+
+  it('follows new runs until the user picks, then keeps the picks', async () => {
+    render(<RunComparePanel activeTabId="tab-1" />);
+    const third = { ...entries[3]!, id: 'third', timestamp: at(0, 50), runCompare: runCompare({ code: 'const mid = 3;' }) };
+    act(() => useExecutionHistoryStore.setState({ entries: [...entries, third] }));
+    expect(screen.getByTestId('run-compare-code').textContent).toBe('- const mid = arr.filter((x) => x === pivot);+ const mid = 3;');
+
+    await userEvent.click(screen.getAllByRole('checkbox')[1]!);
+    const fourth = { ...third, id: 'fourth', timestamp: at(0, 55), runCompare: runCompare({ code: 'const mid = 4;' }) };
+    act(() => useExecutionHistoryStore.setState({ entries: [...entries, third, fourth] }));
+    expect(screen.getByTestId('run-compare-pick')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '1 selected, Clear selection' })).toBeTruthy();
   });
 
   it('starts empty on a tab without two comparable runs and reads in Spanish', async () => {

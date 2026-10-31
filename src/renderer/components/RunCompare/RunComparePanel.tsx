@@ -155,7 +155,9 @@ function ComparePane({
 export function RunComparePanel({ activeTabId }: { activeTabId: string | null }) {
   const { t, i18n } = useTranslation();
   const entries = useExecutionHistoryStore(state => state.entries);
-  const [selected, setSelected] = useState<string[]>(() => defaultRunSelection(entries, activeTabId));
+  // Until the user ticks a box, follow the active tab's last two runs.
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const selected = picked ?? defaultRunSelection(entries, activeTabId);
   const [openedAt] = useState(Date.now);
   const groups = useMemo(() => groupRunsByDay(entries, Math.max(openedAt, entries.at(-1)?.timestamp ?? 0)), [entries, openedAt]);
   const timeFormat = useMemo(() => new Intl.DateTimeFormat(i18n.language, { hour: 'numeric', minute: '2-digit' }), [i18n.language]);
@@ -178,8 +180,9 @@ export function RunComparePanel({ activeTabId }: { activeTabId: string | null })
           <button
             type="button"
             className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-accent bg-primary-soft px-2.5 text-caption text-accent-fg"
-            onClick={() => setSelected([])}
-            aria-label={t('runCompare.clearSelection')}
+            onClick={() => setPicked([])}
+            title={t('runCompare.clearSelection')}
+            aria-label={`${t('runCompare.selected', { count: liveSelection.length })}, ${t('runCompare.clearSelection')}`}
             data-testid="run-compare-selected"
           >
             {t('runCompare.selected', { count: liveSelection.length })}
@@ -215,7 +218,7 @@ export function RunComparePanel({ activeTabId }: { activeTabId: string | null })
                           className="run-compare-check"
                           checked={checked}
                           disabled={!record}
-                          onChange={() => setSelected(current => toggleRunSelection(current.filter(id => liveSelection.includes(id)), entry.id))}
+                          onChange={() => setPicked(toggleRunSelection(liveSelection, entry.id))}
                           aria-label={t('runCompare.select', { name, time: timeOf(entry) })}
                         />
                         <span
