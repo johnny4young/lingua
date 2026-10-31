@@ -42,6 +42,20 @@ describe('timeline store', () => {
     useEditorStore.getState().restoreTabs([], null);
   });
 
+  it('moves by depth and counts moves with nowhere to go', () => {
+    const deep: TimelineStep[] = [
+      { line: 1, frames: [{ name: '<module>', line: 1 }], vars: [] },
+      { line: 5, frames: [{ name: '<module>', line: 1 }, { name: 'f', line: 5 }], vars: [] },
+      { line: 2, frames: [{ name: '<module>', line: 2 }], vars: [] },
+    ];
+    useTimelineStore.getState().publish('t1', { steps: deep, truncated: false });
+    useTimelineStore.getState().select(0);
+    expect(useTimelineStore.getState().go('over', false)).toBe(true);
+    expect(useTimelineStore.getState().current).toBe(2);
+    expect(useTimelineStore.getState().go('out', false)).toBe(false);
+    expect(useTimelineStore.getState()).toMatchObject({ current: 2, blocked: 1 });
+  });
+
   it('keeps the selection inside the recording and clears only its own tab', () => {
     useTimelineStore.getState().publish('t1', { steps: steps(3), truncated: false });
     useTimelineStore.getState().step(5);

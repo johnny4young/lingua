@@ -3,6 +3,7 @@ import { isEntitled } from '../../shared/entitlements';
 import { TIMELINE_FREE_STEPS, type ExecutionTimeline, type TimelineStep } from '../../shared/timeline';
 import { currentEffectiveTier } from './licenseSelectors';
 import { useEditorStore } from './editorStore';
+import { findTimelineStep, type TimelineMove } from '../utils/timelineModel';
 
 interface TimelineRecording {
   tabId: string;
@@ -20,6 +21,10 @@ interface TimelineState {
   publish: (tabId: string, timeline: ExecutionTimeline) => void;
   select: (index: number) => void;
   step: (delta: number) => void;
+  /** Moves by depth; a move with nowhere to go bumps `blocked` and keeps the step. */
+  go: (move: TimelineMove, backward: boolean) => boolean;
+  /** Counts moves that had nowhere to go, so the editor can flash the line. */
+  blocked: number;
   clearTab: (tabId: string) => void;
 }
 
@@ -39,6 +44,7 @@ function dropRecordingWithItsTab(): void {
 export const useTimelineStore = create<TimelineState>()((set, get) => ({
   recording: null,
   current: 0,
+  blocked: 0,
   publish: (tabId, timeline) => {
     let entitled: boolean;
     try {
@@ -59,6 +65,16 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     if (count > 0) set({ current: Math.min(count - 1, Math.max(0, index)) });
   },
   step: delta => get().select(get().current + delta),
+  go: (move, backward) => {
+    const steps = get().recording?.steps ?? [];
+    const target = findTimelineStep(steps, get().current, move, backward);
+    if (target === null) {
+      set(state => ({ blocked: state.blocked + 1 }));
+      return false;
+    }
+    set({ current: target });
+    return true;
+  },
   clearTab: tabId => {
     if (get().recording?.tabId === tabId) set({ recording: null, current: 0 });
   },
