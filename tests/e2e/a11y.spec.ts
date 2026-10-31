@@ -171,8 +171,12 @@ test.describe('Automated axe scans', () => {
   test('Run Capsules browser', async ({ page }) => {
     // Only manual runs keep a capsule; the seeded tab starts in Scratchpad.
     await selectWorkflowMode(page, 'run');
+    // A Scratchpad run still in flight turns the button into Stop.
+    await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'false', { timeout: 30_000 });
     await clickRun(page);
     await waitForRunCompleted(page);
+    // The pill appears once the run, and its capsule, is in the history.
+    await expect(page.getByTestId('recent-runs-pill')).toBeVisible({ timeout: 30_000 });
     await page.keyboard.press('ControlOrMeta+Alt+C');
     await expect(page.getByRole('dialog', { name: /run capsules/i })).toBeVisible();
     await expect(page.getByRole('option').first()).toBeVisible();
