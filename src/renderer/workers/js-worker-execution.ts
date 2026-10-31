@@ -1,3 +1,4 @@
+import { createJsWorkerTimeline, watchJsWorkerConsoleForTimeline } from './js-worker-timeline';
 import type { ScopeVariable } from '../../shared/scopeSnapshot';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
@@ -27,6 +28,8 @@ import { buildLinguaWorkerBridge } from './js-worker-runtime';
 import { createJsWorkerSourceMapper } from './js-worker-source';
 import { createJsWorkerStdinReader } from './js-worker-stdin';
 import { createNetworkAsker, installNetworkGuard, type NetworkGuard } from './networkGuard';
+
+const noop = (): void => {};
 
 function evaluateWatchExpressions(
   watches: readonly string[],
@@ -131,6 +134,11 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
 
       const source = await createJsWorkerSourceMapper(exec.sourceMaps, exec.sourceLineCount);
       installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames);
+      const timeline = exec.record === true ? createJsWorkerTimeline(marker) : null;
+      if (timeline) watchJsWorkerConsoleForTimeline(timeline);
+      const flushTimeline = () => {
+        if (timeline) ctx.postMessage({ type: 'timeline', runId, timeline: timeline.snapshot() });
+      };
 
       const session = createJsWorkerDebuggerSession(runId);
       applyJsWorkerExecutePayload(session, exec);
@@ -314,6 +322,9 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             '__lingua_dbg_frame',
             '__lingua_dbg_pop',
             '__lingua_capture_scope',
+            '__lingua_rec',
+            '__lingua_rec_enter',
+            '__lingua_rec_exit',
             'lingua',
             source.body(code)
           );
@@ -324,6 +335,9 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             __lingua_dbg_frame,
             __lingua_dbg_pop,
             __lingua_capture_scope,
+            timeline?.rec ?? noop,
+            timeline?.enter ?? noop,
+            timeline?.exit ?? noop,
             lingua
           );
         })();
@@ -332,6 +346,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         // Close the last statement's interval BEFORE scope capture /
         // result serialization so their cost never pollutes it.
         flushLineTimings();
+        flushTimeline();
 
         if (result !== undefined) {
           const resultMessage: {
@@ -408,6 +423,8 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         // measurements and the failing statement reports the time it ran
         // before throwing — often the most interesting number of the run.
         flushLineTimings();
+        timeline?.noteError();
+        flushTimeline();
         const parsed = source.parseError(err, code);
 
         ctx.postMessage({

@@ -97,4 +97,41 @@ describe('runner scope-capture wiring', () => {
       worker.restore();
     }
   });
+
+  it('records instead of capturing scope or timing when Record run is asked', async () => {
+    const worker = installCapturingWorker();
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+      await runner.execute('const answer = 42;\nif (answer) {\n  console.log(answer);\n}', {
+        captureScope: true,
+        lineTiming: true,
+        record: true,
+      });
+      const posted = worker.getPosted();
+      expect(posted?.record).toBe(true);
+      expect(posted?.captureScope).toBe(false);
+      expect(posted?.code).toContain('__lingua_rec(3,');
+      expect(posted?.code).not.toContain('__mc_tick');
+    } finally {
+      worker.restore();
+    }
+  });
+
+  it('records TypeScript on its source lines', async () => {
+    const esbuild = await import('esbuild-wasm');
+    vi.mocked(esbuild.transform).mockResolvedValue(transformResult('const answer = 42;\nconsole.log(answer);'));
+    const worker = installCapturingWorker();
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+      await runner.execute('const answer: number = 42;\nconsole.log(answer);', { record: true });
+      const posted = worker.getPosted();
+      expect(posted?.record).toBe(true);
+      expect(posted?.code).toContain('__lingua_rec(1,');
+      expect(posted?.code).toContain('__lingua_rec(2,');
+    } finally {
+      worker.restore();
+    }
+  });
 });

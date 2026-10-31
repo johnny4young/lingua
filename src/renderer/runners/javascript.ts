@@ -22,6 +22,7 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
+import { instrumentForTimeline } from '../runtime/timelineInstrument';
 import {
   appendScopeCapture,
   collectTopLevelScopeNames,
@@ -90,6 +91,7 @@ export class JavaScriptRunner implements LanguageRunner {
       ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
       : [];
     const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
+    const record = context?.record === true && !debug;
 
     // Loop protection is baseline (the runtime kill switch
     // against `while(true)` cannot be user-tunable on a code editor).
@@ -136,6 +138,7 @@ export class JavaScriptRunner implements LanguageRunner {
     let codeWithTiming = codeWithAutoLog;
     if (
       !debug &&
+      !record &&
       (context?.lineTiming === true ||
         lineTimingRequestedByMagicComment(this.language, protectedCode))
     ) {
@@ -146,7 +149,7 @@ export class JavaScriptRunner implements LanguageRunner {
     }
 
     let codeWithScopeCapture = codeWithTiming;
-    if (context?.captureScope === true && !debug) {
+    if (context?.captureScope === true && !debug && !record) {
       codeWithScopeCapture = appendScopeCapture(
         codeWithTiming,
         collectTopLevelScopeNames(codeWithTiming)
@@ -168,6 +171,14 @@ export class JavaScriptRunner implements LanguageRunner {
         // failed" screen.
         transformedCode = codeWithAutoLog;
       }
+    } else if (record) {
+      try {
+        const instrumented = instrumentForTimeline(codeWithAutoLog, { filename: context?.tabId ?? 'user-code.js' });
+        transformedCode = instrumented.code;
+        recordMap(instrumented.map);
+      } catch {
+        transformedCode = codeWithAutoLog;
+      }
     }
 
     // Everything past the transform — worker boot, kill timer, message pump,
@@ -178,6 +189,7 @@ export class JavaScriptRunner implements LanguageRunner {
       timeout,
       timeoutPreset,
       debug,
+      record,
       breakpoints: tabBreakpoints,
       watches: debug ? debugStore.watches.map(w => w.expression) : [],
       sourceMaps,
