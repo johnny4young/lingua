@@ -296,7 +296,7 @@ export async function publishCompletedRun(
     // restoration target. Capture happens after the line results and full
     // output are set so the snapshot reflects what the user just saw.
     if (kind === 'success') {
-      useResultStore.getState().captureSuccessfulSnapshot(language, content);
+      if (!plan.region) useResultStore.getState().captureSuccessfulSnapshot(language, content);
       // Surface the variable inspector snapshot if the worker
       // emitted one. `null` clears a stale snapshot from the previous run.
       useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);

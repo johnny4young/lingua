@@ -17,6 +17,7 @@ import type { ExecutionContext } from '../../types/execution';
 import type { SettingsState } from '../../types/settings';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { extractTimeoutMagicComment } from '../../utils/magicComments';
+import { supportsRunRegions, type RunRegion } from '../../utils/runRegions';
 import type { ManualExecutionLifecycle } from './types';
 
 /** Debug runs in these languages go through a native debugger session, not the runner. */
@@ -41,6 +42,8 @@ export interface RunPlan {
   recordRequested: boolean;
   usesNativeDebugger: boolean;
   recordHistory: boolean;
+  /** The region a Run regions run stops after; null for a whole-file run. */
+  region: RunRegion | null;
 }
 
 export interface RunExecution {
@@ -54,15 +57,19 @@ export interface RunExecution {
 
 export function resolveRunPlan(
   tab: Pick<FileTab, 'language' | 'runtimeMode'>,
-  lifecycle: Pick<ManualExecutionLifecycle, 'debug' | 'recordHistory' | 'record'>
+  lifecycle: Pick<ManualExecutionLifecycle, 'debug' | 'recordHistory' | 'record' | 'region'>
 ): RunPlan {
   const debugRequested = lifecycle.debug === true;
+  const recordRequested = lifecycle.record === true && !debugRequested && canRecordTimeline(tab);
+  const region = lifecycle.region && !debugRequested && !recordRequested && supportsRunRegions(tab.language) ? lifecycle.region : null;
   return {
     mode: executionModeForLanguage(tab.language),
     debugRequested,
-    recordRequested: lifecycle.record === true && !debugRequested && canRecordTimeline(tab),
+    recordRequested,
     usesNativeDebugger: debugRequested && NATIVE_DEBUGGER_LANGUAGES.has(tab.language),
-    recordHistory: lifecycle.recordHistory !== false,
+    // A region run saw part of the file, so it is not a run to restore or compare.
+    recordHistory: lifecycle.recordHistory !== false && region === null,
+    region,
   };
 }
 
@@ -98,6 +105,8 @@ export function resolveRunExecution(
       tabId: tab.id,
       ...(plan.debugRequested ? { debug: true } : {}),
       ...(plan.recordRequested ? { record: true } : {}),
+      // A region shows the value of each bare expression, like Scratchpad's auto-log.
+      ...(plan.region ? { autoLog: true } : {}),
       // Manual Run feeds the same pre-set buffer that
       // auto-run uses. Runners that do not consume stdin ignore the field.
       ...(tab.stdinBuffer ? { stdin: tab.stdinBuffer } : {}),

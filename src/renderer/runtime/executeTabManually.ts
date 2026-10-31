@@ -1,4 +1,6 @@
 import { useTimelineStore } from '../stores/timelineStore';
+import { useRunRegionStore } from '../stores/runRegionStore';
+import { runRegionSource } from '../utils/runRegions';
 import { beginManualRun } from './manualRunSession';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
@@ -124,6 +126,9 @@ async function executeOwnedTab(
   publishRunStart(activeTab, plan, runConsole, showsResults);
   // A new run leaves the tab's recording behind; only Record run replaces it.
   useTimelineStore.getState().clearTab(activeTab.id);
+  useRunRegionStore.getState().clearTab(activeTab.id);
+  // The run state still compares against the whole tab, so only what runs is cut.
+  const runTab = plan.region ? { ...activeTab, content: runRegionSource(activeTab.content, plan.region) } : activeTab;
   lifecycle.setIsRunning?.(true);
   const bootstrap = startRunnerBootstrap(activeTab, plan, lifecycle, runConsole);
   let runnerPrepared = false;
@@ -159,7 +164,7 @@ async function executeOwnedTab(
     try {
       run = await runAndCollect(
         runner,
-        activeTab,
+        runTab,
         execution,
         runConsole,
         session.isCurrent,
@@ -170,13 +175,13 @@ async function executeOwnedTab(
     }
     if (!session.isCurrent()) return cancelledSummary();
     if (run.result.cancelled) {
-      return publishCancelledRun(activeTab, run, runConsole, showsResults);
+      return publishCancelledRun(runTab, run, runConsole, showsResults);
     }
     if (plan.recordRequested && run.result.timeline) {
       useTimelineStore.getState().publish(activeTab.id, run.result.timeline);
     }
-    return await publishCompletedRun(
-      activeTab,
+    const summary = await publishCompletedRun(
+      runTab,
       plan,
       run,
       gitSnapshot,
@@ -184,10 +189,21 @@ async function executeOwnedTab(
       session.isCurrent,
       showsResults
     );
+    if (plan.region && session.isCurrent()) {
+      useRunRegionStore.getState().publish({
+        tabId: activeTab.id,
+        region: plan.region,
+        ranAt: Date.now(),
+        executionTime: summary.executionTime,
+        ok: summary.ok,
+        message: summary.ok ? '' : summary.message,
+      });
+    }
+    return summary;
   } catch (error) {
     if (!session.isCurrent()) return cancelledSummary();
     const message = await publishRunFailure(
-      activeTab,
+      runTab,
       plan,
       error,
       gitSnapshot,
