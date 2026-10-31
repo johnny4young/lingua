@@ -1473,8 +1473,14 @@
   }
 
   /* A move with nowhere to go tints the line red instead of opening anything. */
-  .monaco-editor .lingua-timeline-line.lingua-timeline-blocked {
-    background: color-mix(in srgb, var(--color-error) 22%, transparent) !important;
+  .monaco-editor .lingua-timeline-blocked {
+    background: color-mix(in srgb, var(--color-error) 30%, transparent) !important;
+  }
+
+  /* Monaco may stack the accent line over the tint, so drop it while the tint shows. */
+  .monaco-editor .lingua-timeline-blocked ~ .lingua-timeline-line,
+  .monaco-editor .lingua-timeline-line:has(~ .lingua-timeline-blocked) {
+    background: transparent !important;
   }
 
   .monaco-editor .lingua-timeline-unreached {

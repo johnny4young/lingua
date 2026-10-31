@@ -119,7 +119,8 @@ describe('timeline in the editor and the Run menu', () => {
     useSettingsStore.setState({ featureFlags: { runTimeline: true } });
     const clear = vi.fn();
     const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
-    const editor = { getModel: () => model, createDecorationsCollection: vi.fn(() => ({ clear })), revealLineInCenterIfOutsideViewport: vi.fn() };
+    const set = vi.fn();
+    const editor = { getModel: () => model, createDecorationsCollection: vi.fn(() => ({ clear, set })), revealLineInCenterIfOutsideViewport: vi.fn() };
     const monaco = { Range: class { constructor(public line: number) {} } };
     useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'console' });
     const { rerender } = render(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
@@ -129,7 +130,8 @@ describe('timeline in the editor and the Run menu', () => {
     expect(editor.revealLineInCenterIfOutsideViewport).toHaveBeenCalledWith(3);
     useTimelineStore.setState({ current: 0 });
     rerender(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
-    expect(clear).toHaveBeenCalled();
+    expect(set).toHaveBeenCalled();
+    expect(editor.createDecorationsCollection).toHaveBeenCalledTimes(1);
     expect(editor.revealLineInCenterIfOutsideViewport).toHaveBeenLastCalledWith(10);
   });
 
@@ -140,19 +142,25 @@ describe('timeline in the editor and the Run menu', () => {
       useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
       useTimelineStore.setState({ current: 1 });
       const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
-      const created: unknown[][] = [];
+      const live: Array<{ decorations: unknown[] }> = [];
       const editor = {
         getModel: () => model,
         createDecorationsCollection: vi.fn((decorations: unknown[]) => {
-          created.push(decorations);
-          return { clear: vi.fn() };
+          const collection = {
+            decorations,
+            set: (next: unknown[]) => { collection.decorations = next; },
+            clear: () => { collection.decorations = []; },
+          };
+          live.push(collection);
+          return collection;
         }),
         revealLineInCenterIfOutsideViewport: vi.fn(),
       };
       const monaco = { Range: class { constructor(public line: number, public column: number) {} } };
       render(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
-      const last = () => JSON.stringify(created.at(-1));
+      const last = () => JSON.stringify(live.map(collection => collection.decorations));
       expect(last()).toContain('"content":"pivot = 1"');
+      expect(last()).toContain('"showIfCollapsed":true');
       expect(last()).toContain('"inlineClassName":"lingua-timeline-unreached"');
       expect(last()).not.toContain('lingua-timeline-blocked');
       act(() => { useTimelineStore.getState().go('out', false); });
@@ -162,6 +170,28 @@ describe('timeline in the editor and the Run menu', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('strips bidi and control characters from the value pill', () => {
+    useSettingsStore.setState({ featureFlags: { runTimeline: true } });
+    useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
+    const tricky: TimelineStep[] = [
+      { line: 1, frames: [{ name: '<module>', line: 1 }], vars: [] },
+      { line: 2, frames: [{ name: '<module>', line: 2 }], vars: [['label', '"\u202eevil\nline"']] },
+    ];
+    useTimelineStore.setState({ recording: { tabId: 't1', steps: tricky, total: 2, truncated: false, limited: false }, current: 0 });
+    const created: unknown[] = [];
+    const editor = {
+      getModel: () => ({ getLineCount: () => 5, getLineMaxColumn: () => 10 }),
+      createDecorationsCollection: vi.fn((decorations: unknown[]) => {
+        created.push(decorations);
+        return { clear: vi.fn(), set: vi.fn() };
+      }),
+      revealLineInCenterIfOutsideViewport: vi.fn(),
+    };
+    const monaco = { Range: class { constructor(public line: number) {} } };
+    render(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
+    expect(JSON.stringify(created)).toContain('"content":"label = \\" evil line\\""');
   });
 
   it('offers Record run for JavaScript Worker tabs with the flag on', async () => {

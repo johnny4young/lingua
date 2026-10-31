@@ -14,7 +14,6 @@ export function findTimelineStep(steps: readonly TimelineStep[], from: number, m
   const direction = backward ? -1 : 1;
   if (move === 'into') return steps[from + direction] ? from + direction : null;
   const depth = depthOf(origin);
-  if (move === 'out' && depth === 0) return null;
   for (let index = from + direction; index >= 0 && index < steps.length; index += direction) {
     const reached = depthOf(steps[index]!);
     if (move === 'over' ? reached <= depth : reached < depth) return index;

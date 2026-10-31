@@ -11,6 +11,7 @@ import { EyebrowMono } from '../ui/primitives';
 
 /** Past this many steps the strip draws marked steps and an even sample, not every tick. */
 const MAX_TICKS = 400;
+const NO_STEPS: readonly TimelineStep[] = [];
 
 function ticksFor(steps: readonly TimelineStep[], current: number, echoes: ReadonlySet<number>): number[] {
   if (steps.length <= MAX_TICKS) return steps.map((_, index) => index);
@@ -36,7 +37,7 @@ export function TimelinePanel() {
   const select = useTimelineStore(state => state.select);
   const stepBy = useTimelineStore(state => state.step);
   const go = useTimelineStore(state => state.go);
-  const steps = recording?.steps ?? [];
+  const steps = recording?.steps ?? NO_STEPS;
   const echoes = useMemo(() => timelineEchoes(steps, current), [steps, current]);
   const echoSet = useMemo(() => new Set(echoes.indices.length > 1 ? echoes.indices : []), [echoes]);
   const ticks = useMemo(() => ticksFor(steps, current, echoSet), [steps, current, echoSet]);

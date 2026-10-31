@@ -49,6 +49,7 @@ describe('timeline model', () => {
 
   it('lists the lines the run reaches later but not yet', () => {
     expect(timelineUnreachedLines(steps, 1)).toEqual([2, 3, 4, 12]);
+    expect(timelineUnreachedLines(steps, 2)).toEqual([3, 4, 12]);
     expect(timelineUnreachedLines(steps, 5)).toEqual([12]);
     expect(timelineUnreachedLines(steps, 6)).toEqual([]);
   });
