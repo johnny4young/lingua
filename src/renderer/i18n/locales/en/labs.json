@@ -8,5 +8,7 @@
   "settings.labs.flag.runCompare.label": "Compare runs",
   "settings.labs.flag.runCompare.description": "The Compare tab lists your runs by day and compares any two: code, output, inline values and exit. Needs Pro.",
   "settings.labs.flag.runState.label": "Run state",
-  "settings.labs.flag.runState.description": "Marks results as stale once you edit after the last run: an amber border around the editor, dimmed inline values with their age and a STALE pill in the Dock. Settings › Editor gets a run policy per language group: On keystroke, On pause or Manual."
+  "settings.labs.flag.runState.description": "Marks results as stale once you edit after the last run: an amber border around the editor, dimmed inline values with their age and a STALE pill in the Dock. Settings › Editor gets a run policy per language group: On keystroke, On pause or Manual.",
+  "settings.labs.flag.runTimeline.label": "Execution timeline",
+  "settings.labs.flag.runTimeline.description": "Record run, in the Run menu for JavaScript and TypeScript, keeps every step of one run: a Timeline tab in the Dock replays it with the variables and call stack as of each step, without running the code again. Free keeps the last 20 steps."
 }

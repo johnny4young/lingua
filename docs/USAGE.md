@@ -301,6 +301,12 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Every blocked request, and each host you allow from the Ask dialog, appears in Settings › Privacy › Recent activity with the runtime and host only.
 - It is a best-effort guard, not a sandbox: an API it does not wrap, such as a dynamic `import()` of a URL or a `FontFace` source, is not stopped, and on the web a rich-output image with a remote `src` still loads in the app window. Pyodide is shared across tabs, so a task code left running applies the next run's policy, and package installs Lingua starts may reach PyPI (`pypi.org`, `files.pythonhosted.org`) while they run. Node, Deno, Bun, Go, Rust and system Ruby on desktop run natively and fall under the native execution acknowledgement (Deno already runs without network access). Ruby is covered only when it runs on Ruby WASM (Settings › Languages › Ruby runtime).
 
+## Execution timeline (Labs)
+
+- Turn on **Settings › Labs › Execution timeline**, then pick **Record run** in the Run menu on a JavaScript or TypeScript tab that runs in the Worker. The run keeps every step, inside loops, branches and functions too, and opens the **Timeline** tab in the Dock.
+- The strip has one tick per step: blue where the step wrote to the console, red where the run threw, and the current step taller. Click it, or focus it and use the arrow keys, `Page Up`/`Page Down`, `Home` and `End`; **Back** and **Next** move one step. The editor highlights the step's line, and the panel shows the variables and the call stack as of that step. Nothing runs again.
+- A recording keeps up to 5,000 steps and 30 values of 120 characters per step, in memory only; a run that goes further says where it stopped. Free keeps the last 20 steps. Running the tab again, without Record run, drops the recording.
+
 ## Run state (Labs)
 
 - Turn on **Settings › Labs › Run state** to see when the results on screen no longer match the code. Once you edit the code, stdin or the arguments after the last run, the editor gets an amber border, the inline values dim and end with their age (`· 12 sec. ago`), the Dock row shows **Stale**, and Run pulses. Running again, or undoing the edit, clears it. A Scratchpad that runs on its own only turns stale while an incomplete edit keeps it from running.

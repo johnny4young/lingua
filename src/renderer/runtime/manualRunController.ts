@@ -1,3 +1,4 @@
+import { useTimelineStore } from '../stores/timelineStore';
 import i18next from 'i18next';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import type { RuntimeMode } from '../../shared/runtimeModes';
@@ -142,9 +143,13 @@ async function executeTabById(
       setLoadingMessage: resultState.setManualLoadingMessage,
       recordHistory: options.recordHistory,
       debug: options.debug,
+      record: options.record,
       track,
     });
     if (!session.isCurrent()) return;
+    if (options.record && useTimelineStore.getState().recording?.tabId === activeTab.id) {
+      useUIStore.getState().openBottomPanel('timeline');
+    }
     if (summary.cancelled) {
       editor.setTabExecutionState(activeTab.id, 'idle');
     } else if (!summary.ok) {

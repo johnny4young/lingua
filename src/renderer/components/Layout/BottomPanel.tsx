@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   Diff,
+  Rewind,
   Eye,
   FlaskConical,
   GitBranch,
@@ -66,6 +67,11 @@ const RecipeRunPanel = lazy(async () => {
   return { default: module.RecipeRunPanel };
 });
 
+const TimelinePanel = lazy(async () => {
+  const module = await import('../Timeline/TimelinePanel');
+  return { default: module.TimelinePanel };
+});
+
 const RunComparePanel = lazy(async () => {
   const module = await import('../RunCompare/RunComparePanel');
   return { default: module.RunComparePanel };
@@ -91,6 +97,7 @@ const DOCK_TAB_META: Record<DockTabId, DockTabMeta> = {
   console: { icon: Terminal, labelKey: 'bottomPanel.tabs.console', hintKey: 'bottomPanel.tabs.consoleHint' },
   stdin: { icon: RectangleEllipsis, labelKey: 'stdin.tab.label', hintKey: 'stdin.tab.hint' },
   compare: { icon: Diff, labelKey: 'bottomPanel.tabs.compare', hintKey: 'bottomPanel.tabs.compareHint' },
+  timeline: { icon: Rewind, labelKey: 'bottomPanel.tabs.timeline', hintKey: 'bottomPanel.tabs.timelineHint' },
   variables: { icon: Eye, labelKey: 'bottomPanel.tabs.variables', hintKey: 'bottomPanel.tabs.variablesHint' },
   'project-terminal': {
     icon: SquareTerminal,
@@ -286,6 +293,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             <BrowserPreviewPanel />
           ) : effectiveTab === 'stdin' ? (
             <StdinInputPanel />
+          ) : effectiveTab === 'timeline' ? (
+            <Suspense fallback={null}>
+              <TimelinePanel />
+            </Suspense>
           ) : effectiveTab === 'compare' && runCompareActive ? (
             <Suspense fallback={null}>
               <RunComparePanel activeTabId={activeTabId ?? null} />

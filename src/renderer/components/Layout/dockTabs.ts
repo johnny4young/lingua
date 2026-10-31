@@ -9,6 +9,7 @@ const DOCK_TAB_ORDER: readonly DockTabId[] = [
   'console',
   'stdin',
   'compare',
+  'timeline',
   'variables',
   'project-terminal',
   'tests',

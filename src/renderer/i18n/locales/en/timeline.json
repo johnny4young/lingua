@@ -1,0 +1,21 @@
+{
+  "timeline.title": "Execution timeline",
+  "timeline.summary_one": "{{count}} step · recorded",
+  "timeline.summary_other": "{{count}} steps · recorded",
+  "timeline.truncated": "stopped at {{max}} steps",
+  "timeline.back": "Back",
+  "timeline.next": "Next",
+  "timeline.backLabel": "Step back",
+  "timeline.nextLabel": "Step forward",
+  "timeline.strip": "Recorded steps",
+  "timeline.stepText": "Step {{step}} of {{count}}, line {{line}}",
+  "timeline.legend.current": "current step {{step}} · line {{line}}",
+  "timeline.legend.log": "console",
+  "timeline.legend.error": "error",
+  "timeline.watches": "Watches · as of step {{step}}",
+  "timeline.noVars": "No variables in scope",
+  "timeline.callStack": "Call stack",
+  "timeline.depth": "depth {{depth}}",
+  "timeline.limited": "Free keeps the last {{count}} of {{total}} steps",
+  "timeline.empty": "The run had no steps to record."
+}

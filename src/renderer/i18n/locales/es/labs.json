@@ -8,5 +8,7 @@
   "settings.labs.flag.runCompare.label": "Comparar ejecuciones",
   "settings.labs.flag.runCompare.description": "La pestaña Compare lista tus ejecuciones por día y compara dos cualesquiera: código, salida, valores en línea y resultado. Requiere Pro.",
   "settings.labs.flag.runState.label": "Estado de ejecución",
-  "settings.labs.flag.runState.description": "Marca los resultados como desactualizados cuando editas después de la última ejecución: un borde ámbar alrededor del editor, valores en línea atenuados con su antigüedad y una pastilla DESACTUALIZADO en el Dock. Settings › Editor suma una política de ejecución por grupo de lenguajes: Al teclear, Al pausar o Manual."
+  "settings.labs.flag.runState.description": "Marca los resultados como desactualizados cuando editas después de la última ejecución: un borde ámbar alrededor del editor, valores en línea atenuados con su antigüedad y una pastilla DESACTUALIZADO en el Dock. Settings › Editor suma una política de ejecución por grupo de lenguajes: Al teclear, Al pausar o Manual.",
+  "settings.labs.flag.runTimeline.label": "Línea de tiempo de ejecución",
+  "settings.labs.flag.runTimeline.description": "Grabar ejecución, en el menú de Run para JavaScript y TypeScript, guarda cada paso de una ejecución: la pestaña Timeline del Dock la reproduce con las variables y la pila de llamadas de cada paso, sin volver a ejecutar el código. Free guarda los últimos 20 pasos."
 }

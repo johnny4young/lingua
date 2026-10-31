@@ -721,6 +721,20 @@ Map deletion is record-identity-safe, preventing an older finalizer from deletin
 a later session that reuses the same ID. The ID is not persisted and remains
 optional on the preload contract for compatible direct callers.
 
+### Execution timeline recording
+
+Record run (Labs) is separate from the debugger. The JS / TS runner asks
+`timelineInstrument.ts` to put `__lingua_rec(line, locals)` before every
+statement in every statement list, on the same line, so nothing pauses and no
+`await` is added; synchronous functions also push and pop a frame, while async
+functions and generators record without one because their bodies interleave.
+Loop-protection guards are skipped. The worker's step buffer keeps line,
+frames and value previews, stops at 5,000 steps or 2 MB of values (and then
+only tracks the current line), marks the step that logged or threw, and posts
+one `timeline` message before `done`. `timelineStore` keeps the latest
+recording in memory (Free keeps its last 20 steps); a later run of the tab
+drops it. Replay reads the recording and never runs the code again.
+
 ## Notebook lazy-reactivity boundary
 
 Notebook languages do not share one typed value graph. JavaScript and

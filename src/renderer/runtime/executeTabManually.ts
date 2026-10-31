@@ -1,3 +1,4 @@
+import { useTimelineStore } from '../stores/timelineStore';
 import { beginManualRun } from './manualRunSession';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
@@ -121,6 +122,8 @@ async function executeOwnedTab(
   }
 
   publishRunStart(activeTab, plan, runConsole, showsResults);
+  // A new run leaves the tab's recording behind; only Record run replaces it.
+  useTimelineStore.getState().clearTab(activeTab.id);
   lifecycle.setIsRunning?.(true);
   const bootstrap = startRunnerBootstrap(activeTab, plan, lifecycle, runConsole);
   let runnerPrepared = false;
@@ -168,6 +171,9 @@ async function executeOwnedTab(
     if (!session.isCurrent()) return cancelledSummary();
     if (run.result.cancelled) {
       return publishCancelledRun(activeTab, run, runConsole, showsResults);
+    }
+    if (plan.recordRequested && run.result.timeline) {
+      useTimelineStore.getState().publish(activeTab.id, run.result.timeline);
     }
     return await publishCompletedRun(
       activeTab,

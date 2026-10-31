@@ -9,6 +9,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 
 function openTab(tab: Record<string, unknown>) {
   act(() => {
@@ -64,6 +65,23 @@ describe('useLayoutAvailability', () => {
     openTab({ kind: 'utilities', name: 'Utilities', language: 'plaintext' });
     rerender();
     expect(result.current.dockShown).toBe(false);
+  });
+
+  it('offers Timeline for the tab that was recorded while the flag is on', () => {
+    openTab({});
+    act(() => useTimelineStore.setState({ recording: { tabId: 't1', steps: [], total: 0, truncated: false, limited: false }, current: 0 }));
+    const { result, rerender } = renderHook(() => useLayoutAvailability());
+    expect(result.current.tabs.timeline).toBe(false);
+    act(() => useSettingsStore.setState({ featureFlags: { runTimeline: true } }));
+    rerender();
+    expect(result.current.tabs.timeline).toBe(true);
+    act(() => useTimelineStore.setState(state => ({ recording: { ...state.recording!, tabId: 'other' } })));
+    rerender();
+    expect(result.current.tabs.timeline).toBe(false);
+    act(() => {
+      useTimelineStore.setState({ recording: null });
+      useSettingsStore.setState({ featureFlags: {} });
+    });
   });
 
   it('offers Compare once a same-language snapshot exists', () => {

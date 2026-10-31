@@ -47,6 +47,7 @@ import { TestFailureCardHost } from '../ProjectTests/TestFailureCardHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 import { useRunStale, useRunStaleAgeProperty } from '../../hooks/useRunStale';
 import { bindStopRunKey } from './stopRunKeybinding';
+import { TimelineLineHost } from '../Timeline/TimelineLineHost';
 
 configureMonaco();
 
@@ -509,6 +510,7 @@ export function CodeEditor() {
           lineEndReserve={errorActionsReserve}
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TestFailureCardHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}

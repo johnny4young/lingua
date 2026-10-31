@@ -25,6 +25,8 @@ export interface ManualExecutionLifecycle {
    * breakpoints remain passive editor marks until the user presses Debug.
    */
   debug?: boolean;
+  /** Record run: the JS / TS runner keeps a step timeline. */
+  record?: boolean;
   /** Telemetry entry point supplied by the React control that owns the run. */
   track?: TelemetryTrack;
 }
