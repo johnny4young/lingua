@@ -5,7 +5,7 @@ import { cycleRuntimeMode, languageHasRuntimeModes } from '../../shared/runtimeM
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { cycleWorkflowMode, defaultWorkflowMode } from '../../shared/workflowMode';
 import { toggleRecentRunsPopover } from '../runtime/recentRunsPopoverBridge';
-import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
+import { runCompareCaptureOn, useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -188,7 +188,8 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const snapshotRing = useResultStore.getState().snapshotRing;
       const snapshotIsRelevant =
         tab !== null && snapshotRing.some(entry => entry.language === tab.language);
-      if (!tab || !snapshotIsRelevant) {
+      const comparableRuns = runCompareCaptureOn() && useExecutionHistoryStore.getState().entries.length > 0;
+      if (!tab || (!snapshotIsRelevant && !comparableRuns)) {
         pushInfoNotice('compare.toggle.shortcutUnavailable');
         return;
       }

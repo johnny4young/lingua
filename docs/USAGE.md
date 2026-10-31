@@ -300,6 +300,13 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Every blocked request, and each host you allow from the Ask dialog, appears in Settings › Privacy › Recent activity with the runtime and host only.
 - It is a best-effort guard, not a sandbox: an API it does not wrap, such as a dynamic `import()` of a URL or a `FontFace` source, is not stopped, and on the web a rich-output image with a remote `src` still loads in the app window. Pyodide is shared across tabs, so a task code left running applies the next run's policy, and package installs Lingua starts may reach PyPI (`pypi.org`, `files.pythonhosted.org`) while they run. Node, Deno, Bun, Go, Rust and system Ruby on desktop run natively and fall under the native execution acknowledgement (Deno already runs without network access). Ruby is covered only when it runs on Ruby WASM (Settings › Languages › Ruby runtime).
 
+## Compare runs (Labs)
+
+- Turn on **Settings › Labs › Compare runs** (Pro) to turn the **Compare** dock tab into your run history. Runs are grouped by day, newest first, each with its status, file, runtime, duration, a one-line result and the time; SQL and HTTP runs show their rows or status. `Cmd/Ctrl+Shift+D` opens the tab as soon as there is a run.
+- Tick any two runs to see what changed between them: the code, stdout, the inline values by line, and the exit status with both durations. The tab opens with the active tab's last two runs already ticked; ticking a third replaces the earlier pick.
+- **Restore as new tab** opens the earlier run's code in a new tab named after the file and the time, in Run mode, and never overwrites a tab. **Pin as capsule** keeps that run and its capsule past the history caps until you unpin it.
+- The history stays in memory for the session, like Recent runs: up to 50 runs, with code kept up to 256 KiB and stdout and stderr up to 64 KiB each. Runs from before you turned it on are listed but cannot be ticked. It is separate from the Run Ledger below, which never keeps code or output.
+
 ## Browser-only limitations
 
 - Go compilation stays unavailable in the browser build and returns an explicit desktop-only message.

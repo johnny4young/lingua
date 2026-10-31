@@ -100,3 +100,23 @@ export function openCapsuleWorkspaceFileInNewTab(
     content: file.content,
   });
 }
+
+/**
+ * Open a compared run's code as a branch tab in Run mode, never running
+ * it. Returns false when the run is not editor code (SQL, HTTP, pipelines).
+ */
+export function openComparedRunInNewTab(run: { name: string; language: string; code: string }): boolean {
+  const language = canOpenComparedRun(run.language) ? resolveEditorLanguage(run.language) : undefined;
+  if (language === undefined) return false;
+  useEditorStore.getState().addTab({
+    ...createDefaultTab(language),
+    workflowMode: workflowModeForNewTab(language, 'run'),
+    content: run.code,
+    name: run.name,
+  });
+  return true;
+}
+
+export function canOpenComparedRun(language: string): boolean {
+  return language !== 'sql' && resolveEditorLanguage(language) !== undefined;
+}
