@@ -11,7 +11,6 @@ import { claimCapsuleListSurface } from './components/CapsuleList/capsuleListSur
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { NetworkAskDialog } from './components/NetworkAsk/NetworkAskDialog';
-import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { LiveAnnouncer } from './components/a11y/LiveAnnouncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
@@ -378,7 +377,6 @@ function AppChrome({
         exportProjectBundle={exportProjectBundle}
       />
       <FactoryRecoveryNotice />
-      <StatusNoticeBanner />
       <LiveAnnouncer />
       <FirstRunConsentModal />
       <NativeExecutionWarning />

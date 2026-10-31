@@ -677,10 +677,15 @@ export async function dismissNotice(page: Page): Promise<void> {
   const dismissButton = page.getByRole('button', {
     name: /dismiss notice|descartar aviso/i,
   });
+  const banner = page.getByTestId('status-notice-banner');
   if (await dismissButton.isVisible().catch(() => false)) {
+    const dismissed = (await banner.textContent()) ?? '';
     await dismissButton.click();
+    // A queued notice may take its place, so check this one is gone.
+    await expect
+      .poll(async () => (await banner.count()) === 0 || (await banner.textContent()) !== dismissed)
+      .toBe(true);
   }
-  await expect(page.getByTestId('status-notice-banner')).toBeHidden();
 }
 
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {

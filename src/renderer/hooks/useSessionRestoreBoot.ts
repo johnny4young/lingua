@@ -84,6 +84,7 @@ export function useSessionRestoreBoot(smokeEnabled: boolean): boolean {
           messageKey: 'editor.restoreSession.prompt',
           values: { count: tabCount },
           priority: 'high',
+          sticky: true,
           actions: [
             {
               labelKey: 'editor.restoreSession.promptCta',

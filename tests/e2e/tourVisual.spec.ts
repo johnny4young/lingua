@@ -189,6 +189,10 @@ test.describe('website tour evidence', () => {
         buffer: Buffer.from(RELEASES_CSV),
       });
       await page.getByTestId('sql-import-modal-confirm').click();
+      // The import notice docks a row that shifts the sidebar; clear it before clicking.
+      await expect(page.getByTestId('status-notice-banner')).toBeVisible();
+      await dismissNotices(page);
+      await expect(page.getByTestId('status-notice-banner')).toBeHidden();
       await page.getByTestId('sql-query-list-create').click();
       await replaceEditorText(
         page,

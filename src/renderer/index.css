@@ -829,6 +829,8 @@
   /* Overlays */
   .overlay-backdrop {
     @apply fixed inset-0 z-50 flex bg-black/52 backdrop-blur-xl;
+    /* Ends above the docked notice row so a notice never covers a dialog. */
+    bottom: var(--notice-row-offset, 0px);
     /* Prevent Electron's -webkit-app-region:drag from intercepting clicks over modals */
     -webkit-app-region: no-drag;
   }

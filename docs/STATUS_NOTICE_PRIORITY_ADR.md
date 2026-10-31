@@ -82,8 +82,10 @@ Ship option 2 (priority field). Rationale:
   read as `'normal'` priority by default and keep their
   last-writer-wins behaviour against other `'normal'` pushes.
 - The 6 s auto-dismiss TTL stays. Error notices still require manual
-  dismissal in the banner.
-- The single-slot store shape stays. Notices do NOT queue.
+  dismissal in the banner. *(Superseded by the 2026-10-30 amendment: 8 s,
+  sticky decisions.)*
+- The single-slot store shape stays. Notices do NOT queue. *(Superseded by
+  the 2026-10-30 amendment: notices queue.)*
 
 ### Migration path
 
@@ -99,7 +101,10 @@ If `onboarding.toast_clobbered` never fires in production over a
 underlying clobbering caller would have been fixed elsewhere, or
 the scenario stopped existing. Remove the field, drop the priority
 check in `pushStatusNotice`, and revert the two onboarding annotations.
-The 134 legacy callers are unaffected by the removal.
+The 134 legacy callers are unaffected by the removal. *(Since the
+2026-10-30 amendment, priority also sets queue order, so removing it
+flattens the queue, and `onboarding.toast_clobbered` counts
+lower-priority pushes that waited rather than refused swaps.)*
 
 ## Coupled invariants
 
@@ -116,4 +121,43 @@ The 134 legacy callers are unaffected by the removal.
 
 ## Status
 
-Accepted. Shipped 2026-05-22.
+Accepted. Shipped 2026-05-22. Amended 2026-10-30: notices now queue (below).
+
+## Amendment: one notice at a time, queued (2026-10-30)
+
+The single slot let a later push silently replace a notice that still needed
+an answer, and the bottom-right toast covered the templates on the welcome
+screen and the debugger's Watches card. The replacement, TTL and single-slot
+rules above are superseded by these:
+
+- **One visible, in its own row.** The notice docks in a row above the status
+  bar (at the bottom of the window when the status bar is off), so it covers
+  no content. It stays above an open dialog and the compact sidebar drawer so
+  a notice pushed from inside one is still reachable, and dialogs end above
+  the row (`--notice-row-offset`).
+- **Queued by priority.** Waiting notices show `'high'` before `'normal'`
+  before `'low'`, oldest first within a tier, at most five; past that the
+  least important waiting notice that is not a decision is dropped with
+  `onDismiss('auto')`.
+- **Sticky decisions.** Errors and notices with `sticky: true` (the session
+  restore prompt, toolchain recovery, an external file change, an HTTP chain
+  confirmation) stay until acted on; everything else leaves after 8 s,
+  paused while hovered or focused.
+- **Who takes the screen.** A new notice of equal or higher priority replaces
+  a visible notice that is not sticky, so the latest thing the user did
+  answers first; a replaced notice that offers an action returns to the front
+  of the queue. Errors and warnings replace even a sticky notice, which comes
+  back after. A lower-priority push waits, and the visible notice's
+  `onSurvived` still fires.
+- **Plain feedback does not pile up.** A notice with no action, no stickiness
+  and normal or low priority is superseded by the next one, as before; only
+  the newest waits in the queue. A repeat of a visible or waiting notice
+  (same key and values) refreshes it in place.
+- **Upsells pitch once per feature.** `pushUpsellNotice` shows the full
+  message with *See what Pro includes* the first time a feature is blocked in
+  a session; later blocks of that feature show the same message without the
+  call to action.
+
+Coverage: `tests/stores/statusNoticeQueue.test.ts`,
+`tests/stores/uiStore.test.ts`, `tests/components/StatusNoticeBanner.test.tsx`,
+`tests/utils/upsellNotice.test.ts`.

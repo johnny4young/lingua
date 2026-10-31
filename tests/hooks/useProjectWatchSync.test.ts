@@ -143,6 +143,7 @@ describe('useProjectWatchSync — reload-from-disk notice ', () => {
     const notice = useUIStore.getState().statusNotice;
     expect(notice).not.toBeNull();
     expect(notice?.messageKey).toBe('git.externalReload.clean.body');
+    expect(notice?.sticky).toBe(true);
     expect(notice?.actions?.[0]?.labelKey).toBe(
       'git.externalReload.clean.action'
     );
