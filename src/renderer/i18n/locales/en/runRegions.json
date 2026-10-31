@@ -1,0 +1,15 @@
+{
+  "runRegions.title": "Regions",
+  "runRegions.label": "Regions of this file",
+  "runRegions.top": "Top",
+  "runRegions.unnamed": "Region {{number}}",
+  "runRegions.run": "Run region",
+  "runRegions.runAll": "Run all",
+  "runRegions.runLabel": "Run the file up to the end of region {{name}}",
+  "runRegions.card.label": "Output of region {{name}}",
+  "runRegions.card.ran": "ran {{time}} · {{duration}}",
+  "runRegions.card.empty": "No output",
+  "runRegions.card.insert": "Insert result as comment",
+  "runRegions.card.rerun": "Re-run region",
+  "runRegions.card.close": "Close"
+}

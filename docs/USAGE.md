@@ -308,6 +308,14 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - The editor highlights the step's line with what that line changed (`pivot = 10`) and, when the line ran more than once, which run it is (`echo 4 of 7`); lines the run reaches later but has not reached by that step are dimmed. The panel shows the variables and the call stack as of that step, before its line runs. Nothing runs again.
 - A recording keeps up to 5,000 steps, 30 values of 120 characters per step and about 2 million characters of values in all, in memory only; a run that goes further says it stopped recording. Free keeps the last 20 steps. Values are short previews two levels deep; getters show as `[Getter]` and are never called, so recording does not run your code twice. A recorded run does not time lines (`// @time`) or fill the Variables tab. Running the tab again, by hand or by Scratchpad, or closing it, drops the recording.
 
+## Run regions (Labs)
+
+- Turn on **Settings › Labs › Run regions**, then split a JavaScript or TypeScript file with top-level `// %% name` lines, or a Python file with `# %% name` lines at the start of the line. Code above the first marker is its own region, **Top**. The text after `%%` up to a `·` names the region; a marker without a name reads **Region N**.
+- A **Regions** bar above the editor lists the regions; the one at the cursor is pressed and tinted in the editor. Click a region to move the cursor into it.
+- In the editor, `Cmd/Ctrl+Enter` runs the file up to the end of the region at the cursor, so the regions above set up its state, and `Cmd/Ctrl+Shift+Enter` runs the whole file. **Run region** and **Run all** on the bar do the same. While a run is on, `Cmd/Ctrl+Enter` stops it as before; outside the editor, and in files without markers, it runs the whole file.
+- A region run shows the value of each bare expression, like Scratchpad's auto-log, and a card under the region lists its output, when it ran and how long it took. **Insert result as comment** writes the region's last value at the end of its line as `// => value` (`# => value` in Python), which later runs keep showing; **Re-run region** runs it again. Another run of the tab, or the close button, removes the card.
+- The Console still shows everything the run printed, the regions above included. A region run is not added to run history or Compare, and its result stays in memory.
+
 ## Run state (Labs)
 
 - Turn on **Settings › Labs › Run state** to see when the results on screen no longer match the code. Once you edit the code, stdin or the arguments after the last run, the editor gets an amber border, the inline values dim and end with their age (`· 12 sec. ago`), the Dock row shows **Stale**, and Run pulses. Running again, or undoing the edit, clears it. A Scratchpad that runs on its own only turns stale while an incomplete edit keeps it from running.

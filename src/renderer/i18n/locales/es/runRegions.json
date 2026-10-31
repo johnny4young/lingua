@@ -1,0 +1,15 @@
+{
+  "runRegions.title": "Regiones",
+  "runRegions.label": "Regiones de este archivo",
+  "runRegions.top": "Inicio",
+  "runRegions.unnamed": "Región {{number}}",
+  "runRegions.run": "Ejecutar región",
+  "runRegions.runAll": "Ejecutar todo",
+  "runRegions.runLabel": "Ejecutar el archivo hasta el final de la región {{name}}",
+  "runRegions.card.label": "Salida de la región {{name}}",
+  "runRegions.card.ran": "se ejecutó {{time}} · {{duration}}",
+  "runRegions.card.empty": "Sin salida",
+  "runRegions.card.insert": "Insertar resultado como comentario",
+  "runRegions.card.rerun": "Volver a ejecutar la región",
+  "runRegions.card.close": "Cerrar"
+}

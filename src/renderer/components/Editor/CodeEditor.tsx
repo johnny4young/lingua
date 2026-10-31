@@ -48,6 +48,7 @@ import { registerSelectionTransferActions } from '../../utils/selectionTransfer'
 import { useRunStale, useRunStaleAgeProperty } from '../../hooks/useRunStale';
 import { bindStopRunKey } from './stopRunKeybinding';
 import { TimelineLineHost } from '../Timeline/TimelineLineHost';
+import { RunRegionsHost } from '../RunRegions/RunRegionsHost';
 
 configureMonaco();
 
@@ -480,6 +481,7 @@ export function CodeEditor() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <RunRegionsHost editor={editorInstance} monaco={monacoInstance} />
       <div
         ref={runStateRef}
         className={runStale.stale ? 'run-stale min-h-0 flex-1' : 'min-h-0 flex-1'}
