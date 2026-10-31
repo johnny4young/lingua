@@ -1642,7 +1642,7 @@
   "commandPalette.action.toggleInlineLint.descriptionWithCount_other": "Activa o desactiva el lint en línea · {{count}} problemas detectados en este archivo.",
   "commandPalette.action.pastePlainText.label": "Pegar como texto plano",
   "commandPalette.action.pastePlainText.description": "Pega el portapapeles en el editor sin detección de pegado inteligente.",
-  "command.compareCapsules": "Comparar dos capsules",
+  "command.compareCapsules": "Comparar dos cápsulas",
   "command.compareCapsules.description": "Abre el explorador de cápsulas, elige una ejecución y usa Comparar con… para elegir la otra.",
   "command.toggleStatusBar": "Alternar barra de estado",
   "command.benchmark": "Medir el rendimiento de esta pestaña",
