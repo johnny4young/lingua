@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { isEntitled } from '../../shared/entitlements';
 import { TIMELINE_FREE_STEPS, type ExecutionTimeline, type TimelineStep } from '../../shared/timeline';
 import { currentEffectiveTier } from './licenseSelectors';
+import { useEditorStore } from './editorStore';
 
 interface TimelineRecording {
   tabId: string;
@@ -23,6 +24,18 @@ interface TimelineState {
 }
 
 /** The latest Record run, in memory only. It opens on the step where the run ended. */
+let watchingTabs = false;
+
+/** A recording goes with its tab, so a closed tab does not keep its steps in memory. */
+function dropRecordingWithItsTab(): void {
+  if (watchingTabs) return;
+  watchingTabs = true;
+  useEditorStore.subscribe(state => {
+    const tabId = useTimelineStore.getState().recording?.tabId;
+    if (tabId !== undefined && !state.tabs.some(tab => tab.id === tabId)) useTimelineStore.getState().clearTab(tabId);
+  });
+}
+
 export const useTimelineStore = create<TimelineState>()((set, get) => ({
   recording: null,
   current: 0,
@@ -33,6 +46,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     } catch {
       entitled = false;
     }
+    dropRecordingWithItsTab();
     const total = timeline.steps.length;
     const steps = entitled ? timeline.steps : timeline.steps.slice(-TIMELINE_FREE_STEPS);
     set({

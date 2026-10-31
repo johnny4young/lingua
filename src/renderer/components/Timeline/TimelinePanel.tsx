@@ -40,7 +40,8 @@ export function TimelinePanel() {
   };
   const onStripClick = (event: ReactMouseEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
-    select(Math.round(((event.clientX - box.left) / Math.max(1, box.width)) * (count - 1)));
+    // Ticks sit 8 px in from each edge, so map the click over the same inner width.
+    select(Math.round(((event.clientX - box.left - 8) / Math.max(1, box.width - 16)) * (count - 1)));
   };
 
   return (

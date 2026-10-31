@@ -3,6 +3,7 @@ import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteMode
 
 export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate }) => {
   const {
+    onRecordRun,
     onExportLatestCapsule,
     latestCapsuleAvailable = false,
     onOpenCapsuleImport,
@@ -27,6 +28,20 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
   } = args;
 
   const commands: CommandEntry[] = [
+    ...(onRecordRun
+      ? [
+          buildActionCommand(
+            'action-record-run',
+            translate('actionPill.record.label'),
+            translate('actionPill.record.desc'),
+            ['record', 'timeline', 'steps', 'replay', 'grabar', 'pasos'],
+            () => {
+              onRecordRun();
+              onClose();
+            }
+          ),
+        ]
+      : []),
     // Export latest run as capsule. Surfaces
     // only when the caller wires the handler AND the history store
     // confirms at least one entry still carries a `lastCapsule`. Hiding

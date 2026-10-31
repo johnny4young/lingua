@@ -57,6 +57,20 @@ describe('timeline panel', () => {
     expect(useTimelineStore.getState().current).toBe(2);
   });
 
+  it('picks the step under the click, inside the strip inset', () => {
+    const many = Array.from({ length: 101 }, (_, index) => ({ line: index + 1, frames: [], vars: [] }));
+    useTimelineStore.setState({ recording: { tabId: 't1', steps: many, total: 101, truncated: false, limited: false }, current: 50 });
+    render(<TimelinePanel />);
+    const strip = screen.getByTestId('timeline-strip');
+    strip.getBoundingClientRect = () => ({ left: 100, width: 216, top: 0, height: 30, right: 316, bottom: 30, x: 100, y: 0, toJSON: () => ({}) });
+    fireEvent.click(strip, { clientX: 108 });
+    expect(useTimelineStore.getState().current).toBe(0);
+    fireEvent.click(strip, { clientX: 208 });
+    expect(useTimelineStore.getState().current).toBe(50);
+    fireEvent.click(strip, { clientX: 308 });
+    expect(useTimelineStore.getState().current).toBe(100);
+  });
+
   it('says when Free kept only the last steps, and when the run stopped at the cap', async () => {
     useTimelineStore.setState(state => ({ recording: { ...state.recording!, total: 50, limited: true, truncated: true } }));
     render(<TimelinePanel />);

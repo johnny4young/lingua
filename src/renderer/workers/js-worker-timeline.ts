@@ -150,10 +150,12 @@ export function createJsWorkerTimeline(): JsWorkerTimeline {
 
 /** Marks the latest step for each console call, on top of the run's console proxy. */
 export function watchJsWorkerConsoleForTimeline(timeline: JsWorkerTimeline): void {
-  for (const method of ['log', 'info', 'warn', 'error'] as const) {
-    const write = console[method];
+  for (const method of ['log', 'info', 'warn', 'error', 'debug', 'table', 'dir'] as const) {
+    const write = console[method] as (...args: unknown[]) => void;
+    if (typeof write !== 'function') continue;
+    const mark: ConsoleMethod = method === 'info' || method === 'warn' || method === 'error' ? method : 'log';
     console[method] = (...args: unknown[]) => {
-      timeline.noteConsole(method);
+      timeline.noteConsole(mark);
       write(...args);
     };
   }

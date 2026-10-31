@@ -5,6 +5,7 @@ vi.mock('@/stores/licenseSelectors', () => ({ currentEffectiveTier: () => mockTi
 
 import { TIMELINE_FREE_STEPS, type TimelineStep } from '@/../shared/timeline';
 import { useTimelineStore } from '@/stores/timelineStore';
+import { useEditorStore } from '@/stores/editorStore';
 
 const steps = (count: number): TimelineStep[] =>
   Array.from({ length: count }, (_, index) => ({ line: index + 1, frames: [{ name: '<module>', line: index + 1 }], vars: [] }));
@@ -31,6 +32,14 @@ describe('timeline store', () => {
     expect(recording.steps).toHaveLength(TIMELINE_FREE_STEPS);
     expect(recording.steps[0]!.line).toBe(31);
     expect(recording).toMatchObject({ total: 50, limited: true, truncated: true });
+  });
+
+  it('drops the recording when its tab closes', () => {
+    useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: '' }] as never, 't1');
+    useTimelineStore.getState().publish('t1', { steps: steps(3), truncated: false });
+    useEditorStore.getState().restoreTabs([{ id: 't2', name: 'b.js', language: 'javascript', content: '' }] as never, 't2');
+    expect(useTimelineStore.getState().recording).toBeNull();
+    useEditorStore.getState().restoreTabs([], null);
   });
 
   it('keeps the selection inside the recording and clears only its own tab', () => {

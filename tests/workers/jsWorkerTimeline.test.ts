@@ -47,6 +47,11 @@ describe('JS worker timeline', () => {
     expect(messages.findIndex(message => message.type === 'timeline')).toBeLessThan(messages.findIndex(message => message.type === 'done'));
   });
 
+  it('marks console.table output on the step that wrote it', async () => {
+    const { timeline } = await record('const rows = [{ a: 1 }];\nconsole.table(rows);');
+    expect(timeline?.steps.at(-1)).toMatchObject({ line: 2, log: 'log' });
+  });
+
   it('marks the step where the run threw', async () => {
     const { timeline } = await record('const a = 1;\nnull.boom;');
     expect(timeline?.steps.at(-1)).toMatchObject({ line: 2, error: true });
