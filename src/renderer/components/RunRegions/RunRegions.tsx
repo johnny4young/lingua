@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type * as monacoTypes from 'monaco-editor';
@@ -6,15 +6,21 @@ import { Play, RotateCcw, X } from 'lucide-react';
 import '../../i18n/runRegionsCatalog';
 import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
 import { useRunner } from '../../hooks/useRunner';
+import { regionRunOptions } from '../../runtime/regionRun';
 import type { LineResult } from '../../stores/resultStore';
 import { useRunRegionStore } from '../../stores/runRegionStore';
-import { parseRunRegions, resultComment, runRegionAt, type RunRegion, type RunRegionLanguage } from '../../utils/runRegions';
+import { isMaskedPrompt, parseRunRegions, resultComment, runRegionAt, type RunRegion, type RunRegionLanguage } from '../../utils/runRegions';
+import { splitStdinLines } from '../../utils/stdinRequest';
+import { useEditorStore } from '../../stores/editorStore';
+import type { ExecutionResult } from '../../types/execution';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { cn } from '../../utils/cn';
 import { formatPayloadInlineSummary } from '../../../shared/richOutput';
 import { inferKind } from '../Editor/inlineResultWidgetDom';
 import { useLineWidget } from '../Editor/useLineWidget';
 import { EyebrowMono } from '../ui/primitives';
+
+type StdinRequest = NonNullable<ExecutionResult['stdinRequest']>;
 
 const CARD_ID = 'lingua.runRegions.card';
 const CARD_WIDTH = 560;
@@ -52,6 +58,74 @@ function ResultRow({ row }: { row: LineResult }) {
   );
 }
 
+/** The prompt a region stopped at: Enter keeps the answer in the tab's Input, or in memory when it is masked, and runs the region again. */
+function StdinRow({
+  tabId,
+  regionName,
+  request,
+  disabled,
+  onAnswered,
+}: {
+  tabId: string;
+  regionName: string;
+  request: StdinRequest;
+  disabled: boolean;
+  onAnswered: () => void;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const masked = isMaskedPrompt(request.message);
+  // Monaco attaches and may move the card after it mounts, which drops focus, so retry for a few frames.
+  useEffect(() => {
+    let frame = 0;
+    let tries = 0;
+    const focus = () => {
+      if (input.current && document.activeElement !== input.current) input.current.focus();
+      tries += 1;
+      if (tries < 10) frame = requestAnimationFrame(focus);
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (disabled) return;
+    const tab = useEditorStore.getState().tabs.find(candidate => candidate.id === tabId);
+    const lines = splitStdinLines(tab?.stdinBuffer);
+    const regions = useRunRegionStore.getState();
+    if (masked) regions.addMasked(tabId, { index: lines.length + (regions.masked[tabId]?.length ?? 0), value });
+    else useEditorStore.getState().setTabStdinBuffer(tabId, [...lines, value].join('\n'));
+    onAnswered();
+  };
+  return (
+    <form
+      onSubmit={submit}
+      data-testid="run-regions-stdin"
+      className="mt-2 flex min-w-0 items-center gap-2 rounded-md border border-accent/60 bg-accent/10 px-2.5 py-1.5"
+    >
+      <label htmlFor={`run-regions-stdin-${tabId}`} className="min-w-0 max-w-[45%] shrink-0 truncate font-mono text-caption text-accent-fg" title={request.message}>
+        {request.message ? t('runRegions.stdin.prompt', { message: request.message }) : t('runRegions.stdin.promptBare')}
+        {request.line ? <span className="text-fg-subtle"> · L{request.line}</span> : null}
+      </label>
+      <input
+        id={`run-regions-stdin-${tabId}`}
+        type={masked ? 'password' : 'text'}
+        autoComplete="off"
+        spellCheck={false}
+        ref={input}
+        value={value}
+        onChange={event => setValue(event.target.value)}
+        aria-label={t('runRegions.stdin.label', { name: regionName })}
+        placeholder={t('runRegions.stdin.placeholder')}
+        data-testid="run-regions-stdin-input"
+        className="field-shell h-[26px] min-w-0 flex-1 rounded-md px-2 py-0 font-mono text-caption"
+      />
+      {masked ? <span className="shrink-0 text-micro text-fg-subtle">{t('runRegions.stdin.masked')}</span> : null}
+    </form>
+  );
+}
+
 /** Region chips above the editor, the active region tinted, and the latest region's output under it. */
 export function RunRegions({ editor, monaco, tabId, language, content }: RunRegionsProps) {
   const { t, i18n } = useTranslation();
@@ -63,8 +137,7 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
   const [node] = useState(() => document.createElement('div'));
   const [height, setHeight] = useState(72);
   const [width, setWidth] = useState(CARD_WIDTH);
-  const runRegion = (region: RunRegion | null) => void run(region ? { region } : {});
-  const runAtCursor = useEffectEvent(() => runRegion(runRegionAt(regions, cursorLine)));
+  const runRegion = (region: RunRegion | null) => void run(region ? regionRunOptions(tabId, region) : {});
   const runAll = useEffectEvent(() => runRegion(null));
   const hasRegions = regions.length > 0;
 
@@ -83,16 +156,9 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
     return () => moves.dispose();
   }, [editor]);
 
-  // Inside the editor ⌘↵ runs the region at the cursor and ⌘⇧↵ the whole file; while a run is on, ⌘↵ stops it as before.
+  // The Run shortcut picks the region at the cursor (regionRunAtCursor); in the editor ⌘⇧↵ runs the whole file.
   useEffect(() => {
     if (!editor || !monaco || !hasRegions) return;
-    const regionAction = editor.addAction({
-      id: 'lingua.runRegions.run',
-      label: t('runRegions.run'),
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-      precondition: '!linguaManualRun',
-      run: () => runAtCursor(),
-    });
     const allAction = editor.addAction({
       id: 'lingua.runRegions.runAll',
       label: t('runRegions.runAll'),
@@ -100,10 +166,7 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
       precondition: '!linguaManualRun',
       run: () => runAll(),
     });
-    return () => {
-      regionAction.dispose();
-      allAction.dispose();
-    };
+    return () => allAction.dispose();
   }, [editor, monaco, hasRegions, t]);
 
   const activeStart = active?.startLine;
@@ -257,8 +320,11 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
                     <ResultRow key={`${row.line}-${index}`} row={row} />
                   ))}
                 </div>
-              ) : last.ok ? (
+              ) : last.ok && !last.request ? (
                 <p className="mt-1 text-caption text-fg-subtle">{t('runRegions.card.empty')}</p>
+              ) : null}
+              {last.request ? (
+                <StdinRow key={last.ranAt} tabId={tabId} regionName={label(shown)} request={last.request} disabled={isRunning} onAnswered={() => runRegion(shown)} />
               ) : null}
               <div className="mt-2 flex flex-wrap justify-end gap-2">
                 {comment ? (

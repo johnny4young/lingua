@@ -756,10 +756,23 @@ so line numbers and the regions above stay as they are. The run state, the
 console and the result store see a normal run, except that it records no
 history and no Compare snapshot; `runRegionStore` keeps the latest region
 result, with its rows, in memory for the card, and any other manual or
-Scratchpad run of the tab clears it. The editor binds `Cmd/Ctrl+Enter` and `Cmd/Ctrl+Shift+Enter` as
-Monaco actions while the tab has regions and no manual run is in flight (the
-negated `linguaManualRun` key from `stopRunKeybinding.ts`), so the global Run
-shortcut is unchanged.
+Scratchpad run of the tab clears it. Monaco's own `Cmd/Ctrl+Enter` (insert line
+below) is unbound so the key reaches the global Run shortcut, whose handler asks
+`runtime/regionRun.ts` for the region at the cursor of a focused editor; the
+editor binds only `Cmd/Ctrl+Shift+Enter` (run all) as a Monaco action while the
+tab has regions and no manual run is in flight.
+
+A region run also sets `askStdin`: the JS worker installs `prompt()` /
+`readline()` even with an empty buffer, and a read past the end throws a
+private request object; the Python bootstrap swaps the user-namespace `input()`
+for one that raises a `BaseException` subclass (so `except Exception` does not
+catch it), and a later run without regions gets the stock `input()` back. The
+worker posts `stdin-request` with the prompt and line instead of an error; the
+runners sanitize it, Python maps the line back past loop protection, and the
+card asks for the line. Masked answers stay in `runRegionStore` with their
+index in the stdin stream and `mergeRegionStdin` puts them back into the tab's
+stdin for each region run, so they never reach the tab, history, capsules or
+share links.
 
 ## Notebook lazy-reactivity boundary
 

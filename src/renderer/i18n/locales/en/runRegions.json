@@ -11,5 +11,10 @@
   "runRegions.card.empty": "No output",
   "runRegions.card.insert": "Insert result as comment",
   "runRegions.card.rerun": "Re-run region",
-  "runRegions.card.close": "Close"
+  "runRegions.card.close": "Close",
+  "runRegions.stdin.label": "stdin for region {{name}}",
+  "runRegions.stdin.prompt": "prompt · {{message}}",
+  "runRegions.stdin.promptBare": "prompt",
+  "runRegions.stdin.placeholder": "Type and press Enter",
+  "runRegions.stdin.masked": "Masked · kept until reload"
 }

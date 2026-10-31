@@ -1,3 +1,4 @@
+import type { RunOptions } from './useRunner';
 import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
@@ -34,7 +35,7 @@ import { loadCapsuleExporter } from '../components/Editor/runCapsuleExportLoader
  */
 export interface AppShortcutDeps {
   isRunning: boolean;
-  run: () => void | Promise<void>;
+  run: (options?: RunOptions) => void | Promise<void>;
   stop: () => void;
   saveActiveTab: () => void | Promise<void>;
   saveActiveTabAs: () => void | Promise<void>;

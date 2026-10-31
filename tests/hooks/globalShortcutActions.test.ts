@@ -84,12 +84,30 @@ describe('buildGlobalShortcutActions', () => {
     const idle = options(false);
     buildGlobalShortcutActions(idle)['run-toggle']?.(new KeyboardEvent('keydown'));
     expect(idle.run).toHaveBeenCalledTimes(1);
+    expect(idle.run).toHaveBeenCalledWith();
     expect(idle.stop).not.toHaveBeenCalled();
 
     const running = options(true);
     buildGlobalShortcutActions(running)['run-toggle']?.(new KeyboardEvent('keydown'));
     expect(running.stop).toHaveBeenCalledTimes(1);
     expect(running.run).not.toHaveBeenCalled();
+  });
+
+  it('runs the region at the cursor with Run regions on and the editor focused', async () => {
+    const { useSettingsStore } = await import('@/stores/settingsStore');
+    const previousFlags = useSettingsStore.getState().featureFlags;
+    useSettingsStore.setState({ featureFlags: { runRegions: true } });
+    useEditorStore.getState().restoreTabs([{ id: 'r', name: 'r.js', language: 'javascript', content: 'a;\n// %% b\nc;' }] as never, 'r');
+    setActiveEditor({ getPosition: () => ({ lineNumber: 3, column: 1 }), hasTextFocus: () => true } as never);
+    try {
+      const idle = options(false);
+      buildGlobalShortcutActions(idle)['run-toggle']?.(new KeyboardEvent('keydown'));
+      await vi.waitFor(() => expect(idle.run).toHaveBeenCalledWith({ region: expect.objectContaining({ name: 'b' }), maskedStdin: [] }));
+    } finally {
+      setActiveEditor(null);
+      useSettingsStore.setState({ featureFlags: previousFlags });
+      useEditorStore.getState().restoreTabs([], null);
+    }
   });
 
   it('runs the active workspace tab when focus is outside its editor', () => {

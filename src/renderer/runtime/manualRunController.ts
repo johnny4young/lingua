@@ -145,6 +145,7 @@ async function executeTabById(
       debug: options.debug,
       record: options.record,
       region: options.region,
+      maskedStdin: options.maskedStdin,
       track,
     });
     if (!session.isCurrent()) return;

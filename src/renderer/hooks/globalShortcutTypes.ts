@@ -1,3 +1,4 @@
+import type { RunOptions } from './useRunner';
 export type AppOverlay =
   | 'none'
   | 'settings'
@@ -21,7 +22,7 @@ export type AppOverlay =
 /** Callbacks owned by App and dispatched by the global shortcut catalog. */
 export interface UseGlobalShortcutsOptions {
   isRunning: boolean;
-  run: () => void | Promise<void>;
+  run: (options?: RunOptions) => void | Promise<void>;
   stop: () => void;
   saveActiveTab: () => void | Promise<void>;
   saveActiveTabAs: () => void | Promise<void>;

@@ -114,6 +114,14 @@ describe('executeTabManually — run regions', () => {
     expect(useRunRegionStore.getState().last?.message).toContain('no runner');
   });
 
+  it('asks for stdin and keeps the prompt a region run stopped at', async () => {
+    mockRunnerExecute.mockResolvedValue({ stdout: [], stderr: [], result: undefined, executionTime: 2, error: undefined, stdinRequest: { message: 'Name?', line: 3 } });
+    const region = parseRunRegions(SOURCE, 'javascript')[1]!;
+    await executeTabManually({ ...tab, stdinBuffer: 'a\nb' }, { region, maskedStdin: [{ index: 1, value: 's' }] });
+    expect(mockRunnerExecute.mock.calls[0]![1]).toMatchObject({ askStdin: true, stdin: 'a\ns\nb' });
+    expect(useRunRegionStore.getState().last).toMatchObject({ ok: true, request: { message: 'Name?', line: 3 } });
+  });
+
   it('drops the region result when the tab runs as a whole', async () => {
     await executeTabManually(tab, { region: parseRunRegions(SOURCE, 'javascript')[0]! });
     await executeTabManually(tab);

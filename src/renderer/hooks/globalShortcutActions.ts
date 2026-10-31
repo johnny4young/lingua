@@ -1,6 +1,7 @@
 import { claimCapsuleListSurface } from '../components/CapsuleList/capsuleListSurface';
 import { usePresenterModeStore } from '../stores/presenterModeStore';
 import { getActiveEditor, getActiveEditorCursorLine } from '../runtime/editorAccess';
+import { regionRunAtCursor } from '../runtime/regionRun';
 import { useExplainPanelStore } from '../stores/explainPanelStore';
 import {
   dispatchDebuggerControl,
@@ -21,7 +22,11 @@ export function buildGlobalShortcutActions(
   return {
     'run-toggle': () => {
       if (options.isRunning) options.stop();
-      else void options.run();
+      else {
+        const region = regionRunAtCursor();
+        if (region) void region.then(options.run, () => options.run());
+        else void options.run();
+      }
     },
     ...(options.isRunning ? { 'run-stop': () => options.stop() } : {}),
     'run-cycle-runtime-mode': () => options.cycleRuntimeMode(),

@@ -93,14 +93,13 @@ describe('run regions', () => {
     expect(JSON.stringify(fake.decorations.at(-1))).toContain('"startLineNumber":4');
     expect(JSON.stringify(fake.decorations.at(-1))).toContain('lingua-region-active');
 
-    const regionKey = fake.actions.find(action => action.id === 'lingua.runRegions.run')!;
-    expect(regionKey.keybindings).toEqual([2048 | 3]);
-    // While a manual run is on, the editor leaves Cmd+Enter to the Run shortcut, which stops it.
-    expect(fake.actions.map(action => (action as { precondition?: string }).precondition)).toEqual(['!linguaManualRun', '!linguaManualRun']);
-    regionKey.run();
-    expect(run).toHaveBeenLastCalledWith({ region: expect.objectContaining({ name: 'size', startLine: 4, endLine: 6 }) });
-    fake.actions.find(action => action.id === 'lingua.runRegions.runAll')!.run();
+    // Cmd+Enter belongs to the Run shortcut (regionRunAtCursor); the editor only adds Run all.
+    expect(fake.actions.map(action => action.id)).toEqual(['lingua.runRegions.runAll']);
+    expect(fake.actions[0]!.keybindings).toEqual([2048 | 1024 | 3]);
+    fake.actions[0]!.run();
     expect(run).toHaveBeenLastCalledWith({});
+    fireEvent.click(screen.getByTestId('run-regions-run'));
+    expect(run).toHaveBeenLastCalledWith({ region: expect.objectContaining({ name: 'size', startLine: 4, endLine: 6 }), maskedStdin: [] });
 
     fireEvent.click(chips[1]!);
     expect(fake.editor.setPosition).toHaveBeenLastCalledWith({ lineNumber: 3, column: 1 });
@@ -130,7 +129,7 @@ describe('run regions', () => {
       { range: expect.objectContaining({ startLineNumber: 5, startColumn: 9 }), text: ' // => 2' },
     ]);
     fireEvent.click(screen.getByTestId('run-regions-rerun'));
-    expect(run).toHaveBeenLastCalledWith({ region });
+    expect(run).toHaveBeenLastCalledWith({ region, maskedStdin: [] });
     fireEvent.click(screen.getByTestId('run-regions-close'));
     expect(useRunRegionStore.getState().last).toBeNull();
   });
@@ -141,6 +140,40 @@ describe('run regions', () => {
     const moved = CODE.replace('// %% size', '// %% extra\nlet b = 1;\n// %% size');
     render(<RunRegions editor={fakeEditor(moved).editor as never} monaco={monaco as never} tabId="t1" language="javascript" content={moved} />);
     expect(screen.getByTestId('run-regions-card').getAttribute('aria-label')).toBe('Output of region size');
+  });
+
+  it('asks for a missing stdin line, keeps plain answers in the tab and masked ones in memory', async () => {
+    const fake = fakeEditor(CODE);
+    const region = parseRunRegions(CODE, 'javascript')[2]!;
+    useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE, stdinBuffer: 'first' }] as never, 't1');
+    useRunRegionStore.setState({ masked: {}, last: { tabId: 't1', region, ranAt: 1, executionTime: 1, ok: true, message: '', rows: [], request: { message: 'Your name?', line: 5 } } });
+    render(<RunRegions editor={fake.editor as never} monaco={monaco as never} tabId="t1" language="javascript" content={CODE} />);
+
+    expect(screen.getByTestId('run-regions-stdin').textContent).toContain('prompt · Your name? · L5');
+    expect(screen.queryByText('No output')).toBeNull();
+    const input = screen.getByTestId('run-regions-stdin-input') as HTMLInputElement;
+    expect(input.type).toBe('text');
+    expect(input.getAttribute('aria-label')).toBe('stdin for region size');
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: 'Ada' } });
+    fireEvent.submit(input.form!);
+    expect(useEditorStore.getState().tabs[0]!.stdinBuffer).toBe('first\nAda');
+    expect(run).toHaveBeenLastCalledWith({ region, maskedStdin: [] });
+
+    act(() => useRunRegionStore.setState({ last: { ...useRunRegionStore.getState().last!, ranAt: 2, request: { message: 'Password:' } } }));
+    const secret = screen.getByTestId('run-regions-stdin-input') as HTMLInputElement;
+    expect(secret.type).toBe('password');
+    fireEvent.change(secret, { target: { value: 'hunter2' } });
+    fireEvent.submit(secret.form!);
+    expect(useEditorStore.getState().tabs[0]!.stdinBuffer).toBe('first\nAda');
+    expect(useRunRegionStore.getState().masked.t1).toEqual([{ index: 2, value: 'hunter2' }]);
+    expect(run).toHaveBeenLastCalledWith({ region, maskedStdin: [{ index: 2, value: 'hunter2' }] });
+
+    act(() => useRunRegionStore.setState({ last: { ...useRunRegionStore.getState().last!, ranAt: 3, request: { message: 'API token' } } }));
+    const token = screen.getByTestId('run-regions-stdin-input') as HTMLInputElement;
+    fireEvent.change(token, { target: { value: 't0k' } });
+    fireEvent.submit(token.form!);
+    expect(useRunRegionStore.getState().masked.t1).toEqual([{ index: 2, value: 'hunter2' }, { index: 3, value: 't0k' }]);
   });
 
   it('shows the error of a region run that failed and offers no comment', () => {
