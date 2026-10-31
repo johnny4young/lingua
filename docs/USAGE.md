@@ -9,7 +9,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Action                  | macOS         | Windows / Linux |
 | ----------------------- | ------------- | --------------- |
 | Run or stop active file | `Cmd+Enter`   | `Ctrl+Enter`    |
-| Stop the run in progress | `Cmd+.`      | `Ctrl+.`        |
+| Stop a run you started  | `Cmd+.`       | `Ctrl+.`        |
 | Save active tab         | `Cmd+S`       | `Ctrl+S`        |
 | Save as                 | `Cmd+Shift+S` | `Ctrl+Shift+S`  |
 | Open file               | `Cmd+O`       | `Ctrl+O`        |
@@ -304,8 +304,8 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 ## Run state (Labs)
 
 - Turn on **Settings › Labs › Run state** to see when the results on screen no longer match the code. Once you edit after the last run, the editor gets an amber border, the inline values dim and end with their age (`· 12 sec. ago`), the Dock row shows **Stale**, and Run pulses. Running again, or undoing the edit, clears it. A Scratchpad that runs on its own only turns stale while an incomplete edit keeps it from running.
-- Settings › Editor › **Run policy** then sets when Scratchpad runs, per language group: **On keystroke** (500 ms after you type), **On pause** (1 s without typing) or **Manual** (only Run). The defaults are On keystroke for JavaScript and TypeScript, On pause for Python and Ruby, and Manual for Go and Rust. Run and Debug tabs, SQL and HTTP never run on their own. With Run state off, Scratchpad keeps its 1.2 s debounce for every language.
-- `Cmd/Ctrl+.` stops the run in progress, with or without Run state. With nothing running, the editor keeps it for Quick Fix; `Cmd/Ctrl+Enter` also stops a run.
+- Settings › Editor › **Run policy** then sets when Scratchpad runs, per language group: **On keystroke** (500 ms after you type), **On pause** (1 s without typing) or **Manual** (only Run). The defaults are On keystroke for JavaScript and TypeScript, On pause for Python and Ruby, and Manual for Go and Rust. Ruby tabs only run with Run today, so that row applies to Python. Browser preview keeps its own auto-refresh setting. Run and Debug tabs, SQL and HTTP never run on their own. With Run state off, Scratchpad keeps its 1.2 s debounce for every language.
+- `Cmd/Ctrl+.` stops a run you started with Run or `Cmd/Ctrl+Enter`, with or without Run state. Otherwise, including while Scratchpad runs on its own, the editor keeps it for Quick Fix; `Cmd/Ctrl+Enter` also stops a run.
 - Saving never runs code, and the dot on a tab means unsaved, not stale.
 
 ## Compare runs (Labs)

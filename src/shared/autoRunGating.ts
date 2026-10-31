@@ -5,7 +5,7 @@
  * dispatching an auto-run. If `ready === false`, the hook short-
  * circuits: no runner spawn, no iframe srcdoc reassignment, no
  * console pollution from transient `SyntaxError: Unexpected end of
- * input` lines fired every 1.2s while the user is still mid-edit.
+ * input` lines fired on every debounce while the user is still mid-edit.
  *
  * Posture:
  *

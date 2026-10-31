@@ -13,6 +13,11 @@ describe('run policy', () => {
     ]);
     expect(runPolicyGroupFor('sql')).toBeUndefined();
     expect(runPolicyGroupFor('http')).toBeUndefined();
+    expect(runPolicyGroupFor('constructor')).toBeUndefined();
+  });
+
+  it('fails closed to Manual for a value the sanitizer never saw', () => {
+    expect(runPolicyDelayMs('go', { ...DEFAULT_RUN_POLICY_BY_GROUP, goRust: 'sometimes' as never })).toBeNull();
   });
 
   it('turns the board defaults into debounces, Manual into none', () => {

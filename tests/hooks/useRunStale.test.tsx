@@ -61,6 +61,15 @@ describe('run state', () => {
     expect(result.current.stale).toBe(true);
   });
 
+  it('lets Browser preview follow its own refresh, whatever the JS policy says', () => {
+    useSettingsStore.setState({ runPolicyByGroup: { jsTs: 'manual', pythonRuby: 'pause', goRust: 'manual' } });
+    useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: 'x', workflowMode: 'scratchpad', runtimeMode: 'browser-preview' }] as never, 't1');
+    const { result } = renderHook(() => useRunStale());
+    expect(result.current.stale).toBe(false);
+    act(() => useSettingsStore.setState({ browserPreviewRefreshIntervalMs: 0 }));
+    expect(result.current.stale).toBe(true);
+  });
+
   it('marks a Manual Scratchpad stale as soon as the code changes', () => {
     openTab('scratchpad', 'go', 'package main');
     const { result } = renderHook(() => useRunStale());

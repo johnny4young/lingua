@@ -24,7 +24,7 @@ const GROUP_BY_LANGUAGE: Readonly<Record<string, RunPolicyGroup>> = {
 };
 
 export function runPolicyGroupFor(language: string): RunPolicyGroup | undefined {
-  return GROUP_BY_LANGUAGE[language];
+  return Object.hasOwn(GROUP_BY_LANGUAGE, language) ? GROUP_BY_LANGUAGE[language] : undefined;
 }
 
 export function isRunPolicy(value: unknown): value is RunPolicy {
@@ -34,7 +34,9 @@ export function isRunPolicy(value: unknown): value is RunPolicy {
 /** Debounce for the language's policy: null is Manual, undefined means no group. */
 export function runPolicyDelayMs(language: string, policies: RunPolicyByGroup): number | null | undefined {
   const group = runPolicyGroupFor(language);
-  return group === undefined ? undefined : DELAY_MS[policies[group]];
+  if (group === undefined) return undefined;
+  // An unknown value fails closed to Manual rather than to the default timer.
+  return isRunPolicy(policies[group]) ? DELAY_MS[policies[group]] : null;
 }
 
 /** Keeps known groups with a known policy; the rest fall back to the defaults. */

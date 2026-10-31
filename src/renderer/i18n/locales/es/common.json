@@ -1960,7 +1960,7 @@
   "shortcuts.item.runToggle.label": "Ejecutar o detener la pestaña activa",
   "shortcuts.item.runToggle.description": "Alterna entre ejecutar y detener el archivo actual",
   "shortcuts.item.stopRun.label": "Detener la ejecución",
-  "shortcuts.item.stopRun.description": "Detiene la ejecución en curso; si no hay nada ejecutándose, el editor lo usa para Quick Fix",
+  "shortcuts.item.stopRun.description": "Detiene una ejecución que iniciaste; si no, el editor lo usa para Quick Fix",
   "runState.stale.label": "Desactualizado",
   "runState.stale.hint": "Editado después de la última ejecución · valores atenuados",
   "shortcuts.item.save.label": "Guardar",

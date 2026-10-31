@@ -121,11 +121,7 @@ export function useAutoRun() {
       runTokenRef.current += 1;
       lastRunInputRef.current = null;
       const resultState = useResultStore.getState();
-      if (
-        resultState.isAutoRunning &&
-        resultState.executionSource === 'auto' &&
-        runtimeMode === 'browser-preview'
-      ) {
+      if (resultState.isAutoRunning && resultState.executionSource === 'auto') {
         stopRunner(language, runtimeMode);
       }
       resultState.setIsAutoRunning(false);

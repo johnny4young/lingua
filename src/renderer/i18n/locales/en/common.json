@@ -1960,7 +1960,7 @@
   "shortcuts.item.runToggle.label": "Run or stop the active tab",
   "shortcuts.item.runToggle.description": "Toggles between running and stopping the current file",
   "shortcuts.item.stopRun.label": "Stop the run",
-  "shortcuts.item.stopRun.description": "Stops the run in progress; with nothing running, the editor keeps it for Quick Fix",
+  "shortcuts.item.stopRun.description": "Stops a run you started; otherwise the editor keeps it for Quick Fix",
   "runState.stale.label": "Stale",
   "runState.stale.hint": "Edited after the last run · values dimmed",
   "shortcuts.item.save.label": "Save",

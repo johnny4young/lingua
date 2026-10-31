@@ -6,6 +6,7 @@ import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { formatRelativeTime } from '../utils/timeLabels';
+import { resolveAutoRunSchedule } from './autoRunModel';
 
 export interface RunStale {
   stale: boolean;
@@ -22,6 +23,7 @@ const CURRENT: RunStale = { stale: false, ranAt: null };
 export function useRunStale(): RunStale {
   const on = useSettingsStore(state => state.featureFlags.runState === true);
   const policies = useSettingsStore(state => state.runPolicyByGroup);
+  const previewRefresh = useSettingsStore(state => state.browserPreviewRefreshIntervalMs);
   const ranCode = useResultStore(state => state.ranCode);
   const hasResults = useResultStore(state => state.lineResults.length > 0 || state.fullOutput !== '' || state.error !== null);
   const running = useResultStore(state => state.isManualRunning || state.isAutoRunning);
@@ -32,7 +34,8 @@ export function useRunStale(): RunStale {
     return CURRENT;
   }
   const workflowMode = tab.workflowMode ?? defaultWorkflowMode(tab.language);
-  const runsItself = workflowMode === 'scratchpad' && runPolicyDelayMs(tab.language, policies) !== null;
+  const schedule = resolveAutoRunSchedule(tab.runtimeMode, tab.content, previewRefresh, runPolicyDelayMs(tab.language, policies));
+  const runsItself = workflowMode === 'scratchpad' && schedule.debounceMs !== null;
   if (runsItself && !gated) return CURRENT;
   return { stale: true, ranAt: ranCode.at };
 }

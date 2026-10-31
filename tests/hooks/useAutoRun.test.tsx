@@ -172,6 +172,28 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
+  it('stops an auto-run in flight when the policy turns Manual', async () => {
+    const execute = vi.fn(() => new Promise(() => {}));
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({ runner: { execute }, initialized: false } as never);
+    useSettingsStore.setState({ featureFlags: { runState: true }, nativeExecutionAcknowledged: true });
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'while (true) ;', isDirty: false, workflowMode: 'scratchpad' }],
+      activeTabId: 'tab-js',
+    });
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().isAutoRunning).toBe(true);
+    act(() => useSettingsStore.setState({ runPolicyByGroup: { jsTs: 'manual', pythonRuby: 'pause', goRust: 'manual' } }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(runnerManager.stop).toHaveBeenCalledWith('javascript', undefined);
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+  });
+
   it('buckets auto-log counts into the telemetry allowlist', () => {
     expect(bucketAutoLogCount(0)).toBe('1');
     expect(bucketAutoLogCount(1)).toBe('1');
