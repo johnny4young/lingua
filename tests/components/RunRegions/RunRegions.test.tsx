@@ -103,6 +103,9 @@ describe('run regions', () => {
 
     fireEvent.click(chips[1]!);
     expect(fake.editor.setPosition).toHaveBeenLastCalledWith({ lineNumber: 3, column: 1 });
+
+    act(() => useSettingsStore.setState({ shortcutOverrides: { 'run-toggle': [{ tokens: ['Mod', 'R'] }] } }));
+    expect(screen.getByTestId('run-regions-run').getAttribute('title')).toMatch(/R$/);
   });
 
   it('shows the latest region output under its last code line and writes its value back as a comment', () => {
@@ -166,14 +169,61 @@ describe('run regions', () => {
     fireEvent.change(secret, { target: { value: 'hunter2' } });
     fireEvent.submit(secret.form!);
     expect(useEditorStore.getState().tabs[0]!.stdinBuffer).toBe('first\nAda');
-    expect(useRunRegionStore.getState().masked.t1).toEqual([{ index: 2, value: 'hunter2' }]);
+    expect(useRunRegionStore.getState().masked.t1).toEqual({ input: 'first\nAda', content: CODE, answers: [{ index: 2, value: 'hunter2' }] });
     expect(run).toHaveBeenLastCalledWith({ region, maskedStdin: [{ index: 2, value: 'hunter2' }] });
 
     act(() => useRunRegionStore.setState({ last: { ...useRunRegionStore.getState().last!, ranAt: 3, request: { message: 'API token' } } }));
     const token = screen.getByTestId('run-regions-stdin-input') as HTMLInputElement;
     fireEvent.change(token, { target: { value: 't0k' } });
     fireEvent.submit(token.form!);
-    expect(useRunRegionStore.getState().masked.t1).toEqual([{ index: 2, value: 'hunter2' }, { index: 3, value: 't0k' }]);
+    expect(useRunRegionStore.getState().masked.t1!.answers).toEqual([{ index: 2, value: 'hunter2' }, { index: 3, value: 't0k' }]);
+
+    // A plain answer after the masked ones keeps them in place; an edit in Input drops them.
+    act(() => useRunRegionStore.setState({ last: { ...useRunRegionStore.getState().last!, ranAt: 4, request: { message: 'City?' } } }));
+    const city = screen.getByTestId('run-regions-stdin-input') as HTMLInputElement;
+    fireEvent.change(city, { target: { value: 'Paris' } });
+    fireEvent.submit(city.form!);
+    expect(useEditorStore.getState().tabs[0]!.stdinBuffer).toBe('first\nAda\nParis');
+    expect(run).toHaveBeenLastCalledWith({ region, maskedStdin: [{ index: 2, value: 'hunter2' }, { index: 3, value: 't0k' }] });
+    act(() => useEditorStore.getState().updateContent('t1', `${CODE}\n// edited`));
+    fireEvent.click(screen.getByTestId('run-regions-rerun'));
+    expect(run).toHaveBeenLastCalledWith({ region, maskedStdin: [] });
+    act(() => useEditorStore.getState().updateContent('t1', CODE));
+    act(() => useEditorStore.getState().setTabStdinBuffer('t1', 'first'));
+    fireEvent.click(screen.getByTestId('run-regions-rerun'));
+    expect(run).toHaveBeenLastCalledWith({ region, maskedStdin: [] });
+
+    act(() => useEditorStore.getState().restoreTabs([], null));
+    expect(useRunRegionStore.getState().masked.t1).toBeUndefined();
+  });
+
+  it('answers with Cmd or Ctrl+Enter in the row without reaching the Run shortcut', () => {
+    const fake = fakeEditor(CODE);
+    const region = parseRunRegions(CODE, 'javascript')[2]!;
+    useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE }] as never, 't1');
+    useRunRegionStore.setState({ masked: {}, last: { tabId: 't1', region, ranAt: 5, executionTime: 1, ok: true, message: '', rows: [], request: { message: 'Name?' } } });
+    const windowKeys = vi.fn();
+    window.addEventListener('keydown', windowKeys);
+    try {
+      render(<RunRegions editor={fake.editor as never} monaco={monaco as never} tabId="t1" language="javascript" content={CODE} />);
+      const input = screen.getByTestId('run-regions-stdin-input');
+      fireEvent.change(input, { target: { value: 'Ada' } });
+      fireEvent.keyDown(input, { key: 'Enter', metaKey: true });
+      expect(useEditorStore.getState().tabs[0]!.stdinBuffer).toBe('Ada');
+      expect(windowKeys).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', windowKeys);
+    }
+  });
+
+  it('lets a click elsewhere win over the stdin focus retries', async () => {
+    const fake = fakeEditor(CODE);
+    const region = parseRunRegions(CODE, 'javascript')[2]!;
+    useRunRegionStore.setState({ last: { tabId: 't1', region, ranAt: 9, executionTime: 1, ok: true, message: '', rows: [], request: { message: 'Name?' } } });
+    render(<RunRegions editor={fake.editor as never} monaco={monaco as never} tabId="t1" language="javascript" content={CODE} />);
+    fireEvent.pointerDown(document.body);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(document.activeElement).not.toBe(screen.getByTestId('run-regions-stdin-input'));
   });
 
   it('shows the error of a region run that failed and offers no comment', () => {

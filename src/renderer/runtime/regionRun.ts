@@ -3,13 +3,13 @@ import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useRunRegionStore } from '../stores/runRegionStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { RunRegion } from '../utils/runRegions';
+import { supportsRunRegions } from '../utils/runRegionLanguages';
 import { getActiveEditor, getActiveEditorCursorLine } from './editorAccess';
-
-const REGION_LANGUAGES = new Set(['javascript', 'typescript', 'python']);
 
 /** Run options for one region of a tab, with the masked stdin answers kept for that tab. */
 export function regionRunOptions(tabId: string, region: RunRegion): RunOptions {
-  return { region, maskedStdin: useRunRegionStore.getState().masked[tabId] ?? [] };
+  const tab = useEditorStore.getState().tabs.find(candidate => candidate.id === tabId);
+  return { region, maskedStdin: useRunRegionStore.getState().maskedFor(tabId, tab?.stdinBuffer ?? '', tab?.content ?? '') };
 }
 
 /**
@@ -21,10 +21,11 @@ export function regionRunAtCursor(): Promise<RunOptions | undefined> | undefined
   if (!getActiveEditor()?.hasTextFocus()) return undefined;
   const tab = getActiveTab(useEditorStore.getState());
   const line = getActiveEditorCursorLine();
-  if (!tab || line === null || !REGION_LANGUAGES.has(tab.language) || !tab.content.includes('%%')) return undefined;
-  const { id, content, language } = tab;
+  if (!tab || line === null || !supportsRunRegions(tab.language) || !tab.content.includes('%%')) return undefined;
+  const { id, content } = tab;
+  const language = tab.language;
   return import('../utils/runRegions').then(({ parseRunRegions, runRegionAt }) => {
-    const region = runRegionAt(parseRunRegions(content, language as 'javascript' | 'typescript' | 'python'), line);
+    const region = runRegionAt(parseRunRegions(content, language), line);
     return region ? regionRunOptions(id, region) : undefined;
   });
 }

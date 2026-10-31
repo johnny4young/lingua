@@ -22,7 +22,7 @@ describe('region run at the cursor', () => {
   it('runs the region at the cursor of a focused editor, with the masked answers of its tab', async () => {
     useSettingsStore.setState({ featureFlags: { runRegions: true } });
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE }] as never, 't1');
-    useRunRegionStore.setState({ masked: { t1: [{ index: 0, value: 's' }] } });
+    useRunRegionStore.setState({ masked: { t1: { input: '', content: CODE, answers: [{ index: 0, value: 's' }] } } });
     focusEditor(3);
     const options = await regionRunAtCursor();
     expect(options).toEqual({
@@ -30,6 +30,8 @@ describe('region run at the cursor', () => {
       maskedStdin: [{ index: 0, value: 's' }],
     });
     expect(regionRunOptions('t2', options!.region!)).toMatchObject({ maskedStdin: [] });
+    useEditorStore.getState().setTabStdinBuffer('t1', 'edited');
+    expect((await regionRunAtCursor())?.maskedStdin).toEqual([]);
     focusEditor(1);
     useEditorStore.getState().restoreTabs([{ id: 't4', name: 'c.js', language: 'javascript', content: '\n// %% only\nx;' }] as never, 't4');
     expect(await regionRunAtCursor()).toBeUndefined();

@@ -7,6 +7,8 @@ describe('stdin requests', () => {
     expect(sanitizeStdinRequest({ message: 'x'.repeat(500), line: 0 })).toEqual({ message: 'x'.repeat(200) });
     expect(sanitizeStdinRequest({ message: 7, line: 2.5 })).toEqual({ message: '' });
     expect(sanitizeStdinRequest(null)).toEqual({ message: '' });
+    expect(sanitizeStdinRequest({ message: 'pass\u202eword\u200b:' })).toEqual({ message: 'pass word :' });
+    expect(sanitizeStdinRequest({ message: '😀'.repeat(300) }).message).toBe('😀'.repeat(200));
   });
 
   it('splits stdin as the workers read it', () => {

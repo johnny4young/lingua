@@ -52,15 +52,15 @@ describe('Python stdin requests', () => {
     const later = await execute('input("x")', { askStdin: false });
     expect(later.request).toBeUndefined();
     expect(later.errors[0]?.error.message).toContain('EOFError');
-    const forged = await execute('raise ValueError(\'__LinguaStdinRequest: {"message": "x"}\')', { askStdin: false });
+    const forged = await execute('raise ValueError(\'__LinguaStdinRequest: {"message": "Enter your password"}\')', { askStdin: true });
     expect(forged.request).toBeUndefined();
     expect(forged.errors).toHaveLength(1);
   });
 
-  it('reads the request back from a traceback and ignores anything else', () => {
-    expect(parsePythonStdinRequest('Traceback...\n__main__.__LinguaStdinRequest: {"message": "Name: ", "line": 4}\n')).toEqual({ message: 'Name: ', line: 4 });
-    expect(parsePythonStdinRequest('__LinguaStdinRequest: {"message": "x", "line": -1}')).toEqual({ message: 'x' });
-    expect(parsePythonStdinRequest('__LinguaStdinRequest: {broken')).toBeNull();
-    expect(parsePythonStdinRequest('ValueError: nope')).toBeNull();
+  it('reads only the request the patched input() stored', () => {
+    expect(parsePythonStdinRequest('{"message": "Name: ", "line": 4}')).toEqual({ message: 'Name: ', line: 4 });
+    expect(parsePythonStdinRequest('{"message": "x", "line": -1}')).toEqual({ message: 'x' });
+    expect(parsePythonStdinRequest('{broken')).toBeNull();
+    expect(parsePythonStdinRequest(undefined)).toBeNull();
   });
 });

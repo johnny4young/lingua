@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type * as monacoTypes from 'monaco-editor';
 import { Play, RotateCcw, X } from 'lucide-react';
 import '../../i18n/runRegionsCatalog';
-import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
+import { currentShortcutDisplayPlatform, formatShortcutCombo, formatShortcutLabel } from '../../data/keyboardShortcuts';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useRunner } from '../../hooks/useRunner';
 import { regionRunOptions } from '../../runtime/regionRun';
 import type { LineResult } from '../../stores/resultStore';
@@ -86,16 +87,28 @@ function StdinRow({
       if (tries < 10) frame = requestAnimationFrame(focus);
     };
     frame = requestAnimationFrame(focus);
-    return () => cancelAnimationFrame(frame);
+    // A click elsewhere wins over the retries.
+    const stop = () => cancelAnimationFrame(frame);
+    window.addEventListener('pointerdown', stop, { capture: true, once: true });
+    return () => {
+      stop();
+      window.removeEventListener('pointerdown', stop, { capture: true });
+    };
   }, []);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (disabled) return;
     const tab = useEditorStore.getState().tabs.find(candidate => candidate.id === tabId);
-    const lines = splitStdinLines(tab?.stdinBuffer);
+    const input = tab?.stdinBuffer ?? '';
+    const content = tab?.content ?? '';
+    const lines = splitStdinLines(input);
     const regions = useRunRegionStore.getState();
-    if (masked) regions.addMasked(tabId, { index: lines.length + (regions.masked[tabId]?.length ?? 0), value });
-    else useEditorStore.getState().setTabStdinBuffer(tabId, [...lines, value].join('\n'));
+    if (masked) {
+      regions.addMasked(tabId, { index: lines.length + regions.maskedFor(tabId, input, content).length, value }, input, content);
+    } else {
+      useEditorStore.getState().setTabStdinBuffer(tabId, [...lines, value].join('\n'));
+      regions.followInput(tabId, useEditorStore.getState().tabs.find(candidate => candidate.id === tabId)?.stdinBuffer ?? '');
+    }
     onAnswered();
   };
   return (
@@ -116,6 +129,13 @@ function StdinRow({
         ref={input}
         value={value}
         onChange={event => setValue(event.target.value)}
+        onKeyDown={event => {
+          // Cmd/Ctrl+Enter here answers too, instead of running the whole file without the answer.
+          if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+            event.stopPropagation();
+            submit(event);
+          }
+        }}
         aria-label={t('runRegions.stdin.label', { name: regionName })}
         placeholder={t('runRegions.stdin.placeholder')}
         data-testid="run-regions-stdin-input"
@@ -131,6 +151,7 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
   const { t, i18n } = useTranslation();
   const { run, isRunning } = useRunner();
   const platform = currentShortcutDisplayPlatform();
+  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
   const regions = useMemo(() => parseRunRegions(content, language), [content, language]);
   const [cursorLine, setCursorLine] = useState(() => editor?.getPosition()?.lineNumber ?? 1);
   const last = useRunRegionStore(state => (state.last?.tabId === tabId ? state.last : null));
@@ -263,7 +284,7 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
           type="button"
           disabled={isRunning || !active}
           aria-label={active ? t('runRegions.runLabel', { name: label(active) }) : t('runRegions.run')}
-          title={formatShortcutCombo({ tokens: ['Mod', 'Enter'] }, platform)}
+          title={formatShortcutLabel('run-toggle', shortcutOverrides) ?? undefined}
           onClick={() => runRegion(active)}
           data-testid="run-regions-run"
           className="button-secondary inline-flex h-[26px] shrink-0 items-center gap-1 px-[9px] text-caption"

@@ -91,7 +91,9 @@ export function resolveRunExecution(
   const resolvedTimeoutMs =
     lifecycle.executionTimeoutMs ?? tab.nextRunTimeoutOverrideMs ?? magicTimeoutMs ?? undefined;
   const stdin = plan.region ? mergeRegionStdin(tab.stdinBuffer, lifecycle.maskedStdin) : tab.stdinBuffer;
-  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested && !plan.recordRequested;
+  // A run fed masked answers keeps them out of the Variables panel.
+  const hasMaskedStdin = plan.region !== null && (lifecycle.maskedStdin?.length ?? 0) > 0;
+  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested && !plan.recordRequested && !hasMaskedStdin;
   const scopeDepth = settings.variableInspectorScopeDepth;
   const settingsTimeoutMs =
     !plan.usesNativeDebugger && isRuntimeTimeoutSupportedLanguage(language)

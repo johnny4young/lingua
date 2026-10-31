@@ -2,7 +2,9 @@ import { walkTopLevelLines } from './magicComments/jsLexer';
 import { replaceUnsafeText } from './unsafeText';
 import { splitStdinLines } from './stdinRequest';
 
-export type RunRegionLanguage = 'javascript' | 'typescript' | 'python';
+import type { RunRegionLanguage } from './runRegionLanguages';
+
+export { supportsRunRegions, type RunRegionLanguage } from './runRegionLanguages';
 
 export interface RunRegion {
   /** 0-based position among the file's regions. */
@@ -19,10 +21,6 @@ export interface RunRegion {
 const COMMENT_VALUE_CHARS = 60;
 const PY_MARKER = /^#\s?%%(.*)$/;
 const PY_TRIPLE = /"""|'''/g;
-
-export function supportsRunRegions(language: string): language is RunRegionLanguage {
-  return language === 'javascript' || language === 'typescript' || language === 'python';
-}
 
 function nameOf(rest: string): string | null {
   const name = rest.split('·')[0]!.trim();
