@@ -2037,11 +2037,23 @@ parent-owned timeout, bounded output and process-group termination. Stop, owner 
 and app shutdown therefore cancel both a hung wrapper and its descendants rather
 than merely ignoring a late detector result. Standalone capability refreshes use
 the same bounded supervisor without acquiring execution authority.
-Settings availability checks and missing-toolchain Retry actions pass only
+Settings availability checks, missing-toolchain Retry actions and the Go/Rust
+Detect again action pass only
 toolchain-discovery environment keys to IPC; explicit Run alone forwards the
 full user/project/tab environment and records project-scope usage. A failed
 version check (timeout, permission error or nonzero result) is a retryable
 error, not evidence that the binary is absent or a reason to offer installation.
+Go and Rust resolve their binary in main (`src/main/runners/toolchainBinary.ts`):
+the binary the user chose, then the bare command on `PATH`, then existing
+executables in the usual install folders. The first candidate that answers its
+version probe runs the compile, with its folder put first on `PATH`; the result
+is `missing` only when no candidate exists, and a missing result carries the
+folders searched, home-relative, never the account path. `go:choose-binary` and
+`rust:choose-binary` take no arguments: main opens the file dialog, accepts only
+an absolute executable regular file named `go`/`rustc` outside credential and
+app-data folders that answers its version, and keeps the path in
+`<userData>/toolchain-binaries.json` (mode 0600). Detect results never return the
+absolute binary path to the renderer.
 Staged files and identity registrations are cleaned in `finally`, including cancelled
 runs. This complements the renderer fence after IPC has crossed into main.
 

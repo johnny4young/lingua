@@ -92,6 +92,8 @@ type RustDetectResult = import('./shared/nativeRuntimeTypes').RustDetectResult;
 
 type RustRunResult = import('./shared/nativeRuntimeTypes').RustRunResult;
 
+type ToolchainChooseResult = import('./shared/toolchainBinary').ToolchainChooseResult;
+
 // -------------------------------------------------------------- Node types
 // Desktop Node child-spawn IPC. Detection + run.
 
@@ -570,6 +572,8 @@ interface LinguaAPI {
       runId?: string
     ) => Promise<GoCompileResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    /** Main opens the picker, validates the binary and keeps its path. */
+    chooseBinary: () => Promise<ToolchainChooseResult>;
   };
 
   rust: {
@@ -581,6 +585,8 @@ interface LinguaAPI {
       runId?: string
     ) => Promise<RustRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    /** Main opens the picker, validates the binary and keeps its path. */
+    chooseBinary: () => Promise<ToolchainChooseResult>;
   };
 
   // Desktop Node child-spawn IPC. Worker-mode JS

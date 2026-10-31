@@ -5,8 +5,9 @@
  * main-only callbacks. These result shapes are structured-cloned over IPC and
  * therefore belong in a dependency-free shared module.
  */
+import type { ToolchainSearchedPlaces } from './toolchainBinary';
 
-export interface GoDetectResult {
+export interface GoDetectResult extends ToolchainSearchedPlaces {
   installed: boolean;
   /** Missing executable versus a probe that could not establish availability. */
   reason?: 'missing' | 'check-failed';
@@ -25,7 +26,7 @@ export interface GoCompileResult {
   goVersion?: string;
 }
 
-export interface RustDetectResult {
+export interface RustDetectResult extends ToolchainSearchedPlaces {
   installed: boolean;
   /** Missing executable versus a probe that could not establish availability. */
   reason?: 'missing' | 'check-failed';

@@ -29,7 +29,30 @@ function localizedDocsUrl(path: string): string {
   return `https://linguacode.dev${localePrefix}${path}`;
 }
 
-function pushRetrySuccess(toolchain: string): void {
+function pushInstallGuideFailure(): void {
+  useUIStore.getState().pushStatusNotice({ tone: 'error', messageKey: 'nativeToolchain.install.openFailed' });
+}
+
+function openNativeToolchainInstallGuide(spec: NativeToolchainSpec, shell: LinguaAPI): void {
+  void shell
+    .openExternal(localizedDocsUrl(spec.docsPath))
+    .then((opened) => {
+      if (!opened) pushInstallGuideFailure();
+    })
+    .catch(pushInstallGuideFailure);
+}
+
+/** The Installation guide action, shared by the notice and the Dock empty state. */
+export function openInstallGuideFor(toolchain: NativeToolchain): void {
+  const shell = desktopShell();
+  if (shell) openNativeToolchainInstallGuide(TOOLCHAIN_SPECS[toolchain], shell);
+}
+
+export function nativeToolchainLabel(toolchain: NativeToolchain): string {
+  return TOOLCHAIN_SPECS[toolchain].label;
+}
+
+export function pushRetrySuccess(toolchain: string): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'success',
     messageKey: 'nativeToolchain.retry.detected',
@@ -71,24 +94,7 @@ function pushRecoveryNotice(
     actions: [
       {
         labelKey: 'nativeToolchain.action.install',
-        onClick: () => {
-          void shell
-            .openExternal(localizedDocsUrl(spec.docsPath))
-            .then((opened) => {
-              if (!opened) {
-                useUIStore.getState().pushStatusNotice({
-                  tone: 'error',
-                  messageKey: 'nativeToolchain.install.openFailed',
-                });
-              }
-            })
-            .catch(() => {
-              useUIStore.getState().pushStatusNotice({
-                tone: 'error',
-                messageKey: 'nativeToolchain.install.openFailed',
-              });
-            });
-        },
+        onClick: () => openNativeToolchainInstallGuide(spec, shell),
       },
       {
         labelKey: 'nativeToolchain.action.retry',

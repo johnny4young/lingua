@@ -344,7 +344,7 @@
   --app-gradient-a: radial-gradient(circle at 12% 0%, oklch(0.52 0.18 210 / 0.1), transparent 34%);
   --app-gradient-b: radial-gradient(circle at 88% 12%, oklch(0.5 0.15 285 / 0.07), transparent 28%);
   --app-grid: oklch(0.16 0.012 210 / 0.06);
-  --tour-overlay: color-mix(in srgb, var(--app-background) 42%, transparent);
+  --tour-overlay: color-mix(in srgb, var(--app-background) 55%, transparent);
 }
 
 .dark,
@@ -458,7 +458,7 @@
   --app-gradient-a: radial-gradient(circle at 16% 0%, oklch(0.72 0.17 210 / 0.16), transparent 38%);
   --app-gradient-b: radial-gradient(circle at 84% 10%, oklch(0.78 0.14 285 / 0.1), transparent 30%);
   --app-grid: oklch(0.72 0.018 210 / 0.1);
-  --tour-overlay: color-mix(in srgb, var(--color-bg-base) 58%, transparent);
+  --tour-overlay: color-mix(in srgb, var(--color-bg-base) 72%, transparent);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1038,109 +1038,113 @@
   }
 
   .guided-tour-step {
-    --tour-surface: color-mix(in srgb, var(--app-surface) 90%, transparent);
-    --tour-surface-strong: color-mix(in srgb, var(--app-surface-strong) 86%, transparent);
-    --tour-border: color-mix(in srgb, var(--app-border-strong) 92%, transparent);
-    --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 52%, black);
-    @apply pointer-events-auto fixed max-w-[25rem] overflow-hidden rounded-3xl border text-foreground;
-    width: min(25rem, calc(100vw - 2rem));
+    @apply pointer-events-auto fixed rounded-xl border text-foreground;
+    width: min(23.75rem, calc(100vw - 2rem));
     overflow: auto;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--tour-surface-strong) 82%, white 4%),
-      var(--tour-surface)
-    );
-    border-color: var(--tour-border);
+    padding: 14px 16px;
+    background: var(--app-surface);
+    border-color: var(--app-primary);
     color: var(--app-foreground) !important;
     box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--app-ring) 36%, transparent),
-      var(--tour-shadow);
-    backdrop-filter: blur(24px);
+      inset 0 1px 0 color-mix(in srgb, var(--app-border-strong) 60%, transparent),
+      0 18px 36px color-mix(in srgb, var(--app-background) 40%, black);
   }
 
-  .guided-tour-header {
-    @apply items-start gap-3 border-b px-5 py-4;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--app-primary-soft) 56%, transparent),
-        color-mix(in srgb, var(--tour-surface-strong) 84%, transparent)
-      );
+  .guided-tour-arrow {
+    @apply pointer-events-none fixed;
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+    background: var(--app-surface);
+    border: 0 solid var(--app-primary);
+  }
+
+  .guided-tour-arrow[data-side='top'] {
+    border-left-width: 1px;
+    border-top-width: 1px;
+  }
+
+  .guided-tour-arrow[data-side='bottom'] {
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+  }
+
+  .guided-tour-arrow[data-side='left'] {
+    border-left-width: 1px;
+    border-bottom-width: 1px;
+  }
+
+  .guided-tour-arrow[data-side='right'] {
+    border-right-width: 1px;
+    border-top-width: 1px;
+  }
+
+  .guided-tour-meta {
+    @apply flex items-center gap-2;
+  }
+
+  .guided-tour-eyebrow {
+    @apply flex-1 text-eyebrow font-semibold uppercase tracking-[0.16em];
+    color: var(--app-muted);
+  }
+
+  .guided-tour-dots {
+    @apply flex items-center gap-1;
+  }
+
+  .guided-tour-dots > span {
+    @apply h-1.5 w-1.5 rounded-full;
+    background: var(--app-border-strong);
+  }
+
+  .guided-tour-dots > span[data-state='done'] {
+    background: var(--app-primary);
+  }
+
+  .guided-tour-dots > span[data-state='current'] {
+    @apply w-[18px];
+    background: var(--app-primary);
   }
 
   .guided-tour-title {
-    @apply font-display text-h2 font-semibold;
+    @apply mt-2 text-body font-semibold;
     color: var(--app-foreground);
     letter-spacing: 0;
   }
 
   .guided-tour-text {
-    @apply px-5 py-4 text-body-md leading-6;
-    color: var(--app-muted);
-  }
-
-  .guided-tour-footer {
-    @apply flex flex-wrap items-center justify-between gap-2 border-t px-5 py-4;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
-    background: color-mix(in srgb, var(--tour-surface-strong) 78%, transparent);
-  }
-
-  .guided-tour-close {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-strong hover:text-foreground;
+    @apply mt-1 text-body-sm leading-relaxed;
     color: var(--app-muted);
   }
 
   .guided-tour-actions {
-    @apply ml-auto flex flex-wrap items-center justify-end gap-2;
+    @apply mt-3 flex flex-wrap items-center gap-2;
   }
 
   .guided-tour-button {
-    @apply inline-flex min-h-10 items-center justify-center rounded-xl border px-3.5 py-2 text-control font-semibold transition-all duration-200;
+    @apply inline-flex h-[26px] items-center justify-center gap-1.5 rounded-md border px-2.5 text-caption font-medium transition-colors;
     letter-spacing: 0;
   }
 
   .guided-tour-button-primary {
-    @apply border-primary/20 bg-primary text-primary-foreground hover:bg-primary/92;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--app-primary) 28%, transparent);
+    @apply border-accent bg-accent font-semibold text-fg-on-accent hover:bg-accent-hover;
   }
 
   .guided-tour-button-secondary {
-    @apply border-border/80 bg-surface-strong/88 text-foreground hover:border-border-strong/90 hover:bg-surface;
+    @apply border-border-subtle bg-bg-panel text-fg-base hover:bg-bg-inset;
   }
 
   .guided-tour-button-ghost {
-    @apply border-transparent bg-transparent text-muted hover:border-border/70 hover:bg-surface-strong/72 hover:text-foreground;
+    @apply ml-auto border-transparent bg-transparent text-fg-muted hover:text-fg-base;
   }
 
   .guided-tour-dont-show-again {
-    @apply inline-flex cursor-pointer select-none items-center gap-2 text-control text-muted;
-    margin-right: auto;
+    @apply mt-2.5 inline-flex cursor-pointer select-none items-center gap-1.5 text-caption;
+    color: var(--app-muted);
   }
 
   .guided-tour-dont-show-again-input {
-    @apply h-4 w-4 cursor-pointer rounded border bg-transparent accent-primary;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
-  }
-
-  .guided-tour-target {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--app-primary) 82%, transparent),
-      0 0 0 10px color-mix(in srgb, var(--app-primary) 18%, transparent),
-      0 24px 70px color-mix(in srgb, var(--app-primary) 20%, transparent);
-    border-radius: 1rem;
-  }
-
-  .light .guided-tour-step,
-  :root .guided-tour-step {
-    --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 24%, black);
-  }
-
-  .dark .guided-tour-step {
-    --tour-surface: color-mix(in srgb, var(--app-surface) 94%, transparent);
-    --tour-surface-strong: color-mix(in srgb, var(--app-surface-strong) 92%, transparent);
+    @apply h-3.5 w-3.5 cursor-pointer accent-primary;
   }
 
   /* Editor/result copy helpers */

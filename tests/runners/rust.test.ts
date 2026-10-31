@@ -28,6 +28,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { asRootId } from '../../src/shared/fs/brandedIds';
 import { useUIStore } from '@/stores/uiStore';
+import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/stores/nativeToolchainStore';
 
 describe('RustRunner', () => {
   const initialEnv = useEnvVarsStore.getState();
@@ -40,6 +41,7 @@ describe('RustRunner', () => {
     useEditorStore.setState(initialEditor, true);
     useProjectStore.setState(initialProject, true);
     useUIStore.setState({ statusNotice: null });
+    resetNativeToolchainStoreForTests();
   });
 
   it('should have correct metadata', () => {
@@ -70,10 +72,9 @@ describe('RustRunner', () => {
     const runner = new RustRunner();
     await expect(runner.init()).rejects.toThrow('Rust is not installed');
     expect(runner.isReady()).toBe(true); // ready flag set even when not installed
-    expect(useUIStore.getState().statusNotice).toMatchObject({
-      tone: 'warning',
-      values: { toolchain: 'Rust' },
-    });
+    // The Dock empty state owns the way out; no sticky notice competes with it.
+    expect(useUIStore.getState().statusNotice).toBeNull();
+    expect(useNativeToolchainStore.getState().rust.status).toBe('missing');
   });
 
   it('does not offer installation after a failed Rust probe', async () => {
@@ -83,20 +84,16 @@ describe('RustRunner', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('nativeToolchain.missing.message');
   });
 
-  it('does not send unrelated user env during a passive retry', async () => {
-    useEnvVarsStore.setState({
-      global: { PATH: '/opt/rust/bin', API_TOKEN: 'private-project-secret' },
-    });
+  it('detects again on the next run once Rust is found', async () => {
     mockDetect
       .mockResolvedValueOnce({ installed: false, reason: 'missing', error: 'Rust is not installed' })
       .mockResolvedValueOnce({ installed: true, version: 'rustc 1.80.0' });
+    mockRun.mockResolvedValue({ success: true, kind: 'success', stdout: '', stderr: '', exitCode: 0, executionTime: 1 });
     const runner = new RustRunner();
     await expect(runner.init()).rejects.toThrow('Rust is not installed');
-    const retry = useUIStore.getState().statusNotice?.actions?.[1];
-    useUIStore.getState().dismissStatusNotice('cta');
-    retry?.onClick();
-    await vi.waitFor(() => expect(mockDetect).toHaveBeenCalledTimes(2));
-    expect(mockDetect.mock.calls[1]?.[0]).toEqual({});
+    await runner.execute('fn main() {}');
+    expect(mockRun).toHaveBeenCalledOnce();
+    expect(useNativeToolchainStore.getState().rust.status).toBe('installed');
   });
 
   it('detects again on the next run after a failed Rust check', async () => {

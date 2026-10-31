@@ -123,7 +123,8 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-export function ConsolePanel() {
+/** `quietEmpty` drops the empty-state copy when another Dock surface explains the empty Console. */
+export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = {}) {
   const { t } = useTranslation();
   const { track } = useTelemetry();
   const { run, isRunning } = useRunner();
@@ -692,7 +693,7 @@ export function ConsolePanel() {
             : undefined
         }
       >
-        {visibleEntries.length === 0 ? (
+        {visibleEntries.length === 0 && quietEmpty && entries.length === 0 ? null : visibleEntries.length === 0 ? (
           <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-16 text-center">
             <p className="font-sans text-body font-medium text-foreground">
               {entries.length === 0 ? t('console.empty.output') : t('console.empty.filtered')}

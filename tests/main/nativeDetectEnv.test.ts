@@ -1,13 +1,21 @@
+import os from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawnNative: vi.fn() }));
+const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawnNative: vi.fn(), dialog: vi.fn() }));
 
 vi.mock('../../src/main/runners/spawnNativeRun', () => ({ spawnNativeRun: mocks.spawnNative }));
 
+// Only the bare command: fallback folders on the host must not leak into the probe sequence.
+vi.mock('../../src/main/runners/toolchainBinary', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../src/main/runners/toolchainBinary')>()),
+  toolchainCandidates: async (id: 'go' | 'rust') => [id === 'go' ? 'go' : 'rustc'],
+}));
 vi.mock('electron', () => ({
   ipcMain: {
     handle: mocks.handle,
   },
+  dialog: { showOpenDialog: mocks.dialog },
+  BrowserWindow: { fromWebContents: () => null },
 }));
 
 import { registerGoHandlers } from '../../src/main/go-compiler';
@@ -92,11 +100,43 @@ describe('native toolchain detection env', () => {
       stdout: '', stderr: '', exitCode: -1, timedOut: false, killed: false,
       spawnError: Object.assign(new Error('not found'), { code: 'ENOENT' }),
     });
-    expect(await detect({}, {})).toMatchObject({ installed: false, reason: 'missing' });
+    const missing = await detect({}, {});
+    expect(missing).toMatchObject({ installed: false, reason: 'missing' });
+    expect(missing.searched?.length).toBeGreaterThan(0);
+    expect(missing.searched?.some(place => place.startsWith(os.homedir()))).toBe(false);
 
     mocks.spawnNative.mockResolvedValueOnce({
       stdout: '', stderr: '', exitCode: -1, timedOut: true, killed: false,
     });
     expect(await detect({}, {})).toMatchObject({ installed: false, reason: 'check-failed' });
+
+    mocks.spawnNative.mockResolvedValue({ stdout: 'go version go1.22\n', stderr: '', exitCode: 0, timedOut: false, killed: false });
+    const found = await detect({}, {});
+    expect(found).toMatchObject({ installed: true });
+    // The renderer learns availability, never which absolute binary runs.
+    expect(found).not.toHaveProperty('command');
+    expect(found).not.toHaveProperty('goRoot');
+  });
+
+  it('does not cache a detect that started before a binary was chosen', async () => {
+    registerGoHandlers();
+    const detect = handlerFor<[unknown], GoDetectResult>('go:detect');
+    const choose = handlerFor<[unknown], unknown>('go:choose-binary');
+    let release: () => void = () => {};
+    const held = new Promise<void>(resolve => { release = resolve; });
+    mocks.spawnNative.mockImplementation(async () => {
+      await held;
+      return { stdout: 'go version go1.22\n', stderr: '', exitCode: 0, timedOut: false, killed: false };
+    });
+    mocks.dialog.mockResolvedValue({ canceled: true, filePaths: [] });
+
+    const sender = { isDestroyed: () => false, once: vi.fn(), on: vi.fn(), off: vi.fn(), removeListener: vi.fn() };
+    const early = detect({ sender });
+    await choose({ sender });
+    release();
+    expect(await early).toMatchObject({ installed: true });
+    const calls = mocks.spawnNative.mock.calls.length;
+    expect(await detect({ sender })).toMatchObject({ installed: true });
+    expect(mocks.spawnNative.mock.calls.length).toBeGreaterThan(calls);
   });
 });

@@ -15,6 +15,7 @@ export type ExecutionControlDisabledReason =
   | 'no-enabled-breakpoint'
   | 'notebook'
   | 'pro-only'
+  | 'toolchain-missing'
   | 'unsupported-workflow'
   | 'view-only'
   | 'workspace-sql-empty'
@@ -44,6 +45,8 @@ interface ExecutionControlPolicyInput {
   /** Set on a SQL / HTTP tab with no open query or request to run. */
   emptyWorkspace?: 'sql' | 'http' | null;
   enabledBreakpointCount: number;
+  /** Desktop Go or Rust tab whose binary was not found. */
+  toolchainMissing?: boolean;
 }
 
 function availability(
@@ -69,6 +72,7 @@ export function resolveExecutionControlPolicy({
   isWorkspaceTab = false,
   emptyWorkspace = null,
   enabledBreakpointCount,
+  toolchainMissing = false,
 }: ExecutionControlPolicyInput): ExecutionControlPolicy {
   const executionMode = executionModeForLanguage(language);
   if (isWorkspaceTab) {
@@ -94,6 +98,7 @@ export function resolveExecutionControlPolicy({
   else if (proLanguageGate) sharedReason = 'pro-only';
   else if (desktopOnlyGate) sharedReason = 'desktop-only';
   else if (executionMode === 'view') sharedReason = 'view-only';
+  else if (toolchainMissing) sharedReason = 'toolchain-missing';
   const supportsDebug = supportsWorkflowModeInShell(language, 'debug', isWebBuild);
   const debugReason =
     sharedReason ??
@@ -137,6 +142,7 @@ export function executionDisabledTooltipKey(
   if (reason === 'pro-only') return 'toolbar.run.proOnlyTooltip';
   if (reason === 'desktop-and-pro') return 'toolbar.run.desktopAndProTooltip';
   if (reason === 'desktop-only') return 'toolbar.run.desktopOnlyTooltip';
+  if (reason === 'toolchain-missing') return 'toolbar.run.toolchainMissingTooltip';
   if (reason === 'view-only') return 'toolbar.viewOnly.title';
   if (reason === 'notebook') return 'notebook.notice.useNotebookToolbar';
   if (reason === 'no-enabled-breakpoint') return 'toolbar.debug.noBreakpoint';

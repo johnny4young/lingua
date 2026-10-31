@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawn: vi.fn(), write: vi.fn(
 vi.mock('electron', () => ({ ipcMain: { handle: mocks.handle } }));
 vi.mock('../../src/main/runners/spawnNativeRun', () => ({ spawnNativeRun: mocks.spawn }));
 vi.mock('node:fs/promises', () => { const fs = { writeFile: mocks.write, rm: mocks.rm, stat: mocks.stat, readFile: mocks.read }; return { ...fs, default: fs }; });
+// Only the bare command: fallback folders on the host must not leak into the probe sequence.
+vi.mock('../../src/main/runners/toolchainBinary', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../src/main/runners/toolchainBinary')>()),
+  toolchainCandidates: async (id: 'go' | 'rust') => [id === 'go' ? 'go' : 'rustc'],
+}));
 vi.mock('node:child_process', async importOriginal => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   const execFile = Object.assign(vi.fn(), { [Symbol.for('nodejs.util.promisify.custom')]: vi.fn().mockResolvedValue({ stdout: 'goc fixture', stderr: '' }) });
@@ -50,6 +55,16 @@ describe('Go cancellation owns every preparation phase', () => {
     expect(await run).toMatchObject({ success: false, kind: 'stopped' });
     expect(mocks.spawn).toHaveBeenCalledTimes(phase + 1);
     if (phase === 2) expect(mocks.rm).toHaveBeenCalledWith(expect.stringMatching(/lingua-go-[^/\\]+$/), { recursive: true, force: true });
+  });
+
+  it('reports a compiler that cannot start without the binary path', async () => {
+    mocks.spawn
+      .mockResolvedValueOnce(ok)
+      .mockResolvedValueOnce(ok)
+      .mockResolvedValueOnce({ ...ok, exitCode: -1, spawnError: Object.assign(new Error('spawn /Users/dev/sdk/go/bin/go ENOENT'), { code: 'ENOENT' }) });
+    const result = await handler('go:compile')({ sender: owner() }, 'package main\nfunc main() {}', {}, undefined, 'a');
+    expect(result).toMatchObject({ success: false, kind: 'error', error: 'Go compiler could not start (ENOENT).' });
+    expect(JSON.stringify(result)).not.toContain('/Users/dev');
   });
 
   it('rejects duplicate IDs and a foreign sender cannot stop the owner', async () => {

@@ -93,8 +93,9 @@ and carries the run controls: auto-log, run status, recent runs, time, capsule
 export and share. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
 output surface reopens from one place. Compare is a dock tab, not a per-tab flag:
 `utils/compareDock.ts` opens and closes it for the shortcut and the palette.
-Validation and view-only tabs show their report above the Console rows, and the
-Console tab ends with the last five runs (`Layout/RunHistoryStrip.tsx`).
+Validation and view-only tabs show their report above the Console rows, a
+desktop Go or Rust tab whose binary is missing shows
+`Layout/MissingToolchainPanel.tsx` there, and the Console tab ends with the last five runs (`Layout/RunHistoryStrip.tsx`).
 
 Console auto-follow is active only while the viewport remains at the bottom.
 `ConsolePanel` records its last pinned geometry so a manual upward scroll wins
@@ -113,10 +114,12 @@ the separate Desktop-only boundary without probing the host. Native picker
 previews use only the shared toolchain-discovery env keys (including retry),
 and do not emit the project-env-used event; explicit Run still receives the
 user's configured env and owns that adoption signal.
-Desktop language menus and the palette likewise probe Go and Rust only while
-open. They distinguish a confirmed missing executable from a failed check;
-creating an editor tab remains possible without the compiler, while Run owns
-the localized recovery/error path. These passive probes share the same env
+Desktop language menus, the palette and an active Go or Rust tab probe the
+toolchain through `stores/nativeToolchainStore.ts`. A confirmed missing
+binary disables Run and the Dock Console shows the missing-toolchain panel
+(Installation guide, Choose binary…, Detect again); a failed check leaves Run
+enabled and the next run detects again. Creating an editor tab stays possible
+without the compiler. These passive probes share the same env
 filter and telemetry boundary as the JS runtime picker; unrelated project
 secrets and code-loading flags never reach menu-opened binaries. Web never
 probes the host toolchains.
@@ -790,6 +793,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments, collection variables and active request metadata; on desktop secret values of every scope persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
+| [nativeToolchainStore.ts](stores/nativeToolchainStore.ts) | session-only Go and Rust availability plus the folders searched; feeds the disabled Run reason and the Dock empty state, and asks main to pick a binary |
 | [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
 | [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot and restore translation          |

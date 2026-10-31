@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/stores/nativeToolchainStore';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAutoRun, AUTO_RUN_DEBOUNCE_MS, bucketAutoLogCount } from '@/hooks/useAutoRun';
 import { runnerManager } from '@/runners';
@@ -1150,6 +1151,32 @@ describe('useAutoRun', () => {
 
     expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
     expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
+  it('does NOT auto-run a Go tab whose binary was reported missing', async () => {
+    // Run is disabled there; Scratchpad must not spawn a detect on every edit.
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'darwin', go: { detect: vi.fn() } },
+    });
+    useNativeToolchainStore.getState().report('go', { installed: false, reason: 'missing' });
+    useEditorStore.setState({
+      tabs: [
+        { id: 'tab-go-missing', name: 'main.go', language: 'go', content: 'package main\nfunc main() {}\n', isDirty: false },
+      ],
+      activeTabId: 'tab-go-missing',
+    });
+
+    try {
+      renderHook(() => useAutoRun());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    } finally {
+      resetNativeToolchainStoreForTests();
+    }
   });
 
   describe('in-flight run ownership', () => {

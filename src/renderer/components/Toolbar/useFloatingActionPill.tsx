@@ -43,6 +43,7 @@ import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { useDebuggerStore } from '../../stores/debuggerStore';
+import { useMissingActiveToolchain } from '../../hooks/useMissingActiveToolchain';
 import {
   executionDisabledTooltipKey,
   resolveExecutionControlPolicy,
@@ -122,6 +123,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const workspaceTab = activeTab ? isWorkspaceTab(activeTab) : false;
+  const toolchainMissing = useMissingActiveToolchain(language) !== null;
   const executionPolicy = resolveExecutionControlPolicy({
     language,
     runtimeMode: activeTab?.runtimeMode,
@@ -131,6 +133,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     isWorkspaceTab: workspaceTab,
     emptyWorkspace,
     enabledBreakpointCount,
+    toolchainMissing,
   });
   const estimatedPillWidth =
     typeof window !== 'undefined' && window.innerWidth >= 1500
