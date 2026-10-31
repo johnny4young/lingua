@@ -60,7 +60,8 @@ test.describe('Capsule Workspace handoff', () => {
     );
     await page.getByTestId('action-pill-browse-capsules').click();
     await expect(page.getByRole('dialog', { name: /run capsules/i })).toBeVisible();
-    await page.getByTestId('capsule-list-row-create-workspace').first().click();
+    await page.getByTestId('capsule-list-more').click();
+    await page.getByTestId('capsule-list-row-create-workspace').click();
 
     const dialog = page.getByRole('dialog', { name: /create capsule workspace/i });
     await expect(dialog).toBeVisible();

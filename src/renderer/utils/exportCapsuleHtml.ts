@@ -34,6 +34,7 @@ import { monacoLanguageFor } from './languageMeta';
 import { saveOrDownloadTextFile } from './saveTextFileToDisk';
 import { trackEvent } from './telemetry';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
+import { capsuleLanguageForLog } from './exportCapsule';
 
 /**
  * Surfaces that can trigger the HTML export. Closed enum — each value
@@ -165,7 +166,7 @@ export async function exportCapsuleAsHtml(
         feature: 'capsule-export',
         action: 'exported',
         sensitivity: 'medium',
-        summary: `${sanitised.tab.language} capsule exported as HTML (${sizeBucket})`,
+        summary: `${capsuleLanguageForLog(sanitised.tab.language)} capsule exported as HTML (${sizeBucket})`,
       });
       context.onOk();
     },

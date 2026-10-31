@@ -11,7 +11,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { openCapsuleSourceInNewTab } from '../../../src/renderer/utils/openCapsuleTab';
+import { openCapsuleSourceInNewTab, openCapsuleWorkspaceFileInNewTab } from '../../../src/renderer/utils/openCapsuleTab';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { getLanguagePackById } from '../../../src/shared/languagePacks';
 import type { RunCapsuleV1 } from '../../../src/shared/runCapsule';
@@ -77,5 +77,22 @@ describe('openCapsuleSourceInNewTab — non-code language fallback', () => {
       }),
     ]);
     expect(tab?.activeInputSetId).toBe(tab?.inputSets?.[0]?.id);
+  });
+});
+
+describe('opened capsule tabs never run on their own', () => {
+  beforeEach(() => {
+    useEditorStore.setState({ tabs: [], activeTabId: null });
+  });
+
+  // Scratchpad is the default for these languages and auto-runs a new tab's code.
+  it.each(['javascript', 'typescript', 'python'])('opens a %s capsule in Run mode', (language) => {
+    openCapsuleSourceInNewTab(makeCapsule(language));
+    expect(useEditorStore.getState().tabs[0]?.workflowMode).toBe('run');
+  });
+
+  it('opens a workspace file in Run mode', () => {
+    openCapsuleWorkspaceFileInNewTab({ path: 'src/helper.py', language: 'python', content: 'print(1)', contentHash: 'h' } as Parameters<typeof openCapsuleWorkspaceFileInNewTab>[0]);
+    expect(useEditorStore.getState().tabs[0]?.workflowMode).toBe('run');
   });
 });

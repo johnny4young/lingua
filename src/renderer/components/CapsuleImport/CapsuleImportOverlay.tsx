@@ -33,6 +33,7 @@ import { AlertCircle, FileUp } from 'lucide-react';
 import { useCapsuleImport } from '../../hooks/useCapsuleImport';
 import { takePendingCapsuleImportSource } from '../../clipboard/pendingCapsuleImport';
 import { useUIStore } from '../../stores/uiStore';
+import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { openHttpWorkspaceTab } from '../../runtime/openWorkspaceTab';
@@ -204,6 +205,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   const handleConfirmOpenTab = useCallback(() => {
     if (!decoded) return;
     openInNewTab();
+    useImportedCapsuleStore.getState().add(decoded.capsule);
     pushStatusNotice({
       tone: 'success',
       messageKey: 'capsuleImport.notice.openedTab',

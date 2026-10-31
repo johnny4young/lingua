@@ -28,3 +28,14 @@ export function formatRelativeTime(targetMs: number, nowMs: number, locale: stri
     unit
   );
 }
+
+type Translate = (key: string, values?: Record<string, number>) => string;
+
+/** "1 second ago" … "3 hours ago" for this session's runs; never "0 seconds". */
+export function formatRunAge(timestamp: number, now: number, t: Translate): string {
+  const seconds = Math.round(Math.max(0, now - timestamp) / SECOND);
+  if (seconds < 60) return t('executionHistory.relative.seconds', { count: Math.max(1, seconds) });
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return t('executionHistory.relative.minutes', { count: minutes });
+  return t('executionHistory.relative.hours', { count: Math.round(minutes / 60) });
+}

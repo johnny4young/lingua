@@ -16,6 +16,7 @@ import {
 import { useEditorStore } from '../../stores/editorStore';
 import { IconButton } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
+import { formatRunAge } from '../../utils/timeLabels';
 
 interface ExecutionHistoryPopoverProps {
   /**
@@ -40,20 +41,6 @@ function formatDuration(durationMs: number | null): string {
   if (durationMs < 10) return `${durationMs.toFixed(1)} ms`;
   if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
   return `${(durationMs / 1000).toFixed(2)} s`;
-}
-
-function formatRelative(
-  timestamp: number,
-  now: number,
-  t: (key: string, values?: Record<string, string | number>) => string
-): string {
-  const diff = Math.max(0, now - timestamp);
-  const seconds = Math.round(diff / 1000);
-  if (seconds < 60) return t('executionHistory.relative.seconds', { count: seconds });
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return t('executionHistory.relative.minutes', { count: minutes });
-  const hours = Math.round(minutes / 60);
-  return t('executionHistory.relative.hours', { count: hours });
 }
 
 function parseEntryCounter(id: string): number | null {
@@ -415,7 +402,7 @@ export function ExecutionHistoryPopover({
                         ) : null}
                       </span>
                       <span className="text-caption text-muted">
-                        {formatRelative(entry.timestamp, now, t)}
+                        {formatRunAge(entry.timestamp, now, t)}
                       </span>
                     </div>
                     {onRerun ? (

@@ -57,7 +57,8 @@ for (const language of ['en', 'es'] as const) {
     await page.getByTestId('action-pill-browse-capsules').click();
     mkdirSync('output/review/capsule-regression', { recursive: true });
     await page.screenshot({ path: `output/review/capsule-regression/web-${language}-list.png` });
-    await page.getByTestId('capsule-prepare-regression').first().click();
+    await page.getByTestId('capsule-list-more').click();
+    await page.getByTestId('capsule-prepare-regression').click();
     const dialog = page.getByTestId('capsule-regression-dialog');
     const exportButton = dialog.getByRole('button', {
       name: language === 'en' ? 'Export case as suite' : 'Exporta el caso como suite',
@@ -89,7 +90,7 @@ for (const language of ['en', 'es'] as const) {
       buffer: Buffer.from(raw),
     });
     await expect(dialog.getByTestId('regression-import-preview')).toContainText('hello.js');
-    const capsuleCount = await page.getByTestId('capsule-prepare-regression').count();
+    const capsuleCount = await page.getByTestId('capsule-list-row').count();
     await picker.setInputFiles({
       name: 'bad.json',
       mimeType: 'application/json',
@@ -99,7 +100,7 @@ for (const language of ['en', 'es'] as const) {
       language === 'en' ? 'Invalid artifact' : 'Artefacto inválido'
     );
     await expect(dialog.getByTestId('regression-import-preview')).toHaveCount(0);
-    expect(await page.getByTestId('capsule-prepare-regression').count()).toBe(capsuleCount);
+    expect(await page.getByTestId('capsule-list-row').count()).toBe(capsuleCount);
     expect(errors).toEqual([]);
   });
 }
@@ -108,5 +109,6 @@ test('Free cannot prepare a Pro history regression case', async ({ page }) => {
   await gotoApp(page);
   await page.getByTestId('action-pill-browse-capsules').click();
   await expect(page.getByTestId('capsule-regression-dialog')).toHaveCount(0);
+  await expect(page.getByTestId('capsule-list-more')).toHaveCount(0);
   await expect(page.getByTestId('capsule-prepare-regression')).toHaveCount(0);
 });

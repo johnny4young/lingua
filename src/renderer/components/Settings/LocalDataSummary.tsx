@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FolderOpen, Trash2 } from 'lucide-react';
 import { clearPersistedSqlDatabase, persistedSqlDatabaseBytes } from '../../runtime/duckdbClient';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
 import { useUIStore } from '../../stores/uiStore';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { SpecRow } from '../ui/SpecRow';
@@ -70,6 +71,7 @@ export function LocalDataSummary({
       }
       const history = useExecutionHistoryStore.getState();
       for (const entry of history.capsuleEntries()) history.clearCapsule(entry.id);
+      useImportedCapsuleStore.setState({ entries: [] });
       pushStatusNotice(
         sqlCleared
           ? { tone: 'success', messageKey: 'settings.privacy.localData.cleared' }

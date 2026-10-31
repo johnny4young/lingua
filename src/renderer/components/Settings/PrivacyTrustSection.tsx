@@ -9,6 +9,7 @@ import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import { useLicenseStore } from '../../stores/licenseStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
 import { TRUST_EVENT_STORAGE_KEY, useTrustEventStore } from '../../stores/trustEventStore';
 import { SQL_WORKSPACE_STORAGE_KEY, clearLiveSqlStore } from '../../stores/sqlQueryTabCount';
@@ -116,9 +117,9 @@ export function PrivacyTrustSection() {
   // Count of run capsules retained in memory.
   // Derive a primitive (not the `capsuleEntries()` array) so the
   // subscription stays stable and never trips zustand v5's update loop.
-  const capsulesRetained = useExecutionHistoryStore(
-    s => s.entries.filter(entry => entry.lastCapsule !== undefined).length
-  );
+  const capsulesRetained =
+    useExecutionHistoryStore(s => s.entries.filter(entry => entry.lastCapsule !== undefined).length) +
+    useImportedCapsuleStore(s => s.entries.length);
   const dependencyInstallLastAt = useDependencyDetectionStore(s => {
     let latest: number | null = null;
     for (const entry of s.installByTab.values()) {
