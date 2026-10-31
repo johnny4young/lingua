@@ -60,14 +60,12 @@ export interface ExecutionContext {
    */
   lineTiming?: boolean;
   /**
-   * pre-set stdin buffer the worker consumes for
-   * `prompt()` / `readline()` (JS / TS) or `input()` (Python).
-   * Newline-delimited; each call consumes one line. Empty /
-   * undefined ⇒ native worker behavior. Layered onto the existing
-   * `runner.execute` contract; runners that do not consume stdin
-   * ignore the field harmlessly.
+   * Pre-set stdin, one line per `prompt()` / `readline()` (JS / TS) or `input()`
+   * (Python) call; runners without stdin ignore it. With `askStdin` (run regions),
+   * a read past the end stops the run with a `stdinRequest`.
    */
   stdin?: string;
+  askStdin?: boolean;
   /** Argv from the active input set; unsupported runners ignore it. */
   args?: string[];
   /**
@@ -229,6 +227,8 @@ export interface ExecutionResult {
    * touch stdin.
    */
   stdinConsumed?: { count: number; total: number };
+  /** With `askStdin`, the prompt (cut short) and 1-based line where `stdin` ran out. */
+  stdinRequest?: { message: string; line?: number };
   /**
    * Explicit termination kind. The renderer's
    * `<RunStatusPill>` self-gates on this field rather than
@@ -462,6 +462,7 @@ export type WorkerResponse =
       watchResults: Record<string, { value?: string; error?: string }>;
     }
   | { type: 'resumed'; runId: string }
+  | { type: 'stdin-request'; runId: string; message: string; line?: number }
   | {
       /**
        * Stdin consumption summary the worker

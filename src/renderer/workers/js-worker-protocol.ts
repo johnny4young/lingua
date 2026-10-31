@@ -30,6 +30,8 @@ export interface JsWorkerExecuteMessage {
    * calls throw `ReferenceError`).
    */
   stdin?: string;
+  /** Read past the end of `stdin` stops the run with a `stdin-request` reply. */
+  askStdin?: boolean;
   /**
    * When `true`, capture the post-execute global
    * scope and emit a `'scope-snapshot'` reply before `done`. The

@@ -5,6 +5,7 @@ import {
 } from './python-worker-boundary';
 import { syncUserEnvInPyodide } from './python-worker-env';
 import { createStdinLineReader } from './python-worker-stdin';
+import { parsePythonStdinRequest } from './python-worker-stdin-request';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import { parsePythonTraceback } from '../../shared/errorStack';
 import type { RichOutputPayload } from '../../shared/richOutput';
@@ -267,7 +268,10 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           }
         }
 
-        if (errorText !== null) {
+        const stdinRequest = errorText !== null && msg.askStdin === true ? parsePythonStdinRequest(errorText) : null;
+        if (stdinRequest) {
+          ctx.postMessage({ type: 'stdin-request', runId, ...stdinRequest });
+        } else if (errorText !== null) {
           const parsed = parsePythonWorkerError(errorText);
           const tracebackText = errorText;
           // Structured stack frames for the

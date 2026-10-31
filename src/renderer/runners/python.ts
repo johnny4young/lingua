@@ -43,6 +43,7 @@ import {
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
+import { sanitizeStdinRequest } from '../utils/stdinRequest';
 
 // The literal run-time DEFAULT_TIMEOUT is gone;
 // the runner resolves the deadline from the per-language Settings
@@ -263,6 +264,7 @@ export class PythonRunner implements LanguageRunner {
     // Pyodide worker's stdin consumption
     // summary; mirror of the JS runner shape.
     let stdinConsumed: { count: number; total: number } | undefined;
+    let stdinRequest: ExecutionResult['stdinRequest'];
     // Scope snapshot relay (same shape as JS/TS).
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
@@ -543,6 +545,12 @@ export class PythonRunner implements LanguageRunner {
             stdinConsumed = { count, total };
             break;
           }
+          case 'stdin-request': {
+            const request = sanitizeStdinRequest(msg);
+            const line = sourceLineFor(request.line);
+            stdinRequest = line === undefined ? { message: request.message } : { message: request.message, line };
+            break;
+          }
           case 'scope-snapshot': {
             // Relay scope capture; same defensive
             // coercion as the JS/TS runners.
@@ -576,6 +584,7 @@ export class PythonRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
               stdinConsumed,
+              ...(stdinRequest ? { stdinRequest } : {}),
               kind: executionKind({ error, magicResults }),
               timeoutPreset,
               timeoutMs: timeout,
@@ -644,6 +653,7 @@ export class PythonRunner implements LanguageRunner {
         richConsoleEnabled: true,
         sourceMappingEnabled: true,
         autoLog: context?.autoLog === true,
+        askStdin: context?.askStdin === true,
         network,
       });
     });
