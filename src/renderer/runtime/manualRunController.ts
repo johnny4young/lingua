@@ -144,6 +144,7 @@ async function executeTabById(
       recordHistory: options.recordHistory,
       debug: options.debug,
       record: options.record,
+      region: options.region,
       track,
     });
     if (!session.isCurrent()) return;

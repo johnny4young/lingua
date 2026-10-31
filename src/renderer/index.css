@@ -1483,6 +1483,11 @@
     background: transparent !important;
   }
 
+  /* The region at the cursor when a file has %% regions. */
+  .monaco-editor .lingua-region-active {
+    background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  }
+
   .monaco-editor .lingua-timeline-unreached {
     opacity: 0.45;
   }

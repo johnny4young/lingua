@@ -10,5 +10,7 @@
   "settings.labs.flag.runState.label": "Run state",
   "settings.labs.flag.runState.description": "Marks results as stale once you edit after the last run: an amber border around the editor, dimmed inline values with their age and a STALE pill in the Dock. Settings › Editor gets a run policy per language group: On keystroke, On pause or Manual.",
   "settings.labs.flag.runTimeline.label": "Execution timeline",
-  "settings.labs.flag.runTimeline.description": "Record run, in the Run menu for JavaScript and TypeScript, keeps every step of one run: a Timeline tab in the Dock replays it with the variables and call stack as of each step, without running the code again. Free keeps the last 20 steps."
+  "settings.labs.flag.runTimeline.description": "Record run, in the Run menu for JavaScript and TypeScript, keeps every step of one run: a Timeline tab in the Dock replays it with the variables and call stack as of each step, without running the code again. Free keeps the last 20 steps.",
+  "settings.labs.flag.runRegions.label": "Run regions",
+  "settings.labs.flag.runRegions.description": "// %% (JavaScript, TypeScript) or # %% (Python) lines split a file into regions. Cmd/Ctrl+Enter runs the file up to the end of the region at the cursor and shows that region's output under it; Cmd/Ctrl+Shift+Enter runs the whole file."
 }

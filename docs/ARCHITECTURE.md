@@ -743,6 +743,24 @@ Scratchpad auto-run of the tab drops it. Replay reads the recording and never ru
 leaves the call, both backward too), the other runs of a line, what a line
 changed against the next step in the same call, and the lines not reached yet.
 
+### Run regions
+
+Run regions (Labs) split a JS / TS / Python tab at `%%` markers
+(`utils/runRegions.ts`: top-level `//` comments found with the magic-comment
+line walker, or `#` at column 0 outside triple-quoted strings). A region run
+threads `region` through the manual run like Record run: `resolveRunPlan`
+drops it under Debug or Record, turns history off and asks for auto-log (which
+the Worker JS / TS runners and Python honor), and
+`executeTabManually` hands the runner the tab cut after the region's last line,
+so line numbers and the regions above stay as they are. The run state, the
+console and the result store see a normal run, except that it records no
+history and no Compare snapshot; `runRegionStore` keeps the latest region
+result, with its rows, in memory for the card, and any other manual or
+Scratchpad run of the tab clears it. The editor binds `Cmd/Ctrl+Enter` and `Cmd/Ctrl+Shift+Enter` as
+Monaco actions while the tab has regions and no manual run is in flight (the
+negated `linguaManualRun` key from `stopRunKeybinding.ts`), so the global Run
+shortcut is unchanged.
+
 ## Notebook lazy-reactivity boundary
 
 Notebook languages do not share one typed value graph. JavaScript and

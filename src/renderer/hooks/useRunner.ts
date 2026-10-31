@@ -7,12 +7,15 @@ import { loadManualRunController } from './manualRunControllerLoader';
 import { emitCommand } from '../stores/commandBus';
 import { runUtilityApplyFromInput } from './globalShortcutUtilities';
 import { useTelemetry } from './useTelemetry';
+import type { RunRegion } from '../utils/runRegions';
 
 export interface RunOptions {
   recordHistory?: boolean;
   debug?: boolean;
   /** Record run: keep every step for the Timeline tab (JS / TS). */
   record?: boolean;
+  /** Run regions: run the file up to the end of this region. */
+  region?: RunRegion;
 }
 
 export function useRunner() {

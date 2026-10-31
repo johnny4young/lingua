@@ -20,7 +20,7 @@ function truncateInlineValue(value: string): { display: string; truncated: boole
  * the runtime type without re-parsing the host language; this fallback
  * is good enough to colour the type pill consistently.
  */
-function inferKind(raw: string | undefined): string {
+export function inferKind(raw: string | undefined): string {
   if (raw === undefined || raw === '') return 'string';
   const s = raw.trim();
   if (s === 'true' || s === 'false') return 'boolean';
