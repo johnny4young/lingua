@@ -7,7 +7,7 @@ vi.hoisted(() => {
 });
 
 import type { ExecutionTimeline } from '@/../shared/timeline';
-import { TIMELINE_MAX_STEPS, TIMELINE_MAX_VARS } from '@/../shared/timeline';
+import { TIMELINE_MAX_FRAMES, TIMELINE_MAX_STEPS, TIMELINE_MAX_VARS } from '@/../shared/timeline';
 import { instrumentForTimeline } from '@/runtime/timelineInstrument';
 import { createJsWorkerTimeline, previewTimelineValue } from '@/workers/js-worker-timeline';
 import { sanitizeTimeline } from '@/../shared/timeline';
@@ -89,6 +89,20 @@ describe('timeline step buffer', () => {
     expect(timeline.snapshot().steps[1]).toMatchObject({ line: 2, vars: [] });
     timeline.exit();
     expect(timeline.snapshot().steps[1]!.frames).toEqual([{ name: '<module>', line: 2 }]);
+  });
+
+  it('records the true depth and a distinct id for each call', () => {
+    const timeline = createJsWorkerTimeline();
+    for (let depth = 0; depth < TIMELINE_MAX_FRAMES + 2; depth += 1) timeline.enter('f', 1);
+    timeline.rec(2, () => ({}));
+    timeline.exit();
+    timeline.enter('g', 3);
+    timeline.rec(4, () => ({}));
+    const [deepStep, sibling] = timeline.snapshot().steps;
+    expect(deepStep).toMatchObject({ depth: TIMELINE_MAX_FRAMES + 2, call: TIMELINE_MAX_FRAMES + 2 });
+    expect(deepStep!.frames).toHaveLength(TIMELINE_MAX_FRAMES);
+    expect(sibling).toMatchObject({ depth: TIMELINE_MAX_FRAMES + 2, call: TIMELINE_MAX_FRAMES + 3 });
+    expect(sanitizeTimeline({ steps: [{ line: 1, frames: [], vars: [], depth: -1, call: 2.5 }] })!.steps[0]).toEqual({ line: 1, frames: [], vars: [] });
   });
 
   it('cuts long values to their preview length', () => {

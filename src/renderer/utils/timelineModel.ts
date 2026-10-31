@@ -2,7 +2,7 @@ import type { TimelineStep } from '../../shared/timeline';
 
 export type TimelineMove = 'into' | 'over' | 'out';
 
-const depthOf = (step: TimelineStep): number => Math.max(0, step.frames.length - 1);
+export const timelineDepth = (step: TimelineStep): number => step.depth ?? Math.max(0, step.frames.length - 1);
 
 /**
  * The step a move reaches, or null when none can: Into is the next step, Over
@@ -13,9 +13,9 @@ export function findTimelineStep(steps: readonly TimelineStep[], from: number, m
   if (!origin) return null;
   const direction = backward ? -1 : 1;
   if (move === 'into') return steps[from + direction] ? from + direction : null;
-  const depth = depthOf(origin);
+  const depth = timelineDepth(origin);
   for (let index = from + direction; index >= 0 && index < steps.length; index += direction) {
-    const reached = depthOf(steps[index]!);
+    const reached = timelineDepth(steps[index]!);
     if (move === 'over' ? reached <= depth : reached < depth) return index;
   }
   return null;
@@ -41,9 +41,10 @@ export function timelineEchoes(steps: readonly TimelineStep[], index: number): T
 export function timelineLineChanges(steps: readonly TimelineStep[], index: number): Array<[string, string]> {
   const step = steps[index];
   const next = findTimelineStep(steps, index, 'over', false);
-  if (!step || next === null || depthOf(steps[next]!) !== depthOf(step)) return [];
+  const after = next === null ? undefined : steps[next];
+  if (!step || !after || timelineDepth(after) !== timelineDepth(step) || after.call !== step.call) return [];
   const before = new Map(step.vars);
-  return steps[next]!.vars.filter(([name, value]) => before.get(name) !== value);
+  return after.vars.filter(([name, value]) => before.get(name) !== value);
 }
 
 /** Lines the run reaches later but has not reached by the selected step. */

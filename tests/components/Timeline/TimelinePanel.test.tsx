@@ -98,6 +98,14 @@ describe('timeline panel', () => {
     expect(screen.getByTestId('timeline-strip').querySelectorAll('[data-kind="echo"]')).toHaveLength(1);
   });
 
+  it('keeps the strip to its sample when the selected line ran more often than it has ticks', () => {
+    const loop: TimelineStep[] = Array.from({ length: 2_000 }, (_, i) => ({ line: 5 + (i % 2), frames: [{ name: '<module>', line: 5 }], vars: [] }));
+    useTimelineStore.setState({ recording: { tabId: 't1', steps: loop, total: loop.length, truncated: false, limited: false }, current: 0 });
+    render(<TimelinePanel />);
+    expect(screen.getByTestId('timeline-strip').querySelectorAll('.timeline-tick').length).toBeLessThanOrEqual(401);
+    expect(screen.getByTestId('timeline-echoes').textContent).toContain('1000');
+  });
+
   it('says when Free kept only the last steps, and when the run stopped at the cap', async () => {
     useTimelineStore.setState(state => ({ recording: { ...state.recording!, total: 50, limited: true, truncated: true } }));
     render(<TimelinePanel />);
@@ -177,7 +185,7 @@ describe('timeline in the editor and the Run menu', () => {
     useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
     const tricky: TimelineStep[] = [
       { line: 1, frames: [{ name: '<module>', line: 1 }], vars: [] },
-      { line: 2, frames: [{ name: '<module>', line: 2 }], vars: [['label', '"\u202eevil\nline"']] },
+      { line: 2, frames: [{ name: '<module>', line: 2 }], vars: [['label', '"\u202eevil\nline\u2028x\u200f\u0085"']] },
     ];
     useTimelineStore.setState({ recording: { tabId: 't1', steps: tricky, total: 2, truncated: false, limited: false }, current: 0 });
     const created: unknown[] = [];
@@ -191,7 +199,7 @@ describe('timeline in the editor and the Run menu', () => {
     };
     const monaco = { Range: class { constructor(public line: number) {} } };
     render(<TimelineLineHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
-    expect(JSON.stringify(created)).toContain('"content":"label = \\" evil line\\""');
+    expect(JSON.stringify(created)).toContain('"content":"label = \\" evil line x  \\""');
   });
 
   it('offers Record run for JavaScript Worker tabs with the flag on', async () => {

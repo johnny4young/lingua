@@ -8,9 +8,9 @@ import { useUIStore } from '../../stores/uiStore';
 import { timelineEchoes, timelineLineChanges, timelineUnreachedLines } from '../../utils/timelineModel';
 
 const FLASH_MS = 600;
-// Bidi overrides and C0 controls from recorded values would reorder or break the pill.
+// Bidi controls, line separators and C0/C1 controls from recorded values would reorder or break the pill.
 // eslint-disable-next-line no-control-regex
-const UNSAFE_TEXT = /[\u0000-\u001f\u007f‪-‮⁦-⁩]/g;
+const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g;
 
 /**
  * While the Timeline tab is open, the editor shows the selected step: its

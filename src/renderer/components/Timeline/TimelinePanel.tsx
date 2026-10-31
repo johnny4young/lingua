@@ -5,7 +5,7 @@ import '../../i18n/timelineCatalog';
 import type { TimelineStep } from '../../../shared/timeline';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { announce } from '../../stores/announcerStore';
-import { timelineEchoes, type TimelineMove } from '../../utils/timelineModel';
+import { timelineDepth, timelineEchoes, type TimelineMove } from '../../utils/timelineModel';
 import { cn } from '../../utils/cn';
 import { EyebrowMono } from '../ui/primitives';
 
@@ -40,7 +40,8 @@ export function TimelinePanel() {
   const steps = recording?.steps ?? NO_STEPS;
   const echoes = useMemo(() => timelineEchoes(steps, current), [steps, current]);
   const echoSet = useMemo(() => new Set(echoes.indices.length > 1 ? echoes.indices : []), [echoes]);
-  const ticks = useMemo(() => ticksFor(steps, current, echoSet), [steps, current, echoSet]);
+  // A line that ran more often than the strip has ticks is left to the even sample.
+  const ticks = useMemo(() => ticksFor(steps, current, echoSet.size <= MAX_TICKS ? echoSet : new Set()), [steps, current, echoSet]);
   if (!recording) return null;
 
   const step = steps[current];
@@ -167,13 +168,13 @@ export function TimelinePanel() {
             <section className="min-h-0 overflow-y-auto px-3 py-2.5" data-testid="timeline-stack">
               <EyebrowMono>{t('timeline.callStack')}</EyebrowMono>
               <ol className="mt-1 font-mono text-caption leading-5">
-                {[...(step?.frames ?? [])].reverse().map((frame, index, frames) => (
+                {[...(step?.frames ?? [])].reverse().map((frame, index) => (
                   <li key={index} className={cn('flex gap-2', index === 0 ? 'text-fg-base' : 'text-fg-muted')}>
                     <span>
                       {frame.name} :{frame.line}
                     </span>
-                    {index === 0 && frames.length > 1 ? (
-                      <span className="text-fg-subtle">{t('timeline.depth', { depth: frames.length - 1 })}</span>
+                    {index === 0 && step && timelineDepth(step) > 0 ? (
+                      <span className="text-fg-subtle">{t('timeline.depth', { depth: timelineDepth(step) })}</span>
                     ) : null}
                   </li>
                 ))}

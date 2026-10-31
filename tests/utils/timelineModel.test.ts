@@ -47,6 +47,16 @@ describe('timeline model', () => {
     expect(timelineLineChanges(steps, 6)).toEqual([]);
   });
 
+  it('keeps sibling calls apart and uses the recorded depth past the frame cap', () => {
+    const call = (line: number, id: number, vars: Array<[string, string]>): TimelineStep => ({ ...at(line, 1, vars), call: id });
+    const siblings = [at(10, 0), call(2, 1, [['arr', '[ 1 ]']]), call(2, 2, [['arr', '[ 8, 10 ]']]), at(11, 0)];
+    expect(timelineLineChanges(siblings, 1)).toEqual([]);
+    const deep = (line: number, depth: number): TimelineStep => ({ ...at(line, Math.min(depth, 15)), depth });
+    const recursion = [deep(1, 17), deep(2, 18), deep(3, 17), deep(4, 16)];
+    expect(findTimelineStep(recursion, 0, 'over', false)).toBe(2);
+    expect(findTimelineStep(recursion, 2, 'out', false)).toBe(3);
+  });
+
   it('lists the lines the run reaches later but not yet', () => {
     expect(timelineUnreachedLines(steps, 1)).toEqual([2, 3, 4, 12]);
     expect(timelineUnreachedLines(steps, 2)).toEqual([3, 4, 12]);
