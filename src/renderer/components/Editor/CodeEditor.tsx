@@ -1,6 +1,6 @@
 import { createLspEditorOpener } from './lspEditorOpener';
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
@@ -45,6 +45,8 @@ import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
 import { TestFailureCardHost } from '../ProjectTests/TestFailureCardHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
+import { useRunStale, useRunStaleAge } from '../../hooks/useRunStale';
+import { bindStopRunKey } from './stopRunKeybinding';
 
 configureMonaco();
 
@@ -317,6 +319,15 @@ export function CodeEditor() {
     };
   }, []);
 
+  const runStale = useRunStale();
+  const staleAge = useRunStaleAge(runStale.ranAt);
+
+  useEffect(() => {
+    if (!editorInstance || !monacoInstance) return;
+    const binding = bindStopRunKey(editorInstance, monacoInstance, t('shortcuts.item.stopRun.label'));
+    return () => binding.dispose();
+  }, [editorInstance, monacoInstance, t]);
+
   // register/dispose the "Explain with AI" context-menu action.
   // Only mounted when entitled, so it stays invisible on Free (matching
   // the ExplainErrorButton/AskSqlButton convention).
@@ -467,7 +478,12 @@ export function CodeEditor() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1">
+      <div
+        className={runStale.stale ? 'run-stale min-h-0 flex-1' : 'min-h-0 flex-1'}
+        data-testid="editor-run-state"
+        data-stale={runStale.stale ? 'true' : undefined}
+        style={staleAge ? ({ '--run-stale-age': JSON.stringify(` · ${staleAge}`) } as CSSProperties) : undefined}
+      >
         <MonacoEditor
           height="100%"
           language={monacoLanguageFor(activeTab.language)}

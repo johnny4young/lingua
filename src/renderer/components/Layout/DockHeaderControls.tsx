@@ -6,6 +6,7 @@ import { AutoLogStatusPill } from '../Editor/AutoLogStatusPill';
 import { RecentRunsPill } from '../Editor/RecentRunsPill';
 import { RunCapsuleExportButtonHost } from '../Editor/RunCapsuleExportButtonHost';
 import { RunStatusPill } from '../Editor/RunStatusPill';
+import { RunStalePill } from '../Editor/RunStalePill';
 import { ShareLinkButton } from '../Share/ShareLinkButton';
 
 /** Run status, history, timing, capsule export and share, on the dock's tab row. */
@@ -19,6 +20,7 @@ export function DockHeaderControls() {
       <AutoRunGateNotice />
       <AutoLogStatusPill />
       <RunStatusPill />
+      <RunStalePill />
       <RecentRunsPill />
       {executionTime !== null ? (
         <span

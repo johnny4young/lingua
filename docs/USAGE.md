@@ -9,6 +9,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Action                  | macOS         | Windows / Linux |
 | ----------------------- | ------------- | --------------- |
 | Run or stop active file | `Cmd+Enter`   | `Ctrl+Enter`    |
+| Stop the run in progress | `Cmd+.`      | `Ctrl+.`        |
 | Save active tab         | `Cmd+S`       | `Ctrl+S`        |
 | Save as                 | `Cmd+Shift+S` | `Ctrl+Shift+S`  |
 | Open file               | `Cmd+O`       | `Ctrl+O`        |
@@ -299,6 +300,13 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - **Ask** shows a dialog the first time code in a tab requests a host with `fetch` (JavaScript, or Python `pyodide.http.pyfetch`). The run waits with its timeout paused, and the full timeout starts again once every open question is answered; **Allow in this tab** or **Block** holds for that host in the tab until you reload. Synchronous requests (Python `requests` or `open_url`, any Ruby request) cannot wait, so under Ask they only reach hosts the tab already allowed.
 - Every blocked request, and each host you allow from the Ask dialog, appears in Settings › Privacy › Recent activity with the runtime and host only.
 - It is a best-effort guard, not a sandbox: an API it does not wrap, such as a dynamic `import()` of a URL or a `FontFace` source, is not stopped, and on the web a rich-output image with a remote `src` still loads in the app window. Pyodide is shared across tabs, so a task code left running applies the next run's policy, and package installs Lingua starts may reach PyPI (`pypi.org`, `files.pythonhosted.org`) while they run. Node, Deno, Bun, Go, Rust and system Ruby on desktop run natively and fall under the native execution acknowledgement (Deno already runs without network access). Ruby is covered only when it runs on Ruby WASM (Settings › Languages › Ruby runtime).
+
+## Run state (Labs)
+
+- Turn on **Settings › Labs › Run state** to see when the results on screen no longer match the code. Once you edit after the last run, the editor gets an amber border, the inline values dim and end with their age (`· 12 sec. ago`), the Dock row shows **Stale**, and Run pulses. Running again, or undoing the edit, clears it. A Scratchpad that runs on its own only turns stale while an incomplete edit keeps it from running.
+- Settings › Editor › **Run policy** then sets when Scratchpad runs, per language group: **On keystroke** (500 ms after you type), **On pause** (1 s without typing) or **Manual** (only Run). The defaults are On keystroke for JavaScript and TypeScript, On pause for Python and Ruby, and Manual for Go and Rust. Run and Debug tabs, SQL and HTTP never run on their own. With Run state off, Scratchpad keeps its 1.2 s debounce for every language.
+- `Cmd/Ctrl+.` stops the run in progress, with or without Run state. With nothing running, the editor keeps it for Quick Fix; `Cmd/Ctrl+Enter` also stops a run.
+- Saving never runs code, and the dot on a tab means unsaved, not stale.
 
 ## Compare runs (Labs)
 

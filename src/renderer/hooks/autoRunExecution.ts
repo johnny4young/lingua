@@ -140,6 +140,7 @@ export async function executeAutoRun({
   clearVisibleResults();
   setExecutionSource('auto');
   setAutoRunGateReason(gate.reason);
+  useResultStore.getState().setRanCode({ tabId: activeTab.id, code, at: Date.now() });
 
   let armedDeadlineAt: number | null = null;
   try {

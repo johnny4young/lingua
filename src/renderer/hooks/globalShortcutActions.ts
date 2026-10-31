@@ -23,6 +23,7 @@ export function buildGlobalShortcutActions(
       if (options.isRunning) options.stop();
       else void options.run();
     },
+    ...(options.isRunning ? { 'run-stop': () => options.stop() } : {}),
     'run-cycle-runtime-mode': () => options.cycleRuntimeMode(),
     'run-cycle-workflow-mode': () => options.cycleWorkflowMode(),
     'run-toggle-recent-runs': () => options.toggleRecentRunsPopover(),

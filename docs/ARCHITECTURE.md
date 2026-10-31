@@ -971,6 +971,20 @@ metadata-only contract. Removing a run's capsule, or Clear everything in
 Settings › Privacy, drops the record too. Restore as new tab opens the earlier run's code in Run mode, never
 running it.
 
+### Run state
+
+Each run records the code it started from in `resultStore.ranCode` (manual runs
+in `publishRunStart`, Scratchpad in `executeAutoRun`); a tab switch clears it.
+With **Run state** on in Labs, `useRunStale` compares it with the editor: the
+results are stale when the code differs, results are visible and nothing is
+running. A Scratchpad whose policy runs on its own is only stale while the
+incomplete-code gate holds it. The run policy (`shared/runPolicy.ts`, persisted
+as `runPolicyByGroup`) maps each language group to a Scratchpad debounce:
+500 ms, 1 s, or none for Manual, which `resolveAutoRunSchedule` treats like
+Browser preview's Off. `Cmd/Ctrl+.` stops a manual run: the global shortcut is
+bound only while a run is in flight, and the editor's command runs under the
+`linguaManualRun` context key, so Monaco's Quick Fix keeps the key otherwise.
+
 ## Project lifecycle
 
 ### What “project lifecycle” means in this codebase

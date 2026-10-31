@@ -47,12 +47,19 @@ function options(isRunning = false): UseGlobalShortcutsOptions {
 describe('buildGlobalShortcutActions', () => {
   it('registers every dispatchable catalog entry', () => {
     const actions = buildGlobalShortcutActions(options());
-    // The jump to an explained error is bound only while the panel has one (covered below).
+    // The jump to an explained error and Stop are bound only while they apply (covered below).
     const missing = KEYBOARD_SHORTCUTS.filter(
-      definition => definition.id !== 'overlay-close' && definition.id !== 'ai-jump-to-error' && !actions[definition.id]
+      definition => !['overlay-close', 'ai-jump-to-error', 'run-stop'].includes(definition.id) && !actions[definition.id]
     ).map(definition => definition.id);
 
     expect(missing).toEqual([]);
+  });
+
+  it('binds Cmd/Ctrl+. only while a run is in flight, so the editor keeps it for Quick Fix', () => {
+    const stop = vi.fn();
+    expect(buildGlobalShortcutActions({ ...options(), stop, isRunning: false })['run-stop']).toBeUndefined();
+    buildGlobalShortcutActions({ ...options(), stop, isRunning: true })['run-stop']?.(new KeyboardEvent('keydown'));
+    expect(stop).toHaveBeenCalledOnce();
   });
 
   it('binds Cmd/Ctrl+J only while the explain panel has an error on the active tab', () => {

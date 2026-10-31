@@ -118,9 +118,18 @@ function nextSnapshotCapturedAt(snapshotRing: readonly ResultSnapshot[]): number
   return Math.max(Date.now(), latestCapturedAt + 1);
 }
 
+/** The code a run started from, so Run state can tell when the results no longer match the editor. */
+interface RanCode {
+  tabId: string;
+  code: string;
+  at: number;
+}
+
 interface ResultState {
   /** Per-line results for dynamic languages */
   lineResults: LineResult[];
+  ranCode: RanCode | null;
+  setRanCode: (ranCode: RanCode | null) => void;
   /**
    * per-statement wall-clock timings from the last
    * instrumented run (`// @time` or the Settings toggle), attributed
@@ -374,6 +383,8 @@ export function scopeSnapshotVariableCountFor(
 
 export const useResultStore = create<ResultState>((set, get) => ({
   lineResults: [],
+  ranCode: null,
+  setRanCode: (ranCode) => set({ ranCode }),
   lineTimings: [],
   fullOutput: '',
   stdinConsumed: null,
@@ -538,6 +549,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
   },
   clear: () =>
     set({
+      ranCode: null,
       lineResults: [],
       lineTimings: [],
       fullOutput: '',

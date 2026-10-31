@@ -144,6 +144,34 @@ describe('useAutoRun', () => {
     expect(runnerManager.stop).not.toHaveBeenCalled();
   });
 
+  it('follows the run policy with Run state on: 500 ms for JS, never for Go', async () => {
+    const execute = mockSuccessfulRunner();
+    useSettingsStore.setState({ featureFlags: { runState: true } });
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'console.log(1)', isDirty: false, workflowMode: 'scratchpad' }],
+      activeTabId: 'tab-js',
+    });
+    const { unmount } = renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(499);
+    });
+    expect(execute).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().ranCode).toMatchObject({ tabId: 'tab-js', code: 'console.log(1)' });
+    unmount();
+
+    useSettingsStore.setState({ runPolicyByGroup: { jsTs: 'manual', pythonRuby: 'pause', goRust: 'manual' } });
+    renderHook(() => useAutoRun());
+    act(() => useEditorStore.getState().updateContent('tab-js', 'console.log(2)'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
   it('buckets auto-log counts into the telemetry allowlist', () => {
     expect(bucketAutoLogCount(0)).toBe('1');
     expect(bucketAutoLogCount(1)).toBe('1');

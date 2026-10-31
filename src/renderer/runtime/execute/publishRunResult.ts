@@ -156,6 +156,7 @@ export function publishRunStart(
     clearVisibleResults();
     setExecutionSource('manual');
     setDiagnostics([]);
+    useResultStore.getState().setRanCode({ tabId: activeTab.id, code: activeTab.content, at: Date.now() });
   }
   setIsAutoRunning(false);
   setIsManualRunning(true);

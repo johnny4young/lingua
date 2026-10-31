@@ -1888,6 +1888,33 @@
     animation: run-pulse 1.4s ease-in-out infinite;
   }
 
+  .action-pill-run[data-stale='true'] {
+    animation: run-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* Run state: results from older code than the editor holds. */
+  .run-stale {
+    position: relative;
+  }
+
+  .run-stale::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    border: 2px solid var(--color-warning-border);
+    pointer-events: none;
+  }
+
+  .run-stale .lingua-inline-result {
+    opacity: 0.55;
+  }
+
+  .run-stale .lingua-inline-result::after {
+    content: var(--run-stale-age, '');
+    color: var(--color-fg-subtle);
+  }
+
   .action-pill-run:not(:disabled):active {
     transform: scale(0.96);
   }
@@ -2383,6 +2410,10 @@
 
   .action-pill-run:not(:disabled):active {
     transform: none;
+  }
+
+  .action-pill-run[data-stale='true'] {
+    animation: none;
   }
 }
 
