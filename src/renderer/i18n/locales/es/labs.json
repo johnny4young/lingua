@@ -4,5 +4,7 @@
   "settings.labs.flag.httpChainTags.label": "Tags de cadena HTTP",
   "settings.labs.flag.httpChainTags.description": "Una {{variable}} que otro request captura se vuelve un tag: ve su origen, ruta y valor en vivo, elige cuándo Enviar ejecuta antes el origen, y ejecuta la cadena que sale de los tags.",
   "settings.labs.flag.httpSnapshots.label": "Aserciones de snapshot HTTP",
-  "settings.labs.flag.httpSnapshots.description": "Guarda una respuesta como snapshot y ve las siguientes como un diff para aceptar o rechazar, con scrubbers para fechas, UUID e ids, y tests sugeridos desde la última respuesta."
+  "settings.labs.flag.httpSnapshots.description": "Guarda una respuesta como snapshot y ve las siguientes como un diff para aceptar o rechazar, con scrubbers para fechas, UUID e ids, y tests sugeridos desde la última respuesta.",
+  "settings.labs.flag.runCompare.label": "Comparar ejecuciones",
+  "settings.labs.flag.runCompare.description": "La pestaña Compare lista tus ejecuciones por día y compara dos cualesquiera: código, salida, valores en línea y resultado. Requiere Pro."
 }

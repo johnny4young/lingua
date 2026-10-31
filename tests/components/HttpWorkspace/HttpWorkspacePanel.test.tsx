@@ -289,7 +289,14 @@ describe('HttpWorkspacePanel', () => {
       screen.getByTestId('http-request-editor-url'),
       'https://api.example.com/users'
     );
+    const record = vi.spyOn(useExecutionHistoryStore.getState(), 'record');
     await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => {
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({ summary: expect.objectContaining({ kind: 'http', method: 'GET', status: 200 }) })
+      );
+    });
+    record.mockRestore();
 
     await waitFor(() => {
       const latestCapsule = useExecutionHistoryStore.getState().latestCapsule();

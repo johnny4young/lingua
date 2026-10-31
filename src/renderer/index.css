@@ -2257,6 +2257,52 @@
   animation: dock-tab-enter var(--duration-normal) var(--curve-ease-out);
 }
 
+/* Compare runs: runs on the left, the diff on the right; stacked in a narrow window. */
+.run-compare {
+  container-type: inline-size;
+}
+
+.run-compare-body {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+}
+
+.run-compare-list {
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+@container (max-width: 760px) {
+  .run-compare-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .run-compare-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+}
+
+.run-compare-check {
+  appearance: none;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 3px;
+  background: transparent;
+}
+
+.run-compare-check:checked {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.run-compare-check:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* Launcher sheets fade in with an 8 px rise. */
 .modal-rise {
   animation: modal-rise 160ms var(--curve-ease-out);

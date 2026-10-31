@@ -34,6 +34,7 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
 import { cn } from '../../utils/cn';
+import { formatBinarySize } from '../../utils/formatSize';
 import '../../i18n/httpBuilderCatalog';
 import { HttpStatusPill } from './HttpStatusPill';
 import { HttpJsonTree } from './HttpJsonTree';
@@ -51,13 +52,6 @@ interface HttpResponseSnapshots {
   snapshot: HttpResponseSnapshot | undefined;
   onChange: (snapshot: HttpResponseSnapshot | undefined) => void;
   onAddAssertion: (assertion: Omit<HttpAssertion, 'id'>) => void;
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 }
 
 function isJsonContentType(contentType: string): boolean {
@@ -215,7 +209,7 @@ export function HttpResponsePreview({
 
   // Mono meta line: `245 ms · 83 B`, matching the proto's shared
   // result header (timing first, then size).
-  const meta = `${response.durationMs} ms · ${formatBytes(response.sizeBytes)}${
+  const meta = `${response.durationMs} ms · ${formatBinarySize(response.sizeBytes)}${
     response.messageCount !== undefined
       ? ` · ${t('httpWorkspace.response.messages', { count: response.messageCount })}`
       : ''

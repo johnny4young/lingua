@@ -214,8 +214,9 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     (row: CapsuleBrowserRow) => {
       let undo: () => void;
       if (row.kind === 'run') {
+        const runCompare = useExecutionHistoryStore.getState().entries.find((entry) => entry.id === row.id)?.runCompare;
         clearCapsule(row.id);
-        undo = () => restoreCapsule(row.id, row.capsule);
+        undo = () => restoreCapsule(row.id, row.capsule, runCompare);
       } else {
         const store = useImportedCapsuleStore.getState();
         const index = store.entries.findIndex((entry) => entry.id === row.id);

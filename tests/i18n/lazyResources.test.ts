@@ -89,6 +89,18 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/ProjectTests/TestsPanel.tsx'), 'utf8')).toContain("import '../../i18n/testsCatalog'");
   });
 
+  it('keeps the Compare runs copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('runCompare.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/runCompare.json');
+    expect(rendererI18n).toContain("import('./locales/es/runCompare.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/runCompareCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/runCompare.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/RunCompare/RunComparePanel.tsx'), 'utf8')).toContain("import '../../i18n/runCompareCatalog'");
+  });
+
   it('keeps the newer Labs flag copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
