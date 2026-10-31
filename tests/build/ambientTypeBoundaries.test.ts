@@ -84,6 +84,7 @@ const SHARED_CONTRACT_BUDGETS = {
   'src/shared/licenseSnapshot.ts': 50,
   'src/shared/lspLauncherTypes.ts': 40,
   'src/shared/nativeRuntimeTypes.ts': 120,
+  'src/shared/toolchainBinary.ts': 20,
 } as const;
 
 type Equal<Left, Right> =

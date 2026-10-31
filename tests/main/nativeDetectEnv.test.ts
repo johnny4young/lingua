@@ -1,9 +1,15 @@
+import os from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawnNative: vi.fn() }));
 
 vi.mock('../../src/main/runners/spawnNativeRun', () => ({ spawnNativeRun: mocks.spawnNative }));
 
+// Only the bare command: fallback folders on the host must not leak into the probe sequence.
+vi.mock('../../src/main/runners/toolchainBinary', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../src/main/runners/toolchainBinary')>()),
+  toolchainCandidates: async (id: 'go' | 'rust') => [id === 'go' ? 'go' : 'rustc'],
+}));
 vi.mock('electron', () => ({
   ipcMain: {
     handle: mocks.handle,
@@ -92,7 +98,10 @@ describe('native toolchain detection env', () => {
       stdout: '', stderr: '', exitCode: -1, timedOut: false, killed: false,
       spawnError: Object.assign(new Error('not found'), { code: 'ENOENT' }),
     });
-    expect(await detect({}, {})).toMatchObject({ installed: false, reason: 'missing' });
+    const missing = await detect({}, {});
+    expect(missing).toMatchObject({ installed: false, reason: 'missing' });
+    expect(missing.searched?.length).toBeGreaterThan(0);
+    expect(missing.searched?.some(place => place.startsWith(os.homedir()))).toBe(false);
 
     mocks.spawnNative.mockResolvedValueOnce({
       stdout: '', stderr: '', exitCode: -1, timedOut: true, killed: false,

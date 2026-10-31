@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawn: vi.fn(), write: vi.fn(
 vi.mock('electron', () => ({ ipcMain: { handle: mocks.handle } }));
 vi.mock('../../src/main/runners/spawnNativeRun', () => ({ spawnNativeRun: mocks.spawn }));
 vi.mock('node:fs/promises', () => { const fs = { writeFile: mocks.write, rm: mocks.rm, stat: mocks.stat, readFile: mocks.read }; return { ...fs, default: fs }; });
+// Only the bare command: fallback folders on the host must not leak into the probe sequence.
+vi.mock('../../src/main/runners/toolchainBinary', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../src/main/runners/toolchainBinary')>()),
+  toolchainCandidates: async (id: 'go' | 'rust') => [id === 'go' ? 'go' : 'rustc'],
+}));
 vi.mock('node:child_process', async importOriginal => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   const execFile = Object.assign(vi.fn(), { [Symbol.for('nodejs.util.promisify.custom')]: vi.fn().mockResolvedValue({ stdout: 'goc fixture', stderr: '' }) });

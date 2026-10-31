@@ -33,6 +33,14 @@ import {
 } from './runners/nativeEnv';
 import { spawnNativeRun, type SpawnNativeRunResult } from './runners/spawnNativeRun';
 import type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
+import {
+  chooseToolchainBinary,
+  findToolchain,
+  toolchainCandidates,
+  toolchainSearchedPlaces,
+  withBinaryDirOnPath,
+  type ToolchainProbe,
+} from './runners/toolchainBinary';
 
 
 /**
@@ -95,41 +103,60 @@ export function resolveRustRunEnv(
  * mid-session is picked up by the next run — same convention as
  * node-runner and go-compiler.
  */
-let cachedRustDetect: RustDetectResult | null = null;
+let cachedRustDetect: { result: RustDetectResult; command: string } | null = null;
 
 const activeRuns = new Map<string, { owner?: WebContents; controller: AbortController }>();
 const emptyRun = { stdout: '', stderr: '', exitCode: -1, executionTime: 0 };
 const stopped = (): RustRunResult => ({ ...emptyRun, success: false, kind: 'stopped' });
 const failed = (error: string): RustRunResult => ({ ...emptyRun, success: false, kind: 'error', error, stderr: error });
 
-async function detectRust(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<
-  RustDetectResult & { timedOut?: boolean }
-> {
-  const cacheable = userEnv === undefined;
-  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
-  if (cacheable && cachedRustDetect) return cachedRustDetect;
+type RustDetection = RustDetectResult & { timedOut?: boolean; command?: string };
+
+async function probeRust(
+  command: string, env: NodeJS.ProcessEnv, signal?: AbortSignal
+): Promise<ToolchainProbe<RustDetectResult>> {
   const probe = await spawnNativeRun({
-    command: 'rustc', args: ['--version'], env: resolveRustRunEnv(userEnv),
+    command, args: ['--version'], env: withBinaryDirOnPath(env, command),
     timeoutMs: 5_000, killEscalationMs: KILL_ESCALATION_DELAY_MS,
     maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
     stdoutTruncationMarker: COMPILE_TRUNCATION_MARKER,
     stderrTruncationMarker: COMPILE_TRUNCATION_MARKER, signal,
   });
-  if (signal?.aborted || probe.killed) return { installed: false, reason: 'check-failed' };
+  if (signal?.aborted || probe.killed) return { kind: 'failed' };
   if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
     const missing = (probe.spawnError as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
-    return {
-      installed: false,
-      reason: missing ? 'missing' : 'check-failed',
-      timedOut: probe.timedOut,
-      error: missing
-        ? 'Rust is not installed. Install it from https://rustup.rs'
-        : 'Rust toolchain check failed. Retry detection or inspect your local Rust installation.',
-    };
+    return missing ? { kind: 'missing' } : { kind: 'failed', timedOut: probe.timedOut };
   }
-  const result = { installed: true, version: probe.stdout.trim() };
-  if (cacheable) cachedRustDetect = result;
+  return { kind: 'found', value: { installed: true, version: probe.stdout.trim() } };
+}
+
+async function detectRust(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<RustDetection> {
+  const cacheable = userEnv === undefined;
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
+  if (cacheable && cachedRustDetect) return { ...cachedRustDetect.result, command: cachedRustDetect.command };
+  const env = resolveRustRunEnv(userEnv);
+  const found = await findToolchain(await toolchainCandidates('rust'), (command) => probeRust(command, env, signal), signal);
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
+  if (found.kind === 'found') {
+    if (cacheable) cachedRustDetect = { result: found.value, command: found.command };
+    return { ...found.value, command: found.command };
+  }
+  return found.kind === 'missing'
+    ? { installed: false, reason: 'missing', searched: toolchainSearchedPlaces('rust'), error: 'Rust is not installed. Install it from https://rustup.rs' }
+    : {
+        installed: false, reason: 'check-failed', timedOut: found.timedOut,
+        error: 'Rust toolchain check failed. Retry detection or inspect your local Rust installation.',
+      };
+}
+
+/** The renderer gets availability, never the absolute binary path. */
+function publicRustDetection({ command: _command, ...result }: RustDetection): RustDetectResult {
   return result;
+}
+
+async function verifyChosenRust(binary: string): Promise<string | null> {
+  const probe = await probeRust(binary, resolveRustRunEnv());
+  return probe.kind === 'found' && probe.value.version?.startsWith('rustc ') ? probe.value.version : null;
 }
 
 function processResult(run: SpawnNativeRunResult, timeoutMs: number): RustRunResult {
@@ -162,7 +189,7 @@ async function runRustCode(
     const rustInfo = await detectRust(userEnv, signal);
     if (signal.aborted) return stopped();
     if (rustInfo.timedOut) return { ...emptyRun, success: false, kind: 'timeout', timeoutMs: 5_000 };
-    if (!rustInfo.installed) return failed(rustInfo.error ?? 'Rust is not installed.');
+    if (!rustInfo.installed || !rustInfo.command) return failed(rustInfo.error ?? 'Rust is not installed.');
 
     tempDir = stageNativeRunTempDir('lingua-rust-');
     if (signal.aborted) return stopped();
@@ -170,10 +197,10 @@ async function runRustCode(
     const binaryFile = path.join(tempDir, process.platform === 'win32' ? 'main.exe' : 'main');
     await writeFile(sourceFile, sourceCode, 'utf-8');
     if (signal.aborted) return stopped();
-    const env = resolveRustRunEnv(userEnv);
+    const env = withBinaryDirOnPath(resolveRustRunEnv(userEnv), rustInfo.command);
     const markers = truncationMarkers(messages);
     const compiled = await spawnNativeRun({
-      command: 'rustc', args: ['--edition', RUST_EDITION, sourceFile, '-o', binaryFile],
+      command: rustInfo.command, args: ['--edition', RUST_EDITION, sourceFile, '-o', binaryFile],
       env, signal, timeoutMs: 60_000, killEscalationMs: KILL_ESCALATION_DELAY_MS,
       maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
       stdoutTruncationMarker: markers.compile, stderrTruncationMarker: markers.compile,
@@ -203,8 +230,12 @@ export function registerRustHandlers(): void {
   typedHandle('rust:detect', async (event, userEnv?: unknown) => {
     if (userEnv !== undefined && !isStringRecord(userEnv)) return { installed: false, reason: 'check-failed', error: 'Invalid Rust environment.' };
     const lifecycle = createNativeRunLifecycle(event.sender);
-    try { return await detectRust(userEnv, lifecycle.controller.signal); }
+    try { return publicRustDetection(await detectRust(userEnv, lifecycle.controller.signal)); }
     finally { lifecycle.release(); }
+  });
+  typedHandle('rust:choose-binary', async (event) => {
+    try { return await chooseToolchainBinary('rust', event.sender, verifyChosenRust); }
+    finally { cachedRustDetect = null; }
   });
   typedHandle('rust:run', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
     if (typeof source !== 'string' || (userEnv !== undefined && !isStringRecord(userEnv))

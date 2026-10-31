@@ -30,6 +30,7 @@ import { blockedPathFamily } from './ipc/permissions';
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
+import { configureToolchainBinaryStore } from './runners/toolchainBinary';
 import { registerRubyHandlers } from './ruby-runner';
 import { registerNodeJSHandlers } from './node-runner';
 import { registerAltJsRuntimeHandlers } from './altJsRuntimes';
@@ -270,6 +271,7 @@ const createWindow = async () => {
 };
 
 function registerPrimaryInstance() {
+  configureToolchainBinaryStore(app.getPath('userData'));
   registerGoHandlers();
   registerRustHandlers();
   registerRubyHandlers();

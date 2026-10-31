@@ -33,6 +33,14 @@ import {
   combinedAllowlist,
 } from './runners/nativeEnv';
 import type { GoCompileResult, GoDetectResult } from '../shared/nativeRuntimeTypes';
+import {
+  chooseToolchainBinary,
+  findToolchain,
+  toolchainCandidates,
+  toolchainSearchedPlaces,
+  withBinaryDirOnPath,
+  type ToolchainProbe,
+} from './runners/toolchainBinary';
 
 const WASM_EXEC_RELATIVE_PATHS = [
   ['lib', 'wasm', 'wasm_exec.js'],
@@ -96,42 +104,60 @@ function resolveGoToolchainEnv(
  * for the default env) so installing Go mid-session is still picked up
  * by the next run, matching the node-runner convention.
  */
-let cachedGoDetect: GoDetectResult | null = null;
+let cachedGoDetect: { result: GoDetectResult; command: string } | null = null;
 
-/** Detect with the same process ownership as compilation. */
-async function detectGo(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<
-  GoDetectResult & { timedOut?: boolean }
-> {
-  const cacheable = userEnv === undefined;
-  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
-  if (cacheable && cachedGoDetect) return cachedGoDetect;
-  const env = resolveGoToolchainEnv(userEnv);
+type GoDetection = GoDetectResult & { timedOut?: boolean; command?: string };
+
+async function probeGo(
+  command: string, env: NodeJS.ProcessEnv, signal?: AbortSignal
+): Promise<ToolchainProbe<GoDetectResult>> {
   const outputs: string[] = [];
   for (const args of [['version'], ['env', 'GOROOT']]) {
-    if (signal?.aborted) return { installed: false, reason: 'check-failed' };
+    if (signal?.aborted) return { kind: 'failed' };
     const probe = await spawnNativeRun({
-      command: 'go', args, env, signal, timeoutMs: 5_000, killEscalationMs: 200,
+      command, args, env: withBinaryDirOnPath(env, command), signal, timeoutMs: 5_000, killEscalationMs: 200,
       maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
       stdoutTruncationMarker: COMPILE_TRUNCATION_MARKER,
       stderrTruncationMarker: COMPILE_TRUNCATION_MARKER,
     });
-    if (signal?.aborted || probe.killed) return { installed: false, reason: 'check-failed' };
+    if (signal?.aborted || probe.killed) return { kind: 'failed' };
     if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
       const missing = (probe.spawnError as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
-      return {
-        installed: false,
-        reason: missing ? 'missing' : 'check-failed',
-        timedOut: probe.timedOut,
-        error: missing
-          ? 'Go is not installed. Install it from https://go.dev/dl/'
-          : 'Go toolchain check failed. Retry detection or inspect your local Go installation.',
-      };
+      return missing ? { kind: 'missing' } : { kind: 'failed', timedOut: probe.timedOut };
     }
     outputs.push(probe.stdout.trim());
   }
-  const result: GoDetectResult = { installed: true, version: outputs[0], goRoot: outputs[1] };
-  if (cacheable) cachedGoDetect = result;
+  return { kind: 'found', value: { installed: true, version: outputs[0], goRoot: outputs[1] } };
+}
+
+/** Detect with the same process ownership as compilation. */
+async function detectGo(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<GoDetection> {
+  const cacheable = userEnv === undefined;
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
+  if (cacheable && cachedGoDetect) return { ...cachedGoDetect.result, command: cachedGoDetect.command };
+  const env = resolveGoToolchainEnv(userEnv);
+  const found = await findToolchain(await toolchainCandidates('go'), (command) => probeGo(command, env, signal), signal);
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
+  if (found.kind === 'found') {
+    if (cacheable) cachedGoDetect = { result: found.value, command: found.command };
+    return { ...found.value, command: found.command };
+  }
+  return found.kind === 'missing'
+    ? { installed: false, reason: 'missing', searched: toolchainSearchedPlaces('go'), error: 'Go is not installed. Install it from https://go.dev/dl/' }
+    : {
+        installed: false, reason: 'check-failed', timedOut: found.timedOut,
+        error: 'Go toolchain check failed. Retry detection or inspect your local Go installation.',
+      };
+}
+
+/** The renderer gets availability, never the absolute binary path. */
+function publicGoDetection({ command: _command, ...result }: GoDetection): GoDetectResult {
   return result;
+}
+
+async function verifyChosenGo(binary: string): Promise<string | null> {
+  const probe = await probeGo(binary, resolveGoToolchainEnv());
+  return probe.kind === 'found' && probe.value.version?.startsWith('go version') ? probe.value.version : null;
 }
 
 /**
@@ -175,7 +201,7 @@ async function compileGoToWasm(
     const goInfo = await detectGo(userEnv, signal);
     if (signal.aborted) return stopped();
     if (goInfo.timedOut) return { success: false, kind: 'timeout', timeoutMs: 5_000 };
-    if (!goInfo.installed || !goInfo.goRoot) return failed(goInfo.error ?? 'Go is not installed.');
+    if (!goInfo.installed || !goInfo.goRoot || !goInfo.command) return failed(goInfo.error ?? 'Go is not installed.');
     goVersion = goInfo.version;
     tempDir = stageNativeRunTempDir('lingua-go-');
     if (signal.aborted) return stopped();
@@ -185,8 +211,8 @@ async function compileGoToWasm(
     await writeFile(path.join(tempDir, 'go.mod'), 'module lingua_temp\n\ngo 1.21\n', 'utf-8');
     if (signal.aborted) return stopped();
     const compiled = await spawnNativeRun({
-      command: 'go', args: ['build', '-o', wasmFile, '.'], cwd: tempDir,
-      env: resolveGoCompileEnv(userEnv), signal, timeoutMs: 30_000, killEscalationMs: 200,
+      command: goInfo.command, args: ['build', '-o', wasmFile, '.'], cwd: tempDir,
+      env: withBinaryDirOnPath(resolveGoCompileEnv(userEnv), goInfo.command), signal, timeoutMs: 30_000, killEscalationMs: 200,
       maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
       stdoutTruncationMarker: compileTruncationMarker(messages),
       stderrTruncationMarker: compileTruncationMarker(messages),
@@ -225,8 +251,12 @@ export function registerGoHandlers(): void {
   typedHandle('go:detect', async (event, userEnv?: unknown) => {
     if (userEnv !== undefined && !isStringRecord(userEnv)) return { installed: false, reason: 'check-failed', error: 'Invalid Go environment.' };
     const lifecycle = createNativeRunLifecycle(event.sender);
-    try { return await detectGo(userEnv, lifecycle.controller.signal); }
+    try { return publicGoDetection(await detectGo(userEnv, lifecycle.controller.signal)); }
     finally { lifecycle.release(); }
+  });
+  typedHandle('go:choose-binary', async (event) => {
+    try { return await chooseToolchainBinary('go', event.sender, verifyChosenGo); }
+    finally { cachedGoDetect = null; }
   });
   typedHandle('go:compile', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
     if (typeof source !== 'string') return failed('Go compiler received invalid source.');
