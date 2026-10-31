@@ -1,3 +1,4 @@
+import type { RunOptions } from '../hooks/useRunner';
 import { lazy, Suspense, useEffect } from 'react';
 import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
@@ -112,7 +113,7 @@ export interface AppOverlaysProps {
   closeOverlay: () => void;
   onStartGuidedTour: () => void;
   onOpenDeveloperUtility: (utilityId?: DeveloperUtilityId) => void;
-  run: () => void | Promise<void>;
+  run: (options?: RunOptions) => void | Promise<void>;
   isRunning: boolean;
   exportProjectBundle: () => void | Promise<void>;
 }
@@ -176,6 +177,7 @@ export function AppOverlays({
           onOpenDeveloperUtility={utilityId => onOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRunActiveTab={() => void run()}
+          onRecordRun={() => void run({ record: true })}
           onOpenProject={() => useProjectStore.getState().openProject()}
           onOpenProjectTests={
             window.lingua?.projectTests ? () => useUIStore.getState().openBottomPanel('tests') : undefined

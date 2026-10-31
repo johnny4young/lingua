@@ -1,0 +1,21 @@
+{
+  "timeline.title": "Línea de tiempo de ejecución",
+  "timeline.summary_one": "{{count}} paso · grabado",
+  "timeline.summary_other": "{{count}} pasos · grabados",
+  "timeline.truncated": "dejó de grabar en su tope",
+  "timeline.back": "Atrás",
+  "timeline.next": "Siguiente",
+  "timeline.backLabel": "Paso anterior",
+  "timeline.nextLabel": "Paso siguiente",
+  "timeline.strip": "Pasos grabados",
+  "timeline.stepText": "Paso {{step}} de {{count}}, línea {{line}}",
+  "timeline.legend.current": "paso actual {{step}} · línea {{line}}",
+  "timeline.legend.log": "consola",
+  "timeline.legend.error": "error",
+  "timeline.watches": "Watches · en el paso {{step}}",
+  "timeline.noVars": "No hay variables en el alcance",
+  "timeline.callStack": "Pila de llamadas",
+  "timeline.depth": "profundidad {{depth}}",
+  "timeline.limited": "Free guarda los últimos {{count}} de {{total}} pasos",
+  "timeline.empty": "La ejecución no tuvo pasos para grabar."
+}

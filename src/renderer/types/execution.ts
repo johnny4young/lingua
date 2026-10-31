@@ -10,6 +10,7 @@ import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
 import type { NetworkWorkerMessage } from '../../shared/networkPolicy';
+import type { ExecutionTimeline, TimelineWorkerMessage } from '../../shared/timeline';
 import type { Language } from './language';
 
 export interface ExecutionContext {
@@ -37,6 +38,8 @@ export interface ExecutionContext {
    * breakpoints; only Debug should attach the worker pause protocol.
    */
   debug?: boolean;
+  /** Record run (JS / TS): the result carries a step-by-step `timeline`. */
+  record?: boolean;
   /**
    * Tab id of the source being executed. The
    * debugger runner reads breakpoints + watches from the debugger
@@ -45,16 +48,7 @@ export interface ExecutionContext {
    * reads the tab's sibling css / html tabs from the editor store.
    */
   tabId?: string;
-  /**
-   * JS / TS auto-log mode. When `true` the JS / TS
-   * runner runs a second source transform that replaces every
-   * top-level bare expression statement with an `__mc(line, value)`
-   * capture (after the magic-comment transform) so values surface
-   * inline without the user typing a `//=>` and side effects run
-   * once. Only the
-   * auto-run path passes this flag; manual Run + Debug never
-   * auto-log.
-   */
+  /** JS / TS auto-log: bare top-level expressions become `__mc(line, value)` captures. Auto-run only. */
   autoLog?: boolean;
   /**
    * per-line timing via the Settings toggle. When
@@ -62,7 +56,7 @@ export interface ExecutionContext {
    * a `__mc_tick(line)` marker so the worker can attribute wall-clock
    * time per statement. A `// @time` magic comment in the buffer
    * enables the same instrumentation regardless of this flag; debug
-   * runs never instrument.
+   * and record runs never instrument.
    */
   lineTiming?: boolean;
   /**
@@ -216,6 +210,7 @@ export interface ExecutionResult {
   executionTime: number;
   /** per-statement timings; present only when instrumented. */
   lineTimings?: LineTimingEntry[];
+  timeline?: ExecutionTimeline;
   /**
    * True when the user explicitly stopped execution. Cancelled runs
    * are not successes and should not be recorded as normal history
@@ -346,6 +341,7 @@ export interface LanguageRunner {
  */
 export type WorkerResponse =
   | NetworkWorkerMessage
+  | TimelineWorkerMessage
   | {
       type: 'console';
       captureOrder?: number;

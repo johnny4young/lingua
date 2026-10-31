@@ -89,6 +89,18 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/ProjectTests/TestsPanel.tsx'), 'utf8')).toContain("import '../../i18n/testsCatalog'");
   });
 
+  it('keeps the timeline copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('timeline.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/timeline.json');
+    expect(rendererI18n).toContain("import('./locales/es/timeline.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/timelineCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/timeline.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Timeline/TimelinePanel.tsx'), 'utf8')).toContain("import '../../i18n/timelineCatalog'");
+  });
+
   it('keeps the Compare runs copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')

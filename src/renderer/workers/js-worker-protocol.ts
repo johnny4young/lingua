@@ -10,6 +10,8 @@ export interface JsWorkerExecuteMessage {
   code: string;
   resultTruncationMarker?: string;
   debug?: boolean;
+  /** Record run: post a `timeline` of every step before `done`. */
+  record?: boolean;
   breakpoints?: DebuggerBreakpointPayload[];
   watches?: string[];
   /** Character-accurate maps, newest transform first. */

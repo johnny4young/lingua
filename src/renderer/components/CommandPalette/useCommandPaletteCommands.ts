@@ -29,6 +29,7 @@ import {
 } from '../../../shared/dependencies/nativeDependencies';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useRunCompareActive } from '../../hooks/useRunCompareActive';
+import { canRecordTimeline } from '../../../shared/timeline';
 import {
   getActiveEditor,
   getActiveEditorCursorLine,
@@ -73,6 +74,7 @@ export function useCommandPaletteCommands({
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
   onRunActiveTab,
+  onRecordRun,
   onOpenProject,
   onOpenProjectTests,
   onOpenProjectTerminal,
@@ -141,6 +143,7 @@ export function useCommandPaletteCommands({
   const latestCapsule = useExecutionHistoryStore(state => state.latestCapsule());
   const snapshotRing = useResultStore(state => state.snapshotRing);
   const runCompareActive = useRunCompareActive();
+  const timelineOn = useSettingsStore(state => state.featureFlags.runTimeline === true);
   const compareDockOpen = useUIStore(state => isCompareDockOpen(state));
   const dependencyDetectionEnabled = useSettingsStore(state => state.dependencyDetectionEnabled);
   const dependencyDetectionEntry = useDependencyDetectionStore(state =>
@@ -198,6 +201,7 @@ export function useCommandPaletteCommands({
         executionModeForLanguage(activeTab.language) === 'run'
           ? onRunActiveTab
           : undefined,
+      onRecordRun: timelineOn && activeTab && canRecordTimeline(activeTab) ? onRecordRun : undefined,
       onOpenProject,
       onOpenProjectTests,
       onOpenProjectTerminal,
@@ -705,6 +709,8 @@ export function useCommandPaletteCommands({
     executionHistory,
     snapshotRing,
     runCompareActive,
+    timelineOn,
+    onRecordRun,
     compareDockOpen,
     onRunActiveTab,
     onOpenProject,

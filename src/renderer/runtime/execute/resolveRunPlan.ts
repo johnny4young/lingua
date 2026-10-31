@@ -7,6 +7,7 @@
  * outside the built-in packs.
  */
 
+import { canRecordTimeline } from '../../../shared/timeline';
 import {
   isRuntimeTimeoutSupportedLanguage,
   resolveTimeoutMs,
@@ -36,6 +37,8 @@ const VARIABLE_INSPECTOR_LANGUAGES: ReadonlySet<string> = new Set([
 export interface RunPlan {
   mode: 'run' | 'validate' | 'view';
   debugRequested: boolean;
+  /** Record run on a JS / TS Worker tab; Debug wins when both are asked. */
+  recordRequested: boolean;
   usesNativeDebugger: boolean;
   recordHistory: boolean;
 }
@@ -50,13 +53,14 @@ export interface RunExecution {
 }
 
 export function resolveRunPlan(
-  tab: Pick<FileTab, 'language'>,
-  lifecycle: Pick<ManualExecutionLifecycle, 'debug' | 'recordHistory'>
+  tab: Pick<FileTab, 'language' | 'runtimeMode'>,
+  lifecycle: Pick<ManualExecutionLifecycle, 'debug' | 'recordHistory' | 'record'>
 ): RunPlan {
   const debugRequested = lifecycle.debug === true;
   return {
     mode: executionModeForLanguage(tab.language),
     debugRequested,
+    recordRequested: lifecycle.record === true && !debugRequested && canRecordTimeline(tab),
     usesNativeDebugger: debugRequested && NATIVE_DEBUGGER_LANGUAGES.has(tab.language),
     recordHistory: lifecycle.recordHistory !== false,
   };
@@ -79,7 +83,7 @@ export function resolveRunExecution(
   const magicTimeoutMs = extractTimeoutMagicComment(language, tab.content);
   const resolvedTimeoutMs =
     lifecycle.executionTimeoutMs ?? tab.nextRunTimeoutOverrideMs ?? magicTimeoutMs ?? undefined;
-  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested;
+  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested && !plan.recordRequested;
   const scopeDepth = settings.variableInspectorScopeDepth;
   const settingsTimeoutMs =
     !plan.usesNativeDebugger && isRuntimeTimeoutSupportedLanguage(language)
@@ -93,6 +97,7 @@ export function resolveRunExecution(
       ...(resolvedTimeoutMs !== undefined ? { timeout: resolvedTimeoutMs } : {}),
       tabId: tab.id,
       ...(plan.debugRequested ? { debug: true } : {}),
+      ...(plan.recordRequested ? { record: true } : {}),
       // Manual Run feeds the same pre-set buffer that
       // auto-run uses. Runners that do not consume stdin ignore the field.
       ...(tab.stdinBuffer ? { stdin: tab.stdinBuffer } : {}),

@@ -20,6 +20,7 @@
  * agree about them.
  */
 
+import { sanitizeTimeline, type ExecutionTimeline } from '../../shared/timeline';
 import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import type {
@@ -90,6 +91,8 @@ export interface WorkerRunSpec {
   timeout: number;
   timeoutPreset: RuntimeTimeoutPreset | 'override';
   debug: boolean;
+  /** Record run: collect the worker's step timeline into the result. */
+  record?: boolean;
   breakpoints: ReadonlyArray<WorkerBreakpoint>;
   watches: string[];
   /** Character-accurate maps, newest transform first. */
@@ -168,6 +171,7 @@ export class WorkerRunnerShell {
     let nextCaptureOrder = 0;
     const magicResults: MagicCommentResult[] = [];
     let lineTimings: LineTimingEntry[] = [];
+    let timeline: ExecutionTimeline | undefined;
     let result: unknown;
     /** The worker's structured return value, forwarded losslessly when asked. */
     let structuredResult: unknown;
@@ -343,6 +347,9 @@ export class WorkerRunnerShell {
             // before done.
             lineTimings = msg.entries;
             break;
+          case 'timeline':
+            timeline = sanitizeTimeline(msg.timeline);
+            break;
           case 'result':
             result = msg.value;
             // The structured value only arrives when we asked for it via
@@ -406,6 +413,7 @@ export class WorkerRunnerShell {
               // Per-statement wall-clock timings when the run was instrumented
               // (setting or `// @time` directive).
               ...(lineTimings.length > 0 ? { lineTimings } : {}),
+              ...(timeline ? { timeline } : {}),
               stdinConsumed,
               // Explicit kind so the result-panel pill self-gates on a field
               // instead of regexing the error message. Timeout and stop paths
@@ -484,6 +492,7 @@ export class WorkerRunnerShell {
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
         debug,
+        record: spec.record === true,
         breakpoints: breakpoints.map(bp => ({
           line: bp.line,
           mode: bp.mode,
@@ -498,10 +507,10 @@ export class WorkerRunnerShell {
         // / `readline()` answers. Empty or undefined leaves the native worker
         // behavior in place.
         stdin: context?.stdin,
-        // Variable inspector capture. Debug runs skip it; the debugger drawer
+        // Variable inspector capture. Debug and record runs skip it; the debugger drawer
         // already exposes the paused-frame locals and a second snapshot would
         // race with the resume protocol.
-        captureScope: !debug && context?.captureScope === true,
+        captureScope: !debug && spec.record !== true && context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
         scopeLanguage: language,
         captureStructuredResult,

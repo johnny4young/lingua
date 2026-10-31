@@ -13,6 +13,7 @@ import {
 } from '../../stores/bootstrapProgressStore';
 import { getInitializationMessage } from '../../hooks/runnerOutput';
 import { useRunStale } from '../../hooks/useRunStale';
+import { RecordRunMenuItem } from './RecordRunMenuItem';
 import { useTranslation } from 'react-i18next';
 import { Bug, ChevronDown, Loader2, Play, Sparkles, Square } from 'lucide-react';
 import type { EditorState, FileTab } from '../../types/editor';
@@ -232,6 +233,13 @@ export function FloatingActionPillRunGroup({
               </button>
             );
           })}
+          <RecordRunMenuItem
+            disabled={isRunning || noActiveTab || workflowAvailability.run.disabled}
+            onRecord={() => {
+              setOpenMenu(null);
+              void run({ record: true });
+            }}
+          />
         </div>
       ) : null}
     </div>

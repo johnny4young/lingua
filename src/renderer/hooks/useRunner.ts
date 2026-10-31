@@ -11,6 +11,8 @@ import { useTelemetry } from './useTelemetry';
 export interface RunOptions {
   recordHistory?: boolean;
   debug?: boolean;
+  /** Record run: keep every step for the Timeline tab (JS / TS). */
+  record?: boolean;
 }
 
 export function useRunner() {

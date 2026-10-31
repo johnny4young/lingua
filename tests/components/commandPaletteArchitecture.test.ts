@@ -59,6 +59,7 @@ const HISTORICAL_STATIC_ACTION_ORDER = [
   'action-rerun-last',
   'action-new-project-from-template',
   'action-restore-session',
+  'action-record-run',
   'action-export-capsule',
   'action-import-capsule',
   'action-browse-capsules',

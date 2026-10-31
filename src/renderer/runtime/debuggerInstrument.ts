@@ -145,9 +145,9 @@ const DEFAULT_HELPER_NAME = '__lingua_dbg_yield';
  * than dropping the yield entirely — the user still pauses, just at
  * the post-transpile coordinate instead of the original.
  */
-type LineTranslator = (jsLine: number) => number;
+export type LineTranslator = (jsLine: number) => number;
 
-function buildLineTranslator(inputMap: string | undefined): LineTranslator {
+export function buildLineTranslator(inputMap: string | undefined): LineTranslator {
   if (!inputMap) {
     return (line) => line;
   }
@@ -201,7 +201,7 @@ function buildLineTranslator(inputMap: string | undefined): LineTranslator {
  * - Anything declared inside nested blocks the user would have to
  *   step into (TDZ semantics on `let` make eager capture wrong).
  */
-function collectLocalIdentifiers(node: AcornNode): string[] {
+export function collectLocalIdentifiers(node: AcornNode): string[] {
   const seen = new Set<string>();
   const skip = new Set([
     '__mc',
@@ -606,7 +606,7 @@ function canAwaitInBody(parent: AcornNode, awaitableTargets: AwaitableDebugTarge
   return false;
 }
 
-function buildLocalSnapshotExpression(localNames: string[]): string {
+export function buildLocalSnapshotExpression(localNames: string[]): string {
   const safeNames = localNames.filter((name) => /^[$_a-zA-Z][$_a-zA-Z0-9]*$/.test(name));
   if (safeNames.length === 0) return '({})';
 

@@ -30,6 +30,8 @@ export type BottomPanelTab =
   | 'git-diff'
   | 'project-terminal'
   | 'tests'
+  // Replay of the latest Record run (Labs).
+  | 'timeline'
   // The HTTP and SQL workspaces are no longer dock
   // panels. They ascended to full-screen `FileTab`s owned by
   // `useEditorStore` (one stable tab per workspace). `'http'` / `'sql'`

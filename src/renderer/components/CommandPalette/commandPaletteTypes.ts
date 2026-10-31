@@ -25,6 +25,8 @@ export interface CommandPaletteProps {
    * toolbar action. This stays separate from replay/history availability.
    */
   onRunActiveTab?: () => void;
+  /** Record run on the active tab, for the execution timeline (Labs). */
+  onRecordRun?: () => void;
   /** Opens a local folder as the active project. */
   onOpenProject?: () => void | Promise<void>;
   /** Opens the test-suite detector for the active project. */

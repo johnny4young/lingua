@@ -86,7 +86,8 @@ and whenever the element or viewport changes; the width hint only guards the
 first render before a DOM measurement exists.
 
 All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
-full-width editor. Its tab row always lists Console; Input, Compare, Variables,
+full-width editor. Its tab row always lists Console; Input, Compare, Timeline
+(Labs, after a Record run), Variables,
 Terminal and Tests (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
 and carries the run controls: auto-log, run status, recent runs, time, capsule
@@ -215,6 +216,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
+| [`components/Timeline/`](components/Timeline)           | `TimelinePanel.tsx` (lazy Timeline dock tab), `TimelineLineHost.tsx` | Execution timeline (Labs): replay of the latest Record run from `stores/timelineStore.ts`, with the editor highlighting the selected step |
 | Run state (Labs)                                          | `hooks/useRunStale.ts`, `Editor/RunStalePill.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
 | [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs (Labs): runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
 | [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestFailureCardHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestFailureCard.tsx`), `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, and the failure card under the assertion line |
