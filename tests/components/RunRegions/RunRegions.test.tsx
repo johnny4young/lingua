@@ -95,6 +95,8 @@ describe('run regions', () => {
 
     const regionKey = fake.actions.find(action => action.id === 'lingua.runRegions.run')!;
     expect(regionKey.keybindings).toEqual([2048 | 3]);
+    // While a manual run is on, the editor leaves Cmd+Enter to the Run shortcut, which stops it.
+    expect(fake.actions.map(action => (action as { precondition?: string }).precondition)).toEqual(['!linguaManualRun', '!linguaManualRun']);
     regionKey.run();
     expect(run).toHaveBeenLastCalledWith({ region: expect.objectContaining({ name: 'size', startLine: 4, endLine: 6 }) });
     fake.actions.find(action => action.id === 'lingua.runRegions.runAll')!.run();
@@ -107,14 +109,12 @@ describe('run regions', () => {
   it('shows the latest region output under its last code line and writes its value back as a comment', () => {
     const fake = fakeEditor(CODE);
     const region = parseRunRegions(CODE, 'javascript')[2]!;
-    useResultStore.setState({
-      lineResults: [
-        { line: 3, value: '[1, 2]', type: 'autoLog' },
-        { line: 5, value: '2', type: 'autoLog' },
-        { line: 6, value: 'noise', type: 'log' },
-      ],
-    });
-    useRunRegionStore.setState({ last: { tabId: 't1', region, ranAt: Date.UTC(2026, 9, 31, 14, 41), executionTime: 0.3, ok: true, message: '' } });
+    const rows = [
+      { line: 5, value: '2', type: 'autoLog' as const },
+      { line: 6, value: 'noise', type: 'log' as const },
+    ];
+    useResultStore.setState({ lineResults: [{ line: 3, value: 'from a later run', type: 'autoLog' }] });
+    useRunRegionStore.setState({ last: { tabId: 't1', region, ranAt: Date.UTC(2026, 9, 31, 14, 41), executionTime: 0.3, ok: true, message: '', rows } });
     render(<RunRegions editor={fake.editor as never} monaco={monaco as never} tabId="t1" language="javascript" content={CODE} />);
 
     const card = screen.getByTestId('run-regions-card');
@@ -122,7 +122,7 @@ describe('run regions', () => {
     expect(fake.zones.at(-1)).toMatchObject({ afterLineNumber: 5 });
     expect(fake.editor.revealLineInCenterIfOutsideViewport).toHaveBeenCalledWith(6);
     expect(screen.getByTestId('run-regions-rows').textContent).toContain('L5');
-    expect(screen.getByTestId('run-regions-rows').textContent).not.toContain('L3');
+    expect(screen.getByTestId('run-regions-rows').textContent).not.toContain('from a later run');
     expect(screen.getByTestId('run-regions-ran').textContent).toContain('0.3 ms');
 
     fireEvent.click(screen.getByTestId('run-regions-insert'));
@@ -135,13 +135,22 @@ describe('run regions', () => {
     expect(useRunRegionStore.getState().last).toBeNull();
   });
 
+  it('keeps a named region card when a marker is added above it', () => {
+    const region = parseRunRegions(CODE, 'javascript')[2]!;
+    useRunRegionStore.setState({ last: { tabId: 't1', region, ranAt: 0, executionTime: 1, ok: true, message: '', rows: [] } });
+    const moved = CODE.replace('// %% size', '// %% extra\nlet b = 1;\n// %% size');
+    render(<RunRegions editor={fakeEditor(moved).editor as never} monaco={monaco as never} tabId="t1" language="javascript" content={moved} />);
+    expect(screen.getByTestId('run-regions-card').getAttribute('aria-label')).toBe('Output of region size');
+  });
+
   it('shows the error of a region run that failed and offers no comment', () => {
     const fake = fakeEditor(CODE);
     const region = parseRunRegions(CODE, 'javascript')[1]!;
-    useRunRegionStore.setState({ last: { tabId: 't1', region, ranAt: 0, executionTime: null, ok: false, message: 'ReferenceError: b is not defined' } });
+    const failed = { tabId: 't1', region, ranAt: 0, executionTime: null, ok: false, message: 'ReferenceError: b is not defined', rows: [] };
+    useRunRegionStore.setState({ last: failed });
     render(<RunRegions editor={fake.editor as never} monaco={monaco as never} tabId="t1" language="javascript" content={CODE} />);
     expect(screen.getByTestId('run-regions-card').textContent).toContain('ReferenceError: b is not defined');
-    act(() => useResultStore.setState({ lineResults: [{ line: 3, value: 'ReferenceError: b is not defined', type: 'error' }] }));
+    act(() => useRunRegionStore.setState({ last: { ...failed, rows: [{ line: 3, value: 'ReferenceError: b is not defined', type: 'error' }] } }));
     expect(screen.getByTestId('run-regions-card').textContent!.match(/b is not defined/g)).toHaveLength(1);
     expect(screen.queryByTestId('run-regions-insert')).toBeNull();
   });

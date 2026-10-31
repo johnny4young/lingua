@@ -6,11 +6,9 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useUIStore } from '../../stores/uiStore';
 import { timelineEchoes, timelineLineChanges, timelineUnreachedLines } from '../../utils/timelineModel';
+import { replaceUnsafeText } from '../../utils/unsafeText';
 
 const FLASH_MS = 600;
-// Bidi controls, line separators and C0/C1 controls from recorded values would reorder or break the pill.
-// eslint-disable-next-line no-control-regex
-const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g;
 
 /**
  * While the Timeline tab is open, the editor shows the selected step: its
@@ -54,7 +52,7 @@ export function TimelineLineHost({
       line: step.line,
       changes: timelineLineChanges(steps, current)
         .slice(0, 2)
-        .map(([name, value]) => `${name} = ${value}`.replace(UNSAFE_TEXT, ' '))
+        .map(([name, value]) => replaceUnsafeText(`${name} = ${value}`))
         .join(', '),
       echo: echoes.indices.length > 1 ? t('timeline.echoPill', { position: echoes.position, count: echoes.indices.length }) : '',
       unreached: timelineUnreachedLines(steps, current),

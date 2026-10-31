@@ -12,5 +12,5 @@
   "settings.labs.flag.runTimeline.label": "Execution timeline",
   "settings.labs.flag.runTimeline.description": "Record run, in the Run menu for JavaScript and TypeScript, keeps every step of one run: a Timeline tab in the Dock replays it with the variables and call stack as of each step, without running the code again. Free keeps the last 20 steps.",
   "settings.labs.flag.runRegions.label": "Run regions",
-  "settings.labs.flag.runRegions.description": "// %% (JavaScript, TypeScript) or # %% (Python) lines split a file into regions. ⌘↵ runs the file up to the end of the region at the cursor and shows that region's output under it; ⌘⇧↵ runs the whole file."
+  "settings.labs.flag.runRegions.description": "// %% (JavaScript, TypeScript) or # %% (Python) lines split a file into regions. Cmd/Ctrl+Enter runs the file up to the end of the region at the cursor and shows that region's output under it; Cmd/Ctrl+Shift+Enter runs the whole file."
 }

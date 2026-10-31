@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import type * as monacoTypes from 'monaco-editor';
 import { Play, RotateCcw, X } from 'lucide-react';
 import '../../i18n/runRegionsCatalog';
+import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
 import { useRunner } from '../../hooks/useRunner';
-import { useResultStore, type LineResult } from '../../stores/resultStore';
+import type { LineResult } from '../../stores/resultStore';
 import { useRunRegionStore } from '../../stores/runRegionStore';
 import { parseRunRegions, resultComment, runRegionAt, type RunRegion, type RunRegionLanguage } from '../../utils/runRegions';
 import { formatRunDuration } from '../../utils/timeLabels';
@@ -55,10 +56,10 @@ function ResultRow({ row }: { row: LineResult }) {
 export function RunRegions({ editor, monaco, tabId, language, content }: RunRegionsProps) {
   const { t, i18n } = useTranslation();
   const { run, isRunning } = useRunner();
+  const platform = currentShortcutDisplayPlatform();
   const regions = useMemo(() => parseRunRegions(content, language), [content, language]);
   const [cursorLine, setCursorLine] = useState(() => editor?.getPosition()?.lineNumber ?? 1);
   const last = useRunRegionStore(state => (state.last?.tabId === tabId ? state.last : null));
-  const lineResults = useResultStore(state => state.lineResults);
   const [node] = useState(() => document.createElement('div'));
   const [height, setHeight] = useState(72);
   const [width, setWidth] = useState(CARD_WIDTH);
@@ -68,9 +69,12 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
   const hasRegions = regions.length > 0;
 
   const active = runRegionAt(regions, cursorLine);
-  const shown = last ? regions.find(region => region.index === last.region.index && region.name === last.region.name) ?? null : null;
+  // A named region keeps its card when markers above it change; an unnamed one only has its position.
+  const shown = !last
+    ? null
+    : (regions.find(region => (last.region.name !== null ? region.name === last.region.name : region.name === null && region.index === last.region.index)) ?? null);
   const anchor = shown ? lastCodeLine(content, shown) : null;
-  const rows = shown ? lineResults.filter(row => row.line >= shown.startLine && row.line <= shown.endLine) : [];
+  const rows = shown && last ? last.rows : [];
   const label = (region: RunRegion) => region.name ?? (region.markerLine === null ? t('runRegions.top') : t('runRegions.unnamed', { number: region.index + 1 }));
 
   useEffect(() => {
@@ -151,10 +155,9 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
 
   const lastRow = [...rows].reverse().find(row => row.type === 'autoLog' || row.type === 'result');
   const model = editor?.getModel();
-  const comment =
-    lastRow && model && lastRow.line <= model.getLineCount() ? resultComment(language, model.getLineContent(lastRow.line), lastRow.value) : null;
+  const comment = lastRow ? resultComment(language, content, lastRow.line, lastRow.value) : null;
   const insertComment = () => {
-    if (!editor || !monaco || !lastRow || !comment || !model) return;
+    if (!editor || !monaco || !lastRow || !comment || !model || lastRow.line > model.getLineCount()) return;
     const end = model.getLineMaxColumn(lastRow.line);
     editor.executeEdits('lingua.runRegions', [{ range: new monaco.Range(lastRow.line, end, lastRow.line, end), text: comment }]);
     editor.focus();
@@ -197,7 +200,7 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
           type="button"
           disabled={isRunning || !active}
           aria-label={active ? t('runRegions.runLabel', { name: label(active) }) : t('runRegions.run')}
-          title="⌘↵"
+          title={formatShortcutCombo({ tokens: ['Mod', 'Enter'] }, platform)}
           onClick={() => runRegion(active)}
           data-testid="run-regions-run"
           className="button-secondary inline-flex h-[26px] shrink-0 items-center gap-1 px-[9px] text-caption"
@@ -208,7 +211,7 @@ export function RunRegions({ editor, monaco, tabId, language, content }: RunRegi
         <button
           type="button"
           disabled={isRunning}
-          title="⌘⇧↵"
+          title={formatShortcutCombo({ tokens: ['Mod', 'Shift', 'Enter'] }, platform)}
           onClick={() => runRegion(null)}
           data-testid="run-regions-run-all"
           className="button-secondary inline-flex h-[26px] shrink-0 items-center px-[9px] text-caption"

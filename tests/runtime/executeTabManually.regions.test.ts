@@ -47,7 +47,13 @@ vi.mock('../../src/renderer/hooks/runnerOutput', async importOriginal => ({
 }));
 
 vi.mock('../../src/renderer/utils/executionPresentation', () => ({
-  toExecutionPresentation: () => ({ lineResults: [], fullOutput: '' }),
+  toExecutionPresentation: () => ({
+    lineResults: [
+      { line: 1, value: 'above', type: 'autoLog' },
+      { line: 3, value: 'inside', type: 'log' },
+    ],
+    fullOutput: '',
+  }),
 }));
 
 
@@ -96,7 +102,16 @@ describe('executeTabManually — run regions', () => {
     expect(useResultStore.getState().ranCode?.code).toBe(SOURCE);
     expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
     expect(useResultStore.getState().snapshotRing).toHaveLength(0);
-    expect(useRunRegionStore.getState().last).toMatchObject({ tabId: 'tab-r', region, ok: true, executionTime: 3 });
+    expect(useRunRegionStore.getState().last).toMatchObject({ tabId: 'tab-r', region, ok: true, executionTime: 3, rows: [{ line: 3, value: 'inside', type: 'log' }] });
+  });
+
+  it('reports a region run whose runner failed to start', async () => {
+    mockRunnerManagerPrepare.mockReset();
+    mockRunnerManagerPrepare.mockRejectedValue(new Error('no runner'));
+    const region = parseRunRegions(SOURCE, 'javascript')[1]!;
+    await executeTabManually(tab, { region });
+    expect(useRunRegionStore.getState().last).toMatchObject({ tabId: 'tab-r', region, ok: false, executionTime: null, rows: [] });
+    expect(useRunRegionStore.getState().last?.message).toContain('no runner');
   });
 
   it('drops the region result when the tab runs as a whole', async () => {

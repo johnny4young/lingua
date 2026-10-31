@@ -10,6 +10,7 @@ import { useConsoleStore } from '@/stores/consoleStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
 import { useTimelineStore } from '@/stores/timelineStore';
+import { useRunRegionStore } from '@/stores/runRegionStore';
 import { loadAutoRunExecution } from '@/hooks/autoRunExecutionLoader';
 import {
   claimNotebookRunner,
@@ -202,11 +203,14 @@ describe('useAutoRun', () => {
       activeTabId: 'tab-js',
     });
     useTimelineStore.setState({ recording: { tabId: 'tab-js', steps: [], total: 0, truncated: false, limited: false }, current: 0 });
+    const region = { index: 0, name: 'a', markerLine: 1, startLine: 1, endLine: 1 };
+    useRunRegionStore.setState({ last: { tabId: 'tab-js', region, ranAt: 0, executionTime: 1, ok: true, message: '', rows: [] } });
     renderHook(() => useAutoRun());
     await act(async () => {
       await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS);
     });
     expect(useTimelineStore.getState().recording).toBeNull();
+    expect(useRunRegionStore.getState().last).toBeNull();
   });
 
   it('buckets auto-log counts into the telemetry allowlist', () => {

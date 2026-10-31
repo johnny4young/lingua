@@ -1,6 +1,6 @@
 import { useTimelineStore } from '../stores/timelineStore';
 import { useRunRegionStore } from '../stores/runRegionStore';
-import { runRegionSource } from '../utils/runRegions';
+import { runRegionSource, type RunRegion } from '../utils/runRegions';
 import { beginManualRun } from './manualRunSession';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
@@ -189,16 +189,7 @@ async function executeOwnedTab(
       session.isCurrent,
       showsResults
     );
-    if (plan.region && session.isCurrent()) {
-      useRunRegionStore.getState().publish({
-        tabId: activeTab.id,
-        region: plan.region,
-        ranAt: Date.now(),
-        executionTime: summary.executionTime,
-        ok: summary.ok,
-        message: summary.ok ? '' : summary.message,
-      });
-    }
+    if (plan.region && session.isCurrent()) publishRegion(activeTab.id, plan.region, summary.ok ? '' : summary.message, summary.executionTime, showsResults());
     return summary;
   } catch (error) {
     if (!session.isCurrent()) return cancelledSummary();
@@ -211,6 +202,7 @@ async function executeOwnedTab(
       showsResults
     );
     if (!session.isCurrent()) return cancelledSummary();
+    if (plan.region) publishRegion(activeTab.id, plan.region, message, null, false);
     if (!runnerPrepared) {
       bootstrap.fail();
     }
@@ -224,6 +216,11 @@ async function executeOwnedTab(
     lifecycle.setLoadingMessage?.(null);
     lifecycle.setCurrentLanguage?.(null);
   }
+}
+
+function publishRegion(tabId: string, region: RunRegion, message: string, executionTime: number | null, withRows: boolean): void {
+  const rows = withRows ? useResultStore.getState().lineResults.filter(row => row.line >= region.startLine && row.line <= region.endLine) : [];
+  useRunRegionStore.getState().publish({ tabId, region, ranAt: Date.now(), executionTime, ok: message === '', message, rows });
 }
 
 /** The result store mirrors the active tab; synthetic tabs (smoke) always own it. */

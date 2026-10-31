@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { RunRegion } from '../utils/runRegions';
+import type { LineResult } from './resultStore';
 
 interface RunRegionResult {
   tabId: string;
@@ -8,6 +9,8 @@ interface RunRegionResult {
   executionTime: number | null;
   ok: boolean;
   message: string;
+  /** The run's values on the region's lines, kept so a later run or edit cannot swap them. */
+  rows: LineResult[];
 }
 
 interface RunRegionState {

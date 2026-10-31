@@ -1,4 +1,5 @@
 import { walkTopLevelLines } from './magicComments/jsLexer';
+import { replaceUnsafeText } from './unsafeText';
 
 export type RunRegionLanguage = 'javascript' | 'typescript' | 'python';
 
@@ -39,6 +40,16 @@ function jsMarkers(source: string): Array<[line: number, name: string | null]> {
   return markers;
 }
 
+/** The triple quote still open after a Python line, given the one open before it. */
+function tripleQuoteAfter(open: string | null, text: string): string | null {
+  let current = open;
+  for (const quote of (current ? text : text.replace(/#.*$/, '')).match(PY_TRIPLE) ?? []) {
+    if (!current) current = quote;
+    else if (current === quote) current = null;
+  }
+  return current;
+}
+
 /** `# %%` lines at column 0, skipping triple-quoted strings. */
 function pythonMarkers(source: string): Array<[line: number, name: string | null]> {
   const markers: Array<[number, string | null]> = [];
@@ -51,10 +62,7 @@ function pythonMarkers(source: string): Array<[line: number, name: string | null
         return;
       }
     }
-    for (const quote of (open ? text : text.replace(/#.*$/, '')).match(PY_TRIPLE) ?? []) {
-      if (!open) open = quote;
-      else if (open === quote) open = null;
-    }
+    open = tripleQuoteAfter(open, text);
   });
   return markers;
 }
@@ -89,11 +97,34 @@ export function runRegionSource(source: string, region: RunRegion): string {
   return source.split('\n').slice(0, region.endLine).join('\n');
 }
 
-/** A one-line arrow comment the next run reads back as an inline value. */
-export function resultComment(language: RunRegionLanguage, lineText: string, value: string): string | null {
-  if (lineText.trim() === '' || (language === 'python' ? lineText.includes('#') : lineText.includes('//'))) return null;
-  const flat = value.replace(/\s+/g, ' ').trim();
+const PY_STRING = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g;
+
+/** The line ends in code, outside any string, comment or open bracket, so a comment can follow it. */
+function endsInCode(source: string, line: number, language: RunRegionLanguage): boolean {
+  if (language !== 'python') {
+    let fits = false;
+    walkTopLevelLines(source, info => {
+      if (info.lineNumber === line) fits = !info.openTokenAtEnd && info.lineComment === null && info.depthAtEnd === 0 && info.stripped.trim() !== '';
+    });
+    return fits;
+  }
+  const lines = source.split('\n');
+  let open: string | null = null;
+  for (let at = 0; at < line - 1; at += 1) open = tripleQuoteAfter(open, lines[at]!);
+  const text = (lines[line - 1] ?? '').replace(/\r$/, '');
+  if (open || text.trim() === '' || text.trimEnd().endsWith('\\')) return false;
+  const code = text.replace(PY_STRING, '""');
+  if (code.includes('#') || /['"]/.test(code.replace(/""/g, ''))) return false;
+  const depth = [...code].reduce((sum, char) => sum + ('([{'.includes(char) ? 1 : ')]}'.includes(char) ? -1 : 0), 0);
+  return depth === 0;
+}
+
+/** A one-line arrow comment the next run reads back as an inline value, or null where one cannot safely go. */
+export function resultComment(language: RunRegionLanguage, source: string, line: number, value: string): string | null {
+  if (!endsInCode(source, line, language)) return null;
+  const flat = replaceUnsafeText(value).replace(/\s+/g, ' ').trim();
   if (!flat) return null;
-  const shown = flat.length > COMMENT_VALUE_CHARS ? `${flat.slice(0, COMMENT_VALUE_CHARS - 1)}…` : flat;
+  const chars = Array.from(flat);
+  const shown = chars.length > COMMENT_VALUE_CHARS ? `${chars.slice(0, COMMENT_VALUE_CHARS - 1).join('')}…` : flat;
   return language === 'python' ? `  # => ${shown}` : ` // => ${shown}`;
 }

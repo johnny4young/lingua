@@ -49,14 +49,26 @@ describe('run regions', () => {
     expect(runRegionSource(js, regions[2]!).endsWith('const t = 1;')).toBe(true);
   });
 
-  it('writes a one-line arrow comment only on lines without one', () => {
-    expect(resultComment('javascript', 'doubled.length', '3')).toBe(' // => 3');
-    expect(resultComment('python', 'base * 2', '[1,\n 2]')).toBe('  # => [1, 2]');
-    expect(resultComment('javascript', 'x // note', '3')).toBeNull();
-    expect(resultComment('python', 'x  # note', '3')).toBeNull();
-    expect(resultComment('javascript', '   ', '3')).toBeNull();
-    expect(resultComment('javascript', 'x', '  ')).toBeNull();
-    expect(resultComment('javascript', 'x', 'v'.repeat(100))).toHaveLength(' // => '.length + 60);
+  it('writes a one-line arrow comment only where the line ends in code', () => {
+    expect(resultComment('javascript', 'doubled.length', 1, '3')).toBe(' // => 3');
+    expect(resultComment('python', 'base * 2', 1, '[1,\n 2]')).toBe('  # => [1, 2]');
+    expect(resultComment('javascript', 'x // note', 1, '3')).toBeNull();
+    expect(resultComment('javascript', 'const s = `a\nb`', 1, '3')).toBeNull();
+    expect(resultComment('javascript', 'f(1,\n2)', 1, '3')).toBeNull();
+    expect(resultComment('python', 'x  # note', 1, '3')).toBeNull();
+    expect(resultComment('python', 'f"""Status: {s}\nBody"""', 1, "'Status: {__import__(1)}'")).toBeNull();
+    expect(resultComment('python', 'doc = """\nx = 1\n"""', 2, '1')).toBeNull();
+    expect(resultComment('python', 'total = 1 + \\\n  2', 1, '3')).toBeNull();
+    expect(resultComment('python', 'print(1,\n  2)', 1, '3')).toBeNull();
+    expect(resultComment('python', "label = 'a # b'", 1, '3')).toBe('  # => 3');
+    expect(resultComment('python', "label = 'it", 1, '3')).toBeNull();
+    expect(resultComment('python', 'x = """a"""\nx', 2, "'a'")).toBe("  # => 'a'");
+    expect(resultComment('javascript', '   ', 1, '3')).toBeNull();
+    expect(resultComment('javascript', 'x', 1, '  ')).toBeNull();
+    expect(resultComment('javascript', 'x', 1, 'v'.repeat(100))).toHaveLength(' // => '.length + 60);
+    expect(resultComment('javascript', 'x', 1, '"\u202eab\u2066c\u200bd\u0000"')).toBe(' // => " ab c d "');
+    expect(resultComment('javascript', 'x', 1, '😀'.repeat(80))).toBe(` // => ${'😀'.repeat(59)}…`);
+    expect(resultComment('javascript', 'x; /* note\nmore */', 1, '3')).toBeNull();
   });
 
   it('caps long names and supports only JS, TS and Python', () => {

@@ -35,7 +35,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Debugger: step out      | `Shift+F11`   | `Shift+F11`     |
 | Jump to the explained error | `Cmd+J`   | `Ctrl+J`        |
 
-The overlay lists every other global default binding (run history, capsules, utilities, and more); the SQL tab's own run, cancel and save keys are listed under SQL workspace below.
+The overlay lists every other global default binding (run history, capsules, utilities, and more); the SQL tab's own run, cancel and save keys are listed under SQL workspace below. With Labs › Run regions on, in a file with `%%` markers, `Cmd/Ctrl+Enter` in the editor runs up to the region at the cursor and `Cmd/Ctrl+Shift+Enter` runs the whole file (see Run regions below).
 
 `Cmd/Ctrl+P` lists files; on the SQL tab it lists database objects and saved queries first (see Database connections below). `Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width, and on the SQL tab it folds the SQL Explorer to its 44 px rail. `Cmd/Ctrl+K` opens the tool list with its search focused. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty; while filtering, groups follow their best match.
 
@@ -310,10 +310,10 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Run regions (Labs)
 
-- Turn on **Settings › Labs › Run regions**, then split a JavaScript or TypeScript file with top-level `// %% name` lines, or a Python file with `# %% name` lines at the start of the line. Code above the first marker is its own region, **Top**. The text after `%%` up to a `·` names the region; a marker without a name reads **Region N**.
+- Turn on **Settings › Labs › Run regions**, then split a JavaScript or TypeScript file with top-level `// %% name` lines, or a Python file with `# %% name` lines at the start of the line. Code above the first marker, when there is any, is its own region, **Top**. The text after `%%` up to a `·` names the region; a marker without a name reads **Region N**.
 - A **Regions** bar above the editor lists the regions; the one at the cursor is pressed and tinted in the editor. Click a region to move the cursor into it.
-- In the editor, `Cmd/Ctrl+Enter` runs the file up to the end of the region at the cursor, so the regions above set up its state, and `Cmd/Ctrl+Shift+Enter` runs the whole file. **Run region** and **Run all** on the bar do the same. While a run is on, `Cmd/Ctrl+Enter` stops it as before; outside the editor, and in files without markers, it runs the whole file.
-- A region run shows the value of each bare expression, like Scratchpad's auto-log, and a card under the region lists its output, when it ran and how long it took. **Insert result as comment** writes the region's last value at the end of its line as `// => value` (`# => value` in Python), which later runs keep showing; **Re-run region** runs it again. Another run of the tab, or the close button, removes the card.
+- In the editor, `Cmd/Ctrl+Enter` runs the file up to the end of the region at the cursor, so the regions above set up its state, and `Cmd/Ctrl+Shift+Enter` runs the whole file. **Run region** and **Run all** on the bar do the same. These two keys are fixed in the editor; while a run is on, `Cmd/Ctrl+Enter` stops it as before, and outside the editor or in files without markers it runs the whole file.
+- A region run shows the value of each bare expression, like Scratchpad's auto-log, on the Worker runtime for JavaScript and TypeScript and for Python; on Node, Deno, Bun and Browser preview it only cuts the file. A card under the region lists its output, when it ran and how long it took. **Insert result as comment** writes the region's last value at the end of its line as `// => value` (`# => value` in Python), which later runs keep showing, and is offered only when that line ends in code, outside strings, comments and open brackets; **Re-run region** runs it again. Another run of the tab, or the close button, removes the card.
 - The Console still shows everything the run printed, the regions above included. A region run is not added to run history or Compare, and its result stays in memory.
 
 ## Run state (Labs)
