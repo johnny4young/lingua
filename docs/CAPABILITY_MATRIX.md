@@ -200,7 +200,9 @@ auto-derived — do not edit by hand.
 - **Local readiness is distinct from platform and tier.** Desktop menus and
   the palette probe the Go toolchain on demand; `ENOENT` means missing, while
   a timeout or failed version/root probe means the check failed. The editor
-  still opens; running a missing toolchain offers install/retry guidance.
+  still opens; a missing Go or Rust toolchain disables Run and opens the
+  Console on an empty state with Installation guide, Choose binary… and
+  Detect again.
   Passive probes receive only shared toolchain-discovery env keys, not project
   secrets, and do not count as execution-environment adoption telemetry.
 

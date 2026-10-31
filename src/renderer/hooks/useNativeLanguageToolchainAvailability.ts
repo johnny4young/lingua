@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { resolveUserEnvForNativeProbe } from '../runners/env';
+import { useNativeToolchainStore } from '../stores/nativeToolchainStore';
 import { cachedNativeProbe } from '../utils/nativeProbeCache';
 import { nativeDetectStatus } from '../utils/nativeJsRuntimeStatus';
 import type {
@@ -39,6 +40,7 @@ export function useNativeLanguageToolchainAvailability(
       const env = resolveUserEnvForNativeProbe(language, window.lingua?.platform);
       void cachedNativeProbe(language, env, () => bridge.detect(env)).then(
         result => {
+          useNativeToolchainStore.getState().report(language, result);
           if (!cancelled) {
             setAvailability(current => ({ ...current, [language]: nativeDetectStatus(result) }));
           }

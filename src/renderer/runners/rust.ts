@@ -7,9 +7,9 @@ import type {
   ConsoleOutput,
 } from '../types/execution';
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
-import { resolveNativeRunnerMessages, resolveUserEnvForNativeProbe, resolveUserEnvForRunner } from './env';
+import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './env';
 import { enrichConsoleOutputLine } from './originSplitter';
-import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
+import { useNativeToolchainStore } from '../stores/nativeToolchainStore';
 
 const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
 
@@ -26,13 +26,8 @@ export class RustRunner implements LanguageRunner {
 
   async init(): Promise<void> {
     const result = await window.lingua.rust.detect(resolveUserEnvForRunner());
-    this.rustInstalled = result.installed;
-    this.detectFailure = result.reason === 'check-failed';
-    // A failed check is not an answer: the next run detects again.
-    this.ready = !this.detectFailure;
-
+    this.applyDetection(result);
     if (!result.installed) {
-      if (!this.detectFailure) this.pushMissingToolchainNotice();
       throw new Error(t(
         this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
         { toolchain: 'Rust' }
@@ -40,15 +35,13 @@ export class RustRunner implements LanguageRunner {
     }
   }
 
-  private pushMissingToolchainNotice(): void {
-    pushMissingNativeToolchainNotice('rust', async () => {
-      const result = await window.lingua.rust.detect(
-        resolveUserEnvForNativeProbe('rust', window.lingua?.platform)
-      );
-      this.rustInstalled = result.installed;
-      this.detectFailure = result.reason === 'check-failed';
-      return result.reason === 'check-failed' ? 'check-failed' : result.installed;
-    });
+  /** The Dock empty state and Run read the same answer the runner acts on. */
+  private applyDetection(result: { installed: boolean; reason?: 'missing' | 'check-failed'; searched?: string[] }): void {
+    this.rustInstalled = result.installed;
+    this.detectFailure = result.reason === 'check-failed';
+    // A failed check is not an answer: the next run detects again.
+    this.ready = !this.detectFailure;
+    useNativeToolchainStore.getState().report('rust', result);
   }
 
   isReady(): boolean {
@@ -57,8 +50,9 @@ export class RustRunner implements LanguageRunner {
 
   async execute(code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
     this.stop();
+    // Choose binary or a fresh install may have fixed it since the last check.
+    if (!this.rustInstalled) this.applyDetection(await window.lingua.rust.detect(resolveUserEnvForRunner()));
     if (!this.rustInstalled) {
-      if (!this.detectFailure) this.pushMissingToolchainNotice();
       return {
         stdout: [],
         stderr: [],

@@ -44,6 +44,8 @@ import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { availableDockTabs, resolveDockTab, type DockTabId } from './dockTabs';
 import { DockHeaderControls } from './DockHeaderControls';
 import { DockOutputReport } from './DockOutputReport';
+import { MissingToolchainPanel } from './MissingToolchainPanel';
+import { useMissingActiveToolchain } from '../../hooks/useMissingActiveToolchain';
 import { RunHistoryStrip } from './RunHistoryStrip';
 
 // Lazy so the `DiffEditor` import inside GitDiffPanel does not drag the
@@ -114,6 +116,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const { tabs: availability, debuggerLive } = useLayoutAvailability();
   const activeTabId = useEditorStore(s => s.activeTabId);
   const activeLanguage = useEditorStore(s => getActiveTab(s)?.language);
+  const missingToolchain = useMissingActiveToolchain(activeLanguage ?? '');
   const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
   const consoleVisible = useUIStore(state => state.consoleVisible);
   const activeBottomPanel = useUIStore(state => state.activeBottomPanel);
@@ -316,9 +319,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             </Suspense>
           ) : (
             <>
+              {missingToolchain ? <MissingToolchainPanel toolchain={missingToolchain} /> : null}
               <DockOutputReport />
               <div className="min-h-0 flex-1">
-                <ConsolePanel />
+                <ConsolePanel quietEmpty={missingToolchain !== null} />
               </div>
               <RunHistoryStrip
                 onCompare={availability.compare ? () => openBottomPanel('compare') : undefined}

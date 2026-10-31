@@ -790,6 +790,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments, collection variables and active request metadata; on desktop secret values of every scope persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
+| [nativeToolchainStore.ts](stores/nativeToolchainStore.ts) | session-only Go and Rust availability plus the folders searched; feeds the disabled Run reason and the Dock empty state, and asks main to pick a binary |
 | [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
 | [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot and restore translation          |
