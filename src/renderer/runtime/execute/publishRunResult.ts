@@ -16,7 +16,7 @@ import { bucketDurationMs } from '../../../shared/telemetry';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { formatExecutionSummary, toConsoleEntries, toConsoleEntry } from '../../hooks/runnerOutput';
 import { useConsoleStore } from '../../stores/consoleStore';
-import { useResultStore } from '../../stores/resultStore';
+import { runInputKey, useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import { toResultDiagnostics } from '../../utils/executionDiagnostics';
@@ -156,6 +156,12 @@ export function publishRunStart(
     clearVisibleResults();
     setExecutionSource('manual');
     setDiagnostics([]);
+    useResultStore.getState().setRanCode({
+      tabId: activeTab.id,
+      code: activeTab.content,
+      input: runInputKey(activeTab.stdinBuffer, activeTab.inputArgs),
+      at: Date.now(),
+    });
   }
   setIsAutoRunning(false);
   setIsManualRunning(true);

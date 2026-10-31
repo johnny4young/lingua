@@ -12,6 +12,7 @@ import {
   useBootstrapProgressStore,
 } from '../../stores/bootstrapProgressStore';
 import { getInitializationMessage } from '../../hooks/runnerOutput';
+import { useRunStale } from '../../hooks/useRunStale';
 import { useTranslation } from 'react-i18next';
 import { Bug, ChevronDown, Loader2, Play, Sparkles, Square } from 'lucide-react';
 import type { EditorState, FileTab } from '../../types/editor';
@@ -66,6 +67,7 @@ export function FloatingActionPillRunGroup({
   setTabWorkflowMode,
 }: RunGroupProps) {
   const { t } = useTranslation();
+  const { stale } = useRunStale();
   const runShortcut = useShortcutLabel('run-toggle');
   const isAutoRunning = useResultStore(state => state.isAutoRunning);
   // Live runtime-bootstrap progress, path-agnostic: the
@@ -95,6 +97,7 @@ export function FloatingActionPillRunGroup({
         }}
         disabled={runDisabled}
         data-running={isRunning ? 'true' : 'false'}
+        data-stale={stale && !isRunning ? 'true' : undefined}
         data-workflow={currentWorkflow}
         data-tour-id="run-button"
         data-testid="action-pill-run"

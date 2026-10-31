@@ -192,6 +192,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
     'executionHistorySnapshotEnabled',
     'scratchpadAutoLogByLanguage',
     'workflowModeDefaultsByLanguage',
+    'runPolicyByGroup',
     'showStdinPanel',
   ],
   // Languages tab shows

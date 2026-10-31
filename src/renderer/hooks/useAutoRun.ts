@@ -9,6 +9,7 @@ import {
 } from '../stores/notebookRunnerLockStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { runPolicyDelayMs } from '../../shared/runPolicy';
 import { useTelemetry } from './useTelemetry';
 import { loadAutoRunExecution } from './autoRunExecutionLoader';
 import { supportsRuntimeModeHere } from '../utils/runtimeModeSupport';
@@ -38,6 +39,8 @@ export function useAutoRun() {
   const browserPreviewRefreshPreference = useSettingsStore(
     state => state.browserPreviewRefreshIntervalMs
   );
+  const runStateOn = useSettingsStore(state => state.featureFlags.runState === true);
+  const runPolicies = useSettingsStore(state => state.runPolicyByGroup);
 
   const hasActiveTab = activeTab !== null && activeTab !== undefined;
   const isNotebook = activeTab?.kind === 'notebook';
@@ -59,7 +62,8 @@ export function useAutoRun() {
   const autoRunSchedule = resolveAutoRunSchedule(
     runtimeMode,
     code,
-    browserPreviewRefreshPreference
+    browserPreviewRefreshPreference,
+    runStateOn ? runPolicyDelayMs(language, runPolicies) : undefined
   );
 
   // A timer skipped (or a run preempted) while a manual run or a notebook
@@ -117,11 +121,7 @@ export function useAutoRun() {
       runTokenRef.current += 1;
       lastRunInputRef.current = null;
       const resultState = useResultStore.getState();
-      if (
-        resultState.isAutoRunning &&
-        resultState.executionSource === 'auto' &&
-        runtimeMode === 'browser-preview'
-      ) {
+      if (resultState.isAutoRunning && resultState.executionSource === 'auto') {
         stopRunner(language, runtimeMode);
       }
       resultState.setIsAutoRunning(false);

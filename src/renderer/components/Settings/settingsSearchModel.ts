@@ -273,6 +273,14 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     ],
   },
   {
+    id: 'run-policy',
+    tab: 'editor',
+    labelKey: 'settings.editor.runPolicy.title',
+    targetId: 'editor-run-policy',
+    keywords: ['run policy', 'scratchpad', 'auto run', 'keystroke', 'pause', 'manual', 'política', 'ejecución'],
+    requiresFlag: 'runState',
+  },
+  {
     id: 'network-policy',
     tab: 'privacy',
     labelKey: 'settings.privacy.networkPolicy.label',

@@ -25,7 +25,8 @@ import { FloatingActionPill } from '@/components/Toolbar/FloatingActionPill';
 import { useEditorStore } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
-import { useResultStore } from '@/stores/resultStore';
+import { runInputKey, useResultStore } from '@/stores/resultStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 import { resetLessonProgressStoreForTests, useLessonProgressStore } from '@/stores/lessonProgressStore';
 
@@ -105,6 +106,26 @@ describe('FloatingActionPill', () => {
     const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
     expect(run.disabled).toBe(false);
     expect(run.getAttribute('data-tour-id')).toBe('run-button');
+  });
+
+  it('pulses Run while the results are stale, but not while it runs', () => {
+    useSettingsStore.setState({ featureFlags: { runState: true } });
+    useEditorStore.setState(state => ({ tabs: state.tabs.map(tab => ({ ...tab, workflowMode: 'run' as const })) }));
+    useResultStore.setState({
+      ranCode: { tabId: 'tab-ts', code: 'console.log(0)', input: runInputKey(undefined, undefined), at: 1 },
+      lineResults: [{ line: 1, value: '0', type: 'log' }],
+    });
+    const { rerender } = renderPill();
+    expect(screen.getByTestId('action-pill-run').getAttribute('data-stale')).toBe('true');
+    isRunningRef.current = true;
+    rerender(
+      <I18nextProvider i18n={i18next}>
+        <FloatingActionPill />
+      </I18nextProvider>,
+    );
+    expect(screen.getByTestId('action-pill-run').getAttribute('data-stale')).toBeNull();
+    useSettingsStore.setState({ featureFlags: {} });
+    useResultStore.setState({ ranCode: null, lineResults: [] });
   });
 
   it('fires run() when the action button is clicked while idle', async () => {

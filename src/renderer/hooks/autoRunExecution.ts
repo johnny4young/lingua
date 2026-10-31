@@ -7,7 +7,7 @@ import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { defaultRuntimeTimeoutPreset, presetToMs } from '../../shared/runtimeTimeoutPresets';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
-import { useResultStore } from '../stores/resultStore';
+import { runInputKey, useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { FileTab } from '../types/editor';
 import { executionModeForLanguage } from '../utils/languageMeta';
@@ -140,6 +140,7 @@ export async function executeAutoRun({
   clearVisibleResults();
   setExecutionSource('auto');
   setAutoRunGateReason(gate.reason);
+  useResultStore.getState().setRanCode({ tabId: activeTab.id, code, input: runInputKey(stdinBuffer, activeTab.inputArgs), at: Date.now() });
 
   let armedDeadlineAt: number | null = null;
   try {

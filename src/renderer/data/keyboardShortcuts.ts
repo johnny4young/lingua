@@ -45,6 +45,12 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Enter'] }],
   },
   {
+    // Only while a run is in flight; otherwise the editor keeps it for Quick Fix.
+    id: 'run-stop',
+    group: 'run',
+    combos: [{ tokens: ['Mod', 'Period'] }],
+  },
+  {
     // Cycle through the implemented JS/TS
     // runtime modes on the active tab. Originally only `worker` existed, so
     // the cycle was a no-op; later modes light up the same

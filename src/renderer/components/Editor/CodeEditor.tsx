@@ -45,6 +45,8 @@ import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
 import { TestFailureCardHost } from '../ProjectTests/TestFailureCardHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
+import { useRunStale, useRunStaleAgeProperty } from '../../hooks/useRunStale';
+import { bindStopRunKey } from './stopRunKeybinding';
 
 configureMonaco();
 
@@ -317,6 +319,16 @@ export function CodeEditor() {
     };
   }, []);
 
+  const runStale = useRunStale();
+  const runStateRef = useRef<HTMLDivElement>(null);
+  useRunStaleAgeProperty(runStateRef, runStale.ranAt);
+
+  useEffect(() => {
+    if (!editorInstance || !monacoInstance) return;
+    const binding = bindStopRunKey(editorInstance, monacoInstance, t('shortcuts.item.stopRun.label'));
+    return () => binding.dispose();
+  }, [editorInstance, monacoInstance, t]);
+
   // register/dispose the "Explain with AI" context-menu action.
   // Only mounted when entitled, so it stays invisible on Free (matching
   // the ExplainErrorButton/AskSqlButton convention).
@@ -467,7 +479,12 @@ export function CodeEditor() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1">
+      <div
+        ref={runStateRef}
+        className={runStale.stale ? 'run-stale min-h-0 flex-1' : 'min-h-0 flex-1'}
+        data-testid="editor-run-state"
+        data-stale={runStale.stale ? 'true' : undefined}
+      >
         <MonacoEditor
           height="100%"
           language={monacoLanguageFor(activeTab.language)}
