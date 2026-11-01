@@ -49,6 +49,15 @@ describe('buildEditSelectionRequest', () => {
     expect(user).toContain('…\nconst line440');
   });
 
+  it('windows on the selection even when earlier lines hold the marker text', () => {
+    const lines = Array.from({ length: 1_000 }, (_, index) => (index === 3 ? "const tag = '<<<SELECTION>>>';" : `const line${index} = ${index};`));
+    const big = lines.join('\n');
+    const from = big.indexOf('const line800 ');
+    const user = buildEditSelectionRequest({ code: big, start: from, end: from + lines[800]!.length, instruction: 'x', language: 'javascript' }).messages[1]!.content;
+    expect(user).toContain('const line740 = 740;');
+    expect(user).not.toContain('const line739 = 739;');
+  });
+
   it('redacts secrets before they leave and counts them', () => {
     // Assembled at runtime so the fixture never reads as a real key to secret scanners.
     const fakeKey = ['sk', 'ant', 'abcdefghijklmnop1234'].join('-');
@@ -61,6 +70,11 @@ describe('buildEditSelectionRequest', () => {
 });
 
 describe('readEditAnswer', () => {
+  it('keeps the line break a selection ended with', () => {
+    expect(readEditAnswer('```js\nlet b = 2;\n```', 'let b = 1;\n')).toBe('let b = 2;\n');
+    expect(readEditAnswer('```js\nlet b = 2;\n```', 'let b = 1;')).toBe('let b = 2;');
+  });
+
   it('takes the first fenced block', () => {
     expect(readEditAnswer('Sure:\n```js\nlet b = a + 1;\n```\nand ```js\nother\n```')).toBe('let b = a + 1;');
   });

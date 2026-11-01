@@ -420,6 +420,22 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(postedMessages.find(m => m.type === 'execute')?.network).toEqual(block);
   });
 
+  it('runs an isolated runner without the user env and leaves the shared boot progress alone', async () => {
+    useEnvVarsStore.setState({ global: { API_TOKEN: 'from-global' }, project: {}, tab: {} });
+    const booting = { language: 'python' as const, loadedBytes: 1, totalBytes: 2 };
+    useBootstrapProgressStore.getState().report(booting);
+    try {
+      const runner = new PythonRunner(true);
+      await runner.init();
+      await runner.execute('print("hi")');
+      expect(postedMessages.find(m => m.type === 'execute')?.userEnv).toEqual({});
+      runner.stop();
+      expect(useBootstrapProgressStore.getState().progress).toEqual(booting);
+    } finally {
+      useBootstrapProgressStore.getState().clear();
+    }
+  });
+
   it('forwards richConsoleEnabled = true by default to the Pyodide worker', async () => {
     const runner = new PythonRunner();
     await runner.init();

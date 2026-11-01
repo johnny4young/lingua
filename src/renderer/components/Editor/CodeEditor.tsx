@@ -334,7 +334,7 @@ export function CodeEditor() {
     return () => binding.dispose();
   }, [editorInstance, monacoInstance, t]);
 
-  // register/dispose the "Explain with AI" context-menu action.
+  // register/dispose the AI context-menu actions (Explain, Edit).
   // Only mounted when entitled, so it stays invisible on Free (matching
   // the ExplainErrorButton/AskSqlButton convention).
   useEffect(() => {

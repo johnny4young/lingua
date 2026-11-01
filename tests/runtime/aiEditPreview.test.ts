@@ -6,18 +6,21 @@ const mocks = vi.hoisted(() => {
     error: error ? { message: error } : undefined,
     executionTime: 12,
   });
+  const state = { failInit: false };
   const runners: Array<{ kind: string; execute: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; init: ReturnType<typeof vi.fn> }> = [];
   const makeRunner = (kind: string) => {
     const runner = {
       kind,
-      init: vi.fn(async () => {}),
+      init: vi.fn(async () => {
+        if (state.failInit) throw new Error('no worker');
+      }),
       execute: vi.fn(async (code: string) => (code.includes('throw') ? result('', 'boom') : result(`${kind}:${code}`))),
       stop: vi.fn(),
     };
     runners.push(runner);
     return runner;
   };
-  return { runners, makeRunner };
+  return { runners, makeRunner, state };
 });
 
 vi.mock('../../src/renderer/runners/javascript', () => ({
@@ -31,8 +34,8 @@ vi.mock('../../src/renderer/runners/typescript', () => ({
   },
 }));
 vi.mock('../../src/renderer/runners/python', () => ({
-  PythonRunner: function PythonRunner() {
-    return mocks.makeRunner('py');
+  PythonRunner: function PythonRunner(isolated: boolean) {
+    return Object.assign(mocks.makeRunner('py'), { isolated });
   },
 }));
 
@@ -62,12 +65,12 @@ describe('runEditPreview', () => {
   it('runs the change in its own scope', async () => {
     await runEditPreview('python', 'x', 'y');
     const [runner] = mocks.runners;
-    expect(runner!.kind).toBe('py');
+    expect(runner).toMatchObject({ kind: 'py', isolated: true });
     const scopes = runner!.execute.mock.calls.map(call => (call[1] as { scopeId: string }).scopeId);
     expect(new Set(scopes).size).toBe(2);
   });
 
-  it('stops the runner when a run fails or rejects', async () => {
+  it('reports a runner that rejects as a failed run and always stops it', async () => {
     const preview = await runEditPreview('typescript', 'throw a', 'b');
     expect(preview).toMatchObject({ kind: 'ran', before: { error: 'boom' } });
     expect(mocks.runners[0]!.stop).toHaveBeenCalledTimes(1);
@@ -75,7 +78,16 @@ describe('runEditPreview', () => {
     mocks.runners.length = 0;
     const pending = runEditPreview('python', 'x', 'y');
     mocks.runners[0]!.execute.mockRejectedValueOnce(new Error('worker died'));
-    await expect(pending).rejects.toThrow('worker died');
+    expect(await pending).toMatchObject({ kind: 'ran', before: { error: 'worker died' }, after: { stdout: 'py:y' } });
+    expect(mocks.runners[0]!.stop).toHaveBeenCalledTimes(1);
+
+    mocks.runners.length = 0;
+    mocks.state.failInit = true;
+    try {
+      expect(await runEditPreview('javascript', 'a', 'b')).toMatchObject({ kind: 'ran', before: { error: 'no worker' }, after: { error: 'no worker' } });
+    } finally {
+      mocks.state.failInit = false;
+    }
     expect(mocks.runners[0]!.stop).toHaveBeenCalledTimes(1);
   });
 

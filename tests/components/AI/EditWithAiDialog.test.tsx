@@ -177,6 +177,22 @@ describe('EditWithAiDialog', () => {
     expect(editor.executeEdits).toHaveBeenCalledTimes(1);
   });
 
+  it('sends with Cmd+Enter while composing and keeps it from window shortcuts', async () => {
+    configureAi();
+    const outer = vi.fn();
+    window.addEventListener('keydown', outer);
+    try {
+      const { runChatCompletionImpl } = renderDialog();
+      fireEvent.change(screen.getByTestId('ai-edit-instruction'), { target: { value: 'use literals' } });
+      fireEvent.keyDown(screen.getByTestId('ai-edit-instruction'), { key: 'Enter', metaKey: true });
+      await waitFor(() => expect(screen.getByTestId('ai-edit-actions')).toBeTruthy());
+      expect(runChatCompletionImpl).toHaveBeenCalledTimes(1);
+      expect(outer).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', outer);
+    }
+  });
+
   it('refuses to write over a file that changed since the request', async () => {
     configureAi();
     const { onClose } = renderDialog();

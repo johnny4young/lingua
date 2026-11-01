@@ -25,10 +25,15 @@ function summarize(result: ExecutionResult): PreviewRun {
   };
 }
 
+/** A runner that rejects instead of reporting still shows as a failed run, so the dialog never waits forever. */
+function failedRun(error: unknown): PreviewRun {
+  return { error: error instanceof Error ? error.message : String(error), stdout: '', executionTime: 0 };
+}
+
 function previewRunner(language: string): JavaScriptRunner | TypeScriptRunner | PythonRunner | null {
   if (language === 'javascript') return new JavaScriptRunner();
   if (language === 'typescript') return new TypeScriptRunner();
-  if (language === 'python') return new PythonRunner();
+  if (language === 'python') return new PythonRunner(true);
   return null;
 }
 
@@ -42,10 +47,21 @@ export async function runEditPreview(language: string, before: string, after: st
   const runner = previewRunner(language);
   if (!runner) return { kind: 'skipped' };
   const context: ExecutionContext = { language: language as ExecutionContext['language'], timeout: PREVIEW_TIMEOUT_MS, network: BLOCK_NETWORK };
-  await runner.init();
+  const run = async (code: string, scopeId: string): Promise<PreviewRun> => {
+    try {
+      return summarize(await runner.execute(code, { ...context, scopeId }));
+    } catch (error) {
+      return failedRun(error);
+    }
+  };
   try {
-    const beforeRun = summarize(await runner.execute(before, { ...context, scopeId: 'ai-edit-before' }));
-    const afterRun = summarize(await runner.execute(after, { ...context, scopeId: 'ai-edit-after' }));
+    try {
+      await runner.init();
+    } catch (error) {
+      return { kind: 'ran', before: failedRun(error), after: failedRun(error) };
+    }
+    const beforeRun = await run(before, 'ai-edit-before');
+    const afterRun = await run(after, 'ai-edit-after');
     return { kind: 'ran', before: beforeRun, after: afterRun };
   } finally {
     runner.stop();

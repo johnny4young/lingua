@@ -43,8 +43,9 @@ function window(code: string, start: number, end: number): string {
   const marked = `${code.slice(0, start)}${START}${code.slice(start, end)}${END}${code.slice(end)}`;
   if (marked.length <= MAX_EDIT_FILE_CHARS) return marked;
   const lines = marked.split('\n');
-  const first = lines.findIndex(line => line.includes(START));
-  const last = lines.findIndex(line => line.includes(END));
+  // From offsets, not a marker search: the file itself may contain the marker text.
+  const first = code.slice(0, start).split('\n').length - 1;
+  const last = first + code.slice(start, end).split('\n').length - 1;
   const from = Math.max(0, first - CONTEXT_LINES);
   const to = Math.min(lines.length, last + CONTEXT_LINES + 1);
   return `${from > 0 ? '…\n' : ''}${lines.slice(from, to).join('\n')}${to < lines.length ? '\n…' : ''}`;
@@ -69,11 +70,15 @@ export function buildEditSelectionRequest(input: EditSelectionInput): EditSelect
   return input.model ? { ...request, model: input.model } : request;
 }
 
-/** The replacement in an answer: its first fenced block, or the whole answer, without stray markers. */
-export function readEditAnswer(answer: string): string {
+/**
+ * The replacement in an answer: its first fenced block, or the whole answer, without stray markers.
+ * A selection that ended with a line break keeps it, so Accept does not join the next line.
+ */
+export function readEditAnswer(answer: string, selected = ''): string {
   const fenced = /```[\w+-]*\n([\s\S]*?)```/.exec(answer);
   const body = (fenced ? fenced[1]! : answer).replace(/\n$/, '');
-  return body.split(START).join('').split(END).join('');
+  const replacement = body.split(START).join('').split(END).join('');
+  return selected.endsWith('\n') && !replacement.endsWith('\n') ? `${replacement}\n` : replacement;
 }
 
 /** The file with `replacement` in place of the selection. */

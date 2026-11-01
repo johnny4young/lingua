@@ -138,7 +138,7 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
       setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
       return;
     }
-    const proposal = readEditAnswer(result.content);
+    const proposal = readEditAnswer(result.content, selected);
     setPhase({ kind: 'running', proposal });
     const ran = await preview(request.language, request.code, applyEdit(request.code, request.start, request.end, proposal));
     if (!own.signal.aborted) setPhase({ kind: 'ready', proposal, preview: ran });
@@ -166,10 +166,12 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
     if (event.key === 'Escape') {
       event.stopPropagation();
       close();
-    } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && phase.kind === 'ready') {
+    } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      // Never reaches the global run shortcut behind the dialog.
       event.preventDefault();
       event.stopPropagation();
-      accept();
+      if (phase.kind === 'ready') accept();
+      else if (phase.kind === 'compose' || phase.kind === 'error') void ask();
     }
   };
 

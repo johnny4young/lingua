@@ -55,7 +55,7 @@
   "ai.edit.accept": "Accept",
   "ai.edit.discard": "Discard",
   "ai.edit.redactedAnswer": "The answer still holds a masked secret, so it cannot be accepted as is.",
-  "ai.edit.stale": "The file changed since you asked; ask again to edit the current code.",
+  "ai.edit.stale": "The file changed since you asked; close this and open Edit with AI again.",
   "ai.edit.provider.local": "Local · {{model}}",
   "ai.edit.provider.remote": "Remote · {{model}}"
 }

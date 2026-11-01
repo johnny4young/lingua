@@ -34,5 +34,5 @@ export function AiEditSelectionHost() {
   }, [Dialog, pushErrorNotice, request]);
 
   if (!request || !Dialog) return null;
-  return <Dialog key={`${request.modelUri}:${request.versionId}:${request.start}`} request={request} onClose={close} />;
+  return <Dialog key={`${request.modelUri}:${request.versionId}:${request.start}:${request.end}`} request={request} onClose={close} />;
 }

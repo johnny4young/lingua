@@ -55,7 +55,7 @@
   "ai.edit.accept": "Aceptar",
   "ai.edit.discard": "Descartar",
   "ai.edit.redactedAnswer": "La respuesta todavía tiene un secreto enmascarado, así que no se puede aceptar tal cual.",
-  "ai.edit.stale": "El archivo cambió desde que preguntaste; vuelve a preguntar para editar el código actual.",
+  "ai.edit.stale": "El archivo cambió desde que preguntaste; cierra esto y vuelve a abrir Editar con IA.",
   "ai.edit.provider.local": "Local · {{model}}",
   "ai.edit.provider.remote": "Remoto · {{model}}"
 }
