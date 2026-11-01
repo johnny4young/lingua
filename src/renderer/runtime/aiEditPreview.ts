@@ -28,6 +28,11 @@ function failedRun(error: unknown): PreviewRun {
   return { error: error instanceof Error ? error.message : String(error), stdout: '', executionTime: 0 };
 }
 
+/** Languages the preview can run in the browser. */
+export function canPreviewLanguage(language: string): boolean {
+  return language === 'javascript' || language === 'typescript' || language === 'python';
+}
+
 function previewRunner(language: string): JavaScriptRunner | TypeScriptRunner | PythonRunner | null {
   if (language === 'javascript') return new JavaScriptRunner();
   if (language === 'typescript') return new TypeScriptRunner();

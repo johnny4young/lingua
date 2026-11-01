@@ -8,7 +8,7 @@ import { applyEdit, buildEditSelectionRequest, MAX_EDIT_INSTRUCTION_CHARS, readE
 import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { getActiveEditor, getActiveMonaco } from '../../runtime/editorAccess';
-import { comparePreview, runEditPreview, type EditPreview } from '../../runtime/aiEditPreview';
+import { canPreviewLanguage, comparePreview, runEditPreview, type EditPreview } from '../../runtime/aiEditPreview';
 import { runChatCompletion, type AiChatResult } from '../../runtime/aiClient';
 import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { isAiConfigured, useAiConfigStore } from '../../stores/aiConfigStore';
@@ -33,8 +33,8 @@ export interface EditWithAiDialogProps {
 type Phase =
   | { kind: 'compose' }
   | { kind: 'asking'; partial: string }
-  | { kind: 'running'; proposal: string }
-  | { kind: 'ready'; proposal: string; preview: EditPreview }
+  /** `preview`: null until Run preview, `running` while it runs. */
+  | { kind: 'ready'; proposal: string; preview: EditPreview | 'running' | null }
   | { kind: 'error'; message: string };
 
 function noticeSeen(): boolean {
@@ -81,7 +81,7 @@ function WholeFileDiff({ original, modified, language, dark }: { original: strin
   );
 }
 
-/** Ask the AI to rewrite the selection, see the change run in a throwaway worker, then accept or discard it. */
+/** Ask the AI to rewrite the selection, run the change in a throwaway worker only when asked, then accept or discard it. */
 export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runPreviewImpl }: EditWithAiDialogProps) {
   const { t, i18n } = useTranslation();
   const entitled = useEntitlement('LOCAL_AI');
@@ -141,10 +141,19 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
       return;
     }
     const proposal = readEditAnswer(result.content, selected);
-    setPhase({ kind: 'running', proposal });
+    setPhase({ kind: 'ready', proposal, preview: canPreviewLanguage(request.language) ? null : { kind: 'skipped' } });
+  };
+
+  /** Model output runs only from this explicit click. */
+  const runPreview = async () => {
+    if (phase.kind !== 'ready' || phase.preview !== null) return;
+    const { proposal } = phase;
+    const own = controller.current;
+    setPhase({ kind: 'ready', proposal, preview: 'running' });
     // The preview runs the redacted file, so the AI's code never sees a secret it was not sent.
     const ran = await preview(request.language, `${span.before}${span.selected}${span.after}`, `${span.before}${proposal}${span.after}`);
-    if (!own.signal.aborted) setPhase({ kind: 'ready', proposal, preview: ran });
+    if (own?.signal.aborted) return;
+    setPhase(current => (current.kind === 'ready' && current.proposal === proposal ? { kind: 'ready', proposal, preview: ran } : current));
   };
 
   const accept = () => {
@@ -190,7 +199,8 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
   };
 
   const ready = phase.kind === 'ready' ? phase : null;
-  const verdict = ready?.preview.kind === 'ran' ? comparePreview(ready.preview.before, ready.preview.after) : null;
+  const ran = ready && typeof ready.preview === 'object' && ready.preview?.kind === 'ran' ? ready.preview : null;
+  const verdict = ran ? comparePreview(ran.before, ran.after) : null;
   const masked = ready?.proposal.includes(REDACTED_MARK) === true;
   const provider = t(isLocalAiEndpoint(endpoint) ? 'ai.edit.provider.local' : 'ai.edit.provider.remote', { model: model || '—' });
 
@@ -219,7 +229,7 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
           <span className="shrink-0 rounded border border-border-subtle px-1.5 font-mono text-micro text-fg-muted" data-testid="ai-edit-provider">
             {provider}
           </span>
-          <button type="submit" disabled={!entitled || !configured || !instruction.trim() || phase.kind === 'asking' || phase.kind === 'running'} data-testid="ai-edit-send" className="button-primary h-[26px] shrink-0 px-2.5 text-caption">
+          <button type="submit" disabled={!entitled || !configured || !instruction.trim() || phase.kind === 'asking' || ready?.preview === 'running'} data-testid="ai-edit-send" className="button-primary h-[26px] shrink-0 px-2.5 text-caption">
             {t('ai.edit.send')}
           </button>
           <button type="button" onClick={close} aria-label={t('ai.explain.close')} className="icon-button h-6 w-6 shrink-0 rounded-md">
@@ -243,13 +253,11 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
               <p className="text-caption text-fg-muted">{t('ai.edit.asking')}</p>
               {phase.partial ? <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-caption text-fg-subtle">{phase.partial}</pre> : null}
             </div>
-          ) : phase.kind === 'running' ? (
-            <p className="px-4 py-3 text-caption text-fg-muted" role="status">{t('ai.edit.running')}</p>
           ) : phase.kind === 'error' ? (
             <p className="px-4 py-3 text-caption text-error-fg" role="alert">{phase.message}</p>
           ) : (
             <>
-              {notice && ready?.preview.kind === 'ran' ? (
+              {notice && ready?.preview === null ? (
                 <div className="flex items-center gap-3 border-b border-border-subtle bg-accent/10 px-4 py-2 text-caption text-fg-base" data-testid="ai-edit-notice">
                   <span className="min-w-0 flex-1">{t('ai.edit.notice')}</span>
                   <button type="button" onClick={dismissNotice} className="button-secondary h-6 shrink-0 px-2 text-caption">{t('ai.edit.noticeOk')}</button>
@@ -269,16 +277,14 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
                   <section className="min-w-0 border-r border-border-subtle py-2.5" data-testid="ai-edit-now">
                     <p className="px-4 font-mono text-micro uppercase tracking-[0.18em] text-fg-subtle">{t('ai.edit.now')}</p>
                     <pre className="mt-1.5 max-h-72 overflow-auto px-4 font-mono text-caption text-fg-base">{selected}</pre>
-                    {ready?.preview.kind === 'ran' ? <div className="px-4 pt-1.5"><RunLine {...ready.preview.before} /></div> : null}
+                    {ran ? <div className="px-4 pt-1.5"><RunLine {...ran.before} /></div> : null}
                   </section>
                   <section className="min-w-0 bg-accent/5 py-2.5" data-testid="ai-edit-preview">
                     <p className="px-4 font-mono text-micro uppercase tracking-[0.18em] text-accent-fg">
-                      {ready?.preview.kind === 'ran'
-                        ? t('ai.edit.previewRan', { duration: formatRunDuration(ready.preview.after.executionTime) })
-                        : t('ai.edit.previewOnly')}
+                      {ran ? t('ai.edit.previewRan', { duration: formatRunDuration(ran.after.executionTime) }) : t('ai.edit.previewOnly')}
                     </p>
                     <pre className="mt-1.5 max-h-72 overflow-auto px-4 font-mono text-caption text-fg-base">{ready?.proposal}</pre>
-                    {ready?.preview.kind === 'ran' ? <div className="px-4 pt-1.5"><RunLine {...ready.preview.after} /></div> : null}
+                    {ran ? <div className="px-4 pt-1.5"><RunLine {...ran.after} /></div> : null}
                   </section>
                 </div>
               )}
@@ -296,6 +302,14 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
                 </span>
                 <span className="rounded border border-border-subtle px-1.5 font-mono text-micro text-fg-muted">{verdict.stdoutChanged ? t('ai.edit.stdoutChanged') : t('ai.edit.stdoutSame')}</span>
               </>
+            ) : ready.preview === null ? (
+              <button type="button" onClick={() => void runPreview()} data-testid="ai-edit-run-preview" className="button-secondary h-7 px-2.5 text-caption">
+                {t('ai.edit.runPreview')}
+              </button>
+            ) : ready.preview === 'running' ? (
+              <span className="text-caption text-fg-muted" role="status">
+                {t('ai.edit.running')}
+              </span>
             ) : (
               <span className="min-w-0 text-caption text-fg-muted" data-testid="ai-edit-skipped">
                 {t('ai.edit.skippedLanguage')}

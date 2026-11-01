@@ -47,11 +47,16 @@ for (const language of ['en', 'es'] as const) {
     await dialog.getByTestId('ai-edit-instruction').fill('give the user a name');
     await dialog.getByTestId('ai-edit-send').click();
 
+    // Nothing the model wrote runs until Run preview.
+    await expect(dialog.getByTestId('ai-edit-preview')).toContainText("name: 'Ada'");
+    await expect(dialog.getByTestId('ai-edit-notice')).toBeVisible();
+    await expect(dialog.getByTestId('ai-edit-run-line')).toHaveCount(0);
+    await dialog.getByTestId('ai-edit-run-preview').click();
+
     await expect(dialog.getByTestId('ai-edit-now').getByTestId('ai-edit-run-line')).toContainText('null', { timeout: 30_000 });
     await expect(dialog.getByTestId('ai-edit-preview').getByTestId('ai-edit-run-line')).toHaveText('Ada');
     const actions = dialog.getByTestId('ai-edit-actions');
     await expect(actions).toContainText(language === 'es' ? '1 error corregido' : '1 error fixed');
-    await expect(dialog.getByTestId('ai-edit-notice')).toBeVisible();
 
     expect(bodies).toHaveLength(1);
     expect(bodies[0]).toContain('<<<SELECTION>>>');
@@ -93,6 +98,7 @@ test('Edit with AI: previews Python on a Pyodide of its own with the network blo
   const dialog = page.getByTestId('ai-edit-dialog');
   await dialog.getByTestId('ai-edit-instruction').fill('try the network');
   await dialog.getByTestId('ai-edit-send').click();
+  await dialog.getByTestId('ai-edit-run-preview').click();
 
   await expect(dialog.getByTestId('ai-edit-now').getByTestId('ai-edit-run-line')).toContainText('missing', { timeout: 90_000 });
   await expect(dialog.getByTestId('ai-edit-preview').getByTestId('ai-edit-run-line')).toHaveText('offline', { timeout: 90_000 });

@@ -108,8 +108,9 @@ action and a preview of exactly what is sent.
   on the text before, inside and after the span. If that differs from
   redacting the whole file, because a boundary splits a secret, the span widens
   to whole lines, then to the whole file. The answer's first fenced
-  block replaces the span. JavaScript, TypeScript and Python run the file
-  before and after the change through `runtime/aiEditPreview.ts` on a
+  block replaces the span. Only on an explicit **Run preview**, JavaScript,
+  TypeScript and Python run the file before and after the change through
+  `runtime/aiEditPreview.ts` on a
   throwaway Worker or Pyodide, never Node, Deno or Bun, on the redacted file,
   with network requests blocked, no user env vars and a 5 s timeout. Nothing is applied until
   Accept, which is one undoable edit and refuses a stale model version or an

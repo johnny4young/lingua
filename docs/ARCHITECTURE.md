@@ -117,8 +117,8 @@ it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
 
 `ExecutionContext.blockNetwork` blocks every host for one run whatever the
 Labs policy says; it can only tighten the policy, never loosen it. Edit with AI
-(`runtime/aiEditPreview.ts`) uses it to run the file before and after the AI's
-change with a 5 s timeout. Both runs use the redacted file the model saw, so the
+(`runtime/aiEditPreview.ts`) uses it, on the user's Run preview click, to run
+the file before and after the AI's change with a 5 s timeout. Both runs use the redacted file the model saw, so the
 AI's code never holds a secret that was masked from it. They stay outside the
 tab's console,
 results and history; blocked hosts still reach the Privacy & Trust log, as for

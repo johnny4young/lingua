@@ -85,6 +85,12 @@ async function askFor(instruction = 'use literals') {
   await waitFor(() => expect(screen.getByTestId('ai-edit-actions')).toBeTruthy());
 }
 
+async function runPreview() {
+  fireEvent.click(screen.getByTestId('ai-edit-run-preview'));
+  await waitFor(() => expect(screen.queryByTestId('ai-edit-run-preview')).toBeNull());
+  await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+}
+
 describe('EditWithAiDialog', () => {
   beforeAll(async () => {
     await initI18n('en');
@@ -125,11 +131,16 @@ describe('EditWithAiDialog', () => {
     expect(runChatCompletionImpl).not.toHaveBeenCalled();
   });
 
-  it('runs the proposal and shows the before and after with badges', async () => {
+  it('runs the proposal only on Run preview and shows the before and after with badges', async () => {
     configureAi();
     const { runPreviewImpl, runChatCompletionImpl } = renderDialog();
     await askFor();
     expect(runChatCompletionImpl.mock.calls[0]![0].messages[1].content).toContain('Change: use literals');
+    expect(runPreviewImpl).not.toHaveBeenCalled();
+    expect(screen.getByTestId('ai-edit-preview').textContent).toContain('1 + 2');
+    expect(screen.queryByTestId('ai-edit-run-line')).toBeNull();
+    await runPreview();
+    expect(runPreviewImpl).toHaveBeenCalledTimes(1);
     expect(runPreviewImpl).toHaveBeenCalledWith('javascript', 'const total = a + b;', 'const total = 1 + 2;');
     expect(screen.getByTestId('ai-edit-now').textContent).toContain('a + b');
     expect(screen.getByTestId('ai-edit-now').textContent).toContain('a is not defined');
@@ -141,12 +152,15 @@ describe('EditWithAiDialog', () => {
     expect(actions).toContain(i18next.t('ai.edit.stdoutChanged'));
   });
 
-  it('says why nothing ran for a language without a sandbox', async () => {
+  it('offers no run for a language without a sandbox', async () => {
     configureAi();
-    renderDialog({ preview: { kind: 'skipped' } });
+    const runPreviewImpl = vi.fn();
+    render(<EditWithAiDialog request={{ ...request, language: 'go' }} onClose={vi.fn()} runChatCompletionImpl={vi.fn().mockResolvedValue({ ok: true, content: '```go\n1 + 2\n```' }) as never} runPreviewImpl={runPreviewImpl as never} />);
     await askFor();
     expect(screen.getByTestId('ai-edit-skipped').textContent).toBe(i18next.t('ai.edit.skippedLanguage'));
+    expect(screen.queryByTestId('ai-edit-run-preview')).toBeNull();
     expect(screen.queryByTestId('ai-edit-notice')).toBeNull();
+    expect(runPreviewImpl).not.toHaveBeenCalled();
   });
 
   it('shows the sandbox notice once', async () => {
@@ -203,6 +217,7 @@ describe('EditWithAiDialog', () => {
     const runChatCompletionImpl = vi.fn().mockResolvedValue({ ok: true, content: '```js\n1 + 2\n```' });
     render(<EditWithAiDialog request={secret} onClose={vi.fn()} runChatCompletionImpl={runChatCompletionImpl as never} runPreviewImpl={runPreviewImpl as never} />);
     await askFor();
+    await runPreview();
     expect(runPreviewImpl).toHaveBeenCalledWith(
       'javascript',
       'const API_KEY = "<redacted>"\nconst total = a + b;',
