@@ -115,6 +115,16 @@ last is answered, as for a debugger pause. Ruby's synchronous eval
 cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
 it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
 
+`ExecutionContext.network` replaces the Labs policy for one run. Edit with AI
+(`runtime/aiEditPreview.ts`) uses it to run the file before and after the AI's
+change with every host blocked and a 5 s timeout, outside the tab's console,
+results and history. Both runs go to a new runner instance, never the shared
+`runnerManager` one, and the runner is stopped afterwards, terminating its
+worker. That way a tab's own run is never interrupted, and timers, tasks or
+patched globals the AI's code leaves behind die with that worker instead of
+running later under the tab's own network policy. For Python this boots a
+second Pyodide for the preview.
+
 The Python runner lets one execution reach that persistent worker at a time.
 A new `execute()` stops a run already in flight by terminating the worker, so
 the new call boots Pyodide again. A call still waiting for the boot holds no

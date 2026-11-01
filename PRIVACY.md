@@ -41,12 +41,14 @@ are sent in authorization headers, not URL query strings.
 
 ## AI Features
 
-Explain error, Explain selection, Ask AI in SQL and the cron phrase composer
-are off until you set a model in Settings. Lingua ships no remote endpoint or
-key, and sends nothing until you choose Send after seeing the exact payload.
-That payload is what the feature needs: the error, the code of the tab and the
-runtime values only if you include them, the selected code, the SQL schema
-(table and column names and types, never rows), or the cron phrase.
+Explain error, Explain selection, Edit with AI, Ask AI in SQL and the cron
+phrase composer are off until you set a model in Settings. Lingua ships no
+remote endpoint or key, and sends nothing until you choose Send after seeing
+the exact payload. That payload is what the feature needs: the error, the code
+of the tab and the runtime values only if you include them, the selected code,
+the file with the span to edit marked (only the lines around it for a large
+file), the SQL schema (table and column names and types, never rows), or the
+cron phrase.
 Secret-looking values are redacted before the preview.
 
 - **Local** starts at Ollama's address on `localhost` and only accepts

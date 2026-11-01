@@ -217,6 +217,12 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - **What gets sent** shows the exact text before anything leaves the device, with how many secrets were redacted. **Include runtime values**, off by default, adds the values the program last held (the paused frame, or the last run's variables): names that look secret and token-like values are redacted, and the values appear in the preview before you choose **Send**. If that first request fails, **Retry** shows What gets sent again with the current code.
 - After an answer: **Apply & re-run** and **Apply only** (both behind a diff), **Copy**, **Helpful** / **Not helpful**, three suggested follow-ups and a free question. The conversation stays with the tab in memory until you close it; a vote keeps the error's kind (for example `TypeError`), the vote and when, on this device, and nothing from the code, the message or the answer.
 
+## Edit with AI
+
+- **Edit with AI** (Pro) in the editor's context menu or the Command Palette asks your AI provider (Local or My endpoint, as for Explain) to rewrite the selection, or the whole file when nothing is selected. Type what to change; **What gets sent** shows the file with the selection marked, after redaction, and nothing leaves until **Send**.
+- JavaScript, TypeScript and Python then run the file as it is and with the change, once each, on a runtime of their own that is discarded afterwards: outside the tab's Console, results and history, with network requests from the code blocked and a 5 s limit (Python boots its own Pyodide first). **Now** and **Preview** show each side's code and first output line or error, with badges for an error fixed, new errors and whether the output changed. Other languages show only the code; **Show diff** compares the whole file either way.
+- **Accept** (`Cmd/Ctrl+Enter`) replaces the selection as one edit that `Cmd/Ctrl+Z` undoes; **Discard** or `Escape` closes without changing anything. Accept refuses when the file changed since you asked, or when the answer still holds a redacted secret.
+
 ## SQL workspace
 
 - `Cmd/Ctrl+Alt+S` opens the SQL tab. The connection bar shows **Local · DuckDB**, the engine that runs in this window, or the query's saved connection (see Database connections below); its picker lists Local under This device. **Import data** at the right of the bar reads a CSV, Parquet or JSON file into a new table, or adds its rows to an existing one.
