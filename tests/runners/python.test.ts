@@ -353,6 +353,36 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(result.stdout[0]?.line).toBe(3);
   });
 
+  it('asks for stdin only when told and maps the request line back past loop protection', async () => {
+    class AskingWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          handler?.({ data: { type: 'stdin-request', runId: message.runId, message: 'Name: ', line: 6 } } as MessageEvent);
+          handler?.({ data: { type: 'done', runId: message.runId, executionTime: 1 } } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: AskingWorker, writable: true, configurable: true });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute(['for item in range(1):', '    pass', 'name = input("Name: ")'].join('\n'), { language: 'python', askStdin: true });
+    expect(postedMessages.find(m => m.type === 'execute')).toMatchObject({ askStdin: true });
+    expect(result.stdinRequest).toEqual({ message: 'Name: ', line: 3 });
+  });
+
   it('forwards richConsoleEnabled = true by default to the Pyodide worker', async () => {
     const runner = new PythonRunner();
     await runner.init();

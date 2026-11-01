@@ -56,6 +56,7 @@ import {
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
+import { sanitizeStdinRequest } from '../utils/stdinRequest';
 
 const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
 
@@ -177,6 +178,7 @@ export class WorkerRunnerShell {
     let structuredResult: unknown;
     let error: ExecutionError | undefined;
     let stdinConsumed: { count: number; total: number } | undefined;
+    let stdinRequest: ExecutionResult['stdinRequest'];
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — stdout overflowing should not mute the
     // truncation notice on stderr (and vice versa).
@@ -298,6 +300,9 @@ export class WorkerRunnerShell {
             stdinConsumed = { count, total };
             break;
           }
+          case 'stdin-request':
+            stdinRequest = sanitizeStdinRequest(msg);
+            break;
           case 'scope-snapshot': {
             // Relay the worker's scope capture onto the eventual
             // ExecutionResult. The worker already applied the boot-time and
@@ -415,6 +420,7 @@ export class WorkerRunnerShell {
               ...(lineTimings.length > 0 ? { lineTimings } : {}),
               ...(timeline ? { timeline } : {}),
               stdinConsumed,
+              ...(stdinRequest ? { stdinRequest } : {}),
               // Explicit kind so the result-panel pill self-gates on a field
               // instead of regexing the error message. Timeout and stop paths
               // never reach this branch — they finish() via
@@ -507,6 +513,7 @@ export class WorkerRunnerShell {
         // / `readline()` answers. Empty or undefined leaves the native worker
         // behavior in place.
         stdin: context?.stdin,
+        askStdin: context?.askStdin === true,
         // Variable inspector capture. Debug and record runs skip it; the debugger drawer
         // already exposes the paused-frame locals and a second snapshot would
         // race with the resume protocol.

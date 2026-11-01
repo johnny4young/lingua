@@ -215,6 +215,16 @@ describe('the message pump', () => {
     expect((await promise).stdinConsumed).toEqual({ count: 0, total: 0 });
   });
 
+  it('carries a sanitized stdin request onto the finished run and asks only when told', async () => {
+    const { promise, worker } = startRun({ context: { language: 'javascript', askStdin: true } });
+    expect(worker.posted[0]).toMatchObject({ askStdin: true });
+    worker.emitForRun({ type: 'stdin-request', message: 'Name?', line: -2 });
+    worker.emitForRun({ type: 'done', executionTime: 1 });
+    expect((await promise).stdinRequest).toEqual({ message: 'Name?' });
+    const plain = startRun();
+    expect(plain.worker.posted[0]).toMatchObject({ askStdin: false });
+  });
+
   it('rejects a scope snapshot whose shape is wrong', async () => {
     const { promise, worker } = startRun();
 

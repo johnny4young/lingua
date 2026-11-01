@@ -1,7 +1,7 @@
 import type { ManualRunSession } from '../manualRunSession';
 import type { TelemetryTrack } from '../../hooks/useTelemetry';
 import type { Language } from '../../types/language';
-import type { RunRegion } from '../../utils/runRegions';
+import type { MaskedStdinAnswer, RunRegion } from '../../utils/runRegions';
 
 export interface ManualExecutionLifecycle {
   session?: ManualRunSession;
@@ -30,6 +30,8 @@ export interface ManualExecutionLifecycle {
   record?: boolean;
   /** Run regions: run the file up to the end of this region and keep no history. */
   region?: RunRegion;
+  /** Run regions: masked stdin answers kept in memory, merged into the tab's stdin. */
+  maskedStdin?: readonly MaskedStdinAnswer[];
   /** Telemetry entry point supplied by the React control that owns the run. */
   track?: TelemetryTrack;
 }

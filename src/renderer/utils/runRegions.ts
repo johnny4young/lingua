@@ -1,7 +1,10 @@
 import { walkTopLevelLines } from './magicComments/jsLexer';
 import { replaceUnsafeText } from './unsafeText';
+import { splitStdinLines } from './stdinRequest';
 
-export type RunRegionLanguage = 'javascript' | 'typescript' | 'python';
+import type { RunRegionLanguage } from './runRegionLanguages';
+
+export { supportsRunRegions, type RunRegionLanguage } from './runRegionLanguages';
 
 export interface RunRegion {
   /** 0-based position among the file's regions. */
@@ -18,10 +21,6 @@ export interface RunRegion {
 const COMMENT_VALUE_CHARS = 60;
 const PY_MARKER = /^#\s?%%(.*)$/;
 const PY_TRIPLE = /"""|'''/g;
-
-export function supportsRunRegions(language: string): language is RunRegionLanguage {
-  return language === 'javascript' || language === 'typescript' || language === 'python';
-}
 
 function nameOf(rest: string): string | null {
   const name = rest.split('·')[0]!.trim();
@@ -127,4 +126,26 @@ export function resultComment(language: RunRegionLanguage, source: string, line:
   const chars = Array.from(flat);
   const shown = chars.length > COMMENT_VALUE_CHARS ? `${chars.slice(0, COMMENT_VALUE_CHARS - 1).join('')}…` : flat;
   return language === 'python' ? `  # => ${shown}` : ` // => ${shown}`;
+}
+
+/** A masked answer kept in memory at its place in the stdin stream. */
+export interface MaskedStdinAnswer {
+  index: number;
+  value: string;
+}
+
+const MASKED_PROMPT = /password|passphrase|passwd|\bpass\b|\bpwd\b|contraseña|\bclave\b|secret|token|api[\s_-]?key|credential|\botp\b|2fa|\bpin\b|c[oó]digo/i;
+
+/** Secret-looking prompts, and prompts with no text, which often follow a print of the real question. */
+export function isMaskedPrompt(message: string): boolean {
+  return message.trim() === '' || MASKED_PROMPT.test(message);
+}
+
+/** The tab's stdin with the masked answers put back at their places. */
+export function mergeRegionStdin(buffer: string | null | undefined, masked: readonly MaskedStdinAnswer[] = []): string | undefined {
+  const lines = splitStdinLines(buffer);
+  if (masked.length === 0) return lines.length > 0 ? lines.join('\n') : undefined;
+  const merged = [...lines];
+  for (const answer of [...masked].sort((a, b) => a.index - b.index)) merged.splice(Math.min(answer.index, merged.length), 0, answer.value);
+  return merged.join('\n');
 }

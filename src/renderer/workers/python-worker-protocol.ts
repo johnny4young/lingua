@@ -22,6 +22,8 @@ export interface PythonWorkerExecuteMessage {
   resultTruncationMarker?: string;
   scopeId?: string;
   stdin?: string;
+  /** `input()` past the end of `stdin` stops the run with a `stdin-request` reply. */
+  askStdin?: boolean;
   captureScope?: boolean;
   scopeDepth?: number;
   richConsoleEnabled?: boolean;

@@ -1,8 +1,9 @@
 import type { PythonWorkerExecuteMessage } from './python-worker-protocol';
+import { PYTHON_ASK_STDIN_SOURCE, PYTHON_RESTORE_INPUT_SOURCE } from './python-worker-stdin-request';
 
 /** Build the Python bootstrap installed before each user-code execution. */
 export function buildPythonExecutionBootstrapSource(
-  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled'>
+  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled' | 'askStdin'>
 ): string {
   return `
 import io
@@ -256,7 +257,7 @@ def __lingua_caller_line():
         frame = sys._getframe(1)
         while frame is not None:
             name = frame.f_code.co_name
-            if name not in ("__lingua_print", "__lingua_displayhook", "__lingua_caller_line"):
+            if name not in ("__lingua_print", "__lingua_displayhook", "__lingua_caller_line", "__lingua_input"):
                 return frame.f_lineno
             frame = frame.f_back
     except Exception:  # noqa: BLE001 — best-effort
@@ -310,7 +311,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
 # __lingua_builtins.print intact for any library that reaches for the
 # original.
 globals()["print"] = __lingua_print
-
+${message.askStdin === true ? PYTHON_ASK_STDIN_SOURCE : PYTHON_RESTORE_INPUT_SOURCE}
 
 def __lingua_displayhook(value):
     # REPL-style top-level expression capture. Pyodide's

@@ -63,6 +63,43 @@ test.describe('Run regions', () => {
     });
   }
 
+  test('asks for a missing stdin line under the region and masks secrets', async ({ page }) => {
+    await seedRegions(page, 'en');
+    await gotoApp(page);
+    await replaceEditorText(
+      page,
+      ['// %% ask', 'const name = prompt("Your name?");', 'const pin = prompt("PIN code");', 'console.log("hi", name, pin.length);'].join('\n')
+    );
+    await moveCursorTo(page, 2);
+    await page.keyboard.press('ControlOrMeta+Enter');
+
+    const stdin = page.getByTestId('run-regions-stdin');
+    await expect(stdin).toContainText('prompt · Your name? · L2');
+    const input = page.getByTestId('run-regions-stdin-input');
+    await expect(input).toHaveAttribute('type', 'text');
+    await expect(input).toBeFocused();
+    await input.fill('Ada');
+    await input.press('Enter');
+
+    await expect(stdin).toContainText('prompt · PIN code · L3');
+    await expect(input).toHaveAttribute('type', 'password');
+    await input.fill('1234');
+    await input.press('Enter');
+
+    await expect(page.getByTestId('run-regions-rows')).toContainText('hi Ada 4');
+    await expect(stdin).toHaveCount(0);
+    await expect(page.getByTestId('bottom-panel-stdin-count')).toHaveText('1');
+  });
+
+  test('runs a plain file with the Run shortcut inside the editor', async ({ page }) => {
+    await seedRegions(page, 'en');
+    await gotoApp(page);
+    await replaceEditorText(page, 'console.log("plain-run-marker");');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(page.getByTestId('console-entry-row').filter({ hasText: 'plain-run-marker' })).toHaveCount(1);
+    await expect(page.locator('.view-line')).toHaveCount(1);
+  });
+
   test('splits Python at # %% and keeps the state of the regions above', async ({ page }) => {
     // Pyodide boots on the first run: the runner allows 90 s for it.
     test.setTimeout(180_000);
@@ -76,5 +113,13 @@ test.describe('Run regions', () => {
     await page.getByTestId('run-regions-run').click();
     await expect(page.getByTestId('run-regions-rows')).toContainText('doubled 40', { timeout: 120_000 });
     await expect(page.getByTestId('console-entry-row').filter({ hasText: 'later region' })).toHaveCount(0);
+
+    await replaceEditorText(page, ['base = 20', '# %% ask', 'name = input("Name: ")', 'print("hello", name, base)'].join('\n'));
+    await moveCursorTo(page, 3);
+    await page.getByTestId('run-regions-run').click();
+    await expect(page.getByTestId('run-regions-stdin')).toContainText('prompt · Name: · L3', { timeout: 30_000 });
+    await page.getByTestId('run-regions-stdin-input').fill('Ada');
+    await page.getByTestId('run-regions-stdin-input').press('Enter');
+    await expect(page.getByTestId('run-regions-rows')).toContainText('hello Ada 20', { timeout: 30_000 });
   });
 });

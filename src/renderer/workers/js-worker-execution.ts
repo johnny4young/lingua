@@ -26,7 +26,7 @@ import {
 } from './js-worker-serialization';
 import { buildLinguaWorkerBridge } from './js-worker-runtime';
 import { createJsWorkerSourceMapper } from './js-worker-source';
-import { createJsWorkerStdinReader } from './js-worker-stdin';
+import { createJsWorkerStdinReader, JsWorkerStdinRequest } from './js-worker-stdin';
 import { createNetworkAsker, installNetworkGuard, type NetworkGuard } from './networkGuard';
 
 const noop = (): void => {};
@@ -169,10 +169,15 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       const stdinReader = createJsWorkerStdinReader(exec.stdin);
       const prevPrompt = (self as unknown as { prompt?: unknown }).prompt;
       const prevReadline = (self as unknown as { readline?: unknown }).readline;
-      if (exec.stdin && exec.stdin.length > 0) {
-        const consumer = () => stdinReader.consume();
+      const askStdin = exec.askStdin === true;
+      if ((exec.stdin && exec.stdin.length > 0) || askStdin) {
+        const consumer = (message?: unknown) => {
+          const line = stdinReader.consume();
+          if (line === null && askStdin) throw new JsWorkerStdinRequest(message, source.callingLine());
+          return line;
+        };
         (self as unknown as { prompt: (message?: string) => string | null }).prompt = consumer;
-        (self as unknown as { readline: () => string | null }).readline = consumer;
+        (self as unknown as { readline: () => string | null }).readline = () => consumer();
       }
 
       // per-statement wall-clock ticks. The runner's
@@ -431,13 +436,11 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         flushLineTimings();
         timeline?.noteError();
         flushTimeline();
-        const parsed = source.parseError(err, code);
-
-        ctx.postMessage({
-          type: 'error',
-          runId,
-          error: parsed,
-        });
+        if (err instanceof JsWorkerStdinRequest) {
+          ctx.postMessage({ type: 'stdin-request', runId, message: err.message, ...(err.line ? { line: err.line } : {}) });
+        } else {
+          ctx.postMessage({ type: 'error', runId, error: source.parseError(err, code) });
+        }
 
         if (stdinReader.getTotal() > 0) {
           ctx.postMessage({

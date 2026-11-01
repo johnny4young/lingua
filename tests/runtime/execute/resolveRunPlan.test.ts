@@ -219,8 +219,14 @@ describe('resolveRunExecution — context', () => {
     expect(resolveRunPlan(tab({ language: 'go' }), { region })).toMatchObject({ region: null, recordHistory: true });
     expect(resolveRunPlan(tab(), { region, debug: true }).region).toBeNull();
     expect(resolveRunPlan(tab(), { region, record: true }).region).toBeNull();
-    expect(resolveRunExecution(tab(), runPlan({ region }), {}, settings).context).toMatchObject({ autoLog: true });
+    expect(resolveRunExecution(tab(), runPlan({ region }), {}, settings).context).toMatchObject({ autoLog: true, askStdin: true });
     expect(resolveRunExecution(tab(), runPlan(), {}, settings).context).not.toHaveProperty('autoLog');
+    expect(resolveRunExecution(tab(), runPlan(), {}, settings).context).not.toHaveProperty('askStdin');
+    const masked = [{ index: 1, value: 'secret' }];
+    expect(resolveRunExecution(tab({ stdinBuffer: 'a\nb' }), runPlan({ region }), { maskedStdin: masked }, settings).context.stdin).toBe('a\nsecret\nb');
+    expect(resolveRunExecution(tab({ stdinBuffer: 'a\nb' }), runPlan(), { maskedStdin: masked }, settings).context.stdin).toBe('a\nb');
+    expect(resolveRunExecution(tab(), runPlan({ region }), {}, settings).context).toMatchObject({ captureScope: true });
+    expect(resolveRunExecution(tab(), runPlan({ region }), { maskedStdin: masked }, settings).context).not.toHaveProperty('captureScope');
   });
 
   it('records only JS and TS Worker tabs, never alongside Debug, and drops scope capture', () => {

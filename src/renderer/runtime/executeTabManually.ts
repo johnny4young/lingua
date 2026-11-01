@@ -7,6 +7,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { FileTab } from '../types/editor';
+import type { ExecutionResult } from '../types/execution';
 import { acquireRunner, announceCompilation, startRunnerBootstrap } from './execute/prepareRun';
 import {
   publishCancelledRun,
@@ -24,6 +25,8 @@ import { snapshotGitPosture } from './execute/recordRunHistory';
 import { resolveRunExecution, resolveRunPlan } from './execute/resolveRunPlan';
 import { createRunConsole, runAndCollect } from './execute/runAndCollect';
 import type { ManualExecutionLifecycle, ManualExecutionSummary } from './execute/types';
+
+type StdinRequest = NonNullable<ExecutionResult['stdinRequest']>;
 
 export type { ManualExecutionLifecycle, ManualExecutionSummary } from './execute/types';
 
@@ -189,7 +192,9 @@ async function executeOwnedTab(
       session.isCurrent,
       showsResults
     );
-    if (plan.region && session.isCurrent()) publishRegion(activeTab.id, plan.region, summary.ok ? '' : summary.message, summary.executionTime, showsResults());
+    if (plan.region && session.isCurrent()) {
+      publishRegion(activeTab.id, plan.region, summary.ok ? '' : summary.message, summary.executionTime, showsResults(), run.result.stdinRequest);
+    }
     return summary;
   } catch (error) {
     if (!session.isCurrent()) return cancelledSummary();
@@ -218,9 +223,16 @@ async function executeOwnedTab(
   }
 }
 
-function publishRegion(tabId: string, region: RunRegion, message: string, executionTime: number | null, withRows: boolean): void {
+function publishRegion(
+  tabId: string,
+  region: RunRegion,
+  message: string,
+  executionTime: number | null,
+  withRows: boolean,
+  request?: StdinRequest
+): void {
   const rows = withRows ? useResultStore.getState().lineResults.filter(row => row.line >= region.startLine && row.line <= region.endLine) : [];
-  useRunRegionStore.getState().publish({ tabId, region, ranAt: Date.now(), executionTime, ok: message === '', message, rows });
+  useRunRegionStore.getState().publish({ tabId, region, ranAt: Date.now(), executionTime, ok: message === '', message, rows, ...(request ? { request } : {}) });
 }
 
 /** The result store mirrors the active tab; synthetic tabs (smoke) always own it. */

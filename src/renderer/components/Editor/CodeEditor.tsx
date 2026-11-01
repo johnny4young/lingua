@@ -262,6 +262,8 @@ export function CodeEditor() {
   }, [activeLanguage, activeRuntimeMode]);
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
+    // Monaco's Cmd/Ctrl+Enter inserts a line and swallows the key, so the app's Run shortcut never fired inside the editor.
+    monaco.editor.addKeybindingRules([{ keybinding: monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, command: '-editor.action.insertLineAfter' }]);
     defineCustomThemes(monaco);
     applyTypeScriptDefaults(monaco);
     // pre-register the scratchpad happy-path languages so a blank

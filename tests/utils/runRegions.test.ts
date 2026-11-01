@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRunRegions, resultComment, runRegionAt, runRegionSource, supportsRunRegions } from '../../src/renderer/utils/runRegions';
+import { isMaskedPrompt, mergeRegionStdin, parseRunRegions, resultComment, runRegionAt, runRegionSource, supportsRunRegions } from '../../src/renderer/utils/runRegions';
 
 const js = [
   'function quickSort(a) { return a; }',
@@ -69,6 +69,27 @@ describe('run regions', () => {
     expect(resultComment('javascript', 'x', 1, '"\u202eab\u2066c\u200bd\u0000"')).toBe(' // => " ab c d "');
     expect(resultComment('javascript', 'x', 1, '😀'.repeat(80))).toBe(` // => ${'😀'.repeat(59)}…`);
     expect(resultComment('javascript', 'x; /* note\nmore */', 1, '3')).toBeNull();
+  });
+
+  it('masks prompts that ask for secrets', () => {
+    for (const prompt of [
+      'Password:', 'Tu contraseña', 'API token', 'Client secret', 'PIN code', 'Passphrase', 'passwd', 'Pass:', 'pwd?',
+      'Clave', 'API key', 'apikey', 'Credentials', 'OTP', '2FA code', 'Código de verificación', 'codigo', '', '  ',
+    ]) {
+      expect(isMaskedPrompt(prompt), prompt).toBe(true);
+    }
+    for (const prompt of ['Your name?', 'Spin count', 'Pinned tab', 'Compass heading', 'Keyboard layout', 'Passenger count']) {
+      expect(isMaskedPrompt(prompt), prompt).toBe(false);
+    }
+  });
+
+  it('puts masked answers back at their place in the stdin stream', () => {
+    expect(mergeRegionStdin('Ada\nLondon\n', [{ index: 1, value: 'hunter2' }])).toBe('Ada\nhunter2\nLondon');
+    expect(mergeRegionStdin('', [{ index: 0, value: 's' }])).toBe('s');
+    expect(mergeRegionStdin('a', [{ index: 9, value: 's' }, { index: 0, value: 'p' }])).toBe('p\na\ns');
+    expect(mergeRegionStdin('a\nb', [{ index: 2, value: 'y' }, { index: 0, value: 'x' }])).toBe('x\na\ny\nb');
+    expect(mergeRegionStdin('', [])).toBeUndefined();
+    expect(mergeRegionStdin('a\n')).toBe('a');
   });
 
   it('caps long names and supports only JS, TS and Python', () => {

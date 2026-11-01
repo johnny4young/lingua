@@ -17,7 +17,7 @@ import type { ExecutionContext } from '../../types/execution';
 import type { SettingsState } from '../../types/settings';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { extractTimeoutMagicComment } from '../../utils/magicComments';
-import { supportsRunRegions, type RunRegion } from '../../utils/runRegions';
+import { mergeRegionStdin, supportsRunRegions, type RunRegion } from '../../utils/runRegions';
 import type { ManualExecutionLifecycle } from './types';
 
 /** Debug runs in these languages go through a native debugger session, not the runner. */
@@ -76,7 +76,7 @@ export function resolveRunPlan(
 export function resolveRunExecution(
   tab: FileTab,
   plan: RunPlan,
-  lifecycle: Pick<ManualExecutionLifecycle, 'executionTimeoutMs'>,
+  lifecycle: Pick<ManualExecutionLifecycle, 'executionTimeoutMs' | 'maskedStdin'>,
   settings: Pick<
     SettingsState,
     'showLineTiming' | 'variableInspectorScopeDepth' | 'runtimeTimeoutPresetByLanguage'
@@ -90,7 +90,10 @@ export function resolveRunExecution(
   const magicTimeoutMs = extractTimeoutMagicComment(language, tab.content);
   const resolvedTimeoutMs =
     lifecycle.executionTimeoutMs ?? tab.nextRunTimeoutOverrideMs ?? magicTimeoutMs ?? undefined;
-  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested && !plan.recordRequested;
+  const stdin = plan.region ? mergeRegionStdin(tab.stdinBuffer, lifecycle.maskedStdin) : tab.stdinBuffer;
+  // A run fed masked answers keeps them out of the Variables panel.
+  const hasMaskedStdin = plan.region !== null && (lifecycle.maskedStdin?.length ?? 0) > 0;
+  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested && !plan.recordRequested && !hasMaskedStdin;
   const scopeDepth = settings.variableInspectorScopeDepth;
   const settingsTimeoutMs =
     !plan.usesNativeDebugger && isRuntimeTimeoutSupportedLanguage(language)
@@ -109,7 +112,9 @@ export function resolveRunExecution(
       ...(plan.region ? { autoLog: true } : {}),
       // Manual Run feeds the same pre-set buffer that
       // auto-run uses. Runners that do not consume stdin ignore the field.
-      ...(tab.stdinBuffer ? { stdin: tab.stdinBuffer } : {}),
+      ...(stdin ? { stdin } : {}),
+      // A region asks for a missing stdin line inline instead of reading nothing.
+      ...(plan.region ? { askStdin: true } : {}),
       ...(tab.inputArgs && tab.inputArgs.length > 0 ? { args: tab.inputArgs } : {}),
       // per-line timing toggle; the runner also honors an
       // in-buffer // @time directive on its own.
