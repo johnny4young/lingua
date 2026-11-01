@@ -770,7 +770,8 @@ for one that raises a `BaseException` subclass (so `except Exception` does not
 catch it), and a later run without regions gets the stock `input()` back. The
 worker posts `stdin-request` with the prompt and line instead of an error; the
 runners sanitize it, Python maps the line back past loop protection, and the
-card asks for the line. Masked answers stay in `runRegionStore` with their
+card asks for the line, masking the answer when `isMaskedPrompt` sees a secret or an
+empty prompt. Masked answers stay in `runRegionStore` with their
 index in the stdin stream and the tab Input and code they were placed against, and
 `mergeRegionStdin` puts them back into the tab's stdin for each region run, so
 they never reach the tab, history, capsules or share links. Any other edit to

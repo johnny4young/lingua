@@ -134,10 +134,11 @@ export interface MaskedStdinAnswer {
   value: string;
 }
 
-const MASKED_PROMPT = /password|contraseña|secret|token|\bpin\b/i;
+const MASKED_PROMPT = /password|passphrase|passwd|\bpass\b|\bpwd\b|contraseña|\bclave\b|secret|token|api[\s_-]?key|credential|\botp\b|2fa|\bpin\b|c[oó]digo/i;
 
+/** Secret-looking prompts, and prompts with no text, which often follow a print of the real question. */
 export function isMaskedPrompt(message: string): boolean {
-  return MASKED_PROMPT.test(message);
+  return message.trim() === '' || MASKED_PROMPT.test(message);
 }
 
 /** The tab's stdin with the masked answers put back at their places. */

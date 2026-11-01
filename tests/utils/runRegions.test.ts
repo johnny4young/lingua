@@ -72,8 +72,15 @@ describe('run regions', () => {
   });
 
   it('masks prompts that ask for secrets', () => {
-    for (const prompt of ['Password:', 'Tu contraseña', 'API token', 'Client secret', 'PIN code']) expect(isMaskedPrompt(prompt)).toBe(true);
-    for (const prompt of ['Your name?', 'Spin count', 'Pinned tab']) expect(isMaskedPrompt(prompt)).toBe(false);
+    for (const prompt of [
+      'Password:', 'Tu contraseña', 'API token', 'Client secret', 'PIN code', 'Passphrase', 'passwd', 'Pass:', 'pwd?',
+      'Clave', 'API key', 'apikey', 'Credentials', 'OTP', '2FA code', 'Código de verificación', 'codigo', '', '  ',
+    ]) {
+      expect(isMaskedPrompt(prompt), prompt).toBe(true);
+    }
+    for (const prompt of ['Your name?', 'Spin count', 'Pinned tab', 'Compass heading', 'Keyboard layout', 'Passenger count']) {
+      expect(isMaskedPrompt(prompt), prompt).toBe(false);
+    }
   });
 
   it('puts masked answers back at their place in the stdin stream', () => {
