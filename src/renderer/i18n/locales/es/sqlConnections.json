@@ -330,5 +330,5 @@
   "sqlWorkspace.edits.menu.duplicate": "Duplicar fila",
   "sqlWorkspace.edits.menu.delete": "Borrar fila",
   "sqlWorkspace.edits.menu.restore": "Restaurar fila",
-  "sqlWorkspace.grid.magic.openLink": "Cmd/Ctrl+clic para abrir"
+  "sqlWorkspace.grid.magic.openLink": "Cmd/Ctrl+clic para abrir {{host}}"
 }

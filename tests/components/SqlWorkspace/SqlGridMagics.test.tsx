@@ -46,7 +46,8 @@ describe('SQL grid magics', () => {
     render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
     const links = screen.getAllByTestId('sql-cell-link');
     expect(links).toHaveLength(1);
-    expect(links[0]!.getAttribute('title')).toBe('Cmd/Ctrl+click to open');
+    expect(links[0]!.getAttribute('title')).toBe('Cmd/Ctrl+click to open lingua.dev');
+    expect(links[0]!.getAttribute('rel')).toBe('noopener noreferrer');
     expect(screen.getAllByTestId('sql-cell-bar')).toHaveLength(2);
     expect(screen.getAllByTestId('sql-cell-check').map(cell => cell.textContent)).toEqual(['✓', '✗']);
     expect(screen.getAllByTestId('sql-cell-check')[1]!.getAttribute('aria-label')).toBe('false');
@@ -59,6 +60,7 @@ describe('SQL grid magics', () => {
     const link = screen.getByTestId('sql-cell-link');
     // The app never navigates its own window to the cell's URL.
     expect(fireEvent.click(link)).toBe(false);
+    expect(fireEvent(link, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }))).toBe(false);
     expect(openExternal).not.toHaveBeenCalled();
     expect(screen.getAllByTestId('sql-result-preview-row')[0]!.getAttribute('aria-selected')).toBe('true');
     fireEvent.click(link, { metaKey: true });

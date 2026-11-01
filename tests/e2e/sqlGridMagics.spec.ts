@@ -37,7 +37,7 @@ test.describe('SQL grid magics', () => {
       await expect(page.getByTestId('sql-result-preview-row')).toHaveCount(2);
       const link = page.getByTestId('sql-cell-link');
       await expect(link).toHaveCount(1);
-      await expect(link).toHaveAttribute('title', language === 'en' ? 'Cmd/Ctrl+click to open' : 'Cmd/Ctrl+clic para abrir');
+      await expect(link).toHaveAttribute('title', language === 'en' ? 'Cmd/Ctrl+click to open lingua.dev' : 'Cmd/Ctrl+clic para abrir lingua.dev');
       await expect(page.getByTestId('sql-cell-bar')).toHaveCount(2);
       await expect(page.getByTestId('sql-cell-check')).toHaveText(['✓', '✗']);
       await expect(page.getByTestId('sql-cell-thumb')).toHaveAttribute('src', /^data:image\/png;base64,/);

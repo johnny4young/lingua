@@ -1,13 +1,17 @@
 import { validateImageSrc } from '../../../shared/richOutput';
-import { sniffImage, toDataUrl } from './sqlCellValue';
+import { sniffImage } from './sqlCellValue';
 
 /** How a cell draws beyond its text, with Rich display on. */
-export type SqlCellMagic = { kind: 'link'; href: string } | { kind: 'bar'; value: number } | { kind: 'check'; on: boolean } | { kind: 'image'; src: string };
+export type SqlCellMagic = { kind: 'link'; href: string; host: string } | { kind: 'bar'; value: number } | { kind: 'check'; on: boolean } | { kind: 'image'; src: string };
 
 const URL_CHARS = 2048;
-/** Base64 length of about 1 MB of bytes; a bigger BLOB stays text. */
-const THUMB_BASE64_CHARS = 1_400_000;
+/** Base64 length of about 300 KB of bytes, plenty for a 20 px thumbnail; a bigger image stays text. */
+const THUMB_BASE64_CHARS = 400_000;
+const RASTER_DATA_URL = /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+// Control, bidi and zero-width characters could disguise where a link goes.
+const DISGUISING_CHARS = /[\p{Cc}\p{Cf}\u2028\u2029]/u;
 const HTTP_URL = /^https?:\/\/[^\s<>"]+$/i;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 /**
  * Numeric columns drawn as 0–1 bars: every loaded value is a number from 0
@@ -36,15 +40,12 @@ export function fractionColumns(
   return fractions;
 }
 
+/** BLOBs arrive as base64, so only the first bytes are decoded to name the image and the value becomes the data URL as is. */
 function blobImage(value: string): string | null {
-  if (value.length > THUMB_BASE64_CHARS) return null;
+  if (value.length > THUMB_BASE64_CHARS || !BASE64.test(value)) return null;
   try {
-    const binary = atob(value.slice(0, 32));
-    const head = Uint8Array.from(binary, char => char.charCodeAt(0));
-    const mime = sniffImage(head);
-    if (!mime) return null;
-    const full = atob(value);
-    return toDataUrl(Uint8Array.from(full, char => char.charCodeAt(0)), mime);
+    const mime = sniffImage(Uint8Array.from(atob(value.slice(0, 32)), char => char.charCodeAt(0)));
+    return mime ? `data:${mime};base64,${value}` : null;
   } catch {
     return null;
   }
@@ -60,9 +61,13 @@ export function cellMagic(value: unknown, duckType: string, fraction: boolean): 
     return src ? { kind: 'image', src } : null;
   }
   if (value.startsWith('data:image/')) {
-    const src = validateImageSrc(value);
-    return src ? { kind: 'image', src } : null;
+    return value.length <= THUMB_BASE64_CHARS && RASTER_DATA_URL.test(value) && validateImageSrc(value) ? { kind: 'image', src: value } : null;
   }
-  if (value.length <= URL_CHARS && HTTP_URL.test(value)) return { kind: 'link', href: value };
-  return null;
+  if (value.length > URL_CHARS || !HTTP_URL.test(value) || DISGUISING_CHARS.test(value)) return null;
+  try {
+    const url = new URL(value);
+    return url.username || url.password ? null : { kind: 'link', href: value, host: url.host };
+  } catch {
+    return null;
+  }
 }

@@ -765,11 +765,14 @@ the streamed result panel, and the console store redraws that bar's row in
 place, keeping its id.
 
 The SQL grid reuses the flag: `components/SqlWorkspace/sqlCellMagic.ts` picks a
-link, a 0–1 bar (columns from `fractionColumns` over the loaded rows), a check
-or a thumbnail (image BLOBs by their signature up to about 1 MB, and
-`data:image/` values through `validateImageSrc`) for a cell, and the grid draws
-it in place of the text; foreign-key links keep priority, links open only with
-Cmd/Ctrl through `openExternal`, and no remote URL loads.
+link (no credentials or control characters), a 0–1 bar (columns from
+`fractionColumns` over the rows the grid shows), a check or a thumbnail (raster
+BLOBs by their signature and base64 raster `data:image/` values, up to about
+300 KB, the BLOB's base64 used as the data URL as is) for a cell, once per row
+object, and the grid draws it with or instead of the text; foreign-key links
+keep priority, links open through `openExternal` only on Cmd/Ctrl+click (a
+middle click is blocked), and no remote URL loads. `normalizeExternalUrl`
+refuses URLs with credentials for every caller.
 
 ### Run regions
 

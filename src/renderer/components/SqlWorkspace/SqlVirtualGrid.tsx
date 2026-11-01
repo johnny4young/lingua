@@ -78,7 +78,18 @@ function cellColor(value: unknown, numeric: boolean): CSSProperties | undefined 
 
 type TypedColumn = { col: SqlColumnMetadata; duckType: string; numeric: boolean };
 
-/** A link, a 0–1 bar, a check or a thumbnail in place of a cell's text; the value itself is unchanged. */
+const magicCache = new WeakMap<Record<string, unknown>, Map<string, SqlCellMagic | null>>();
+
+/** A cell's magic, worked out once per row object, column and bar choice. */
+function cachedMagic(row: Record<string, unknown>, column: string, value: unknown, duckType: string, fraction: boolean): SqlCellMagic | null {
+  let cells = magicCache.get(row);
+  if (!cells) magicCache.set(row, (cells = new Map()));
+  const key = `${fraction ? 'bar' : 'plain'}:${column}`;
+  if (!cells.has(key)) cells.set(key, cellMagic(value, duckType, fraction));
+  return cells.get(key) ?? null;
+}
+
+/** A link, a 0–1 bar, a check or a thumbnail with or instead of a cell's text; the value itself is unchanged. */
 function MagicCell({ magic, text }: { magic: SqlCellMagic; text: string }) {
   const { t } = useTranslation();
   switch (magic.kind) {
@@ -87,7 +98,8 @@ function MagicCell({ magic, text }: { magic: SqlCellMagic; text: string }) {
         <a
           href={magic.href}
           tabIndex={-1}
-          title={t('sqlWorkspace.grid.magic.openLink')}
+          title={t('sqlWorkspace.grid.magic.openLink', { host: magic.host })}
+          rel="noopener noreferrer"
           data-testid="sql-cell-link"
           onClick={(event) => {
             event.preventDefault();
@@ -95,6 +107,8 @@ function MagicCell({ magic, text }: { magic: SqlCellMagic; text: string }) {
             event.stopPropagation();
             void window.lingua.openExternal(magic.href);
           }}
+          // A middle click would open the URL itself; only Cmd/Ctrl+click opens it.
+          onAuxClick={(event) => event.preventDefault()}
           className="text-accent-fg underline underline-offset-2"
         >
           {text}
@@ -172,7 +186,7 @@ const GridRow = memo(function GridRow({
         const cellSelected = selectedColumn === col.name;
         const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
         const tone = cellTone(row, col.name);
-        const magic = fractions && !linked ? cellMagic(value, duckType, fractions.has(col.name)) : null;
+        const magic = fractions && !linked ? cachedMagic(row, col.name, value, duckType, fractions.has(col.name)) : null;
         if (editor?.column === col.name) {
           return (
             <td key={col.name} role="gridcell" data-column={col.name} className="p-0">
@@ -299,9 +313,14 @@ export function SqlVirtualGrid({
     [columns]
   );
 
-  const fractions = useMemo(
-    () => (magics ? fractionColumns(typed.map(({ col, numeric }) => ({ name: col.name, numeric })), rows) : null),
+  // Keyed by the column names, so a new rows array (filter, Load more) with the same bars leaves unchanged rows memoized.
+  const fractionNames = useMemo(
+    () => (magics ? [...fractionColumns(typed.map(({ col, numeric }) => ({ name: col.name, numeric })), rows)].join('\u0000') : null),
     [magics, typed, rows]
+  );
+  const fractions = useMemo(
+    () => (fractionNames === null ? null : new Set(fractionNames ? fractionNames.split('\u0000') : [])),
+    [fractionNames]
   );
 
   useLayoutEffect(() => {
