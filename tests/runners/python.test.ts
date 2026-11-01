@@ -412,6 +412,14 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(result.stdinRequest).toEqual({ message: 'Name: ', line: 3 });
   });
 
+  it('sends the network policy the run context carries', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    const block = { policy: 'block' as const, allowedHosts: [], blockedHosts: [] };
+    await runner.execute('print("hi")', { language: 'python', network: block });
+    expect(postedMessages.find(m => m.type === 'execute')?.network).toEqual(block);
+  });
+
   it('forwards richConsoleEnabled = true by default to the Pyodide worker', async () => {
     const runner = new PythonRunner();
     await runner.init();

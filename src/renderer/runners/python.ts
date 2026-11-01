@@ -330,7 +330,7 @@ export class PythonRunner implements LanguageRunner {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = networkRunPolicyFor(networkKey);
+    const network = context?.network ?? networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>((resolve) => {
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;

@@ -192,7 +192,7 @@ export class WorkerRunnerShell {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = networkRunPolicyFor(networkKey);
+    const network = context?.network ?? networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>(resolve => {
       // A new worker per execution, for clean state.
