@@ -6,6 +6,7 @@ import type {
   ConsoleEntryType,
   ConsolePayloadKindFilter,
 } from '../types/console';
+import { progressIdOf } from '../../shared/richOutput';
 
 let entryCounter = 0;
 
@@ -106,6 +107,28 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
         equalityHash: consoleEntryHash(entry),
       };
     });
+    if (newEntries.some((entry) => progressIdOf(entry.payload) !== null)) {
+      set((state) => {
+        // A progress update redraws its bar's row in place, keeping the row id; anything new appends.
+        const entries = state.entries.slice();
+        let collapsedEntries = state.collapsedEntries;
+        const appended: ConsoleEntry[] = [];
+        for (const entry of newEntries) {
+          const id = progressIdOf(entry.payload);
+          const at = id === null ? -1 : entries.findIndex((existing) => progressIdOf(existing.payload) === id);
+          if (at < 0) {
+            entries.push(entry);
+            appended.push(entry);
+            continue;
+          }
+          const redrawn = { ...entry, id: entries[at]!.id, timestamp: entries[at]!.timestamp };
+          entries[at] = redrawn;
+          collapsedEntries = collapsedEntries.map((row) => (row.entry.id === redrawn.id ? { ...row, entry: redrawn } : row));
+        }
+        return { entries, collapsedEntries: appended.length > 0 ? collapseConsoleEntries(entries) : collapsedEntries };
+      });
+      return;
+    }
     set((state) => {
       // Collapse consecutive identical entries here (once per
       // push) instead of in the ConsolePanel render. Collapsed groups are

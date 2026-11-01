@@ -1,9 +1,10 @@
 import type { PythonWorkerExecuteMessage } from './python-worker-protocol';
 import { PYTHON_ASK_STDIN_SOURCE, PYTHON_RESTORE_INPUT_SOURCE } from './python-worker-stdin-request';
+import { PYTHON_DISPLAY_OFF_SOURCE, PYTHON_DISPLAY_SOURCE } from './python-worker-display';
 
 /** Build the Python bootstrap installed before each user-code execution. */
 export function buildPythonExecutionBootstrapSource(
-  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled' | 'askStdin'>
+  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled' | 'askStdin' | 'richDisplay'>
 ): string {
   return `
 import io
@@ -256,8 +257,7 @@ def __lingua_caller_line():
     try:
         frame = sys._getframe(1)
         while frame is not None:
-            name = frame.f_code.co_name
-            if name not in ("__lingua_print", "__lingua_displayhook", "__lingua_caller_line", "__lingua_input"):
+            if not frame.f_code.co_filename.startswith("<lingua"):
                 return frame.f_lineno
             frame = frame.f_back
     except Exception:  # noqa: BLE001 — best-effort
@@ -427,6 +427,7 @@ __lingua = __lingua_types.SimpleNamespace(
     image=__lingua_image_helper,
     html=__lingua_html_helper,
 )
+${message.richDisplay === true ? PYTHON_DISPLAY_SOURCE : PYTHON_DISPLAY_OFF_SOURCE}
 
 
 def __lingua_seed_scope(ns):
@@ -440,11 +441,18 @@ def __lingua_seed_scope(ns):
     for __lingua_k, __lingua_v in list(globals().items()):
         if (
             __lingua_k == "print"
+            or (__lingua_k == "display" and getattr(__lingua_v, "__name__", "") == "__lingua_display")
+            or (__lingua_k == "lingua" and __lingua_v is globals().get("__lingua"))
             or __lingua_k == "__mc"
             or __lingua_k == "__builtins__"
             or __lingua_k.startswith("__lingua")
         ):
             ns[__lingua_k] = __lingua_v
+    # A notebook scope drops display and lingua once a run without Rich display removed them.
+    if "display" not in globals() and getattr(ns.get("display"), "__name__", "") == "__lingua_display":
+        del ns["display"]
+    if "lingua" not in globals() and hasattr(ns.get("lingua"), "display"):
+        del ns["lingua"]
       `;
 }
 

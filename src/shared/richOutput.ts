@@ -127,6 +127,16 @@ export interface RichOutputHtml {
   height?: number;
 }
 
+/** `lingua.display.progress()`: one bar per id, updated in place. */
+export interface RichOutputProgress {
+  kind: 'progress';
+  id: string;
+  label: string;
+  /** 0 to 1. */
+  value: number;
+  text?: string;
+}
+
 /**
  * Source line origin for an output payload.
  *
@@ -165,6 +175,7 @@ export type RichOutputPayload = (
   | RichOutputImage
   | RichOutputChart
   | RichOutputHtml
+  | RichOutputProgress
 ) &
   RichOutputMeta;
 
@@ -196,6 +207,7 @@ const RICH_KINDS_BEYOND_SCOPE_VALUE = new Set([
   'image',
   'chart',
   'html',
+  'progress',
 ]);
 
 /** renderer-side cap, enforced regardless of payload-requested height. */
@@ -234,6 +246,12 @@ export function isRichOutputPayload(value: unknown): value is RichOutputPayload 
   return typeof kind === 'string' && VALID_RICH_KINDS.has(kind);
 }
 
+/** The bar a progress payload updates, or null for any other output. */
+export function progressIdOf(payload: readonly RichOutputPayload[] | undefined): string | null {
+  const first = payload?.[0];
+  return first?.kind === 'progress' ? first.id : null;
+}
+
 /** `true` for every variant defined on top of `ScopeValue`. */
 export function isExtendedRichKind(
   payload: RichOutputPayload
@@ -246,7 +264,8 @@ export function isExtendedRichKind(
   | RichOutputRawText
   | RichOutputImage
   | RichOutputChart
-  | RichOutputHtml {
+  | RichOutputHtml
+  | RichOutputProgress {
   return RICH_KINDS_BEYOND_SCOPE_VALUE.has(payload.kind);
 }
 

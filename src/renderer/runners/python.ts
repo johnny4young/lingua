@@ -37,7 +37,7 @@ import {
   networkTabKey,
 } from './networkPolicyBridge';
 import {
-  appendCappedConsole,
+  appendCappedConsole, replaceProgressOutput, sanitizeProgressOutput,
   capStderrIfOverflowing,
   runnerStoppedResult,
   runnerTimeoutResult,
@@ -427,9 +427,12 @@ export class PythonRunner implements LanguageRunner {
             // disabled mode), so the renderer's text path stays the
             // canonical fallback.
             const originalLine = sourceLineFor(msg.line);
-            const output: ConsoleOutput = msg.payload
-              ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
-              : { type: msg.method, args: msg.args, line: originalLine };
+            const output: ConsoleOutput = sanitizeProgressOutput(
+              msg.payload
+                ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
+                : { type: msg.method, args: msg.args, line: originalLine },
+              runId
+            );
             if (msg.captureOrder !== undefined) output.captureOrder = msg.captureOrder;
             // Adoption signal per produced
             // payload kind. Intentionally fires once per payload
@@ -474,6 +477,9 @@ export class PythonRunner implements LanguageRunner {
                 kind,
                 reason,
               });
+            }
+            if (replaceProgressOutput(stdout, output)) {
+              break;
             }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
@@ -654,6 +660,7 @@ export class PythonRunner implements LanguageRunner {
         sourceMappingEnabled: true,
         autoLog: context?.autoLog === true,
         askStdin: context?.askStdin === true,
+        richDisplay: useSettingsStore.getState().featureFlags.richDisplay === true,
         network,
       });
     });

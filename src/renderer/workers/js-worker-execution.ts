@@ -24,7 +24,7 @@ import {
   serializeJsWorkerValues,
   truncateJsWorkerValue,
 } from './js-worker-serialization';
-import { buildLinguaWorkerBridge } from './js-worker-runtime';
+import { buildLinguaWorkerBridge, flushLinguaProgress } from './js-worker-runtime';
 import { createJsWorkerSourceMapper } from './js-worker-source';
 import { createJsWorkerStdinReader, JsWorkerStdinRequest } from './js-worker-stdin';
 import { createNetworkAsker, installNetworkGuard, type NetworkGuard } from './networkGuard';
@@ -167,6 +167,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       }
 
       const stdinReader = createJsWorkerStdinReader(exec.stdin);
+      let lingua: ReturnType<typeof buildLinguaWorkerBridge> | undefined;
       const prevPrompt = (self as unknown as { prompt?: unknown }).prompt;
       const prevReadline = (self as unknown as { readline?: unknown }).readline;
       const askStdin = exec.askStdin === true;
@@ -323,7 +324,11 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           // payload via the shared whitelist. Rejects include a
           // `richMediaRejected` flag; the JS / TS / Python runners
           // forward that flag to `runtime.rich_media_payload_rejected`.
-          const lingua = buildLinguaWorkerBridge(ctx, runId);
+          lingua = buildLinguaWorkerBridge(ctx, runId, {
+            ...(exec.sourceMappingEnabled !== false ? { callingLine: source.callingLine } : {}),
+            richDisplay: exec.richDisplay === true,
+            truncate: text => truncateJsWorkerValue(text, marker),
+          });
 
           const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
           const fn = new AsyncFunction(
@@ -358,6 +363,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         // result serialization so their cost never pollutes it.
         flushLineTimings();
         flushTimeline();
+        if (lingua) flushLinguaProgress(lingua);
 
         if (result !== undefined) {
           const resultMessage: {
@@ -436,6 +442,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         flushLineTimings();
         timeline?.noteError();
         flushTimeline();
+        if (lingua) flushLinguaProgress(lingua);
         if (err instanceof JsWorkerStdinRequest) {
           ctx.postMessage({ type: 'stdin-request', runId, message: err.message, ...(err.line ? { line: err.line } : {}) });
         } else {

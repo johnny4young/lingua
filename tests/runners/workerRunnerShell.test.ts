@@ -222,7 +222,32 @@ describe('the message pump', () => {
     worker.emitForRun({ type: 'done', executionTime: 1 });
     expect((await promise).stdinRequest).toEqual({ message: 'Name?' });
     const plain = startRun();
-    expect(plain.worker.posted[0]).toMatchObject({ askStdin: false });
+    expect(plain.worker.posted[0]).toMatchObject({ askStdin: false, richDisplay: false });
+  });
+
+  it('hands the worker lingua.display when the Labs flag is on', async () => {
+    const { useSettingsStore } = await import('@/stores/settingsStore');
+    const previous = useSettingsStore.getState().featureFlags;
+    useSettingsStore.setState({ featureFlags: { richDisplay: true } });
+    try {
+      expect(startRun().worker.posted[0]).toMatchObject({ richDisplay: true });
+    } finally {
+      useSettingsStore.setState({ featureFlags: previous });
+    }
+  });
+
+  it('keeps one output per progress bar and streams each update', async () => {
+    const onConsole = vi.fn();
+    const { promise, worker } = startRun({ context: { language: 'javascript', onConsole } });
+    const bar = (value: number) => ({ type: 'console', method: 'log', args: [`${value}`], payload: [{ kind: 'progress', id: `${worker.runId}:1`, label: '', value }] });
+    worker.emitForRun(bar(0));
+    worker.emitForRun({ type: 'console', method: 'log', args: ['between'] });
+    worker.emitForRun(bar(1));
+    worker.emitForRun({ type: 'done', executionTime: 1 });
+    const result = await promise;
+    expect(result.stdout.map(output => output.args[0])).toEqual(['1', 'between']);
+    expect(onConsole).toHaveBeenCalledTimes(3);
+    expect(onConsole.mock.calls[2]![0]).toMatchObject({ args: ['1'], captureOrder: result.stdout[0]!.captureOrder });
   });
 
   it('rejects a scope snapshot whose shape is wrong', async () => {

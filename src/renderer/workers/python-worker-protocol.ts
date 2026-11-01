@@ -24,6 +24,8 @@ export interface PythonWorkerExecuteMessage {
   stdin?: string;
   /** `input()` past the end of `stdin` stops the run with a `stdin-request` reply. */
   askStdin?: boolean;
+  /** Labs: defines `display()` and `lingua.display` for user code. */
+  richDisplay?: boolean;
   captureScope?: boolean;
   scopeDepth?: number;
   richConsoleEnabled?: boolean;
