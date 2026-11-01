@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AppLayout } from './components/Layout';
 import { AppOverlays } from './components/AppOverlays';
 import { AiExplainCodeHost } from './components/AI/AiExplainCodeHost';
+import { AiEditSelectionHost } from './components/AI/AiEditSelectionHost';
 import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
 import { useProjectBundle } from './hooks/useProjectBundle';
@@ -382,6 +383,7 @@ function AppChrome({
       <NativeExecutionWarning />
       <NetworkAskDialog />
       <AiExplainCodeHost />
+      <AiEditSelectionHost />
     </>
   );
 }

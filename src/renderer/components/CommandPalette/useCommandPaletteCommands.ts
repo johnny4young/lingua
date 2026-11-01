@@ -36,6 +36,7 @@ import {
   getActiveEditorLineText,
 } from '../../runtime/editorAccess';
 import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
+import { openEditSelectionForEditor } from '../../stores/aiEditSelectionStore';
 import { appendWatchAtLine, isAppendWatchSupported } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
@@ -339,6 +340,13 @@ export function useCommandPaletteCommands({
               const editor = getActiveEditor();
               if (!editor) return;
               openExplainCodeForEditor(editor, activeTab.language, activeTab.name);
+            }
+          : undefined,
+      onEditSelectedCode:
+        canExplainError && activeTab
+          ? () => {
+              const editor = getActiveEditor();
+              if (editor) openEditSelectionForEditor(editor, activeTab.language, activeTab.name);
             }
           : undefined,
       editorSelectionAvailable,

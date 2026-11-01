@@ -34,6 +34,7 @@ import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/dependencyDetectionPaste';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
+import { openEditSelectionForEditor } from '../../stores/aiEditSelectionStore';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -350,7 +351,20 @@ export function CodeEditor() {
         openExplainCodeForEditor(ed, ctx.language, ctx.name);
       },
     });
-    return () => action.dispose();
+    const edit = editor.addAction({
+      id: 'lingua.ai.editSelection',
+      label: t('ai.editCode.action'),
+      contextMenuGroupId: '9_ai',
+      contextMenuOrder: 2,
+      run: ed => {
+        const ctx = explainCtxRef.current;
+        if (ctx) openEditSelectionForEditor(ed, ctx.language, ctx.name);
+      },
+    });
+    return () => {
+      action.dispose();
+      edit.dispose();
+    };
   }, [editorInstance, aiEntitled, t]);
 
   useEffect(() => {
