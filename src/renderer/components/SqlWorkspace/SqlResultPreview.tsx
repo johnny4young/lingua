@@ -41,6 +41,7 @@ import { SqlResultToolbar } from './SqlResultToolbar';
 import { SqlColumnRail } from './SqlColumnRail';
 import { SqlValueViewer } from './SqlValueViewer';
 import { DEFAULT_EXPORT_OPTIONS, serializeRows } from './sqlResultExport';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 /** Where the rows on screen came from: an editor run, or a table opened from the Explorer. */
 export type SqlResultSource =
@@ -143,6 +144,7 @@ export function SqlResultPreview({
   rowEdits,
 }: SqlResultPreviewProps) {
   const { t, i18n } = useTranslation();
+  const richDisplay = useSettingsStore((state) => state.featureFlags.richDisplay === true);
   const num = (value: number) => formatNumber(value, i18n.language);
   // The picked view survives re-runs: the user's last view is the one they want next.
   const [bodyTab, setBodyTab] = useState<ResultBodyTab>('table');
@@ -578,6 +580,7 @@ export function SqlResultPreview({
                   onCellAction={handleCellAction}
                   onCopyRow={copyRow}
                   linkedColumns={linkedColumns}
+                  magics={richDisplay}
                   {...(foreignKeys
                     ? { onFollowLink: (column: string, value: unknown) => foreignKeys.onFollow(outgoingByColumn.get(column)!, value) }
                     : {})}

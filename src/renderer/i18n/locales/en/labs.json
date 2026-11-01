@@ -14,5 +14,5 @@
   "settings.labs.flag.runRegions.label": "Run regions",
   "settings.labs.flag.runRegions.description": "// %% (JavaScript, TypeScript) or # %% (Python) lines split a file into regions. Cmd/Ctrl+Enter runs the file up to the end of the region at the cursor and shows that region's output under it; Cmd/Ctrl+Shift+Enter runs the whole file.",
   "settings.labs.flag.richDisplay.label": "Rich display",
-  "settings.labs.flag.richDisplay.description": "lingua.display(value) in JavaScript and TypeScript, and display(value) in Python, show a value in the Console as a table, image, chart, tree or sandboxed HTML, detected or chosen with { as } (as_= in Python). lingua.display.progress(label) adds one Console row that redraws as the run updates it; in Python it shows its last value."
+  "settings.labs.flag.richDisplay.description": "lingua.display(value) in JavaScript and TypeScript, and display(value) in Python, show a value in the Console as a table, image, chart, tree or sandboxed HTML, detected or chosen with { as } (as_= in Python). lingua.display.progress(label) adds one Console row that redraws as the run updates it; in Python it shows its last value. The SQL grid also draws links, 0–1 bars, checks and image thumbnails."
 }

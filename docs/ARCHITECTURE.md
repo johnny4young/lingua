@@ -764,6 +764,16 @@ defined, from the editor's globals and from notebook scopes. A progress output c
 the streamed result panel, and the console store redraws that bar's row in
 place, keeping its id.
 
+The SQL grid reuses the flag: `components/SqlWorkspace/sqlCellMagic.ts` picks a
+link (no credentials or control characters), a 0–1 bar (columns from
+`fractionColumns` over the rows the grid shows), a check or a thumbnail (raster
+BLOBs by their signature and base64 raster `data:image/` values, up to about
+300 KB, the BLOB's base64 used as the data URL as is) for a cell, once per row
+object, and the grid draws it with or instead of the text; foreign-key links
+keep priority, links open through `openExternal` only on Cmd/Ctrl+click (a
+middle click is blocked), and no remote URL loads. `normalizeExternalUrl`
+refuses URLs with credentials for every caller.
+
 ### Run regions
 
 Run regions (Labs) split a JS / TS / Python tab at `%%` markers
