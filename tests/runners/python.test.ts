@@ -353,6 +353,35 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(result.stdout[0]?.line).toBe(3);
   });
 
+  it('keeps one output per progress bar', async () => {
+    class ProgressWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          for (const value of [0, 0.5, 1]) {
+            handler?.({ data: { type: 'console', runId: message.runId, method: 'log', args: [`${value}`], payload: [{ kind: 'progress', id: 'r:1', label: '', value }] } } as MessageEvent);
+          }
+          handler?.({ data: { type: 'done', runId: message.runId, executionTime: 1 } } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: ProgressWorker, writable: true, configurable: true });
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute('bar = display.progress("x")');
+    expect(result.stdout.map(output => output.args[0])).toEqual(['1']);
+  });
+
   it('asks for stdin only when told and maps the request line back past loop protection', async () => {
     class AskingWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();

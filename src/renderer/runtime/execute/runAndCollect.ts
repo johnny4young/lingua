@@ -15,6 +15,7 @@ import type { NewConsoleEntry } from '../../types/console';
 import type { ConsoleOutput, ExecutionResult, LanguageRunner } from '../../types/execution';
 import { toExecutionPresentation } from '../../utils/executionPresentation';
 import type { RunExecution } from './resolveRunPlan';
+import { replaceProgressOutput } from '../../runners/limits';
 
 export interface RunConsole {
   /** Queue one entry; it reaches the store on the next flush. */
@@ -106,7 +107,7 @@ export async function runAndCollect(
     streamedConsoleCount += 1;
     if (output.type === 'error') {
       streamedStderr.push(output);
-    } else {
+    } else if (!replaceProgressOutput(streamedStdout, output)) {
       streamedStdout.push(output);
     }
     runConsole.add(toConsoleEntry(output, language));

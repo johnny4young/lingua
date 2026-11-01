@@ -20,6 +20,7 @@
 import { truncateUtf8WithMarker } from '../../shared/utf8';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
+import { progressIdOf } from '../../shared/richOutput';
 
 // Re-export the main-side native subprocess caps so renderer
 // surfaces stay co-located and a future bump can update both worker
@@ -110,6 +111,21 @@ export interface ConsoleCapState {
 
 export function createConsoleCapState(): ConsoleCapState {
   return { droppedStdout: 0, droppedStderr: 0, stderrByteTruncated: false };
+}
+
+/**
+ * A progress update replaces its bar's earlier output, keeping that output's
+ * capture order, instead of adding a row; returns the stored output, or null
+ * when `output` is not an update of a bar already in `entries`.
+ */
+export function replaceProgressOutput(entries: ConsoleOutput[], output: ConsoleOutput): ConsoleOutput | null {
+  const id = progressIdOf(output.payload);
+  if (id === null) return null;
+  const at = entries.findIndex(entry => progressIdOf(entry.payload) === id);
+  if (at < 0) return null;
+  const stored = { ...output, captureOrder: entries[at]!.captureOrder };
+  entries[at] = stored;
+  return stored;
 }
 
 /**

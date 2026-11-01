@@ -56,6 +56,8 @@ export function richKindBucket(payload: RichOutputPayload): ConsolePayloadKindBu
       return 'error';
     case 'html':
       return 'html';
+    // Progress stays in the text bucket so the telemetry enum does not widen.
+    case 'progress':
     case 'primitive':
     case 'function':
       return 'text';
@@ -92,6 +94,8 @@ export function typeIcon(payload: RichOutputPayload): string {
       return '◰';
     case 'html':
       return '⌗';
+    case 'progress':
+      return '▰';
   }
 }
 
@@ -145,6 +149,8 @@ export function payloadHasRichSurface(payload: RichOutputPayload): boolean {
     case 'html':
     case 'chart':
       return true;
+    case 'progress':
+      return false;
   }
 }
 

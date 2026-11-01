@@ -6,6 +6,7 @@ import type {
   ConsoleEntryType,
   ConsolePayloadKindFilter,
 } from '../types/console';
+import { progressIdOf } from '../../shared/richOutput';
 
 let entryCounter = 0;
 
@@ -106,6 +107,20 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
         equalityHash: consoleEntryHash(entry),
       };
     });
+    if (newEntries.some((entry) => progressIdOf(entry.payload) !== null)) {
+      set((state) => {
+        // A progress update redraws its bar's row in place, keeping the row id.
+        const entries = state.entries.slice();
+        for (const entry of newEntries) {
+          const id = progressIdOf(entry.payload);
+          const at = id === null ? -1 : entries.findIndex((existing) => progressIdOf(existing.payload) === id);
+          if (at < 0) entries.push(entry);
+          else entries[at] = { ...entry, id: entries[at]!.id, timestamp: entries[at]!.timestamp };
+        }
+        return { entries, collapsedEntries: collapseConsoleEntries(entries) };
+      });
+      return;
+    }
     set((state) => {
       // Collapse consecutive identical entries here (once per
       // push) instead of in the ConsolePanel render. Collapsed groups are

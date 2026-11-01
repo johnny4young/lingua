@@ -19,6 +19,7 @@ import { RichValueImage } from './RichValueImage';
 import { RichValueHtml } from './RichValueHtml';
 import { RichValueError } from './RichValueError';
 import { RichValueChart } from './RichValueChart';
+import { RichValueProgress } from './RichValueProgress';
 
 interface ConsoleEntryRendererProps {
   payloads: RichOutputPayload[];
@@ -201,6 +202,8 @@ function RichValueDispatch({
       );
     case 'chart':
       return <RichValueChart payload={payload} />;
+    case 'progress':
+      return <RichValueProgress payload={payload} />;
     case 'primitive':
     case 'function':
     case 'date':

@@ -50,13 +50,14 @@ import {
 } from './networkPolicyBridge';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import {
-  appendCappedOutput,
+  appendCappedOutput, replaceProgressOutput,
   createConsoleCapState,
   runnerStoppedResult,
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
 import { sanitizeStdinRequest } from '../utils/stdinRequest';
+import { useSettingsStore } from '../stores/settingsStore';
 
 const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
 
@@ -281,7 +282,8 @@ export class WorkerRunnerShell {
               const { kind, reason } = msg.richMediaRejected;
               void trackEvent('runtime.rich_media_payload_rejected', { kind, reason });
             }
-            const live = appendCappedOutput({ stdout, stderr }, caps, output, msg.method === 'error', t);
+            const updated = replaceProgressOutput(stdout, output);
+            const live = updated ?? appendCappedOutput({ stdout, stderr }, caps, output, msg.method === 'error', t);
             if (live) context?.onConsole?.(live);
             break;
           }
@@ -514,6 +516,7 @@ export class WorkerRunnerShell {
         // behavior in place.
         stdin: context?.stdin,
         askStdin: context?.askStdin === true,
+        richDisplay: useSettingsStore.getState().featureFlags.richDisplay === true,
         // Variable inspector capture. Debug and record runs skip it; the debugger drawer
         // already exposes the paused-frame locals and a second snapshot would
         // race with the resume protocol.

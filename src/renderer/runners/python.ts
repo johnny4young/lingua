@@ -37,7 +37,7 @@ import {
   networkTabKey,
 } from './networkPolicyBridge';
 import {
-  appendCappedConsole,
+  appendCappedConsole, replaceProgressOutput,
   capStderrIfOverflowing,
   runnerStoppedResult,
   runnerTimeoutResult,
@@ -475,6 +475,9 @@ export class PythonRunner implements LanguageRunner {
                 reason,
               });
             }
+            if (replaceProgressOutput(stdout, output)) {
+              break;
+            }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(
@@ -654,6 +657,7 @@ export class PythonRunner implements LanguageRunner {
         sourceMappingEnabled: true,
         autoLog: context?.autoLog === true,
         askStdin: context?.askStdin === true,
+        richDisplay: useSettingsStore.getState().featureFlags.richDisplay === true,
         network,
       });
     });
