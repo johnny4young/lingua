@@ -36,6 +36,7 @@ import {
   networkRunPolicyFor,
   networkTabKey,
 } from './networkPolicyBridge';
+import { BLOCK_ALL_NETWORK } from '../../shared/networkPolicy';
 import {
   appendCappedConsole, replaceProgressOutput, sanitizeProgressOutput,
   capStderrIfOverflowing,
@@ -339,7 +340,7 @@ export class PythonRunner implements LanguageRunner {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = context?.network ?? networkRunPolicyFor(networkKey);
+    const network = context?.blockNetwork ? BLOCK_ALL_NETWORK : networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>((resolve) => {
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;

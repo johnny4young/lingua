@@ -48,6 +48,7 @@ import {
   networkRunPolicyFor,
   networkTabKey,
 } from './networkPolicyBridge';
+import { BLOCK_ALL_NETWORK } from '../../shared/networkPolicy';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import {
   appendCappedOutput, replaceProgressOutput, sanitizeProgressOutput,
@@ -192,7 +193,7 @@ export class WorkerRunnerShell {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = context?.network ?? networkRunPolicyFor(networkKey);
+    const network = context?.blockNetwork ? BLOCK_ALL_NETWORK : networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>(resolve => {
       // A new worker per execution, for clean state.

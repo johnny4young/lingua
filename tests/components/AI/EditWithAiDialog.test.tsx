@@ -4,6 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../../src/renderer/i18n';
 import { EditWithAiDialog } from '../../../src/renderer/components/AI/EditWithAiDialog';
 import { useAiConfigStore } from '../../../src/renderer/stores/aiConfigStore';
+import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import type { EditPreview } from '../../../src/renderer/runtime/aiEditPreview';
 
 let entitled = true;
@@ -190,6 +191,36 @@ describe('EditWithAiDialog', () => {
       expect(outer).not.toHaveBeenCalled();
     } finally {
       window.removeEventListener('keydown', outer);
+    }
+  });
+
+  it('runs the preview on the redacted file', async () => {
+    configureAi();
+    const secret = { ...request, code: 'const API_KEY = "hunter2-real-secret-value";\nconst total = a + b;' };
+    secret.start = secret.code.indexOf('a + b');
+    secret.end = secret.start + 5;
+    const runPreviewImpl = vi.fn().mockResolvedValue(ran);
+    const runChatCompletionImpl = vi.fn().mockResolvedValue({ ok: true, content: '```js\n1 + 2\n```' });
+    render(<EditWithAiDialog request={secret} onClose={vi.fn()} runChatCompletionImpl={runChatCompletionImpl as never} runPreviewImpl={runPreviewImpl as never} />);
+    await askFor();
+    expect(runPreviewImpl).toHaveBeenCalledWith(
+      'javascript',
+      'const API_KEY = "<redacted>"\nconst total = a + b;',
+      'const API_KEY = "<redacted>"\nconst total = 1 + 2;'
+    );
+  });
+
+  it('refuses to write into another tab that shares the model', async () => {
+    configureAi();
+    useEditorStore.setState({ activeTabId: 'tab-2' });
+    try {
+      render(<EditWithAiDialog request={{ ...request, tabId: 'tab-1' }} onClose={vi.fn()} runChatCompletionImpl={vi.fn().mockResolvedValue({ ok: true, content: '```js\n1 + 2\n```' }) as never} runPreviewImpl={vi.fn().mockResolvedValue(ran) as never} />);
+      await askFor();
+      fireEvent.click(screen.getByTestId('ai-edit-accept'));
+      expect(editor.executeEdits).not.toHaveBeenCalled();
+      expect(screen.getByTestId('ai-edit-stale')).toBeTruthy();
+    } finally {
+      useEditorStore.setState({ activeTabId: null });
     }
   });
 

@@ -3,7 +3,7 @@
  * rewrite one span of a file, and the reading of its answer. Pure, no network.
  */
 
-import { answerLanguageLine, previewOf, redactSecretsFromCode, type ChatMessage } from './explainError';
+import { answerLanguageLine, previewOf, redactSecretsFromCode, type ChatMessage, type RedactionResult } from './explainError';
 
 export const MAX_EDIT_INSTRUCTION_CHARS = 500;
 /** Past this the file is sent as the selection with this many lines around it. */
@@ -30,6 +30,8 @@ export interface EditSelectionRequest {
   readonly messages: ChatMessage[];
   readonly preview: string;
   readonly redactedCount: number;
+  /** What was sent, and the span Accept replaces. */
+  readonly span: RedactedSpan;
   readonly model?: string;
 }
 
@@ -39,21 +41,63 @@ const SYSTEM_PROMPT =
   'in one fenced code block, with no explanation. Keep everything outside the span as it is, ' +
   'match the surrounding indentation, and never invent secrets or ask for keys.';
 
-function window(code: string, start: number, end: number): string {
-  const marked = `${code.slice(0, start)}${START}${code.slice(start, end)}${END}${code.slice(end)}`;
+/** The redacted file around the span to edit; `start`/`end` may be wider than asked (see `redactAround`). */
+interface RedactedSpan {
+  readonly before: string;
+  readonly selected: string;
+  readonly after: string;
+  readonly start: number;
+  readonly end: number;
+  readonly redactedCount: number;
+}
+
+function lineStart(code: string, offset: number): number {
+  return code.lastIndexOf('\n', offset - 1) + 1;
+}
+
+function lineEnd(code: string, offset: number): number {
+  if (offset > 0 && code[offset - 1] === '\n') return offset;
+  const next = code.indexOf('\n', offset);
+  return next === -1 ? code.length : next;
+}
+
+/**
+ * Redacts the text before, inside and after the span separately, so the markers
+ * can go between them without hiding a secret from the line-anchored and token
+ * patterns. When that differs from redacting the whole file (a boundary splits a
+ * secret), the span widens to whole lines, then to the whole file.
+ */
+function redactAround(code: string, start: number, end: number): RedactedSpan {
+  const whole = redactSecretsFromCode(code).code;
+  const spans: Array<[number, number]> = [
+    [start, end],
+    [lineStart(code, start), lineEnd(code, end)],
+    [0, code.length],
+  ];
+  for (const [from, to] of spans) {
+    const parts = [code.slice(0, from), code.slice(from, to), code.slice(to)].map(redactSecretsFromCode);
+    if (parts.map(part => part.code).join('') !== whole) continue;
+    const [before, selected, after] = parts as [RedactionResult, RedactionResult, RedactionResult];
+    const redactedCount = before.redactedCount + selected.redactedCount + after.redactedCount;
+    return { before: before.code, selected: selected.code, after: after.code, start: from, end: to, redactedCount };
+  }
+  throw new Error('unreachable: the whole-file span always matches');
+}
+
+function window(span: RedactedSpan): string {
+  const marked = `${span.before}${START}${span.selected}${END}${span.after}`;
   if (marked.length <= MAX_EDIT_FILE_CHARS) return marked;
   const lines = marked.split('\n');
-  // From offsets, not a marker search: the file itself may contain the marker text.
-  const first = code.slice(0, start).split('\n').length - 1;
-  const last = first + code.slice(start, end).split('\n').length - 1;
+  // From the parts, not a marker search: the file itself may contain the marker text.
+  const first = span.before.split('\n').length - 1;
+  const last = first + span.selected.split('\n').length - 1;
   const from = Math.max(0, first - CONTEXT_LINES);
   const to = Math.min(lines.length, last + CONTEXT_LINES + 1);
   return `${from > 0 ? '…\n' : ''}${lines.slice(from, to).join('\n')}${to < lines.length ? '\n…' : ''}`;
 }
 
 export function buildEditSelectionRequest(input: EditSelectionInput): EditSelectionRequest {
-  const marked = window(input.code, input.start, input.end);
-  const redaction = redactSecretsFromCode(marked);
+  const span = redactAround(input.code, input.start, input.end);
   const fileLabel = input.filename ? ` (${input.filename})` : '';
   const instruction = input.instruction.trim().slice(0, MAX_EDIT_INSTRUCTION_CHARS);
   const messages: ChatMessage[] = [
@@ -63,10 +107,10 @@ export function buildEditSelectionRequest(input: EditSelectionInput): EditSelect
       content:
         `Language: ${input.language}${fileLabel}\n` +
         answerLanguageLine(input.answerLanguage) +
-        `Change: ${instruction}\n\nFile:\n\`\`\`${input.language}\n${redaction.code}\n\`\`\``,
+        `Change: ${instruction}\n\nFile:\n\`\`\`${input.language}\n${window(span)}\n\`\`\``,
     },
   ];
-  const request: EditSelectionRequest = { messages, preview: previewOf(messages), redactedCount: redaction.redactedCount };
+  const request: EditSelectionRequest = { messages, preview: previewOf(messages), redactedCount: span.redactedCount, span };
   return input.model ? { ...request, model: input.model } : request;
 }
 

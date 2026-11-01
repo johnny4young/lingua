@@ -115,9 +115,12 @@ last is answered, as for a debugger pause. Ruby's synchronous eval
 cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
 it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
 
-`ExecutionContext.network` replaces the Labs policy for one run. Edit with AI
+`ExecutionContext.blockNetwork` blocks every host for one run whatever the
+Labs policy says; it can only tighten the policy, never loosen it. Edit with AI
 (`runtime/aiEditPreview.ts`) uses it to run the file before and after the AI's
-change with every host blocked and a 5 s timeout, outside the tab's console,
+change with a 5 s timeout. Both runs use the redacted file the model saw, so the
+AI's code never holds a secret that was masked from it. They stay outside the
+tab's console,
 results and history; blocked hosts still reach the Privacy & Trust log, as for
 Labs runs. Both runs go to a new runner instance, never the shared
 `runnerManager` one, and the runner is stopped afterwards, terminating its

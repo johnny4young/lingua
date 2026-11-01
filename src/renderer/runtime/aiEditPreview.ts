@@ -1,11 +1,9 @@
-import type { NetworkRunPolicy } from '../../shared/networkPolicy';
 import { JavaScriptRunner } from '../runners/javascript';
 import { PythonRunner } from '../runners/python';
 import { TypeScriptRunner } from '../runners/typescript';
 import type { ExecutionContext, ExecutionResult } from '../types/execution';
 
 const PREVIEW_TIMEOUT_MS = 5_000;
-const BLOCK_NETWORK: NetworkRunPolicy = { policy: 'block', allowedHosts: [], blockedHosts: [] };
 
 export interface PreviewRun {
   error: string | null;
@@ -46,7 +44,7 @@ function previewRunner(language: string): JavaScriptRunner | TypeScriptRunner | 
 export async function runEditPreview(language: string, before: string, after: string): Promise<EditPreview> {
   const runner = previewRunner(language);
   if (!runner) return { kind: 'skipped' };
-  const context: ExecutionContext = { language: language as ExecutionContext['language'], timeout: PREVIEW_TIMEOUT_MS, network: BLOCK_NETWORK };
+  const context: ExecutionContext = { language: language as ExecutionContext['language'], timeout: PREVIEW_TIMEOUT_MS, blockNetwork: true };
   const run = async (code: string, scopeId: string): Promise<PreviewRun> => {
     try {
       return summarize(await runner.execute(code, { ...context, scopeId }));

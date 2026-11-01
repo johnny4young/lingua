@@ -135,10 +135,10 @@ export function CodeEditor() {
   // palette). The action closure reads live tab context through a ref so it
   // never needs re-registering on every keystroke.
   const aiEntitled = useEntitlement('LOCAL_AI');
-  const explainCtxRef = useRef<{ language: string; name: string } | null>(null);
+  const explainCtxRef = useRef<{ id: string; language: string; name: string } | null>(null);
   useEffect(() => {
     explainCtxRef.current = activeTab
-      ? { language: activeTab.language, name: activeTab.name }
+      ? { id: activeTab.id, language: activeTab.language, name: activeTab.name }
       : null;
   }, [activeTab]);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
@@ -358,7 +358,7 @@ export function CodeEditor() {
       contextMenuOrder: 2,
       run: ed => {
         const ctx = explainCtxRef.current;
-        if (ctx) openEditSelectionForEditor(ed, ctx.language, ctx.name);
+        if (ctx) openEditSelectionForEditor(ed, ctx.language, ctx.name, ctx.id);
       },
     });
     return () => {

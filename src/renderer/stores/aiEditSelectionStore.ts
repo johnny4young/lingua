@@ -11,6 +11,7 @@ export interface EditSelectionRequest {
   /** Accept writes only into this model at this version, so an edit in between cannot be overwritten. */
   readonly modelUri: string;
   readonly versionId: number;
+  readonly tabId?: string;
 }
 
 interface AiEditSelectionState {
@@ -26,7 +27,7 @@ export const useAiEditSelectionStore = create<AiEditSelectionState>(set => ({
 }));
 
 /** The selection, or the whole buffer when nothing is selected; nothing for an empty buffer. */
-export function openEditSelectionForEditor(editor: monacoTypes.editor.ICodeEditor, language: string, filename?: string): void {
+export function openEditSelectionForEditor(editor: monacoTypes.editor.ICodeEditor, language: string, filename?: string, tabId?: string): void {
   const model = editor.getModel();
   if (!model) return;
   const code = model.getValue();
@@ -41,6 +42,7 @@ export function openEditSelectionForEditor(editor: monacoTypes.editor.ICodeEdito
     end,
     language,
     ...(filename ? { filename } : {}),
+    ...(tabId ? { tabId } : {}),
     modelUri: model.uri.toString(),
     versionId: model.getVersionId(),
   });

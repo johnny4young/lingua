@@ -577,12 +577,11 @@ describe('debugger stepping', () => {
     }
   });
 
-  it('lets the run context replace the Labs policy', () => {
-    useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'allow' });
+  it('lets the run context block every host whatever the Labs policy says', () => {
+    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
     try {
-      const block = { policy: 'block' as const, allowedHosts: [], blockedHosts: [] };
-      const { worker } = startRun({ context: { tabId: 'tab-preview', network: block } });
-      expect(worker.posted[0]?.['network']).toEqual(block);
+      const { worker } = startRun({ context: { tabId: 'tab-preview', blockNetwork: true } });
+      expect(worker.posted[0]?.['network']).toEqual({ policy: 'block', allowedHosts: [], blockedHosts: [] });
     } finally {
       useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
     }

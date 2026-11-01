@@ -13,6 +13,7 @@ import { runChatCompletion, type AiChatResult } from '../../runtime/aiClient';
 import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { isAiConfigured, useAiConfigStore } from '../../stores/aiConfigStore';
 import type { EditSelectionRequest } from '../../stores/aiEditSelectionStore';
+import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { isLocalAiEndpoint } from '../../utils/loopbackHost';
 import { formatRunDuration } from '../../utils/timeLabels';
@@ -97,7 +98,6 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
   const configured = isAiConfigured({ endpoint, apiKey, model });
   const send = runChatCompletionImpl ?? runChatCompletion;
   const preview = runPreviewImpl ?? runEditPreview;
-  const selected = request.code.slice(request.start, request.end);
   const answerLanguage = answerLanguageFor(i18n.resolvedLanguage);
   const built = useMemo(
     () =>
@@ -113,6 +113,8 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
       }),
     [request, instruction, answerLanguage, model]
   );
+  const { span } = built;
+  const selected = request.code.slice(span.start, span.end);
 
   useEffect(() => () => controller.current?.abort('dialog-closed'), []);
 
@@ -140,7 +142,8 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
     }
     const proposal = readEditAnswer(result.content, selected);
     setPhase({ kind: 'running', proposal });
-    const ran = await preview(request.language, request.code, applyEdit(request.code, request.start, request.end, proposal));
+    // The preview runs the redacted file, so the AI's code never sees a secret it was not sent.
+    const ran = await preview(request.language, `${span.before}${span.selected}${span.after}`, `${span.before}${proposal}${span.after}`);
     if (!own.signal.aborted) setPhase({ kind: 'ready', proposal, preview: ran });
   };
 
@@ -149,12 +152,14 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
     const editor = getActiveEditor();
     const monaco = getActiveMonaco();
     const model = editor?.getModel();
-    if (!editor || !monaco || !model || model.uri.toString() !== request.modelUri || model.getVersionId() !== request.versionId) {
+    // Tabs can share one Monaco model, so the tab is checked as well as the model and its version.
+    const sameTab = request.tabId === undefined || useEditorStore.getState().activeTabId === request.tabId;
+    if (!editor || !monaco || !model || !sameTab || model.uri.toString() !== request.modelUri || model.getVersionId() !== request.versionId) {
       setStale(true);
       return;
     }
-    const from = model.getPositionAt(request.start);
-    const to = model.getPositionAt(request.end);
+    const from = model.getPositionAt(span.start);
+    const to = model.getPositionAt(span.end);
     editor.pushUndoStop();
     editor.executeEdits('lingua.ai.edit', [{ range: new monaco.Range(from.lineNumber, from.column, to.lineNumber, to.column), text: phase.proposal, forceMoveMarkers: true }]);
     editor.pushUndoStop();
@@ -254,7 +259,7 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
                 <div className="h-[340px]" data-testid="ai-edit-diff">
                   <WholeFileDiff
                     original={request.code}
-                    modified={applyEdit(request.code, request.start, request.end, ready!.proposal)}
+                    modified={applyEdit(request.code, span.start, span.end, ready!.proposal)}
                     language={request.language}
                     dark={theme !== 'lingua-light'}
                   />

@@ -69,6 +69,56 @@ describe('buildEditSelectionRequest', () => {
   });
 });
 
+describe('redaction around the span', () => {
+  const fakeKey = ['sk', 'ant', 'abcdefghijklmnop1234'].join('-');
+  const content = (code: string, start: number, end: number) =>
+    buildEditSelectionRequest({ code, start, end, instruction: 'x', language: 'javascript' });
+
+  it('redacts a secret assignment on the first line of a whole-buffer selection', () => {
+    const code = 'const API_KEY = "hunter2-real-secret-value";\nconst x = 1;';
+    const request = content(code, 0, code.length);
+    expect(request.redactedCount).toBe(1);
+    expect(request.messages[1]!.content).not.toContain('hunter2');
+    expect(request.messages[1]!.content).toContain('<<<SELECTION>>>const API_KEY = "<redacted>"\nconst x = 1;<<<END SELECTION>>>');
+  });
+
+  it('redacts a secret line the selection starts on', () => {
+    const code = 'const a = 1;\n  password = "hunter2-real-secret-value";\nconst b = 2;';
+    const start = code.indexOf('  password');
+    expect(content(code, start, code.length).messages[1]!.content).not.toContain('hunter2');
+  });
+
+  it('widens to whole lines when a boundary splits a token, and reports the span it replaces', () => {
+    const code = `const a = 1;\nconst k = "${fakeKey}";\nconst b = 2;`;
+    const start = code.indexOf('abcdefghij');
+    const request = content(code, start, start + 4);
+    expect(request.messages[1]!.content).not.toContain('abcdefghij');
+    expect(request.span).toMatchObject({ start: code.indexOf('const k'), end: code.indexOf('\nconst b') });
+  });
+
+  it('does not pull in the next line when the widened selection ended on a line break', () => {
+    const code = `const a = 1;\nconst k = "${fakeKey}";\nconst b = 2;`;
+    const end = code.indexOf('const b');
+    expect(content(code, code.indexOf('abcdefghij'), end).span).toMatchObject({ start: code.indexOf('const k'), end });
+  });
+
+  it('widens to the whole file when a private key spans the selection boundary', () => {
+    const armor = (edge: string) => `-----${edge} RSA ${['PRIVATE', 'KEY'].join(' ')}-----`;
+    const pem = `${armor('BEGIN')}\nMIIEowIBAAKCAQEA\n${armor('END')}`;
+    const code = `const a = 1;\nconst key = \`${pem}\`;\nconst b = 2;`;
+    const start = code.indexOf('MIIE');
+    const request = content(code, start, code.length);
+    expect(request.messages[1]!.content).not.toContain('MIIE');
+    expect(request.span).toMatchObject({ start: 0, end: code.length });
+  });
+
+  it('keeps the exact span when nothing secret is split', () => {
+    const code = 'const a = 1;\nconst b = a + 1;';
+    const start = code.indexOf('a + 1');
+    expect(content(code, start, start + 5).span).toMatchObject({ start, end: start + 5, before: 'const a = 1;\nconst b = ', selected: 'a + 1' });
+  });
+});
+
 describe('readEditAnswer', () => {
   it('keeps the line break a selection ended with', () => {
     expect(readEditAnswer('```js\nlet b = 2;\n```', 'let b = 1;\n')).toBe('let b = 2;\n');

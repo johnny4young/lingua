@@ -412,12 +412,11 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(result.stdinRequest).toEqual({ message: 'Name: ', line: 3 });
   });
 
-  it('sends the network policy the run context carries', async () => {
+  it('blocks every host when the run context asks', async () => {
     const runner = new PythonRunner();
     await runner.init();
-    const block = { policy: 'block' as const, allowedHosts: [], blockedHosts: [] };
-    await runner.execute('print("hi")', { language: 'python', network: block });
-    expect(postedMessages.find(m => m.type === 'execute')?.network).toEqual(block);
+    await runner.execute('print("hi")', { language: 'python', blockNetwork: true });
+    expect(postedMessages.find(m => m.type === 'execute')?.network).toEqual({ policy: 'block', allowedHosts: [], blockedHosts: [] });
   });
 
   it('runs an isolated runner without the user env and leaves the shared boot progress alone', async () => {

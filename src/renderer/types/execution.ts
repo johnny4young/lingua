@@ -9,7 +9,7 @@
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
-import type { NetworkRunPolicy, NetworkWorkerMessage } from '../../shared/networkPolicy';
+import type { NetworkWorkerMessage } from '../../shared/networkPolicy';
 import type { ExecutionTimeline, TimelineWorkerMessage } from '../../shared/timeline';
 import type { Language } from './language';
 
@@ -66,8 +66,8 @@ export interface ExecutionContext {
    */
   stdin?: string;
   askStdin?: boolean;
-  /** Replaces the Labs network policy for this run; AI edit previews block all hosts. */
-  network?: NetworkRunPolicy;
+  /** Blocks every host for this run whatever the Labs policy says; AI edit previews set it. */
+  blockNetwork?: boolean;
   /** Argv from the active input set; unsupported runners ignore it. */
   args?: string[];
   /**

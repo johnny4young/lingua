@@ -41,7 +41,6 @@ vi.mock('../../src/renderer/runners/python', () => ({
 
 import { comparePreview, runEditPreview } from '../../src/renderer/runtime/aiEditPreview';
 
-const BLOCK = { policy: 'block', allowedHosts: [], blockedHosts: [] };
 
 describe('runEditPreview', () => {
   beforeEach(() => {
@@ -58,7 +57,7 @@ describe('runEditPreview', () => {
     expect(mocks.runners).toHaveLength(1);
     const [runner] = mocks.runners;
     expect(runner!.init).toHaveBeenCalledTimes(1);
-    for (const call of runner!.execute.mock.calls) expect(call[1]).toMatchObject({ timeout: 5_000, network: BLOCK });
+    for (const call of runner!.execute.mock.calls) expect(call[1]).toMatchObject({ timeout: 5_000, blockNetwork: true });
     expect(runner!.stop).toHaveBeenCalledTimes(1);
   });
 

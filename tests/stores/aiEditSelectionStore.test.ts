@@ -22,7 +22,7 @@ describe('aiEditSelectionStore', () => {
   beforeEach(() => useAiEditSelectionStore.setState({ request: null }));
 
   it('opens on the selected span with the model it came from', () => {
-    openEditSelectionForEditor(makeEditor('abc def ghi', { start: 4, end: 7 }), 'javascript', 'a.js');
+    openEditSelectionForEditor(makeEditor('abc def ghi', { start: 4, end: 7 }), 'javascript', 'a.js', 'tab-1');
     expect(useAiEditSelectionStore.getState().request).toEqual({
       code: 'abc def ghi',
       start: 4,
@@ -31,6 +31,7 @@ describe('aiEditSelectionStore', () => {
       filename: 'a.js',
       modelUri: 'inmemory://tab-1',
       versionId: 7,
+      tabId: 'tab-1',
     });
   });
 

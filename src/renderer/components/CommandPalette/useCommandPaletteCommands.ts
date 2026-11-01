@@ -346,7 +346,7 @@ export function useCommandPaletteCommands({
         canExplainError && activeTab
           ? () => {
               const editor = getActiveEditor();
-              if (editor) openEditSelectionForEditor(editor, activeTab.language, activeTab.name);
+              if (editor) openEditSelectionForEditor(editor, activeTab.language, activeTab.name, activeTab.id);
             }
           : undefined,
       editorSelectionAvailable,
