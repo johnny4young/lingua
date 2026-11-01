@@ -743,6 +743,22 @@ Scratchpad auto-run of the tab drops it. Replay reads the recording and never ru
 leaves the call, both backward too), the other runs of a line, what a line
 changed against the next step in the same call, and the lines not reached yet.
 
+### Rich display
+
+With the Labs flag on, the runners pass `richDisplay` to the workers.
+`shared/richDisplay.ts` turns a value into one payload (detected, or forced
+with `as`, reusing the auto-table, the scope serializer and the media
+validators) and builds `progress` payloads. The JS bridge adds
+`lingua.display` with the calling line and `lingua.display.progress`, which
+posts a bar only when its whole percent changes or, for a new note, at most
+every 50 ms. The Python bootstrap (`python-worker-display.ts`) appends display
+values to the print buffer, so they keep their order with `print()`, and edits
+one buffered entry per bar; a run with the flag off drops the names a flagged
+run defined. A progress output carries its bar id in the payload:
+`replaceProgressOutput` keeps one output per bar in each runner's stdout and in
+the streamed result panel, and the console store redraws that bar's row in
+place, keeping its id.
+
 ### Run regions
 
 Run regions (Labs) split a JS / TS / Python tab at `%%` markers

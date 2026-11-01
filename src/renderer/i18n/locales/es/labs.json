@@ -12,5 +12,7 @@
   "settings.labs.flag.runTimeline.label": "Línea de tiempo de ejecución",
   "settings.labs.flag.runTimeline.description": "Grabar ejecución, en el menú de Run para JavaScript y TypeScript, guarda cada paso de una ejecución: la pestaña Timeline del Dock la reproduce con las variables y la pila de llamadas de cada paso, sin volver a ejecutar el código. Free guarda los últimos 20 pasos.",
   "settings.labs.flag.runRegions.label": "Regiones de ejecución",
-  "settings.labs.flag.runRegions.description": "Las líneas // %% (JavaScript, TypeScript) o # %% (Python) dividen un archivo en regiones. Cmd/Ctrl+Enter ejecuta el archivo hasta el final de la región del cursor y muestra la salida de esa región debajo; Cmd/Ctrl+Shift+Enter ejecuta todo el archivo."
+  "settings.labs.flag.runRegions.description": "Las líneas // %% (JavaScript, TypeScript) o # %% (Python) dividen un archivo en regiones. Cmd/Ctrl+Enter ejecuta el archivo hasta el final de la región del cursor y muestra la salida de esa región debajo; Cmd/Ctrl+Shift+Enter ejecuta todo el archivo.",
+  "settings.labs.flag.richDisplay.label": "Display enriquecido",
+  "settings.labs.flag.richDisplay.description": "lingua.display(valor) en JavaScript y TypeScript, y display(valor) en Python, muestran un valor en la Consola como tabla, imagen, gráfico, árbol o HTML aislado, detectado o elegido con { as }. lingua.display.progress(etiqueta) agrega una fila de la Consola que se redibuja a medida que la ejecución la actualiza."
 }

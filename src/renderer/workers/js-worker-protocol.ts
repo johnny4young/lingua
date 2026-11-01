@@ -32,6 +32,8 @@ export interface JsWorkerExecuteMessage {
   stdin?: string;
   /** Read past the end of `stdin` stops the run with a `stdin-request` reply. */
   askStdin?: boolean;
+  /** Labs: hands user code `lingua.display` and `lingua.display.progress`. */
+  richDisplay?: boolean;
   /**
    * When `true`, capture the post-execute global
    * scope and emit a `'scope-snapshot'` reply before `done`. The

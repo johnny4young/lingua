@@ -323,7 +323,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           // payload via the shared whitelist. Rejects include a
           // `richMediaRejected` flag; the JS / TS / Python runners
           // forward that flag to `runtime.rich_media_payload_rejected`.
-          const lingua = buildLinguaWorkerBridge(ctx, runId);
+          const lingua = buildLinguaWorkerBridge(ctx, runId, exec.sourceMappingEnabled !== false ? source.callingLine : undefined, exec.richDisplay === true);
 
           const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
           const fn = new AsyncFunction(
