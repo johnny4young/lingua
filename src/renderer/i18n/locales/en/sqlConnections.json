@@ -329,5 +329,6 @@
   "sqlWorkspace.edits.menu.setNull": "Set to NULL",
   "sqlWorkspace.edits.menu.duplicate": "Duplicate row",
   "sqlWorkspace.edits.menu.delete": "Delete row",
-  "sqlWorkspace.edits.menu.restore": "Restore row"
+  "sqlWorkspace.edits.menu.restore": "Restore row",
+  "sqlWorkspace.grid.magic.openLink": "Cmd/Ctrl+click to open"
 }

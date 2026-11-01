@@ -13,6 +13,7 @@ import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeName
 import { cn } from '../../utils/cn';
 import { fixedRowWindow } from './sqlResultFilters';
 import { renderCell } from './sqlResultFormatters';
+import { cellMagic, fractionColumns, type SqlCellMagic } from './sqlCellMagic';
 import type { SqlSortState } from './sqlResultGrid';
 import { cellText, cellTone, DELETED, type CellTone, type ShownRow } from './sqlRowEditModel';
 import '../../i18n/sqlConnectionsCatalog';
@@ -77,6 +78,48 @@ function cellColor(value: unknown, numeric: boolean): CSSProperties | undefined 
 
 type TypedColumn = { col: SqlColumnMetadata; duckType: string; numeric: boolean };
 
+/** A link, a 0–1 bar, a check or a thumbnail in place of a cell's text; the value itself is unchanged. */
+function MagicCell({ magic, text }: { magic: SqlCellMagic; text: string }) {
+  const { t } = useTranslation();
+  switch (magic.kind) {
+    case 'link':
+      return (
+        <a
+          href={magic.href}
+          tabIndex={-1}
+          title={t('sqlWorkspace.grid.magic.openLink')}
+          data-testid="sql-cell-link"
+          onClick={(event) => {
+            event.preventDefault();
+            if (!event.metaKey && !event.ctrlKey) return;
+            event.stopPropagation();
+            void window.lingua.openExternal(magic.href);
+          }}
+          className="text-accent-fg underline underline-offset-2"
+        >
+          {text}
+        </a>
+      );
+    case 'bar':
+      return (
+        <span className="inline-flex items-center gap-2" data-testid="sql-cell-bar">
+          <span aria-hidden="true" className="relative h-1.5 w-12 overflow-hidden rounded bg-border-subtle">
+            <span className="absolute inset-y-0 left-0 rounded bg-accent" style={{ width: `${Math.round(magic.value * 100)}%` }} />
+          </span>
+          {text}
+        </span>
+      );
+    case 'check':
+      return (
+        <span data-testid="sql-cell-check" aria-label={text} title={text}>
+          {magic.on ? '✓' : '✗'}
+        </span>
+      );
+    case 'image':
+      return <img src={magic.src} alt="" data-testid="sql-cell-thumb" className="inline-block h-5 max-w-[6rem] rounded-sm object-contain align-middle" />;
+  }
+}
+
 interface RowActions {
   select: (event: MouseEvent, index: number) => void;
   open: (index: number, column: string) => void;
@@ -98,6 +141,7 @@ const GridRow = memo(function GridRow({
   canFollow,
   actions,
   editor,
+  fractions,
 }: {
   row: Record<string, unknown>;
   index: number;
@@ -109,6 +153,8 @@ const GridRow = memo(function GridRow({
   actions: RowActions;
   /** The cell being edited in this row, with its text. */
   editor: { column: string; value: string } | null;
+  /** With Rich display on: the numeric columns drawn as 0–1 bars. */
+  fractions: ReadonlySet<string> | null;
 }) {
   const rowSelected = selectedColumn !== null;
   return (
@@ -120,12 +166,13 @@ const GridRow = memo(function GridRow({
       onClick={(event) => actions.select(event, index)}
       className={`h-[26px] border-b border-border-subtle ${rowSelected ? 'bg-editor-line-hl' : 'hover:bg-bg-panel-alt/60'}`}
     >
-      {typed.map(({ col, numeric }) => {
+      {typed.map(({ col, duckType, numeric }) => {
         const value = row[col.name];
         const isNull = value === null || value === undefined;
         const cellSelected = selectedColumn === col.name;
         const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
         const tone = cellTone(row, col.name);
+        const magic = fractions && !linked ? cellMagic(value, duckType, fractions.has(col.name)) : null;
         if (editor?.column === col.name) {
           return (
             <td key={col.name} role="gridcell" data-column={col.name} className="p-0">
@@ -175,6 +222,8 @@ const GridRow = memo(function GridRow({
               </button>
             ) : tone === 'inserted' && value === undefined ? (
               UNSET_CELL
+            ) : magic ? (
+              <MagicCell magic={magic} text={renderCell(value)} />
             ) : (
               renderCell(value)
             )}
@@ -205,6 +254,7 @@ export function SqlVirtualGrid({
   linkedColumns,
   onFollowLink,
   editing,
+  magics = false,
 }: {
   columns: ReadonlyArray<SqlColumnMetadata>;
   rows: ReadonlyArray<Record<string, unknown>>;
@@ -218,6 +268,8 @@ export function SqlVirtualGrid({
   linkedColumns?: ReadonlySet<string>;
   onFollowLink?: (column: string, value: unknown) => void;
   editing?: SqlGridEditing;
+  /** Rich display: links, 0–1 bars, checks and thumbnails in the cells. */
+  magics?: boolean;
 }) {
   const { t } = useTranslation();
   const [editor, setEditor] = useState<{ row: number; column: string; value: string; target: Record<string, unknown>; wasEmpty: boolean } | null>(null);
@@ -245,6 +297,11 @@ export function SqlVirtualGrid({
         return { col, duckType, numeric: isNumericSqlType(duckType) };
       }),
     [columns]
+  );
+
+  const fractions = useMemo(
+    () => (magics ? fractionColumns(typed.map(({ col, numeric }) => ({ name: col.name, numeric })), rows) : null),
+    [magics, typed, rows]
   );
 
   useLayoutEffect(() => {
@@ -431,6 +488,7 @@ export function SqlVirtualGrid({
                 canFollow={onFollowLink !== undefined}
                 actions={rowActions}
                 editor={editor?.row === index ? { column: editor.column, value: editor.value } : null}
+                fractions={fractions}
               />
             );
           })}
