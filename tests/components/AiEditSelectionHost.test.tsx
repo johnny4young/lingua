@@ -27,11 +27,11 @@ describe('AiEditSelectionHost', () => {
     render(<AiEditSelectionHost />);
     act(() => useAiEditSelectionStore.getState().open(base));
     await waitFor(() => expect(screen.getByTestId('edit-dialog-probe').textContent).toBe('1-3'));
-    expect(mounts.count).toBe(1);
+    await waitFor(() => expect(mounts.count).toBe(1));
 
     act(() => useAiEditSelectionStore.getState().open({ ...base, end: 5 }));
     await waitFor(() => expect(screen.getByTestId('edit-dialog-probe').textContent).toBe('1-5'));
-    expect(mounts.count).toBe(2);
+    await waitFor(() => expect(mounts.count).toBe(2));
 
     act(() => useAiEditSelectionStore.getState().close());
     expect(screen.queryByTestId('edit-dialog-probe')).toBeNull();
