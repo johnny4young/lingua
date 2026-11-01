@@ -440,12 +440,19 @@ def __lingua_seed_scope(ns):
     # run (the preamble re-defines them), which is a harmless overwrite.
     for __lingua_k, __lingua_v in list(globals().items()):
         if (
-            __lingua_k in ("print", "display", "lingua")
+            __lingua_k == "print"
+            or (__lingua_k == "display" and getattr(__lingua_v, "__name__", "") == "__lingua_display")
+            or (__lingua_k == "lingua" and __lingua_v is globals().get("__lingua"))
             or __lingua_k == "__mc"
             or __lingua_k == "__builtins__"
             or __lingua_k.startswith("__lingua")
         ):
             ns[__lingua_k] = __lingua_v
+    # A notebook scope drops display and lingua once a run without Rich display removed them.
+    if "display" not in globals() and getattr(ns.get("display"), "__name__", "") == "__lingua_display":
+        del ns["display"]
+    if "lingua" not in globals() and hasattr(ns.get("lingua"), "display"):
+        del ns["lingua"]
       `;
 }
 

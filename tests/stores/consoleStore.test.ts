@@ -373,5 +373,6 @@ describe('consoleStore', () => {
     expect(entries.map(entry => entry.content)).toEqual(['before', 'p 1', 'after']);
     expect(entries[1]!.id).toBe(id);
     expect(collapsedEntries.map(row => row.entry.content)).toEqual(['before', 'p 1', 'after']);
+    expect(collapsedEntries[1]!.entry.id).toBe(id);
   });
 });

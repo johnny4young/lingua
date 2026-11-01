@@ -20,13 +20,14 @@ def __lingua_display(value, as_=None):
     if as_ == "text" or isinstance(value, str):
         text = value if isinstance(value, str) else str(value)
         if as_ is None and text.startswith("data:image/"):
-            return __lingua_image_helper(text)
-        __lingua_display_entry({"kind": "rawText", "text": text}, text.split("\\\\n")[0])
+            head = text[5:64]
+            return __lingua_image_helper(text, head.split(";")[0].split(",")[0] or None)
+        __lingua_display_entry({"kind": "rawText", "text": text}, text.split("\\n")[0])
         return None
-    payload = __lingua_console_serialize(value, force_table=as_ == "table")
+    payload = __lingua_scope_value(value, 1) if as_ == "json" else __lingua_console_serialize(value, force_table=as_ == "table")
     if payload is None:
         payload = {"kind": "rawText", "text": __lingua_repr_safe(value)}
-    __lingua_display_entry(payload, __lingua_repr_safe(value).split("\\\\n")[0])
+    __lingua_display_entry(payload, __lingua_repr_safe(value).split("\\n")[0])
     return None
 
 
@@ -67,4 +68,6 @@ if getattr(globals().get("display"), "__name__", "") == "__lingua_display":
     del globals()["display"]
 if hasattr(globals().get("lingua"), "display") and hasattr(globals().get("lingua"), "chart"):
     del globals()["lingua"]
+for __lingua_name in ("__lingua_display", "__lingua_display_entry", "__lingua_display_progress", "__LinguaProgress"):
+    globals().pop(__lingua_name, None)
 `;

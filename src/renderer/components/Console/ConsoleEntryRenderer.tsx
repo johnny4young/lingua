@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Maximize2 } from 'lucide-react';
 import type { RichOutputPayload } from '../../../shared/richOutput';
+import { progressIdOf } from '../../../shared/richOutput';
 import { formatPayloadInlineSummary } from '../../../shared/richOutput';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import {
@@ -47,6 +48,8 @@ interface ConsoleEntryRendererProps {
 }
 
 const reportedPayloadRows = new WeakSet<RichOutputPayload[]>();
+// A progress row gets a new payload array on every redraw, so it reports once per bar.
+const reportedProgressBars = new Set<string>();
 
 /**
  * Dispatch wrapper that paints a row of rich
@@ -93,6 +96,11 @@ export function ConsoleEntryRenderer({
   useEffect(() => {
     if (reportedPayloadRows.has(payloads)) return;
     reportedPayloadRows.add(payloads);
+    const progressId = progressIdOf(payloads);
+    if (progressId !== null) {
+      if (reportedProgressBars.has(progressId)) return;
+      reportedProgressBars.add(progressId);
+    }
     for (const payload of payloads) {
       track('runtime.console_rich_rendered', {
         kind: richKindBucket(payload),

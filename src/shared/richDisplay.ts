@@ -27,8 +27,21 @@ function displayAs(options: unknown): DisplayAs | null {
   return typeof as === 'string' && (DISPLAY_AS as readonly string[]).includes(as) ? (as as DisplayAs) : null;
 }
 
-function shown(payload: RichOutputPayload, fallback: string): DisplayResult {
-  return { payload, text: formatPayloadInlineSummary(payload)?.display ?? fallback };
+const DISPLAY_TEXT_CHARS = 120;
+
+/** A short one-line text of the value for the console row and the inline pill. */
+function shortText(value: unknown): string {
+  let text: string;
+  try {
+    text = typeof value === 'object' && value !== null ? (JSON.stringify(value) ?? String(value)) : String(value);
+  } catch {
+    text = Object.prototype.toString.call(value);
+  }
+  return text.length > DISPLAY_TEXT_CHARS ? `${text.slice(0, DISPLAY_TEXT_CHARS - 1)}…` : text;
+}
+
+function shown(payload: RichOutputPayload, value: unknown): DisplayResult {
+  return { payload, text: formatPayloadInlineSummary(payload)?.display ?? shortText(value) };
 }
 
 function image(value: unknown): DisplayResult {
@@ -46,15 +59,18 @@ function image(value: unknown): DisplayResult {
  */
 export function buildDisplayPayload(value: unknown, options?: unknown, serialize: SerializeRichValueOptions = {}): DisplayResult {
   const as = displayAs(options);
+  const truncate = serialize.truncate ?? ((input: string) => input);
+  const asText = (text: string): DisplayResult => {
+    const kept = truncate(text);
+    return { payload: wrapAsRawText(kept), text: shortText(kept) };
+  };
   switch (as) {
     case 'table':
-      return shown(forceTablePayload(value, serialize), '[table]');
+      return shown(forceTablePayload(value, serialize), value);
     case 'json':
-      return shown(serializeScopeValue(value, { truncate: serialize.truncate ?? (input => input), errorStack: serialize.errorStack }), '[json]');
-    case 'text': {
-      const text = typeof value === 'string' ? value : String(value);
-      return { payload: wrapAsRawText(text), text };
-    }
+      return shown(serializeScopeValue(value, { truncate, errorStack: serialize.errorStack }), value);
+    case 'text':
+      return asText(typeof value === 'string' ? value : String(value));
     case 'image':
       return image(value);
     case 'html': {
@@ -71,8 +87,8 @@ export function buildDisplayPayload(value: unknown, options?: unknown, serialize
       return { payload: { kind: 'chart', spec }, text: '[chart]' };
     }
     default:
-      if (typeof value === 'string') return value.startsWith('data:image/') ? image(value) : { payload: wrapAsRawText(value), text: value };
-      return shown(serializeRichValue(value, serialize), '[display]');
+      if (typeof value === 'string') return value.startsWith('data:image/') ? image(value) : asText(value);
+      return shown(serializeRichValue(value, serialize), value);
   }
 }
 

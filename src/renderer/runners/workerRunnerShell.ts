@@ -50,7 +50,7 @@ import {
 } from './networkPolicyBridge';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import {
-  appendCappedOutput, replaceProgressOutput,
+  appendCappedOutput, replaceProgressOutput, sanitizeProgressOutput,
   createConsoleCapState,
   runnerStoppedResult,
   runnerTimeoutResult,
@@ -267,9 +267,12 @@ export class WorkerRunnerShell {
             // Thread the additive `payload` through to `ConsoleOutput`. Absent
             // when the legacy protocol omits the field, so the renderer text
             // path keeps working unchanged.
-            const output: ConsoleOutput = msg.payload
-              ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
-              : { type: msg.method, args: msg.args, line: msg.line };
+            const output: ConsoleOutput = sanitizeProgressOutput(
+              msg.payload
+                ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
+                : { type: msg.method, args: msg.args, line: msg.line },
+              runId
+            );
             output.captureOrder = nextCaptureOrder++;
             // `console.table` adoption signal. Fire-and-forget; the renderer
             // never blocks on telemetry.

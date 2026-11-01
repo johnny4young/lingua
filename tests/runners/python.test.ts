@@ -368,7 +368,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
         if (message.type === 'execute') {
           const handler = this.listeners.get('message');
           for (const value of [0, 0.5, 1]) {
-            handler?.({ data: { type: 'console', runId: message.runId, method: 'log', args: [`${value}`], payload: [{ kind: 'progress', id: 'r:1', label: '', value }] } } as MessageEvent);
+            handler?.({ data: { type: 'console', runId: message.runId, method: 'log', args: [`${value}`], payload: [{ kind: 'progress', id: `${String(message.runId)}:1`, label: '', value }] } } as MessageEvent);
           }
           handler?.({ data: { type: 'done', runId: message.runId, executionTime: 1 } } as MessageEvent);
         }

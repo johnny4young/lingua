@@ -3,7 +3,7 @@ import { progressPercent } from '../../../shared/richDisplay';
 
 /** `lingua.display.progress()`: one bar, redrawn in place as the run updates it. */
 export function RichValueProgress({ payload }: { payload: RichOutputProgress }) {
-  const percent = progressPercent(payload.value);
+  const percent = progressPercent(Number.isFinite(payload.value) ? Math.min(1, Math.max(0, payload.value)) : 0);
   return (
     <span className="inline-flex min-w-0 max-w-full items-center gap-2 font-mono text-caption" data-testid="rich-value-progress">
       {payload.label ? <span className="shrink-0 text-fg-muted">{payload.label}</span> : null}

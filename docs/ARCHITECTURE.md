@@ -751,10 +751,15 @@ with `as`, reusing the auto-table, the scope serializer and the media
 validators) and builds `progress` payloads. The JS bridge adds
 `lingua.display` with the calling line and `lingua.display.progress`, which
 posts a bar only when its whole percent changes or, for a new note, at most
-every 50 ms. The Python bootstrap (`python-worker-display.ts`) appends display
-values to the print buffer, so they keep their order with `print()`, and edits
-one buffered entry per bar; a run with the flag off drops the names a flagged
-run defined. A progress output carries its bar id in the payload:
+every 50 ms, holding the latest note until the run ends; a run gets 100 bars,
+and display text goes through the same value cap as `console.log`. The
+runners rebuild every progress payload and drop the payload of one whose id
+does not belong to the run, so it cannot redraw another run's row. The Python bootstrap (`python-worker-display.ts`) appends tables,
+trees and text to the print buffer, so they keep their order with `print()`,
+and edits one buffered entry per bar; images, HTML and charts go through the
+`__lingua_emit_*` bridge like `__lingua.image/html/chart`, so they post at
+once, without a line. A run with the flag off drops the names a flagged run
+defined, from the editor's globals and from notebook scopes. A progress output carries its bar id in the payload:
 `replaceProgressOutput` keeps one output per bar in each runner's stdout and in
 the streamed result panel, and the console store redraws that bar's row in
 place, keeping its id.

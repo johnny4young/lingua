@@ -1,9 +1,17 @@
-import type { RichOutputPayload } from '../../shared/richOutput';
+import type { RichOutputPayload, RichOutputProgress } from '../../shared/richOutput';
 import { validateChartSpec, validateHtmlPayload, validateImageSrc } from '../../shared/richOutput';
 import { buildDisplayPayload, buildProgressPayload, progressPercent, progressText } from '../../shared/richDisplay';
 
 /** A text-only progress change posts at most this often; a new whole percent always posts. */
 const PROGRESS_TEXT_INTERVAL_MS = 50;
+/** Further `progress()` calls in a run get a bar that draws nothing. */
+const MAX_PROGRESS_BARS = 100;
+const progressFlushes = new WeakMap<LinguaDisplay, () => void>();
+
+/** Posts the notes progress bars were holding back, before the run reports done. */
+export function flushLinguaProgress(bridge: { display?: LinguaDisplay }): void {
+  if (bridge.display) progressFlushes.get(bridge.display)?.();
+}
 
 export interface LinguaProgressBar {
   update: (fraction: unknown, text?: unknown) => void;
@@ -33,8 +41,11 @@ export interface LinguaDisplay {
 export function buildLinguaWorkerBridge(
   context: Worker,
   runId: string,
-  callingLine: () => number | undefined = () => undefined,
-  richDisplay = false
+  {
+    callingLine = () => undefined,
+    richDisplay = false,
+    truncate = (text: string) => text,
+  }: { callingLine?: () => number | undefined; richDisplay?: boolean; truncate?: (text: string) => string } = {}
 ): {
   chart: (spec: unknown) => void;
   image: (payload: unknown) => void;
@@ -94,7 +105,7 @@ export function buildLinguaWorkerBridge(
 
   const display = ((value: unknown, options?: unknown) => {
     const line = callingLine();
-    const shown = buildDisplayPayload(value, options);
+    const shown = buildDisplayPayload(value, options, { truncate });
     if ('rejected' in shown) {
       context.postMessage({ type: 'console', runId, method: 'log', args: [shown.text], richMediaRejected: shown.rejected, ...(line ? { line } : {}) });
       return;
@@ -102,25 +113,33 @@ export function buildLinguaWorkerBridge(
     context.postMessage({ type: 'console', runId, method: 'log', args: [shown.text], payload: [shown.payload], ...(line ? { line } : {}) });
   }) as LinguaDisplay;
   let bars = 0;
+  const pending = new Map<string, () => void>();
   display.progress = label => {
+    if (bars >= MAX_PROGRESS_BARS) return { update: () => {} };
     const id = `${runId}:progress-${(bars += 1)}`;
     const line = callingLine();
     let percent = -1;
     let note: string | undefined;
     let postedAt = 0;
+    const send = (payload: RichOutputProgress) => {
+      pending.delete(id);
+      percent = progressPercent(payload.value);
+      note = payload.text;
+      postedAt = Date.now();
+      context.postMessage({ type: 'console', runId, method: 'log', args: [progressText(payload)], payload: [payload], ...(line ? { line } : {}) });
+    };
     const post = (fraction: unknown, text?: unknown) => {
       const payload = buildProgressPayload(id, label, fraction, text);
-      const nextPercent = progressPercent(payload.value);
-      const now = Date.now();
-      if (nextPercent === percent && (payload.text === note || now - postedAt < PROGRESS_TEXT_INTERVAL_MS)) return;
-      percent = nextPercent;
-      note = payload.text;
-      postedAt = now;
-      context.postMessage({ type: 'console', runId, method: 'log', args: [progressText(payload)], payload: [payload], ...(line ? { line } : {}) });
+      if (progressPercent(payload.value) !== percent) return send(payload);
+      if (payload.text === note) return;
+      // A note that changes faster than the interval waits; the run's end flushes the last one.
+      if (Date.now() - postedAt < PROGRESS_TEXT_INTERVAL_MS) pending.set(id, () => send(payload));
+      else send(payload);
     };
     post(0);
     return { update: post };
   };
+  progressFlushes.set(display, () => [...pending.values()].forEach(flush => flush()));
 
   return {
     ...(richDisplay ? { display } : {}),

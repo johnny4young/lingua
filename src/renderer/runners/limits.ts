@@ -21,6 +21,7 @@ import { truncateUtf8WithMarker } from '../../shared/utf8';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
 import { progressIdOf } from '../../shared/richOutput';
+import { buildProgressPayload } from '../../shared/richDisplay';
 
 // Re-export the main-side native subprocess caps so renderer
 // surfaces stay co-located and a future bump can update both worker
@@ -111,6 +112,18 @@ export interface ConsoleCapState {
 
 export function createConsoleCapState(): ConsoleCapState {
   return { droppedStdout: 0, droppedStderr: 0, stderrByteTruncated: false };
+}
+
+/**
+ * Re-checks a progress payload from a worker, which user code can reach: it is
+ * rebuilt with its caps, and one whose bar does not belong to this run loses
+ * its payload, so it can never redraw another run's row.
+ */
+export function sanitizeProgressOutput(output: ConsoleOutput, runId: string): ConsoleOutput {
+  const raw = output.payload?.[0] as { kind?: unknown; id?: unknown; label?: unknown; value?: unknown; text?: unknown } | undefined;
+  if (raw?.kind !== 'progress') return output;
+  if (typeof raw.id !== 'string' || !raw.id.startsWith(`${runId}:`)) return { type: output.type, args: output.args, ...(output.line ? { line: output.line } : {}) };
+  return { ...output, payload: [buildProgressPayload(raw.id, raw.label, raw.value, raw.text)] };
 }
 
 /**

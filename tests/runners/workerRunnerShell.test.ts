@@ -239,7 +239,7 @@ describe('the message pump', () => {
   it('keeps one output per progress bar and streams each update', async () => {
     const onConsole = vi.fn();
     const { promise, worker } = startRun({ context: { language: 'javascript', onConsole } });
-    const bar = (value: number) => ({ type: 'console', method: 'log', args: [`${value}`], payload: [{ kind: 'progress', id: 'r:1', label: '', value }] });
+    const bar = (value: number) => ({ type: 'console', method: 'log', args: [`${value}`], payload: [{ kind: 'progress', id: `${worker.runId}:1`, label: '', value }] });
     worker.emitForRun(bar(0));
     worker.emitForRun({ type: 'console', method: 'log', args: ['between'] });
     worker.emitForRun(bar(1));

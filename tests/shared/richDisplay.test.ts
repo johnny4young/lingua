@@ -7,7 +7,12 @@ describe('lingua.display payloads', () => {
     expect(buildDisplayPayload([{ city: 'Envigado', orders: 42 }])).toMatchObject({ payload: { kind: 'table', columns: ['city', 'orders'] }, text: expect.stringContaining('Table(1×2)') });
     expect(buildDisplayPayload('hello')).toEqual({ payload: { kind: 'rawText', text: 'hello' }, text: 'hello' });
     expect(buildDisplayPayload('data:image/svg+xml;base64,AAAA')).toMatchObject({ payload: { kind: 'image', mime: 'image/svg+xml' } });
-    expect(buildDisplayPayload({ a: 1 })).toMatchObject({ payload: { kind: 'object' } });
+    expect(buildDisplayPayload({ a: 1 })).toMatchObject({ payload: { kind: 'object' }, text: '{"a":1}' });
+    expect(buildDisplayPayload([1, 2])).toMatchObject({ text: '[1,2]' });
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    expect(buildDisplayPayload(cyclic).text).toBe('[object Object]');
+    expect(buildDisplayPayload({ long: 'x'.repeat(300) }).text).toHaveLength(120);
     expect(buildDisplayPayload([1, 2], { as: 'table' })).toMatchObject({ payload: { kind: 'table', columns: ['value'] } });
     expect(buildDisplayPayload([{ a: 1 }], { as: 'json' })).toMatchObject({ payload: { kind: 'array' } });
     expect(buildDisplayPayload(42, { as: 'text' })).toEqual({ payload: { kind: 'rawText', text: '42' }, text: '42' });
@@ -16,6 +21,13 @@ describe('lingua.display payloads', () => {
     expect(buildDisplayPayload({ mark: 'bar', data: { values: [] } }, { as: 'chart' })).toMatchObject({ payload: { kind: 'chart' } });
     expect(buildDisplayPayload({ src: 'https://example.com/a.png', mime: 'image/png' }, { as: 'image' })).toMatchObject({ payload: { kind: 'image', mime: 'image/png' } });
     expect(buildDisplayPayload({ a: 1 }, { as: 'nonsense' })).toMatchObject({ payload: { kind: 'object' } });
+  });
+
+  it('applies the value cap to text and json', () => {
+    const truncate = (text: string) => (text.length > 10 ? `${text.slice(0, 10)}[cut]` : text);
+    expect(buildDisplayPayload('x'.repeat(50), undefined, { truncate })).toEqual({ payload: { kind: 'rawText', text: `${'x'.repeat(10)}[cut]` }, text: `${'x'.repeat(10)}[cut]` });
+    expect(buildDisplayPayload(7, { as: 'text' }, { truncate })).toMatchObject({ payload: { text: '7' } });
+    expect(JSON.stringify(buildDisplayPayload({ a: 'y'.repeat(5000) }, { as: 'json' }, { truncate })).length).toBeLessThan(300);
   });
 
   it('rejects unsafe media with the reasons the telemetry knows', () => {
