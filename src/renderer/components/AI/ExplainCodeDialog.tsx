@@ -71,6 +71,8 @@ export function ExplainCodeDialog({
   const activeControllerRef = useRef<AbortController | null>(null);
   const [transcript, setTranscript] = useState<readonly ChatMessage[]>([]);
   const [followUp, setFollowUp] = useState('');
+  // Off by default, like runtime values in the explain panel: output can hold what the code never showed.
+  const [includeLastRun, setIncludeLastRun] = useState(false);
 
   const request = useMemo(
     () =>
@@ -79,11 +81,11 @@ export function ExplainCodeDialog({
         language,
         ...(filename ? { filename } : {}),
         ...(question ? { question } : {}),
-        ...(lastRun ? { lastRun } : {}),
+        ...(lastRun && includeLastRun ? { lastRun } : {}),
         ...(answerLanguage ? { answerLanguage } : {}),
         ...(model ? { model } : {}),
       }),
-    [code, language, filename, question, lastRun, model, answerLanguage]
+    [code, language, filename, question, lastRun, includeLastRun, model, answerLanguage]
   );
 
   const configured = isAiConfigured({ endpoint, apiKey, model });
@@ -203,6 +205,20 @@ export function ExplainCodeDialog({
           ) : phase.kind === 'preview' ? (
             <div className="space-y-2">
               <p className="text-fg-muted">{t('ai.explain.consentIntro')}</p>
+              {lastRun ? (
+                <label className="flex items-start gap-2 text-caption text-fg-subtle">
+                  <input
+                    type="checkbox"
+                    checked={includeLastRun}
+                    onChange={(event) => setIncludeLastRun(event.target.checked)}
+                    data-testid="ai-explain-code-include-last-run"
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium text-fg-base">{t('ai.explainCode.includeLastRun')}</span> {t('ai.explainCode.includeLastRunHint')}
+                  </span>
+                </label>
+              ) : null}
               {request.redacted ? (
                 <p
                   data-testid="ai-explain-code-redacted"
