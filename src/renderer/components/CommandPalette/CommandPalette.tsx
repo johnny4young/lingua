@@ -9,6 +9,8 @@ import { CommandPaletteResults } from './CommandPaletteResults';
 import { filterCommandPaletteCommands } from './commandPaletteModel';
 import { adjacentGroupStart, groupCommands } from './commandPaletteGroups';
 import { useCommandPaletteCommands } from './useCommandPaletteCommands';
+import { usePaletteAutodetect } from './usePaletteAutodetect';
+import { Kbd } from '../ui/ModalShell';
 import { useCommandHistoryStore } from '../../stores/commandHistoryStore';
 import type { CommandPaletteProps } from './commandPaletteTypes';
 
@@ -32,6 +34,8 @@ export function CommandPalette(props: CommandPaletteProps) {
   const builtCommands = useCommandPaletteCommands(props);
   const recentEntries = useCommandHistoryStore(state => state.entries);
   const { t } = useTranslation();
+  const autodetect = usePaletteAutodetect(query, { enabled: !isRecentVariant, onOpenQuickOpen: props.onOpenQuickOpen, onClose });
+  const search = autodetect.intent.query;
 
   // Every executed ACTION lands in the per-session recent stack.
   // Wrapping here (the single place both Enter and row clicks call
@@ -68,20 +72,19 @@ export function CommandPalette(props: CommandPaletteProps) {
         .filter((command): command is (typeof allCommands)[number] => Boolean(command))
         .slice(0, RECENT_COMMAND_SLOTS);
     }
-    return filterCommandPaletteCommands(allCommands, query);
-  }, [allCommands, isRecentVariant, query, recentEntries]);
-  const isEmptyQuery = query.trim().length === 0;
+    return filterCommandPaletteCommands(allCommands, search);
+  }, [allCommands, isRecentVariant, search, recentEntries]);
+  const isEmptyQuery = search.trim().length === 0;
   // Rows read top to bottom by group, so selection and Enter follow the
   // grouped order rather than the raw ranking.
-  const groups = useMemo(
-    () =>
-      isRecentVariant
-        ? null
-        : isEmptyQuery
-          ? groupCommands(filtered, recentEntries.map(entry => entry.id))
-          : groupCommands(filtered, [], { ranked: true }),
-    [filtered, isEmptyQuery, isRecentVariant, recentEntries]
-  );
+  const detected = autodetect.entry;
+  const groups = useMemo(() => {
+    if (isRecentVariant) return null;
+    const grouped = isEmptyQuery
+      ? groupCommands(filtered, recentEntries.map(entry => entry.id))
+      : groupCommands(filtered, [], { ranked: true });
+    return detected ? [{ id: 'autodetected' as const, commands: [detected] }, ...grouped] : grouped;
+  }, [detected, filtered, isEmptyQuery, isRecentVariant, recentEntries]);
   const ordered = useMemo(
     () => (groups ? groups.flatMap(group => group.commands) : filtered),
     [filtered, groups]
@@ -180,6 +183,13 @@ export function CommandPalette(props: CommandPaletteProps) {
             }
             className="min-w-0 flex-1 bg-transparent text-body text-fg-base outline-none placeholder:text-fg-subtle"
           />
+          {detected ? (
+            <span className="flex shrink-0 items-center gap-1.5 font-mono text-caption" data-testid="command-palette-autodetect">
+              <span className="text-accent-fg">{t(`commandPalette.autodetect.${autodetect.intent.kind}`)}</span>
+              <Kbd>!</Kbd>
+              <span className="text-fg-subtle">{t('commandPalette.autodetect.forceCommand')}</span>
+            </span>
+          ) : null}
           {query && (
             <Tooltip content={t('commandPalette.search.clear')}>
               <button
@@ -222,7 +232,7 @@ export function CommandPalette(props: CommandPaletteProps) {
       <CommandPaletteResults
         commands={ordered}
         groups={groups}
-        query={query}
+        query={search}
         selectedIndex={visibleSelectedIndex}
         listRef={listRef}
         onHoverIndex={setSelectedIndex}

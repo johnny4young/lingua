@@ -37,6 +37,10 @@ export interface ExplainCodeDialogProps {
   readonly code: string;
   readonly language: string;
   readonly filename?: string;
+  /** A question typed in the command palette, asked instead of "explain this code". */
+  readonly question?: string;
+  /** The tab's last run, attached to that question. */
+  readonly lastRun?: string;
   readonly onClose: () => void;
   /** Test seam: inject the client so component tests never hit the network. */
   readonly runChatCompletionImpl?: typeof runChatCompletion;
@@ -52,6 +56,8 @@ export function ExplainCodeDialog({
   code,
   language,
   filename,
+  question,
+  lastRun,
   onClose,
   runChatCompletionImpl,
 }: ExplainCodeDialogProps) {
@@ -72,10 +78,12 @@ export function ExplainCodeDialog({
         code,
         language,
         ...(filename ? { filename } : {}),
+        ...(question ? { question } : {}),
+        ...(lastRun ? { lastRun } : {}),
         ...(answerLanguage ? { answerLanguage } : {}),
         ...(model ? { model } : {}),
       }),
-    [code, language, filename, model, answerLanguage]
+    [code, language, filename, question, lastRun, model, answerLanguage]
   );
 
   const configured = isAiConfigured({ endpoint, apiKey, model });
