@@ -1094,3 +1094,45 @@ describe('SqlWorkspacePanel — file import', () => {
     );
   });
 });
+
+describe('SqlWorkspacePanel Instant SQL', () => {
+  const seen: string[] = [];
+  beforeEach(() => {
+    seen.length = 0;
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve({
+        connect: async () => ({
+          query: async (sql: string) => {
+            seen.push(sql);
+            return sql.startsWith('SELECT json_serialize_sql')
+              ? mapArrowTable(arrowTable([{ name: 'j', type: 'VARCHAR' }], [{ j: JSON.stringify({ error: false, statements: [{}] }) }]))
+              : mapArrowTable(arrowTable([{ name: 'v', type: 'INTEGER' }], [{ v: 7 }]));
+          },
+          close: async () => undefined,
+        }),
+        terminate: async () => undefined,
+      })
+    );
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'q', name: 'q', query: 'SELECT 7 AS v' }));
+  });
+  afterEach(() => {
+    useSettingsStore.setState({ featureFlags: {} });
+  });
+
+  it('samples the statement above the results on Local', async () => {
+    useSettingsStore.setState({ featureFlags: { instantSql: true } });
+    render(<SqlWorkspacePanel />);
+    const preview = await screen.findByTestId('sql-instant-table');
+    expect(preview.textContent).toContain('v INTEGER');
+    expect(seen).toContain('SELECT * FROM (\nSELECT 7 AS v\n) AS lingua_instant LIMIT 1000');
+    const results = document.querySelector('[data-panel-id="sql-results-pane"]')!;
+    expect(results.contains(screen.getByTestId('sql-instant-preview'))).toBe(true);
+  });
+
+  it('stays off without the flag', async () => {
+    render(<SqlWorkspacePanel />);
+    await screen.findByTestId('sql-query-editor');
+    expect(screen.queryByTestId('sql-instant-preview')).toBeNull();
+    expect(seen.some((sql) => sql.includes('lingua_instant'))).toBe(false);
+  });
+});

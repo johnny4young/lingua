@@ -169,6 +169,10 @@ export interface SqlMonacoEditorProps {
   engine?: SqlEngineKind;
   /** Function names from a connection's catalog. */
   functions?: ReadonlyArray<string>;
+  /** Offsets whose lines get the Instant SQL highlight. */
+  highlightRange?: { start: number; end: number };
+  /** Moves the cursor to `offset`; a new nonce moves it again. */
+  moveCursorTo?: { offset: number; nonce: number };
 }
 
 export function SqlMonacoEditor({
@@ -187,6 +191,8 @@ export function SqlMonacoEditor({
   ariaLabel,
   engine,
   functions,
+  highlightRange,
+  moveCursorTo,
 }: SqlMonacoEditorProps) {
   const editorTheme = useSettingsStore((state) => state.editorTheme);
   const fontSize = useSettingsStore((state) => state.fontSize);
@@ -245,6 +251,45 @@ export function SqlMonacoEditor({
     paintRunGlyphs();
   }, [statements, runGlyphLabel, paintRunGlyphs]);
 
+  const highlightStart = highlightRange?.start;
+  const highlightEnd = highlightRange?.end;
+  const highlightRef = useRef<{ start: number; end: number } | null>(null);
+  const highlightsRef = useRef<ReturnType<EditorInstance['createDecorationsCollection']> | null>(null);
+  const paintHighlight = useCallback(() => {
+    const model = editorRef.current?.getModel();
+    const collection = highlightsRef.current;
+    if (!model || !collection) return;
+    const range = highlightRef.current;
+    if (!range) {
+      collection.set([]);
+      return;
+    }
+    const start = model.getPositionAt(range.start);
+    const end = model.getPositionAt(range.end);
+    collection.set([
+      {
+        range: { startLineNumber: start.lineNumber, startColumn: 1, endLineNumber: end.lineNumber, endColumn: 1 },
+        options: { isWholeLine: true, className: 'lingua-sql-instant-range' },
+      },
+    ]);
+  }, []);
+  useEffect(() => {
+    highlightRef.current = highlightStart === undefined || highlightEnd === undefined ? null : { start: highlightStart, end: highlightEnd };
+    paintHighlight();
+  }, [highlightStart, highlightEnd, paintHighlight]);
+
+  const movedNonceRef = useRef(moveCursorTo?.nonce ?? 0);
+  useEffect(() => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model || !moveCursorTo || moveCursorTo.nonce === movedNonceRef.current) return;
+    movedNonceRef.current = moveCursorTo.nonce;
+    const position = model.getPositionAt(moveCursorTo.offset);
+    editor.setPosition(position);
+    editor.revealPositionInCenterIfOutsideViewport(position);
+    editor.focus();
+  }, [moveCursorTo]);
+
   const typedValueRef = useRef(value);
   // Texts emitted since the parent last caught up, oldest first. The parent renders them in
   // order, so a render of one is stale rather than external; the cap bounds a long lag.
@@ -262,6 +307,7 @@ export function SqlMonacoEditor({
       replaceModelText(editor, value, applyingExternalRef, false);
       // Resetting the model clears its decorations.
       paintRunGlyphs();
+      paintHighlight();
       return;
     }
     const echo = echoes.indexOf(value);
@@ -273,7 +319,7 @@ export function SqlMonacoEditor({
     echoes.length = 0;
     typedValueRef.current = value;
     if (editor) replaceModelText(editor, value, applyingExternalRef, true);
-  }, [value, documentKey, paintRunGlyphs]);
+  }, [value, documentKey, paintRunGlyphs, paintHighlight]);
   const insertedNonceRef = useRef(insertAtCursor?.nonce ?? 0);
   useEffect(() => {
     const editor = editorRef.current;
@@ -299,6 +345,8 @@ export function SqlMonacoEditor({
     monacoRef.current = monaco;
     glyphsRef.current = editor.createDecorationsCollection();
     paintRunGlyphs();
+    highlightsRef.current = editor.createDecorationsCollection();
+    paintHighlight();
     const cursorOffset = () => {
       const model = editor.getModel();
       const position = editor.getPosition();
@@ -447,7 +495,7 @@ export function SqlMonacoEditor({
       editorRef.current = null;
       glyphsRef.current = null;
     });
-  }, [paintRunGlyphs]);
+  }, [paintRunGlyphs, paintHighlight]);
 
   return (
     <div className="min-h-0 flex-1" data-testid="sql-query-editor-monaco">

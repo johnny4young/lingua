@@ -144,6 +144,17 @@ describe('executeQuery streaming and cancel', () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it('sends nothing when the signal aborted while the connection opened', async () => {
+    const send = vi.fn(async () => ({ fields: () => fields, next: async () => null }));
+    const query = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, tooLarge: false }));
+    engineWith({ stream: send, query });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(executeQuery('SELECT 1', { signal: controller.signal })).resolves.toMatchObject({ status: 'cancelled' });
+    expect(send).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
+  });
+
   it('reports a cancelled query that has not stopped after the settle window', async () => {
     vi.useFakeTimers();
     engineWith({

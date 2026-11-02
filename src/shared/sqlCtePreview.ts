@@ -1,0 +1,326 @@
+/**
+ * Instant SQL: which part of the statement under the cursor to preview (a CTE
+ * of its WITH chain, or the whole result), the sampled SQL that shows it, and
+ * why a statement must not run as you type.
+ */
+
+import { isReadOnlySqlStatement, skipSqlToken, splitSqlStatements, sqlCodeOnly, statementAtOffset, type SqlStatement } from './sqlStatements';
+
+export const INSTANT_SAMPLE_ROWS = 1000;
+
+interface Token {
+  kind: 'ident' | 'string' | 'punct';
+  /** Identifier text without quotes, the raw text otherwise. */
+  text: string;
+  start: number;
+  end: number;
+  bare: boolean;
+}
+
+const WORD = /[A-Za-z_\u0080-￿][A-Za-z0-9_$\u0080-￿]*/y;
+
+function tokenize(sql: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i]!;
+    if (/\s/.test(ch)) {
+      i += 1;
+      continue;
+    }
+    const skipped = skipSqlToken(sql, i);
+    if (skipped !== -1) {
+      if (ch === '"') tokens.push({ kind: 'ident', text: sql.slice(i + 1, skipped - 1).replaceAll('""', '"'), start: i, end: skipped, bare: false });
+      else if (!((ch === '-' && sql[i + 1] === '-') || (ch === '/' && sql[i + 1] === '*'))) {
+        tokens.push({ kind: 'string', text: sql.slice(i, skipped), start: i, end: skipped, bare: false });
+      }
+      i = skipped;
+      continue;
+    }
+    WORD.lastIndex = i;
+    const word = WORD.exec(sql)?.[0];
+    if (word) {
+      tokens.push({ kind: 'ident', text: word, start: i, end: i + word.length, bare: true });
+      i += word.length;
+      continue;
+    }
+    tokens.push({ kind: 'punct', text: ch, start: i, end: i + 1, bare: false });
+    i += 1;
+  }
+  return tokens;
+}
+
+const FROM_LIST_START = new Set(['from', 'join']);
+const FROM_LIST_END = new Set(['select', 'where', 'group', 'order', 'having', 'qualify', 'window', 'limit', 'on', 'using', 'union', 'except', 'intersect']);
+
+const isWord = (token: Token | undefined, word: string) => token?.bare === true && token.text.toLowerCase() === word;
+const isPunct = (token: Token | undefined, punct: string) => token?.kind === 'punct' && token.text === punct;
+// DuckDB matches identifiers case-insensitively, quoted or not.
+const keyOf = (token: Token) => token.text.toLowerCase();
+
+interface SqlCte {
+  /** Lower-cased name, how references match it. */
+  key: string;
+  /** The name as written, quotes included, for building SQL. */
+  ref: string;
+  /** The name to show. */
+  label: string;
+  /** Offset of the name in the statement. */
+  start: number;
+  /** Offset just past the body's closing parenthesis. */
+  end: number;
+  /** Keys of earlier CTEs the body reads. */
+  dependsOn: string[];
+}
+
+export interface SqlCteChain {
+  ctes: SqlCte[];
+  /** Offset of the query after the WITH clause. */
+  mainStart: number;
+  mainDependsOn: string[];
+}
+
+let lastChain: { statement: string; chain: SqlCteChain | null } | null = null;
+
+/** The WITH chain of one statement, or null when it has none or is still being typed. */
+export function parseCteChain(statement: string): SqlCteChain | null {
+  // Cursor moves re-plan the same text; keep the last scan.
+  if (lastChain?.statement !== statement) lastChain = { statement, chain: scanCteChain(statement) };
+  return lastChain.chain;
+}
+
+function scanCteChain(statement: string): SqlCteChain | null {
+  const tokens = tokenize(statement);
+  if (!isWord(tokens[0], 'with')) return null;
+  const closes = new Map<number, number>();
+  const open: number[] = [];
+  tokens.forEach((token, index) => {
+    if (isPunct(token, '(')) open.push(index);
+    else if (isPunct(token, ')') && open.length > 0) closes.set(open.pop()!, index);
+  });
+  // Only a name in a FROM or JOIN list reads a CTE; a column of the same name does not.
+  const referenced = (from: number, to: number, keys: ReadonlySet<string>) => {
+    const found = new Set<string>();
+    let inFrom = false;
+    for (let index = from; index < to; index += 1) {
+      const token = tokens[index]!;
+      if (token.bare && FROM_LIST_START.has(token.text.toLowerCase())) inFrom = true;
+      else if (token.bare && FROM_LIST_END.has(token.text.toLowerCase())) inFrom = false;
+      else if (inFrom && token.kind === 'ident' && !isPunct(tokens[index - 1], '.') && keys.has(keyOf(token))) found.add(keyOf(token));
+    }
+    return [...found];
+  };
+  const ctes: SqlCte[] = [];
+  let k = isWord(tokens[1], 'recursive') ? 2 : 1;
+  for (;;) {
+    const name = tokens[k];
+    if (name?.kind !== 'ident') return null;
+    k += 1;
+    if (isPunct(tokens[k], '(')) {
+      const close = closes.get(k);
+      if (close === undefined) return null;
+      k = close + 1;
+    }
+    if (!isWord(tokens[k], 'as')) return null;
+    k += 1;
+    while (isWord(tokens[k], 'not') || isWord(tokens[k], 'materialized')) k += 1;
+    const close = isPunct(tokens[k], '(') ? closes.get(k) : undefined;
+    if (close === undefined) return null;
+    const earlier = new Set(ctes.map((cte) => cte.key));
+    ctes.push({
+      key: keyOf(name),
+      ref: statement.slice(name.start, name.end),
+      label: name.text,
+      start: name.start,
+      end: tokens[close]!.end,
+      dependsOn: referenced(k + 1, close, earlier),
+    });
+    k = close + 1;
+    if (!isPunct(tokens[k], ',')) break;
+    k += 1;
+  }
+  return {
+    ctes,
+    mainStart: tokens[k]?.start ?? statement.length,
+    mainDependsOn: referenced(k, tokens.length, new Set(ctes.map((cte) => cte.key))),
+  };
+}
+
+/** CTEs after `key` that read it directly or through another CTE, and whether the main query does. */
+export function cteDependents(chain: SqlCteChain, key: string): { ctes: Set<string>; main: boolean } {
+  const reached = new Set([key]);
+  const ctes = new Set<string>();
+  for (const cte of chain.ctes) {
+    if (cte.key !== key && cte.dependsOn.some((dep) => reached.has(dep))) {
+      reached.add(cte.key);
+      ctes.add(cte.key);
+    }
+  }
+  return { ctes, main: chain.mainDependsOn.some((dep) => reached.has(dep)) };
+}
+
+export type InstantBlockReason = 'write' | 'remote' | 'computed-path' | 'side-effect' | 'unlisted';
+
+interface InstantCrumb {
+  /** The CTE's key; empty for the statement's result. */
+  key: string;
+  label?: string;
+  /** Buffer offset to move the cursor to. */
+  offset: number;
+  active: boolean;
+  dependent: boolean;
+}
+
+export interface InstantPreviewPlan {
+  /** Stays the same while the cursor stays on the same target of the same statement. */
+  targetKey: string;
+  /** Label of the CTE shown; unset when the preview shows the statement's result. */
+  cte?: string;
+  /** Buffer offsets of the CTE shown. */
+  range?: { start: number; end: number };
+  crumbs: InstantCrumb[];
+  sql?: string;
+  blocked?: InstantBlockReason;
+}
+
+// Remote reads would fetch on every keystroke.
+const REMOTE_URL = /\b(?:https?|s3[an]?|gcs?|gs|r2|az(?:ure)?|abfss?|hf):\/\//i;
+const SIDE_EFFECT_FUNCTIONS = new Set([
+  'nextval',
+  'setval',
+  'setseed',
+  'query',
+  'query_table',
+  'json_execute_serialized_sql',
+  'checkpoint',
+  'force_checkpoint',
+  'enable_logging',
+  'disable_logging',
+  'truncate_duckdb_logs',
+  'write_log',
+]);
+// A fast answer before DuckDB parses it; `instantAstBlockReason` is the gate.
+const SIDE_EFFECT_CALL = new RegExp(`\\b(?:${[...SIDE_EFFECT_FUNCTIONS].join('|')})\\s*\\(`, 'i');
+const FILE_READER = /^(?:read_|parquet_|iceberg_|delta_scan$|glob$|sniff_csv$)/;
+// Table functions that only generate values, so a computed argument reads nothing.
+const GENERATORS = new Set(['range', 'generate_series', 'unnest', 'repeat', 'repeat_row']);
+// Built-in table functions that only read; any other may write, change settings or load an extension.
+const READ_ONLY_TABLE_FUNCTION =
+  /^(?:read_(?:csv|csv_auto|json|json_auto|json_objects|json_objects_auto|ndjson|ndjson_auto|ndjson_objects|parquet|text|blob)|parquet_\w+|glob|sniff_csv|summary|duckdb_\w+|pragma_\w+)$/;
+// Replacement scans of these formats make DuckDB download an extension.
+const EXTENSION_FILE = /\.(?:xlsx?|sqlite3?|db|gpkg|shp|geojson|fgb|kml|avro|arrow|feather|ipc)$/i;
+
+type AstNode = Record<string, unknown>;
+const isAstNode = (value: unknown): value is AstNode => typeof value === 'object' && value !== null && !Array.isArray(value);
+const astChildren = (node: AstNode): unknown[] => (Array.isArray(node['children']) ? node['children'] : []);
+// DuckDB serializes a quoted or schema-qualified call with its bare name.
+const functionName = (node: AstNode) => String(node['function_name'] ?? '').toLowerCase();
+const stringConstant = (node: unknown): string | undefined => {
+  const value = isAstNode(node) && node['class'] === 'CONSTANT' && isAstNode(node['value']) ? node['value']['value'] : undefined;
+  return typeof value === 'string' ? value : undefined;
+};
+/** A path argument written out in full: a constant, or a list of them. */
+const literalPaths = (node: unknown): string[] | null => {
+  if (!isAstNode(node)) return null;
+  if (node['class'] === 'CONSTANT') return [stringConstant(node) ?? ''];
+  if (node['class'] !== 'FUNCTION' || functionName(node) !== 'list_value') return null;
+  const paths = astChildren(node).map(literalPaths);
+  return paths.every((path) => path !== null) ? paths.flat() as string[] : null;
+};
+
+// Named options arrive as `option = value` comparisons; the rest are positional.
+const positionalArgs = (fn: AstNode) => astChildren(fn).filter((child) => !(isAstNode(child) && child['class'] === 'COMPARISON'));
+const positionalPaths = (fn: AstNode) => positionalArgs(fn).map(literalPaths);
+/** Every string constant under `node`, so a CAST or a parenthesized URL is still seen. */
+const stringsUnder = (node: unknown): string[] => {
+  if (Array.isArray(node)) return node.flatMap(stringsUnder);
+  if (!isAstNode(node)) return [];
+  const own = stringConstant(node);
+  return own !== undefined ? [own] : Object.values(node).flatMap(stringsUnder);
+};
+
+/**
+ * Checks DuckDB's own parse (`json_serialize_sql` statements) of the sampled
+ * SQL, failing closed: side-effect functions however they are spelled, a
+ * remote URL passed to any function or named by any table reference, a table
+ * function that is not a built-in reader or generator, a computed path, and a
+ * replacement scan of a format that loads an extension.
+ */
+export function instantAstBlockReason(ast: unknown): InstantBlockReason | undefined {
+  let reason: InstantBlockReason | undefined;
+  const walk = (value: unknown): void => {
+    if (reason) return;
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+    if (!isAstNode(value)) return;
+    if (value['class'] === 'FUNCTION') {
+      const name = functionName(value);
+      if (SIDE_EFFECT_FUNCTIONS.has(name)) reason = 'side-effect';
+      // Option values count too: an extension reader can fetch through one.
+      else if (stringsUnder(astChildren(value)).some((text) => REMOTE_URL.test(text))) reason = 'remote';
+      else if (FILE_READER.test(name) && positionalPaths(value).includes(null)) reason = 'computed-path';
+    } else if (value['type'] === 'TABLE_FUNCTION' && isAstNode(value['function'])) {
+      const fn = value['function'];
+      const name = functionName(fn);
+      if (SIDE_EFFECT_FUNCTIONS.has(name)) reason = 'side-effect';
+      else if (!GENERATORS.has(name) && !READ_ONLY_TABLE_FUNCTION.test(name)) reason = 'unlisted';
+      else if (!GENERATORS.has(name) && positionalPaths(fn).includes(null)) reason = 'computed-path';
+    }
+    if (!reason && typeof value['table_name'] === 'string') {
+      // A replacement scan joins catalog, schema and table back into one path.
+      const parts = [value['catalog_name'], value['schema_name'], value['table_name']].filter((part): part is string => typeof part === 'string' && part !== '');
+      const path = parts.join('.');
+      if (parts.some((part) => REMOTE_URL.test(part)) || REMOTE_URL.test(path)) reason = 'remote';
+      else if (EXTENSION_FILE.test(path)) reason = 'unlisted';
+    }
+    if (!reason) Object.values(value).forEach(walk);
+  };
+  walk(ast);
+  return reason;
+}
+
+/** What the preview shows for the cursor at `offset` of `buffer`, or null when there is no statement. */
+export function planInstantPreview(
+  buffer: string,
+  offset: number,
+  statements: ReadonlyArray<SqlStatement> = splitSqlStatements(buffer)
+): InstantPreviewPlan | null {
+  const picked = statementAtOffset(statements, offset);
+  if (!picked) return null;
+  const { text, start } = picked.statement;
+  const blocked: InstantBlockReason | undefined = !isReadOnlySqlStatement(text)
+    ? 'write'
+    : SIDE_EFFECT_CALL.test(sqlCodeOnly(text))
+      ? 'side-effect'
+      : undefined;
+  if (blocked) return { targetKey: `${picked.index}:${blocked}`, crumbs: [], blocked };
+  const chain = parseCteChain(text);
+  const relative = offset - start;
+  const cte = chain?.ctes.find((candidate) => relative >= candidate.start && relative <= candidate.end);
+  const dependents = chain && cte ? cteDependents(chain, cte.key) : null;
+  const crumbs: InstantCrumb[] = chain
+    ? [
+        ...chain.ctes.map((candidate) => ({
+          key: candidate.key,
+          label: candidate.label,
+          offset: start + candidate.start,
+          active: candidate === cte,
+          dependent: dependents?.ctes.has(candidate.key) ?? false,
+        })),
+        { key: '', offset: start + chain.mainStart, active: !cte, dependent: dependents?.main ?? false },
+      ]
+    : [];
+  return {
+    targetKey: `${picked.index}:${cte?.key ?? ''}`,
+    crumbs,
+    ...(cte
+      ? {
+          cte: cte.label,
+          range: { start: start + cte.start, end: start + cte.end },
+          sql: `${text.slice(0, cte.end)}\nSELECT * FROM ${cte.ref} LIMIT ${INSTANT_SAMPLE_ROWS}`,
+        }
+      : { sql: `SELECT * FROM (\n${text}\n) AS lingua_instant LIMIT ${INSTANT_SAMPLE_ROWS}` }),
+  };
+}

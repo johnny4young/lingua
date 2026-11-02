@@ -115,11 +115,18 @@ vi.mock('@monaco-editor/react', () => {
       restoreViewState: () => {
         harness.viewRestores += 1;
       },
-      createDecorationsCollection: () => ({
-        set: (glyphs: Harness['glyphs']) => {
-          harness.glyphs = glyphs;
-        },
-      }),
+      // The first collection holds the Run glyphs; later ones (the Instant SQL range) are not recorded.
+      createDecorationsCollection: (() => {
+        let created = 0;
+        return () => {
+          const glyphs = created++ === 0;
+          return {
+            set: (items: Harness['glyphs']) => {
+              if (glyphs) harness.glyphs = items;
+            },
+          };
+        };
+      })(),
       onDidChangeCursorSelection: (listener: (event: unknown) => void) => {
         harness.onCursor = listener;
         return disposable;
