@@ -69,6 +69,23 @@ describe('SQL grid magics', () => {
     expect(openExternal).toHaveBeenCalledTimes(2);
   });
 
+  it('shows non-finite values right-aligned as numbers, with NULL still marked as null', () => {
+    const base = response();
+    render(
+      <SqlResultPreview
+        response={{ ...base, rows: [{ x: 'Infinity' }, { x: '-Infinity' }, { x: 'NaN' }, { x: null }], columns: [{ name: 'x', type: 'Float64' }], rowCount: 4 }}
+        isExecuting={false}
+        rowDisplayLimit={100}
+      />
+    );
+    const cells = screen.getAllByTestId('sql-result-preview-row').map((row) => row.querySelector('td[data-column="x"]')!);
+    expect(cells.map((cell) => cell.textContent)).toEqual(['Infinity', '-Infinity', 'NaN', 'null']);
+    for (const cell of cells) expect(cell.className).toContain('text-right');
+    expect(cells[0]!.className).toContain('tabular-nums');
+    expect(cells[0]!.className).not.toContain('italic');
+    expect(cells[3]!.className).toContain('italic');
+  });
+
   it('keeps plain text with the flag off', () => {
     render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
     expect(screen.queryByTestId('sql-cell-link')).toBeNull();

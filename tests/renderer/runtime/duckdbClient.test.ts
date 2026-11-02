@@ -255,6 +255,40 @@ describe('mapArrowTable', () => {
     expect(out.rows[0]?.big).toBe('9007199254740993');
   });
 
+  it('keeps non-finite numbers as text, and only a real NULL as null', () => {
+    const table = arrowTableFrom(
+      [
+        { name: 'pos', type: 'DOUBLE' },
+        { name: 'neg', type: 'DOUBLE' },
+        { name: 'nan', type: 'DOUBLE' },
+        { name: 'none', type: 'DOUBLE' },
+        { name: 'one', type: 'DOUBLE' },
+      ],
+      [{ pos: Number.POSITIVE_INFINITY, neg: Number.NEGATIVE_INFINITY, nan: Number.NaN, none: null, one: 1.5 }]
+    );
+    expect(mapArrowTable(table).rows[0]).toEqual({ pos: 'Infinity', neg: '-Infinity', nan: 'NaN', none: null, one: 1.5 });
+  });
+
+  it('keeps non-finite numbers as text inside lists, typed arrays and structs', () => {
+    const table = arrowTableFrom(
+      [
+        { name: 'list', type: 'LIST' },
+        { name: 'typed', type: 'LIST' },
+        { name: 'struct', type: 'STRUCT' },
+        { name: 'vector', type: 'LIST' },
+      ],
+      [
+        {
+          list: [Number.NaN, 1],
+          typed: new Float64Array([Number.POSITIVE_INFINITY, 2]),
+          struct: { x: Number.NEGATIVE_INFINITY },
+          vector: { toJSON: () => [Number.NaN] },
+        },
+      ]
+    );
+    expect(mapArrowTable(table).rows[0]).toEqual({ list: ['NaN', 1], typed: ['Infinity', 2], struct: { x: '-Infinity' }, vector: ['NaN'] });
+  });
+
   it('serialises Date as ISO string', () => {
     const date = new Date('2026-05-26T00:00:00.000Z');
     const table = arrowTableFrom([{ name: 'd', type: 'DATE' }], [{ d: date }]);

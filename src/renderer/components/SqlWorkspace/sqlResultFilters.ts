@@ -8,6 +8,7 @@ import { sqlDialect, type SqlDialect } from '../../../shared/sqlDialect';
 import { splitSqlStatements } from '../../../shared/sqlStatements';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
+import { compareNumbers, nonFiniteNumber } from './sqlNonFinite';
 import type { SqlSortState } from './sqlResultGrid';
 
 export type SqlFilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'is-null' | 'not-null';
@@ -42,11 +43,12 @@ function cellString(value: unknown): string {
 }
 
 function asNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'number') return value;
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
+    const text = value.trim();
+    const parsed = Number(text);
+    return Number.isFinite(parsed) ? parsed : nonFiniteNumber(text);
   }
   return null;
 }
@@ -63,7 +65,7 @@ function matches(value: unknown, condition: SqlFilterCondition, numeric: boolean
   const right = numeric ? asNumber(condition.value) : null;
   const cmp =
     left !== null && right !== null
-      ? Math.sign(left - right)
+      ? compareNumbers(left, right)
       : cellString(value).localeCompare(condition.value, undefined, { numeric: true });
   switch (condition.op) {
     case '=':
