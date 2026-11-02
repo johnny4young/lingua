@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { SqlEngineKind } from '../../../shared/sqlConnections';
+import { redactSqlSecrets } from '../../../shared/sqlStatements';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
@@ -20,7 +21,7 @@ import {
   type SqlFilterOp,
 } from './sqlResultFilters';
 import type { SqlSortState } from './sqlResultGrid';
-import { saveGridSqlAsSnippet } from './sqlGridSnippet';
+import { saveSqlSnippet } from './sqlSnippet';
 import { useFloatingPosition } from './useFloatingPosition';
 
 const CHIP =
@@ -155,6 +156,7 @@ export function SqlResultToolbar({
   gridSql,
   onApplySql,
   engine,
+  snippetLabel,
 }: {
   columns: ReadonlyArray<SqlColumnMetadata>;
   search: string;
@@ -171,8 +173,9 @@ export function SqlResultToolbar({
   gridSql: string | null;
   /** Present when the query behind the rows is known. */
   onApplySql?: (sql: string) => void;
-  /** The engine the result came from; secrets are masked its way in a saved snippet. */
+  /** The engine the result came from; a snippet masks secrets its way. */
   engine?: SqlEngineKind;
+  snippetLabel?: string;
 }) {
   const { t } = useTranslation();
   const canEject = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
@@ -255,7 +258,7 @@ export function SqlResultToolbar({
             </button>
           ) : null}
           {canEject ? (
-            <button type="button" onClick={() => saveGridSqlAsSnippet(gridSql, engine)} data-testid="sql-grid-sql-snippet" className="shrink-0 text-caption font-medium text-accent-fg hover:underline">
+            <button type="button" onClick={() => saveSqlSnippet(redactSqlSecrets(gridSql, engine), snippetLabel)} data-testid="sql-grid-sql-snippet" className="shrink-0 text-caption font-medium text-accent-fg hover:underline">
               {t('sqlWorkspace.grid.saveSnippet')}
             </button>
           ) : null}

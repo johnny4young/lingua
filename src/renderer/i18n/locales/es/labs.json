@@ -22,5 +22,5 @@
   "settings.labs.flag.instantSql.label": "SQL instantáneo",
   "settings.labs.flag.instantSql.description": "En el espacio SQL sobre Local, una vista previa muestreada de la sentencia bajo el cursor se actualiza mientras escribes, encima de los resultados. Con el cursor en una CTE muestra esa CTE y marca lo que la lee. Las escrituras, las lecturas remotas y las funciones con efectos nunca se ejecutan solas, y las conexiones nunca previsualizan. El encabezado de una columna calculada la desglosa por nulos.",
   "settings.labs.flag.ejectToCode.label": "Acciones a código",
-  "settings.labs.flag.ejectToCode.description": "Un request HTTP puede abrirse como pestaña JavaScript que corre en el Worker, con sus secretos como marcadores, y el SQL que generan los filtros y el orden de la rejilla se puede guardar como snippet."
+  "settings.labs.flag.ejectToCode.description": "Un request HTTP puede abrirse como pestaña JavaScript que corre en el Worker, con sus secretos y credenciales como marcadores, y el SQL que generan los filtros, el orden y las columnas de la grilla se puede guardar como snippet."
 }

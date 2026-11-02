@@ -119,9 +119,9 @@ describe('cell menu and filters', () => {
   });
 
   describe('saving the grid SQL as a snippet', () => {
-    const filtered = async (sql: string) => {
+    const filtered = async (sql: string, snippetLabel = 'Orders by city') => {
       const user = userEvent.setup();
-      render(<SqlResultPreview response={response(rows.slice(0, 9))} isExecuting={false} rowDisplayLimit={1_000} source={{ origin: 'editor', sql }} />);
+      render(<SqlResultPreview response={response(rows.slice(0, 9))} isExecuting={false} rowDisplayLimit={1_000} source={{ origin: 'editor', sql }} snippetLabel={snippetLabel} />);
       fireEvent.contextMenu(screen.getAllByTestId('sql-result-preview-row')[0]!.querySelector('td[data-column="city"]')!);
       await user.click(screen.getByTestId('sql-cell-menu-filter'));
       return user;
@@ -129,6 +129,13 @@ describe('cell menu and filters', () => {
     afterEach(() => {
       useSettingsStore.setState({ featureFlags: {} });
       useSnippetsStore.setState({ snippets: [] });
+    });
+
+    it('falls back to the default label for an unnamed query', async () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
+      const user = await filtered('SELECT * FROM orders', '  ');
+      await user.click(screen.getByTestId('sql-grid-sql-snippet'));
+      expect(useSnippetsStore.getState().snippets[0]!.label).toBe(i18next.t('sqlWorkspace.snippet.defaultLabel'));
     });
 
     it('stays out of the strip without the flag', async () => {
@@ -142,7 +149,7 @@ describe('cell menu and filters', () => {
       const user = await filtered("SELECT * FROM 'https://ana:pw-SECRET@h.test/orders.csv'");
       await user.click(screen.getByTestId('sql-grid-sql-snippet'));
       const [snippet] = useSnippetsStore.getState().snippets;
-      expect(snippet).toMatchObject({ language: 'sql' });
+      expect(snippet).toMatchObject({ language: 'sql', label: 'Orders by city' });
       expect(snippet!.code).toContain(`WHERE "city" = 'Medellin'`);
       expect(snippet!.code).not.toContain('pw-SECRET');
     });

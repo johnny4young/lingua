@@ -27,7 +27,7 @@ async function openRequest(page: Page, language: 'en' | 'es', flag: boolean): Pr
       localStorage.setItem('lingua-settings', JSON.stringify(settings));
       if (localStorage.getItem('lingua-workspace-tool-state')) return;
       const request = { id: 'r', name: 'Users', method: 'GET', url: `${API}/users?page=1`, headers: [], auth: { kind: 'bearer', token: '{{apiToken}}' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', responses: [], captures: [], assertions: [], params: [], version: 1 };
-      const environment = { id: 'prod', name: 'prod', variables: [{ id: 'v', key: 'apiToken', value: SECRET, secret: true }] };
+      const environment = { version: 1, id: 'prod', name: 'prod', variables: [{ id: 'v', key: 'apiToken', value: SECRET, secret: true }], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
       localStorage.setItem('lingua-workspace-tool-state', JSON.stringify({ state: { requests: [request], activeRequestId: 'r', environments: [environment], activeEnvironmentId: 'prod' }, version: 0 }));
     },
     { flag, API, SECRET }
@@ -45,13 +45,15 @@ const editorText = async (page: Page) => (await page.locator('.monaco-editor .vi
 for (const language of ['en', 'es'] as const) {
   test(`opens a request as a JS tab without its secret (${language})`, async ({ page }) => {
     const seen = await openRequest(page, language, true);
+    // The secret is really in play: Send would resolve it.
+    await expect(page.getByRole('combobox').filter({ hasText: 'prod' }).first()).toHaveValue('prod');
     await page.getByTestId('http-request-editor-copy-menu').click();
     await page.getByTestId('http-request-editor-open-tab').click();
 
     await expect(page.locator('.monaco-editor .view-lines').first()).toContainText('fetch');
     const source = await editorText(page);
     expect(source).toContain('{{apiToken}}');
-    expect(source).toContain(language === 'en' ? 'Secrets stay out of this file' : 'Los secretos no quedan en este archivo');
+    expect(source).toContain(language === 'en' ? 'Fill these in to run it' : 'Pon aquí tus valores');
     expect(source).not.toContain(SECRET);
 
     // It waits for Run: opening it sends nothing.

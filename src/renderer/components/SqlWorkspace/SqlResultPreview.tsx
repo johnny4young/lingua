@@ -80,6 +80,8 @@ export interface SqlResultPreviewProps {
   canRun?: boolean;
   onRun?: () => void;
   onSaveSnippet?: () => void;
+  /** The name a snippet of the grid's SQL takes. */
+  snippetLabel?: string;
   /** Runs the source as a DuckDB column profile for the Profile tab. */
   onProfileQuery?: (query: string) => Promise<SqlColumnProfileOutcome>;
   /**
@@ -125,6 +127,7 @@ export function SqlResultPreview({
   canRun = false,
   onRun,
   onSaveSnippet,
+  snippetLabel,
   onProfileQuery,
   profileQuerySource,
   responses,
@@ -551,6 +554,7 @@ export function SqlResultPreview({
           gridSql={gridSql}
           {...(onApplySql ? { onApplySql } : {})}
           {...(response?.engine ? { engine: response.engine } : {})}
+          {...(snippetLabel !== undefined ? { snippetLabel } : {})}
         />
       ) : null}
 

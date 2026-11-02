@@ -1744,6 +1744,13 @@ failure unless the saved pipeline says to continue. SSE and WebSocket
 sessions are intentionally excluded because a long-lived connection has no
 deterministic next-step boundary.
 
+
+With Labs › GUI actions to code, **Open as JS tab** (`src/shared/httpJsTab.ts`)
+is a deliberate exit from this path: the tab is user code, so its `fetch` gets
+only the Worker's `networkGuard`, with no SSRF guard, redirect header stripping,
+response caps or masking at send time. That is why the generated source reads
+placeholders the user fills in, and never receives a secret from the workspace.
+
 ### Encrypted secret vault
 
 The HTTP workspace's secret variable values (environment, collection and request), the AI API key and saved

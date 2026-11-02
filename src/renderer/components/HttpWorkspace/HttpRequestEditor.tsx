@@ -392,10 +392,10 @@ export function HttpRequestEditor({
   // shell builder; the others go through the code generators. Secret env
   // vars are masked to `{{key}}` (never resolved into the clipboard) for
   // every format, identically to the cURL path.
+  const maskedDraft = useCallback(() => (scopedEnv ? maskSecretsForCapsule(buildDraftRequest(), scopedEnv) : buildDraftRequest()), [buildDraftRequest, scopedEnv]);
   const copyAs = useCallback(
     async (format: HttpCopyFormat) => {
-      const draft = buildDraftRequest();
-      const masked = scopedEnv ? maskSecretsForCapsule(draft, scopedEnv) : draft;
+      const masked = maskedDraft();
       const snippet =
         format === 'curl' ? buildCurlCommand(masked) : generateHttpCode(masked, format);
       const ok = await writeToClipboard(snippet);
@@ -406,7 +406,7 @@ export function HttpRequestEditor({
           : 'httpWorkspace.editor.copyCurl.failed',
       });
     },
-    [buildDraftRequest, scopedEnv]
+    [maskedDraft]
   );
 
   // Flush on unmount so an edit typed <500 ms before the editor
@@ -715,7 +715,7 @@ export function HttpRequestEditor({
           onChange={handleUrlChange}
           onPaste={handleUrlPaste}
         />
-        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} maskedRequest={() => (scopedEnv ? maskSecretsForCapsule(buildDraftRequest(), scopedEnv) : buildDraftRequest())} />
+        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} maskedRequest={maskedDraft} />
         <HttpSendButton
           isExecuting={isExecuting}
           disabled={!urlState.ok}

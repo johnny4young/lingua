@@ -13,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { SqlQueryV1, SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { buildSampleTable } from '../../../shared/sqlSampleTable';
@@ -42,6 +41,7 @@ import { SqlEmptyState } from './SqlEmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
 import { SqlInstantPreview } from './SqlInstantPreview';
+import { saveSqlSnippet } from './sqlSnippet';
 import { useInstantSqlChannel } from './instantSqlChannel';
 import { SqlResultPreview, type SqlResultSource } from './SqlResultPreview';
 import { AskSqlButton } from './AskSqlButton';
@@ -391,22 +391,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // Stash the query in the snippet library; `addSnippet` enforces the Free ceiling.
   const handleSaveSnippet = useCallback(
     (query: SqlQueryV1) => {
-      const label =
-        query.name.trim().length > 0 ? query.name.trim() : t('sqlWorkspace.snippet.defaultLabel');
-      const id = useSnippetsStore.getState().addSnippet({
-        language: 'sql',
-        label,
-        description: t('sqlWorkspace.snippet.description'),
-        code: query.query,
-      });
-      if (id !== null) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'success',
-          messageKey: 'sqlWorkspace.snippet.saved',
-        });
-      }
+      saveSqlSnippet(query.query, query.name);
     },
-    [t]
+    []
   );
 
   // Load DuckDB in the background on first mount so the first Run is not a cold boot.
@@ -587,6 +574,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...(activeQuery ? { onInsertPredicate: handleInsertPredicate } : {})}
         {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
         {...(tablePreview?.edit ? { rowEdits } : {})}
+        {...(activeQuery ? { snippetLabel: activeQuery.name } : {})}
       />
     );
 

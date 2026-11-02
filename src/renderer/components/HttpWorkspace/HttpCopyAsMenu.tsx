@@ -24,7 +24,7 @@ const COPY_FORMATS: ReadonlyArray<{
   })),
 ];
 
-/** Copy-as menu — cURL + code snippets (fetch / axios / Python). */
+/** Copy-as menu — cURL + code snippets (fetch / axios / Python), and Open as JS tab with the Labs flag. */
 export function HttpCopyAsMenu({
   disabled,
   onCopy,
@@ -39,16 +39,19 @@ export function HttpCopyAsMenu({
   const canOpenTab = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
   const openAsTab = () => {
     const request = maskedRequest();
+    // The name also seeds the save dialog, and bidi controls can disguise it.
+    const name = request.name.replace(/[\\/\p{Cc}\p{Cf}]/gu, '_').trim();
     const { addTab } = useEditorStore.getState();
     addTab({
       ...createDefaultTab('javascript'),
-      name: `${request.name.trim() || 'request'}.js`,
+      ...(name ? { name: `${name}.js` } : {}),
       content: buildHttpJsTab(request, {
         sensitiveHeaders: useSettingsStore.getState().sensitiveHttpHeaders,
         fillInComment: t('httpWorkspace.editor.openAsTabFillIn'),
       }),
       // A scratchpad would send the request while it opens.
       workflowMode: 'run',
+      runtimeMode: 'worker',
     });
   };
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
