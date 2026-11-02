@@ -1767,6 +1767,13 @@ only the Worker's `networkGuard`, with no SSRF guard, redirect header stripping,
 response caps or masking at send time. That is why the generated source reads
 placeholders the user fills in, and never receives a secret from the workspace.
 
+### Clipboard suggestions in Utilities
+
+`useClipboardSuggestion` reads the clipboard when Utilities comes on screen and on
+window focus, with no polling, behind the `clipboardChains` flag, `DEV_UTILITIES` and
+`utilitiesClipboardOnFocusConsent`. It keeps only the result of `classifyClipboard`,
+so the text never reaches a store, the DOM, a log or telemetry.
+
 ### Utility pipeline export
 
 Labs › GUI actions to code adds **Save as JS snippet** to a utility pipeline
