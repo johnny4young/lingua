@@ -78,8 +78,7 @@ function decodeHtmlEntities(input: string): string {
           return match;
         }
       }
-      const named = NAMED_DECODE[body];
-      return named ?? match;
+      return Object.hasOwn(NAMED_DECODE, body) ? NAMED_DECODE[body]! : match;
     }
   );
 }
