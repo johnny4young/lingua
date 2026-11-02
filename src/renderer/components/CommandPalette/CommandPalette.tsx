@@ -223,7 +223,8 @@ export function CommandPalette(props: CommandPaletteProps) {
           {isEmptyQuery || isRecentVariant
             ? t('commandPalette.results.count', { count: ordered.length })
             : t('commandPalette.results.countOf', {
-                shown: ordered.length,
+                // The Autodetected row is not a command match.
+                shown: ordered.length - (detected ? 1 : 0),
                 total: allCommands.length,
               })}
         </span>

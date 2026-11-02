@@ -5,7 +5,7 @@ const kind = (query: string) => detectPaletteIntent(query).kind;
 
 describe('detectPaletteIntent', () => {
   it('reads file names and paths as files', () => {
-    for (const query of ['main.py', 'README.md', 'src/app', './util.ts', '@types/node', 'src/']) expect(kind(query)).toBe('file');
+    for (const query of ['main.py', 'README.md', 'App.TSX', 'config.yml', 'src/app', './util.ts', '@types/node', 'src/']) expect(kind(query)).toBe('file');
   });
 
   it('reads questions in English and Spanish', () => {
@@ -15,7 +15,7 @@ describe('detectPaletteIntent', () => {
   });
 
   it('keeps commands, short queries and numbers as commands', () => {
-    for (const query of ['open settings', 'toggle vim mode', 'format json', 'how to', 'run?', 'v1.2', '1.5', '1/2', '../..', 'Settings', '']) {
+    for (const query of ['open settings', 'toggle vim mode', 'format json', 'how to', 'run?', 'v1.2', '1.5', '1/2', '../..', 'console.log', 'JSON.parse', 'Settings', '']) {
       expect(kind(query)).toBe('command');
     }
   });

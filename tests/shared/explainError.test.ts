@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   answerLanguageFor,
+  redactSecretsFromOutput,
   buildExplainErrorRequest,
   redactSecretsFromCode,
   MAX_EXPLAIN_CODE_CHARS, formatRuntimeValues } from '../../src/shared/ai/explainError';
@@ -216,3 +217,27 @@ describe('runtime values', () => {
     expect(withValues.redactedCount).toBe(1);
   });
 });
+
+describe('redactSecretsFromOutput', () => {
+  it('masks what printed env vars, objects and connection strings show', () => {
+    const output = [
+      'DATABASE_URL=postgres://admin:hunter2pass@db/app',
+      "environ({'AWS_SECRET_ACCESS_KEY': 'wJalrXUtnFEMIabcdefghij', 'HOME': '/root'})",
+      "{ password: 'hunter2', apiKey: 'abc', name: 'Ada' }",
+      'API_KEY=abc123',
+      'GET /cb?access_token=xyz789&page=2',
+      'total = 3',
+    ].join('\n');
+    const { code, redactedCount } = redactSecretsFromOutput(output);
+    for (const secret of ['hunter2pass', 'wJalrXUtnFEMIabcdefghij', 'hunter2', "'abc'", 'abc123', 'xyz789']) expect(code).not.toContain(secret);
+    expect(code).toContain("'HOME': '/root'");
+    expect(code).toContain("name: 'Ada'");
+    expect(code).toContain('total = 3');
+    expect(redactedCount).toBeGreaterThanOrEqual(6);
+  });
+
+  it('does not count a value twice', () => {
+    expect(redactSecretsFromOutput('const API_KEY = "abcdefghijkl"').redactedCount).toBe(1);
+  });
+});
+

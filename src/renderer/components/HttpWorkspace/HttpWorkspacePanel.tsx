@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { HttpStarterRequests } from './HttpStarterRequests';
+import { isPristineRequest, type StarterPatch } from './httpStarters';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -302,9 +303,11 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   }, []);
   // The editor keeps a draft of the request, so a starter remounts it from the patched request.
   const [editorGeneration, setEditorGeneration] = useState(0);
-  const applyStarter = (requestId: string, patch: Partial<HttpRequestV1>) => {
-    handlePatch(requestId, patch);
+  const applyStarter = (request: HttpRequestV1, patch: StarterPatch) => {
+    handlePatch(request.id, patch);
     setEditorGeneration(generation => generation + 1);
+    // The old editor flushes its pending draft as it unmounts; the starter goes in again after that.
+    window.setTimeout(() => handlePatch(request.id, patch), 0);
   };
 
   // Sends the sources a request's chain tags need first, in dependency order,
@@ -782,8 +785,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             <div className="min-h-0 flex-1">
               <HttpResponsePreview
                 response={activeResponse}
-                {...(activeRequest && activeRequest.url.trim() === ''
-                  ? { starters: <HttpStarterRequests onApply={patch => applyStarter(activeRequest.id, patch)} /> }
+                {...(activeRequest && isPristineRequest(activeRequest)
+                  ? { starters: <HttpStarterRequests onApply={starter => applyStarter(activeRequest, starter)} /> }
                   : {})}
                 isExecuting={isExecuting}
                 requestSummary={

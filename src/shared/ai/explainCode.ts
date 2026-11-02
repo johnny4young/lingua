@@ -14,6 +14,7 @@ import {
   answerLanguageLine,
   MAX_EXPLAIN_CODE_CHARS,
   redactSecretsFromCode,
+  redactSecretsFromOutput,
   type ChatMessage,
 } from './explainError';
 
@@ -80,7 +81,7 @@ export function buildExplainCodeRequest(
     : { code: input.code, redactedCount: 0 };
   const lastRun = input.lastRun?.trim()
     ? redact
-      ? redactSecretsFromCode(input.lastRun)
+      ? redactSecretsFromOutput(input.lastRun)
       : { code: input.lastRun, redactedCount: 0 }
     : null;
 

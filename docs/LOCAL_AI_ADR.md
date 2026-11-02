@@ -104,7 +104,10 @@ action and a preview of exactly what is sent.
   inserts the generated SQL for user review; it never auto-runs generated SQL.
 - Labs › Palette autodetect sends a question typed in the command palette to
   the Explain this code consent dialog, with the tab's last run (Console output
-  and error, redacted, capped) appended to the payload preview. Empty SQL
+  and error, capped) appended to the payload preview. Output gets
+  `redactSecretsFromOutput`, which also masks secret-named `key=value` pairs
+  anywhere on a line and URL passwords; the run is left out when the code
+  changed since it ran or another tab's run is still writing to the Console. Empty SQL
   queries offer starter prompts that only prefill Ask AI.
 - Edit with AI (`src/shared/ai/editSelection.ts`, `EditWithAiDialog`) sends
   the file with the span to edit marked, only 60 lines around it once the

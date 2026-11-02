@@ -1105,7 +1105,7 @@ describe('CommandPalette autodetect (Labs)', () => {
   }
 
   it('sends a question to Explain this code with the last run attached', () => {
-    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-py', code: '', input: '', at: 1 };
+    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-py', code: 'print(sorted(xs))', input: '', at: 1 };
     (resultState as { error?: unknown }).error = { message: 'NameError: xs' };
     useConsoleStore.setState({
       entries: [
@@ -1127,6 +1127,35 @@ describe('CommandPalette autodetect (Labs)', () => {
       lastRun: 'start\nnote\nError: NameError: xs',
     });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('attaches no run when the code changed since it ran', () => {
+    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-py', code: 'print(xs)', input: '', at: 1 };
+    useConsoleStore.setState({ entries: [{ id: '1', type: 'log', content: 'old output', timestamp: 1 }] } as never);
+    const { input } = renderPalette();
+    fireEvent.change(input, { target: { value: 'why does this fail?' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(useAiExplainCodeStore.getState().request).not.toHaveProperty('lastRun');
+  });
+
+  it('does not count the detected row as a command match', () => {
+    const { input } = renderPalette();
+    fireEvent.change(input, { target: { value: 'why does sorted drop duplicates zzqx' } });
+    expect(screen.getByTestId('command-palette-result-count').textContent).toMatch(/^0 /);
+  });
+
+  it('attaches no run while another tab is still running', () => {
+    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-py', code: 'print(sorted(xs))', input: '', at: 1 };
+    (resultState as { manualRunSession?: unknown }).manualRunSession = { tabId: 'tab-other' };
+    useConsoleStore.setState({ entries: [{ id: '1', type: 'log', content: 'from the other tab', timestamp: 1 }] } as never);
+    try {
+      const { input } = renderPalette();
+      fireEvent.change(input, { target: { value: 'why does this fail?' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(useAiExplainCodeStore.getState().request).not.toHaveProperty('lastRun');
+    } finally {
+      (resultState as { manualRunSession?: unknown }).manualRunSession = null;
+    }
   });
 
   it('attaches no run when the results belong to another tab', () => {

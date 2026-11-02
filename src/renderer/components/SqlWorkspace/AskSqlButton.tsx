@@ -1,7 +1,8 @@
 /**
  * "Ask AI" trigger for the SQL editor header. Invisible
  * without the `LOCAL_AI` entitlement (same null-gate as ExplainErrorButton);
- * owns the open state and mounts `AskSqlDialog`.
+ * mounts `AskSqlDialog` while `askSqlStore` holds a question, set by this
+ * button or by an empty query's starter prompt.
  */
 
 import { useEffect } from 'react';

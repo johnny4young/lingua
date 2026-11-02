@@ -139,6 +139,32 @@ function looksSecretName(name: string): boolean {
   return looksSecret(split) || RUNTIME_SECRET_NAME.test(name);
 }
 
+/**
+ * Program output (Console rows, an error): on top of `redactSecretsFromCode`,
+ * secret-named `key: value` / `key=value` pairs anywhere on a line and URL
+ * passwords are masked, as printed env vars and connection strings show them.
+ */
+export function redactSecretsFromOutput(text: string): RedactionResult {
+  const base = redactSecretsFromCode(text);
+  let redactedCount = base.redactedCount;
+  const code = base.code
+    .split('\n')
+    .map(line =>
+      line
+        .replace(NESTED_PAIR, (pair, quote: string, key: string, separator: string, value: string) => {
+          if (!looksSecretName(key) || value.includes(REDACTED)) return pair;
+          redactedCount += 1;
+          return `${quote}${key}${quote}${separator}${REDACTED}`;
+        })
+        .replace(URL_CREDENTIALS, (_match, head: string) => {
+          redactedCount += 1;
+          return `${head}${REDACTED}@`;
+        })
+    )
+    .join('\n');
+  return { code, redactedCount };
+}
+
 /** Most names, characters per value and characters overall sent as runtime values. */
 const MAX_RUNTIME_VALUES = 30;
 const MAX_RUNTIME_VALUE_CHARS = 200;

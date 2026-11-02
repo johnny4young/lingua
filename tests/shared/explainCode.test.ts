@@ -91,6 +91,12 @@ describe('buildExplainCodeRequest answer language', () => {
     expect(req.redacted).toBe(true);
   });
 
+  it('masks connection strings and secret pairs in the last run', () => {
+    const user = buildExplainCodeRequest({ code: 'x', language: 'python', lastRun: 'DATABASE_URL=postgres://admin:hunter2pass@db/app\n{ password: hunter2 }' }).messages[1]!.content;
+    expect(user).not.toContain('hunter2pass');
+    expect(user).not.toContain('password: hunter2');
+  });
+
   it('caps the last run and leaves it out when blank', () => {
     const long = buildExplainCodeRequest({ code: 'x', language: 'python', lastRun: 'y'.repeat(5_000) }).messages[1]!.content;
     expect(long).toContain('… [truncated]');

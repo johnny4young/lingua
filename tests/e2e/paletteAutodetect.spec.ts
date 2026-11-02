@@ -77,3 +77,21 @@ test('Starter prompts: an empty SQL query opens Ask AI, an empty request fills a
   await expect(page.getByTestId('http-request-editor-url')).toHaveValue('https://httpbin.org/json');
   await expect(page.getByTestId('http-starter-requests')).toHaveCount(0);
 });
+
+test('Starter requests survive a draft the editor had not saved yet', async ({ page }) => {
+  await seed(page, 'en');
+  await page.keyboard.press('ControlOrMeta+Shift+K');
+  await page.getByTestId('http-workspace-empty-create').click();
+  // A method change still in the autosave window, then a starter right away.
+  await page.getByTestId('http-request-editor-method').selectOption('PUT');
+  await page.getByTestId('http-starter-post-json').click();
+  await expect(page.getByTestId('http-request-editor-url')).toHaveValue('https://httpbin.org/post');
+
+  // The editor reloads the request from the store when another request is picked and back.
+  await page.getByTestId('http-request-list-create').click();
+  // New requests go on top, so the first one is now second.
+  await page.getByTestId('http-request-list-row').nth(1).click();
+  await expect(page.getByTestId('http-request-editor-url')).toHaveValue('https://httpbin.org/post');
+  await expect(page.getByTestId('http-request-editor-method')).toHaveValue('POST');
+});
+
