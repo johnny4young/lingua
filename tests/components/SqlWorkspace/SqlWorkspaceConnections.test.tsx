@@ -172,6 +172,15 @@ afterEach(() => {
 });
 
 describe('SQL workspace on a saved connection', () => {
+  it('never previews as you type on a connection, even with Instant SQL on', async () => {
+    useSettingsStore.setState({ featureFlags: { dbClient: true, instantSql: true } });
+    openQuery('SELECT id FROM orders', 'c_dev');
+    await renderPanel();
+    expect(screen.queryByTestId('sql-instant-preview')).toBeNull();
+    expect(db.execute).not.toHaveBeenCalled();
+    expect(duckRan.some((sql) => sql.includes('lingua_instant'))).toBe(false);
+  });
+
   it('runs on the SQL host instead of Local, and reads more rows from the host cursor', async () => {
     db.execute.mockResolvedValueOnce(result({ rows: Array.from({ length: 1000 }, (_, id) => ({ id })), rowCount: 1000, hasMore: true, rowCountIsLowerBound: true }));
     db.fetch.mockResolvedValueOnce({ rows: Array.from({ length: 500 }, (_, id) => ({ id: id + 1000 })), done: true, bytes: 4000 });

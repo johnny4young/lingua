@@ -41,6 +41,8 @@ import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
 import { SqlEmptyState } from './SqlEmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
+import { SqlInstantPreview } from './SqlInstantPreview';
+import { useInstantSqlChannel } from './instantSqlChannel';
 import { SqlResultPreview, type SqlResultSource } from './SqlResultPreview';
 import { AskSqlButton } from './AskSqlButton';
 import { SqlStarterPrompts } from './SqlStarterPrompts';
@@ -477,6 +479,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     insertSql: handleEditInEditor,
   });
   const { activeConnection, dbFlag } = remote;
+  const instantSql = useInstantSqlChannel(!activeConnection);
 
   const explorer = (
     <SqlExplorer
@@ -603,6 +606,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...(activeConnection ? { engine: activeConnection.engine, functions: remote.functions } : {})}
         {...(insertSignal !== null ? { insertSignal } : {})}
         {...(predicateSignal !== null ? { predicateSignal } : {})}
+        {...(instantSql ? { instantSql } : {})}
         headerExtra={
           <AskSqlButton
             tables={remote.editorTables}
@@ -655,6 +659,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           {runner.stuck ? (
             <SqlStuckQueryBand onRestart={() => void runner.restartEngine()} isRestarting={runner.isRestarting} />
           ) : null}
+          {instantSql && activeQuery && !tablePreview && !objectView ? <SqlInstantPreview key={activeQuery.id} channel={instantSql} queryId={activeQuery.id} busy={runner.runningQueryId !== null} /> : null}
           {showResultTabs ? (
             <SqlResultTabs runSet={runSet} hasPlan={plan !== null} view={view} onSelect={runner.setView} />
           ) : null}

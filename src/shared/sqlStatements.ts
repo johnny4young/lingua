@@ -24,7 +24,7 @@ const DOLLAR_TAG = /\$([A-Za-z_\u0080-\uFFFF][A-Za-z0-9_\u0080-\uFFFF]*)?\$/y;
 const IDENTIFIER_CHAR = /[A-Za-z0-9_$\u0080-\uFFFF]/;
 
 /** Offset where the token that starts at `index` ends, or -1 when it is not a quoted or comment token. */
-function skipToken(sql: string, index: number): number {
+export function skipSqlToken(sql: string, index: number): number {
   const ch = sql[index];
   const next = sql[index + 1];
   if (ch === '-' && next === '-') {
@@ -103,7 +103,7 @@ function hasCode(sql: string, from: number, to: number): boolean {
       continue;
     }
     if ((ch === '-' && sql[i + 1] === '-') || (ch === '/' && sql[i + 1] === '*')) {
-      i = Math.min(skipToken(sql, i), to);
+      i = Math.min(skipSqlToken(sql, i), to);
       continue;
     }
     return true;
@@ -128,7 +128,7 @@ export function splitSqlStatements(sql: string): SqlStatement[] {
   };
   let i = 0;
   while (i < sql.length) {
-    const skipped = skipToken(sql, i);
+    const skipped = skipSqlToken(sql, i);
     if (skipped !== -1) {
       i = skipped;
       continue;
@@ -167,11 +167,11 @@ const WRITE_WORD =
   /\b(insert|update|delete|merge|create|drop|alter|attach|detach|copy|truncate|rename|install|load|checkpoint|vacuum|set|reset|call|export|import|use|exec)\b/i;
 
 /** Blanks out strings, quoted identifiers and comments so keyword checks see only code. */
-function codeOnly(sql: string): string {
+export function sqlCodeOnly(sql: string): string {
   let out = '';
   let i = 0;
   while (i < sql.length) {
-    const skipped = skipToken(sql, i);
+    const skipped = skipSqlToken(sql, i);
     if (skipped !== -1) {
       out += ' ';
       i = skipped;
@@ -189,7 +189,7 @@ function codeOnly(sql: string): string {
  * runs ANALYZE (which executes the statement) only when this holds.
  */
 export function isReadOnlySqlStatement(statement: string): boolean {
-  const code = codeOnly(statement);
+  const code = sqlCodeOnly(statement);
   return READ_LEAD.test(code) && !WRITE_WORD.test(code);
 }
 
@@ -203,9 +203,9 @@ const REMOTE_READ_LEAD = /^(select|with|values|table|show|describe|desc|explain)
  * of a prepared statement, or EXPLAIN ANALYZE (or ANALYSE), which runs it.
  */
 export function isWriteSqlStatement(statement: string): boolean {
-  // MySQL runs the inside of /*! … */ as code, and codeOnly reads it as a comment.
+  // MySQL runs the inside of /*! … */ as code, and sqlCodeOnly reads it as a comment.
   if (statement.includes('/*!')) return true;
-  const code = codeOnly(statement);
+  const code = sqlCodeOnly(statement);
   if (!REMOTE_READ_LEAD.test(code)) return true;
   return (
     WRITE_WORD.test(code) ||
@@ -510,11 +510,11 @@ const SECRET_LITERAL =
 export function redactSqlSecrets(sql: string, engine?: SqlEngineKind): string {
   const dialects = dialectsFor(engine);
   if (dialects) return redactDialectSecrets(sql, dialects);
-  const secretStatement = SECRET_STATEMENT.test(codeOnly(sql));
+  const secretStatement = SECRET_STATEMENT.test(sqlCodeOnly(sql));
   let out = '';
   let i = 0;
   while (i < sql.length) {
-    const end = skipToken(sql, i);
+    const end = skipSqlToken(sql, i);
     if (end === -1) {
       out += sql[i];
       i += 1;
@@ -554,5 +554,5 @@ function redactDialectSecrets(sql: string, dialects: readonly Dialect[]): string
 
 /** True when the code (outside strings and comments) already has a WHERE clause. */
 export function hasWhereClause(sql: string): boolean {
-  return /\bwhere\b/i.test(codeOnly(sql));
+  return /\bwhere\b/i.test(sqlCodeOnly(sql));
 }

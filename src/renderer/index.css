@@ -1407,6 +1407,11 @@
     opacity: 1;
   }
 
+  /* Instant SQL: the lines of the CTE the preview shows. */
+  .monaco-editor .lingua-sql-instant-range {
+    background: color-mix(in oklch, var(--color-accent) 14%, transparent);
+  }
+
   /* Make the breakpoint gutter
      discoverable on hover. Without this, the glyph-margin column
      reads as inert black space until the user happens to click in

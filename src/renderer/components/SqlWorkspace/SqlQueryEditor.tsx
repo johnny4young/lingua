@@ -15,6 +15,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +29,8 @@ import {
   type SqlQueryV1,
 } from '../../../shared/sqlWorkspace';
 import { hasWhereClause, splitSqlStatements, statementAtOffset } from '../../../shared/sqlStatements';
+import { planInstantPreview } from '../../../shared/sqlCtePreview';
+import type { InstantSqlChannel } from './instantSqlChannel';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor, type SqlEditorCursor, type SqlRunContext } from './SqlMonacoEditor';
 import { SqlRunMenu, type SqlRunMenuMode } from './SqlRunMenu';
@@ -84,7 +87,12 @@ export interface SqlQueryEditorProps {
    * rather than a baked-in button so the editor stays AI-agnostic.
    */
   headerExtra?: ReactNode;
+  /** Instant SQL: the draft and cursor go to the preview, and the CTE shown is highlighted. */
+  instantSql?: InstantSqlChannel;
 }
+
+const NO_JUMP = () => null;
+const NO_SUBSCRIBE = () => () => {};
 
 export function SqlQueryEditor({
   query,
@@ -100,6 +108,7 @@ export function SqlQueryEditor({
   engine,
   functions,
   headerExtra,
+  instantSql,
 }: SqlQueryEditorProps) {
   const { t, i18n } = useTranslation();
   const [text, setText] = useState<string>(query.query);
@@ -133,6 +142,17 @@ export function SqlQueryEditor({
   const [draftQueryId, setDraftQueryId] = useState(query.id);
   const cursorIndex = statementAtOffset(statements, cursor.offset)?.index ?? 0;
   const hasSelection = text.slice(cursor.selectionStart, cursor.selectionEnd).trim().length > 0;
+  const instantPlan = useMemo(
+    () => (instantSql && !overCap ? planInstantPreview(text, cursor.offset) : null),
+    [instantSql, overCap, text, cursor.offset]
+  );
+  useEffect(() => {
+    instantSql?.publish({ queryId: draftQueryId, text, plan: instantPlan });
+  }, [instantSql, draftQueryId, text, instantPlan]);
+  const instantJump = useSyncExternalStore(
+    instantSql?.subscribe ?? NO_SUBSCRIBE,
+    instantSql ? () => instantSql.snapshot().jump : NO_JUMP
+  );
 
   const flushPendingDraft = useCallback(() => {
     if (debounceRef.current !== null) {
@@ -231,9 +251,10 @@ export function SqlQueryEditor({
         lastSavedRef.current = buffer;
         onPatch(query.id, { query: buffer });
       }
+      instantSql?.markRun();
       onRun({ query: { ...query, query: buffer }, mode, statements: pieces });
     },
-    [isExecuting, isBusy, statements, text, query, onPatch, onRun]
+    [isExecuting, isBusy, statements, text, query, onPatch, onRun, instantSql]
   );
   const selectedText = useCallback(() => {
     const { selectionStart, selectionEnd } = latestCursorRef.current;
@@ -362,6 +383,8 @@ export function SqlQueryEditor({
         runGlyphLabel={t('sqlWorkspace.run.statement')}
         onFormatShortcut={handleFormat}
         {...(cursorInsert ? { insertAtCursor: cursorInsert } : {})}
+        {...(instantPlan?.range ? { highlightRange: instantPlan.range } : {})}
+        {...(instantJump ? { moveCursorTo: instantJump } : {})}
         tables={tables}
         {...(engine ? { engine } : {})}
         {...(functions ? { functions } : {})}
