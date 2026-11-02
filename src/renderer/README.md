@@ -579,6 +579,10 @@ paid implementation:
   transport load only after an explicit explain-code request.
 - A failed dialog chunk closes the failed request, clears the loader cache, and
   lets the next explicit action retry without replacing the app shell.
+- [`components/AI/AiEditSelectionHost.tsx`](components/AI/AiEditSelectionHost.tsx)
+  does the same for Edit with AI: `EditWithAiDialog.tsx`, its static Monaco
+  `DiffEditor` and `runtime/aiEditPreview.ts`, with the preview runners, load
+  only after an explicit edit request.
 
 Dependency detection keeps its always-mounted observer separate from parser and
 platform work:
@@ -822,6 +826,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [utilityWorkspaceStore.ts](stores/utilityWorkspaceStore.ts), [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities activation, history, output, and pipeline state |
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | AI config on its own isolated `lingua-ai` persist boundary (v2): `mode` plus a Local and a My endpoint profile, with `endpoint`/`apiKey`/`model` derived from the active one; v1 migrates by host. Kept out of the settings blob/exports/capsules/telemetry; on desktop the My endpoint key lives in the encrypted secret vault and is omitted from the blob |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
+| [aiEditSelectionStore.ts](stores/aiEditSelectionStore.ts) | single open-request slot for Edit with AI (`AiEditSelectionHost`): the file, the span, and the model URI and version Accept must still match; session-only |
 
 ### Console batch delivery
 

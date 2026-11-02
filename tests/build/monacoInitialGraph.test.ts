@@ -68,6 +68,10 @@ const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
     module: 'src/renderer/components/ImportPreview/ImportPreviewOverlay.tsx',
     why: 'the Postman/Bruno importers',
   },
+  {
+    module: 'src/renderer/components/AI/EditWithAiDialog.tsx',
+    why: 'the Edit with AI dialog, its DiffEditor and preview runners',
+  },
 ];
 
 /**

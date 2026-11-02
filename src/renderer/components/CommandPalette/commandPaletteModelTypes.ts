@@ -138,6 +138,8 @@ export interface BuildCommandPaletteModelArgs {
    * and an editor tab is active, so the command stays hidden otherwise.
    */
   onExplainSelectedCode?: () => void;
+  /** Edit selection with AI; same gating as Explain. */
+  onEditSelectedCode?: () => void;
   /**
    * Fires the "Install detected packages" action for a Go / Rust /
    * Ruby tab: detects imports/crates/gems in the active buffer and runs

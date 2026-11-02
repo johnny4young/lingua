@@ -34,6 +34,7 @@ import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/dependencyDetectionPaste';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
+import { openEditSelectionForEditor } from '../../stores/aiEditSelectionStore';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -134,10 +135,10 @@ export function CodeEditor() {
   // palette). The action closure reads live tab context through a ref so it
   // never needs re-registering on every keystroke.
   const aiEntitled = useEntitlement('LOCAL_AI');
-  const explainCtxRef = useRef<{ language: string; name: string } | null>(null);
+  const explainCtxRef = useRef<{ id: string; language: string; name: string } | null>(null);
   useEffect(() => {
     explainCtxRef.current = activeTab
-      ? { language: activeTab.language, name: activeTab.name }
+      ? { id: activeTab.id, language: activeTab.language, name: activeTab.name }
       : null;
   }, [activeTab]);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
@@ -333,7 +334,7 @@ export function CodeEditor() {
     return () => binding.dispose();
   }, [editorInstance, monacoInstance, t]);
 
-  // register/dispose the "Explain with AI" context-menu action.
+  // register/dispose the AI context-menu actions (Explain, Edit).
   // Only mounted when entitled, so it stays invisible on Free (matching
   // the ExplainErrorButton/AskSqlButton convention).
   useEffect(() => {
@@ -350,7 +351,20 @@ export function CodeEditor() {
         openExplainCodeForEditor(ed, ctx.language, ctx.name);
       },
     });
-    return () => action.dispose();
+    const edit = editor.addAction({
+      id: 'lingua.ai.editSelection',
+      label: t('ai.editCode.action'),
+      contextMenuGroupId: '9_ai',
+      contextMenuOrder: 2,
+      run: ed => {
+        const ctx = explainCtxRef.current;
+        if (ctx) openEditSelectionForEditor(ed, ctx.language, ctx.name, ctx.id);
+      },
+    });
+    return () => {
+      action.dispose();
+      edit.dispose();
+    };
   }, [editorInstance, aiEntitled, t]);
 
   useEffect(() => {

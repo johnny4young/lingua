@@ -3,6 +3,7 @@ import { buildActionCommand, plainPasteComboValues } from '../commandPaletteMode
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 import { nativeJsRuntimeHintKey, type NativeJsRuntimeMode } from '../../../utils/nativeJsRuntimeStatus';
 import { buildSelectionTransferCommands } from './selectionTransferCommands';
+import { buildAiCodeCommands } from './aiCodeCommands';
 
 export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate }) => {
   const {
@@ -33,6 +34,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     onInstallNativeDependencies,
     onExplainLastError,
     onExplainSelectedCode,
+    onEditSelectedCode,
     onFocusStatusBar,
     onTogglePresenterMode,
     setLayoutPreset,
@@ -361,33 +363,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // Explain the current selection / buffer with the
-    // local AI model. Wired only when LOCAL_AI is held and an editor is
-    // active.
-    ...(onExplainSelectedCode
-      ? [
-          buildActionCommand(
-            'action-explain-selected-code',
-            translate('command.explainCode'),
-            translate('command.explainCodeDescription'),
-            [
-              'explain',
-              'code',
-              'ai',
-              'describe',
-              'selection',
-              'explicar',
-              'código',
-              'ia',
-              'selección',
-            ],
-            () => {
-              onExplainSelectedCode();
-              onClose();
-            }
-          ),
-        ]
-      : []),
+    ...buildAiCodeCommands({ onExplainSelectedCode, onEditSelectedCode, onClose }, translate),
     // Focus the status bar's first segment. Surfaced only
     // when wired AND the bar is visible (the caller gates on `showStatusBar`).
     ...(onFocusStatusBar

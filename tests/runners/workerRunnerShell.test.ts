@@ -577,6 +577,16 @@ describe('debugger stepping', () => {
     }
   });
 
+  it('lets the run context block every host whatever the Labs policy says', () => {
+    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+    try {
+      const { worker } = startRun({ context: { tabId: 'tab-preview', blockNetwork: true } });
+      expect(worker.posted[0]?.['network']).toEqual({ policy: 'block', allowedHosts: [], blockedHosts: [] });
+    } finally {
+      useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+    }
+  });
+
   it('drops an unanswered network question when the run ends', async () => {
     useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'ask' });
     try {

@@ -102,6 +102,19 @@ action and a preview of exactly what is sent.
   the error's kind, the vote and its time in `lingua-explain-ratings`.
 - SQL workspace: "Ask AI" sends only the live schema and typed question, then
   inserts the generated SQL for user review; it never auto-runs generated SQL.
+- Edit with AI (`src/shared/ai/editSelection.ts`, `EditWithAiDialog`) sends
+  the file with the span to edit marked, only 60 lines around it once the
+  file passes 12,000 characters. Redaction runs before the markers go in,
+  on the text before, inside and after the span. If that differs from
+  redacting the whole file, because a boundary splits a secret, the span widens
+  to whole lines, then to the whole file. The answer's first fenced
+  block replaces the span. Only on an explicit **Run preview**, JavaScript,
+  TypeScript and Python run the file before and after the change through
+  `runtime/aiEditPreview.ts` on a
+  throwaway Worker or Pyodide, never Node, Deno or Bun, on the redacted file,
+  with network requests blocked, no user env vars and a 5 s timeout. Nothing is applied until
+  Accept, which is one undoable edit and refuses a stale model version or an
+  answer that still holds `<redacted>`.
 
 ## Modes and transport
 

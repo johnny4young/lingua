@@ -66,6 +66,8 @@ export interface ExecutionContext {
    */
   stdin?: string;
   askStdin?: boolean;
+  /** Blocks every host for this run whatever the Labs policy says; AI edit previews set it. */
+  blockNetwork?: boolean;
   /** Argv from the active input set; unsupported runners ignore it. */
   args?: string[];
   /**
