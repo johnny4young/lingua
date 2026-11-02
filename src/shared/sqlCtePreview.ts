@@ -58,7 +58,7 @@ const isPunct = (token: Token | undefined, punct: string) => token?.kind === 'pu
 // DuckDB matches identifiers case-insensitively, quoted or not.
 const keyOf = (token: Token) => token.text.toLowerCase();
 
-export interface SqlCte {
+interface SqlCte {
   /** Lower-cased name, how references match it. */
   key: string;
   /** The name as written, quotes included, for building SQL. */
@@ -161,7 +161,7 @@ export function cteDependents(chain: SqlCteChain, key: string): { ctes: Set<stri
 
 export type InstantBlockReason = 'write' | 'remote' | 'computed-path' | 'side-effect' | 'unlisted';
 
-export interface InstantCrumb {
+interface InstantCrumb {
   /** The CTE's key; empty for the statement's result. */
   key: string;
   label?: string;

@@ -113,6 +113,18 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/RunRegions/RunRegions.tsx'), 'utf8')).toContain("import '../../i18n/runRegionsCatalog'");
   });
 
+  it('keeps the Instant SQL copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('sqlWorkspace.instant.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/sqlInstant.json');
+    expect(rendererI18n).toContain("import('./locales/es/sqlInstant.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/sqlInstantCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/sqlInstant.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/SqlWorkspace/SqlInstantPreview.tsx'), 'utf8')).toContain("import '../../i18n/sqlInstantCatalog'");
+  });
+
   it('keeps the Compare runs copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
