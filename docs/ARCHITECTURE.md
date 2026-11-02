@@ -1751,6 +1751,14 @@ only the Worker's `networkGuard`, with no SSRF guard, redirect header stripping,
 response caps or masking at send time. That is why the generated source reads
 placeholders the user fills in, and never receives a secret from the workspace.
 
+The same setting adds **Save as JS snippet** to a utility pipeline
+(`src/shared/utilityPipelineJs.ts`). It emits one block per step from the step's
+parsed options, with the engine's fallback to defaults, and never reads the
+pipeline's input. The utilities remain the source of truth: each template is a
+second implementation, and `tests/shared/utilityPipelineJs.test.ts` runs both over
+the same inputs and fails when they disagree. A new adapter has to add a template
+or join the list that stays a comment.
+
 ### Encrypted secret vault
 
 The HTTP workspace's secret variable values (environment, collection and request), the AI API key and saved
