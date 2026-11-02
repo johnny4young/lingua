@@ -3,7 +3,7 @@ import type { DuckDbExecuteOutcome } from '../../../src/renderer/runtime/duckdbC
 
 const executeQuery = vi.hoisted(() => vi.fn());
 const runInstantPreview = vi.hoisted(() => vi.fn());
-vi.mock('../../../src/renderer/runtime/duckdbClient', () => ({ executeQuery }));
+vi.mock('../../../src/renderer/runtime/duckdbClient', () => ({ executeQuery, getDuckDbEngine: async () => ({}) }));
 vi.mock('../../../src/renderer/runtime/sqlInstantPreview', () => ({ INSTANT_TIMEOUT_MS: 3000, runInstantPreview }));
 
 import { runExprBreakdown } from '../../../src/renderer/runtime/sqlExprBreakdown';

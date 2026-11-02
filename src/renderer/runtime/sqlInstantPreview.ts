@@ -1,7 +1,7 @@
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import { INSTANT_SAMPLE_ROWS, instantAstBlockReason, type InstantBlockReason } from '../../shared/sqlCtePreview';
 import { parseSerializedSql, serializedSqlCanRebuild } from '../../shared/sqlExprBreakdown';
-import { executeQuery } from './duckdbClient';
+import { executeQuery, getDuckDbEngine } from './duckdbClient';
 
 export const INSTANT_TIMEOUT_MS = 3_000;
 
@@ -56,7 +56,10 @@ function singleSelectVerdict(rows: ReadonlyArray<Record<string, unknown>>): { st
 
 /** Checks with DuckDB's own parser that `sql` is one SELECT, then runs it; null once `signal` aborts. */
 export async function runInstantPreview(sql: string, signal: AbortSignal): Promise<InstantPreviewResult | null> {
-  // The check and the sample share one budget.
+  // A cold engine start can outlast the budget, which is for the check and the sample.
+  // The check itself reports an engine that failed to start.
+  await getDuckDbEngine().catch(() => undefined);
+  if (signal.aborted) return null;
   const deadline = performance.now() + INSTANT_TIMEOUT_MS;
   const options = () => ({ timeoutMs: Math.max(1, Math.round(deadline - performance.now())), signal });
   const check = await executeQuery(buildCheckSql(sql), options());

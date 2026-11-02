@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DuckDbExecuteOutcome } from '../../../src/renderer/runtime/duckdbClient';
 
-const executeQuery = vi.hoisted(() => vi.fn());
-vi.mock('../../../src/renderer/runtime/duckdbClient', () => ({ executeQuery }));
+const { executeQuery, getDuckDbEngine } = vi.hoisted(() => ({ executeQuery: vi.fn(), getDuckDbEngine: vi.fn() }));
+vi.mock('../../../src/renderer/runtime/duckdbClient', () => ({ executeQuery, getDuckDbEngine }));
 
 import { INSTANT_TIMEOUT_MS, runInstantPreview } from '../../../src/renderer/runtime/sqlInstantPreview';
 
@@ -20,7 +20,41 @@ const verdict = (json: unknown) => outcome({ rows: [{ j: JSON.stringify(json) }]
 const ONE_SELECT = { error: false, statements: [{}] };
 
 describe('runInstantPreview', () => {
-  beforeEach(() => executeQuery.mockReset());
+  beforeEach(() => {
+    executeQuery.mockReset();
+    getDuckDbEngine.mockReset();
+    getDuckDbEngine.mockResolvedValue({});
+  });
+
+  it('does not charge a cold engine start to the budget of the check and the sample', async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    getDuckDbEngine.mockImplementationOnce(async () => {
+      now += 5_000;
+      return {};
+    });
+    executeQuery
+      .mockResolvedValueOnce(verdict(ONE_SELECT))
+      .mockResolvedValueOnce(outcome({ columns: [{ name: 'x', type: 'BIGINT' }], rows: [{ x: 1 }], durationMs: 7 }));
+    const result = await runInstantPreview('SELECT 1 AS x', new AbortController().signal);
+    clock.mockRestore();
+    expect(result?.kind).toBe('rows');
+    expect(executeQuery.mock.calls.map((call) => (call[1] as { timeoutMs: number }).timeoutMs)).toEqual([INSTANT_TIMEOUT_MS, INSTANT_TIMEOUT_MS]);
+  });
+
+  it('reports an engine that fails to start, and stops if the edit moved on while it started', async () => {
+    getDuckDbEngine.mockRejectedValueOnce(new Error('wasm 503'));
+    executeQuery.mockResolvedValueOnce(outcome({ status: 'engine-load-failed', errorMessage: 'wasm 503' }));
+    expect(await runInstantPreview('SELECT 1', new AbortController().signal)).toEqual({ kind: 'error', message: 'wasm 503' });
+    executeQuery.mockClear();
+    const controller = new AbortController();
+    getDuckDbEngine.mockImplementationOnce(async () => {
+      controller.abort();
+      return {};
+    });
+    expect(await runInstantPreview('SELECT 1', controller.signal)).toBeNull();
+    expect(executeQuery).not.toHaveBeenCalled();
+  });
 
   it('runs the SQL after DuckDB parses it as one SELECT, with a short timeout', async () => {
     executeQuery

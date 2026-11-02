@@ -57,6 +57,17 @@ test.describe('Instant SQL', () => {
     });
   }
 
+  test('previews on the first edit when the engine starts slowly', async ({ page }) => {
+    await page.context().route(/duckdb-mvp.*\.wasm/, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      await route.continue();
+    });
+    await openQuery(page, 'en');
+    await replaceQuery(page, QUERY);
+    await expect(page.getByTestId('sql-instant-target')).toHaveText('Result');
+    await expect(page.getByTestId('sql-instant-preview').locator('tbody tr')).toHaveCount(3);
+  });
+
   test('never runs a write as you type', async ({ page }) => {
     await openQuery(page, 'en');
     await replaceQuery(page, 'CREATE TABLE instant_probe AS SELECT 1 AS x');
