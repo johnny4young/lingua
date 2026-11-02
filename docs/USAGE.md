@@ -300,6 +300,13 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Staged edits work on Turso and Neon too: Turso commits them on one stream, and Neon sends them as one transaction that saves nothing when a change misses its row.
 - A view, a connection's table without a primary key, every ClickHouse table (its sorting key does not make rows unique, and it has no row-by-row transactions), every D1 table (its API gives no transaction to check each change in), and every table on a read-only or production connection stay read-only, with the reason above the grid. A connection with **Confirm every write** asks you to type its name, listing the statements, before Commit.
 
+## Instant SQL (Labs)
+
+- Turn on **Settings › Labs › Instant SQL**. On Local, a strip above the results samples the statement under the cursor (the first 1,000 rows) a quarter second after you stop typing or move the cursor to another statement or CTE, and shows its rows, column types, count and time. A connection never previews.
+- With the cursor in a CTE of a `WITH` chain, the strip shows that CTE's rows and the editor tints its lines. The breadcrumb lists the CTEs and the result: the pressed one is shown, a ↻ marks each that reads it, and clicking one moves the cursor there.
+- A newer edit cancels the preview still running. While a Run is in flight the preview waits, and after a Run the strip hides until the text changes or the cursor moves to another CTE. A preview that takes over 3 s stops and says so; an error keeps the last rows, dimmed.
+- Anything that writes (DML or DDL), reads a remote URL (`https://`, `s3://`…) or calls `nextval`, `setval`, `setseed`, `query` or `query_table` never runs on its own, and the strip says why. DuckDB's parser must also read the sampled SQL as one SELECT. Run (`Cmd/Ctrl+Enter`) runs the statement in full as before.
+
 ## Network from running code (Labs)
 
 - Turn on **Settings › Labs › Network policy for running code** to add **Network from running code** to Settings › Privacy. It is off by default and, until you change it, the policy is **Allow**: nothing changes.
@@ -336,7 +343,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 ## Run state (Labs)
 
 - Turn on **Settings › Labs › Run state** to see when the results on screen no longer match the code. Once you edit the code, stdin or the arguments after the last run, the editor gets an amber border, the inline values dim and end with their age (`· 12 sec. ago`), the Dock row shows **Stale**, and Run pulses. Running again, or undoing the edit, clears it. A Scratchpad that runs on its own only turns stale while an incomplete edit keeps it from running.
-- Settings › Editor › **Run policy** then sets when Scratchpad runs, per language group: **On keystroke** (500 ms after you type), **On pause** (1 s without typing) or **Manual** (only Run). The defaults are On keystroke for JavaScript and TypeScript, On pause for Python and Ruby, and Manual for Go and Rust. Ruby tabs only run with Run today, so that row applies to Python. Browser preview keeps its own auto-refresh setting. Run and Debug tabs, SQL and HTTP never run on their own. With Run state off, Scratchpad keeps its 1.2 s debounce for every language.
+- Settings › Editor › **Run policy** then sets when Scratchpad runs, per language group: **On keystroke** (500 ms after you type), **On pause** (1 s without typing) or **Manual** (only Run). The defaults are On keystroke for JavaScript and TypeScript, On pause for Python and Ruby, and Manual for Go and Rust. Ruby tabs only run with Run today, so that row applies to Python. Browser preview keeps its own auto-refresh setting. Run and Debug tabs, SQL and HTTP never run on their own; Labs › Instant SQL only samples a read on Local (see Instant SQL below). With Run state off, Scratchpad keeps its 1.2 s debounce for every language.
 - `Cmd/Ctrl+.` stops a run you started with Run or `Cmd/Ctrl+Enter`, with or without Run state. Otherwise, including while Scratchpad runs on its own, the editor keeps it for Quick Fix; `Cmd/Ctrl+Enter` also stops a run.
 - Saving never runs code, and the dot on a tab means unsaved, not stale.
 

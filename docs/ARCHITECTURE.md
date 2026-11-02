@@ -326,6 +326,19 @@ credential-bearing string literals with `redactSqlSecrets` before keeping SQL;
 for a MySQL or ClickHouse run it finds literals by that server's quoting
 rules, and an unclosed literal masks the rest of the text.
 
+Instant SQL (Labs) samples the statement under the cursor on Local only. The
+editor computes the target with `planInstantPreview`
+(`src/shared/sqlCtePreview.ts`): a token scanner finds the WITH chain, because
+DuckDB's serialized AST has no CTE positions, and the sampled SQL is the chain
+up to the CTE under the cursor plus `SELECT * FROM <cte> LIMIT 1000`, or the
+statement wrapped in `SELECT * FROM (…) LIMIT 1000`. It reaches the preview
+through `instantSqlChannel.ts`, so typing does not re-render the panel.
+`runInstantPreview` runs only what `isReadOnlySqlStatement` allows, with no
+remote URL and no side-effect function, and only after `json_serialize_sql`
+parses it as one SELECT; it uses `executeQuery` with a 3 s timeout and an
+abort signal, so a newer edit or a Run cancels it like Cancel does. It never
+runs while a Run is in flight, and the result is never persisted.
+
 With `keepCursor`, a windowed single statement keeps its stream instead of
 cancelling it: the outcome carries a `SqlResultCursor` over the rows left in
 the last batch, the peeked batch and the rest of the stream, and the
