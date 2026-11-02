@@ -1,4 +1,5 @@
 import type { EditorState, FileTab } from '../types/editor';
+import { currentProAccess } from './proAccess';
 import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
 import { useSettingsStore } from './settingsStore';
@@ -182,9 +183,10 @@ export function createWorkspaceActions(
     addUtilitiesTab: (utilityId?: DeveloperUtilityId) => {
       const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
       const tier = currentEffectiveTier();
+      // Labs › Pro in context opens a gated utility as a slice instead of refusing it.
       if (
         requestedUtility?.requiresEntitlement &&
-        !isEntitled(tier, requestedUtility.requiresEntitlement)
+        currentProAccess(requestedUtility.requiresEntitlement) === 'locked'
       ) {
         pushUpsellNotice({
           messageKey: 'upsell.freeCeilingReached',

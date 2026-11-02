@@ -1,12 +1,14 @@
 import { History } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
 } from '../../stores/executionHistoryStore';
-import { useEntitlement } from '../../hooks/useEntitlement';
+import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
+import { useProAccess } from '../../hooks/useProAccess';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { executionModeForLanguage } from '../../utils/languageMeta';
@@ -27,7 +29,8 @@ import { RecentRunsPopoverHost } from './RecentRunsPopoverHost';
 export function RecentRunsPill() {
   const { t } = useTranslation();
   const { track } = useTelemetry();
-  const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
+  const access = useProAccess('EXECUTION_HISTORY');
+  const canUseExecutionHistory = access !== 'locked';
   const activeTabId = useEditorStore(state => state.activeTabId);
   const activeTabLanguage = useEditorStore(state => getActiveTab(state)?.language ?? null);
   // Subscribe to the underlying `entries` array (stable reference) and derive
@@ -43,7 +46,15 @@ export function RecentRunsPill() {
   }, [allEntries, activeTabId]);
 
   const [openTabId, setOpenTabId] = useState<string | null>(null);
+  // The dock clips its contents, so the list renders on the body, fixed above the pill.
+  const [anchor, setAnchor] = useState<{ bottom: number; right: number } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const toggle = (tabId: string) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) setAnchor({ bottom: window.innerHeight - rect.top + 8, right: window.innerWidth - rect.right });
+    setOpenTabId(current => (current === tabId ? null : tabId));
+  };
 
   const runnableSurface =
     activeTabLanguage !== null && executionModeForLanguage(activeTabLanguage) === 'run';
@@ -57,7 +68,7 @@ export function RecentRunsPill() {
     if (!open) return;
     const handlePointer = (event: PointerEvent) => {
       const target = event.target as Node | null;
-      if (target && containerRef.current?.contains(target)) return;
+      if (target && (containerRef.current?.contains(target) || popoverRef.current?.contains(target))) return;
       setOpenTabId(null);
     };
     const handleKey = (event: KeyboardEvent) => {
@@ -78,9 +89,7 @@ export function RecentRunsPill() {
       setRecentRunsPopoverOpener(null);
       return;
     }
-    const opener: RecentRunsPopoverOpener = () => {
-      setOpenTabId(current => (current === activeTabId ? null : activeTabId));
-    };
+    const opener: RecentRunsPopoverOpener = () => toggle(activeTabId);
     setRecentRunsPopoverOpener(opener);
     return () => {
       setRecentRunsPopoverOpener(null);
@@ -117,7 +126,7 @@ export function RecentRunsPill() {
   if (!canOpenRecentRuns) return null;
 
   return (
-    <div ref={containerRef} className="inline-flex">
+    <div ref={containerRef} className="relative inline-flex">
       <button
         type="button"
         data-testid="recent-runs-pill"
@@ -126,9 +135,7 @@ export function RecentRunsPill() {
         aria-expanded={open}
         aria-label={t('executionHistory.tabPill.tooltip')}
         title={t('executionHistory.tabPill.tooltip')}
-        onClick={() => {
-          setOpenTabId(current => (current === activeTabId ? null : activeTabId));
-        }}
+        onClick={() => toggle(activeTabId!)}
         className={cn(
           'status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-eyebrow font-medium uppercase tracking-[0.08em] text-muted hover:bg-surface',
           open && 'border-primary/40 text-primary'
@@ -137,9 +144,18 @@ export function RecentRunsPill() {
         <History size={11} aria-hidden="true" className="mr-1" />
         {t('executionHistory.tabPill.label', { count: tabEntries.length })}
       </button>
-      {open ? (
-        <RecentRunsPopoverHost entries={tabEntries} onClose={() => setOpenTabId(null)} />
-      ) : null}
+      {open && anchor
+        ? createPortal(
+            <div ref={popoverRef} className="fixed z-50" style={{ bottom: anchor.bottom, right: anchor.right }}>
+              <RecentRunsPopoverHost
+                entries={access === 'slice' ? tabEntries.slice(0, FREE_TIER_LIMITS.recentRuns) : tabEntries}
+                {...(access === 'slice' ? { sliceOf: tabEntries.length } : {})}
+                onClose={() => setOpenTabId(null)}
+              />
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

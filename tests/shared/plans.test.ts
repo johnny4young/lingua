@@ -33,6 +33,8 @@ describe('PLAN_ROWS', () => {
     expect(row('snippets').free).toBe(FREE_TIER_LIMITS.maxSnippets);
     expect(row('dbConnections').free).toBe(FREE_TIER_LIMITS.savedDbConnections);
     expect(row('timeline')).toMatchObject({ free: TIMELINE_FREE_STEPS, pro: TIMELINE_MAX_STEPS, unit: 'steps' });
+    expect(row('recentRuns')).toMatchObject({ free: FREE_TIER_LIMITS.recentRuns, unit: 'lastRuns' });
+    expect(row('utilityPipelines')).toMatchObject({ free: FREE_TIER_LIMITS.pipelineSteps, unit: 'steps' });
   });
 
   it('lists every row once, with Pro never below Free', () => {

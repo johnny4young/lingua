@@ -17,7 +17,7 @@ function PlanCell({ value, unit }: { value: PlanValue; unit: PlanRow['unit'] }) 
   if (value === false) return <Minus size={14} aria-label={t('plans.notIncluded')} className="text-fg-subtle" />;
   if (typeof value === 'number') {
     const formatted = value.toLocaleString(i18n.language);
-    return <span>{unit === 'steps' ? t('plans.steps', { count: value, formatted }) : formatted}</span>;
+    return <span>{unit ? t(`plans.${unit}`, { count: value, formatted }) : formatted}</span>;
   }
   if (value === 'freeLanguages') return <span>{FREE_TIER_LIMITS.allowedLanguages.map(language => languageLabel(language as Language)).join(', ')}</span>;
   return <span>{t(`plans.value.${value}`)}</span>;

@@ -263,6 +263,9 @@ command: `components/Plans/ComparePlansDialog.tsx` (lazy overlay
 `compare-plans`) renders `shared/plans.ts`, whose Free numbers come from
 `FREE_TIER_LIMITS` and the timeline caps, and `components/ui/ProChip.tsx` is
 the PRO mark limited features use to open it.
+`stores/proAccess.ts` (`currentProAccess`) and `hooks/useProAccess.ts` say whether a
+Pro feature is `full`, a Free `slice` under the same flag, or `locked`; the
+slice sizes live in `FREE_TIER_LIMITS`.
 
 The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
 persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes

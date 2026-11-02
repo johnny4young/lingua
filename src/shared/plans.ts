@@ -25,8 +25,8 @@ export interface PlanRow {
   readonly id: string;
   readonly free: PlanValue;
   readonly pro: PlanValue;
-  /** Rows counting steps rather than items. */
-  readonly unit?: 'steps';
+  /** Rows counting steps, or the latest runs, rather than items. */
+  readonly unit?: 'steps' | 'lastRuns';
 }
 
 /** The one Free against Pro table; numbers come from the limits the app enforces. */
@@ -36,8 +36,10 @@ export const PLAN_ROWS: readonly PlanRow[] = [
   { id: 'languages', free: 'freeLanguages', pro: 'allLanguages' },
   { id: 'dbConnections', free: FREE_TIER_LIMITS.savedDbConnections, pro: 'unlimited' },
   { id: 'timeline', free: TIMELINE_FREE_STEPS, pro: TIMELINE_MAX_STEPS, unit: 'steps' },
-  { id: 'runHistory', free: false, pro: true },
-  { id: 'utilityPipelines', free: false, pro: true },
+  { id: 'recentRuns', free: FREE_TIER_LIMITS.recentRuns, pro: true, unit: 'lastRuns' },
+  { id: 'capsuleBrowser', free: false, pro: true },
+  { id: 'utilityPipelines', free: FREE_TIER_LIMITS.pipelineSteps, pro: 'unlimited', unit: 'steps' },
+  { id: 'utilityHistory', free: false, pro: true },
   { id: 'ai', free: false, pro: true },
   { id: 'notebooks', free: false, pro: true },
   { id: 'benchmark', free: false, pro: true },

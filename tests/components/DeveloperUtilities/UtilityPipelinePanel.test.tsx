@@ -92,6 +92,29 @@ describe('UtilityPipelinePanel', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 
+  it('runs only the first three steps on Free with Pro in context', async () => {
+    setFreeTier();
+    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+    try {
+      const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
+      for (const [id, utilityId] of [['s1', 'base64-encode'], ['s2', 'base64-decode'], ['s3', 'base64-encode'], ['s4', 'base64-decode']] as const) {
+        pipeline.steps.push(createBlankStep({ id, utilityId }));
+      }
+      useUtilityPipelineStore.getState().createPipeline(pipeline);
+      useUtilityPipelineStore.getState().setPipelineInput('p1', 'hi');
+      const user = userEvent.setup();
+      render(<UtilityPipelinePanel />);
+      expect(screen.queryByTestId('utility-pipeline-locked')).toBeNull();
+      expect(screen.getAllByTestId('utility-pipeline-step-beyond')).toHaveLength(1);
+      expect(screen.getByTestId('utility-pipeline-free-slice').textContent).toContain('Free runs the first 3 steps');
+      await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+      await waitFor(() => expect(useAnnouncerStore.getState().message).toContain('of 3 steps'));
+      expect(screen.getAllByTestId('utility-pipeline-result-row')).toHaveLength(3);
+    } finally {
+      useSettingsStore.setState({ featureFlags: {} });
+    }
+  });
+
   it('renders the empty state when no pipeline is selected', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('utility-pipeline-panel')).toBeTruthy();

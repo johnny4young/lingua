@@ -10,6 +10,7 @@ import {
   toggleRecentRunsPopover,
 } from '@/runtime/recentRunsPopoverBridge';
 import { useEditorStore } from '@/stores/editorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
@@ -24,9 +25,10 @@ vi.mock('@/hooks/useEntitlement', () => ({
 }));
 
 vi.mock('@/components/Editor/RecentRunsPopoverHost', () => ({
-  RecentRunsPopoverHost: ({ entries, onClose }: RecentRunsPopoverProps) => (
+  RecentRunsPopoverHost: ({ entries, onClose, sliceOf }: RecentRunsPopoverProps) => (
     <div data-testid="recent-runs-popover-host-probe">
       <span>{entries.length}</span>
+      <span data-testid="probe-slice-of">{sliceOf ?? 'full'}</span>
       <button type="button" onClick={onClose}>
         close
       </button>
@@ -120,4 +122,38 @@ describe('RecentRunsPill', () => {
     expect(screen.getByTestId('recent-runs-upsell-pill')).toBeTruthy();
     expect(screen.queryByTestId('recent-runs-popover-host-probe')).toBeNull();
   });
+
+  it('opens the last three runs on Free with Pro in context', async () => {
+    mocks.entitled = false;
+    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+    try {
+      useExecutionHistoryStore.setState({
+        entries: Array.from({ length: 5 }, (_, index) => ({ ...makeEntry(), id: `run-${index}`, timestamp: 100 + index })),
+      });
+      render(<RecentRunsPill />);
+      expect(screen.queryByTestId('recent-runs-upsell-pill')).toBeNull();
+      await userEvent.setup().click(screen.getByTestId('recent-runs-pill'));
+      const probe = screen.getByTestId('recent-runs-popover-host-probe');
+      expect(probe.textContent).toContain('3');
+      expect(screen.getByTestId('probe-slice-of').textContent).toBe('5');
+    } finally {
+      useSettingsStore.setState({ featureFlags: {} });
+    }
+  });
+
+  it('stays open on a click inside the popover, which renders on the body', async () => {
+    render(<RecentRunsPill />);
+    await userEvent.setup().click(screen.getByTestId('recent-runs-pill'));
+    const probe = screen.getByTestId('recent-runs-popover-host-probe');
+    expect(probe.closest('.fixed')?.parentElement).toBe(document.body);
+    act(() => {
+      probe.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    });
+    expect(screen.getByTestId('recent-runs-popover-host-probe')).toBeTruthy();
+    act(() => {
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    });
+    expect(screen.queryByTestId('recent-runs-popover-host-probe')).toBeNull();
+  });
 });
+
