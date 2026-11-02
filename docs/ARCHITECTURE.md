@@ -333,16 +333,22 @@ DuckDB's serialized AST has no CTE positions, and the sampled SQL is the chain
 up to the CTE under the cursor plus `SELECT * FROM <cte> LIMIT 1000`, or the
 statement wrapped in `SELECT * FROM (…) LIMIT 1000`. It reaches the preview
 through `instantSqlChannel.ts`, so typing does not re-render the panel.
-`runInstantPreview` runs only what `isReadOnlySqlStatement` allows, and only
-after `json_serialize_sql` parses it as one SELECT. `instantAstBlockReason`
+`planInstantPreview` produces no SQL for a statement `isReadOnlySqlStatement`
+rejects or that names a side-effect function, and `runInstantPreview` runs the
+sampled SQL only after `json_serialize_sql` parses it as one SELECT. `instantAstBlockReason`
 then walks that parse and fails closed: side-effect functions by their
-normalized name, a remote URL passed to any function or named as any table,
-and a computed argument to a file reader or to any table function other than
-`range`, `generate_series` and `unnest` block the run, since text checks miss
-quoted names and concatenated URLs. It
-uses `executeQuery` with a 3 s timeout and an
-abort signal, so a newer edit or a Run cancels it like Cancel does. It never
-runs while a Run is in flight, and the result is never persisted.
+normalized name (logging and checkpoints included), a remote URL anywhere in a
+function's arguments or options or in any table reference (catalog, schema and
+table are joined back, as a replacement scan does), a table function outside
+the built-in readers, generators and `duckdb_*`/`pragma_*` metadata, a computed
+path, and a replacement scan of a format that autoloads an extension block the
+run, since text checks miss quoted names and concatenated URLs. The check and the sample share one 3 s
+budget through `executeQuery` and an
+abort signal, so a newer edit or a Run cancels it like Cancel does;
+`runOnConnection` sends nothing once the signal has aborted. It never runs
+while a Run or an import is in flight, a sample DuckDB did not stop
+(`stillRunning`) pauses previews until the next Run, and the result is never
+persisted.
 
 With `keepCursor`, a windowed single statement keeps its stream instead of
 cancelling it: the outcome carries a `SqlResultCursor` over the rows left in

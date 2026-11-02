@@ -521,6 +521,13 @@ describe('SqlQueryEditor', () => {
       expect(channel.snapshot().ran?.text).toBe('SELECT 1');
     });
 
+    it('records the buffer the Run used when the model is ahead of React', () => {
+      const { channel } = renderInstant('SELECT 1');
+      sqlMonacoHarness.modelValue = 'SELECT 2';
+      act(() => pressSqlChord('statement'));
+      expect(channel.snapshot().ran).toMatchObject({ queryId: 'q1', text: 'SELECT 2', plan: { targetKey: '0:' } });
+    });
+
     it('moves the cursor where a breadcrumb points', () => {
       const { channel } = renderInstant(CTE_SQL);
       act(() => channel.jumpTo(CTE_SQL.indexOf('SELECT * FROM a')));

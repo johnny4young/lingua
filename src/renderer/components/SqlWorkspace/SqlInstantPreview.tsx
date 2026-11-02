@@ -13,7 +13,7 @@ import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeName
 import { INSTANT_TIMEOUT_MS, runInstantPreview, type InstantPreviewResult } from '../../runtime/sqlInstantPreview';
 import { cn } from '../../utils/cn';
 import { StatusBadge } from '../ui/StatusBadge';
-import { instantPreviewVisible, type InstantSqlChannel } from './instantSqlChannel';
+import { instantPreviewVisible, type InstantSqlChannel, type InstantSqlDraft } from './instantSqlChannel';
 import { renderCell } from './sqlResultFormatters';
 
 export const INSTANT_DEBOUNCE_MS = 250;
@@ -27,8 +27,10 @@ type PreviewState =
   | { kind: 'shown'; shown: Shown }
   | { kind: 'error'; message: string; shown?: Shown }
   | { kind: 'timeout'; shown?: Shown }
-  | { kind: 'rejected'; shown?: Shown }
-  | { kind: 'blocked'; reason: InstantBlockReason; shown?: Shown };
+  | { kind: 'rejected'; sql: string; shown?: Shown }
+  | { kind: 'blocked'; reason: InstantBlockReason; sql: string; shown?: Shown }
+  /** DuckDB did not stop the last sample; previews wait for the next Run. */
+  | { kind: 'stuck'; ran: InstantSqlDraft | null; shown?: Shown };
 
 export interface SqlInstantPreviewProps {
   channel: InstantSqlChannel;
@@ -39,12 +41,13 @@ export interface SqlInstantPreviewProps {
 
 export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewProps) {
   const { t, i18n } = useTranslation();
+  const [state, setState] = useState<PreviewState>({ kind: 'idle' });
   const snapshot = useSyncExternalStore(channel.subscribe, channel.snapshot);
   const plan = snapshot.draft?.plan ?? null;
   const visible = instantPreviewVisible(snapshot, queryId);
-  const sql = visible && !busy ? plan?.sql : undefined;
+  const stuck = state.kind === 'stuck' && state.ran === snapshot.ran;
+  const sql = visible && !busy && !stuck ? plan?.sql : undefined;
   const cte = plan?.cte;
-  const [state, setState] = useState<PreviewState>({ kind: 'idle' });
 
   useEffect(() => {
     if (sql === undefined) return;
@@ -57,7 +60,9 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
           const kept = prev.shown ? { shown: prev.shown } : {};
           if (result.kind === 'rows') return { kind: 'shown', shown: { ...result, ...(cte ? { cte } : {}) } };
           if (result.kind === 'error') return { kind: 'error', message: result.message, ...kept };
-          if (result.kind === 'blocked') return { kind: 'blocked', reason: result.reason, ...kept };
+          if (result.kind === 'blocked') return { kind: 'blocked', reason: result.reason, sql, ...kept };
+          if (result.kind === 'rejected') return { kind: 'rejected', sql, ...kept };
+          if (result.kind === 'timeout' && result.stuck) return { kind: 'stuck', ran: channel.snapshot().ran, ...kept };
           return { kind: result.kind, ...kept };
         });
       });
@@ -66,11 +71,13 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
       clearTimeout(timer);
       controller.abort();
     };
-  }, [sql, cte]);
+  }, [sql, cte, channel]);
 
   if (!visible || !plan) return null;
+  // A verdict on other SQL says nothing about this one.
+  const verdict = (state.kind === 'rejected' || state.kind === 'blocked') && state.sql === plan.sql ? state : undefined;
   const blocked: InstantBlockReason | 'rejected' | undefined =
-    plan.blocked ?? (state.kind === 'rejected' ? 'rejected' : state.kind === 'blocked' ? state.reason : undefined);
+    plan.blocked ?? (verdict?.kind === 'blocked' ? verdict.reason : verdict?.kind);
   const shown = blocked ? undefined : state.shown;
   const columns = (shown?.columns ?? []).map((column) => {
     const type = arrowTypeToDuckDb(column.type);
@@ -149,9 +156,13 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
           </nav>
         ) : null}
       </header>
-      {!blocked && (state.kind === 'error' || state.kind === 'timeout') ? (
+      {!blocked && (state.kind === 'error' || state.kind === 'timeout' || stuck) ? (
         <p role="status" data-testid="sql-instant-error" className="truncate px-3 pb-1.5 font-mono text-caption text-error-fg" title={state.kind === 'error' ? state.message : undefined}>
-          {state.kind === 'error' ? state.message : t('sqlWorkspace.instant.timeout', { seconds: INSTANT_TIMEOUT_MS / 1000 })}
+          {state.kind === 'error'
+            ? state.message
+            : stuck
+              ? t('sqlWorkspace.instant.stuck')
+              : t('sqlWorkspace.instant.timeout', { seconds: INSTANT_TIMEOUT_MS / 1000 })}
         </p>
       ) : null}
       {shown ? (

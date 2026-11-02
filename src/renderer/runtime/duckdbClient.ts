@@ -1149,6 +1149,12 @@ async function runOnConnection(
     ),
     ...(stillRunning ? { stillRunning } : {}),
   });
+  // Aborted while the connection opened: send nothing.
+  if (options.signal?.aborted) {
+    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+    removeAbortListener();
+    return stopped('cancelled', false);
+  }
   try {
     // One statement streams, so it can stop at the row window and be cancelled.
     const stream = statementCount === 1 ? connection.stream : undefined;

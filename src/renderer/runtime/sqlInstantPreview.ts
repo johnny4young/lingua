@@ -15,7 +15,8 @@ export type InstantPreviewResult =
       durationMs: number;
     }
   | { kind: 'error'; message: string }
-  | { kind: 'timeout' }
+  /** `stuck` when DuckDB had not stopped the sample when the budget ran out. */
+  | { kind: 'timeout'; stuck?: boolean }
   /** DuckDB's parser says the sampled SQL is not exactly one SELECT. */
   | { kind: 'rejected' }
   | { kind: 'blocked'; reason: InstantBlockReason };
@@ -36,18 +37,21 @@ function singleSelectVerdict(rows: ReadonlyArray<Record<string, unknown>>): { st
 
 /** Checks with DuckDB's own parser that `sql` is one SELECT, then runs it; null once `signal` aborts. */
 export async function runInstantPreview(sql: string, signal: AbortSignal): Promise<InstantPreviewResult | null> {
-  const options = { timeoutMs: INSTANT_TIMEOUT_MS, signal };
-  const check = await executeQuery(buildSingleSelectCheckSql(sql), options);
-  if (signal.aborted) return null;
+  // The check and the sample share one budget.
+  const deadline = performance.now() + INSTANT_TIMEOUT_MS;
+  const options = () => ({ timeoutMs: Math.max(1, Math.round(deadline - performance.now())), signal });
+  const check = await executeQuery(buildSingleSelectCheckSql(sql), options());
+  if (signal.aborted || check.status === 'cancelled') return null;
+  if (check.status === 'timeout') return { kind: 'timeout' };
   if (check.status !== 'success') return { kind: 'error', message: check.errorMessage ?? check.status };
   const verdict = singleSelectVerdict(check.rows);
   if (verdict === false) return { kind: 'rejected' };
   if (typeof verdict === 'string') return { kind: 'error', message: verdict };
   const reason = instantAstBlockReason(verdict.statements);
   if (reason) return { kind: 'blocked', reason };
-  const outcome = await executeQuery(sql, options);
+  const outcome = await executeQuery(sql, options());
   if (signal.aborted || outcome.status === 'cancelled') return null;
-  if (outcome.status === 'timeout') return { kind: 'timeout' };
+  if (outcome.status === 'timeout') return { kind: 'timeout', ...(outcome.stillRunning ? { stuck: true } : {}) };
   if (outcome.status !== 'success' && outcome.status !== 'too-large') {
     return { kind: 'error', message: outcome.errorMessage ?? outcome.status };
   }

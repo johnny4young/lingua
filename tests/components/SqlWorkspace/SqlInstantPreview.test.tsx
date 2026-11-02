@@ -51,7 +51,7 @@ describe('SqlInstantPreview', () => {
     expect(runInstantPreview).toHaveBeenCalledTimes(1);
     expect(runInstantPreview.mock.calls[0]![0]).toContain('SELECT 12');
     expect(screen.getByTestId('sql-instant-table').textContent).toContain('x INTEGER');
-    expect(screen.getByTestId('sql-instant-meta').textContent).toBe('1 row · 4 ms · sample');
+    expect(screen.getByTestId('sql-instant-meta').textContent).toBe('1 row · 4 ms');
 
     runInstantPreview.mockImplementationOnce(() => new Promise(() => {}));
     publish(channel, 'SELECT 123', 10);
@@ -131,6 +131,32 @@ describe('SqlInstantPreview', () => {
     expect(screen.queryByTestId('sql-instant-table')).toBeNull();
   });
 
+  it('drops a verdict once the SQL changes', async () => {
+    runInstantPreview.mockResolvedValueOnce({ kind: 'blocked', reason: 'remote' });
+    const { rerender } = render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
+    publish(channel, "SELECT * FROM 's3://b/a.csv'", 0);
+    await settle();
+    expect(screen.getByTestId('sql-instant-preview').textContent).toContain('Remote reads never auto-run');
+    rerender(<SqlInstantPreview channel={channel} queryId="q1" busy />);
+    publish(channel, 'SELECT 1', 8);
+    expect(screen.getByTestId('sql-instant-preview').textContent).not.toContain('Remote reads never auto-run');
+  });
+
+  it('pauses while DuckDB is stuck on a sample, until the next Run', async () => {
+    runInstantPreview.mockResolvedValueOnce({ kind: 'timeout', stuck: true });
+    render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
+    publish(channel, 'SELECT 1', 8);
+    await settle();
+    expect(screen.getByTestId('sql-instant-error').textContent).toBe('DuckDB is still busy with the last preview, so previews wait for the next Run.');
+    publish(channel, 'SELECT 2', 8);
+    await settle();
+    expect(runInstantPreview).toHaveBeenCalledTimes(1);
+    act(() => channel.markRun());
+    publish(channel, 'SELECT 3', 8);
+    await settle();
+    expect(runInstantPreview).toHaveBeenCalledTimes(2);
+  });
+
   it('says when DuckDB will not preview it', async () => {
     runInstantPreview.mockResolvedValue({ kind: 'rejected' });
     render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
@@ -177,7 +203,7 @@ describe('SqlInstantPreview', () => {
     publish(channel, 'SELECT 1', 8);
     await settle();
     expect(screen.getByTestId('sql-instant-table').querySelectorAll('tbody tr')).toHaveLength(100);
-    expect(screen.getByTestId('sql-instant-meta').textContent).toBe('1,000+ rows · 4 ms · sample');
+    expect(screen.getByTestId('sql-instant-meta').textContent).toBe('1,000+ rows · 4 ms');
     expect(screen.getByTestId('sql-instant-preview').textContent).toContain('900 more rows in the sample');
   });
 });

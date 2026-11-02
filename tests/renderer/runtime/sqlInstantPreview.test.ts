@@ -30,7 +30,11 @@ describe('runInstantPreview', () => {
     const result = await runInstantPreview('SELECT 1 AS x', signal);
     expect(result).toEqual({ kind: 'rows', columns: [{ name: 'x', type: 'BIGINT' }], rows: [{ x: 1 }], capped: false, durationMs: 7 });
     expect(executeQuery.mock.calls[0]![0]).toBe("SELECT json_serialize_sql('SELECT 1 AS x') AS j");
-    expect(executeQuery.mock.calls[1]).toEqual(['SELECT 1 AS x', { timeoutMs: INSTANT_TIMEOUT_MS, signal }]);
+    const [checkOptions, sampleOptions] = executeQuery.mock.calls.map((call) => call[1] as { timeoutMs: number; signal: AbortSignal });
+    expect(checkOptions).toEqual({ timeoutMs: INSTANT_TIMEOUT_MS, signal });
+    expect(executeQuery.mock.calls[1]![0]).toBe('SELECT 1 AS x');
+    expect(sampleOptions!.signal).toBe(signal);
+    expect(sampleOptions!.timeoutMs).toBeLessThanOrEqual(INSTANT_TIMEOUT_MS);
   });
 
   it('marks a full sample as capped', async () => {
@@ -50,6 +54,26 @@ describe('runInstantPreview', () => {
     const remote = { error: false, statements: [{ node: { from_table: { type: 'BASE_TABLE', table_name: 's3://b/a.csv' } } }] };
     executeQuery.mockResolvedValueOnce(verdict(remote));
     expect(await runInstantPreview("SELECT * FROM 's3://b/a.csv'", new AbortController().signal)).toEqual({ kind: 'blocked', reason: 'remote' });
+    expect(executeQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares one time budget, so a slow check leaves less for the sample', async () => {
+    const now = vi.spyOn(performance, 'now');
+    now.mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(2_000);
+    executeQuery.mockResolvedValueOnce(verdict(ONE_SELECT)).mockResolvedValueOnce(outcome({}));
+    await runInstantPreview('SELECT 1', new AbortController().signal);
+    expect(executeQuery.mock.calls.map((call) => (call[1] as { timeoutMs: number }).timeoutMs)).toEqual([INSTANT_TIMEOUT_MS, INSTANT_TIMEOUT_MS - 2_000]);
+    now.mockRestore();
+  });
+
+  it('says when DuckDB had not stopped the sample', async () => {
+    executeQuery.mockResolvedValueOnce(verdict(ONE_SELECT)).mockResolvedValueOnce(outcome({ status: 'timeout', stillRunning: true }));
+    expect(await runInstantPreview('SELECT 1', new AbortController().signal)).toEqual({ kind: 'timeout', stuck: true });
+  });
+
+  it('reports a check that runs out of time as a timeout', async () => {
+    executeQuery.mockResolvedValueOnce(outcome({ status: 'timeout', errorMessage: 'Query exceeded timeout' }));
+    expect(await runInstantPreview('SELECT 1', new AbortController().signal)).toEqual({ kind: 'timeout' });
     expect(executeQuery).toHaveBeenCalledTimes(1);
   });
 

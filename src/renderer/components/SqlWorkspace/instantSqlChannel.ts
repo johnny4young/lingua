@@ -24,7 +24,8 @@ export interface InstantSqlChannel {
   snapshot: () => InstantSqlSnapshot;
   subscribe: (listener: () => void) => () => void;
   publish: (draft: InstantSqlDraft) => void;
-  markRun: () => void;
+  /** Records what a Run started from; the last published draft when omitted. */
+  markRun: (ran?: InstantSqlDraft) => void;
   jumpTo: (offset: number) => void;
 }
 
@@ -42,7 +43,7 @@ export function createInstantSqlChannel(): InstantSqlChannel {
       return () => listeners.delete(listener);
     },
     publish: (draft) => set({ draft }),
-    markRun: () => set({ ran: state.draft }),
+    markRun: (ran) => set({ ran: ran ?? state.draft }),
     jumpTo: (offset) => set({ jump: { offset, nonce: (state.jump?.nonce ?? 0) + 1 } }),
   };
 }

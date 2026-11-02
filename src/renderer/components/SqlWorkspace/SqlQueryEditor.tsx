@@ -143,8 +143,8 @@ export function SqlQueryEditor({
   const cursorIndex = statementAtOffset(statements, cursor.offset)?.index ?? 0;
   const hasSelection = text.slice(cursor.selectionStart, cursor.selectionEnd).trim().length > 0;
   const instantPlan = useMemo(
-    () => (instantSql && !overCap ? planInstantPreview(text, cursor.offset) : null),
-    [instantSql, overCap, text, cursor.offset]
+    () => (instantSql && !overCap ? planInstantPreview(text, cursor.offset, statements) : null),
+    [instantSql, overCap, text, cursor.offset, statements]
   );
   useEffect(() => {
     instantSql?.publish({ queryId: draftQueryId, text, plan: instantPlan });
@@ -251,7 +251,8 @@ export function SqlQueryEditor({
         lastSavedRef.current = buffer;
         onPatch(query.id, { query: buffer });
       }
-      instantSql?.markRun();
+      // The run's buffer can be ahead of the last published draft, as right after a paste.
+      instantSql?.markRun({ queryId: query.id, text: buffer, plan: planInstantPreview(buffer, context.offset, bufferStatements) });
       onRun({ query: { ...query, query: buffer }, mode, statements: pieces });
     },
     [isExecuting, isBusy, statements, text, query, onPatch, onRun, instantSql]

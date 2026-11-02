@@ -659,7 +659,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           {runner.stuck ? (
             <SqlStuckQueryBand onRestart={() => void runner.restartEngine()} isRestarting={runner.isRestarting} />
           ) : null}
-          {instantSql && activeQuery && !tablePreview && !objectView ? <SqlInstantPreview key={activeQuery.id} channel={instantSql} queryId={activeQuery.id} busy={runner.runningQueryId !== null} /> : null}
+          {instantSql && activeQuery && !tablePreview && !objectView ? <SqlInstantPreview key={activeQuery.id} channel={instantSql} queryId={activeQuery.id} busy={runner.runningQueryId !== null || importBusy} /> : null}
           {showResultTabs ? (
             <SqlResultTabs runSet={runSet} hasPlan={plan !== null} view={view} onSelect={runner.setView} />
           ) : null}
