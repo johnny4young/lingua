@@ -5,7 +5,7 @@
  */
 
 import { RefreshCw } from 'lucide-react';
-import { Fragment, useEffect, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';
 import '../../i18n/sqlInstantCatalog';
@@ -17,18 +17,17 @@ import { instantPreviewVisible, type InstantSqlChannel, type InstantSqlDraft } f
 import { SqlInstantTable, type InstantShown } from './SqlInstantTable';
 
 export const INSTANT_DEBOUNCE_MS = 250;
-type Shown = InstantShown;
 
 type PreviewState =
-  | { kind: 'idle'; shown?: Shown }
-  | { kind: 'running'; shown?: Shown }
-  | { kind: 'shown'; shown: Shown }
-  | { kind: 'error'; message: string; shown?: Shown }
-  | { kind: 'timeout'; shown?: Shown }
-  | { kind: 'rejected'; sql: string; shown?: Shown }
-  | { kind: 'blocked'; reason: InstantBlockReason; sql: string; shown?: Shown }
+  | { kind: 'idle'; shown?: InstantShown }
+  | { kind: 'running'; shown?: InstantShown }
+  | { kind: 'shown'; shown: InstantShown }
+  | { kind: 'error'; message: string; shown?: InstantShown }
+  | { kind: 'timeout'; shown?: InstantShown }
+  | { kind: 'rejected'; sql: string; shown?: InstantShown }
+  | { kind: 'blocked'; reason: InstantBlockReason; sql: string; shown?: InstantShown }
   /** DuckDB did not stop the last sample; previews wait for the next Run. */
-  | { kind: 'stuck'; ran: InstantSqlDraft | null; shown?: Shown };
+  | { kind: 'stuck'; ran: InstantSqlDraft | null; shown?: InstantShown };
 
 export interface SqlInstantPreviewProps {
   channel: InstantSqlChannel;
@@ -70,6 +69,10 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
       controller.abort();
     };
   }, [sql, cte, channel]);
+
+  const pauseOnStuck = useCallback(() => {
+    setState((prev) => ({ kind: 'stuck', ran: channel.snapshot().ran, ...(prev.shown ? { shown: prev.shown } : {}) }));
+  }, [channel]);
 
   if (!visible || !plan) return null;
   // A verdict on other SQL says nothing about this one.
@@ -159,7 +162,7 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
               : t('sqlWorkspace.instant.timeout', { seconds: INSTANT_TIMEOUT_MS / 1000 })}
         </p>
       ) : null}
-      {shown ? <SqlInstantTable shown={shown} dimmed={state.kind !== 'shown'} busy={busy} /> : null}
+      {shown ? <SqlInstantTable shown={shown} dimmed={state.kind !== 'shown'} busy={busy || stuck || state.kind === 'running'} onStuck={pauseOnStuck} /> : null}
     </section>
   );
 }

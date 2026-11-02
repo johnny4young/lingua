@@ -19,7 +19,7 @@
   "sqlWorkspace.instant.blocked.remote": "Remote reads never auto-run",
   "sqlWorkspace.instant.blocked.computed-path": "Computed file paths never auto-run",
   "sqlWorkspace.instant.blocked.side-effect": "Side-effect functions never auto-run",
-  "sqlWorkspace.instant.blocked.unlisted": "Only built-in table functions and formats preview",
+  "sqlWorkspace.instant.blocked.unlisted": "Only built-in functions and formats preview",
   "sqlWorkspace.instant.stuck": "DuckDB is still busy with the last preview, so previews wait for the next Run.",
   "sqlWorkspace.instant.blocked.rejected": "Only a single SELECT previews",
   "sqlWorkspace.instant.breakdown.open": "Break down {{name}}",
@@ -31,5 +31,5 @@
   "sqlWorkspace.instant.breakdown.filter": "Rows where {{label}} is NULL",
   "sqlWorkspace.instant.breakdown.filterZero": "Rows where {{label}} is NULL or 0",
   "sqlWorkspace.instant.breakdown.clear": "All rows",
-  "sqlWorkspace.instant.breakdown.narrowFailed": "These rows could not be read in time."
+  "sqlWorkspace.instant.breakdown.narrowFailed": "These rows could not be read."
 }

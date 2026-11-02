@@ -243,10 +243,11 @@ const stringsUnder = (node: unknown): string[] => {
  * Checks DuckDB's own parse (`json_serialize_sql` statements) of the sampled
  * SQL, failing closed: side-effect functions however they are spelled, a
  * remote URL passed to any function or named by any table reference, a table
- * function that is not a built-in reader or generator, a computed path, and a
- * replacement scan of a format that loads an extension.
+ * function that is not a built-in reader or generator, a function the user
+ * defined, a computed path, and a replacement scan of a format that loads an
+ * extension.
  */
-export function instantAstBlockReason(ast: unknown): InstantBlockReason | undefined {
+export function instantAstBlockReason(ast: unknown, userFunctions: ReadonlySet<string> = new Set()): InstantBlockReason | undefined {
   let reason: InstantBlockReason | undefined;
   const walk = (value: unknown): void => {
     if (reason) return;
@@ -258,6 +259,8 @@ export function instantAstBlockReason(ast: unknown): InstantBlockReason | undefi
     if (value['class'] === 'FUNCTION') {
       const name = functionName(value);
       if (SIDE_EFFECT_FUNCTIONS.has(name)) reason = 'side-effect';
+      // A macro's body is out of sight, so what it calls cannot be judged.
+      else if (userFunctions.has(name)) reason = 'unlisted';
       // Option values count too: an extension reader can fetch through one.
       else if (stringsUnder(astChildren(value)).some((text) => REMOTE_URL.test(text))) reason = 'remote';
       else if (FILE_READER.test(name) && positionalPaths(value).includes(null)) reason = 'computed-path';

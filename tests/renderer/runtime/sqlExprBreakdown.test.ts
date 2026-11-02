@@ -43,29 +43,73 @@ describe('runExprBreakdown', () => {
         nodes: [
           { label: 'revenue / orders', depth: 0, nulls: 1 },
           { label: 'revenue', depth: 1, nulls: 0 },
-          { label: 'orders', depth: 1, nulls: 1, zeros: { rows: 2, gives: 'infinity' } },
+          { label: 'orders', depth: 1, nulls: 1, zeros: { rows: 2, of: 'ticket', gives: 'not-finite' } },
         ],
       },
     });
     if (result?.kind === 'ready') expect(result.breakdown.rowsSql(2)).toContain('WHERE lingua_e2 IS NULL OR TRY_CAST');
   });
 
+  it('names the division a nested divisor belongs to, and the column for the whole one', async () => {
+    const nested = { class: 'OPERATOR', alias: 'w', children: [{ class: 'FUNCTION', alias: '', function_name: '//', is_operator: true, children: [column('a'), column('b')] }] };
+    executeQuery.mockResolvedValueOnce(outcome({ rows: [{ inner_sql: 'SELECT inner', label_0: 'SELECT COALESCE(a // b)', label_1: 'SELECT (a // b)', label_2: 'SELECT a', label_3: 'SELECT b' }] }));
+    runInstantPreview.mockResolvedValueOnce({ kind: 'rows', rows: [{ total: 3, zeros_3: 3 }] });
+    const result = await runExprBreakdown(SOURCE, nested, 'w', new AbortController().signal);
+    expect(result).toMatchObject({ breakdown: { nodes: [{}, {}, {}, { zeros: { rows: 3, of: 'a // b', gives: 'null' } }] } });
+  });
+
+  it('keeps stuck from a rebuild DuckDB did not stop', async () => {
+    executeQuery.mockResolvedValueOnce(outcome({ status: 'timeout', stillRunning: true }));
+    expect(await run()).toEqual({ kind: 'timeout', stuck: true });
+  });
+
   it('passes on whatever the gate says about the counts', async () => {
-    for (const verdict of [{ kind: 'blocked', reason: 'remote' }, { kind: 'rejected' }, { kind: 'timeout' }, { kind: 'error', message: 'boom' }, null]) {
+    for (const verdict of [{ kind: 'blocked', reason: 'remote' }, { kind: 'rejected' }, { kind: 'timeout' }, null]) {
       executeQuery.mockResolvedValueOnce(outcome({ rows: [REBUILT] }));
       runInstantPreview.mockResolvedValueOnce(verdict);
       expect(await run()).toEqual(verdict);
     }
   });
 
+  it('falls back to the column alone when a part cannot run', async () => {
+    executeQuery.mockResolvedValue(outcome({ rows: [REBUILT] }));
+    runInstantPreview.mockResolvedValueOnce({ kind: 'error', message: 'Binder Error: revenue must appear in the GROUP BY clause' });
+    runInstantPreview.mockResolvedValueOnce({ kind: 'rows', rows: [{ total: 4, nulls_0: 1 }] });
+    const result = await run();
+    expect(runInstantPreview).toHaveBeenCalledTimes(2);
+    expect(runInstantPreview.mock.calls[1]![0]).not.toContain('nulls_1');
+    expect(result).toMatchObject({ kind: 'ready', breakdown: { nodes: [{ label: 'revenue / orders', nulls: 1 }] } });
+    if (result?.kind === 'ready') expect(result.breakdown.nodes).toHaveLength(1);
+  });
+
+  it('reports the error when the column alone cannot run either, and does not retry a timeout', async () => {
+    executeQuery.mockResolvedValue(outcome({ rows: [REBUILT] }));
+    runInstantPreview.mockResolvedValue({ kind: 'error', message: 'still broken' });
+    expect(await run()).toEqual({ kind: 'error', message: 'still broken' });
+    expect(runInstantPreview).toHaveBeenCalledTimes(2);
+    runInstantPreview.mockReset();
+    runInstantPreview.mockResolvedValue({ kind: 'timeout', stuck: true });
+    expect(await run()).toEqual({ kind: 'timeout', stuck: true });
+    expect(runInstantPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a column that is already alone', async () => {
+    const aggregate = { class: 'FUNCTION', alias: 'total', function_name: 'sum', is_operator: false, children: [column('n')] };
+    executeQuery.mockResolvedValue(outcome({ rows: [{ inner_sql: 'SELECT inner', label_0: 'SELECT sum(n)' }] }));
+    runInstantPreview.mockResolvedValue({ kind: 'error', message: 'no table' });
+    expect(await runExprBreakdown(SOURCE, aggregate, 'total', new AbortController().signal)).toEqual({ kind: 'error', message: 'no table' });
+    expect(runInstantPreview).toHaveBeenCalledTimes(1);
+  });
+
   it('never counts when the rebuild fails, times out or was cancelled', async () => {
-    executeQuery.mockResolvedValueOnce(outcome({ status: 'sql-error', errorMessage: 'bad parse' }));
+    executeQuery.mockResolvedValue(outcome({ status: 'sql-error', errorMessage: 'bad parse' }));
     expect(await run()).toEqual({ kind: 'error', message: 'bad parse' });
+    executeQuery.mockReset();
     executeQuery.mockResolvedValueOnce(outcome({ status: 'timeout' }));
     expect(await run()).toEqual({ kind: 'timeout' });
     executeQuery.mockResolvedValueOnce(outcome({ status: 'cancelled' }));
     expect(await run()).toBeNull();
-    executeQuery.mockResolvedValueOnce(outcome({ rows: [{}] }));
+    executeQuery.mockResolvedValue(outcome({ rows: [{}] }));
     expect(await run()).toMatchObject({ kind: 'error' });
     expect(runInstantPreview).not.toHaveBeenCalled();
   });

@@ -28,7 +28,7 @@ const breakdown = {
   nodes: [
     { label: 'revenue / orders', depth: 0, nulls: 1 },
     { label: 'revenue', depth: 1, nulls: 0 },
-    { label: 'orders', depth: 1, nulls: 1, zeros: { rows: 1, gives: 'infinity' } },
+    { label: 'orders', depth: 1, nulls: 1, zeros: { rows: 1, of: 'ticket', gives: 'not-finite' } },
   ],
   rowsSql: (index: number) => `rows ${index}`,
 };
@@ -66,7 +66,7 @@ describe('SqlInstantTable', () => {
     expect(nodes[0]!.textContent).toBe('revenue / orders<1% null');
     expect(nodes[1]!.textContent).toBe('revenue0% null');
     expect((nodes[1] as HTMLButtonElement).disabled).toBe(true);
-    expect(nodes[2]!.textContent).toBe('orders<1% null1 row = 0 → ticket ∞');
+    expect(nodes[2]!.textContent).toBe('orders<1% null1 row = 0 → ticket ±∞ / NaN');
     expect(nodes[2]!.style.paddingLeft).toBe('14px');
   });
 
@@ -153,8 +153,23 @@ describe('SqlInstantTable', () => {
     await act(async () => {
       fireEvent.click(screen.getAllByTestId('sql-instant-breakdown-node')[0]!);
     });
-    expect((await screen.findByTestId('sql-instant-narrowed-error')).textContent).toBe('These rows could not be read in time.');
+    expect((await screen.findByTestId('sql-instant-narrowed-error')).textContent).toBe('These rows could not be read.');
     expect(screen.getByTestId('sql-instant-table').querySelectorAll('tbody tr')).toHaveLength(2);
+  });
+
+  it('reports a query DuckDB did not stop, from the breakdown and from the narrowing', async () => {
+    const onStuck = vi.fn();
+    runExprBreakdown.mockResolvedValueOnce({ kind: 'timeout', stuck: true });
+    const shown = makeShown();
+    const { unmount } = render(<SqlInstantTable shown={shown} dimmed={false} busy={false} onStuck={onStuck} />);
+    fireEvent.click(screen.getByTestId('sql-instant-column-breakdown'));
+    await waitFor(() => expect(onStuck).toHaveBeenCalledTimes(1));
+    unmount();
+    runInstantPreview.mockResolvedValue({ kind: 'timeout', stuck: true });
+    render(<SqlInstantTable shown={shown} dimmed={false} busy={false} onStuck={onStuck} />);
+    await openBreakdown();
+    fireEvent.click(screen.getAllByTestId('sql-instant-breakdown-node')[0]!);
+    await waitFor(() => expect(onStuck).toHaveBeenCalledTimes(2));
   });
 
   it('dims the rows while they are stale', () => {

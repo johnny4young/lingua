@@ -9,6 +9,7 @@ import {
   buildBreakdownTree,
   computedColumns,
   parseSerializedSql,
+  serializedSqlCanRebuild,
 } from '../../src/shared/sqlExprBreakdown';
 
 // Shapes as DuckDB 1.4's json_serialize_sql returns them.
@@ -33,6 +34,28 @@ describe('parseSerializedSql', () => {
     const parsed = parseSerializedSql('{"query_location":18446744073709551615,"text":"\\"query_location\\":18446744073709551615"}') as Record<string, unknown>;
     expect(parsed['query_location']).toBe(0);
     expect(parsed['text']).toBe('"query_location":18446744073709551615');
+  });
+});
+
+describe('serializedSqlCanRebuild', () => {
+  it.each([
+    ['{"value":123456789012345}', true],
+    ['{"value":5021.75,"query_location":0}', true],
+    ['{"query_location":18446744073709551615}', true],
+    ['{"value":0.000000000000000000001}', true],
+    ['{"value":9007199254740993}', false],
+    ['{"value":0.1234567890123456789}', false],
+    ['{"text":"9007199254740993"}', true],
+    ['{"text":"say \\"9007199254740993\\" twice"}', true],
+    ['{"text":"[[[[{{{{"}', true],
+  ])('%s', (raw, exact) => {
+    expect(serializedSqlCanRebuild(raw)).toBe(exact);
+  });
+
+  it('refuses nesting too deep to walk during a render', () => {
+    const nested = (depth: number) => `${'['.repeat(depth)}${']'.repeat(depth)}`;
+    expect(serializedSqlCanRebuild(nested(800))).toBe(true);
+    expect(serializedSqlCanRebuild(nested(801))).toBe(false);
   });
 });
 
@@ -87,6 +110,18 @@ describe('computedColumns', () => {
     expect(computedColumns(select([aliased(column('a'), 'b'), aliased(constant(1), 'one'), TICKET]), ['b', 'one'])).toEqual([]);
   });
 
+  it('trusts only an alias beside a nested star, and never offers the star itself', () => {
+    const star = { class: 'FUNCTION', alias: '', function_name: '+', is_operator: true, children: [{ class: 'STAR' }, constant(1)] };
+    const plain = aliased(operator('/', column('a'), column('b')), '');
+    expect(computedColumns(select([star, plain]), ['x', 'y', '(a / b)'])).toEqual([]);
+    expect(computedColumns(select([aliased(star, 'many'), TICKET]), ['many', 'ticket']).map((entry) => entry.column)).toEqual(['ticket']);
+  });
+
+  it('offers nothing beside a column named like its own extra columns', () => {
+    expect(computedColumns(select([aliased(column('a'), 'lingua_e0'), TICKET]), ['lingua_e0', 'ticket'])).toEqual([]);
+    expect(computedColumns(select([{ class: 'STAR' }, TICKET]), ['LINGUA_E3', 'ticket'])).toEqual([]);
+  });
+
   it('offers nothing under DISTINCT, whose rows the extra columns would change', () => {
     expect(computedColumns(select([TICKET], { modifiers: [{ type: 'DISTINCT_MODIFIER' }] }), ['ticket'])).toEqual([]);
   });
@@ -102,7 +137,8 @@ describe('buildBreakdownTree', () => {
 
   it('marks a divisor with what its zero gives', () => {
     const divide = buildBreakdownTree(select([TICKET]), TICKET);
-    expect(divide.map((node) => node.zeroGives)).toEqual([undefined, undefined, 'infinity']);
+    expect(divide.map((node) => node.zeroGives)).toEqual([undefined, undefined, 'not-finite']);
+    expect(divide.map((node) => node.parent)).toEqual([undefined, 0, 0]);
     const whole = operator('//', column('a'), column('b'));
     expect(buildBreakdownTree(select([whole]), whole)[2]?.zeroGives).toBe('null');
     const plus = operator('+', column('a'), column('b'));
@@ -111,9 +147,9 @@ describe('buildBreakdownTree', () => {
     expect(buildBreakdownTree(select([constantDivisor]), constantDivisor)).toHaveLength(2);
   });
 
-  it('keeps aggregates whole', () => {
-    const expr = operator('/', call('sum', column('a')), call('count', column('b')));
-    expect(shape(buildBreakdownTree(select([expr]), expr))).toEqual([['/', 0], ['sum', 1], ['count', 1]]);
+  it.each(['sum', 'count', 'count_if', 'arg_max', 'argmax', 'arbitrary', 'mad', 'sem', 'geomean', 'histogram_exact', 'sum_no_overflow'])('keeps the aggregate %s whole', (name) => {
+    const expr = operator('/', call(name, column('a')), call('count', column('b')));
+    expect(shape(buildBreakdownTree(select([expr]), expr))).toEqual([['/', 0], [name, 1], ['count', 1]]);
   });
 
   it('enters scalar functions, but not under GROUP BY', () => {
@@ -121,6 +157,10 @@ describe('buildBreakdownTree', () => {
     expect(shape(buildBreakdownTree(select([expr]), expr))).toEqual([['round', 0], ['/', 1], ['a', 2], ['b', 2]]);
     expect(shape(buildBreakdownTree(select([expr], { group_expressions: [column('c')] }), expr))).toEqual([['round', 0]]);
     expect(shape(buildBreakdownTree(select([expr], { aggregate_handling: 'FORCE_AGGREGATES' }), expr))).toEqual([['round', 0]]);
+  });
+
+  it('keeps the column whole under GROUP BY ALL, which an extra operand would regroup', () => {
+    expect(buildBreakdownTree(select([TICKET], { aggregate_handling: 'FORCE_AGGREGATES' }), TICKET)).toEqual([{ expr: TICKET, depth: 0 }]);
   });
 
   it('follows casts, comparisons and conjunctions, and stops at CASE, windows and subqueries', () => {
@@ -134,10 +174,20 @@ describe('buildBreakdownTree', () => {
     }
   });
 
-  it('stops at the node cap', () => {
+  it('stops early on a long chain, whose repeated copies are slow to plan, but keeps the column', () => {
     let expr: object = column('a');
-    for (let index = 0; index < BREAKDOWN_MAX_NODES * 2; index += 1) expr = operator('+', expr, column('b'));
-    expect(buildBreakdownTree(select([expr]), expr as never)).toHaveLength(BREAKDOWN_MAX_NODES);
+    for (let index = 0; index < 300; index += 1) expr = operator('+', expr, column('b'));
+    const nodes = buildBreakdownTree(select([expr]), expr as never);
+    expect(nodes.length).toBeGreaterThan(1);
+    expect(nodes.length).toBeLessThan(BREAKDOWN_MAX_NODES);
+    let huge: object = column('a');
+    for (let index = 0; index < 1100; index += 1) huge = operator('+', huge, column('b'));
+    expect(buildBreakdownTree(select([huge]), huge as never)).toHaveLength(1);
+  });
+
+  it('stops at the node cap', () => {
+    const expr = call('greatest', ...Array.from({ length: BREAKDOWN_MAX_NODES * 2 }, (_, index) => column(`c${index}`)));
+    expect(buildBreakdownTree(select([expr]), expr)).toHaveLength(BREAKDOWN_MAX_NODES);
   });
 });
 
@@ -179,6 +229,11 @@ describe('generated SQL', () => {
     ['SELECT (a / b)', 'a / b'],
     ['SELECT revenue', 'revenue'],
     ['SELECT COALESCE(a, 0)', 'COALESCE(a, 0)'],
+    ['SELECT ((a + b) * c)', '(a + b) * c'],
+    ['SELECT (a) + (b)', '(a) + (b)'],
+    ["SELECT (a || ')') + (b)", "(a || ')') + (b)"],
+    ['SELECT (a', '(a'],
+    ["SELECT (a || ')')", "a || ')'"],
   ])('labels %j', (rebuilt, label) => {
     expect(breakdownLabel(rebuilt)).toBe(label);
   });

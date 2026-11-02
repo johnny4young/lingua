@@ -29,7 +29,9 @@ describe('runInstantPreview', () => {
     const signal = new AbortController().signal;
     const result = await runInstantPreview('SELECT 1 AS x', signal);
     expect(result).toEqual({ kind: 'rows', columns: [{ name: 'x', type: 'BIGINT' }], rows: [{ x: 1 }], capped: false, durationMs: 7, statements: [{}] });
-    expect(executeQuery.mock.calls[0]![0]).toBe("SELECT json_serialize_sql('SELECT 1 AS x') AS j");
+    expect(executeQuery.mock.calls[0]![0]).toBe(
+      "SELECT json_serialize_sql('SELECT 1 AS x') AS j, (SELECT to_json(list(lower(function_name))) FROM duckdb_functions() WHERE NOT internal) AS user_functions"
+    );
     const [checkOptions, sampleOptions] = executeQuery.mock.calls.map((call) => call[1] as { timeoutMs: number; signal: AbortSignal });
     expect(checkOptions).toEqual({ timeoutMs: INSTANT_TIMEOUT_MS, signal });
     expect(executeQuery.mock.calls[1]![0]).toBe('SELECT 1 AS x');
@@ -50,6 +52,37 @@ describe('runInstantPreview', () => {
     expect(executeQuery).toHaveBeenCalledTimes(2);
   });
 
+  it('never runs a call to a function the user defined', async () => {
+    const parse = { error: false, statements: [{ node: { select_list: [{ class: 'FUNCTION', function_name: 'my_macro', children: [] }] } }] };
+    executeQuery.mockResolvedValueOnce(outcome({ rows: [{ j: JSON.stringify(parse), user_functions: '["my_macro"]' }] }));
+    expect(await runInstantPreview('SELECT my_macro()', new AbortController().signal)).toEqual({ kind: 'blocked', reason: 'unlisted' });
+    expect(executeQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs built-ins when the user has functions of other names, or none', async () => {
+    const parse = { error: false, statements: [{ node: { select_list: [{ class: 'FUNCTION', function_name: 'lower', children: [] }] } }] };
+    for (const user_functions of ['["my_macro"]', null]) {
+      executeQuery.mockResolvedValueOnce(outcome({ rows: [{ j: JSON.stringify(parse), user_functions }] })).mockResolvedValueOnce(outcome({}));
+      expect(await runInstantPreview('SELECT lower(a)', new AbortController().signal)).toMatchObject({ kind: 'rows' });
+    }
+  });
+
+  it('keeps the parse from the breakdown when a rebuild would round a constant', async () => {
+    const raw = '{"error":false,"statements":[{"node":{"value":9007199254740993}}]}';
+    executeQuery.mockResolvedValueOnce(outcome({ rows: [{ j: raw }] })).mockResolvedValueOnce(outcome({}));
+    expect(await runInstantPreview('SELECT 9007199254740993', new AbortController().signal)).toMatchObject({ kind: 'rows', statements: [] });
+  });
+
+  it('does not run what is too deep to check', async () => {
+    let node: object = { class: 'CONSTANT' };
+    for (let index = 0; index < 200_000; index += 1) node = { child: node };
+    const parse = vi.spyOn(JSON, 'parse').mockReturnValueOnce({ error: false, statements: [node] });
+    executeQuery.mockResolvedValueOnce(outcome({ rows: [{ j: '{}' }] }));
+    expect(await runInstantPreview('SELECT 1', new AbortController().signal)).toEqual({ kind: 'rejected' });
+    expect(executeQuery).toHaveBeenCalledTimes(1);
+    parse.mockRestore();
+  });
+
   it('never runs what the parse shows reads remotely or has side effects', async () => {
     const remote = { error: false, statements: [{ node: { from_table: { type: 'BASE_TABLE', table_name: 's3://b/a.csv' } } }] };
     executeQuery.mockResolvedValueOnce(verdict(remote));
@@ -68,6 +101,11 @@ describe('runInstantPreview', () => {
 
   it('says when DuckDB had not stopped the sample', async () => {
     executeQuery.mockResolvedValueOnce(verdict(ONE_SELECT)).mockResolvedValueOnce(outcome({ status: 'timeout', stillRunning: true }));
+    expect(await runInstantPreview('SELECT 1', new AbortController().signal)).toEqual({ kind: 'timeout', stuck: true });
+  });
+
+  it('says when DuckDB had not stopped the check either', async () => {
+    executeQuery.mockResolvedValueOnce(outcome({ status: 'timeout', stillRunning: true }));
     expect(await runInstantPreview('SELECT 1', new AbortController().signal)).toEqual({ kind: 'timeout', stuck: true });
   });
 

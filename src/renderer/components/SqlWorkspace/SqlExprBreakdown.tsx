@@ -11,7 +11,8 @@ import { INSTANT_TIMEOUT_MS } from '../../runtime/sqlInstantPreview';
 import { runExprBreakdown, type ExprBreakdown, type ExprBreakdownNode, type ExprBreakdownResult } from '../../runtime/sqlExprBreakdown';
 import { cn } from '../../utils/cn';
 
-const ZERO_RESULT = { infinity: '∞', null: 'NULL' } as const;
+// `x / 0` is Infinity or -Infinity, and `0 / 0` is NaN.
+const ZERO_RESULT = { 'not-finite': '±∞ / NaN', null: 'NULL' } as const;
 const DEPTH_INDENT_PX = 14;
 
 export interface BreakdownSelection {
@@ -29,6 +30,8 @@ export interface SqlExprBreakdownProps {
   busy: boolean;
   selected: number | null;
   onSelect: (selection: BreakdownSelection | null) => void;
+  /** DuckDB did not stop this query. */
+  onStuck: () => void;
 }
 
 /** Whole percent, never rounding a real share down to nothing. */
@@ -38,7 +41,7 @@ function nullPercent(nulls: number, total: number): string {
   return percent === 0 ? '<1' : String(percent);
 }
 
-export function SqlExprBreakdown({ source, expr, column, busy, selected, onSelect }: SqlExprBreakdownProps) {
+export function SqlExprBreakdown({ source, expr, column, busy, selected, onSelect, onStuck }: SqlExprBreakdownProps) {
   const { t, i18n } = useTranslation();
   const [result, setResult] = useState<{ source: AstNode; column: string; outcome: ExprBreakdownResult } | null>(null);
 
@@ -46,10 +49,12 @@ export function SqlExprBreakdown({ source, expr, column, busy, selected, onSelec
     if (busy) return;
     const controller = new AbortController();
     void runExprBreakdown(source, expr, column, controller.signal).then((outcome) => {
-      if (outcome && !controller.signal.aborted) setResult({ source, column, outcome });
+      if (!outcome || controller.signal.aborted) return;
+      setResult({ source, column, outcome });
+      if (outcome.kind === 'timeout' && outcome.stuck) onStuck();
     });
     return () => controller.abort();
-  }, [source, expr, column, busy]);
+  }, [source, expr, column, busy, onStuck]);
 
   const outcome = result?.source === source && result.column === column ? result.outcome : null;
   const breakdown: ExprBreakdown | null = outcome?.kind === 'ready' ? outcome.breakdown : null;
@@ -58,7 +63,7 @@ export function SqlExprBreakdown({ source, expr, column, busy, selected, onSelec
       ? t('sqlWorkspace.instant.breakdown.zeros', {
           count: node.zeros.rows,
           rows: formatNumber(node.zeros.rows, i18n.language),
-          name: column,
+          name: node.zeros.of,
           result: ZERO_RESULT[node.zeros.gives],
         })
       : null;

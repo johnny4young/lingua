@@ -138,6 +138,13 @@ const scan = (fn: unknown) => [{ node: { type: 'SELECT_NODE', from_table: { type
 const concat = call('||', [constant('ht'), constant('tps://x/a.csv')]);
 
 describe('instantAstBlockReason', () => {
+  it('blocks a function the user defined, by name', () => {
+    const ast = [{ node: { select_list: [call('my_macro', [])] } }];
+    expect(instantAstBlockReason(ast)).toBeUndefined();
+    expect(instantAstBlockReason(ast, new Set(['my_macro']))).toBe('unlisted');
+    expect(instantAstBlockReason(ast, new Set(['other']))).toBeUndefined();
+  });
+
   it.each([
     ['a quoted or qualified side-effect call', [{ node: { select_list: [call('nextval', [constant('s')], 'main')] } }], 'side-effect'],
     ['the query table function', scan(call('query', [constant('SELECT 1')])), 'side-effect'],

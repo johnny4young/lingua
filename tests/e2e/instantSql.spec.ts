@@ -93,7 +93,7 @@ test.describe('Instant SQL', () => {
       await expect(nodes.nth(0)).toContainText(language === 'en' ? '25% null' : '25% nulos');
       await expect(nodes.nth(2)).toContainText('revenue');
       await expect(nodes.nth(2)).toBeDisabled();
-      await expect(nodes.nth(3)).toContainText(language === 'en' ? '1 row = 0 → ticket ∞' : '1 fila = 0 → ticket ∞');
+      await expect(nodes.nth(3)).toContainText(language === 'en' ? '1 row = 0 → ticket ±∞ / NaN' : '1 fila = 0 → ticket ±∞ / NaN');
 
       await nodes.nth(3).click();
       await expect(table.locator('tbody tr')).toHaveCount(2);
@@ -104,6 +104,44 @@ test.describe('Instant SQL', () => {
       await expect(table.locator('tbody tr')).toHaveCount(4);
     });
   }
+
+  test('never regroups GROUP BY ALL, and falls back to the column when a part cannot run', async ({ page }) => {
+    await openQuery(page, 'en');
+    await replaceQuery(page, "SELECT city, a / b AS r, sum(a) AS s FROM (VALUES ('x', 1, 2), ('x', 2, 2), ('y', 1, NULL)) t(city, a, b) GROUP BY ALL ORDER BY city");
+    await expect(page.getByTestId('sql-instant-table').locator('tbody tr')).toHaveCount(3);
+    await page.getByTestId('sql-instant-column-breakdown').first().click();
+    const nodes = page.getByTestId('sql-instant-breakdown-node');
+    await expect(nodes).toHaveCount(1);
+    await expect(nodes.first()).toContainText('33% null');
+
+    await replaceQuery(page, 'SELECT (a + b) / 2 AS m FROM (VALUES (1, 2), (1, 2), (3, NULL)) t(a, b) GROUP BY a + b');
+    await expect(page.getByTestId('sql-instant-table').locator('tbody tr')).toHaveCount(2);
+    await page.getByTestId('sql-instant-column-breakdown').click();
+    await expect(nodes).toHaveCount(1);
+    await expect(nodes.first()).toContainText('50% null');
+    await expect(page.getByTestId('sql-instant-breakdown-error')).toHaveCount(0);
+  });
+
+  test('never previews a macro, and stays quick on a long chain or a huge constant', async ({ page }) => {
+    await openQuery(page, 'en');
+    await replaceQuery(page, 'CREATE MACRO instant_macro() AS 1');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(page.getByTestId('sql-instant-preview')).toHaveCount(0);
+    await replaceQuery(page, 'SELECT instant_macro() AS x');
+    await expect(page.getByTestId('sql-instant-preview')).toContainText('Only built-in functions and formats preview');
+
+    const terms = Array.from({ length: 60 }, () => 'a').join(' + ');
+    await replaceQuery(page, `SELECT ${terms} AS total FROM (VALUES (1), (NULL)) t(a)`);
+    await page.getByTestId('sql-instant-column-breakdown').click();
+    const nodes = page.getByTestId('sql-instant-breakdown-node');
+    await expect(nodes.first()).toContainText('50% null', { timeout: 3_000 });
+    expect(await nodes.count()).toBeLessThan(32);
+
+    await replaceQuery(page, 'SELECT a + 9007199254740993 AS big FROM (VALUES (1)) t(a)');
+    await expect(page.getByTestId('sql-instant-target')).toBeVisible();
+    await expect(page.getByTestId('sql-instant-table').locator('th')).toContainText('big');
+    await expect(page.getByTestId('sql-instant-column-breakdown')).toHaveCount(0);
+  });
 
   test('keeps an aggregate whole under GROUP BY, and a UNION has nothing to break down', async ({ page }) => {
     await openQuery(page, 'en');

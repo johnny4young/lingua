@@ -21,11 +21,13 @@ export type InstantShown = Extract<InstantPreviewResult, { kind: 'rows' }> & { c
 export interface SqlInstantTableProps {
   shown: InstantShown;
   dimmed: boolean;
-  /** A Run is in flight, so nothing new starts. */
+  /** A Run or a newer sample is in flight, so nothing new starts and what runs stops. */
   busy: boolean;
+  /** DuckDB did not stop a query this table started. */
+  onStuck: () => void;
 }
 
-export function SqlInstantTable({ shown, dimmed, busy }: SqlInstantTableProps) {
+export function SqlInstantTable({ shown, dimmed, busy, onStuck }: SqlInstantTableProps) {
   const { t, i18n } = useTranslation();
   const [openColumn, setOpenColumn] = useState<string | null>(null);
   // Each stays valid only for the sample it was asked on.
@@ -42,10 +44,12 @@ export function SqlInstantTable({ shown, dimmed, busy }: SqlInstantTableProps) {
     if (!pick || pickSql === undefined || busy) return;
     const controller = new AbortController();
     void runInstantPreview(pickSql, controller.signal).then((result) => {
-      if (result && !controller.signal.aborted) setNarrowed({ pick, result });
+      if (!result || controller.signal.aborted) return;
+      setNarrowed({ pick, result });
+      if (result.kind === 'timeout' && result.stuck) onStuck();
     });
     return () => controller.abort();
-  }, [pick, pickSql, busy]);
+  }, [pick, pickSql, busy, onStuck]);
 
   const outcome = pick && narrowed?.pick === pick ? narrowed.result : null;
   const rows = pick && outcome?.kind === 'rows' ? outcome.rows : shown.rows;
@@ -120,7 +124,7 @@ export function SqlInstantTable({ shown, dimmed, busy }: SqlInstantTableProps) {
           ) : null}
         </div>
         {opened && source ? (
-          <SqlExprBreakdown source={source} expr={opened.expr} column={opened.column} busy={busy} selected={pick?.index ?? null} onSelect={select} />
+          <SqlExprBreakdown source={source} expr={opened.expr} column={opened.column} busy={busy} selected={pick?.index ?? null} onSelect={select} onStuck={onStuck} />
         ) : null}
       </div>
     </div>

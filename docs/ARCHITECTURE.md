@@ -342,7 +342,7 @@ function's arguments or options or in any table reference (catalog, schema and
 table are joined back, as a replacement scan does), a table function outside
 the built-in readers, generators and `duckdb_*`/`pragma_*` metadata, a computed
 path, and a replacement scan of a format that autoloads an extension block the
-run, since text checks miss quoted names and concatenated URLs. The check and the sample share one 3 s
+run, since text checks miss quoted names and concatenated URLs. The check and the sample of a preview share one 3 s
 budget through `executeQuery` and an
 abort signal, so a newer edit or a Run cancels it like Cancel does;
 `runOnConnection` sends nothing once the signal has aborted. It never runs
@@ -360,7 +360,16 @@ range, so labels also come from DuckDB. Counts and narrowed rows run through
 `runInstantPreview`, which parses and gates the generated SQL again. `u64`
 locations are normalized in the raw JSON (`parseSerializedSql`), since
 `JSON.parse` would round them into values the deserializer refuses. Aggregates
-stay leaves because their arguments do not bind on their own under GROUP BY.
+stay leaves because their arguments do not bind on their own under GROUP BY,
+and GROUP BY ALL keeps only the root, since an extra operand would regroup the
+rows. When a part still cannot run alone, the breakdown retries with the root.
+Its rebuild and its counts each get their own 3 s, and a newer sample in flight
+cancels them. Each part repeats its expression in the select list and planning
+time grows much faster than that text (200 chained terms plan for about 7 s,
+which `cancelSent` cannot interrupt), so the tree also stops at a weight budget.
+A constant `JSON.parse` would round means no breakdown, since the rebuilt SQL
+would differ. The check query also lists the user's functions from
+`duckdb_functions()`, and the gate blocks them: a macro's body is out of sight.
 
 With `keepCursor`, a windowed single statement keeps its stream instead of
 cancelling it: the outcome carries a `SqlResultCursor` over the rows left in

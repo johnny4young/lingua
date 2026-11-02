@@ -5,17 +5,41 @@
  */
 
 import { functionName, isAstNode, type AstNode } from './sqlCtePreview';
+import { skipSqlToken } from './sqlStatements';
 
 export const BREAKDOWN_MAX_NODES = 32;
+// Every part repeats its whole expression in the select list, and DuckDB's planning time grows much faster than that text.
+const BREAKDOWN_MAX_WEIGHT = 2000;
+const MAX_JSON_DEPTH = 800;
 
 const ALIAS_PREFIX = 'lingua_e';
 const AGGREGATE =
-  /^(?:sum|fsum|sumkahan|kahan_sum|count|count_star|avg|favg|mean|min|max|median|mode|stddev\w*|var\w*|first|last|any_value|arg_min\w*|arg_max\w*|min_by|max_by|list|array_agg|string_agg|group_concat|listagg|quantile\w*|approx_\w+|bool_and|bool_or|bit_and|bit_or|bit_xor|bitstring_agg|entropy|product|histogram|corr|covar\w*|kurtosis\w*|skewness|regr_\w+|reservoir_quantile|weighted_avg)$/;
+  /^(?:sum|sum_no_overflow|fsum|sumkahan|kahan_sum|count|count_star|count_if|countif|avg|favg|mean|geomean|geometric_mean|min|max|median|mode|mad|sem|stddev\w*|var\w*|first|last|any_value|arbitrary|arg_min\w*|arg_max\w*|argmin|argmax|min_by|max_by|list|array_agg|string_agg|group_concat|listagg|quantile\w*|approx_\w+|bool_and|bool_or|bit_and|bit_or|bit_xor|bitstring_agg|entropy|product|histogram|histogram_exact|corr|covar\w*|kurtosis\w*|skewness|regr_\w+|reservoir_quantile|weighted_avg)$/;
 const WHOLE_DIVISION = '//';
 
 /** json_serialize_sql text as data; JSON.parse would round a u64 location that json_deserialize_sql then refuses. */
 export function parseSerializedSql(raw: string): unknown {
-  return JSON.parse(raw.replace(/"query_location":\d{19,}/g, '"query_location":0'));
+  return JSON.parse(withoutHugeLocations(raw));
+}
+
+const withoutHugeLocations = (raw: string) => raw.replace(/"query_location":\d{19,}/g, '"query_location":0');
+
+/**
+ * False when the breakdown could not work from this parse: a number with more
+ * digits than JSON.parse keeps would rebuild into different SQL, and nesting
+ * this deep would overflow the stack walking it during a render.
+ */
+export function serializedSqlCanRebuild(raw: string): boolean {
+  const code = withoutHugeLocations(raw).replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  const numbers = code.match(/\d+(?:\.\d+)?/g) ?? [];
+  if (numbers.some((text) => text.replace('.', '').replace(/^0+/, '').length > 15)) return false;
+  let depth = 0;
+  for (const ch of code) {
+    if (ch === '{' || ch === '[') depth += 1;
+    else if (ch === '}' || ch === ']') depth -= 1;
+    if (depth > MAX_JSON_DEPTH) return false;
+  }
+  return true;
 }
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -55,6 +79,10 @@ export interface BreakdownColumn {
 }
 
 const NOT_COMPUTED = new Set(['COLUMN_REF', 'STAR', 'CONSTANT']);
+const containsStar = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.some(containsStar);
+  return isAstNode(value) && (value['class'] === 'STAR' || Object.values(value).some(containsStar));
+};
 
 /**
  * The computed columns of `source` found in the result. With a star the
@@ -63,11 +91,14 @@ const NOT_COMPUTED = new Set(['COLUMN_REF', 'STAR', 'CONSTANT']);
  */
 export function computedColumns(source: AstNode, resultColumns: ReadonlyArray<string>): BreakdownColumn[] {
   if (records(source['modifiers']).some((modifier) => modifier['type'] === 'DISTINCT_MODIFIER')) return [];
+  // A column with our prefix would answer for a part's counts.
+  if (resultColumns.some((name) => name.toLowerCase().startsWith(ALIAS_PREFIX))) return [];
   const list = selectList(source);
-  const hasStar = list.some((item) => item['class'] === 'STAR');
+  const hasStar = containsStar(list);
   const columns: BreakdownColumn[] = [];
   list.forEach((item, index) => {
-    if (NOT_COMPUTED.has(String(item['class']))) return;
+    // `COLUMNS(*) + 1` is many columns, not one.
+    if (NOT_COMPUTED.has(String(item['class'])) || containsStar(item)) return;
     const alias = typeof item['alias'] === 'string' && item['alias'] !== '' ? item['alias'] : undefined;
     const column = alias ?? (hasStar ? undefined : resultColumns[index]);
     if (column !== undefined && resultColumns.includes(column)) columns.push({ column, expr: item });
@@ -78,8 +109,10 @@ export function computedColumns(source: AstNode, resultColumns: ReadonlyArray<st
 export interface BreakdownNode {
   expr: AstNode;
   depth: number;
+  /** Position of the node this one is part of; unset on the column itself. */
+  parent?: number;
   /** Set on a divisor: what its parent becomes when it is zero. */
-  zeroGives?: 'infinity' | 'null';
+  zeroGives?: 'not-finite' | 'null';
 }
 
 const isGrouped = (source: AstNode) =>
@@ -104,18 +137,29 @@ function operands(expr: AstNode, grouped: boolean): unknown[] {
   }
 }
 
-/** The expression and what it is made of, parents first, up to `BREAKDOWN_MAX_NODES`. */
+const astWeight = (value: unknown): number => {
+  if (Array.isArray(value)) return value.reduce((total: number, item) => total + astWeight(item), 0);
+  return isAstNode(value) ? ('class' in value ? 1 : 0) + astWeight(Object.values(value)) : 0;
+};
+
+/** The expression and what it is made of, parents first, up to `BREAKDOWN_MAX_NODES` and the weight budget. */
 export function buildBreakdownTree(source: AstNode, expr: AstNode): BreakdownNode[] {
+  // GROUP BY ALL groups by whatever is selected, so an extra operand would regroup the rows.
+  if (source['aggregate_handling'] === 'FORCE_AGGREGATES') return [{ expr, depth: 0 }];
   const grouped = isGrouped(source);
   const nodes: BreakdownNode[] = [];
-  const visit = (node: AstNode, depth: number, zeroGives?: BreakdownNode['zeroGives']) => {
+  let weight = 0;
+  const visit = (node: AstNode, depth: number, parent?: number, zeroGives?: BreakdownNode['zeroGives']) => {
     if (nodes.length >= BREAKDOWN_MAX_NODES) return;
-    nodes.push({ expr: node, depth, ...(zeroGives ? { zeroGives } : {}) });
+    weight += astWeight(node);
+    if (nodes.length > 0 && weight > BREAKDOWN_MAX_WEIGHT) return;
+    const position = nodes.length;
+    nodes.push({ expr: node, depth, ...(parent !== undefined ? { parent } : {}), ...(zeroGives ? { zeroGives } : {}) });
     const name = node['class'] === 'FUNCTION' && node['is_operator'] === true ? functionName(node) : '';
     operands(node, grouped).forEach((operand, index) => {
       if (!isAstNode(operand) || operand['class'] === 'CONSTANT') return;
       const divisor = index === 1 && (name === '/' || name === WHOLE_DIVISION);
-      visit(operand, depth + 1, divisor ? (name === '/' ? 'infinity' : 'null') : undefined);
+      visit(operand, depth + 1, position, divisor ? (name === '/' ? 'not-finite' : 'null') : undefined);
     });
   };
   visit(expr, 0);
@@ -128,11 +172,10 @@ const deserialize = (node: AstNode) => `json_deserialize_sql(${sqlString(JSON.st
 
 /** One query that turns the parse back into SQL: `inner_sql`, the source with every node as an extra column, and `label_N` for each node. */
 export function buildBreakdownRebuildSql(source: AstNode, nodes: ReadonlyArray<BreakdownNode>): string {
-  const inner = clone(source);
-  inner['select_list'] = [...selectList(source), ...nodes.map((node, index) => ({ ...node.expr, alias: aliasOf(index) }))];
+  const inner = { ...source, select_list: [...selectList(source), ...nodes.map((node, index) => ({ ...node.expr, alias: aliasOf(index) }))] };
   const labels = nodes.map((node, index) => {
     const shell: AstNode = {
-      ...clone(source),
+      ...source,
       select_list: [{ ...node.expr, alias: '' }],
       from_table: { type: 'EMPTY', alias: '', sample: null, query_location: 0 },
       cte_map: { map: [] },
@@ -153,7 +196,28 @@ export function buildBreakdownRebuildSql(source: AstNode, nodes: ReadonlyArray<B
 /** `SELECT (a / b)` as DuckDB prints it, down to `a / b`. */
 export function breakdownLabel(rebuilt: string): string {
   const text = rebuilt.replace(/^SELECT\s+/i, '').trim();
-  return text.startsWith('(') && text.endsWith(')') ? text.slice(1, -1) : text;
+  return wrappedWhole(text) ? text.slice(1, -1) : text;
+}
+
+/** True when the first parenthesis closes at the very end, quoted text aside. */
+function wrappedWhole(text: string): boolean {
+  if (!text.startsWith('(') || !text.endsWith(')')) return false;
+  let depth = 0;
+  let index = 0;
+  while (index < text.length) {
+    const skipped = skipSqlToken(text, index);
+    if (skipped !== -1) {
+      index = skipped;
+      continue;
+    }
+    if (text[index] === '(') depth += 1;
+    else if (text[index] === ')') {
+      depth -= 1;
+      if (depth === 0) return index === text.length - 1;
+    }
+    index += 1;
+  }
+  return false;
 }
 
 const sampled = (innerSql: string, limit: number) => `SELECT * FROM (\n${innerSql}\n) LIMIT ${limit}`;
