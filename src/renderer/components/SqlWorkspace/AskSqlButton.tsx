@@ -4,12 +4,13 @@
  * owns the open state and mounts `AskSqlDialog`.
  */
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { AskSqlDialog } from './AskSqlDialog';
 import type { NlToSqlTable } from '../../../shared/ai/nlToSql';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import { useAskSqlStore } from '../../stores/askSqlStore';
 import type { runChatCompletion } from '../../runtime/aiClient';
 
 export interface AskSqlButtonProps {
@@ -28,7 +29,8 @@ export function AskSqlButton({
 }: AskSqlButtonProps) {
   const { t } = useTranslation();
   const entitled = useEntitlement('LOCAL_AI');
-  const [open, setOpen] = useState(false);
+  const question = useAskSqlStore(state => state.question);
+  useEffect(() => () => useAskSqlStore.getState().close(), []);
 
   if (!entitled) return null;
 
@@ -36,7 +38,7 @@ export function AskSqlButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => useAskSqlStore.getState().open()}
         data-testid="ask-sql-trigger"
         aria-label={t('ai.askSql.title')}
         title={t('ai.askSql.title')}
@@ -45,13 +47,14 @@ export function AskSqlButton({
         <Sparkles size={11} aria-hidden="true" />
         <span>{t('ai.askSql.trigger')}</span>
       </button>
-      {open ? (
+      {question !== null ? (
         <AskSqlDialog
+          initialQuestion={question}
           tables={tables}
           {...(dialect ? { dialect } : {})}
           onInsert={onInsert}
           {...(runChatCompletionImpl ? { runChatCompletionImpl } : {})}
-          onClose={() => setOpen(false)}
+          onClose={() => useAskSqlStore.getState().close()}
         />
       ) : null}
     </>
