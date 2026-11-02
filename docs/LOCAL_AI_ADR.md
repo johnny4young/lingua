@@ -102,6 +102,10 @@ action and a preview of exactly what is sent.
   the error's kind, the vote and its time in `lingua-explain-ratings`.
 - SQL workspace: "Ask AI" sends only the live schema and typed question, then
   inserts the generated SQL for user review; it never auto-runs generated SQL.
+- Labs › Palette autodetect sends a question typed in the command palette to
+  the Explain this code consent dialog, with the tab's last run (Console output
+  and error, redacted, capped) appended to the payload preview. Empty SQL
+  queries offer starter prompts that only prefill Ask AI.
 - Edit with AI (`src/shared/ai/editSelection.ts`, `EditWithAiDialog`) sends
   the file with the span to edit marked, only 60 lines around it once the
   file passes 12,000 characters. Redaction runs before the markers go in,
