@@ -12,9 +12,11 @@ import {
  * the runtime's own network work, such as a package install.
  *
  * Best effort, not a sandbox: user code that reaches an API the guard does not
- * wrap (a dynamic `import()` of a URL, for one) is not stopped. The guard holds
- * its own references to the built-ins it uses, so code that replaces them
- * cannot make a request read as local.
+ * wrap (a dynamic `import()` of a URL or a local file, for one) is not stopped.
+ * The guard holds its own references to the built-ins it uses, so code that
+ * replaces them cannot make a request read as local. While a policy is in force,
+ * `file:` is limited to the app's own files: on packaged desktop nothing else
+ * limits it.
  */
 
 export interface NetworkGuardOptions {
@@ -101,6 +103,8 @@ export function installNetworkGuard(
   const NativeTypeError = TypeError;
   const startsWith = String.prototype.startsWith;
   const slice = String.prototype.slice;
+  const toLowerCase = String.prototype.toLowerCase;
+  const includes = String.prototype.includes;
   const urlHref = getterOf(NativeURL.prototype, 'href')!;
   const urlHost = getterOf(NativeURL.prototype, 'host')!;
   const urlProtocol = getterOf(NativeURL.prototype, 'protocol')!;
@@ -110,7 +114,21 @@ export function installNetworkGuard(
   const requestUrl = getterOf(NativeRequest?.prototype, 'url');
   const location = scope.location as Location | undefined;
   const base = location ? NativeString(location.href) : undefined;
-  const ownProtocol = location ? NativeString(location.protocol) : undefined;
+  // Packaged workers load from <renderer root>/assets/ on file://.
+  const appRoot =
+    base !== undefined && NativeString(location?.protocol) === 'file:'
+      ? (apply(urlHref, new NativeURL('../', base), []) as string)
+      : undefined;
+
+  /** Under `prefix` as written and as a file loader may decode it: `%2f` can step back out. */
+  const isUnder = (href: string, prefix: string): boolean => {
+    const lower = apply(toLowerCase, href, []) as string;
+    return (
+      (apply(startsWith, href, [prefix]) as boolean) &&
+      !apply(includes, lower, ['%2f']) &&
+      !apply(includes, lower, ['%5c'])
+    );
+  };
 
   type Target =
     { kind: 'pass' } | { kind: 'check'; host: string } | { kind: 'refuse'; label: string };
@@ -129,17 +147,14 @@ export function installNetworkGuard(
       return { kind: 'refuse', label: apply(slice, target, [0, 80]) as string };
     }
     const href = apply(urlHref, parsed, []) as string;
-    if (
-      options.runtimeAssetPrefix !== undefined &&
-      apply(startsWith, href, [options.runtimeAssetPrefix])
-    )
+    if (options.runtimeAssetPrefix !== undefined && isUnder(href, options.runtimeAssetPrefix))
       return { kind: 'pass' };
     const protocol = apply(urlProtocol, parsed, []) as string;
     if (contains(NETWORK_PROTOCOLS, protocol))
       return { kind: 'check', host: apply(urlHost, parsed, []) as string };
-    // In-process URLs, and the app's own files on desktop (file:), never reach the network.
-    if (protocol === 'data:' || protocol === 'blob:' || protocol === ownProtocol)
-      return { kind: 'pass' };
+    // In-process URLs, and the app's own files on desktop. Any other file: is refused.
+    if (protocol === 'data:' || protocol === 'blob:') return { kind: 'pass' };
+    if (appRoot !== undefined && isUnder(href, appRoot)) return { kind: 'pass' };
     return { kind: 'refuse', label: protocol };
   };
 

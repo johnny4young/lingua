@@ -59,6 +59,8 @@ protocols:
 # ERR_FILE_NOT_FOUND and never rendered (the smoke gate then timed out and hung).
 # Keep it enabled to match the working Forge build. asar integrity validation
 # stays on; it was never the cause.
+# The cost: every file:// context, workers included, skips CORS and can read any
+# local file. Turning it off needs a custom protocol for the renderer.
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true

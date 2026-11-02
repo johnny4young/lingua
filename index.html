@@ -24,8 +24,10 @@
       (any port) so the Local AI mode can reach a server on this
       machine (Ollama, LM Studio, llama.cpp). Remote AI endpoints never
       need renderer CSP room: they go through the SSRF-guarded main
-      proxy (see docs/LOCAL_AI_ADR.md), so the renderer stays
-      loopback-only.
+      proxy (see docs/LOCAL_AI_ADR.md), so this page stays loopback-only.
+
+      This CSP binds the page only: a worker script on file:// has no response
+      headers, so code running in a worker is outside it (docs/ARCHITECTURE.md).
     -->
     <meta
       http-equiv="Content-Security-Policy"

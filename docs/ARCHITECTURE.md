@@ -115,11 +115,27 @@ last is answered, as for a debugger pause. Ruby's synchronous eval
 cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
 it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
 
+On packaged desktop builds the guard is the only limit on these workers. The
+renderer loads from `file://` with the `grantFileProtocolExtraPrivileges` fuse
+on, which lifts CORS and file limits for every `file://` context. A worker's CSP
+comes from its script response and a `file:` response has no headers, so the
+meta CSP in `index.html` binds the page and not the workers. Under Allow no guard
+runs: code reads any response, sends no preflight, and reads any local file whose
+path it knows. Send's protections in `httpProxy.ts` live in the main process and
+do not cover it. Under Ask and Block the guard refuses `file:` outside the
+renderer root, which it takes as the parent of the worker's own `assets/` folder.
+A dynamic `import()` still reaches a local `.js`, `.mjs` or `.json` file and any
+remote module, so Block is not a boundary for those. Closing this needs a custom
+protocol for the renderer, which gives workers a real origin, CORS and a
+per-response CSP; `webRequest` sees a worker's http(s) requests but not its
+`file:` reads or its script.
+
 `ExecutionContext.blockNetwork` blocks every host for one run whatever the
 Labs policy says; it can only tighten the policy, never loosen it. Edit with AI
 (`runtime/aiEditPreview.ts`) uses it, on the user's Run preview click, to run
 the file before and after the AI's change with a 5 s timeout. Both runs use the redacted file the model saw, so the
-AI's code never holds a secret that was masked from it. They stay outside the
+file they run holds no secret that was masked from it; on packaged desktop the
+limits above still apply to what that code can import. They stay outside the
 tab's console,
 results and history; blocked hosts still reach the Privacy & Trust log, as for
 Labs runs. Both runs go to a new runner instance, never the shared

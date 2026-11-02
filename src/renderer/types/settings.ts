@@ -334,7 +334,7 @@ export interface SettingsState {
    * HTTP/SSE/WebSocket targets. The guarded proxy defaults this to false.
    */
   httpAllowPrivateHosts: boolean;
-  /** Network access for code in the sandboxed runtimes; enforced only with the networkPolicy flag on. */
+  /** Network access for code in the browser runtimes; enforced only with the networkPolicy flag on. */
   networkFromRunningCode: NetworkPolicy;
   /** Experimental features turned on in Settings › Labs. */
   featureFlags: FeatureFlagState;
