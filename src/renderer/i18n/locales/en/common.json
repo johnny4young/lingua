@@ -4019,6 +4019,7 @@
   "sqlWorkspace.instant.moreRows_other": "{{rows}} more rows in the sample",
   "sqlWorkspace.instant.blocked.write": "DML / DDL never auto-run",
   "sqlWorkspace.instant.blocked.remote": "Remote reads never auto-run",
+  "sqlWorkspace.instant.blocked.computed-path": "Computed file paths never auto-run",
   "sqlWorkspace.instant.blocked.side-effect": "Side-effect functions never auto-run",
   "sqlWorkspace.instant.blocked.rejected": "Only a single SELECT previews",
   "sqlWorkspace.run.selection": "Run selection",

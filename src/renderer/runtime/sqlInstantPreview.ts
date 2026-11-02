@@ -1,5 +1,5 @@
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { INSTANT_SAMPLE_ROWS } from '../../shared/sqlCtePreview';
+import { INSTANT_SAMPLE_ROWS, instantAstBlockReason, type InstantBlockReason } from '../../shared/sqlCtePreview';
 import { executeQuery } from './duckdbClient';
 import { buildSingleSelectCheckSql } from './sqlExplainPlan';
 
@@ -17,15 +17,16 @@ export type InstantPreviewResult =
   | { kind: 'error'; message: string }
   | { kind: 'timeout' }
   /** DuckDB's parser says the sampled SQL is not exactly one SELECT. */
-  | { kind: 'rejected' };
+  | { kind: 'rejected' }
+  | { kind: 'blocked'; reason: InstantBlockReason };
 
 const NOT_A_SELECT = /only select statements/i;
 
-/** Parser verdict from `json_serialize_sql`: true, a syntax error message, or false for anything but one SELECT. */
-function singleSelectVerdict(rows: ReadonlyArray<Record<string, unknown>>): true | false | string {
+/** Parser verdict from `json_serialize_sql`: the parsed statement, a syntax error message, or false for anything but one SELECT. */
+function singleSelectVerdict(rows: ReadonlyArray<Record<string, unknown>>): { statements: unknown[] } | false | string {
   try {
     const parsed = JSON.parse(String(rows[0]?.['j'])) as { error?: unknown; error_message?: unknown; statements?: unknown };
-    if (parsed.error === false) return Array.isArray(parsed.statements) && parsed.statements.length === 1;
+    if (parsed.error === false) return Array.isArray(parsed.statements) && parsed.statements.length === 1 ? { statements: parsed.statements } : false;
     const message = typeof parsed.error_message === 'string' ? parsed.error_message : '';
     return message && !NOT_A_SELECT.test(message) ? message : false;
   } catch {
@@ -41,7 +42,9 @@ export async function runInstantPreview(sql: string, signal: AbortSignal): Promi
   if (check.status !== 'success') return { kind: 'error', message: check.errorMessage ?? check.status };
   const verdict = singleSelectVerdict(check.rows);
   if (verdict === false) return { kind: 'rejected' };
-  if (verdict !== true) return { kind: 'error', message: verdict };
+  if (typeof verdict === 'string') return { kind: 'error', message: verdict };
+  const reason = instantAstBlockReason(verdict.statements);
+  if (reason) return { kind: 'blocked', reason };
   const outcome = await executeQuery(sql, options);
   if (signal.aborted || outcome.status === 'cancelled') return null;
   if (outcome.status === 'timeout') return { kind: 'timeout' };

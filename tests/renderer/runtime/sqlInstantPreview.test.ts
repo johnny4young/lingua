@@ -46,6 +46,13 @@ describe('runInstantPreview', () => {
     expect(executeQuery).toHaveBeenCalledTimes(2);
   });
 
+  it('never runs what the parse shows reads remotely or has side effects', async () => {
+    const remote = { error: false, statements: [{ node: { from_table: { type: 'BASE_TABLE', table_name: 's3://b/a.csv' } } }] };
+    executeQuery.mockResolvedValueOnce(verdict(remote));
+    expect(await runInstantPreview("SELECT * FROM 's3://b/a.csv'", new AbortController().signal)).toEqual({ kind: 'blocked', reason: 'remote' });
+    expect(executeQuery).toHaveBeenCalledTimes(1);
+  });
+
   it('shows a syntax error without running', async () => {
     executeQuery.mockResolvedValueOnce(verdict({ error: true, error_message: 'Parser Error: syntax error at end of input' }));
     expect(await runInstantPreview('SELECT', new AbortController().signal)).toEqual({ kind: 'error', message: 'Parser Error: syntax error at end of input' });

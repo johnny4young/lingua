@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cteDependents, INSTANT_SAMPLE_ROWS, parseCteChain, planInstantPreview } from '../../src/shared/sqlCtePreview';
+import { cteDependents, INSTANT_SAMPLE_ROWS, instantAstBlockReason, parseCteChain, planInstantPreview } from '../../src/shared/sqlCtePreview';
 
 const SALES = `WITH cities AS (
   SELECT * FROM read_csv('sales.csv')
@@ -98,8 +98,6 @@ describe('planInstantPreview', () => {
     ['DELETE FROM t', 'write'],
     ['CREATE TABLE t AS SELECT 1', 'write'],
     ['WITH a AS (SELECT 1) INSERT INTO t SELECT * FROM a', 'write'],
-    ["SELECT * FROM read_parquet('https://example.com/a.parquet')", 'remote'],
-    ["SELECT * FROM read_csv('s3://bucket/a.csv')", 'remote'],
     ["SELECT nextval('seq')", 'side-effect'],
     ["SELECT * FROM query('SELECT 1')", 'side-effect'],
     ['SELECT setseed (0.5)', 'side-effect'],
@@ -109,11 +107,41 @@ describe('planInstantPreview', () => {
     expect(plan.sql).toBeUndefined();
   });
 
-  it('allows the words in strings and comments', () => {
+  it('allows the words in strings and comments, and a URL as data', () => {
     expect(planInstantPreview("SELECT 'nextval(' AS a -- query(\n", 0)!.blocked).toBeUndefined();
+    expect(planInstantPreview("SELECT 'https://lingua.dev' AS site", 0)!.blocked).toBeUndefined();
   });
 
   it('is null without a statement', () => {
     expect(planInstantPreview('  -- nothing\n', 3)).toBeNull();
+  });
+});
+
+// Shapes as DuckDB 1.32's json_serialize_sql returns them.
+const constant = (value: unknown) => ({ class: 'CONSTANT', type: 'VALUE_CONSTANT', value: { type: { id: 'VARCHAR' }, is_null: false, value } });
+const call = (name: string, children: unknown[], schema = '') => ({ class: 'FUNCTION', type: 'FUNCTION', function_name: name, schema, children });
+const option = (value: unknown) => ({ class: 'COMPARISON', type: 'COMPARE_EQUAL', left: { class: 'COLUMN_REF' }, right: value });
+const scan = (fn: unknown) => [{ node: { type: 'SELECT_NODE', from_table: { type: 'TABLE_FUNCTION', function: fn } } }];
+
+describe('instantAstBlockReason', () => {
+  it.each([
+    ['a quoted or qualified side-effect call', [{ node: { select_list: [call('nextval', [constant('s')], 'main')] } }], 'side-effect'],
+    ['the query table function', scan(call('query', [constant('SELECT 1')])), 'side-effect'],
+    ['a path built by concatenation', scan(call('read_csv', [call('||', [constant('ht'), constant('tps://x/a.csv')])])), 'computed-path'],
+    ['a remote path', scan(call('read_parquet', [constant('https://x/a.parquet')])), 'remote'],
+    ['a remote path in a list', scan(call('read_parquet', [call('list_value', [constant('a.parquet'), constant('az://c/b.parquet')], 'main')])), 'remote'],
+    ['a remote replacement scan', [{ node: { from_table: { type: 'BASE_TABLE', table_name: 'https://x/a.csv' } } }], 'remote'],
+  ])('blocks %s', (_name, ast, reason) => {
+    expect(instantAstBlockReason(ast)).toBe(reason);
+  });
+
+  it.each([
+    ['a local file with options', scan(call('read_csv', [constant('a.csv'), option(constant(';')), option(call('||', [constant('ht'), constant('tps://x')]))]))],
+    ['local files in a list', scan(call('read_parquet', [call('list_value', [constant('a.parquet'), constant('b.parquet')], 'main')]))],
+    ['a computed range', scan(call('range', [call('+', [constant(1), constant(2)])]))],
+    ['a URL as data', [{ node: { select_list: [constant('https://lingua.dev')] } }]],
+    ['a local table', [{ node: { from_table: { type: 'BASE_TABLE', table_name: 'sales' } } }]],
+  ])('allows %s', (_name, ast) => {
+    expect(instantAstBlockReason(ast)).toBeUndefined();
   });
 });

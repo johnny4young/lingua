@@ -111,7 +111,6 @@ describe('SqlInstantPreview', () => {
 
   it.each([
     ['DELETE FROM t', 'DML / DDL never auto-run'],
-    ["SELECT * FROM read_csv('https://example.com/a.csv')", 'Remote reads never auto-run'],
     ["SELECT nextval('s')", 'Side-effect functions never auto-run'],
   ])('never runs %j', async (sql, badge) => {
     render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
@@ -119,6 +118,17 @@ describe('SqlInstantPreview', () => {
     await settle();
     expect(runInstantPreview).not.toHaveBeenCalled();
     expect(screen.getByTestId('sql-instant-preview').textContent).toContain(badge);
+  });
+
+  it('says what the parse blocked and hides the last sample', async () => {
+    render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
+    publish(channel, 'SELECT 1', 8);
+    await settle();
+    runInstantPreview.mockResolvedValueOnce({ kind: 'blocked', reason: 'computed-path' });
+    publish(channel, "SELECT * FROM read_csv('a' || '.csv')", 8);
+    await settle();
+    expect(screen.getByTestId('sql-instant-preview').textContent).toContain('Computed file paths never auto-run');
+    expect(screen.queryByTestId('sql-instant-table')).toBeNull();
   });
 
   it('says when DuckDB will not preview it', async () => {

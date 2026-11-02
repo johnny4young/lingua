@@ -26,7 +26,8 @@ type PreviewState =
   | { kind: 'shown'; shown: Shown }
   | { kind: 'error'; message: string; shown?: Shown }
   | { kind: 'timeout'; shown?: Shown }
-  | { kind: 'rejected'; shown?: Shown };
+  | { kind: 'rejected'; shown?: Shown }
+  | { kind: 'blocked'; reason: InstantBlockReason; shown?: Shown };
 
 export interface SqlInstantPreviewProps {
   channel: InstantSqlChannel;
@@ -55,6 +56,7 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
           const kept = prev.shown ? { shown: prev.shown } : {};
           if (result.kind === 'rows') return { kind: 'shown', shown: { ...result, ...(cte ? { cte } : {}) } };
           if (result.kind === 'error') return { kind: 'error', message: result.message, ...kept };
+          if (result.kind === 'blocked') return { kind: 'blocked', reason: result.reason, ...kept };
           return { kind: result.kind, ...kept };
         });
       });
@@ -66,7 +68,8 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
   }, [sql, cte]);
 
   if (!visible || !plan) return null;
-  const blocked: InstantBlockReason | 'rejected' | undefined = plan.blocked ?? (state.kind === 'rejected' ? 'rejected' : undefined);
+  const blocked: InstantBlockReason | 'rejected' | undefined =
+    plan.blocked ?? (state.kind === 'rejected' ? 'rejected' : state.kind === 'blocked' ? state.reason : undefined);
   const shown = blocked ? undefined : state.shown;
   const rowsLabel = shown
     ? t(shown.capped ? 'sqlWorkspace.instant.rowsCapped' : 'sqlWorkspace.instant.rows', {

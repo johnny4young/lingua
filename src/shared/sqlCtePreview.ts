@@ -144,7 +144,7 @@ export function cteDependents(chain: SqlCteChain, key: string): { ctes: Set<stri
   return { ctes, main: chain.mainDependsOn.some((dep) => reached.has(dep)) };
 }
 
-export type InstantBlockReason = 'write' | 'remote' | 'side-effect';
+export type InstantBlockReason = 'write' | 'remote' | 'computed-path' | 'side-effect';
 
 export interface InstantCrumb {
   /** The CTE's key; empty for the statement's result. */
@@ -169,8 +169,59 @@ export interface InstantPreviewPlan {
 }
 
 // Remote reads would fetch on every keystroke.
-const REMOTE_URL = /\b(?:https?|s3[an]?|gcs|gs|r2|azure?|abfss|hf):\/\//i;
-const SIDE_EFFECT_CALL = /\b(?:nextval|setval|setseed|query|query_table)\s*\(/i;
+const REMOTE_URL = /\b(?:https?|s3[an]?|gcs?|gs|r2|az(?:ure)?|abfss?|hf):\/\//i;
+const SIDE_EFFECT_FUNCTIONS = new Set(['nextval', 'setval', 'setseed', 'query', 'query_table']);
+// A fast answer before DuckDB parses it; `instantAstBlockReason` is the gate.
+const SIDE_EFFECT_CALL = new RegExp(`\\b(?:${[...SIDE_EFFECT_FUNCTIONS].join('|')})\\s*\\(`, 'i');
+const FILE_READER = /^(?:read_|parquet_|iceberg_|delta_scan$|glob$|sniff_csv$)/;
+
+type AstNode = Record<string, unknown>;
+const isAstNode = (value: unknown): value is AstNode => typeof value === 'object' && value !== null && !Array.isArray(value);
+const astChildren = (node: AstNode): unknown[] => (Array.isArray(node['children']) ? node['children'] : []);
+// DuckDB serializes a quoted or schema-qualified call with its bare name.
+const functionName = (node: AstNode) => String(node['function_name'] ?? '').toLowerCase();
+const stringConstant = (node: unknown): string | undefined => {
+  const value = isAstNode(node) && node['class'] === 'CONSTANT' && isAstNode(node['value']) ? node['value']['value'] : undefined;
+  return typeof value === 'string' ? value : undefined;
+};
+/** A path argument written out in full: a constant, or a list of them. */
+const literalPaths = (node: unknown): string[] | null => {
+  if (!isAstNode(node)) return null;
+  if (node['class'] === 'CONSTANT') return [stringConstant(node) ?? ''];
+  if (node['class'] !== 'FUNCTION' || functionName(node) !== 'list_value') return null;
+  const paths = astChildren(node).map(literalPaths);
+  return paths.every((path) => path !== null) ? paths.flat() as string[] : null;
+};
+
+/**
+ * Checks DuckDB's own parse (`json_serialize_sql` statements) of the sampled
+ * SQL: side-effect functions however they are spelled, file readers whose path
+ * is computed rather than written out, and remote paths or replacement scans.
+ */
+export function instantAstBlockReason(ast: unknown): InstantBlockReason | undefined {
+  let reason: InstantBlockReason | undefined;
+  const walk = (value: unknown): void => {
+    if (reason) return;
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+    if (!isAstNode(value)) return;
+    if (value['class'] === 'FUNCTION') {
+      const name = functionName(value);
+      if (SIDE_EFFECT_FUNCTIONS.has(name)) reason = 'side-effect';
+      else if (FILE_READER.test(name)) {
+        // Named options arrive as `option = value` comparisons; the rest are paths.
+        const paths = astChildren(value).filter((child) => !(isAstNode(child) && child['class'] === 'COMPARISON')).map(literalPaths);
+        if (paths.some((path) => path === null)) reason = 'computed-path';
+        else if (paths.flat().some((path) => REMOTE_URL.test(path!))) reason = 'remote';
+      }
+    } else if (value['type'] === 'BASE_TABLE' && REMOTE_URL.test(String(value['table_name'] ?? ''))) reason = 'remote';
+    if (!reason) Object.values(value).forEach(walk);
+  };
+  walk(ast);
+  return reason;
+}
 
 /** What the preview shows for the cursor at `offset` of `buffer`, or null when there is no statement. */
 export function planInstantPreview(buffer: string, offset: number): InstantPreviewPlan | null {
@@ -179,11 +230,9 @@ export function planInstantPreview(buffer: string, offset: number): InstantPrevi
   const { text, start } = picked.statement;
   const blocked: InstantBlockReason | undefined = !isReadOnlySqlStatement(text)
     ? 'write'
-    : REMOTE_URL.test(text)
-      ? 'remote'
-      : SIDE_EFFECT_CALL.test(sqlCodeOnly(text))
-        ? 'side-effect'
-        : undefined;
+    : SIDE_EFFECT_CALL.test(sqlCodeOnly(text))
+      ? 'side-effect'
+      : undefined;
   if (blocked) return { targetKey: `${picked.index}:${blocked}`, crumbs: [], blocked };
   const chain = parseCteChain(text);
   const relative = offset - start;

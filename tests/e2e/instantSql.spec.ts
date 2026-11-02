@@ -28,6 +28,7 @@ async function replaceQuery(page: Page, text: string): Promise<void> {
   await editor.click({ position: { x: 120, y: 20 } });
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.press('Backspace');
+  await expect(page.getByTestId('sql-query-editor-size')).toHaveText(/^0 B/);
   await page.keyboard.insertText(text);
 }
 
@@ -60,8 +61,15 @@ test.describe('Instant SQL', () => {
     await openQuery(page, 'en');
     await replaceQuery(page, 'CREATE TABLE instant_probe AS SELECT 1 AS x');
     await expect(page.getByTestId('sql-instant-preview')).toContainText('DML / DDL never auto-run');
-    await replaceQuery(page, 'SELECT * FROM instant_probe');
+    // Only DuckDB's parse catches these spellings.
+    await replaceQuery(page, `SELECT "nextval"('instant_seq')`);
+    await expect(page.getByTestId('sql-instant-preview')).toContainText('Side-effect functions never auto-run');
+    await replaceQuery(page, "SELECT * FROM read_csv('ht' || 'tps://example.com/a.csv')");
+    await expect(page.getByTestId('sql-instant-preview')).toContainText('Computed file paths never auto-run');
+    await replaceQuery(page, "SELECT * FROM 'https://example.com/a.csv'");
+    await expect(page.getByTestId('sql-instant-preview')).toContainText('Remote reads never auto-run');
     // The table was never created, so the preview of a read on it fails.
+    await replaceQuery(page, 'SELECT * FROM instant_probe');
     await expect(page.getByTestId('sql-instant-error')).toBeVisible();
     await expect(page.getByTestId('sql-instant-table')).toHaveCount(0);
   });

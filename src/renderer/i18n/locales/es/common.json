@@ -4043,6 +4043,7 @@
   "sqlWorkspace.instant.moreRows_other": "{{rows}} filas más en la muestra",
   "sqlWorkspace.instant.blocked.write": "DML / DDL nunca se ejecutan solos",
   "sqlWorkspace.instant.blocked.remote": "Las lecturas remotas nunca se ejecutan solas",
+  "sqlWorkspace.instant.blocked.computed-path": "Las rutas de archivo calculadas nunca se ejecutan solas",
   "sqlWorkspace.instant.blocked.side-effect": "Las funciones con efectos nunca se ejecutan solas",
   "sqlWorkspace.instant.blocked.rejected": "Solo se previsualiza un único SELECT",
   "sqlWorkspace.run.selection": "Ejecutar selección",
