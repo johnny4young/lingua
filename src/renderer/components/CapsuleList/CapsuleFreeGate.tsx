@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useTeachingPaywall } from '../../hooks/useProAccess';
 import { ProChip } from '../ui/ProChip';
 import { useTranslation } from 'react-i18next';
 import { ArrowUpFromLine, Package } from 'lucide-react';
@@ -27,7 +27,7 @@ export function CapsuleFreeGate({
   const [now] = useState(() => Date.now());
   const last = runs[0];
   // Labs › Pro in context: a PRO chip to Compare plans instead of the upgrade button.
-  const inContext = useSettingsStore(state => state.featureFlags.teachingPaywall === true);
+  const inContext = useTeachingPaywall();
 
   return (
     <ModalShell

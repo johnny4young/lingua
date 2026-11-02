@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useTrialStatus } from '../../hooks/useTrialStatus';
 import { emitCommand } from '../../stores/commandBus';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useTeachingPaywall } from '../../hooks/useProAccess';
 import type { LicenseTier } from '../../../shared/license';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 
@@ -48,7 +48,7 @@ interface LicenseBadgeProps {
 export function LicenseBadge({ onClick: openLicense }: LicenseBadgeProps) {
   const { t } = useTranslation();
   const tier = useEffectiveTier();
-  const inContext = useSettingsStore(state => state.featureFlags.teachingPaywall === true);
+  const inContext = useTeachingPaywall();
   const trialStatus = useTrialStatus();
   // Labs › Pro in context: a trial shows its days left, and a clickable pill on Free or a trial opens Compare plans.
   const trial = inContext ? trialStatus : null;

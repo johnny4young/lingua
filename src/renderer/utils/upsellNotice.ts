@@ -1,6 +1,6 @@
 import { useUIStore } from '../stores/uiStore';
 import { emitCommand } from '../stores/commandBus';
-import { useSettingsStore } from '../stores/settingsStore';
+import { teachingPaywallOn } from '../stores/proAccess';
 
 /**
  * One-stop upsell notice helper so stores/components do not reinvent copy.
@@ -28,7 +28,7 @@ export function resetUpsellNoticesForTests(): void {
 export function pushUpsellNotice(input: UpsellNoticeInput): void {
   // A blocked action always answers, but each feature makes its pitch once a session;
   // with Labs › Pro in context, one pitch covers every feature.
-  const inContext = useSettingsStore.getState().featureFlags.teachingPaywall === true;
+  const inContext = teachingPaywallOn();
   const pitch = inContext ? 'any' : `${input.messageKey}:${input.featureLabel}`;
   if (pitched.has(pitch)) {
     useUIStore.getState().pushStatusNotice({

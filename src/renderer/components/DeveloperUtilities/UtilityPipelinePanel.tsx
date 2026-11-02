@@ -293,15 +293,13 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     if (useUtilityPipelineStore.getState().isExecutingActive) return;
     useUtilityPipelineStore.getState().setIsExecutingActive(true);
     const runInput = activeInput;
-    const runSteps = clonePipelineSteps(activePipeline.steps);
+    const ranSteps = activePipeline.steps.slice(0, stepLimit);
+    const runSteps = clonePipelineSteps(ranSteps);
     const runPipelineId = activePipeline.id;
     const runPipelineName = activePipeline.name;
     setCapsuleRunSnapshot(null);
     try {
-      const outcome = await run(
-        activePipeline.steps.length > stepLimit ? { ...activePipeline, steps: activePipeline.steps.slice(0, stepLimit) } : activePipeline,
-        runInput
-      );
+      const outcome = await run({ ...activePipeline, steps: ranSteps }, runInput);
       if (outcome) {
         trackUtilityPipelineExecuted(outcome);
         // accessibility pass — announce the run result to screen readers; the

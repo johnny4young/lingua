@@ -23,11 +23,17 @@ describe('useProAccess', () => {
     expect(renderHook(() => useProAccess('DEV_UTILITIES')).result.current).toBe('slice');
   });
 
+  it('keeps entitlements without a slice locked under the flag', () => {
+    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+    expect(renderHook(() => useProAccess('LOCAL_AI')).result.current).toBe('locked');
+  });
+
   it('reads the same rule outside React', async () => {
     const { currentProAccess } = await import('@/stores/proAccess');
     expect(currentProAccess('DEV_UTILITIES')).toBe('locked');
     useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
     expect(currentProAccess('DEV_UTILITIES')).toBe('slice');
+    expect(currentProAccess('NOTEBOOK_MODE')).toBe('locked');
   });
 });
 

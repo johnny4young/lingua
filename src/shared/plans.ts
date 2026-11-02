@@ -1,5 +1,6 @@
 import { FREE_TIER_LIMITS } from './entitlements';
 import { TIMELINE_FREE_STEPS, TIMELINE_MAX_STEPS } from './timeline';
+import { PIPELINE_MAX_STEPS } from './utilityPipelineLimits';
 
 /** Length of the server-minted trial, in days; the fallback when a token's dates cannot be read. */
 export const TRIAL_DAYS = 14;
@@ -38,7 +39,7 @@ export const PLAN_ROWS: readonly PlanRow[] = [
   { id: 'timeline', free: TIMELINE_FREE_STEPS, pro: TIMELINE_MAX_STEPS, unit: 'steps' },
   { id: 'recentRuns', free: FREE_TIER_LIMITS.recentRuns, pro: true, unit: 'lastRuns' },
   { id: 'capsuleBrowser', free: false, pro: true },
-  { id: 'utilityPipelines', free: FREE_TIER_LIMITS.pipelineSteps, pro: 'unlimited', unit: 'steps' },
+  { id: 'utilityPipelines', free: FREE_TIER_LIMITS.pipelineSteps, pro: PIPELINE_MAX_STEPS, unit: 'steps' },
   { id: 'utilityHistory', free: false, pro: true },
   { id: 'ai', free: false, pro: true },
   { id: 'notebooks', free: false, pro: true },

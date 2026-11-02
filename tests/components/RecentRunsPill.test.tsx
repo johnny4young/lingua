@@ -155,5 +155,20 @@ describe('RecentRunsPill', () => {
     });
     expect(screen.queryByTestId('recent-runs-popover-host-probe')).toBeNull();
   });
-});
 
+  it('follows the pill when the window resizes', async () => {
+    render(<RecentRunsPill />);
+    const pill = screen.getByTestId('recent-runs-pill');
+    const container = pill.parentElement!;
+    const rectAt = (top: number) => ({ top, right: 500, bottom: top + 20, left: 400, width: 100, height: 20, x: 400, y: top, toJSON: () => ({}) });
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rectAt(600));
+    await userEvent.setup().click(pill);
+    const box = () => screen.getByTestId('recent-runs-popover-host-probe').closest('.fixed') as HTMLElement;
+    const before = box().style.bottom;
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(rectAt(300));
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+    expect(box().style.bottom).not.toBe(before);
+  });
+});

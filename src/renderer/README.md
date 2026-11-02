@@ -534,7 +534,8 @@ Recent Runs keeps its discoverable shell separate from its paid implementation:
 
 - [`components/Editor/RecentRunsPill.tsx`](components/Editor/RecentRunsPill.tsx)
   owns the visible per-tab count, Free upsell, global opener registration, and
-  dismissal behavior. Primitive active-tab selectors keep ordinary buffer
+  dismissal behavior. It portals the popover to the body, fixed above the pill,
+  so the dock does not clip it. Primitive active-tab selectors keep ordinary buffer
   edits from re-rendering this boundary.
 - [`components/Editor/RecentRunsPopoverHost.tsx`](components/Editor/RecentRunsPopoverHost.tsx)
   and
@@ -543,8 +544,9 @@ Recent Runs keeps its discoverable shell separate from its paid implementation:
   document.
 - [`components/Editor/RecentRunsPopover.tsx`](components/Editor/RecentRunsPopover.tsx)
   owns the rows, relative-time interval, pin/replay controls, runner
-  integration, and related icons. It loads only after an eligible Pro user
-  opens Recent Runs.
+  integration, and related icons. It loads only after a user with access opens
+  Recent Runs: Pro, or Free's slice under Labs › Pro in context, which hides pin
+  and replay.
 - A failed module URL remains cached for the current document because browsers
   do not reliably recover it through an inline retry; the host offers an
   explicit Lingua reload instead.

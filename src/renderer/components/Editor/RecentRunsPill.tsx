@@ -24,7 +24,8 @@ import { RecentRunsPopoverHost } from './RecentRunsPopoverHost';
  *
  * The visible count, Free upsell, and keyboard opener remain ready with the
  * result header. The row renderer, relative-time timer, pin/replay controls,
- * and their icons load only when an eligible Pro user opens the popover.
+ * and their icons load only when a user with access (Pro, or Free's slice under
+ * Labs › Pro in context) opens the popover.
  */
 export function RecentRunsPill() {
   const { t } = useTranslation();
@@ -50,9 +51,12 @@ export function RecentRunsPill() {
   const [anchor, setAnchor] = useState<{ bottom: number; right: number } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
-  const toggle = (tabId: string) => {
+  const measureAnchor = () => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) setAnchor({ bottom: window.innerHeight - rect.top + 8, right: window.innerWidth - rect.right });
+  };
+  const toggle = (tabId: string) => {
+    measureAnchor();
     setOpenTabId(current => (current === tabId ? null : tabId));
   };
 
@@ -76,9 +80,11 @@ export function RecentRunsPill() {
     };
     document.addEventListener('pointerdown', handlePointer);
     document.addEventListener('keydown', handleKey);
+    window.addEventListener('resize', measureAnchor);
     return () => {
       document.removeEventListener('pointerdown', handlePointer);
       document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', measureAnchor);
     };
   }, [open]);
 

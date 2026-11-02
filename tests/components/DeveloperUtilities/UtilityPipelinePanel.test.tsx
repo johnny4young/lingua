@@ -110,6 +110,10 @@ describe('UtilityPipelinePanel', () => {
       await user.click(screen.getByTestId('utility-pipeline-editor-run'));
       await waitFor(() => expect(useAnnouncerStore.getState().message).toContain('of 3 steps'));
       expect(screen.getAllByTestId('utility-pipeline-result-row')).toHaveLength(3);
+      // The capsule records only the steps that ran.
+      await user.click(screen.getByTestId('pipeline-save-capsule'));
+      await waitFor(() => expect(vi.mocked(buildPipelineCapsule)).toHaveBeenCalled());
+      expect(vi.mocked(buildPipelineCapsule).mock.lastCall?.[0].steps.map(step => step.id)).toEqual(['s1', 's2', 's3']);
     } finally {
       useSettingsStore.setState({ featureFlags: {} });
     }

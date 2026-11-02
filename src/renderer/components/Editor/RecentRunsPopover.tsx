@@ -98,47 +98,47 @@ export function RecentRunsPopover({ entries, onClose, sliceOf }: RecentRunsPopov
                 {formatRunAge(entry.timestamp, now, t)}
               </span>
               {slice ? null : (
-              <>
-              <button
-                type="button"
-                data-testid={`recent-runs-popover-pin-${entry.id}`}
-                aria-pressed={entry.pinned === true}
-                title={
-                  entry.pinned
-                    ? t('executionHistory.tabPill.unpin')
-                    : t('executionHistory.tabPill.pin')
-                }
-                onClick={() => togglePin(entry.id)}
-                className={cn(
-                  'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
-                  entry.pinned ? 'text-primary' : 'text-muted'
-                )}
-              >
-                <Pin
-                  size={11}
-                  aria-hidden="true"
-                  className={entry.pinned ? 'fill-current' : undefined}
-                />
-              </button>
-              <button
-                type="button"
-                data-testid={`recent-runs-popover-replay-${entry.id}`}
-                disabled={replayDisabled}
-                aria-disabled={replayDisabled}
-                title={
-                  replayDisabled
-                    ? t('executionHistory.tabPill.replayUnavailable')
-                    : t('executionHistory.tabPill.replayAction')
-                }
-                onClick={() => handleReplay(entry)}
-                className={cn(
-                  'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
-                  replayDisabled ? 'cursor-not-allowed text-muted opacity-50' : 'text-primary'
-                )}
-              >
-                <RotateCw size={11} aria-hidden="true" />
-              </button>
-              </>
+                <>
+                  <button
+                    type="button"
+                    data-testid={`recent-runs-popover-pin-${entry.id}`}
+                    aria-pressed={entry.pinned === true}
+                    title={
+                      entry.pinned
+                        ? t('executionHistory.tabPill.unpin')
+                        : t('executionHistory.tabPill.pin')
+                    }
+                    onClick={() => togglePin(entry.id)}
+                    className={cn(
+                      'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
+                      entry.pinned ? 'text-primary' : 'text-muted'
+                    )}
+                  >
+                    <Pin
+                      size={11}
+                      aria-hidden="true"
+                      className={entry.pinned ? 'fill-current' : undefined}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`recent-runs-popover-replay-${entry.id}`}
+                    disabled={replayDisabled}
+                    aria-disabled={replayDisabled}
+                    title={
+                      replayDisabled
+                        ? t('executionHistory.tabPill.replayUnavailable')
+                        : t('executionHistory.tabPill.replayAction')
+                    }
+                    onClick={() => handleReplay(entry)}
+                    className={cn(
+                      'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
+                      replayDisabled ? 'cursor-not-allowed text-muted opacity-50' : 'text-primary'
+                    )}
+                  >
+                    <RotateCw size={11} aria-hidden="true" />
+                  </button>
+                </>
               )}
             </li>
           );

@@ -66,6 +66,8 @@ describe('RecentRunsPopoverHost', () => {
       </StrictMode>
     );
 
+    // The pill portals the host into a zero-size fixed box, so the state must not position itself.
+    expect(screen.getByTestId('recent-runs-popover-loading').className).not.toMatch(/absolute|calc\(100%/);
     expect(screen.getByTestId('recent-runs-popover-loading').textContent).toContain(
       'Loading recent runs'
     );
