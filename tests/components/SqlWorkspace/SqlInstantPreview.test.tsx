@@ -11,6 +11,8 @@ vi.mock('../../../src/renderer/runtime/sqlInstantPreview', async (importOriginal
   ...(await importOriginal<object>()),
   runInstantPreview,
 }));
+const runExprBreakdown = vi.hoisted(() => vi.fn());
+vi.mock('../../../src/renderer/runtime/sqlExprBreakdown', () => ({ runExprBreakdown }));
 
 const SQL = 'WITH a AS (SELECT 1 AS x), b AS (SELECT x FROM a) SELECT * FROM b';
 const rows = (value: number): InstantPreviewResult => ({
@@ -155,6 +157,43 @@ describe('SqlInstantPreview', () => {
     publish(channel, 'SELECT 3', 8);
     await settle();
     expect(runInstantPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops a breakdown once a newer sample is running', async () => {
+    const inner = { type: 'SELECT_NODE', modifiers: [], select_list: [{ class: 'FUNCTION', alias: 'x', function_name: '+', is_operator: true, children: [] }] };
+    runInstantPreview.mockResolvedValueOnce({ ...rows(1), statements: [{ node: { from_table: { type: 'SUBQUERY', subquery: { node: inner } } } }] });
+    runExprBreakdown.mockImplementationOnce(() => new Promise(() => {}));
+    render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
+    publish(channel, 'SELECT 1 + 1 AS x', 8);
+    await settle();
+    fireEvent.click(screen.getByTestId('sql-instant-column-breakdown'));
+    const signal = runExprBreakdown.mock.calls[0]![3] as AbortSignal;
+    expect(signal.aborted).toBe(false);
+    runInstantPreview.mockImplementationOnce(() => new Promise(() => {}));
+    publish(channel, 'SELECT 1 + 2 AS x', 8);
+    await settle();
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('pauses too when DuckDB is stuck on a breakdown', async () => {
+    const inner = { type: 'SELECT_NODE', modifiers: [], select_list: [{ class: 'FUNCTION', alias: 'x', function_name: '+', is_operator: true, children: [] }] };
+    runInstantPreview.mockResolvedValueOnce({ ...rows(1), statements: [{ node: { from_table: { type: 'SUBQUERY', subquery: { node: inner } } } }] });
+    runExprBreakdown.mockResolvedValueOnce({ kind: 'timeout', stuck: true });
+    render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
+    publish(channel, 'SELECT 1 + 1 AS x', 8);
+    await settle();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('sql-instant-column-breakdown'));
+    });
+    expect(screen.getByTestId('sql-instant-error').textContent).toBe('DuckDB is still busy with the last preview, so previews wait for the next Run.');
+    publish(channel, 'SELECT 2', 8);
+    await settle();
+    expect(runInstantPreview).toHaveBeenCalledTimes(1);
+    // A click on a stuck engine would only queue behind it.
+    runExprBreakdown.mockClear();
+    fireEvent.click(screen.getByTestId('sql-instant-column-breakdown'));
+    fireEvent.click(screen.getByTestId('sql-instant-column-breakdown'));
+    expect(runExprBreakdown).not.toHaveBeenCalled();
   });
 
   it('says when DuckDB will not preview it', async () => {

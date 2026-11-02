@@ -5,33 +5,29 @@
  */
 
 import { RefreshCw } from 'lucide-react';
-import { Fragment, useEffect, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';
 import '../../i18n/sqlInstantCatalog';
 import { INSTANT_SAMPLE_ROWS, type InstantBlockReason } from '../../../shared/sqlCtePreview';
-import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
-import { INSTANT_TIMEOUT_MS, runInstantPreview, type InstantPreviewResult } from '../../runtime/sqlInstantPreview';
+import { INSTANT_TIMEOUT_MS, runInstantPreview } from '../../runtime/sqlInstantPreview';
 import { cn } from '../../utils/cn';
 import { StatusBadge } from '../ui/StatusBadge';
 import { instantPreviewVisible, type InstantSqlChannel, type InstantSqlDraft } from './instantSqlChannel';
-import { renderCell } from './sqlResultFormatters';
+import { SqlInstantTable, type InstantShown } from './SqlInstantTable';
 
 export const INSTANT_DEBOUNCE_MS = 250;
-const RENDERED_ROWS = 100;
-
-type Shown = Extract<InstantPreviewResult, { kind: 'rows' }> & { cte?: string };
 
 type PreviewState =
-  | { kind: 'idle'; shown?: Shown }
-  | { kind: 'running'; shown?: Shown }
-  | { kind: 'shown'; shown: Shown }
-  | { kind: 'error'; message: string; shown?: Shown }
-  | { kind: 'timeout'; shown?: Shown }
-  | { kind: 'rejected'; sql: string; shown?: Shown }
-  | { kind: 'blocked'; reason: InstantBlockReason; sql: string; shown?: Shown }
+  | { kind: 'idle'; shown?: InstantShown }
+  | { kind: 'running'; shown?: InstantShown }
+  | { kind: 'shown'; shown: InstantShown }
+  | { kind: 'error'; message: string; shown?: InstantShown }
+  | { kind: 'timeout'; shown?: InstantShown }
+  | { kind: 'rejected'; sql: string; shown?: InstantShown }
+  | { kind: 'blocked'; reason: InstantBlockReason; sql: string; shown?: InstantShown }
   /** DuckDB did not stop the last sample; previews wait for the next Run. */
-  | { kind: 'stuck'; ran: InstantSqlDraft | null; shown?: Shown };
+  | { kind: 'stuck'; ran: InstantSqlDraft | null; shown?: InstantShown };
 
 export interface SqlInstantPreviewProps {
   channel: InstantSqlChannel;
@@ -74,16 +70,16 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
     };
   }, [sql, cte, channel]);
 
+  const pauseOnStuck = useCallback(() => {
+    setState((prev) => ({ kind: 'stuck', ran: channel.snapshot().ran, ...(prev.shown ? { shown: prev.shown } : {}) }));
+  }, [channel]);
+
   if (!visible || !plan) return null;
   // A verdict on other SQL says nothing about this one.
   const verdict = (state.kind === 'rejected' || state.kind === 'blocked') && state.sql === plan.sql ? state : undefined;
   const blocked: InstantBlockReason | 'rejected' | undefined =
     plan.blocked ?? (verdict?.kind === 'blocked' ? verdict.reason : verdict?.kind);
   const shown = blocked ? undefined : state.shown;
-  const columns = (shown?.columns ?? []).map((column) => {
-    const type = arrowTypeToDuckDb(column.type);
-    return { name: column.name, type, numeric: isNumericSqlType(type) };
-  });
   const rowsLabel = shown
     ? t(shown.capped ? 'sqlWorkspace.instant.rowsCapped' : 'sqlWorkspace.instant.rows', {
         count: shown.rows.length,
@@ -95,7 +91,7 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
     <section
       data-testid="sql-instant-preview"
       aria-label={t('sqlWorkspace.instant.label')}
-      className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-b border-border-subtle bg-bg-panel"
+      className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-b border-border-subtle bg-bg-panel has-[[data-breakdown-open]]:max-h-[70%]"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-1.5">
         {blocked ? (
@@ -166,40 +162,7 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
               : t('sqlWorkspace.instant.timeout', { seconds: INSTANT_TIMEOUT_MS / 1000 })}
         </p>
       ) : null}
-      {shown ? (
-        <div className={cn('min-h-0 overflow-auto px-3 pb-2', state.kind !== 'shown' && 'opacity-60')}>
-          <table data-testid="sql-instant-table" className="w-full border-collapse font-mono text-caption">
-            <thead className="sticky top-0 bg-bg-panel text-left text-fg-subtle">
-              <tr>
-                {columns.map((column) => (
-                  <th key={column.name} scope="col" className={cn('whitespace-nowrap py-1 pr-4 font-normal', column.numeric && 'text-right')}>
-                    {column.name} <span className="text-accent-fg">{column.type}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.rows.slice(0, RENDERED_ROWS).map((row, index) => (
-                <tr key={index} className="border-t border-border-subtle">
-                  {columns.map((column) => (
-                    <td key={column.name} className={cn('whitespace-nowrap py-1 pr-4 text-fg-base', column.numeric && 'text-right tabular-nums')}>
-                      {renderCell(row[column.name])}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {shown.rows.length > RENDERED_ROWS ? (
-            <p className="pt-1 text-caption text-fg-subtle">
-              {t('sqlWorkspace.instant.moreRows', {
-                count: shown.rows.length - RENDERED_ROWS,
-                rows: formatNumber(shown.rows.length - RENDERED_ROWS, i18n.language),
-              })}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      {shown ? <SqlInstantTable shown={shown} dimmed={state.kind !== 'shown'} busy={busy || stuck || state.kind === 'running'} onStuck={pauseOnStuck} /> : null}
     </section>
   );
 }

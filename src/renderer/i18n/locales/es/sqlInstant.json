@@ -19,7 +19,17 @@
   "sqlWorkspace.instant.blocked.remote": "Las lecturas remotas nunca se ejecutan solas",
   "sqlWorkspace.instant.blocked.computed-path": "Las rutas de archivo calculadas nunca se ejecutan solas",
   "sqlWorkspace.instant.blocked.side-effect": "Las funciones con efectos nunca se ejecutan solas",
-  "sqlWorkspace.instant.blocked.unlisted": "Solo se previsualizan funciones de tabla y formatos integrados",
+  "sqlWorkspace.instant.blocked.unlisted": "Solo se previsualizan funciones y formatos integrados",
   "sqlWorkspace.instant.stuck": "DuckDB sigue ocupado con la última vista previa, así que las vistas previas esperan a la próxima ejecución.",
-  "sqlWorkspace.instant.blocked.rejected": "Solo se previsualiza un único SELECT"
+  "sqlWorkspace.instant.blocked.rejected": "Solo se previsualiza un único SELECT",
+  "sqlWorkspace.instant.breakdown.open": "Desglosar {{name}}",
+  "sqlWorkspace.instant.breakdown.title": "Desglose de la expresión · {{name}}",
+  "sqlWorkspace.instant.breakdown.loading": "Desglosando…",
+  "sqlWorkspace.instant.breakdown.nulls": "{{percent}}% nulos",
+  "sqlWorkspace.instant.breakdown.zeros_one": "{{rows}} fila = 0 → {{name}} {{result}}",
+  "sqlWorkspace.instant.breakdown.zeros_other": "{{rows}} filas = 0 → {{name}} {{result}}",
+  "sqlWorkspace.instant.breakdown.filter": "Filas donde {{label}} es NULL",
+  "sqlWorkspace.instant.breakdown.filterZero": "Filas donde {{label}} es NULL o 0",
+  "sqlWorkspace.instant.breakdown.clear": "Todas las filas",
+  "sqlWorkspace.instant.breakdown.narrowFailed": "No se pudieron leer estas filas."
 }
