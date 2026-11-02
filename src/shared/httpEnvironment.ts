@@ -147,7 +147,7 @@ const VARIABLE_TOKEN = /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/;
  * to `String#matchAll` / a `replace` callback. A new object per call
  * means no `lastIndex` leaks between scans.
  */
-function variableTokenMatcher(): RegExp {
+export function variableTokenMatcher(): RegExp {
   return new RegExp(VARIABLE_TOKEN.source, 'g');
 }
 

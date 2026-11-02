@@ -3991,6 +3991,7 @@
   "sqlWorkspace.grid.sortClear": "Quitar el orden",
   "sqlWorkspace.grid.asSql": "Como SQL",
   "sqlWorkspace.grid.applyToQuery": "Llevar a la consulta",
+  "sqlWorkspace.grid.saveSnippet": "Guardar este SQL como snippet",
   "sqlWorkspace.grid.loadMoreFailed": "No se pudieron leer más filas. Las filas ya cargadas se mantienen.",
   "sqlWorkspace.grid.loadMore": "Cargar {{count}} más",
   "sqlWorkspace.grid.loadingMore": "Leyendo más filas…",

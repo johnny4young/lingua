@@ -133,5 +133,7 @@
   "httpWorkspace.editor.assert.results.pass": "PASS",
   "httpWorkspace.editor.assert.results.fail": "FAIL",
   "httpWorkspace.editor.assert.results.actual": "got {{actual}}",
-  "httpWorkspace.editor.assert.results.miss": "no value"
+  "httpWorkspace.editor.assert.results.miss": "no value",
+  "httpWorkspace.editor.openAsTab": "Open as JS tab",
+  "httpWorkspace.editor.openAsTabFillIn": "Secrets stay out of this file: put your values here to run it."
 }

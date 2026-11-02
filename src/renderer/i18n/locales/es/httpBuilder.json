@@ -133,5 +133,7 @@
   "httpWorkspace.editor.assert.results.pass": "PASA",
   "httpWorkspace.editor.assert.results.fail": "FALLA",
   "httpWorkspace.editor.assert.results.actual": "obtuvo {{actual}}",
-  "httpWorkspace.editor.assert.results.miss": "sin valor"
+  "httpWorkspace.editor.assert.results.miss": "sin valor",
+  "httpWorkspace.editor.openAsTab": "Abrir como pestaña JS",
+  "httpWorkspace.editor.openAsTabFillIn": "Los secretos no quedan en este archivo: pon aquí tus valores para ejecutarlo."
 }

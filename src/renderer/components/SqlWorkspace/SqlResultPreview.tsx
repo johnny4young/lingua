@@ -550,6 +550,7 @@ export function SqlResultPreview({
           onLayoutChange={setLayout}
           gridSql={gridSql}
           {...(onApplySql ? { onApplySql } : {})}
+          {...(response?.engine ? { engine: response.engine } : {})}
         />
       ) : null}
 

@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpRequestEditor } from '../../../src/renderer/components/HttpWorkspace/HttpRequestEditor';
 import type { HttpCaptureTarget } from '../../../src/renderer/components/HttpWorkspace/useHttpTreeCapture';
+import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { HttpEnvironmentV1 } from '../../../src/shared/httpEnvironment';
 import { createBlankHttpRequest } from '../../../src/shared/httpWorkspace';
@@ -381,6 +383,45 @@ describe('HttpRequestEditor', () => {
       const snippet = writeText.mock.calls[0]?.[0] as string;
       expect(snippet).toContain('await fetch("https://x.dev/users"');
       expect(snippet).toContain('method: "GET"');
+    });
+  });
+
+  describe('Open as JS tab', () => {
+    const initialEditor = useEditorStore.getState();
+    afterEach(() => {
+      useSettingsStore.setState({ featureFlags: {} });
+      useEditorStore.setState(initialEditor, true);
+    });
+    const open = (patch: object = {}) => {
+      const request = { ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }), name: 'Users', url: 'https://x.dev/users', ...patch };
+      render(<HttpRequestEditor request={request} onPatch={vi.fn()} onSend={vi.fn()} isExecuting={false} />);
+      fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
+    };
+
+    it('stays out of the menu without the flag', () => {
+      open();
+      expect(screen.queryByTestId('http-request-editor-open-tab')).toBeNull();
+    });
+
+    it('opens a tab that waits for Run, with a literal credential withheld', () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
+      open({ auth: { kind: 'bearer', token: 'tok-SECRET' } });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      const tab = tabs.find((candidate) => candidate.id === activeTabId)!;
+      expect(tab).toMatchObject({ name: 'Users.js', language: 'javascript', workflowMode: 'run' });
+      expect(tab.content).not.toContain('tok-SECRET');
+      expect(tab.content).toContain('"token": "{{token}}"');
+      expect(screen.queryByTestId('http-request-editor-copy-menu-list')).toBeNull();
+    });
+
+    it('treats the headers the user marked sensitive as secrets', () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true }, sensitiveHttpHeaders: ['x-internal'] });
+      open({ headers: [{ id: 'h', name: 'X-Internal', value: 'hdr-SECRET', enabled: true }] });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.content).not.toContain('hdr-SECRET');
+      useSettingsStore.setState({ sensitiveHttpHeaders: [] });
     });
   });
 

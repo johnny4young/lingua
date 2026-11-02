@@ -7,7 +7,9 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Plus, Search, X } from 'luc
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import type { SqlEngineKind } from '../../../shared/sqlConnections';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
 import {
   SQL_FILTER_OPS,
@@ -18,6 +20,7 @@ import {
   type SqlFilterOp,
 } from './sqlResultFilters';
 import type { SqlSortState } from './sqlResultGrid';
+import { saveGridSqlAsSnippet } from './sqlGridSnippet';
 import { useFloatingPosition } from './useFloatingPosition';
 
 const CHIP =
@@ -151,6 +154,7 @@ export function SqlResultToolbar({
   onLayoutChange,
   gridSql,
   onApplySql,
+  engine,
 }: {
   columns: ReadonlyArray<SqlColumnMetadata>;
   search: string;
@@ -167,8 +171,11 @@ export function SqlResultToolbar({
   gridSql: string | null;
   /** Present when the query behind the rows is known. */
   onApplySql?: (sql: string) => void;
+  /** The engine the result came from; secrets are masked its way in a saved snippet. */
+  engine?: SqlEngineKind;
 }) {
   const { t } = useTranslation();
+  const canEject = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState(false);
   const addRef = useRef<HTMLButtonElement | null>(null);
@@ -245,6 +252,11 @@ export function SqlResultToolbar({
           {onApplySql ? (
             <button type="button" onClick={() => onApplySql(gridSql)} data-testid="sql-grid-sql-apply" className="shrink-0 text-caption font-medium text-accent-fg hover:underline">
               {t('sqlWorkspace.grid.applyToQuery')}
+            </button>
+          ) : null}
+          {canEject ? (
+            <button type="button" onClick={() => saveGridSqlAsSnippet(gridSql, engine)} data-testid="sql-grid-sql-snippet" className="shrink-0 text-caption font-medium text-accent-fg hover:underline">
+              {t('sqlWorkspace.grid.saveSnippet')}
             </button>
           ) : null}
         </div>

@@ -49,7 +49,7 @@ interface WireShape {
  * the method / body means nothing is sent. Shared by every generator so
  * they cannot drift from each other or from the cURL builder.
  */
-function resolveWireShape(request: HttpRequestV1): WireShape {
+export function resolveWireShape(request: HttpRequestV1): WireShape {
   const headers = composeRequestHeaders(request);
   const carriesBody =
     request.method !== 'GET' &&

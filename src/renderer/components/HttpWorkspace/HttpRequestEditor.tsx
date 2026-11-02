@@ -715,7 +715,7 @@ export function HttpRequestEditor({
           onChange={handleUrlChange}
           onPaste={handleUrlPaste}
         />
-        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} />
+        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} maskedRequest={() => (scopedEnv ? maskSecretsForCapsule(buildDraftRequest(), scopedEnv) : buildDraftRequest())} />
         <HttpSendButton
           isExecuting={isExecuting}
           disabled={!urlState.ok}
