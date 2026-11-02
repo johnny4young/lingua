@@ -41,6 +41,8 @@ for (const language of ['en', 'es'] as const) {
 
     const preview = page.getByTestId('ai-explain-code-preview');
     await expect(preview).toContainText(`Question: ${question}`);
+    await expect(preview).not.toContainText('Last run:');
+    await page.getByTestId('ai-explain-code-include-last-run').check();
     await expect(preview).toContainText('Last run:');
     await expect(preview).toContainText('twice');
   });
