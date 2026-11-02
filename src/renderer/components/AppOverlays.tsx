@@ -37,6 +37,9 @@ const ProjectSearch = lazy(async () => ({
 const ProjectReplace = lazy(async () => ({
   default: (await import('./ProjectReplace/ProjectReplace')).ProjectReplace,
 }));
+const ComparePlansDialog = lazy(async () => ({
+  default: (await import('./Plans/ComparePlansDialog')).ComparePlansDialog,
+}));
 const QuickOpen = lazy(async () => ({
   default: (await import('./QuickOpen/QuickOpen')).QuickOpen,
 }));
@@ -245,6 +248,7 @@ export function AppOverlays({
       {overlay === 'whats-new' && <WhatsNewOverlay onClose={closeOverlay} />}
       {overlay === 'snippets' && <SnippetsModal onClose={closeOverlay} />}
       {overlay === 'keyboard-shortcuts' && <KeyboardShortcutsModal onClose={closeOverlay} />}
+      {overlay === 'compare-plans' && <ComparePlansDialog onClose={closeOverlay} />}
     </Suspense>
   );
 }

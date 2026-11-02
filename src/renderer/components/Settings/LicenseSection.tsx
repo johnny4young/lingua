@@ -4,6 +4,8 @@ import { computeLicenseJwkThumbprint } from '../../../shared/license';
 import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
 import { PUBLIC_KEY_JWK } from '../../stores/licenseWebVerify';
 import { useUIStore } from '../../stores/uiStore';
+import { emitCommand } from '../../stores/commandBus';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
 import { writeToClipboard } from '../../utils/clipboard';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
@@ -350,6 +352,9 @@ export function LicenseSection() {
   const showCtas =
     status.kind === 'free' ||
     (status.kind === 'invalid' && !isDevicesExhausted);
+  // Labs › Pro in context: the trial sits right under the current plan instead of at the bottom.
+  const inContext = useSettingsStore(state => state.featureFlags.teachingPaywall === true);
+  const trialFirst = inContext && showCtas;
 
   return (
     <SettingsSection
@@ -388,6 +393,16 @@ export function LicenseSection() {
                   {t(statusLabelKey(status), { tier: tierLabel(t, status) })}
                 </StatusBadge>
               </span>
+              {inContext ? (
+                <button
+                  type="button"
+                  onClick={() => emitCommand('plans.compare')}
+                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base"
+                  data-testid="license-compare-plans"
+                >
+                  {t('plans.title')}
+                </button>
+              ) : null}
               {token ? (
                 <button
                   type="button"
@@ -403,6 +418,12 @@ export function LicenseSection() {
           }
         />
       </SpecCard>
+
+      {trialFirst ? (
+        <SpecCard>
+          <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} last />
+        </SpecCard>
+      ) : null}
 
       {lifetimeNotice ? (
         <div data-testid="license-lifetime-updates-lapsed">
@@ -514,7 +535,7 @@ export function LicenseSection() {
       {showCtas ? (
         <>
           <SpecCard>
-            <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
+            {trialFirst ? null : <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />}
             <EducationCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
             <RecoveryCta
               key={recoveryPrefillEmail ?? 'empty-recovery-prefill'}

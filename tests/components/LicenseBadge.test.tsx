@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { LicenseBadge } from '../../src/renderer/components/Toolbar/LicenseBadge';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import { _resetCommandBusForTesting, subscribeCommand } from '../../src/renderer/stores/commandBus';
 import type { LicenseTier } from '../../src/shared/license';
 
 function seedActiveTier(tier: Exclude<LicenseTier, 'free'>) {
@@ -149,5 +151,43 @@ describe('LicenseBadge', () => {
     expect(badge.textContent).toBe('PRO');
     expect(badge.getAttribute('title') ?? '').toMatch(/Nivel de licencia actual/);
     expect(badge.getAttribute('title') ?? '').toContain('Mensual');
+  });
+
+  describe('with Pro in context', () => {
+    afterEach(() => {
+      useSettingsStore.setState({ featureFlags: {} });
+      _resetCommandBusForTesting();
+    });
+
+    it('shows the days a trial has left and opens Compare plans', async () => {
+      useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+      seedActiveTier('trial');
+      const compare = vi.fn();
+      const openLicense = vi.fn();
+      subscribeCommand('plans.compare', compare);
+      render(<LicenseBadge onClick={openLicense} />);
+      const badge = screen.getByTestId('license-badge');
+      expect(badge.textContent).toBe('TRIAL · 1 DAY');
+      expect(badge.getAttribute('title')).toBe('Pro trial, 1 day left. Compare plans.');
+      await userEvent.setup().click(badge);
+      expect(compare).toHaveBeenCalled();
+      expect(openLicense).not.toHaveBeenCalled();
+    });
+
+    it('opens Compare plans from Free and License settings from a paid plan', async () => {
+      useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+      const compare = vi.fn();
+      const openLicense = vi.fn();
+      subscribeCommand('plans.compare', compare);
+      const { unmount } = render(<LicenseBadge onClick={openLicense} />);
+      await userEvent.setup().click(screen.getByTestId('license-badge'));
+      expect(compare).toHaveBeenCalledTimes(1);
+      unmount();
+      seedActiveTier('pro');
+      render(<LicenseBadge onClick={openLicense} />);
+      await userEvent.setup().click(screen.getByTestId('license-badge'));
+      expect(openLicense).toHaveBeenCalledTimes(1);
+      expect(compare).toHaveBeenCalledTimes(1);
+    });
   });
 });

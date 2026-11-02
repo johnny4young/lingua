@@ -1,5 +1,6 @@
 import { useUIStore } from '../stores/uiStore';
 import { emitCommand } from '../stores/commandBus';
+import { useSettingsStore } from '../stores/settingsStore';
 
 /**
  * One-stop upsell notice helper so stores/components do not reinvent copy.
@@ -25,8 +26,10 @@ export function resetUpsellNoticesForTests(): void {
 }
 
 export function pushUpsellNotice(input: UpsellNoticeInput): void {
-  // A blocked action always answers, but each feature makes its pitch once a session.
-  const pitch = `${input.messageKey}:${input.featureLabel}`;
+  // A blocked action always answers, but each feature makes its pitch once a session;
+  // with Labs › Pro in context, one pitch covers every feature.
+  const inContext = useSettingsStore.getState().featureFlags.teachingPaywall === true;
+  const pitch = inContext ? 'any' : `${input.messageKey}:${input.featureLabel}`;
   if (pitched.has(pitch)) {
     useUIStore.getState().pushStatusNotice({
       tone: 'info',
@@ -46,10 +49,9 @@ export function pushUpsellNotice(input: UpsellNoticeInput): void {
     values: { feature: input.featureLabel },
     detail: input.detail,
     actions: [
-      {
-        labelKey: 'upsell.viewPro',
-        onClick: () => emitCommand('settings.openLicense'),
-      },
+      inContext
+        ? { labelKey: 'plans.title', onClick: () => emitCommand('plans.compare') }
+        : { labelKey: 'upsell.viewPro', onClick: () => emitCommand('settings.openLicense') },
     ],
   });
 }

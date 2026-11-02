@@ -8,6 +8,7 @@ import { announce } from '../../stores/announcerStore';
 import { timelineDepth, timelineEchoes, type TimelineMove } from '../../utils/timelineModel';
 import { cn } from '../../utils/cn';
 import { EyebrowMono } from '../ui/primitives';
+import { ProChip } from '../ui/ProChip';
 
 /** Past this many steps the strip draws marked steps and an even sample, not every tick. */
 const MAX_TICKS = 400;
@@ -139,9 +140,8 @@ export function TimelinePanel() {
                 {t('timeline.legend.error')}
               </span>
               {recording.limited ? (
-                <span className="ml-auto inline-flex items-center gap-1.5" data-testid="timeline-limited">
-                  <span className="rounded border border-warning-border bg-warning-bg px-1 font-mono text-micro font-bold text-warning-fg">{t('actionPill.badgePro')}</span>
-                  {t('timeline.limited', { count, total: recording.total })}
+                <span className="ml-auto" data-testid="timeline-limited">
+                  <ProChip>{t('timeline.limited', { count, total: recording.total })}</ProChip>
                 </span>
               ) : null}
             </div>
