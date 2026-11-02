@@ -3967,6 +3967,7 @@
   "sqlWorkspace.grid.sortClear": "Clear the sort",
   "sqlWorkspace.grid.asSql": "As SQL",
   "sqlWorkspace.grid.applyToQuery": "Apply to query",
+  "sqlWorkspace.grid.saveSnippet": "Save this SQL as a snippet",
   "sqlWorkspace.grid.loadMoreFailed": "Could not read more rows. The rows already loaded stay.",
   "sqlWorkspace.grid.loadMore": "Load {{count}} more",
   "sqlWorkspace.grid.loadingMore": "Reading more rows…",

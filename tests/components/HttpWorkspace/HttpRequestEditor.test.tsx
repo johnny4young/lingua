@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpRequestEditor } from '../../../src/renderer/components/HttpWorkspace/HttpRequestEditor';
 import type { HttpCaptureTarget } from '../../../src/renderer/components/HttpWorkspace/useHttpTreeCapture';
+import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { HttpEnvironmentV1 } from '../../../src/shared/httpEnvironment';
 import { createBlankHttpRequest } from '../../../src/shared/httpWorkspace';
@@ -381,6 +383,97 @@ describe('HttpRequestEditor', () => {
       const snippet = writeText.mock.calls[0]?.[0] as string;
       expect(snippet).toContain('await fetch("https://x.dev/users"');
       expect(snippet).toContain('method: "GET"');
+    });
+  });
+
+  describe('Open as JS tab', () => {
+    const initialEditor = useEditorStore.getState();
+    afterEach(() => {
+      useSettingsStore.setState({ featureFlags: {} });
+      useEditorStore.setState(initialEditor, true);
+    });
+    const open = (patch: object = {}) => {
+      const request = { ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }), name: 'Users', url: 'https://x.dev/users', ...patch };
+      render(<HttpRequestEditor request={request} onPatch={vi.fn()} onSend={vi.fn()} isExecuting={false} />);
+      fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
+    };
+
+    it('stays out of the menu without the flag', () => {
+      open();
+      expect(screen.queryByTestId('http-request-editor-open-tab')).toBeNull();
+    });
+
+    it('opens a tab that waits for Run, with a literal credential withheld', () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
+      open({ auth: { kind: 'bearer', token: 'tok-SECRET' } });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      const tab = tabs.find((candidate) => candidate.id === activeTabId)!;
+      expect(tab).toMatchObject({ name: 'Users.js', language: 'javascript', workflowMode: 'run', runtimeMode: 'worker' });
+      expect(tab.content).not.toContain('tok-SECRET');
+      expect(tab.content).toContain('"auth_token": "{{auth_token}}"');
+      expect(screen.queryByTestId('http-request-editor-copy-menu-list')).toBeNull();
+    });
+
+    it('keeps an environment secret out of the tab and resolves the rest', () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
+      const environment: HttpEnvironmentV1 = {
+        version: 1,
+        id: 'env-1',
+        name: 'prod',
+        variables: [
+          { id: 'v1', key: 'base', value: 'https://api.example.com', secret: false },
+          { id: 'v2', key: 'apiToken', value: 'tok-SECRET', secret: true },
+        ],
+        createdAt: '2026-10-24T00:00:00.000Z',
+        updatedAt: '2026-10-24T00:00:00.000Z',
+      };
+      const request = { ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }), name: 'Users', url: '{{base}}/users', auth: { kind: 'bearer' as const, token: '{{apiToken}}' } };
+      render(<HttpRequestEditor request={request} onPatch={vi.fn()} onSend={vi.fn()} isExecuting={false} environments={[environment]} activeEnvironmentId="env-1" />);
+      fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      const { content } = tabs.find((candidate) => candidate.id === activeTabId)!;
+      expect(content).not.toContain('tok-SECRET');
+      expect(content).toContain('"apiToken": "{{apiToken}}"');
+      expect(content).toContain('"https://api.example.com/users"');
+    });
+
+    it('runs in the Worker whatever the default runtime is', () => {
+      const { defaultRuntimeMode } = useSettingsStore.getState();
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true }, defaultRuntimeMode: 'browser-preview' });
+      open();
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.runtimeMode).toBe('worker');
+      useSettingsStore.setState({ defaultRuntimeMode });
+    });
+
+    it('strips path separators and hidden characters from the tab name', () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
+      open({ name: '../..\\x\u202Ey' });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.name).toBe('.._.._x_y.js');
+    });
+
+    it('keeps the default tab name for an unnamed request', () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
+      open({ name: '  ' });
+      const before = useEditorStore.getState().tabs.length;
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs).toHaveLength(before + 1);
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.name).not.toMatch(/^\s*\.js$/);
+    });
+
+    it('treats the headers the user marked sensitive as secrets', () => {
+      useSettingsStore.setState({ featureFlags: { ejectToCode: true }, sensitiveHttpHeaders: ['x-internal'] });
+      open({ headers: [{ id: 'h', name: 'X-Internal', value: 'hdr-SECRET', enabled: true }] });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.content).not.toContain('hdr-SECRET');
+      useSettingsStore.setState({ sensitiveHttpHeaders: [] });
     });
   });
 
