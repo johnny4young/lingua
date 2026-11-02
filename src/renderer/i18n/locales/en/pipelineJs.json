@@ -1,0 +1,8 @@
+{
+  "utilityPipeline.editor.eject": "Save as JS snippet",
+  "utilityPipeline.eject.description": "Exported from a utility pipeline",
+  "utilityPipeline.eject.input": "Put your input here; it was left out of this export.",
+  "utilityPipeline.eject.skipped": "{{title}} has no short JS form: add it here, since the next steps read this one's output.",
+  "utilityPipeline.eject.saved": "Saved this pipeline to your snippets.",
+  "utilityPipeline.eject.savedFirst": "Saved the first {{steps}} steps, the ones Free runs."
+}
