@@ -1,0 +1,12 @@
+{
+  "utilities.clipboard.banner.jwt": "Clipboard looks like a JWT",
+  "utilities.clipboard.banner.uuid": "Clipboard looks like a UUID",
+  "utilities.clipboard.banner.color": "Clipboard looks like a color",
+  "utilities.clipboard.banner.timestamp": "Clipboard looks like an epoch timestamp",
+  "utilities.clipboard.banner.cron-parser": "Clipboard looks like a cron expression",
+  "utilities.clipboard.banner.base64": "Clipboard looks like Base64",
+  "utilities.clipboard.banner.json": "Clipboard looks like JSON",
+  "utilities.clipboard.suggested": "Suggested for your clipboard",
+  "utilities.clipboard.railLabel": "{{category}}, suggested for your clipboard",
+  "utilities.settings.clipboardOnFocus.hint": "When enabled, a utility reads the clipboard when opened and offers to apply it, and Labs can add reads on window focus. It is never polled in the background."
+}

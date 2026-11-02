@@ -93,7 +93,8 @@ export interface SettingsState {
    */
   telemetryConsent: 'unset' | 'granted' | 'declined';
   /**
-   * clipboard-on-focus apply consent. Default `unset`,
+   * consent for clipboard reads without a click: apply on panel focus, pipeline
+   * import and Labs clipboard suggestions. Default `unset`,
    * promoted to `granted` or `declined` by the explicit Settings toggle.
    * The same three-state pattern as `telemetryConsent` so a decline
    * sticks across reloads and the feature never reads without opt-in.

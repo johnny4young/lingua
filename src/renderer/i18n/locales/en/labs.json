@@ -22,5 +22,7 @@
   "settings.labs.flag.instantSql.label": "Instant SQL",
   "settings.labs.flag.instantSql.description": "In the SQL workspace on Local, a sampled preview of the statement under the cursor refreshes as you type, above the results. With the cursor in a CTE it shows that CTE and marks what reads it. Writes, remote reads and functions with side effects never run on their own, and connections never preview. A computed column's header breaks it down by NULLs.",
   "settings.labs.flag.ejectToCode.label": "GUI actions to code",
-  "settings.labs.flag.ejectToCode.description": "An HTTP request can open as a JavaScript tab that runs in the Worker, with its secrets and credentials left as placeholders, and the SQL a grid's filters, sort and columns generate can be saved as a snippet, and a utility pipeline as a JavaScript snippet."
+  "settings.labs.flag.ejectToCode.description": "An HTTP request can open as a JavaScript tab that runs in the Worker, with its secrets and credentials left as placeholders, and the SQL a grid's filters, sort and columns generate can be saved as a snippet, and a utility pipeline as a JavaScript snippet.",
+  "settings.labs.flag.clipboardChains.label": "Clipboard-aware utilities",
+  "settings.labs.flag.clipboardChains.description": "With Apply from clipboard on panel focus on in Settings › Editor › Developer Utilities, Utilities classifies the clipboard on this device when it opens and on window focus, and marks the tools that fit. Needs Pro."
 }

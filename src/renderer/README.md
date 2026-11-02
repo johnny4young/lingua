@@ -194,7 +194,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
 | [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
 | [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, `NotebookToolbar.tsx`, `NotebookCellList.tsx`, cell rows | Notebook orchestration, toolbar/export lifecycle, virtualized cells, keyboard command mode |
-| [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 31 utility panels plus panel-specific validation/output UX. Labs › GUI actions to code adds Save as JS snippet to a pipeline (`../shared/utilityPipelineJs.ts`) |
+| [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 31 utility panels plus panel-specific validation/output UX. Labs › GUI actions to code adds Save as JS snippet to a pipeline (`../shared/utilityPipelineJs.ts`), and Labs › Clipboard-aware utilities marks tools from `hooks/useClipboardSuggestion.ts` |
 | [`components/Dependencies/`](components/Dependencies)     | `DependenciesPanel.tsx`                               | JS/TS and Python dependency detection/install surfaces          |
 | [`components/BrowserPreview/`](components/BrowserPreview) | `BrowserPreviewPanel.tsx`                             | Iframe preview panel and active iframe bridge integration       |
 

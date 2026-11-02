@@ -9,7 +9,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { readFromClipboard } from '../utils/clipboard';
 import { currentEffectiveTier } from './useEntitlement';
-import { isEntitled } from '../../shared/entitlements';
+import { clipboardAutomationAllowed } from './clipboardAccess';
 
 /**
  * clipboard-on-focus apply.
@@ -54,9 +54,8 @@ export function useClipboardOnFocus(
 
   useEffect(() => {
     if (!enabled) return;
-    if (!isEntitled(currentEffectiveTier(), 'DEV_UTILITIES')) return;
     const consent = useSettingsStore.getState().utilitiesClipboardOnFocusConsent;
-    if (consent !== 'granted') return;
+    if (!clipboardAutomationAllowed(currentEffectiveTier(), consent)) return;
     if (hasFiredForFocusRef.current) return;
 
     let cancelled = false;

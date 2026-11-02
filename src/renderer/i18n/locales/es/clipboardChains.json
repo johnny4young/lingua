@@ -1,0 +1,12 @@
+{
+  "utilities.clipboard.banner.jwt": "El portapapeles parece un JWT",
+  "utilities.clipboard.banner.uuid": "El portapapeles parece un UUID",
+  "utilities.clipboard.banner.color": "El portapapeles parece un color",
+  "utilities.clipboard.banner.timestamp": "El portapapeles parece una marca de tiempo epoch",
+  "utilities.clipboard.banner.cron-parser": "El portapapeles parece una expresión cron",
+  "utilities.clipboard.banner.base64": "El portapapeles parece Base64",
+  "utilities.clipboard.banner.json": "El portapapeles parece JSON",
+  "utilities.clipboard.suggested": "Sugerencia para tu portapapeles",
+  "utilities.clipboard.railLabel": "{{category}}: sugerencia para tu portapapeles",
+  "utilities.settings.clipboardOnFocus.hint": "Cuando está activado, una utilidad lee el portapapeles al abrirse y te ofrece aplicarlo, y Labs puede agregar lecturas al enfocar la ventana. Nunca se lee continuamente en segundo plano."
+}
