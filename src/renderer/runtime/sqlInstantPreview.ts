@@ -1,5 +1,6 @@
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import { INSTANT_SAMPLE_ROWS, instantAstBlockReason, type InstantBlockReason } from '../../shared/sqlCtePreview';
+import { parseSerializedSql } from '../../shared/sqlExprBreakdown';
 import { executeQuery } from './duckdbClient';
 import { buildSingleSelectCheckSql } from './sqlExplainPlan';
 
@@ -13,6 +14,8 @@ export type InstantPreviewResult =
       /** The sample filled up, so the full result has at least this many rows. */
       capped: boolean;
       durationMs: number;
+      /** DuckDB's parse of the sampled SQL, for the expression breakdown. */
+      statements: unknown[];
     }
   | { kind: 'error'; message: string }
   /** `stuck` when DuckDB had not stopped the sample when the budget ran out. */
@@ -26,7 +29,7 @@ const NOT_A_SELECT = /only select statements/i;
 /** Parser verdict from `json_serialize_sql`: the parsed statement, a syntax error message, or false for anything but one SELECT. */
 function singleSelectVerdict(rows: ReadonlyArray<Record<string, unknown>>): { statements: unknown[] } | false | string {
   try {
-    const parsed = JSON.parse(String(rows[0]?.['j'])) as { error?: unknown; error_message?: unknown; statements?: unknown };
+    const parsed = parseSerializedSql(String(rows[0]?.['j'])) as { error?: unknown; error_message?: unknown; statements?: unknown };
     if (parsed.error === false) return Array.isArray(parsed.statements) && parsed.statements.length === 1 ? { statements: parsed.statements } : false;
     const message = typeof parsed.error_message === 'string' ? parsed.error_message : '';
     return message && !NOT_A_SELECT.test(message) ? message : false;
@@ -61,5 +64,6 @@ export async function runInstantPreview(sql: string, signal: AbortSignal): Promi
     rows: outcome.rows,
     capped: outcome.rows.length >= INSTANT_SAMPLE_ROWS,
     durationMs: outcome.durationMs,
+    statements: verdict.statements,
   };
 }

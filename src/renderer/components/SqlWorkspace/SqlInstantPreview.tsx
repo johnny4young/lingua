@@ -10,17 +10,14 @@ import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';
 import '../../i18n/sqlInstantCatalog';
 import { INSTANT_SAMPLE_ROWS, type InstantBlockReason } from '../../../shared/sqlCtePreview';
-import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
-import { INSTANT_TIMEOUT_MS, runInstantPreview, type InstantPreviewResult } from '../../runtime/sqlInstantPreview';
+import { INSTANT_TIMEOUT_MS, runInstantPreview } from '../../runtime/sqlInstantPreview';
 import { cn } from '../../utils/cn';
 import { StatusBadge } from '../ui/StatusBadge';
 import { instantPreviewVisible, type InstantSqlChannel, type InstantSqlDraft } from './instantSqlChannel';
-import { renderCell } from './sqlResultFormatters';
+import { SqlInstantTable, type InstantShown } from './SqlInstantTable';
 
 export const INSTANT_DEBOUNCE_MS = 250;
-const RENDERED_ROWS = 100;
-
-type Shown = Extract<InstantPreviewResult, { kind: 'rows' }> & { cte?: string };
+type Shown = InstantShown;
 
 type PreviewState =
   | { kind: 'idle'; shown?: Shown }
@@ -80,10 +77,6 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
   const blocked: InstantBlockReason | 'rejected' | undefined =
     plan.blocked ?? (verdict?.kind === 'blocked' ? verdict.reason : verdict?.kind);
   const shown = blocked ? undefined : state.shown;
-  const columns = (shown?.columns ?? []).map((column) => {
-    const type = arrowTypeToDuckDb(column.type);
-    return { name: column.name, type, numeric: isNumericSqlType(type) };
-  });
   const rowsLabel = shown
     ? t(shown.capped ? 'sqlWorkspace.instant.rowsCapped' : 'sqlWorkspace.instant.rows', {
         count: shown.rows.length,
@@ -166,40 +159,7 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
               : t('sqlWorkspace.instant.timeout', { seconds: INSTANT_TIMEOUT_MS / 1000 })}
         </p>
       ) : null}
-      {shown ? (
-        <div className={cn('min-h-0 overflow-auto px-3 pb-2', state.kind !== 'shown' && 'opacity-60')}>
-          <table data-testid="sql-instant-table" className="w-full border-collapse font-mono text-caption">
-            <thead className="sticky top-0 bg-bg-panel text-left text-fg-subtle">
-              <tr>
-                {columns.map((column) => (
-                  <th key={column.name} scope="col" className={cn('whitespace-nowrap py-1 pr-4 font-normal', column.numeric && 'text-right')}>
-                    {column.name} <span className="text-accent-fg">{column.type}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.rows.slice(0, RENDERED_ROWS).map((row, index) => (
-                <tr key={index} className="border-t border-border-subtle">
-                  {columns.map((column) => (
-                    <td key={column.name} className={cn('whitespace-nowrap py-1 pr-4 text-fg-base', column.numeric && 'text-right tabular-nums')}>
-                      {renderCell(row[column.name])}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {shown.rows.length > RENDERED_ROWS ? (
-            <p className="pt-1 text-caption text-fg-subtle">
-              {t('sqlWorkspace.instant.moreRows', {
-                count: shown.rows.length - RENDERED_ROWS,
-                rows: formatNumber(shown.rows.length - RENDERED_ROWS, i18n.language),
-              })}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      {shown ? <SqlInstantTable shown={shown} dimmed={state.kind !== 'shown'} busy={busy} /> : null}
     </section>
   );
 }

@@ -28,7 +28,7 @@ describe('runInstantPreview', () => {
       .mockResolvedValueOnce(outcome({ columns: [{ name: 'x', type: 'BIGINT' }], rows: [{ x: 1 }], durationMs: 7 }));
     const signal = new AbortController().signal;
     const result = await runInstantPreview('SELECT 1 AS x', signal);
-    expect(result).toEqual({ kind: 'rows', columns: [{ name: 'x', type: 'BIGINT' }], rows: [{ x: 1 }], capped: false, durationMs: 7 });
+    expect(result).toEqual({ kind: 'rows', columns: [{ name: 'x', type: 'BIGINT' }], rows: [{ x: 1 }], capped: false, durationMs: 7, statements: [{}] });
     expect(executeQuery.mock.calls[0]![0]).toBe("SELECT json_serialize_sql('SELECT 1 AS x') AS j");
     const [checkOptions, sampleOptions] = executeQuery.mock.calls.map((call) => call[1] as { timeoutMs: number; signal: AbortSignal });
     expect(checkOptions).toEqual({ timeoutMs: INSTANT_TIMEOUT_MS, signal });

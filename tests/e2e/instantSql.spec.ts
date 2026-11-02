@@ -73,4 +73,48 @@ test.describe('Instant SQL', () => {
     await expect(page.getByTestId('sql-instant-error')).toBeVisible();
     await expect(page.getByTestId('sql-instant-table')).toHaveCount(0);
   });
+
+  const BREAKDOWN = [
+    "WITH cities AS (SELECT * FROM (VALUES ('Bogota', 120, 5021.75), ('Medellin', 87, 3410.0), ('Envigado', 0, 1250.5), ('Cali', NULL, 900.0)) t(city, orders, revenue))",
+    'SELECT city, coalesce(revenue, 0) / orders AS ticket FROM cities ORDER BY city',
+  ].join('\n');
+
+  for (const language of ['en', 'es'] as const) {
+    test(`breaks a computed column down and narrows to the rows behind it (${language})`, async ({ page }) => {
+      await openQuery(page, language);
+      await replaceQuery(page, BREAKDOWN);
+      const table = page.getByTestId('sql-instant-table');
+      await expect(table.locator('tbody tr')).toHaveCount(4);
+
+      await page.getByTestId('sql-instant-column-breakdown').click();
+      const nodes = page.getByTestId('sql-instant-breakdown-node');
+      await expect(nodes).toHaveCount(4);
+      await expect(nodes.nth(0)).toContainText('COALESCE(revenue, 0) / orders');
+      await expect(nodes.nth(0)).toContainText(language === 'en' ? '25% null' : '25% nulos');
+      await expect(nodes.nth(2)).toContainText('revenue');
+      await expect(nodes.nth(2)).toBeDisabled();
+      await expect(nodes.nth(3)).toContainText(language === 'en' ? '1 row = 0 → ticket ∞' : '1 fila = 0 → ticket ∞');
+
+      await nodes.nth(3).click();
+      await expect(table.locator('tbody tr')).toHaveCount(2);
+      await expect(table.locator('tbody')).toContainText('Cali');
+      await expect(table.locator('tbody')).toContainText('Envigado');
+      await expect(page.getByTestId('sql-instant-narrowed')).toContainText(language === 'en' ? 'Rows where orders is NULL or 0' : 'Filas donde orders es NULL o 0');
+      await page.getByTestId('sql-instant-narrowed-clear').click();
+      await expect(table.locator('tbody tr')).toHaveCount(4);
+    });
+  }
+
+  test('keeps an aggregate whole under GROUP BY, and a UNION has nothing to break down', async ({ page }) => {
+    await openQuery(page, 'en');
+    await replaceQuery(page, "SELECT city, sum(n) / count(n) AS r FROM (VALUES ('a', 2), ('a', NULL)) t(city, n) GROUP BY city");
+    await page.getByTestId('sql-instant-column-breakdown').click();
+    const nodes = page.getByTestId('sql-instant-breakdown-node');
+    await expect(nodes).toHaveCount(3);
+    await expect(nodes.nth(1)).toContainText('sum(n)');
+    await expect(nodes.nth(2)).toContainText('count(n)');
+    await replaceQuery(page, 'SELECT 1 + 1 AS a UNION ALL SELECT 2');
+    await expect(page.getByTestId('sql-instant-table').locator('tbody tr')).toHaveCount(2);
+    await expect(page.getByTestId('sql-instant-column-breakdown')).toHaveCount(0);
+  });
 });

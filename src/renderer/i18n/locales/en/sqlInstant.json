@@ -21,5 +21,15 @@
   "sqlWorkspace.instant.blocked.side-effect": "Side-effect functions never auto-run",
   "sqlWorkspace.instant.blocked.unlisted": "Only built-in table functions and formats preview",
   "sqlWorkspace.instant.stuck": "DuckDB is still busy with the last preview, so previews wait for the next Run.",
-  "sqlWorkspace.instant.blocked.rejected": "Only a single SELECT previews"
+  "sqlWorkspace.instant.blocked.rejected": "Only a single SELECT previews",
+  "sqlWorkspace.instant.breakdown.open": "Break down {{name}}",
+  "sqlWorkspace.instant.breakdown.title": "Expression breakdown · {{name}}",
+  "sqlWorkspace.instant.breakdown.loading": "Breaking down…",
+  "sqlWorkspace.instant.breakdown.nulls": "{{percent}}% null",
+  "sqlWorkspace.instant.breakdown.zeros_one": "{{rows}} row = 0 → {{name}} {{result}}",
+  "sqlWorkspace.instant.breakdown.zeros_other": "{{rows}} rows = 0 → {{name}} {{result}}",
+  "sqlWorkspace.instant.breakdown.filter": "Rows where {{label}} is NULL",
+  "sqlWorkspace.instant.breakdown.filterZero": "Rows where {{label}} is NULL or 0",
+  "sqlWorkspace.instant.breakdown.clear": "All rows",
+  "sqlWorkspace.instant.breakdown.narrowFailed": "These rows could not be read in time."
 }

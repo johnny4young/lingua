@@ -210,11 +210,11 @@ const READ_ONLY_TABLE_FUNCTION =
 // Replacement scans of these formats make DuckDB download an extension.
 const EXTENSION_FILE = /\.(?:xlsx?|sqlite3?|db|gpkg|shp|geojson|fgb|kml|avro|arrow|feather|ipc)$/i;
 
-type AstNode = Record<string, unknown>;
-const isAstNode = (value: unknown): value is AstNode => typeof value === 'object' && value !== null && !Array.isArray(value);
+export type AstNode = Record<string, unknown>;
+export const isAstNode = (value: unknown): value is AstNode => typeof value === 'object' && value !== null && !Array.isArray(value);
 const astChildren = (node: AstNode): unknown[] => (Array.isArray(node['children']) ? node['children'] : []);
 // DuckDB serializes a quoted or schema-qualified call with its bare name.
-const functionName = (node: AstNode) => String(node['function_name'] ?? '').toLowerCase();
+export const functionName = (node: AstNode) => String(node['function_name'] ?? '').toLowerCase();
 const stringConstant = (node: unknown): string | undefined => {
   const value = isAstNode(node) && node['class'] === 'CONSTANT' && isAstNode(node['value']) ? node['value']['value'] : undefined;
   return typeof value === 'string' ? value : undefined;
