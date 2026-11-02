@@ -16,6 +16,9 @@
  * emit (`utility.pipeline_executed`).
  */
 
+import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
+import { useProAccess } from '../../hooks/useProAccess';
+import { ProChip } from '../ui/ProChip';
 import { PlayCircle, Plus } from 'lucide-react';
 import {
   useCallback,
@@ -45,7 +48,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
-import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   PIPELINE_MAX_STEPS,
@@ -93,7 +96,8 @@ export function UtilityPipelinePanel() {
   const { t } = useTranslation();
   const { track } = useTelemetry();
   const effectiveTier = useEffectiveTier();
-  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
+  const access = useProAccess('DEV_UTILITIES');
+  const canUseUtilityWorkflows = access !== 'locked';
 
   const handleUnlock = useCallback(() => {
     pushUpsellNotice({
@@ -133,10 +137,11 @@ export function UtilityPipelinePanel() {
     );
   }
 
-  return <UtilityPipelinePanelUnlocked />;
+  return <UtilityPipelinePanelUnlocked stepLimit={access === 'slice' ? FREE_TIER_LIMITS.pipelineSteps : Infinity} />;
 }
 
-function UtilityPipelinePanelUnlocked() {
+/** `stepLimit`: Free's slice runs only the first steps; the rest show dimmed behind a PRO chip. */
+function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   const { t } = useTranslation();
   const announce = useAnnounce();
   const { track } = useTelemetry();
@@ -288,12 +293,13 @@ function UtilityPipelinePanelUnlocked() {
     if (useUtilityPipelineStore.getState().isExecutingActive) return;
     useUtilityPipelineStore.getState().setIsExecutingActive(true);
     const runInput = activeInput;
-    const runSteps = clonePipelineSteps(activePipeline.steps);
+    const ranSteps = activePipeline.steps.slice(0, stepLimit);
+    const runSteps = clonePipelineSteps(ranSteps);
     const runPipelineId = activePipeline.id;
     const runPipelineName = activePipeline.name;
     setCapsuleRunSnapshot(null);
     try {
-      const outcome = await run(activePipeline, runInput);
+      const outcome = await run({ ...activePipeline, steps: ranSteps }, runInput);
       if (outcome) {
         trackUtilityPipelineExecuted(outcome);
         // accessibility pass — announce the run result to screen readers; the
@@ -316,7 +322,7 @@ function UtilityPipelinePanelUnlocked() {
     } finally {
       useUtilityPipelineStore.getState().setIsExecutingActive(false);
     }
-  }, [activePipeline, activeInput, run, t, announce]);
+  }, [activePipeline, activeInput, run, t, announce, stepLimit]);
 
   // EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
@@ -458,17 +464,24 @@ function UtilityPipelinePanelUnlocked() {
                   <div className="grid gap-2">
                     {activePipeline.steps.map((step, index) => {
                       const result = stepResultMap.get(step.id);
+                      const beyond = index >= stepLimit;
                       return (
-                        <UtilityPipelineStepRow
-                          key={step.id}
-                          step={step}
-                          index={index}
-                          status={statusOrPending(result)}
-                          {...(result?.errorMessage ? { errorMessage: result.errorMessage } : {})}
-                          onUtilityChange={handleStepUtilityChange}
-                          onOptionsChange={handleStepOptionsChange}
-                          onDelete={handleStepDelete}
-                        />
+                        <div key={step.id} className={beyond ? 'opacity-60' : undefined} data-testid={beyond ? 'utility-pipeline-step-beyond' : undefined}>
+                          {index === stepLimit ? (
+                            <div className="mb-2 text-caption text-fg-muted" data-testid="utility-pipeline-free-slice">
+                              <ProChip>{t('utilityPipeline.freeSlice', { count: stepLimit })}</ProChip>
+                            </div>
+                          ) : null}
+                          <UtilityPipelineStepRow
+                            step={step}
+                            index={index}
+                            status={statusOrPending(result)}
+                            {...(result?.errorMessage ? { errorMessage: result.errorMessage } : {})}
+                            onUtilityChange={handleStepUtilityChange}
+                            onOptionsChange={handleStepOptionsChange}
+                            onDelete={handleStepDelete}
+                          />
+                        </div>
                       );
                     })}
                   </div>

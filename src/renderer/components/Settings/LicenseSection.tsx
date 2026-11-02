@@ -5,7 +5,7 @@ import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
 import { PUBLIC_KEY_JWK } from '../../stores/licenseWebVerify';
 import { useUIStore } from '../../stores/uiStore';
 import { openPricingPage, pricingUrl as pricingUrlFor } from '../../utils/openPricingPage';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useTeachingPaywall } from '../../hooks/useProAccess';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
 import { writeToClipboard } from '../../utils/clipboard';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
@@ -344,7 +344,7 @@ export function LicenseSection() {
     status.kind === 'free' ||
     (status.kind === 'invalid' && !isDevicesExhausted);
   // Labs › Pro in context: the trial sits right under the current plan instead of at the bottom.
-  const inContext = useSettingsStore(state => state.featureFlags.teachingPaywall === true);
+  const inContext = useTeachingPaywall();
   const trialFirst = inContext && showCtas;
 
   return (

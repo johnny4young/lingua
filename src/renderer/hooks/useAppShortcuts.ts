@@ -171,7 +171,8 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     toggleRecentRunsPopover: () => {
       // Toggle the per-tab Recent Runs
       // popover. The bridge returns `false` when no pill is mounted
-      // (Free tier, view-only tab, empty per-tab history); surface
+      // (Free tier without Labs › Pro in context, view-only tab, empty
+      // per-tab history); surface
       // a passive notice so the keystroke is never silent.
       const dispatched = toggleRecentRunsPopover();
       if (!dispatched) {

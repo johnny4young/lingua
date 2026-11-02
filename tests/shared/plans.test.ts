@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FREE_TIER_LIMITS } from '../../src/shared/entitlements';
 import { PLAN_ROWS, trialDaysLeft, trialLengthDays } from '../../src/shared/plans';
 import { TIMELINE_FREE_STEPS, TIMELINE_MAX_STEPS } from '../../src/shared/timeline';
+import { PIPELINE_MAX_STEPS } from '../../src/shared/utilityPipeline';
 
 const DAY = 86_400_000;
 const now = Date.parse('2026-11-02T12:00:00.000Z');
@@ -33,6 +34,8 @@ describe('PLAN_ROWS', () => {
     expect(row('snippets').free).toBe(FREE_TIER_LIMITS.maxSnippets);
     expect(row('dbConnections').free).toBe(FREE_TIER_LIMITS.savedDbConnections);
     expect(row('timeline')).toMatchObject({ free: TIMELINE_FREE_STEPS, pro: TIMELINE_MAX_STEPS, unit: 'steps' });
+    expect(row('recentRuns')).toMatchObject({ free: FREE_TIER_LIMITS.recentRuns, unit: 'lastRuns' });
+    expect(row('utilityPipelines')).toMatchObject({ free: FREE_TIER_LIMITS.pipelineSteps, pro: PIPELINE_MAX_STEPS, unit: 'steps' });
   });
 
   it('lists every row once, with Pro never below Free', () => {

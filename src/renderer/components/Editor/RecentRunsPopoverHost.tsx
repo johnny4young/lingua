@@ -13,7 +13,7 @@ function RecentRunsPopoverLoadState({ failed }: { readonly failed: boolean }) {
       aria-live="polite"
       aria-label={t('executionHistory.tabPill.popoverTitle')}
       data-testid={failed ? 'recent-runs-popover-load-failed' : 'recent-runs-popover-loading'}
-      className="surface-panel-strong absolute right-4 top-[calc(100%+0.55rem)] z-20 w-[min(20rem,calc(100%-2rem))] p-3"
+      className="surface-panel-strong w-80 p-3"
     >
       <div className="flex min-h-20 flex-col items-center justify-center gap-3 text-center">
         <p className="text-body-sm text-muted">

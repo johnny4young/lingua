@@ -70,8 +70,8 @@ export const KEYBOARD_SHORTCUTS = [
   },
   {
     // Toggle the per-tab Recent Runs popover.
-    // No-op when no pill is mounted (Free tier, view-only tab, or
-    // empty per-tab history). Dispatcher in `App.tsx` consults the
+    // No-op when no pill is mounted (Free tier without Labs › Pro in
+    // context, view-only tab, or empty per-tab history). Dispatcher in `App.tsx` consults the
     // `recentRunsPopoverBridge` module.
     id: 'run-toggle-recent-runs',
     group: 'run',

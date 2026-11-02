@@ -44,6 +44,7 @@
 import type { UtilityAdapterId } from './utilities/types';
 import { UTILITY_ADAPTER_IDS } from './utilities/types';
 import { getAdapter } from './utilities/registry';
+import { PIPELINE_MAX_STEPS } from './utilityPipelineLimits';
 
 // ---------------------------------------------------------------------------
 // Caps + closed enums.
@@ -51,8 +52,7 @@ import { getAdapter } from './utilities/registry';
 
 /** Hard cap on persisted pipelines per device (LRU oldest-first eviction). */
 export const PIPELINE_CAP = 100;
-/** Max steps per pipeline. Soft warning at 20; hard reject at 50. */
-export const PIPELINE_MAX_STEPS = 50;
+export { PIPELINE_MAX_STEPS };
 /** Per-step timeout when running. Adapters that take longer settle as `'timeout'`. */
 const STEP_TIMEOUT_MS = 30_000;
 /** Yield budget between steps via `requestIdleCallback` / `setTimeout(0)`. */

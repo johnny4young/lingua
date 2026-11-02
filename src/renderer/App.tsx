@@ -49,7 +49,8 @@ import { useAppTheme } from './hooks/useAppTheme';
 import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
 import { useLicenseSettingsNavigation } from './hooks/useLicenseSettingsNavigation';
 import { useCommandListener } from './hooks/useCommandListener';
-import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
+import { useEffectiveTier } from './hooks/useEntitlement';
+import { useProAccess } from './hooks/useProAccess';
 import { useTelemetry } from './hooks/useTelemetry';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
@@ -111,7 +112,8 @@ function AppChrome({
   const initializeUpdates = useUpdateStore(s => s.initialize);
   const appInfo = useAppInfo();
   const effectiveTier = useEffectiveTier();
-  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
+  // Labs › Pro in context opens pipelines to Free as a slice of three steps.
+  const canUseUtilityWorkflows = useProAccess('DEV_UTILITIES') !== 'locked';
   // rust-analyzer lifecycle.
   // Gopls lifecycle. Same hook shape via the shared
   // `useLspLifecycle`; the two languages have independent stores so a

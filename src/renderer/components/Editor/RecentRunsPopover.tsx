@@ -12,6 +12,7 @@ import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { cn } from '../../utils/cn';
 import type { RecentRunsPopoverProps } from './recentRunsPopoverLoader';
 import { formatRunAge } from '../../utils/timeLabels';
+import { ProChip } from '../ui/ProChip';
 
 const MAX_VISIBLE_ENTRIES = 8;
 
@@ -22,7 +23,8 @@ function formatDuration(durationMs: number | null): string {
   return `${(durationMs / 1000).toFixed(2)} s`;
 }
 
-export function RecentRunsPopover({ entries, onClose }: RecentRunsPopoverProps) {
+export function RecentRunsPopover({ entries, onClose, sliceOf }: RecentRunsPopoverProps) {
+  const slice = sliceOf !== undefined;
   const { t } = useTranslation();
   const togglePin = useExecutionHistoryStore(state => state.togglePin);
   const isManualRunning = useResultStore(state => state.isManualRunning);
@@ -59,14 +61,14 @@ export function RecentRunsPopover({ entries, onClose }: RecentRunsPopoverProps) 
       role="dialog"
       aria-label={t('executionHistory.tabPill.popoverTitle')}
       data-testid="recent-runs-popover"
-      className="surface-panel-strong absolute right-4 top-[calc(100%+0.55rem)] z-20 w-[min(20rem,calc(100%-2rem))] p-2"
+      className="surface-panel-strong w-80 p-2"
     >
       <header className="flex items-center justify-between gap-2 px-1 pb-2">
         <span className="text-caption font-semibold uppercase tracking-[0.08em] text-muted">
           {t('executionHistory.tabPill.popoverTitle')}
         </span>
         <span className="text-eyebrow text-muted">
-          {t('executionHistory.tabPill.count', { count: entries.length })}
+          {t('executionHistory.tabPill.count', { count: sliceOf ?? entries.length })}
         </span>
       </header>
       <ul className="flex flex-col gap-1" data-testid="recent-runs-popover-list">
@@ -95,49 +97,62 @@ export function RecentRunsPopover({ entries, onClose }: RecentRunsPopoverProps) 
               <span className="shrink-0 text-eyebrow text-muted">
                 {formatRunAge(entry.timestamp, now, t)}
               </span>
-              <button
-                type="button"
-                data-testid={`recent-runs-popover-pin-${entry.id}`}
-                aria-pressed={entry.pinned === true}
-                title={
-                  entry.pinned
-                    ? t('executionHistory.tabPill.unpin')
-                    : t('executionHistory.tabPill.pin')
-                }
-                onClick={() => togglePin(entry.id)}
-                className={cn(
-                  'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
-                  entry.pinned ? 'text-primary' : 'text-muted'
-                )}
-              >
-                <Pin
-                  size={11}
-                  aria-hidden="true"
-                  className={entry.pinned ? 'fill-current' : undefined}
-                />
-              </button>
-              <button
-                type="button"
-                data-testid={`recent-runs-popover-replay-${entry.id}`}
-                disabled={replayDisabled}
-                aria-disabled={replayDisabled}
-                title={
-                  replayDisabled
-                    ? t('executionHistory.tabPill.replayUnavailable')
-                    : t('executionHistory.tabPill.replayAction')
-                }
-                onClick={() => handleReplay(entry)}
-                className={cn(
-                  'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
-                  replayDisabled ? 'cursor-not-allowed text-muted opacity-50' : 'text-primary'
-                )}
-              >
-                <RotateCw size={11} aria-hidden="true" />
-              </button>
+              {slice ? null : (
+                <>
+                  <button
+                    type="button"
+                    data-testid={`recent-runs-popover-pin-${entry.id}`}
+                    aria-pressed={entry.pinned === true}
+                    title={
+                      entry.pinned
+                        ? t('executionHistory.tabPill.unpin')
+                        : t('executionHistory.tabPill.pin')
+                    }
+                    onClick={() => togglePin(entry.id)}
+                    className={cn(
+                      'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
+                      entry.pinned ? 'text-primary' : 'text-muted'
+                    )}
+                  >
+                    <Pin
+                      size={11}
+                      aria-hidden="true"
+                      className={entry.pinned ? 'fill-current' : undefined}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`recent-runs-popover-replay-${entry.id}`}
+                    disabled={replayDisabled}
+                    aria-disabled={replayDisabled}
+                    title={
+                      replayDisabled
+                        ? t('executionHistory.tabPill.replayUnavailable')
+                        : t('executionHistory.tabPill.replayAction')
+                    }
+                    onClick={() => handleReplay(entry)}
+                    className={cn(
+                      'inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-surface',
+                      replayDisabled ? 'cursor-not-allowed text-muted opacity-50' : 'text-primary'
+                    )}
+                  >
+                    <RotateCw size={11} aria-hidden="true" />
+                  </button>
+                </>
+              )}
             </li>
           );
         })}
       </ul>
+      {slice ? (
+        <div className="px-1 pt-2 text-caption text-fg-muted" data-testid="recent-runs-free-slice">
+          <ProChip>
+            {sliceOf > entries.length
+              ? t('executionHistory.tabPill.freeSlice', { count: entries.length, total: sliceOf })
+              : t('executionHistory.tabPill.freeSliceReplay')}
+          </ProChip>
+        </div>
+      ) : null}
     </div>
   );
 }

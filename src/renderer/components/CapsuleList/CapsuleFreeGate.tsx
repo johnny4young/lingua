@@ -1,4 +1,6 @@
 import { useId, useState } from 'react';
+import { useTeachingPaywall } from '../../hooks/useProAccess';
+import { ProChip } from '../ui/ProChip';
 import { useTranslation } from 'react-i18next';
 import { ArrowUpFromLine, Package } from 'lucide-react';
 import { CAPSULE_LRU_CAP } from '../../stores/executionHistoryStore';
@@ -24,6 +26,8 @@ export function CapsuleFreeGate({
   const titleId = useId();
   const [now] = useState(() => Date.now());
   const last = runs[0];
+  // Labs › Pro in context: a PRO chip to Compare plans instead of the upgrade button.
+  const inContext = useTeachingPaywall();
 
   return (
     <ModalShell
@@ -47,11 +51,21 @@ export function CapsuleFreeGate({
           }
         />
       }
-      footerLegend={<span className="text-caption text-fg-muted">{t('capsuleList.gate.pro')}</span>}
+      footerLegend={
+        inContext ? (
+          <span className="text-caption text-fg-muted" data-testid="capsule-list-free-slice">
+            <ProChip>{t('capsuleList.gate.proSlice')}</ProChip>
+          </span>
+        ) : (
+          <span className="text-caption text-fg-muted">{t('capsuleList.gate.pro')}</span>
+        )
+      }
       trailing={
-        <button type="button" onClick={onUpgrade} data-testid="capsule-list-upsell-cta" className="button-primary">
-          {t('capsuleList.upsell.cta')}
-        </button>
+        inContext ? null : (
+          <button type="button" onClick={onUpgrade} data-testid="capsule-list-upsell-cta" className="button-primary">
+            {t('capsuleList.upsell.cta')}
+          </button>
+        )
       }
     >
       <div data-testid="capsule-list-upsell">

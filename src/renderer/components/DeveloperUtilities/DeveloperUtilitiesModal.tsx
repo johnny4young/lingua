@@ -26,7 +26,8 @@ import { DeveloperUtilityPanel } from './UtilityPanels';
 import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { UtilityCopyShortcutHint } from './UtilityHeaderPills';
-import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useEffectiveTier } from '../../hooks/useEntitlement';
+import { useProAccess } from '../../hooks/useProAccess';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 
@@ -138,7 +139,8 @@ function DeveloperUtilitiesWorkspaceBody({
   }
   const searchRef = useRef<HTMLInputElement>(null);
   const effectiveTier = useEffectiveTier();
-  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
+  // Labs › Pro in context opens pipelines to Free as a slice of three steps.
+  const canUseUtilityWorkflows = useProAccess('DEV_UTILITIES') !== 'locked';
   // Button refs let keyboard navigation move actual focus into the list
   // after a search-box arrow key, matching a roving-tabindex pattern
   // without storing focus state separately.
