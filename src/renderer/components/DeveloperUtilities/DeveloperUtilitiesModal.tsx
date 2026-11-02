@@ -1,4 +1,4 @@
-import { PanelLeft, Search } from 'lucide-react';
+import { Lightbulb, PanelLeft, Search } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,6 +17,7 @@ import {
 import { ModalShell } from '../ui/ModalShell';
 import { Tooltip } from '../ui/chrome';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { ClipboardBanner } from './ClipboardBanner';
 import { UtilityRail } from './UtilityRail';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -27,6 +28,8 @@ import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { UtilityCopyShortcutHint } from './UtilityHeaderPills';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
+import { CLIPBOARD_TOOLS } from '../../data/clipboardTools';
+import { useClipboardSuggestion } from '../../hooks/useClipboardSuggestion';
 import { useProAccess } from '../../hooks/useProAccess';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
@@ -141,6 +144,8 @@ function DeveloperUtilitiesWorkspaceBody({
   const effectiveTier = useEffectiveTier();
   // Labs › Pro in context opens pipelines to Free as a slice of three steps.
   const canUseUtilityWorkflows = useProAccess('DEV_UTILITIES') !== 'locked';
+  const clipboardKind = useClipboardSuggestion(active);
+  const suggestedTools = clipboardKind ? CLIPBOARD_TOOLS[clipboardKind] : [];
   // Button refs let keyboard navigation move actual focus into the list
   // after a search-box arrow key, matching a roving-tabindex pattern
   // without storing focus state separately.
@@ -363,6 +368,7 @@ function DeveloperUtilitiesWorkspaceBody({
         <UtilityRail
           activeCategory={UTILITY_CATEGORY[activeSelectedUtilityId]}
           pipelinesActive={activeSelectedUtilityId === 'utility-pipelines'}
+          suggestedCategories={new Set(suggestedTools.map(toolId => UTILITY_CATEGORY[toolId]))}
           onSearch={() => openListAt('search')}
           onFavorites={() => openListAt('favorites')}
           onCategory={category => openListAt(category)}
@@ -414,6 +420,7 @@ function DeveloperUtilitiesWorkspaceBody({
             ) : null}
           </div>
         </div>
+        {clipboardKind ? <ClipboardBanner kind={clipboardKind} /> : null}
         <FavoritesRow selectedUtilityId={activeSelectedUtilityId} onSelect={handleSelectUtility} />
         <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredUtilities.length === 0 ? (
@@ -510,6 +517,15 @@ function DeveloperUtilitiesWorkspaceBody({
                         >
                           {t(utility.titleKey)}
                         </span>
+                        {suggestedTools.includes(utility.id) ? (
+                          <Lightbulb
+                            size={12}
+                            role="img"
+                            aria-label={t('utilities.clipboard.suggested')}
+                            data-testid={`utility-suggested-${utility.id}`}
+                            className="shrink-0 text-warning-fg"
+                          />
+                        ) : null}
                         {isLocked ? (
                           <span
                             data-testid={`utility-lock-${utility.id}`}

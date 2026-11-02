@@ -34,6 +34,8 @@ interface UtilityRailProps {
   /** Category of the open tool, drawn pressed. */
   activeCategory: UtilityCategory;
   pipelinesActive: boolean;
+  /** Categories holding a tool suggested for the clipboard. */
+  suggestedCategories: ReadonlySet<UtilityCategory>;
   onSearch: () => void;
   onFavorites: () => void;
   onCategory: (category: UtilityCategory) => void;
@@ -45,6 +47,7 @@ interface UtilityRailProps {
 export function UtilityRail({
   activeCategory,
   pipelinesActive,
+  suggestedCategories,
   onSearch,
   onFavorites,
   onCategory,
@@ -81,9 +84,14 @@ export function UtilityRail({
         <RailButton
           key={category}
           icon={CATEGORY_ICON[category]}
-          label={t(UTILITY_CATEGORY_LABEL_KEY[category])}
+          label={
+            suggestedCategories.has(category)
+              ? t('utilities.clipboard.railLabel', { category: t(UTILITY_CATEGORY_LABEL_KEY[category]) })
+              : t(UTILITY_CATEGORY_LABEL_KEY[category])
+          }
           testId={`utility-rail-${category}`}
           pressed={!pipelinesActive && category === activeCategory}
+          marked={suggestedCategories.has(category)}
           onClick={() => onCategory(category)}
         />
       ))}
@@ -110,6 +118,7 @@ function RailButton({
   label,
   testId,
   pressed,
+  marked,
   onClick,
   className,
   iconClassName,
@@ -118,6 +127,7 @@ function RailButton({
   label: string;
   testId: string;
   pressed?: boolean;
+  marked?: boolean;
   onClick: () => void;
   className?: string;
   iconClassName?: string;
@@ -131,12 +141,13 @@ function RailButton({
         data-testid={testId}
         onClick={onClick}
         className={cn(
-          'icon-button size-9 rounded-md',
+          'icon-button relative size-9 rounded-md',
           pressed && 'bg-accent-tint text-accent-fg shadow-[inset_0_0_0_1px_var(--color-accent)]',
           className
         )}
       >
         <Icon size={15} strokeWidth={1.8} aria-hidden className={iconClassName} />
+        {marked ? <span aria-hidden data-testid={`${testId}-suggested`} className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-warning-fg" /> : null}
       </button>
     </Tooltip>
   );

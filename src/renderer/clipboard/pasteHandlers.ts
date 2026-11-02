@@ -362,6 +362,17 @@ function detectUtilitySuggestion(text: string): UtilityIntent | null {
   return utilityId ? { kind: 'utility', utilityId, source: trimmed } : null;
 }
 
+const CLIPBOARD_CLASSIFY_MAX_CHARS = 1_000_000;
+
+/**
+ * The kind of value on the clipboard; a read on focus keeps this and drops the
+ * text. A hint costs nothing, so JSON of any size counts, unlike on paste.
+ */
+export function classifyClipboard(text: string): UtilitySuggestionId | null {
+  if (text.length > CLIPBOARD_CLASSIFY_MAX_CHARS) return null;
+  return detectUtilitySuggestion(text)?.utilityId ?? (detectsAsJson(text) ? 'json' : null);
+}
+
 /**
  * Run every detector in priority order and return the first match, or null
  * when the paste is plain text. Order matters: share-link and capsule are the

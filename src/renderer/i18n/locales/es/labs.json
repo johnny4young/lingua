@@ -22,5 +22,7 @@
   "settings.labs.flag.instantSql.label": "SQL instantáneo",
   "settings.labs.flag.instantSql.description": "En el espacio SQL sobre Local, una vista previa muestreada de la sentencia bajo el cursor se actualiza mientras escribes, encima de los resultados. Con el cursor en una CTE muestra esa CTE y marca lo que la lee. Las escrituras, las lecturas remotas y las funciones con efectos nunca se ejecutan solas, y las conexiones nunca previsualizan. El encabezado de una columna calculada la desglosa por nulos.",
   "settings.labs.flag.ejectToCode.label": "Acciones a código",
-  "settings.labs.flag.ejectToCode.description": "Un request HTTP puede abrirse como pestaña JavaScript que corre en el Worker, con sus secretos y credenciales como marcadores, y el SQL que generan los filtros, el orden y las columnas de la grilla se puede guardar como snippet, y un pipeline de utilidades como snippet de JavaScript."
+  "settings.labs.flag.ejectToCode.description": "Un request HTTP puede abrirse como pestaña JavaScript que corre en el Worker, con sus secretos y credenciales como marcadores, y el SQL que generan los filtros, el orden y las columnas de la grilla se puede guardar como snippet, y un pipeline de utilidades como snippet de JavaScript.",
+  "settings.labs.flag.clipboardChains.label": "Utilidades que leen el portapapeles",
+  "settings.labs.flag.clipboardChains.description": "Con el acceso al portapapeles activo en Settings › Editor › Developer Utilities, Utilities clasifica el portapapeles en este dispositivo cuando vuelves y marca las herramientas que encajan. Requiere Pro."
 }
