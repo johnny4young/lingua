@@ -43,6 +43,8 @@ export interface AskSqlDialogProps {
   /** Insert the generated SQL into the active query editor. */
   readonly onInsert: (sql: string) => void;
   readonly onClose: () => void;
+  /** Typed in on open, from a starter prompt. */
+  readonly initialQuestion?: string;
   /** Test seam: inject the client so component tests never hit the network. */
   readonly runChatCompletionImpl?: typeof runChatCompletion;
 }
@@ -58,6 +60,7 @@ export function AskSqlDialog({
   dialect,
   onInsert,
   onClose,
+  initialQuestion = '',
   runChatCompletionImpl,
 }: AskSqlDialogProps) {
   const { t } = useTranslation();
@@ -67,7 +70,7 @@ export function AskSqlDialog({
   const model = useAiConfigStore((s) => s.model);
   const [phase, setPhase] = useState<Phase>({ kind: 'ask' });
   const activeControllerRef = useRef<AbortController | null>(null);
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState(initialQuestion);
 
   const schemaText = useMemo(() => formatSchemaForPrompt(tables), [tables]);
   const request = useMemo(

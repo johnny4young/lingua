@@ -45,7 +45,9 @@ Explain error, Explain selection, Edit with AI, Ask AI in SQL and the cron
 phrase composer are off until you set a model in Settings. Lingua ships no
 remote endpoint or key, and sends nothing until you choose Send after seeing
 the exact payload. That payload is what the feature needs: the error, the code
-of the tab and the runtime values only if you include them, the selected code,
+of the tab and the runtime values only if you include them, the selected code
+or the whole file (with your question and the tab's last run, for a question
+asked from the command palette),
 the file with the span to edit marked (only the lines around it for a large
 file), the SQL schema (table and column names and types, never rows), or the
 cron phrase.

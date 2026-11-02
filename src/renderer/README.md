@@ -253,6 +253,10 @@ group jump. Keep shortcuts out of command descriptions; add the command id to
 that map instead, so the keycap follows the user's overrides. A combo outside
 the remappable catalog (paste as plain text) sets `CommandEntry.shortcut`.
 While filtering, groups follow their best-ranked match so Enter runs the top hit.
+With Labs › Palette autodetect, `usePaletteAutodetect.ts` reads the query with
+`shared/paletteIntent.ts` and puts one Autodetected row above the groups (a
+question for Explain this code, or a file for Quick Open); that row is not a
+registry command, so it never enters the recent stack or the ranking.
 
 The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
 persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes
@@ -827,6 +831,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | AI config on its own isolated `lingua-ai` persist boundary (v2): `mode` plus a Local and a My endpoint profile, with `endpoint`/`apiKey`/`model` derived from the active one; v1 migrates by host. Kept out of the settings blob/exports/capsules/telemetry; on desktop the My endpoint key lives in the encrypted secret vault and is omitted from the blob |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 | [aiEditSelectionStore.ts](stores/aiEditSelectionStore.ts) | single open-request slot for Edit with AI (`AiEditSelectionHost`): the file, the span, and the model URI and version Accept must still match; session-only |
+| [askSqlStore.ts](stores/askSqlStore.ts) | open state of the SQL Ask AI dialog, so the header button and the empty-query starter prompts open the same dialog, a prompt with its question typed in; session-only |
 
 ### Console batch delivery
 

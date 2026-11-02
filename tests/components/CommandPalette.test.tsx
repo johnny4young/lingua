@@ -13,6 +13,9 @@ import {
 } from '../../src/renderer/stores/sessionStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useCommandHistoryStore } from '../../src/renderer/stores/commandHistoryStore';
+import { setActiveEditor } from '../../src/renderer/runtime/editorAccess';
+import { useAiExplainCodeStore } from '../../src/renderer/stores/aiExplainCodeStore';
+import { useConsoleStore } from '../../src/renderer/stores/consoleStore';
 
 const { grantedEntitlements } = vi.hoisted(() => ({ grantedEntitlements: new Set<string>() }));
 const { dependencyDetectionState, editorState, resultState, settingsState, trackEventMock } =
@@ -219,6 +222,8 @@ vi.mock('lucide-react', () => ({
   Braces: () => null,
   History: () => null,
   Wrench: () => null,
+  Sparkles: () => null,
+  FileSearch: () => null,
 }));
 
 describe('CommandPalette', () => {
@@ -1056,5 +1061,141 @@ describe('CommandPalette', () => {
     );
     expect(screen.getByText('No commands run yet this session.')).toBeTruthy();
     expect(screen.queryByTestId('contextual-hint-palette')).toBeNull();
+  });
+});
+
+describe('CommandPalette autodetect (Labs)', () => {
+  const fakeEditor = {
+    getModel: () => ({ getValue: () => 'print(sorted(xs))', getValueInRange: () => '' }),
+    getSelection: () => ({ isEmpty: () => true }),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    grantedEntitlements.clear();
+    grantedEntitlements.add('LOCAL_AI');
+    settingsState.featureFlags = { paletteAutodetect: true };
+    editorState.tabs = [{ id: 'tab-py', language: 'python', content: 'print(sorted(xs))', name: 'main.py' } as never];
+    editorState.activeTabId = 'tab-py';
+    setActiveEditor(fakeEditor as never);
+    useAiExplainCodeStore.setState({ request: null });
+    useConsoleStore.setState({ entries: [] } as never);
+    (resultState as { ranCode?: unknown; error?: unknown }).ranCode = null;
+    (resultState as { error?: unknown }).error = null;
+  });
+
+  afterEach(() => {
+    settingsState.featureFlags = {};
+    setActiveEditor(null);
+  });
+
+  function renderPalette(extra: Partial<Parameters<typeof CommandPalette>[0]> = {}) {
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        onClose={onClose}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+        {...extra}
+      />
+    );
+    return { onClose, input: screen.getByRole('combobox') };
+  }
+
+  it('sends a question to Explain this code with the last run attached', () => {
+    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-py', code: 'print(sorted(xs))', input: '', at: 1 };
+    (resultState as { error?: unknown }).error = { message: 'NameError: xs' };
+    useConsoleStore.setState({
+      entries: [
+        { id: '0', type: 'info', content: 'Running main.py...', timestamp: 1 },
+        { id: '1', type: 'log', content: 'start', timestamp: 1 },
+        { id: '2', type: 'info', content: 'note', timestamp: 1, line: 2 },
+      ],
+    } as never);
+    const { onClose, input } = renderPalette();
+    fireEvent.change(input, { target: { value: 'why does sorted drop duplicates' } });
+    expect(screen.getByTestId('command-palette-autodetect').textContent).toContain('(autodetected · question)');
+    expect(screen.getByTestId('command-palette-group-autodetected')).toBeTruthy();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(useAiExplainCodeStore.getState().request).toEqual({
+      code: 'print(sorted(xs))',
+      language: 'python',
+      filename: 'main.py',
+      question: 'why does sorted drop duplicates',
+      lastRun: 'start\nnote\nError: NameError: xs',
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('attaches no run when the code changed since it ran', () => {
+    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-py', code: 'print(xs)', input: '', at: 1 };
+    useConsoleStore.setState({ entries: [{ id: '1', type: 'log', content: 'old output', timestamp: 1 }] } as never);
+    const { input } = renderPalette();
+    fireEvent.change(input, { target: { value: 'why does this fail?' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(useAiExplainCodeStore.getState().request).not.toHaveProperty('lastRun');
+  });
+
+  it('does not count the detected row as a command match', () => {
+    const { input } = renderPalette();
+    fireEvent.change(input, { target: { value: 'why does sorted drop duplicates zzqx' } });
+    expect(screen.getByTestId('command-palette-result-count').textContent).toMatch(/^0 /);
+  });
+
+  it('attaches no run while another tab is still running', () => {
+    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-py', code: 'print(sorted(xs))', input: '', at: 1 };
+    (resultState as { manualRunSession?: unknown }).manualRunSession = { tabId: 'tab-other' };
+    useConsoleStore.setState({ entries: [{ id: '1', type: 'log', content: 'from the other tab', timestamp: 1 }] } as never);
+    try {
+      const { input } = renderPalette();
+      fireEvent.change(input, { target: { value: 'why does this fail?' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(useAiExplainCodeStore.getState().request).not.toHaveProperty('lastRun');
+    } finally {
+      (resultState as { manualRunSession?: unknown }).manualRunSession = null;
+    }
+  });
+
+  it('attaches no run when the results belong to another tab', () => {
+    (resultState as { ranCode?: unknown }).ranCode = { tabId: 'tab-other', code: '', input: '', at: 1 };
+    useConsoleStore.setState({ entries: [{ id: '1', type: 'log', content: 'other tab', timestamp: 1 }] } as never);
+    const { input } = renderPalette();
+    fireEvent.change(input, { target: { value: 'why does this fail?' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(useAiExplainCodeStore.getState().request).not.toHaveProperty('lastRun');
+  });
+
+  it('opens Quick Open with a file name typed in', () => {
+    const onOpenQuickOpen = vi.fn();
+    const { input } = renderPalette({ onOpenQuickOpen });
+    fireEvent.change(input, { target: { value: 'main.py' } });
+    expect(screen.getByTestId('command-palette-autodetect').textContent).toContain('(autodetected · file)');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onOpenQuickOpen).toHaveBeenCalledWith('main.py');
+  });
+
+  it('searches commands only after !', () => {
+    const { input } = renderPalette({ onOpenQuickOpen: vi.fn() });
+    fireEvent.change(input, { target: { value: '!why does sorted drop duplicates' } });
+    expect(screen.queryByTestId('command-palette-autodetect')).toBeNull();
+    expect(screen.queryByTestId('command-palette-group-autodetected')).toBeNull();
+    fireEvent.change(input, { target: { value: '!settings' } });
+    expect(screen.getAllByRole('option').some(option => /settings/i.test(option.textContent ?? ''))).toBe(true);
+  });
+
+  it('detects nothing without Pro or with the flag off', () => {
+    grantedEntitlements.clear();
+    const { input } = renderPalette();
+    fireEvent.change(input, { target: { value: 'why does sorted drop duplicates' } });
+    expect(screen.queryByTestId('command-palette-group-autodetected')).toBeNull();
+  });
+
+  it('stays a plain command search with the flag off', () => {
+    settingsState.featureFlags = {};
+    const { input } = renderPalette({ onOpenQuickOpen: vi.fn() });
+    fireEvent.change(input, { target: { value: 'main.py' } });
+    expect(screen.queryByTestId('command-palette-autodetect')).toBeNull();
   });
 });

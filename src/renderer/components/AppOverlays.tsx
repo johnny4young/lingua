@@ -1,5 +1,5 @@
 import type { RunOptions } from '../hooks/useRunner';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
 import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
@@ -142,9 +142,12 @@ export function AppOverlays({
       void import('./QuickOpen/QuickOpen').catch(() => {});
     });
   }, []);
+  // A query the palette hands to Quick Open lasts until Quick Open closes.
+  const [quickOpen, setQuickOpen] = useState({ query: '', overlay });
+  if (quickOpen.overlay !== overlay) setQuickOpen({ query: overlay === 'quick-open' ? quickOpen.query : '', overlay });
   return (
     <Suspense fallback={null}>
-      {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
+      {overlay === 'quick-open' && <QuickOpen initialQuery={quickOpen.query} onClose={closeOverlay} />}
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
       {overlay === 'replace' && <ProjectReplace onClose={closeOverlay} />}
       {overlay === 'go-to-symbol' && <GoToSymbol onClose={closeOverlay} />}
@@ -159,6 +162,10 @@ export function AppOverlays({
           onOpenWhatsNew={() => openOverlay('whats-new')}
           onStartGuidedTour={onStartGuidedTour}
           onOpenSnippets={() => openOverlay('snippets')}
+          onOpenQuickOpen={query => {
+            setQuickOpen({ query, overlay });
+            openOverlay('quick-open');
+          }}
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenProjectReplace={() => openOverlay('replace')}
           onOpenHttpWorkspace={() => {

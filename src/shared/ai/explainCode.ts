@@ -14,11 +14,14 @@ import {
   answerLanguageLine,
   MAX_EXPLAIN_CODE_CHARS,
   redactSecretsFromCode,
+  redactSecretsFromOutput,
   type ChatMessage,
 } from './explainError';
 
 /** Max characters of a user's free-text question included in the prompt. */
 export const MAX_EXPLAIN_CODE_QUESTION_CHARS = 500;
+/** Max characters of the last run's output attached to a question. */
+const MAX_EXPLAIN_LAST_RUN_CHARS = 2_000;
 
 function clip(value: string, max: number): string {
   if (value.length <= max) return value;
@@ -37,6 +40,8 @@ export interface ExplainCodeInput {
    * explain what the code does; when present it answers that instead.
    */
   readonly question?: string;
+  /** The output and error of the tab's last run, attached to a question from the palette. */
+  readonly lastRun?: string;
   /** Human language the answer should be written in (from `answerLanguageFor`). */
   readonly answerLanguage?: string;
   /** Redact obvious secrets before building the request. Defaults to true. */
@@ -74,6 +79,11 @@ export function buildExplainCodeRequest(
   const redaction = redact
     ? redactSecretsFromCode(input.code)
     : { code: input.code, redactedCount: 0 };
+  const lastRun = input.lastRun?.trim()
+    ? redact
+      ? redactSecretsFromOutput(input.lastRun)
+      : { code: input.lastRun, redactedCount: 0 }
+    : null;
 
   const code = clip(redaction.code, MAX_EXPLAIN_CODE_CHARS);
   const fileLabel = input.filename ? ` (${input.filename})` : '';
@@ -86,7 +96,8 @@ export function buildExplainCodeRequest(
     `Language: ${input.language}${fileLabel}\n` +
     answerLanguageLine(input.answerLanguage) +
     askLine +
-    `\nCode:\n\`\`\`${input.language}\n${code}\n\`\`\``;
+    `\nCode:\n\`\`\`${input.language}\n${code}\n\`\`\`` +
+    (lastRun ? `\n\nLast run:\n\`\`\`\n${clip(lastRun.code, MAX_EXPLAIN_LAST_RUN_CHARS)}\n\`\`\`` : '');
 
   const messages: ChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -100,8 +111,8 @@ export function buildExplainCodeRequest(
   const request: ExplainCodeRequest = {
     messages,
     preview,
-    redacted: redaction.redactedCount > 0,
-    redactedCount: redaction.redactedCount,
+    redacted: redaction.redactedCount + (lastRun?.redactedCount ?? 0) > 0,
+    redactedCount: redaction.redactedCount + (lastRun?.redactedCount ?? 0),
   };
   return input.model ? { ...request, model: input.model } : request;
 }

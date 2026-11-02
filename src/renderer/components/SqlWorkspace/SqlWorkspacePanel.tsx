@@ -43,6 +43,7 @@ import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
 import { SqlResultPreview, type SqlResultSource } from './SqlResultPreview';
 import { AskSqlButton } from './AskSqlButton';
+import { SqlStarterPrompts } from './SqlStarterPrompts';
 import { SqlExplorer } from './SqlExplorer';
 import { SqlExplorerRail } from './SqlExplorerRail';
 import { ResizeHandle } from '../ui/ResizeHandle';
@@ -611,6 +612,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           />
         }
       />
+      {activeQuery.query.trim() === '' ? <SqlStarterPrompts tables={remote.editorTables} /> : null}
       {saveDialog !== null && saveDialog.queryId === activeQuery.id ? (
         <SqlSaveQueryPopover
           key={`${activeQuery.id}:${saveDialog.mode}`}

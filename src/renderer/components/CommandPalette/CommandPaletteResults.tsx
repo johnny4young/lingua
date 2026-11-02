@@ -1,4 +1,4 @@
-import { AppWindow, Braces, FileCode, History, Search, Wrench, Zap } from 'lucide-react';
+import { AppWindow, Braces, FileCode, FileSearch, History, Search, Sparkles, Wrench, Zap } from 'lucide-react';
 import type { ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -22,6 +22,7 @@ import {
 import { formatRunAge } from '../../utils/timeLabels';
 
 const GROUP_ICON: Record<CommandGroupId, ReactNode> = {
+  autodetected: <Sparkles size={14} aria-hidden="true" />,
   recent: <History size={14} aria-hidden="true" />,
   workspaces: <AppWindow size={14} aria-hidden="true" />,
   commands: <Zap size={14} aria-hidden="true" />,
@@ -173,7 +174,7 @@ function renderEntry(
             isActive ? 'text-accent' : 'text-fg-muted'
           )}
         >
-          {GROUP_ICON[group ?? commandGroupFor(command)]}
+          {command.id === 'autodetect-file' ? <FileSearch size={14} aria-hidden="true" /> : GROUP_ICON[group ?? commandGroupFor(command)]}
         </span>
       )}
       <div className="flex min-w-0 flex-1 flex-col">

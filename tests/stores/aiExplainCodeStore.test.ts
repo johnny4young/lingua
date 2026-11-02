@@ -64,4 +64,9 @@ describe('aiExplainCodeStore', () => {
     useAiExplainCodeStore.getState().close();
     expect(useAiExplainCodeStore.getState().request).toBeNull();
   });
+
+  it('carries a palette question and the last run', () => {
+    openExplainCodeForEditor(makeEditor({ value: 'BUFFER', selectionText: null }), 'python', 'main.py', { question: 'why?', lastRun: 'out' });
+    expect(useAiExplainCodeStore.getState().request).toEqual({ code: 'BUFFER', language: 'python', filename: 'main.py', question: 'why?', lastRun: 'out' });
+  });
 });

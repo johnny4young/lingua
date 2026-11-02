@@ -11,6 +11,8 @@ import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
+import { HttpStarterRequests } from './HttpStarterRequests';
+import { isPristineRequest, type StarterPatch } from './httpStarters';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -299,6 +301,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const handlePatch = useCallback((requestId: string, patch: Partial<HttpRequestV1>) => {
     useWorkspaceToolStore.getState().updateRequest(requestId, patch);
   }, []);
+  // The editor keeps a draft of the request, so a starter remounts it from the patched request.
+  const [editorGeneration, setEditorGeneration] = useState(0);
+  const applyStarter = (request: HttpRequestV1, patch: StarterPatch) => {
+    handlePatch(request.id, patch);
+    setEditorGeneration(generation => generation + 1);
+    // The old editor flushes its pending draft as it unmounts; the starter goes in again after that.
+    window.setTimeout(() => handlePatch(request.id, patch), 0);
+  };
 
   // Sends the sources a request's chain tags need first, in dependency order,
   // and stops on a cycle or on any response outside 2xx.
@@ -752,6 +762,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         <Panel id="http-request-editor" defaultSize="50%" minSize={320}>
           {activeRequest ? (
             <HttpRequestEditor
+              key={editorGeneration}
               request={activeRequest}
               onPatch={handlePatch}
               onSend={sendFromEditor}
@@ -774,6 +785,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             <div className="min-h-0 flex-1">
               <HttpResponsePreview
                 response={activeResponse}
+                {...(activeRequest && isPristineRequest(activeRequest)
+                  ? { starters: <HttpStarterRequests onApply={starter => applyStarter(activeRequest, starter)} /> }
+                  : {})}
                 isExecuting={isExecuting}
                 requestSummary={
                   activeRequest

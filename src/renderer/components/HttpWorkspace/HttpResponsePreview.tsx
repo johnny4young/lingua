@@ -22,7 +22,7 @@
  */
 
 import { Loader2, SendHorizontal, X } from 'lucide-react';
-import { Fragment, useDeferredValue, useMemo, useState } from 'react';
+import { Fragment, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
 import type {
@@ -109,6 +109,8 @@ export interface HttpResponsePreviewProps {
   /** Adds a body capture rule for a value hovered in the tree. */
   onCaptureValue?: (path: string, segments: readonly JsonSegment[]) => void;
   snapshots?: HttpResponseSnapshots;
+  /** Shown under the empty state, for a request with no URL yet. */
+  starters?: ReactNode;
 }
 
 export function HttpResponsePreview({
@@ -120,6 +122,7 @@ export function HttpResponsePreview({
   captures,
   onCaptureValue,
   snapshots,
+  starters,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
   // Evaluate assertions against the settled response. Enabled
@@ -202,6 +205,7 @@ export function HttpResponsePreview({
         <EmptyState
           icon={<SendHorizontal size={18} aria-hidden="true" />}
           title={t('httpWorkspace.response.empty.title')}
+          {...(starters ? { action: starters } : {})}
         />
       </div>
     );
