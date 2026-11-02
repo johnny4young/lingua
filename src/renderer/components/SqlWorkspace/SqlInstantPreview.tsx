@@ -9,6 +9,7 @@ import { Fragment, useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';
 import { INSTANT_SAMPLE_ROWS, type InstantBlockReason } from '../../../shared/sqlCtePreview';
+import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 import { INSTANT_TIMEOUT_MS, runInstantPreview, type InstantPreviewResult } from '../../runtime/sqlInstantPreview';
 import { cn } from '../../utils/cn';
 import { StatusBadge } from '../ui/StatusBadge';
@@ -71,6 +72,10 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
   const blocked: InstantBlockReason | 'rejected' | undefined =
     plan.blocked ?? (state.kind === 'rejected' ? 'rejected' : state.kind === 'blocked' ? state.reason : undefined);
   const shown = blocked ? undefined : state.shown;
+  const columns = (shown?.columns ?? []).map((column) => {
+    const type = arrowTypeToDuckDb(column.type);
+    return { name: column.name, type, numeric: isNumericSqlType(type) };
+  });
   const rowsLabel = shown
     ? t(shown.capped ? 'sqlWorkspace.instant.rowsCapped' : 'sqlWorkspace.instant.rows', {
         count: shown.rows.length,
@@ -154,8 +159,8 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
           <table data-testid="sql-instant-table" className="w-full border-collapse font-mono text-caption">
             <thead className="sticky top-0 bg-bg-panel text-left text-fg-subtle">
               <tr>
-                {shown.columns.map((column) => (
-                  <th key={column.name} scope="col" className="whitespace-nowrap py-1 pr-4 font-normal">
+                {columns.map((column) => (
+                  <th key={column.name} scope="col" className={cn('whitespace-nowrap py-1 pr-4 font-normal', column.numeric && 'text-right')}>
                     {column.name} <span className="text-accent-fg">{column.type}</span>
                   </th>
                 ))}
@@ -164,15 +169,11 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
             <tbody>
               {shown.rows.slice(0, RENDERED_ROWS).map((row, index) => (
                 <tr key={index} className="border-t border-border-subtle">
-                  {shown.columns.map((column) => {
-                    const value = row[column.name];
-                    const numeric = typeof value === 'number' || typeof value === 'bigint';
-                    return (
-                      <td key={column.name} className={cn('whitespace-nowrap py-1 pr-4 text-fg-base', numeric && 'text-right tabular-nums')}>
-                        {renderCell(value)}
-                      </td>
-                    );
-                  })}
+                  {columns.map((column) => (
+                    <td key={column.name} className={cn('whitespace-nowrap py-1 pr-4 text-fg-base', column.numeric && 'text-right tabular-nums')}>
+                      {renderCell(row[column.name])}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

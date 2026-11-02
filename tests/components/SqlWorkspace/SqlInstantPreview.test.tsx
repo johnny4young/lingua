@@ -155,6 +155,22 @@ describe('SqlInstantPreview', () => {
     expect(screen.getByTestId('sql-instant-table').textContent).toContain('1');
   });
 
+  it('names DuckDB types and right-aligns numbers that arrive as text', async () => {
+    runInstantPreview.mockResolvedValue({
+      ...rows(0),
+      columns: [{ name: 'city', type: 'Utf8' }, { name: 'revenue', type: 'Decimal[38e+2]' }],
+      rows: [{ city: 'Bogota', revenue: '5021.75' }],
+    });
+    render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
+    publish(channel, 'SELECT 1', 8);
+    await settle();
+    const table = screen.getByTestId('sql-instant-table');
+    expect([...table.querySelectorAll('th')].map((th) => th.textContent)).toEqual(['city VARCHAR', 'revenue DECIMAL(38,2)']);
+    const cells = table.querySelectorAll('td');
+    expect(cells[0]!.className).not.toContain('text-right');
+    expect(cells[1]!.className).toContain('text-right');
+  });
+
   it('renders the first 100 rows of a capped sample', async () => {
     runInstantPreview.mockResolvedValue({ ...rows(0), rows: Array.from({ length: 1000 }, (_, x) => ({ x })), capped: true });
     render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
