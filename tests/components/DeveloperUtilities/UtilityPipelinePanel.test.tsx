@@ -8,7 +8,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockTrackEvent } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn().mockResolvedValue(undefined),
@@ -35,6 +35,7 @@ import {
   useUtilityPipelineStore,
 } from '../../../src/renderer/stores/utilityPipelineStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
+import { useSnippetsStore } from '../../../src/renderer/stores/snippetsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
@@ -77,6 +78,89 @@ beforeEach(() => {
   useAnnouncerStore.setState({ message: '', nonce: 0 });
   mockTrackEvent.mockClear();
   setProTier();
+});
+
+describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
+  const seed = (utilityIds: string[], name = 'Decode it') => {
+    const pipeline = createBlankPipeline({ id: 'p1', name });
+    utilityIds.forEach((utilityId, index) => pipeline.steps.push(createBlankStep({ id: `s${index}`, utilityId } as Parameters<typeof createBlankStep>[0])));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', 'tok-SECRET');
+  };
+
+  beforeEach(() => {
+    useSnippetsStore.setState({ snippets: [] });
+    useUIStore.setState({ statusNoticeQueue: [] });
+    useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
+  });
+
+  afterEach(() => {
+    useSettingsStore.setState({ featureFlags: {} });
+  });
+
+  it('is absent without the flag', () => {
+    useSettingsStore.setState({ featureFlags: {} });
+    seed(['url-encode']);
+    render(<UtilityPipelinePanel />);
+    expect(screen.getByTestId('utility-pipeline-editor-run')).toBeTruthy();
+    expect(screen.queryByTestId('utility-pipeline-editor-eject')).toBeNull();
+  });
+
+  it('waits for a step', () => {
+    seed([]);
+    render(<UtilityPipelinePanel />);
+    expect((screen.getByTestId('utility-pipeline-editor-eject') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('saves the recipe in JavaScript, without the input', async () => {
+    seed(['url-encode', 'uuid']);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
+    const [snippet] = useSnippetsStore.getState().snippets;
+    expect(snippet).toMatchObject({ language: 'javascript', label: 'Decode it', description: 'Exported from a utility pipeline' });
+    expect(snippet!.code).toContain('// Put your input here; the snippet never keeps it.');
+    expect(snippet!.code).toContain('value = encodeURIComponent(value);');
+    expect(snippet!.code).toContain('// 2. UUID has no short JS form');
+    expect(snippet!.code).not.toContain('tok-SECRET');
+    expect(useUIStore.getState().statusNotice).toMatchObject({ tone: 'success', messageKey: 'utilityPipeline.eject.saved' });
+  });
+
+  it('gives a pipeline with no name a label', async () => {
+    seed(['url-encode'], '   ');
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
+    expect(useSnippetsStore.getState().snippets[0]!.label).toBe('Untitled pipeline');
+  });
+
+  it('exports what Free runs when Pro is in context', async () => {
+    setFreeTier();
+    useSettingsStore.setState({ featureFlags: { ejectToCode: true, teachingPaywall: true } });
+    seed(['url-encode', 'url-decode', 'url-encode', 'base64-encode']);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
+    const code = useSnippetsStore.getState().snippets[0]!.code;
+    expect(code).toContain('// 3. ');
+    expect(code).not.toContain('// 4. ');
+    expect(code).not.toContain('btoa');
+  });
+
+  it('claims nothing when the Free snippet ceiling refuses it', async () => {
+    setFreeTier();
+    useSettingsStore.setState({ featureFlags: { ejectToCode: true, teachingPaywall: true } });
+    useSnippetsStore.setState({
+      snippets: Array.from({ length: 5 }, (_, index) => ({ id: `s${index}`, language: 'javascript' as const, label: 'x', description: '', code: '', createdAt: 0 })),
+    });
+    seed(['url-encode']);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
+    expect(useSnippetsStore.getState().snippets).toHaveLength(5);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+    expect(useUIStore.getState().statusNoticeQueue).toEqual([]);
+  });
 });
 
 describe('UtilityPipelinePanel', () => {

@@ -19,7 +19,7 @@
 import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
 import { useProAccess } from '../../hooks/useProAccess';
 import { ProChip } from '../ui/ProChip';
-import { PlayCircle, Plus } from 'lucide-react';
+import { Code2, PlayCircle, Plus } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -44,7 +44,12 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
+import { buildPipelineJs } from '../../../shared/utilityPipelineJs';
+import { getAdapter } from '../../../shared/utilities/registry';
+import '../../i18n/pipelineJsCatalog';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
@@ -142,6 +147,7 @@ export function UtilityPipelinePanel() {
 
 /** `stepLimit`: Free's slice runs only the first steps; the rest show dimmed behind a PRO chip. */
 function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
+  const canEject = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
   const { t } = useTranslation();
   const announce = useAnnounce();
   const { track } = useTelemetry();
@@ -324,6 +330,22 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     }
   }, [activePipeline, activeInput, run, t, announce, stepLimit]);
 
+  // The snippet holds the steps this plan runs, and never the input.
+  const handleEject = useCallback(() => {
+    if (!activePipeline) return;
+    const id = useSnippetsStore.getState().addSnippet({
+      language: 'javascript',
+      label: activePipeline.name.trim() || t('utilityPipeline.list.renamePlaceholder'),
+      description: t('utilityPipeline.eject.description'),
+      code: buildPipelineJs(activePipeline.steps.slice(0, stepLimit), {
+        input: t('utilityPipeline.eject.input'),
+        title: (utilityId) => t(getAdapter(utilityId)?.titleKey ?? utilityId),
+        skipped: (title) => t('utilityPipeline.eject.skipped', { title }),
+      }),
+    });
+    if (id !== null) useUIStore.getState().pushStatusNotice({ tone: 'success', messageKey: 'utilityPipeline.eject.saved' });
+  }, [activePipeline, stepLimit, t]);
+
   // EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
   // execution-history ring (and thus the Pro browse overlay +
@@ -428,6 +450,18 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 <Plus size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.addStep')}</span>
               </button>
+              {canEject ? (
+                <button
+                  type="button"
+                  onClick={handleEject}
+                  disabled={activePipeline.steps.length === 0}
+                  data-testid="utility-pipeline-editor-eject"
+                  className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Code2 size={11} aria-hidden="true" />
+                  <span>{t('utilityPipeline.editor.eject')}</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={handleRun}
