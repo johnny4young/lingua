@@ -2222,7 +2222,6 @@
   "utilities.settings.title": "Utilidades para desarrollo",
   "utilities.settings.description": "Controles de productividad para el espacio de utilidades de {{combo}}.",
   "utilities.settings.clipboardOnFocus.label": "Aplicar desde el portapapeles al enfocar el panel",
-  "utilities.settings.clipboardOnFocus.hint": "Cuando está activado, al enfocar una utilidad se lee el portapapeles una vez y te ofrece aplicarlo. Nunca se lee continuamente en segundo plano.",
   "utilities.settings.clipboardOnFocus.granted": "Activo",
   "utilities.settings.clipboardOnFocus.declined": "Desactivado",
   "utilities.settings.clipboardOnFocus.notSet": "Desactivado · actívalo para participar",

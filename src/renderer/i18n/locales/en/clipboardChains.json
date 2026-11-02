@@ -7,5 +7,6 @@
   "utilities.clipboard.banner.base64": "Clipboard looks like Base64",
   "utilities.clipboard.banner.json": "Clipboard looks like JSON",
   "utilities.clipboard.suggested": "Suggested for your clipboard",
-  "utilities.clipboard.railLabel": "{{category}}, suggested for your clipboard"
+  "utilities.clipboard.railLabel": "{{category}}, suggested for your clipboard",
+  "utilities.settings.clipboardOnFocus.hint": "When enabled, a utility reads the clipboard when opened and offers to apply it, and Labs can add reads on window focus. It is never polled in the background."
 }

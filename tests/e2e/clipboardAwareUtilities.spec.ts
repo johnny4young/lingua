@@ -66,6 +66,19 @@ for (const [language, jwtBanner, cronBanner] of [
   });
 }
 
+for (const [language, hint] of [
+  ['en', 'Labs can add reads on window focus'],
+  ['es', 'Labs puede agregar lecturas al enfocar la ventana'],
+] as const) {
+  test(`says when the opt-in reads the clipboard (${language})`, async ({ page }) => {
+    await seedSession(page, { language, primeProLicense: true });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+,');
+    await page.getByTestId('settings-tab-editor').click();
+    await expect(page.getByText(hint)).toBeVisible();
+  });
+}
+
 test('marks the category on the folded rail', async ({ page }) => {
   await open(page, 'en', { flag: true, consent: 'granted', pro: true });
   await expand(page);

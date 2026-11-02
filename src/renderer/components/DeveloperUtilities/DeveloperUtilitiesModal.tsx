@@ -420,7 +420,7 @@ function DeveloperUtilitiesWorkspaceBody({
             ) : null}
           </div>
         </div>
-        {clipboardKind ? <ClipboardBanner kind={clipboardKind} /> : null}
+        <ClipboardBanner kind={clipboardKind} />
         <FavoritesRow selectedUtilityId={activeSelectedUtilityId} onSelect={handleSelectUtility} />
         <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredUtilities.length === 0 ? (

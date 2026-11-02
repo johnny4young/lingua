@@ -321,6 +321,17 @@ function decodesToReadableText(value: string): boolean {
   return true;
 }
 
+/** Three dotted segments also describe a hostname or a version; a JWT's first one declares `alg`. */
+function hasJwtHeader(value: string): boolean {
+  try {
+    const segment = (value.split('.', 1)[0] ?? '').replace(/-/gu, '+').replace(/_/gu, '/');
+    const header: unknown = JSON.parse(decodeBase64ForDetection(segment) ?? '');
+    return typeof header === 'object' && header !== null && 'alg' in header;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Map a paste to the Developer Utility that handles it, or null.
  * Runs LAST in the chain, so every code-like artifact (share-link,
@@ -335,7 +346,7 @@ function detectUtilitySuggestion(text: string): UtilityIntent | null {
   const singleLine = !/[\r\n]/u.test(trimmed);
 
   const utilityId = ((): UtilitySuggestionId | null => {
-    if (singleToken && detectsAsJwt(trimmed)) return 'jwt';
+    if (singleToken && detectsAsJwt(trimmed) && hasJwtHeader(trimmed)) return 'jwt';
     if (singleToken && detectsAsUuid(trimmed)) return 'uuid';
     if (
       (STRICT_HEX_COLOR.test(trimmed) || COLOR_FUNCTION.test(trimmed)) &&

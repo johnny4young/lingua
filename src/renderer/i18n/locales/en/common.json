@@ -2198,7 +2198,6 @@
   "utilities.settings.title": "Developer Utilities",
   "utilities.settings.description": "Productivity controls for the {{combo}} utilities workspace.",
   "utilities.settings.clipboardOnFocus.label": "Apply from clipboard on panel focus",
-  "utilities.settings.clipboardOnFocus.hint": "When enabled, focusing a utility reads the clipboard once and offers to apply it. The clipboard is never polled in the background.",
   "utilities.settings.clipboardOnFocus.granted": "Active",
   "utilities.settings.clipboardOnFocus.declined": "Off",
   "utilities.settings.clipboardOnFocus.notSet": "Off · enable to opt in",

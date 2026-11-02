@@ -130,6 +130,8 @@ describe('renderer locale bundle boundary', () => {
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
     ) as Record<string, string>;
     expect(Object.keys(bootCatalog).filter((key) => key.startsWith('utilities.clipboard.'))).toEqual([]);
+    expect(bootCatalog['utilities.settings.clipboardOnFocus.hint']).toBeUndefined();
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/UtilitiesSection.tsx'), 'utf8')).toContain("import '../../i18n/clipboardChainsCatalog'");
     expect(rendererI18n).not.toContain('locales/en/clipboardChains.json');
     expect(rendererI18n).toContain("import('./locales/es/clipboardChains.json')");
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/DeveloperUtilities/ClipboardBanner.tsx'), 'utf8')).toContain("import '../../i18n/clipboardChainsCatalog'");

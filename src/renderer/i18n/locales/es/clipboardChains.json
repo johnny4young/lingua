@@ -6,6 +6,7 @@
   "utilities.clipboard.banner.cron-parser": "El portapapeles parece una expresión cron",
   "utilities.clipboard.banner.base64": "El portapapeles parece Base64",
   "utilities.clipboard.banner.json": "El portapapeles parece JSON",
-  "utilities.clipboard.suggested": "Sugerida para tu portapapeles",
-  "utilities.clipboard.railLabel": "{{category}}, sugerida para tu portapapeles"
+  "utilities.clipboard.suggested": "Sugerencia para tu portapapeles",
+  "utilities.clipboard.railLabel": "{{category}}: sugerencia para tu portapapeles",
+  "utilities.settings.clipboardOnFocus.hint": "Cuando está activado, una utilidad lee el portapapeles al abrirse y te ofrece aplicarlo, y Labs puede agregar lecturas al enfocar la ventana. Nunca se lee continuamente en segundo plano."
 }

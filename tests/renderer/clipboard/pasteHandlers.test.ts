@@ -194,6 +194,7 @@ describe('classifyClipboard', () => {
   it.each([
     [NON_SECRET_TEST_JWT, 'jwt'],
     [`  ${NON_SECRET_TEST_JWT}\n`, 'jwt'],
+    [`${Buffer.from('{"alg":"none","kid":"???>>>~~~"}').toString('base64url')}.bbb.ccc`, 'jwt'],
     ['{"sub": "7", "exp": 1792296000, "name": "ada"}', 'json'],
     ['{"a":1}', 'json'],
     [`[${'1,'.repeat(6000)}1]`, 'json'],
@@ -210,6 +211,9 @@ describe('classifyClipboard', () => {
     ['nothing', ''],
     ['spaces', '   '],
     ['prose', 'call me when the build is done'],
+    ['a hostname', 'www.example.com'],
+    ['a version', '1.2.3'],
+    ['three segments with a header that is not a JWT one', 'eyJhIjoxfQ.bbb.ccc'],
     ['code', 'const total = items.reduce((sum, item) => sum + item, 0);'],
     ['a number outside a human date', '99999999999999999'],
     ['a large block that is not JSON', 'x'.repeat(20_000)],

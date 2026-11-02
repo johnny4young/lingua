@@ -78,14 +78,18 @@ option defaults and execution-time validation are unchanged.
 
 ## Clipboard-aware utilities
 
-With **Settings › Labs › Clipboard-aware utilities** on, a Pro license and clipboard
-access allowed in **Settings › Editor › Developer Utilities**, Utilities reads the
-clipboard when it opens and each time the window regains focus. It classifies the
+With **Settings › Labs › Clipboard-aware utilities** on, a Pro license and **Apply from
+clipboard on panel focus** on in **Settings › Editor › Developer Utilities**, Utilities
+reads the clipboard when it opens or you switch back to it, and each time the window
+regains focus. It classifies the
 value on this device as a JWT, JSON, cron expression, epoch timestamp, Base64, UUID
 or color. A banner above the tool list names the kind, a light bulb marks the tools
 that fit, and on the folded rail a dot marks their category. Only the kind stays:
 Lingua does not store, log or send the text. Without any of those three conditions it
-does not read the clipboard for this. Browsers may ask for permission on the first read.
+does not read the clipboard for this. Chromium browsers may ask for permission when
+Utilities opens, never on a window focus. Browsers that cannot report this permission,
+such as Firefox and Safari, could ask on each read, so there Lingua does not read it for
+this.
 
 ## Saving a utility pipeline as JavaScript
 

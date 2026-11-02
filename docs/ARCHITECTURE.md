@@ -1079,9 +1079,9 @@ pure predicate, `isPermissionAllowed`, so the policy has a single decision point
   **`clipboard-sanitized-write`** (copy affordances — QR, JWT, snippets, share
   links, capsule export, SQL results, "Copy JSON" — call
   `navigator.clipboard.writeText` / `.write`) and **`clipboard-read`** (capsule
-  import from the clipboard, the Utility Pipeline paste action, and
-  clipboard-on-focus paste detection after the Pro `DEV_UTILITIES` + user-consent
-  gates call `navigator.clipboard.readText`).
+  import from the clipboard, the Utility Pipeline paste action, clipboard-on-focus
+  paste detection after the Pro `DEV_UTILITIES` + user-consent gates, and Labs
+  clipboard suggestions behind the same gates call `navigator.clipboard.readText`).
   Denying either breaks real app-shell features with `NotAllowedError`.
 - Subframes are denied even for those clipboard permissions, so sandboxed rich
   HTML and Browser Preview user code do not inherit the app shell's clipboard
@@ -1769,9 +1769,10 @@ placeholders the user fills in, and never receives a secret from the workspace.
 
 ### Clipboard suggestions in Utilities
 
-`useClipboardSuggestion` reads the clipboard when Utilities comes on screen and on
+`useClipboardSuggestion` reads the clipboard when the Utilities tab becomes active and on
 window focus, with no polling, behind the `clipboardChains` flag, `DEV_UTILITIES` and
-`utilitiesClipboardOnFocusConsent`. It keeps only the result of `classifyClipboard`,
+`utilitiesClipboardOnFocusConsent`. It skips browsers whose Permissions API cannot report
+`clipboard-read`, where each read could prompt, and a read on focus never asks. It keeps only the result of `classifyClipboard`,
 so the text never reaches a store, the DOM, a log or telemetry.
 
 ### Utility pipeline export

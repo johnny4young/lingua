@@ -40,7 +40,12 @@ function setPro(on: boolean) {
   );
 }
 
+const permission = vi.fn<() => Promise<{ state: string }>>();
+
 beforeEach(() => {
+  permission.mockReset();
+  permission.mockResolvedValue({ state: 'granted' });
+  vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { permissions: { query: permission } }));
   read.mockReset();
   read.mockResolvedValue(JWT);
   setPro(true);
@@ -48,6 +53,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   useSettingsStore.setState({ featureFlags: {}, utilitiesClipboardOnFocusConsent: 'declined' });
   setPro(false);
 });
@@ -92,6 +98,50 @@ describe('useClipboardSuggestion', () => {
     expect(result.current).toBeNull();
   });
 
+  it('may prompt when it becomes active, and never from a window focus', async () => {
+    permission.mockResolvedValue({ state: 'prompt' });
+    const { result } = renderHook(() => useClipboardSuggestion(true));
+    await waitFor(() => expect(result.current).toBe('jwt'));
+    read.mockClear();
+    await focus();
+    await waitFor(() => expect(result.current).toBeNull());
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['after the browser denied it', () => permission.mockResolvedValue({ state: 'denied' })],
+    ['where the browser cannot report it, as it may prompt each time', () => permission.mockRejectedValue(new TypeError('clipboard-read'))],
+  ])('never reads %s', async (_name, arrange) => {
+    arrange();
+    const { result } = renderHook(() => useClipboardSuggestion(true));
+    await focus();
+    await waitFor(() => expect(permission).toHaveBeenCalledTimes(2));
+    expect(read).not.toHaveBeenCalled();
+    expect(result.current).toBeNull();
+  });
+
+  it('does not read for a check a newer focus has replaced', async () => {
+    let answerFirst: (value: { state: string }) => void = () => undefined;
+    permission.mockReturnValueOnce(new Promise((resolve) => (answerFirst = resolve)));
+    const { result } = renderHook(() => useClipboardSuggestion(true));
+    await focus();
+    await waitFor(() => expect(result.current).toBe('jwt'));
+    await act(async () => answerFirst({ state: 'granted' }));
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a value a detector cannot read as no suggestion', async () => {
+    const { result } = renderHook(() => useClipboardSuggestion(true));
+    await waitFor(() => expect(result.current).toBe('jwt'));
+    read.mockResolvedValue({
+      get length(): number {
+        throw new Error('unreadable');
+      },
+    } as unknown as string);
+    await focus();
+    await waitFor(() => expect(result.current).toBeNull());
+  });
+
   it('never reads while Utilities is off screen, and reads on return', async () => {
     const { result, rerender } = renderHook(({ active }) => useClipboardSuggestion(active), { initialProps: { active: false } });
     await focus();
@@ -115,6 +165,7 @@ describe('useClipboardSuggestion', () => {
     read.mockReturnValueOnce(new Promise((resolve) => (settleFirst = resolve)));
     read.mockResolvedValueOnce('{"a": [1, 2, 3], "b": "some text here"}');
     const { result } = renderHook(() => useClipboardSuggestion(true));
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
     await focus();
     await waitFor(() => expect(result.current).toBe('json'));
     await act(async () => settleFirst(JWT));

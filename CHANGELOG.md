@@ -87,6 +87,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- Pasting a hostname or a version such as `www.example.com` or `1.2.3` no longer suggests the JWT Debugger; the first segment has to be a JWT header.
 - The HTML entity decode step in utility pipelines leaves `&constructor;` and other names it does not know as written, instead of printing JavaScript source in their place.
 - Local DuckDB results show `Infinity`, `-Infinity` and `NaN` instead of `null`, right-aligned as numbers. A real NULL still shows `null`, and column stats count only those as null. The grid's sort and number filters put these values where DuckDB does, the column rail's range names them, and Python handoff writes them as `float(...)`. Results saved before this change keep the `null` they were saved with. A full JSON or NDJSON export now quotes them, since DuckDB writes them bare and no JSON parser reads that.
 - Cmd/Ctrl+Enter inside the code editor runs or stops the file, as documented, instead of inserting a line below the cursor.

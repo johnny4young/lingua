@@ -24,5 +24,5 @@
   "settings.labs.flag.ejectToCode.label": "Acciones a código",
   "settings.labs.flag.ejectToCode.description": "Un request HTTP puede abrirse como pestaña JavaScript que corre en el Worker, con sus secretos y credenciales como marcadores, y el SQL que generan los filtros, el orden y las columnas de la grilla se puede guardar como snippet, y un pipeline de utilidades como snippet de JavaScript.",
   "settings.labs.flag.clipboardChains.label": "Utilidades que leen el portapapeles",
-  "settings.labs.flag.clipboardChains.description": "Con el acceso al portapapeles activo en Settings › Editor › Developer Utilities, Utilities clasifica el portapapeles en este dispositivo cuando vuelves y marca las herramientas que encajan. Requiere Pro."
+  "settings.labs.flag.clipboardChains.description": "Con Aplicar desde el portapapeles al enfocar el panel activo en Configuración › Editor › Utilidades para desarrollo, Utilidades clasifica el portapapeles en este dispositivo al abrirse y cuando la ventana recupera el foco, y marca las herramientas que encajan. Requiere Pro."
 }
