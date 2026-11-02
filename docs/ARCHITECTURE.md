@@ -335,9 +335,11 @@ statement wrapped in `SELECT * FROM (…) LIMIT 1000`. It reaches the preview
 through `instantSqlChannel.ts`, so typing does not re-render the panel.
 `runInstantPreview` runs only what `isReadOnlySqlStatement` allows, and only
 after `json_serialize_sql` parses it as one SELECT. `instantAstBlockReason`
-then walks that parse: side-effect functions by their normalized name, file
-readers whose path is not a literal, and remote paths or replacement scans
-block the run, since text checks miss quoted names and concatenated URLs. It
+then walks that parse and fails closed: side-effect functions by their
+normalized name, a remote URL passed to any function or named as any table,
+and a computed argument to a file reader or to any table function other than
+`range`, `generate_series` and `unnest` block the run, since text checks miss
+quoted names and concatenated URLs. It
 uses `executeQuery` with a 3 s timeout and an
 abort signal, so a newer edit or a Run cancels it like Cancel does. It never
 runs while a Run is in flight, and the result is never persisted.

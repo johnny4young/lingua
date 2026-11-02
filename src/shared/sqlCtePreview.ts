@@ -170,10 +170,12 @@ export interface InstantPreviewPlan {
 
 // Remote reads would fetch on every keystroke.
 const REMOTE_URL = /\b(?:https?|s3[an]?|gcs?|gs|r2|az(?:ure)?|abfss?|hf):\/\//i;
-const SIDE_EFFECT_FUNCTIONS = new Set(['nextval', 'setval', 'setseed', 'query', 'query_table']);
+const SIDE_EFFECT_FUNCTIONS = new Set(['nextval', 'setval', 'setseed', 'query', 'query_table', 'json_execute_serialized_sql']);
 // A fast answer before DuckDB parses it; `instantAstBlockReason` is the gate.
 const SIDE_EFFECT_CALL = new RegExp(`\\b(?:${[...SIDE_EFFECT_FUNCTIONS].join('|')})\\s*\\(`, 'i');
 const FILE_READER = /^(?:read_|parquet_|iceberg_|delta_scan$|glob$|sniff_csv$)/;
+// Table functions that only generate values, so a computed argument reads nothing.
+const GENERATORS = new Set(['range', 'generate_series', 'unnest']);
 
 type AstNode = Record<string, unknown>;
 const isAstNode = (value: unknown): value is AstNode => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -193,10 +195,17 @@ const literalPaths = (node: unknown): string[] | null => {
   return paths.every((path) => path !== null) ? paths.flat() as string[] : null;
 };
 
+// Named options arrive as `option = value` comparisons; the rest are positional.
+const positionalPaths = (fn: AstNode) =>
+  astChildren(fn)
+    .filter((child) => !(isAstNode(child) && child['class'] === 'COMPARISON'))
+    .map(literalPaths);
+
 /**
  * Checks DuckDB's own parse (`json_serialize_sql` statements) of the sampled
- * SQL: side-effect functions however they are spelled, file readers whose path
- * is computed rather than written out, and remote paths or replacement scans.
+ * SQL, failing closed: side-effect functions however they are spelled, a
+ * remote URL passed to any function or named as any table, and a computed
+ * argument to a file reader or to any table function that is not a generator.
  */
 export function instantAstBlockReason(ast: unknown): InstantBlockReason | undefined {
   let reason: InstantBlockReason | undefined;
@@ -209,14 +218,15 @@ export function instantAstBlockReason(ast: unknown): InstantBlockReason | undefi
     if (!isAstNode(value)) return;
     if (value['class'] === 'FUNCTION') {
       const name = functionName(value);
+      const args = positionalPaths(value);
       if (SIDE_EFFECT_FUNCTIONS.has(name)) reason = 'side-effect';
-      else if (FILE_READER.test(name)) {
-        // Named options arrive as `option = value` comparisons; the rest are paths.
-        const paths = astChildren(value).filter((child) => !(isAstNode(child) && child['class'] === 'COMPARISON')).map(literalPaths);
-        if (paths.some((path) => path === null)) reason = 'computed-path';
-        else if (paths.flat().some((path) => REMOTE_URL.test(path!))) reason = 'remote';
-      }
-    } else if (value['type'] === 'BASE_TABLE' && REMOTE_URL.test(String(value['table_name'] ?? ''))) reason = 'remote';
+      else if (args.some((paths) => paths?.some((path) => REMOTE_URL.test(path)))) reason = 'remote';
+      else if (FILE_READER.test(name) && args.includes(null)) reason = 'computed-path';
+    } else if (value['type'] === 'TABLE_FUNCTION' && isAstNode(value['function'])) {
+      const fn = value['function'];
+      if (!GENERATORS.has(functionName(fn)) && positionalPaths(fn).includes(null)) reason = 'computed-path';
+    }
+    if (!reason && typeof value['table_name'] === 'string' && REMOTE_URL.test(value['table_name'])) reason = 'remote';
     if (!reason) Object.values(value).forEach(walk);
   };
   walk(ast);

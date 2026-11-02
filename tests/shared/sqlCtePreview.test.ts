@@ -122,6 +122,7 @@ const constant = (value: unknown) => ({ class: 'CONSTANT', type: 'VALUE_CONSTANT
 const call = (name: string, children: unknown[], schema = '') => ({ class: 'FUNCTION', type: 'FUNCTION', function_name: name, schema, children });
 const option = (value: unknown) => ({ class: 'COMPARISON', type: 'COMPARE_EQUAL', left: { class: 'COLUMN_REF' }, right: value });
 const scan = (fn: unknown) => [{ node: { type: 'SELECT_NODE', from_table: { type: 'TABLE_FUNCTION', function: fn } } }];
+const concat = call('||', [constant('ht'), constant('tps://x/a.csv')]);
 
 describe('instantAstBlockReason', () => {
   it.each([
@@ -131,6 +132,10 @@ describe('instantAstBlockReason', () => {
     ['a remote path', scan(call('read_parquet', [constant('https://x/a.parquet')])), 'remote'],
     ['a remote path in a list', scan(call('read_parquet', [call('list_value', [constant('a.parquet'), constant('az://c/b.parquet')], 'main')])), 'remote'],
     ['a remote replacement scan', [{ node: { from_table: { type: 'BASE_TABLE', table_name: 'https://x/a.csv' } } }], 'remote'],
+    ['a remote table name on another ref', [{ node: { from_table: { type: 'SHOW_REF', table_name: 's3://b/a.parquet' } } }], 'remote'],
+    ['a remote URL passed to any function', [{ node: { select_list: [call('st_read', [constant('https://x/a.geojson')])] } }], 'remote'],
+    ['a computed argument to an unknown table function', scan(call('st_read', [concat])), 'computed-path'],
+    ['SQL run from a serialized plan', [{ node: { select_list: [call('json_execute_serialized_sql', [constant('{}')])] } }], 'side-effect'],
   ])('blocks %s', (_name, ast, reason) => {
     expect(instantAstBlockReason(ast)).toBe(reason);
   });
@@ -139,6 +144,7 @@ describe('instantAstBlockReason', () => {
     ['a local file with options', scan(call('read_csv', [constant('a.csv'), option(constant(';')), option(call('||', [constant('ht'), constant('tps://x')]))]))],
     ['local files in a list', scan(call('read_parquet', [call('list_value', [constant('a.parquet'), constant('b.parquet')], 'main')]))],
     ['a computed range', scan(call('range', [call('+', [constant(1), constant(2)])]))],
+    ['an unnest of a computed list', scan(call('unnest', [call('list_value', [call('+', [constant(1), constant(2)])])]))],
     ['a URL as data', [{ node: { select_list: [constant('https://lingua.dev')] } }]],
     ['a local table', [{ node: { from_table: { type: 'BASE_TABLE', table_name: 'sales' } } }]],
   ])('allows %s', (_name, ast) => {
