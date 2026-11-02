@@ -7,7 +7,7 @@ import { cn } from '../../utils/cn';
 import { isLoopbackHostname } from '../../utils/loopbackHost';
 import { SpecRow } from '../ui/SpecRow';
 
-/** Allow / Ask / Block for code in the sandboxed runtimes. Shown only with the Labs flag on. */
+/** Allow / Ask / Block for code in the browser runtimes. Shown only with the Labs flag on. */
 export function NetworkFromRunningCodeRow() {
   const { t } = useTranslation();
   const enabled = useSettingsStore(state => state.featureFlags.networkPolicy === true);

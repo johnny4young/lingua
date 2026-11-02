@@ -3655,7 +3655,7 @@
   "httpWorkspace.environment.preview.unresolvedBadge": "sin resolver",
   "settings.privacy.sensitiveHeaders.title": "Headers HTTP sensibles",
   "settings.privacy.networkPolicy.label": "Red desde el código en ejecución",
-  "settings.privacy.networkPolicy.hint": "Aplica a los runtimes aislados (Worker, Pyodide, Ruby WASM) envolviendo fetch, XMLHttpRequest, WebSocket y EventSource mientras corre tu código. Preguntar consulta una vez por host en cada pestaña. Es un esfuerzo razonable, no un sandbox.",
+  "settings.privacy.networkPolicy.hint": "Aplica a los runtimes Worker, Pyodide y Ruby WASM envolviendo fetch, XMLHttpRequest, WebSocket y EventSource mientras corre tu código. Preguntar consulta una vez por host en cada pestaña. Es un esfuerzo razonable, no un sandbox.",
   "settings.privacy.networkPolicy.option.allow": "Permitir",
   "settings.privacy.networkPolicy.option.ask": "Preguntar",
   "settings.privacy.networkPolicy.option.block": "Bloquear",

@@ -750,8 +750,9 @@ leaves scheduled is checked too. Under Ask, an unknown host on
 (`runners/networkPolicyBridge.ts`) while `NetworkAskDialog` waits for an answer,
 which then holds for that host in the tab. Synchronous APIs and Ruby cannot
 wait, so they only reach hosts the tab already allowed. Pyodide installs the
-guard at worker start, because `pyodide.http` captures `fetch` on import. It is
-a best-effort guard, not a sandbox, and native runtimes are not covered.
+guard at worker start, because `pyodide.http` captures `fetch` on import. Under
+Ask and Block it also refuses `file:` outside the renderer root. It is a
+best-effort guard, not a sandbox, and native runtimes are not covered.
 
 ### Settings discovery
 

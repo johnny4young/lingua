@@ -1,5 +1,5 @@
 /**
- * Network policy for code running in the sandboxed runtimes (JS/TS worker,
+ * Network policy for code running in the browser runtimes (JS/TS worker,
  * Pyodide, ruby.wasm). Shared by the renderer, which owns the setting and the
  * per-tab answers, and the workers, which enforce it around user code.
  */
