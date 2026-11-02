@@ -86,7 +86,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
-- HTML Entity Decode leaves `&constructor;` and other names it does not know as written, instead of printing JavaScript source in their place.
+- The HTML entity decode step in utility pipelines leaves `&constructor;` and other names it does not know as written, instead of printing JavaScript source in their place.
 - Local DuckDB results show `Infinity`, `-Infinity` and `NaN` instead of `null`, right-aligned as numbers. A real NULL still shows `null`, and column stats count only those as null. The grid's sort and number filters put these values where DuckDB does, the column rail's range names them, and Python handoff writes them as `float(...)`. Results saved before this change keep the `null` they were saved with. A full JSON or NDJSON export now quotes them, since DuckDB writes them bare and no JSON parser reads that.
 - Cmd/Ctrl+Enter inside the code editor runs or stops the file, as documented, instead of inserting a line below the cursor.
 - Opening a capsule from Import, the capsules browser or a Capsule Workspace file starts the tab in Run mode, so its code waits for Run. JavaScript, TypeScript, Python, Go and Rust capsules used to open in Scratchpad and run on their own a second later.

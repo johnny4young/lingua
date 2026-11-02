@@ -8,7 +8,8 @@
  *   - LEFT  : pipeline list (create / select / rename / duplicate /
  *             delete / import / export).
  *   - CENTER: step editor (sortable via @dnd-kit drag handles),
- *             Add step button, Run button, input textarea.
+ *             Add step button, Save as JS snippet (Labs), Run button,
+ *             input textarea.
  *   - RIGHT : streaming result table with per-step status + output.
  *
  * Wires the persisted store (`useUtilityPipelineStore`), the run
@@ -333,17 +334,23 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   // The snippet holds the steps this plan runs, and never the input.
   const handleEject = useCallback(() => {
     if (!activePipeline) return;
+    const steps = activePipeline.steps.slice(0, stepLimit);
     const id = useSnippetsStore.getState().addSnippet({
       language: 'javascript',
       label: activePipeline.name.trim() || t('utilityPipeline.list.renamePlaceholder'),
       description: t('utilityPipeline.eject.description'),
-      code: buildPipelineJs(activePipeline.steps.slice(0, stepLimit), {
+      code: buildPipelineJs(steps, {
         input: t('utilityPipeline.eject.input'),
         title: (utilityId) => t(getAdapter(utilityId)?.titleKey ?? utilityId),
         skipped: (title) => t('utilityPipeline.eject.skipped', { title }),
       }),
     });
-    if (id !== null) useUIStore.getState().pushStatusNotice({ tone: 'success', messageKey: 'utilityPipeline.eject.saved' });
+    if (id === null) return;
+    useUIStore.getState().pushStatusNotice(
+      steps.length < activePipeline.steps.length
+        ? { tone: 'success', messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: steps.length } }
+        : { tone: 'success', messageKey: 'utilityPipeline.eject.saved' }
+    );
   }, [activePipeline, stepLimit, t]);
 
   // EXPLICIT "Save run as capsule". This is deliberately NOT

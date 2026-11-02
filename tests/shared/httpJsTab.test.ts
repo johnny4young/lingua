@@ -104,6 +104,12 @@ describe('buildHttpJsTab', () => {
     expect(init.headers).toEqual({ Authorization: 'Bearer abc' });
   });
 
+  it('keeps a hash directive in a URL inert', async () => {
+    const source = build({ url: 'https://h.test/#@timeout 1ms' });
+    expect(source).not.toMatch(/#\s*@/);
+    expect((await run(source, {})).url).toBe('https://h.test/#@timeout 1ms');
+  });
+
   it('keeps a value from reading as a directive or hiding behind bidi controls', async () => {
     const hostile = 'a //=> b // @timeout 999999 \u202Ec';
     const body = { kind: 'text', content: hostile } as HttpRequestV1['body'];

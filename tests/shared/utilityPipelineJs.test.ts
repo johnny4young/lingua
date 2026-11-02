@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { extractTimeoutMagicComment, originSuppressedByMagicComment } from '../../src/renderer/utils/magicComments/directives';
 import { getAdapter } from '../../src/shared/utilities/registry';
 import { UTILITY_ADAPTER_IDS, type UtilityAdapterId } from '../../src/shared/utilities/types';
 import type { PipelineStepV1 } from '../../src/shared/utilityPipeline';
@@ -111,6 +112,11 @@ describe('buildPipelineJs matches the utilities it replaces', () => {
 describe('buildPipelineJs', () => {
   const LONG: UtilityAdapterId[] = ['color-convert', 'diff-text', 'uuid', 'lorem-ipsum', 'string-inspect', 'cron-phrase'];
 
+  it('treats an id it does not know as a comment, even one on Object.prototype', () => {
+    const code = buildPipelineJs([{ id: 's', utilityId: 'constructor', options: {} } as unknown as PipelineStepV1], LABELS);
+    expect(code).toContain('// 1. constructor has no short JS form.');
+  });
+
   it('writes a minified format without an indent argument', () => {
     expect(buildPipelineJs([step('json-format', { indent: 'minified' })], LABELS)).toContain('JSON.stringify(JSON.parse(value))');
   });
@@ -150,11 +156,15 @@ describe('buildPipelineJs', () => {
   it.each([
     ['a directive', { pattern: '//=> x', flags: 'g', replacement: '// @timeout 1' }],
     ['a bidi control', { pattern: 'a\u202eb', flags: 'g', replacement: 'c\u2066d' }],
+    ['a hash directive', { pattern: '^(a+)+$|#@timeout 600', flags: '', replacement: '#  @origin off' }],
+    ['line separators and an Arabic mark', { pattern: 'a\u2028b\u2029c\u061cd', flags: 'g', replacement: '' }],
     ['a closing quote and code', { pattern: '");throw 1;//', flags: 'g', replacement: '");throw 2;//' }],
   ])('keeps %s in a regex option inert', async (_name, options) => {
     const code = buildPipelineJs([step('regex-replace', options)], LABELS);
     expect(code).not.toMatch(/\/\/\s*(=>|@timeout)/);
-    expect(code).not.toMatch(/[\u202e\u2066]/);
+    expect(extractTimeoutMagicComment('javascript', code)).toBeNull();
+    expect(originSuppressedByMagicComment('javascript', code)).toBe(false);
+    expect(code).not.toMatch(/[\u061c\u2028\u2029\u202e\u2066]/);
     await expectSame([step('regex-replace', options)], `${options.pattern} rest`);
   });
 });

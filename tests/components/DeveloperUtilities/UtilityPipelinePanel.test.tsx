@@ -119,7 +119,7 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
     await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
     const [snippet] = useSnippetsStore.getState().snippets;
     expect(snippet).toMatchObject({ language: 'javascript', label: 'Decode it', description: 'Exported from a utility pipeline' });
-    expect(snippet!.code).toContain('// Put your input here; the snippet never keeps it.');
+    expect(snippet!.code).toContain('// Put your input here; it was left out of this export.');
     expect(snippet!.code).toContain('value = encodeURIComponent(value);');
     expect(snippet!.code).toContain('// 2. UUID has no short JS form');
     expect(snippet!.code).not.toContain('tok-SECRET');
@@ -145,6 +145,17 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
     expect(code).toContain('// 3. ');
     expect(code).not.toContain('// 4. ');
     expect(code).not.toContain('btoa');
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: 3 } });
+  });
+
+  it('reports the whole pipeline when Free runs all of it', async () => {
+    setFreeTier();
+    useSettingsStore.setState({ featureFlags: { ejectToCode: true, teachingPaywall: true } });
+    seed(['url-encode', 'url-decode', 'url-encode']);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('utilityPipeline.eject.saved');
   });
 
   it('claims nothing when the Free snippet ceiling refuses it', async () => {

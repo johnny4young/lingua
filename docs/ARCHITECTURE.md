@@ -1751,7 +1751,9 @@ only the Worker's `networkGuard`, with no SSRF guard, redirect header stripping,
 response caps or masking at send time. That is why the generated source reads
 placeholders the user fills in, and never receives a secret from the workspace.
 
-The same setting adds **Save as JS snippet** to a utility pipeline
+### Utility pipeline export
+
+Labs › GUI actions to code adds **Save as JS snippet** to a utility pipeline
 (`src/shared/utilityPipelineJs.ts`). It emits one block per step from the step's
 parsed options, with the engine's fallback to defaults, and never reads the
 pipeline's input. The utilities remain the source of truth: each template is a

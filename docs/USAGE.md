@@ -81,8 +81,11 @@ option defaults and execution-time validation are unchanged.
 With **Settings › Labs › GUI actions to code** on, a pipeline's header adds
 **Save as JS snippet**. The snippet starts from an empty `value` for you to fill
 in, runs one short block per step and logs the result. It holds the steps and
-their options, and never the pipeline's input, which can be a token. On Free with
-Pro in context it holds the steps Free runs, and it counts as a saved snippet.
+their options, and never the pipeline's input, which can be a token. What you fill
+in is saved as plain text with the tab and its run history, and the secret vault
+does not protect it. On Free with
+Pro in context it holds the steps Free runs, the notice says how many, and it counts
+as a saved snippet.
 
 Color convert, Diff text, UUID, Lorem ipsum, String inspector and Cron from phrase
 stay a comment in their place, because they do not fit in a few lines. The steps after
