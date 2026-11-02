@@ -350,6 +350,18 @@ while a Run or an import is in flight, a sample DuckDB did not stop
 (`stillRunning`) pauses previews until the next Run, and the result is never
 persisted.
 
+The expression breakdown (`src/shared/sqlExprBreakdown.ts`,
+`runtime/sqlExprBreakdown.ts`) reuses the parse the preview already fetched, so
+no query runs until a header is clicked. It finds the previewed SELECT in that
+parse, keeps its select list and adds each sub-expression as an extra column,
+so ORDER BY, LIMIT and lateral aliases still bind, then turns the tree back
+into SQL with `json_deserialize_sql`. Locations are the operator's start, not a
+range, so labels also come from DuckDB. Counts and narrowed rows run through
+`runInstantPreview`, which parses and gates the generated SQL again. `u64`
+locations are normalized in the raw JSON (`parseSerializedSql`), since
+`JSON.parse` would round them into values the deserializer refuses. Aggregates
+stay leaves because their arguments do not bind on their own under GROUP BY.
+
 With `keepCursor`, a windowed single statement keeps its stream instead of
 cancelling it: the outcome carries a `SqlResultCursor` over the rows left in
 the last batch, the peeked batch and the rest of the stream, and the
