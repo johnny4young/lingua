@@ -49,6 +49,20 @@ describe('buildSqlResponseCapsule', () => {
     expect(capsule.environment.runner).toBe('duckdb-wasm');
   });
 
+  it('records non-finite values as text and NULL as null in the row preview', async () => {
+    const capsule = await buildSqlResponseCapsule({
+      appVersion: 'test',
+      platform: 'web',
+      query: fixtureQuery(),
+      response: fixtureResponse({
+        rows: [{ a: 'Infinity' }, { a: 'NaN' }, { a: null }],
+        columns: [{ name: 'a', type: 'Float64' }],
+        rowCount: 3,
+      }),
+    });
+    expect(JSON.parse(capsule.result.stdout ?? '')).toEqual([{ a: 'Infinity' }, { a: 'NaN' }, { a: null }]);
+  });
+
   it('names the engine of a saved connection and nothing about where it points', async () => {
     const capsule = await buildSqlResponseCapsule({
       appVersion: 'test',

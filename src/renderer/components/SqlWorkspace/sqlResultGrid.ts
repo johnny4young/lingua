@@ -8,6 +8,8 @@
  * preview rows — they never re-run a query.
  */
 
+import { compareNumbers, nonFiniteNumber } from './sqlNonFinite';
+
 type SqlSortDirection = 'asc' | 'desc';
 
 export interface SqlSortState {
@@ -34,7 +36,8 @@ export function nextSortState(
 /**
  * Compare two cell values with type-aware ordering:
  *   - null / undefined sort last (in ascending order).
- *   - numbers + bigints compare numerically.
+ *   - numbers + bigints compare numerically, with non-finite cells kept as
+ *     text in their numeric place.
  *   - booleans compare false < true.
  *   - everything else compares as a locale-aware string.
  * Returns the ascending comparison; the caller flips for descending.
@@ -49,9 +52,7 @@ function compareCells(a: unknown, b: unknown): number {
   const aNum = toComparableNumber(a);
   const bNum = toComparableNumber(b);
   if (aNum !== null && bNum !== null) {
-    if (aNum < bNum) return -1;
-    if (aNum > bNum) return 1;
-    return 0;
+    return compareNumbers(aNum, bNum);
   }
 
   if (typeof a === 'boolean' && typeof b === 'boolean') {
@@ -65,9 +66,9 @@ function compareCells(a: unknown, b: unknown): number {
 }
 
 function toComparableNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'number') return value;
   if (typeof value === 'bigint') return Number(value);
-  return null;
+  return nonFiniteNumber(value);
 }
 
 function stringifyForCompare(value: unknown): string {

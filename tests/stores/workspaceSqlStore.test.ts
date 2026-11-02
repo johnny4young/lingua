@@ -308,6 +308,33 @@ describe('useWorkspaceSqlStore', () => {
       expect(useWorkspaceSqlStore.getState().history.map((entry) => entry.id)).toEqual(['prod']);
     });
 
+    it('rehydrates non-finite text as written and leaves an older entry\'s null as it was saved', async () => {
+      const response = (x: unknown) => ({
+        version: 1,
+        status: 'success',
+        rows: [{ x }],
+        columns: [{ name: 'x', type: 'Float64' }],
+        rowCount: 1,
+        durationMs: 1,
+        tooLarge: false,
+        statementCount: 1,
+        recordedAt: '2026-10-20T00:00:00.000Z',
+      });
+      const stored = {
+        state: {
+          queries: [q('now'), q('older')],
+          responsesByQueryId: { now: [response('Infinity')], older: [response(null)] },
+          activeQueryId: 'now',
+        },
+        version: 1,
+      };
+      localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(stored));
+      await useWorkspaceSqlStore.persist.rehydrate();
+      const { responsesByQueryId } = useWorkspaceSqlStore.getState();
+      expect(responsesByQueryId['now']?.[0]?.rows).toEqual([{ x: 'Infinity' }]);
+      expect(responsesByQueryId['older']?.[0]?.rows).toEqual([{ x: null }]);
+    });
+
     it('opens only the active query as a tab when rehydrating a store from before tabs', async () => {
       const legacy = {
         state: {

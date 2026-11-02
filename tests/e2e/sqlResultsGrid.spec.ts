@@ -102,6 +102,58 @@ test.describe('SQL result grid', () => {
     expect(errors).toEqual([]);
   });
 
+  for (const language of ['en', 'es'] as const) {
+    test(`shows Infinity and NaN as numbers and only a real NULL as null (${language})`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await seedSession(page, { language });
+      await gotoApp(page);
+      await openSqlScratch(page);
+      await typeSql(page, 'SELECT 1.0::DOUBLE / 0 AS pos, -1.0::DOUBLE / 0 AS neg, 0.0::DOUBLE / 0 AS nan, NULL::DOUBLE AS missing');
+      await page.keyboard.press('ControlOrMeta+Enter');
+      const row = page.getByTestId('sql-result-preview-row').first();
+      for (const [column, text] of [['pos', 'Infinity'], ['neg', '-Infinity'], ['nan', 'NaN'], ['missing', 'null']] as const) {
+        const cell = row.locator(`td[data-column="${column}"]`);
+        await expect(cell).toHaveText(text);
+        await expect(cell).toHaveCSS('text-align', 'right');
+      }
+      await expect(row.locator('td[data-column="pos"]')).toHaveCSS('font-style', 'normal');
+      await expect(row.locator('td[data-column="missing"]')).toHaveCSS('font-style', 'italic');
+
+      await typeSql(page, "SELECT x FROM (VALUES (1.5::DOUBLE), ('NaN'::DOUBLE), (NULL), ('-Infinity'::DOUBLE), ('Infinity'::DOUBLE), (-5.0::DOUBLE)) t(x)");
+      await page.keyboard.press('ControlOrMeta+Enter');
+      const cells = page.getByTestId('sql-result-preview-row').locator('td[data-column="x"]');
+      await expect(cells).toHaveCount(6);
+      await page.locator('[data-testid="sql-result-preview-sort"][data-column="x"]').click();
+      await expect(cells).toHaveText(['-Infinity', '-5', '1.5', 'Infinity', 'NaN', 'null']);
+
+      if (!(await page.getByTestId('sql-column-rail').isVisible())) await page.getByTestId('sql-column-rail-toggle').click();
+      const rail = page.locator('[data-testid="sql-rail-column"][data-column="x"]');
+      await expect(rail).toContainText('-Infinity–NaN');
+      await expect(rail).toContainText('17%');
+      await expect(rail.getByTestId('sql-rail-bin').first()).toBeVisible();
+
+      const exportJson = async () => {
+        await page.getByTestId('sql-result-preview-export').click();
+        await page.getByTestId('sql-export-format-json').click();
+        const download = page.waitForEvent('download');
+        await page.getByTestId('sql-export-download').click();
+        const text = await readFile((await (await download).path())!, 'utf8');
+        return (JSON.parse(text) as Array<{ x: unknown }>).map((entry) => entry.x);
+      };
+      expect(await exportJson()).toEqual(['-Infinity', -5, 1.5, 'Infinity', 'NaN', null]);
+
+      // Past the loaded window the export is DuckDB's own COPY, with the grid's sort still on.
+      await typeSql(page, "SELECT CASE i WHEN 0 THEN 'Infinity'::DOUBLE WHEN 1 THEN '-Infinity'::DOUBLE WHEN 2 THEN 'NaN'::DOUBLE WHEN 3 THEN NULL ELSE i END AS x FROM range(25000) t(i) ORDER BY i");
+      await page.keyboard.press('ControlOrMeta+Enter');
+      await expect(page.getByTestId('sql-result-load-more')).toBeVisible();
+      const full = await exportJson();
+      expect(full).toHaveLength(25_000);
+      expect(full.slice(0, 2)).toEqual(['-Infinity', 4]);
+      expect(full.slice(-3)).toEqual(['Infinity', 'NaN', null]);
+      expect(errors).toEqual([]);
+    });
+  }
+
   test('inserts a predicate from the column rail at the editor cursor (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

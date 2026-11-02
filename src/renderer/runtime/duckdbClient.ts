@@ -883,7 +883,9 @@ export async function readResultStream(
  *   - `Uint8Array` / Buffer → base64 string (rare in result sets but
  *     defensive).
  *   - Nested objects + arrays are recursed.
- *   - Numbers + booleans + strings + null pass through.
+ *   - Numbers + booleans + strings + null pass through; `Infinity`,
+ *     `-Infinity` and `NaN` become that text, as the connection host does,
+ *     because JSON cannot hold them.
  *   - Symbols + functions → `null` (defensive — DuckDB never returns
  *     these, but Arrow row objects can carry prototype chains).
  */
@@ -902,7 +904,7 @@ function sanitiseValueForJson(value: unknown): unknown {
   const valueType = typeof value;
   if (valueType === 'string' || valueType === 'boolean') return value;
   if (valueType === 'number') {
-    return Number.isFinite(value) ? value : null;
+    return Number.isFinite(value) ? value : String(value);
   }
   if (valueType === 'bigint') return (value as bigint).toString();
   if (valueType === 'symbol' || valueType === 'function') return null;

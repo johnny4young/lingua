@@ -1,5 +1,6 @@
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
+import { nonFiniteNumber } from './sqlNonFinite';
 import { quoteSqlIdentifier } from './sqlResultFormatters';
 
 export type SqlExportFormat =
@@ -196,6 +197,7 @@ function pythonLiteral(value: unknown, numeric: boolean): string {
     return Number.isFinite(value) ? String(value) : `float(${JSON.stringify(String(value))})`;
   if (typeof value === 'bigint') return value.toString();
   if (typeof value === 'string') {
+    if (numeric && nonFiniteNumber(value) !== null) return `float(${JSON.stringify(value)})`;
     return numeric && /^-?\d+(\.\d+)?$/.test(value) ? value : JSON.stringify(value);
   }
   if (Array.isArray(value)) return `[${value.map(item => pythonLiteral(item, false)).join(', ')}]`;
