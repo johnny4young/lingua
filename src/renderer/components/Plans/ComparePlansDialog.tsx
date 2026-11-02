@@ -1,10 +1,13 @@
 import { Check, Minus, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { PLAN_ROWS, TRIAL_DAYS, trialDaysLeft, type PlanRow, type PlanValue } from '../../../shared/plans';
+import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
+import { PLAN_ROWS, TRIAL_DAYS, type PlanRow, type PlanValue } from '../../../shared/plans';
+import type { Language } from '../../types/language';
+import { useTrialStatus } from '../../hooks/useTrialStatus';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { emitCommand } from '../../stores/commandBus';
-import { useLicenseStore } from '../../stores/licenseStore';
-import { useUIStore } from '../../stores/uiStore';
+import { languageLabel } from '../../utils/languageMeta';
+import { openPricingPage } from '../../utils/openPricingPage';
 import { cn } from '../../utils/cn';
 import { ModalShell } from '../ui/ModalShell';
 
@@ -16,6 +19,7 @@ function PlanCell({ value, unit }: { value: PlanValue; unit: PlanRow['unit'] }) 
     const formatted = value.toLocaleString(i18n.language);
     return <span>{unit === 'steps' ? t('plans.steps', { count: value, formatted }) : formatted}</span>;
   }
+  if (value === 'freeLanguages') return <span>{FREE_TIER_LIMITS.allowedLanguages.map(language => languageLabel(language as Language)).join(', ')}</span>;
   return <span>{t(`plans.value.${value}`)}</span>;
 }
 
@@ -23,23 +27,12 @@ function PlanCell({ value, unit }: { value: PlanValue; unit: PlanRow['unit'] }) 
 export function ComparePlansDialog({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const tier = useEffectiveTier();
-  const status = useLicenseStore(state => state.status);
-  const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
-  const trialEndsAt = (status.kind === 'active' || status.kind === 'grace') && tier === 'trial' ? status.verification.payload.supportWindowEndsAt : null;
+  const trial = useTrialStatus();
   const paid = tier !== 'free';
-  const pricingUrl = i18n.language.startsWith('es') ? 'https://linguacode.dev/es/pricing' : 'https://linguacode.dev/pricing';
 
   const openAccount = () => {
     onClose();
     emitCommand('settings.openLicense');
-  };
-  const openPricing = async () => {
-    try {
-      if (await window.lingua.openExternal(pricingUrl)) return;
-    } catch {
-      // The OS shell can refuse even a fixed trusted URL.
-    }
-    pushStatusNotice({ tone: 'error', messageKey: 'license.benefits.pricingOpenFailed' });
   };
 
   return (
@@ -59,9 +52,9 @@ export function ComparePlansDialog({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="space-y-3 p-4" data-testid="compare-plans">
-        {trialEndsAt ? (
+        {trial ? (
           <p className="rounded-lg border border-accent bg-accent/10 px-3 py-2 text-body-sm text-fg-base" data-testid="compare-plans-trial">
-            {t('plans.trialLeft', { count: trialDaysLeft(trialEndsAt), total: TRIAL_DAYS })}
+            {trial.ended ? t('plans.trialEnded') : t('plans.trialLeft', { count: trial.daysLeft, total: trial.totalDays })}
           </p>
         ) : !paid ? (
           <div className="flex items-center gap-3 rounded-lg border border-accent bg-accent/10 px-3 py-2" data-testid="compare-plans-trial">
@@ -104,7 +97,7 @@ export function ComparePlansDialog({ onClose }: { onClose: () => void }) {
         </table>
 
         <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
-          <button type="button" onClick={() => void openPricing()} data-testid="compare-plans-pricing" className="button-secondary h-7 px-2.5 text-caption">
+          <button type="button" onClick={() => void openPricingPage(i18n.language)} data-testid="compare-plans-pricing" className="button-secondary h-7 px-2.5 text-caption">
             {t('plans.pricing')}
           </button>
           <button type="button" onClick={openAccount} data-testid="compare-plans-license" className="button-secondary h-7 px-2.5 text-caption">

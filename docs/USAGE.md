@@ -350,7 +350,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 ## Pro in context (Labs)
 
 - Turn on **Settings › Labs › Pro in context** and the license pill in the command bar opens **Compare plans** on Free or during a trial: one Free against Pro table built from the limits Lingua enforces, with the open tabs, snippets, languages, saved connections, timeline steps and the Pro-only features. A paid plan's pill still opens Settings › Account.
-- During a trial the pill reads *TRIAL · 11 DAYS* and Compare plans says *Pro trial · 11 of 14 days left*. On Free, Compare plans offers **Start trial**, which opens Settings › Account, where the trial now sits right under the current plan. Starting a trial still needs an email and the network; once it starts, it works offline.
+- During a trial the pill reads *TRIAL · 11 DAYS* and Compare plans says *Pro trial · 11 of 14 days left*, counted from the trial's own token and refreshed every hour; once the trial's window ends, both say the trial ended. On Free, Compare plans offers **Start trial**, which opens Settings › Account, where the trial now sits right under the current plan. Starting a trial still needs an email and the network; once it starts, it works offline.
 - A **PRO** chip next to a limited feature opens the same table; the timeline's *Free keeps the last 20 of …* chip is the first. Only the first notice about a Pro limit in a session carries **Compare plans**; later ones only say what was blocked.
 
 ## Browser-only limitations

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FREE_TIER_LIMITS } from '../../src/shared/entitlements';
-import { PLAN_ROWS, trialDaysLeft } from '../../src/shared/plans';
+import { PLAN_ROWS, trialDaysLeft, trialLengthDays } from '../../src/shared/plans';
 import { TIMELINE_FREE_STEPS, TIMELINE_MAX_STEPS } from '../../src/shared/timeline';
 
 const DAY = 86_400_000;
@@ -15,6 +15,13 @@ describe('trialDaysLeft', () => {
   it('is 0 once the window passed or for a bad date', () => {
     expect(trialDaysLeft(new Date(now - DAY).toISOString(), now)).toBe(0);
     expect(trialDaysLeft('not a date', now)).toBe(0);
+  });
+});
+
+describe('trialLengthDays', () => {
+  it('reads the length from the token, or 14 for bad dates', () => {
+    expect(trialLengthDays(new Date(now).toISOString(), new Date(now + 30 * DAY).toISOString())).toBe(30);
+    expect(trialLengthDays('bad', 'dates')).toBe(14);
   });
 });
 

@@ -4,7 +4,7 @@ import { computeLicenseJwkThumbprint } from '../../../shared/license';
 import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
 import { PUBLIC_KEY_JWK } from '../../stores/licenseWebVerify';
 import { useUIStore } from '../../stores/uiStore';
-import { emitCommand } from '../../stores/commandBus';
+import { openPricingPage, pricingUrl as pricingUrlFor } from '../../utils/openPricingPage';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
 import { writeToClipboard } from '../../utils/clipboard';
@@ -201,9 +201,7 @@ export function LicenseSection() {
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const isDevicesExhausted = status.kind === 'invalid' && status.reason === 'devices-exhausted';
   const lifetimeNotice = lifetimeUpdateNotice(status);
-  const pricingUrl = i18n.language.startsWith('es')
-    ? 'https://linguacode.dev/es/pricing'
-    : 'https://linguacode.dev/pricing';
+  const pricingUrl = pricingUrlFor(i18n.language);
 
   // When a child CTA hits a duplicate-email branch with
   // `canRecover: true`, we capture the email here and pass it down to
@@ -324,14 +322,7 @@ export function LicenseSection() {
     );
   };
 
-  const handleOpenPricing = async () => {
-    try {
-      if (await window.lingua.openExternal(pricingUrl)) return;
-    } catch {
-      // The OS shell can reject a launch even for a trusted fixed URL.
-    }
-    pushStatusNotice({ tone: 'error', messageKey: 'license.benefits.pricingOpenFailed' });
-  };
+  const handleOpenPricing = () => openPricingPage(i18n.language);
 
   const runClear = async () => {
     if (isClearing) return;
@@ -393,16 +384,6 @@ export function LicenseSection() {
                   {t(statusLabelKey(status), { tier: tierLabel(t, status) })}
                 </StatusBadge>
               </span>
-              {inContext ? (
-                <button
-                  type="button"
-                  onClick={() => emitCommand('plans.compare')}
-                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base"
-                  data-testid="license-compare-plans"
-                >
-                  {t('plans.title')}
-                </button>
-              ) : null}
               {token ? (
                 <button
                   type="button"

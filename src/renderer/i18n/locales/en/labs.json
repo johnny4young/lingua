@@ -18,5 +18,5 @@
   "settings.labs.flag.paletteAutodetect.label": "Palette autodetect",
   "settings.labs.flag.paletteAutodetect.description": "The Command Palette tells a question, a file name and a command apart. On a code tab, a question goes to Explain this code, which can include the last run (Pro), a file name opens Quick Open with it typed in, and anything else searches commands. Start with ! to search commands only.",
   "settings.labs.flag.teachingPaywall.label": "Pro in context",
-  "settings.labs.flag.teachingPaywall.description": "A PRO chip on a limited feature opens one Compare plans table, the license pill in the command bar shows a trial's days left or offers one, and Lingua shows at most one upgrade notice a session."
+  "settings.labs.flag.teachingPaywall.description": "A PRO chip on a limited feature opens one Compare plans table, the license pill in the command bar shows a trial's days left or offers one, and only the first upgrade notice in a session offers Compare plans."
 }

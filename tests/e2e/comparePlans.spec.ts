@@ -29,7 +29,6 @@ for (const language of ['en', 'es'] as const) {
     await page.getByTestId('compare-plans-start-trial').click();
     await expect(plans).toHaveCount(0);
     await expect(page.getByTestId('trial-email-input')).toBeVisible();
-    await expect(page.getByTestId('license-compare-plans')).toBeVisible();
   });
 }
 

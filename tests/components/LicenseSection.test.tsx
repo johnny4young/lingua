@@ -1043,7 +1043,6 @@ describe('LicenseSection', () => {
       expect(trial).toHaveLength(1);
       const paste = screen.getByRole('textbox', { name: /paste a license token/i });
       expect(trial[0]!.compareDocumentPosition(paste) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(screen.getByTestId('license-compare-plans')).toBeTruthy();
     } finally {
       useSettingsStore.setState({ featureFlags: {} });
     }

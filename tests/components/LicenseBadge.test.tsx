@@ -174,6 +174,71 @@ describe('LicenseBadge', () => {
       expect(openLicense).not.toHaveBeenCalled();
     });
 
+    it('says the trial ended in grace, and stays a plain label without onClick', () => {
+      useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+      act(() => {
+        useLicenseStore.setState({
+          token: 'dev-trial.token',
+          status: {
+            kind: 'grace',
+            verification: {
+              ok: true,
+              state: 'grace',
+              supportWindowEndsAt: Date.now() - 24 * 60 * 60 * 1000,
+              payload: {
+                productId: 'lingua',
+                tier: 'trial',
+                issuedTo: 'dev@localhost',
+                issuedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+                supportWindowEndsAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+                entitlements: [],
+              },
+            },
+          },
+          lastVerifiedAt: Date.now(),
+        } as never);
+      });
+      render(<LicenseBadge />);
+      const badge = screen.getByTestId('license-badge');
+      expect(badge.textContent).toBe('TRIAL ENDED');
+      expect(badge.tagName.toLowerCase()).toBe('span');
+    });
+
+    it('updates the days left while the window stays open', () => {
+      vi.useFakeTimers();
+      try {
+        useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+        act(() => {
+          useLicenseStore.setState({
+            token: 'dev-trial.token',
+            status: {
+              kind: 'active',
+              verification: {
+                ok: true,
+                state: 'active',
+                supportWindowEndsAt: Date.now() + 25 * 60 * 60 * 1000,
+                payload: {
+                  productId: 'lingua',
+                  tier: 'trial',
+                  issuedTo: 'dev@localhost',
+                  issuedAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
+                  supportWindowEndsAt: new Date(Date.now() + 24.5 * 60 * 60 * 1000).toISOString(),
+                  entitlements: [],
+                },
+              },
+            },
+            lastVerifiedAt: Date.now(),
+          } as never);
+        });
+        render(<LicenseBadge onClick={vi.fn()} />);
+        expect(screen.getByTestId('license-badge').textContent).toBe('TRIAL · 2 DAYS');
+        act(() => vi.advanceTimersByTime(60 * 60 * 1000));
+        expect(screen.getByTestId('license-badge').textContent).toBe('TRIAL · 1 DAY');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('opens Compare plans from Free and License settings from a paid plan', async () => {
       useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
       const compare = vi.fn();

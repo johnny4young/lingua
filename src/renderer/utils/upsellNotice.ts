@@ -17,7 +17,7 @@ export interface UpsellNoticeInput {
   detail?: string;
 }
 
-// Features whose upsell already showed with its CTA this session.
+// Features whose upsell already showed with its CTA this session ('any' with Labs › Pro in context).
 const pitched = new Set<string>();
 
 /** Test hook: a fresh session. */

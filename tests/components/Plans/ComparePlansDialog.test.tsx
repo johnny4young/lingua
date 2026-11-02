@@ -9,18 +9,18 @@ import type { LicenseTier } from '../../../src/shared/license';
 
 const DAY = 86_400_000;
 
-function seedTier(tier: Exclude<LicenseTier, 'free'>, daysLeft: number) {
+function seedTier(tier: Exclude<LicenseTier, 'free'>, daysLeft: number, kind: 'active' | 'grace' = 'active') {
   const ends = new Date(Date.now() + daysLeft * DAY - 60_000).toISOString();
   act(() => {
     useLicenseStore.setState({
       token: `dev-${tier}.token`,
       status: {
-        kind: 'active',
+        kind,
         verification: {
           ok: true,
           state: 'active',
           supportWindowEndsAt: Date.parse(ends),
-          payload: { productId: 'lingua', tier, issuedTo: 'dev@localhost', issuedAt: new Date().toISOString(), supportWindowEndsAt: ends, entitlements: [] },
+          payload: { productId: 'lingua', tier, issuedTo: 'dev@localhost', issuedAt: new Date(Date.parse(ends) - 14 * DAY).toISOString(), supportWindowEndsAt: ends, entitlements: [] },
         },
       },
       lastVerifiedAt: Date.now(),
@@ -63,6 +63,18 @@ describe('ComparePlansDialog', () => {
     render(<ComparePlansDialog onClose={vi.fn()} />);
     expect(screen.getByTestId('compare-plans-trial').textContent).toBe('Pro trial · 11 of 14 days left');
     expect(screen.queryByTestId('compare-plans-start-trial')).toBeNull();
+  });
+
+  it('says the trial ended during its grace period', () => {
+    seedTier('trial', -2, 'grace');
+    render(<ComparePlansDialog onClose={vi.fn()} />);
+    expect(screen.getByTestId('compare-plans-trial').textContent).toBe('Your Pro trial has ended');
+  });
+
+  it('lists the Free languages from the enforced set', () => {
+    render(<ComparePlansDialog onClose={vi.fn()} />);
+    expect(screen.getByTestId('compare-plans-row-languages').textContent).toContain('Ruby');
+    expect(screen.getByTestId('compare-plans-row-languages').textContent).toContain('Python');
   });
 
   it('shows no trial row on a paid plan', () => {

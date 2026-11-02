@@ -18,5 +18,5 @@
   "settings.labs.flag.paletteAutodetect.label": "Detección en la paleta",
   "settings.labs.flag.paletteAutodetect.description": "La paleta de comandos distingue una pregunta, un nombre de archivo y un comando. En una pestaña de código, una pregunta va a Explica este código, que puede incluir la última ejecución (Pro), un nombre de archivo abre Apertura rápida con él escrito, y lo demás busca comandos. Empieza con ! para buscar solo comandos.",
   "settings.labs.flag.teachingPaywall.label": "Pro en contexto",
-  "settings.labs.flag.teachingPaywall.description": "Un chip PRO en una función limitada abre una sola tabla Comparar planes, la etiqueta de licencia de la barra de comandos muestra los días que le quedan a una prueba o te ofrece una, y Lingua muestra como mucho un aviso de mejora por sesión."
+  "settings.labs.flag.teachingPaywall.description": "Un chip PRO en una función limitada abre una sola tabla Comparar planes, la etiqueta de licencia de la barra de comandos muestra los días que le quedan a una prueba o te ofrece una, y solo el primer aviso de mejora de la sesión ofrece Comparar planes."
 }
