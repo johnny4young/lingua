@@ -329,6 +329,7 @@ function AppChrome({
   // producers request the snippets surface through the typed bus.
   useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
   useCommandListener('overlay.openRecipes', () => openOverlay('recipes'));
+  useCommandListener('plans.compare', () => openOverlay('compare-plans'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 

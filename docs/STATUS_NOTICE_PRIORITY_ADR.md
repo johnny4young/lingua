@@ -156,7 +156,7 @@ rules above are superseded by these:
 - **Upsells pitch once per feature.** `pushUpsellNotice` shows the full
   message with *See what Pro includes* the first time a feature is blocked in
   a session; later blocks of that feature show the same message without the
-  call to action.
+  call to action. With Labs › Pro in context, a single pitch covers every feature and its action opens Compare plans.
 
 Coverage: `tests/stores/statusNoticeQueue.test.ts`,
 `tests/stores/uiStore.test.ts`, `tests/components/StatusNoticeBanner.test.tsx`,

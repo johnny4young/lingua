@@ -347,6 +347,12 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - For code runs, **Restore as new tab** opens the earlier run's code in a new tab named after the file and the time, in Run mode, and never overwrites a tab. **Pin run** keeps the earlier run in the list past the 50-run cap until you unpin it.
 - The history stays in memory for the session, like Recent runs: up to 50 runs plus the ones you pinned, with code kept up to 256 KiB and stdout and stderr up to 64 KiB each. Runs from before you turned it on are listed but cannot be ticked. Settings › Privacy › Local data counts these runs, and Clear everything, or removing a run's capsule, drops their code and output. It is separate from the Run Ledger below, which never keeps code or output.
 
+## Pro in context (Labs)
+
+- Turn on **Settings › Labs › Pro in context** and the license pill in the command bar opens **Compare plans** on Free or during a trial: one Free against Pro table built from the limits Lingua enforces, with the open tabs, snippets, languages, saved connections, timeline steps and the Pro-only features. A paid plan's pill still opens Settings › Account.
+- During a trial the pill reads *TRIAL · 11 DAYS* and Compare plans says *Pro trial · 11 of 14 days left*, counted from the trial's own token and refreshed every hour; once the trial's window ends, both say the trial ended. On Free, Compare plans offers **Start trial**, which opens Settings › Account, where the trial now sits right under the current plan. Starting a trial still needs an email and the network; once it starts, it works offline.
+- A **PRO** chip next to a limited feature opens the same table; the timeline's *Free keeps the last 20 of …* chip is the first. Only the first notice about a Pro limit in a session carries **Compare plans**; later ones only say what was blocked.
+
 ## Browser-only limitations
 
 - Go compilation stays unavailable in the browser build and returns an explicit desktop-only message.

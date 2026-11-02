@@ -258,6 +258,12 @@ With Labs › Palette autodetect, `usePaletteAutodetect.ts` reads the query with
 question for Explain this code, or a file for Quick Open); that row is not a
 registry command, so it never enters the recent stack or the ranking.
 
+Labs › Pro in context routes upgrade surfaces through the `plans.compare`
+command: `components/Plans/ComparePlansDialog.tsx` (lazy overlay
+`compare-plans`) renders `shared/plans.ts`, whose Free numbers come from
+`FREE_TIER_LIMITS` and the timeline caps, and `components/ui/ProChip.tsx` is
+the PRO mark limited features use to open it.
+
 The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
 persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes
 through `utils/explorerToggle.ts`, which targets that list on a Utilities tab

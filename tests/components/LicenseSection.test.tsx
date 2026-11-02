@@ -1033,4 +1033,18 @@ describe('LicenseSection', () => {
       expect(screen.queryByTestId('license-key-fingerprint-copy')).toBeNull();
     });
   });
+
+  it('puts the trial under the current plan with Pro in context, once', async () => {
+    const { useSettingsStore } = await import('@/stores/settingsStore');
+    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+    try {
+      render(<LicenseSection />);
+      const trial = screen.getAllByTestId('trial-start');
+      expect(trial).toHaveLength(1);
+      const paste = screen.getByRole('textbox', { name: /paste a license token/i });
+      expect(trial[0]!.compareDocumentPosition(paste) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    } finally {
+      useSettingsStore.setState({ featureFlags: {} });
+    }
+  });
 });

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pushUpsellNotice, resetUpsellNoticesForTests } from '../../src/renderer/utils/upsellNotice';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import {
   _resetCommandBusForTesting,
   subscribeCommand,
@@ -83,5 +84,25 @@ describe('pushUpsellNotice', () => {
 
     expect(listener).toHaveBeenCalledOnce();
     unsubscribe();
+  });
+
+  it('pitches once a session across features with Pro in context, opening Compare plans', () => {
+    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+    try {
+      const compare = vi.fn();
+      subscribeCommand('plans.compare', compare);
+      pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel: 'additional open tabs' });
+      const first = useUIStore.getState().statusNotice!;
+      expect(first.actions).toEqual([expect.objectContaining({ labelKey: 'plans.title' })]);
+      first.actions![0]!.onClick();
+      expect(compare).toHaveBeenCalled();
+      useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
+      pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel: 'more snippets' });
+      const second = useUIStore.getState().statusNotice!;
+      expect(second.actions).toBeUndefined();
+      expect(second.priority).toBeUndefined();
+    } finally {
+      useSettingsStore.setState({ featureFlags: {} });
+    }
   });
 });

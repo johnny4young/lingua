@@ -17,7 +17,8 @@ export type AppOverlay =
   | 'capsule-import'
   | 'capsule-list'
   | 'import-preview'
-  | 'project-bundle-import';
+  | 'project-bundle-import'
+  | 'compare-plans';
 
 /** Callbacks owned by App and dispatched by the global shortcut catalog. */
 export interface UseGlobalShortcutsOptions {
