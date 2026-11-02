@@ -88,7 +88,7 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
     <section
       data-testid="sql-instant-preview"
       aria-label={t('sqlWorkspace.instant.label')}
-      className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-b border-border-subtle bg-bg-panel"
+      className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-b border-border-subtle bg-bg-panel has-[[data-breakdown-open]]:max-h-[70%]"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-1.5">
         {blocked ? (

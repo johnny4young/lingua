@@ -64,7 +64,7 @@ export function SqlExprBreakdown({ source, expr, column, busy, selected, onSelec
       : null;
 
   return (
-    <div data-testid="sql-instant-breakdown" className="pt-2">
+    <div data-testid="sql-instant-breakdown" className="min-h-0 min-w-0 flex-1 overflow-auto @2xl:max-w-[45%] @2xl:flex-none @2xl:basis-[40%]">
       <p className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">{t('sqlWorkspace.instant.breakdown.title', { name: column })}</p>
       {!outcome ? (
         <p className="pt-1 text-caption text-fg-subtle" aria-live="polite">
