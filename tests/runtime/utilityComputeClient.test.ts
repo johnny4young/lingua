@@ -51,6 +51,15 @@ describe('utility compute worker client', () => {
       expect(onStepSettled.mock.calls.map(([result]) => result.status)).toEqual(['ok', 'timeout', 'skipped']);
     });
 
+    it('times out a first step that never reports', async () => {
+      vi.useFakeTimers();
+      const worker = new FakeWorker();
+      const promise = runPipelineOffThread({ pipeline, input: 'i', stepTimeoutMs: 100, workerFactory: () => worker as unknown as Worker });
+      await vi.advanceTimersByTimeAsync(1100);
+      await expect(promise).resolves.toMatchObject({ status: 'all-failed', results: [{ status: 'timeout' }, { status: 'skipped' }, { status: 'skipped' }] });
+      expect(worker.terminate).toHaveBeenCalledOnce();
+    });
+
     it('leaves no deadline behind once the run settles', async () => {
       vi.useFakeTimers();
       const worker = new FakeWorker();
