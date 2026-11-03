@@ -17,6 +17,27 @@ const MOCKED_ENDPOINTS = [
   { url: 'https://licenses.linguacode.dev/licenses/devices/remove', method: 'POST', status: 200 },
 ];
 
+// These never mount App, so nothing in them reaches the mocked hosts.
+const UNMOCKED_TEST_ALLOWLIST = [
+  'localMcpVisual.spec.ts',
+  'projectTerminalVisual.spec.ts',
+  'projectTestsVisual.spec.ts',
+  'shellCsp.spec.ts',
+];
+
+function e2eSources(): { file: string; source: string }[] {
+  const e2eDir = path.join(process.cwd(), 'tests/e2e');
+  return readdirSync(e2eDir, { recursive: true, encoding: 'utf8' })
+    .filter(file => file.endsWith('.ts'))
+    .sort()
+    .map(file => ({ file, source: readFileSync(path.join(e2eDir, file), 'utf8') }));
+}
+
+function importsTestAsValue(source: string): boolean {
+  const imports = source.matchAll(/import\s+\{([^}]*)\}\s+from\s+['"]@playwright\/test['"]/g);
+  return [...imports].some(([, names]) => names.split(',').some(name => /^test\b/.test(name.trim())));
+}
+
 async function expectNewPageIsMocked(context: BrowserContext): Promise<void> {
   const page = await context.newPage();
   await context.setOffline(true);
@@ -54,13 +75,20 @@ test('a page in a separate mocked context is mocked', async ({ browser }) => {
 });
 
 test('no spec opens a context without the mocks', () => {
-  const e2eDir = path.join(process.cwd(), 'tests/e2e');
-  const unmocked = readdirSync(e2eDir).filter(
-    file =>
-      file !== 'licenseWeb.helpers.ts' &&
-      file !== 'networkMocks.spec.ts' &&
-      file.endsWith('.ts') &&
-      readFileSync(path.join(e2eDir, file), 'utf8').includes('browser.newContext(')
-  );
+  const unmocked = e2eSources()
+    .filter(
+      ({ file, source }) =>
+        file !== 'licenseWeb.helpers.ts' &&
+        file !== 'networkMocks.spec.ts' &&
+        source.includes('browser.newContext(')
+    )
+    .map(({ file }) => file);
   expect(unmocked).toEqual([]);
+});
+
+test('no spec skips the mocked test fixture', () => {
+  const direct = e2eSources()
+    .filter(({ file, source }) => file !== 'licenseWeb.helpers.ts' && importsTestAsValue(source))
+    .map(({ file }) => file);
+  expect(direct).toEqual(UNMOCKED_TEST_ALLOWLIST);
 });
