@@ -112,6 +112,23 @@ test('auto-bake follows the input in the Worker, and stops at a breakpoint', asy
   await expect(page.getByTestId('utility-pipeline-result-input')).toHaveText('c d');
 });
 
+test('holds Send until the tool has loaded its output', async ({ page }) => {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/JsonUtilityPanel-*.js', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await open(page, 'en');
+  await page.keyboard.press('ControlOrMeta+K');
+  await page.getByTestId('utility-send-output').selectOption('json-minify');
+  await expect(page.getByTestId('utility-send-output-go')).toBeDisabled();
+  release();
+  await page.getByTestId('utility-send-output-go').click();
+  await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
+  await expect(page.getByTestId('utility-pipeline-editor-input')).not.toHaveValue('');
+});
+
 test('keeps the controls across a reload, and never the input', async ({ page }) => {
   await open(page, 'en');
   await pipelineWith(page, ['url-encode'], 'tok-SECRET value');

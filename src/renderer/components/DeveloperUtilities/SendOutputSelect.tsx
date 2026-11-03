@@ -6,7 +6,16 @@ import { UTILITY_ADAPTER_IDS, type UtilityAdapterId } from '../../../shared/util
 import '../../i18n/clipboardChainsCatalog';
 
 /** The pick and the action are separate: a closed select fires change on arrow keys on Windows and Linux. */
-export function SendOutputSelect({ onSend, testId }: { onSend: (utilityId: UtilityAdapterId) => void; testId: string }) {
+export function SendOutputSelect({
+  onSend,
+  testId,
+  ready = true,
+}: {
+  onSend: (utilityId: UtilityAdapterId) => void;
+  testId: string;
+  /** False while the output's source has not loaded. */
+  ready?: boolean;
+}) {
   const { t } = useTranslation();
   const [picked, setPicked] = useState<UtilityAdapterId | ''>('');
   return (
@@ -32,7 +41,7 @@ export function SendOutputSelect({ onSend, testId }: { onSend: (utilityId: Utili
       </label>
       <button
         type="button"
-        disabled={picked === ''}
+        disabled={picked === '' || !ready}
         data-testid={`${testId}-go`}
         onClick={() => {
           if (picked === '') return;
