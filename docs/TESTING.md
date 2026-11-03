@@ -149,6 +149,14 @@ only the shard that failed. Reproduce one shard locally with
 `pnpm run test:e2e:web --shard=2/3`. The job restores the Playwright browser
 cache and uses CI-only timeout scaling so local feedback stays fast.
 
+Locally, each checkout gets its own preview port, derived from its path in
+the 20000-29999 range, so worktrees can run the suite at the same time. The
+wrapper prints the port it picked. It reuses a server only when that server
+serves the same `dist/web/index.html`, and moves to the next port when
+something else holds the derived one. To choose the port yourself, set
+`LINGUA_E2E_PORT`; the run stops if that port serves anything else. CI stays
+on port 4175 and never reuses a server.
+
 ### Electron Base
 
 For interactive desktop debugging, use the managed desktop launcher:
