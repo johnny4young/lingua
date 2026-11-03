@@ -8,7 +8,6 @@ import type { Page } from '@playwright/test';
 import {
   expect,
   gotoApp,
-  installLicenseServerMock,
   openSettings,
   openSettingsTab,
   seedSession,
@@ -37,10 +36,8 @@ async function writeSettingFrom(page: Page): Promise<void> {
   await page.getByTestId('settings-notebook-default-language').selectOption('typescript');
 }
 
-// The `page` fixture's network mocks do not cover a page opened by hand.
 async function openSecondTab(page: Page) {
   const other = await page.context().newPage();
-  await installLicenseServerMock(other);
   const errors = trackConsoleErrors(other);
   await gotoApp(other);
   await openPrivacy(other);

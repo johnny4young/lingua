@@ -29,6 +29,7 @@ import {
   createTypeScriptTab,
   expect,
   gotoApp,
+  newMockedContext,
   openConsole,
   openSettings,
   selectWorkflowMode,
@@ -295,7 +296,7 @@ test.describe('Debugger ', () => {
     // English and reseeding mid-test does not flip the already-loaded
     // i18n bundle. The pattern mirrors `utilitiesApply.spec.ts`'s
     // tuteo check.
-    const context = await browser.newContext();
+    const context = await newMockedContext(browser);
     const esPage = await context.newPage();
     try {
       await seedSession(esPage, { language: 'es' });

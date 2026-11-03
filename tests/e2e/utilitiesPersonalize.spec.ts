@@ -22,6 +22,7 @@ import {
   expect,
   expectTier,
   gotoApp,
+  newMockedContext,
   openDeveloperUtilities,
   openSettings,
   openSettingsTab,
@@ -191,7 +192,7 @@ test.describe('personalize gesture smoke', () => {
   test('Spanish locale: favorites label, history drawer copy, and Settings toggle status are localized', async ({
     browser,
   }) => {
-    const ctx = await browser.newContext();
+    const ctx = await newMockedContext(browser);
     const page = await ctx.newPage();
     try {
       await seedSession(page, { language: 'es', primeProLicense: true });
