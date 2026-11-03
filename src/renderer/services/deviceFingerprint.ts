@@ -18,6 +18,9 @@
  * Per LICENSING_ADR Decision 4 + Decision 6 (web licensing model).
  */
 
+import { decodeLicenseToken } from '../../shared/license';
+import { isStorageEphemeral } from '../utils/ephemeralStorage';
+
 const STORAGE_KEY = 'lingua-device-id';
 let sessionDeviceId: string | null = null;
 
@@ -62,6 +65,24 @@ export function getOrMintDeviceId(): string {
   }
   sessionDeviceId = minted;
   return minted;
+}
+
+/**
+ * With blocked storage a minted id dies with the page, and each new one takes a
+ * seat. Derive it instead, so a license keeps one seat per browser family and OS
+ * across reloads and tabs. Falls back to the minted id if hashing is unavailable.
+ */
+export async function pinEphemeralDeviceId(token: string): Promise<void> {
+  if (!isStorageEphemeral()) return;
+  const decoded = decodeLicenseToken(token);
+  if (!decoded.ok) return;
+  const seed = `${decoded.payload.licenseId ?? decoded.payload.issuedTo}|${getDeviceName()}`;
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed));
+    window.localStorage.setItem(STORAGE_KEY, formatUuid(new Uint8Array(digest).slice(0, 16)));
+  } catch {
+    // No Web Crypto digest here; keep the minted id.
+  }
 }
 
 /**
@@ -149,7 +170,10 @@ function mintUuid(): string | null {
     return null;
   }
 
-  const bytes = cryptoLike.getRandomValues(new Uint8Array(16));
+  return formatUuid(cryptoLike.getRandomValues(new Uint8Array(16)));
+}
+
+function formatUuid(bytes: Uint8Array): string {
   bytes[6] = (bytes[6]! & 0x0f) | 0x40;
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0'));

@@ -71,6 +71,8 @@
   "actionPill.runDesc": "Ejecuta el archivo y muestra los resultados en línea.",
   "actionPill.debugDesc": "Abre el depurador paso a paso con puntos de interrupción.",
   "actionPill.autosave": "autoguardado",
+  "actionPill.notSaved": "sin guardar",
+  "storage.ephemeral.message": "Tu navegador bloquea los datos de sitios, así que nada se guarda al recargar. Permite los datos de este sitio para conservar tu trabajo y tu licencia.",
   "actionPill.dragHandle": "Mover la barra flotante",
   "actionPill.moreActions": "Más acciones",
   "actionPill.navigate": "navegar",

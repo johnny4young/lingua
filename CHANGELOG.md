@@ -88,6 +88,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - In the web app, a SQL tab that finishes loading its engine no longer replaces the open query tabs another browser tab just saved, so reloading that tab keeps them. A tab now saves a store only when something in it changed.
+- With the browser blocking site data, Lingua says that nothing is saved after a reload: the toolbar shows not saved instead of autosave, a warning appears on load, and the browser asks before a reload drops edits. The guided tour no longer reopens on every load, and pasting a license again after a reload keeps one web seat instead of using up all three.
 - Lingua on the web boots and runs when the browser blocks site storage, as block-all-cookies does, instead of stopping at a blank page. Settings and work stay in memory and are gone on reload.
 - Pasting a hostname or a version such as `www.example.com` or `1.2.3` no longer suggests the JWT Debugger; the first segment has to be a JWT header.
 - The HTML entity decode step in utility pipelines leaves `&constructor;` and other names it does not know as written, instead of printing JavaScript source in their place.

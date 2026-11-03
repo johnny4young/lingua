@@ -44,6 +44,7 @@ import { useGitStatus } from './hooks/useGitStatus';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
+import { useEphemeralStorageNotice } from './hooks/useEphemeralStorageNotice';
 import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
@@ -249,6 +250,7 @@ function AppChrome({
     smokeEnabled,
   ]);
 
+  useEphemeralStorageNotice();
   useProjectWatchSync();
   useProjectIndexSync();
   useWatcherDiagnosticsSync();

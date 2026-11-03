@@ -219,8 +219,15 @@ export function FloatingActionPill({
 
       {/* 4. Autosave dot — Lingua persists every keystroke locally, so
               the chip is informational rather than a toggle. Surfaces
-              a tooltip explaining the always-on behaviour. */}
-      <Tooltip content={t('actionPill.autosaveTooltip', { combo: saveCombo })}>
+              a tooltip explaining the always-on behaviour, or that
+              blocked storage keeps nothing. */}
+      <Tooltip
+        content={
+          autoSaveEnabled
+            ? t('actionPill.autosaveTooltip', { combo: saveCombo })
+            : t('storage.ephemeral.message')
+        }
+      >
         <div
           className="action-pill-meta inline-flex items-center gap-1.5 pl-2 pr-3 text-eyebrow font-mono text-fg-muted"
           data-testid="action-pill-autosave"
@@ -229,10 +236,10 @@ export function FloatingActionPill({
             aria-hidden
             className={cn(
               'inline-block size-1.5 rounded-full',
-              autoSaveEnabled ? 'bg-success-fg' : 'bg-border-strong',
+              autoSaveEnabled ? 'bg-success-fg' : 'bg-warning-fg',
             )}
           />
-          <span>{t('actionPill.autosave')}</span>
+          <span>{t(autoSaveEnabled ? 'actionPill.autosave' : 'actionPill.notSaved')}</span>
         </div>
       </Tooltip>
 
