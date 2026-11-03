@@ -10,7 +10,6 @@ import {
   createJavaScriptTab,
   expect,
   gotoApp,
-  installLicenseServerMock,
   openDeveloperUtilities,
   openSettings,
   openSettingsTab,
@@ -23,11 +22,9 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-// The `page` fixture's network mocks do not cover a page opened by hand.
 async function openSecondTab(page: Page) {
   const other = await page.context().newPage();
   await other.setViewportSize({ width: 1440, height: 900 });
-  await installLicenseServerMock(other);
   const otherErrors = trackConsoleErrors(other);
   await gotoApp(other);
   return { other, otherErrors };
