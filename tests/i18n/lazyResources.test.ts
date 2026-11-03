@@ -163,12 +163,24 @@ describe('renderer locale bundle boundary', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
     ) as Record<string, string>;
-    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.labs.flag.httpScopes.'))).toEqual([]);
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.labs.flag.'))).toEqual([]);
     expect(rendererI18n).toContain("import('./locales/es/labs.json')");
     const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/labsCatalog.ts'), 'utf8');
     expect(registration).toContain("import en from './locales/en/labs.json'");
     const labs = readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/LabsSection.tsx'), 'utf8');
     expect(labs).toContain("import '../../i18n/labsCatalog'");
+  });
+
+  it('keeps the Local MCP copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.localMcp.'))).toEqual([]);
+    expect(rendererI18n).toContain("import('./locales/es/localMcp.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/localMcpCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/localMcp.json'");
+    const section = readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/LocalMcpSection.tsx'), 'utf8');
+    expect(section).toContain("import '../../i18n/localMcpCatalog'");
   });
 
   it('keeps language selection metadata free of catalog imports', () => {

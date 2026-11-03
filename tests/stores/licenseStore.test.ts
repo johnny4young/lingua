@@ -268,6 +268,70 @@ describe('licenseStore — server-aware web branch ', () => {
     expect(body.deviceId.length).toBeGreaterThan(20);
   });
 
+  describe('with blocked storage', () => {
+    const activated = () =>
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              protocolVersion: 1,
+              ok: true,
+              licenseId: 'lic_1',
+              activated: true,
+              idempotent: false,
+              devices: { desktop: [], web: [] },
+              deviceLimit: { desktop: 3, web: 3 },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          )
+      );
+    const activatedIds = (fetchMock: ReturnType<typeof activated>) =>
+      (fetchMock.mock.calls as unknown as [string, RequestInit][])
+        .filter(([url]) => url === `${SERVER_URL}/licenses/activate`)
+        .map(([, init]) => JSON.parse(init.body as string).deviceId as string);
+
+    beforeEach(() => {
+      document.documentElement.dataset.storage = 'memory';
+    });
+
+    afterEach(() => {
+      delete document.documentElement.dataset.storage;
+    });
+
+    it('activates with one device id across reloads', async () => {
+      const fetchMock = activated();
+      vi.stubGlobal('fetch', fetchMock);
+      const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+
+      await (await importFreshStore()).getState().setLicenseToken(token);
+      localStorage.clear();
+      await (await importFreshStore()).getState().setLicenseToken(token);
+
+      const ids = activatedIds(fetchMock);
+      expect(ids).toHaveLength(2);
+      expect(ids[1]).toBe(ids[0]);
+    });
+
+    it('keeps the device id of the active license when a bad token is pasted', async () => {
+      const fetchMock = activated();
+      vi.stubGlobal('fetch', fetchMock);
+      const store = await importFreshStore();
+      await store.getState().setLicenseToken(await signLicenseTokenForTest(buildPayload(), privateKeyJwk));
+      const before = localStorage.getItem('lingua-device-id');
+
+      const forged = await signLicenseTokenForTest(
+        { ...buildPayload(), issuedTo: 'other@example.com' },
+        (await crypto.subtle.exportKey(
+          'jwk',
+          ((await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify'])) as CryptoKeyPair).privateKey
+        )) as JsonWebKey
+      );
+      await store.getState().setLicenseToken(forged);
+
+      expect(localStorage.getItem('lingua-device-id')).toBe(before);
+    });
+  });
+
   it('falls back to local-verify with serverSync=unreachable when the server cannot be reached', async () => {
     const fetchMock = vi.fn(async () => {
       throw new TypeError('Failed to fetch');

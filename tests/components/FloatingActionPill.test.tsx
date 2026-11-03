@@ -97,6 +97,23 @@ function renderPill(props: ComponentProps<typeof FloatingActionPill> = {}) {
 }
 
 describe('FloatingActionPill', () => {
+  it('says autosave while storage works', () => {
+    renderPill();
+    expect(screen.getByTestId('action-pill-autosave').textContent).toBe('autosave');
+  });
+
+  it('says not saved when storage is blocked', () => {
+    document.documentElement.dataset.storage = 'memory';
+    try {
+      renderPill();
+      const chip = screen.getByTestId('action-pill-autosave');
+      expect(chip.textContent).toBe('not saved');
+      expect(chip.querySelector('.bg-warning-fg')).not.toBeNull();
+    } finally {
+      delete document.documentElement.dataset.storage;
+    }
+  });
+
   it('renders language label and workflow-aware action button', () => {
     renderPill();
     expect(screen.getByTestId('floating-action-pill')).toBeTruthy();

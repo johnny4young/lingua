@@ -1060,6 +1060,87 @@ The drift guard in that test fails CI if any new `persist(...)` store ships
 without a `version` + `createMigrate(...)`, so a store can never silently go
 unversioned.
 
+### Stores across tabs
+
+Zustand's `persist` does not sync tabs, and every write saves the store's whole
+partialized state. A web tab holding an old copy would keep acting on a revoked
+consent or a removed API key, then restore it on its next write.
+`attachCrossTabSync` (`stores/persistence/crossTabSync.ts`) rehydrates on the
+`storage` event, and on `pageshow` when the page returns from the back/forward
+cache, where it received no events. The desktop app has one window, so nothing
+fires there. Rules that keep it safe:
+
+- It reads the current stored value, not `event.newValue`, which a later write may
+  have replaced. Clear store writes defaults and then removes the key.
+- It skips a stored value with another schema version. Zustand writes back after
+  any version mismatch, so a tab on an old bundle and one on a new bundle would
+  rewrite each other forever. An old-bundle tab stays stale until it reloads, and
+  its next write can still overwrite newer data.
+- A missing key means the store's `defaults`, without writing. Zustand's default
+  merge keeps the live copy, which the next write would restore. This covers Clear
+  store and `localStorage.clear()` (`storage` event with a null key).
+- `keepLocal` names the fields that belong to one tab and resolves them against what
+  was stored. A missing key skips it: a clear reaches session-only data too.
+- Boot and migrations keep the store's own `merge`. The sync installs its merge after
+  `create()`, where localStorage has already hydrated synchronously.
+- A rehydrate writes nothing, and rewriting an identical value fires no event, so
+  two tabs on the same schema settle. For the same reason `keepLocal` runs inside the
+  merge: a `setState` afterwards would write.
+- A tab writes only when its stored fields differ from what it last read or wrote.
+  Zustand writes on every `set`, even one that changes nothing stored, and each write
+  carries the tab's `keepLocal` fields. Without this check an idle tab finishing its
+  DuckDB load replaces the open query tabs another tab just stored.
+- A subscriber that reports or reacts to a user action checks
+  `persist.hasHydrated()`, which is false while a rehydrate applies. Otherwise each
+  tab would report the action again.
+
+| Store | Kept per tab |
+| --- | --- |
+| `lingua-settings`, `lingua-ai`, `lingua-snippets`, `lingua-trust-events`, `lingua-env-vars` | Nothing |
+| `lingua-utility-state` | History of tools whose stored persistence is off |
+| `lingua-workspace-sql-state` | Open and active query, folded explorer, the newest response when it is transient |
+| `lingua-workspace-tool-state` | Active request, environment and pipeline, the request in flight, the newest response when it is transient |
+
+Stores that do not sync: `lingua-session` and `lingua-notebook-state` are each tab's
+working copy, `lingua-utility-workspace` is its selected tool, and the rest hold
+nothing sensitive or clearable. `lingua-license` has its own listener because a
+rehydrate there revalidates with the server. A test in
+`tests/stores/persistence/crossTabSync.test.ts` fails until a new persisted store
+joins one of these lists.
+
+Limits: rehydrating skips setter side effects, so a language change from another
+tab is stored but the UI text changes only after a reload. Two writes a few
+milliseconds apart still resolve to the last one, and a real change still stores that
+tab's own `keepLocal` fields, so a reload opens what the last writer had open. Each
+write parses the store in the other tab, which is the cost to watch for large SQL and
+HTTP stores. Turning a tool's persistence off in one tab leaves its history in the
+memory of both tabs, and only a clear removes it there.
+
+### Blocked storage
+
+With site storage blocked (block-all-cookies), reading `window.localStorage`
+throws `SecurityError`, and `typeof localStorage` throws too, because it runs
+the getter. The inline `lingua-theme-bootstrap` script probes it and, on a
+throw, replaces the property with an in-memory `Storage`. Stores, `safeBoot` and
+the panel layouts then run unchanged, and state is gone on reload. A failed
+write alone does not trigger this, so full storage keeps its data.
+
+The fallback has to live in that script: a module, even the first import of the
+entry, can evaluate after chunks that already read storage, and the shell CSP
+authorizes only the hash of that one inline script. `sessionStorage` throws the
+same way and has no fallback, so renderer code must not read it.
+
+The script marks this mode with `<html data-storage="memory">`, which
+`isStorageEphemeral()` reads. In it the guided tour and the first-run and
+first-snippet toasts do not start on their own, because they would repeat on
+every load. The toolbar pill says "not saved" in place of "autosave", a warning
+says so on each boot, and the browser asks before a reload drops an edited tab.
+A license is pasted again after a reload, so its device id is derived from the
+license and the browser family and OS rather than minted: re-pasting and a
+second tab reuse one web seat. Machines with the same browser and OS that both
+block storage share that seat, which adds no bypass since the client already
+chooses its device id.
+
 ## Browser permission posture
 
 The Electron shell is **deny-by-default** for browser permissions. `src/main/permissionHandlers.ts` installs both

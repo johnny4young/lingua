@@ -2,8 +2,8 @@ import type { SettingsState } from '../types/settings';
 
 /**
  * Settings persist-boundary helpers, extracted verbatim from
- * `settingsStore.ts`: the `partialize` durable-field projection and the
- * consent-mirror side-effect. The rehydrate sanitizer (`merge`) lives in
+ * `settingsStore.ts`: the `partialize` durable-field projection, the
+ * consent-mirror side-effect and the cross-tab sync. The rehydrate sanitizer (`merge`) lives in
  * `settingsMerge.ts`; `onRehydrateStorage` stays inline in the assembly (it is
  * a 3-line call into `syncConsentMirror`). Depends only on the `SettingsState`
  * type and the `window.lingua.consent` bridge — never on the store or actions.

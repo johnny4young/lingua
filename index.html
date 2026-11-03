@@ -146,6 +146,31 @@
           window.performance?.mark?.('lingua:boot:start');
         } catch {}
 
+        // With storage blocked (e.g. block-all-cookies) reading localStorage
+        // throws, even under typeof. Everything after this script gets an
+        // in-memory stand-in that lasts until the page unloads.
+        try {
+          window.localStorage.getItem('lingua-settings');
+        } catch {
+          const items = new Map();
+          try {
+            Object.defineProperty(window, 'localStorage', {
+              configurable: true,
+              value: {
+                get length() {
+                  return items.size;
+                },
+                key: (index) => [...items.keys()][index] ?? null,
+                getItem: (key) => items.get(String(key)) ?? null,
+                setItem: (key, value) => void items.set(String(key), String(value)),
+                removeItem: (key) => void items.delete(String(key)),
+                clear: () => items.clear(),
+              },
+            });
+            document.documentElement.dataset.storage = 'memory';
+          } catch {}
+        }
+
         const themeColors = {
           dark: '#0c1017',
           light: '#f4efe7',

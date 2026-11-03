@@ -25,6 +25,8 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { attachCrossTabSync } from './persistence/crossTabSync';
+import { keepLatestTransient } from './persistence/keepLatestTransient';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   parseHttpRequest,
@@ -253,6 +255,14 @@ function createInitialState(): Pick<
 
 /** True once the vault holds the secret values, so the localStorage blob must not. */
 let vaultOwnsEnvSecrets = false;
+
+function isTransientHttpResponse(response: HttpResponseV1): boolean {
+  return (
+    response.kind === 'network-error' ||
+    response.kind === 'timeout' ||
+    response.kind === 'cors-error'
+  );
+}
 
 export const useWorkspaceToolStore = create<WorkspaceToolState>()(
   persist(
@@ -595,12 +605,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
         for (const [reqId, list] of Object.entries(
           state.responsesByRequestId
         )) {
-          const surviving = list.filter(
-            (entry) =>
-              entry.kind !== 'network-error' &&
-              entry.kind !== 'timeout' &&
-              entry.kind !== 'cors-error'
-          );
+          const surviving = list.filter((entry) => !isTransientHttpResponse(entry));
           if (surviving.length > 0) persistedResponses[reqId] = surviving;
         }
         return {
@@ -727,6 +732,31 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
     }
   )
 );
+
+attachCrossTabSync(useWorkspaceToolStore, {
+  defaults: createInitialState,
+  keepLocal: (next, live) => {
+    const requestExists = (id: string) => next.requests.some((request) => request.id === id);
+    const stillThere = (id: string | null, exists: (id: string) => boolean) =>
+      id !== null && exists(id) ? id : null;
+    return {
+      activeRequestId: stillThere(live.activeRequestId, requestExists),
+      activeEnvironmentId: stillThere(live.activeEnvironmentId, (id) =>
+        next.environments.some((environment) => environment.id === id)
+      ),
+      activeHttpPipelineId: stillThere(live.activeHttpPipelineId, (id) =>
+        next.httpPipelines.some((pipeline) => pipeline.id === id)
+      ),
+      executingRequestId: live.executingRequestId,
+      responsesByRequestId: keepLatestTransient(
+        live.responsesByRequestId,
+        next.responsesByRequestId,
+        requestExists,
+        isTransientHttpResponse
+      ),
+    };
+  },
+});
 
 /** A scope's rows under the id its vault entries use. */
 interface VariableSet {
