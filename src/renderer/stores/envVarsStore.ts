@@ -24,6 +24,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { attachCrossTabSync } from './persistence/crossTabSync';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   type EnvVarScope,
@@ -258,3 +259,5 @@ export const useEnvVarsStore = create<EnvVarsStoreState>()(
     }
   )
 );
+
+attachCrossTabSync(useEnvVarsStore, { defaults: () => ({ global: {}, project: {}, tab: {} }) });

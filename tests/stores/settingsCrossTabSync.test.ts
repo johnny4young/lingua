@@ -1,6 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createInitialSettingsState } from '@/stores/settingsDefaults';
-import { attachSettingsCrossTabSync } from '@/stores/settingsPersistence';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 const KEY = 'lingua-settings';
@@ -127,13 +126,6 @@ describe('settings cross-tab sync', () => {
     window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
 
     expect(useSettingsStore.getState().telemetryConsent).toBe('granted');
-  });
-
-  it('attaches nothing when storage is blocked and persist is absent', () => {
-    const addEventListener = vi.spyOn(window, 'addEventListener');
-
-    expect(() => attachSettingsCrossTabSync({})).not.toThrow();
-    expect(addEventListener).not.toHaveBeenCalled();
   });
 
   it('catches up when the page returns from the back/forward cache', () => {

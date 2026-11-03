@@ -315,6 +315,28 @@ describe('useOnboardingChoreography', () => {
     ).toBe(true);
   });
 
+  it('leaves a snippet that arrives from another tab to that tab', async () => {
+    renderHook(() => useOnboardingChoreography({ enabled: true }));
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs.length).toBe(1);
+    });
+    const version = useSnippetsStore.persist.getOptions().version;
+    act(() => {
+      localStorage.setItem(
+        'lingua-snippets',
+        JSON.stringify({
+          state: { snippets: [{ id: 'theirs', label: 'theirs', description: '', language: 'javascript', code: '', createdAt: 1 }] },
+          version,
+        })
+      );
+      window.dispatchEvent(new StorageEvent('storage', { key: 'lingua-snippets' }));
+    });
+
+    expect(useSnippetsStore.getState().snippets).toHaveLength(1);
+    expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('onboarding.firstSnippet.message');
+    expect(useSettingsStore.getState().hasCompletedOnboardingFirstSnippet).toBe(false);
+  });
+
   it('first-snippet toast does NOT re-fire once the flag is true', () => {
     act(() => {
       useSettingsStore.setState({

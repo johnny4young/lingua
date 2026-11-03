@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { attachCrossTabSync } from './persistence/crossTabSync';
 import { createMigrate } from './persistence/migrationRegistry';
 
 /**
@@ -196,6 +197,8 @@ export const useTrustEventStore = create<TrustEventState>()(
     }
   )
 );
+
+attachCrossTabSync(useTrustEventStore, { defaults: () => ({ events: [] }) });
 
 export const TRUST_EVENT_CAP_FOR_TEST = TRUST_EVENT_CAP;
 export const _sanitizeTrustEventsForTesting = sanitizePersistedEvents;

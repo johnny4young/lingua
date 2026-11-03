@@ -5,7 +5,7 @@
  * the SQL workspace persisted store. CRUD + LRU + active-id reset.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   resetWorkspaceSqlStoreForTests,
   useWorkspaceSqlStore,
@@ -25,6 +25,12 @@ function freshResponse(overrides: Partial<SqlResponseV1> = {}): SqlResponseV1 {
     recordedAt: '2026-05-26T00:00:00.000Z',
     ...overrides,
   };
+}
+
+// A fresh module hydrates inside `create()`, as a page load does.
+async function bootStore() {
+  vi.resetModules();
+  return (await import('../../src/renderer/stores/workspaceSqlStore')).useWorkspaceSqlStore;
 }
 
 beforeEach(() => {
@@ -198,7 +204,7 @@ describe('useWorkspaceSqlStore', () => {
     expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ events: 'parquet' });
   });
 
-  it('persists the Explorer state and sanitizes it on rehydrate', async () => {
+  it('persists the Explorer state and sanitizes it at boot', async () => {
     useWorkspaceSqlStore.getState().toggleExplorerFolded();
     useWorkspaceSqlStore.getState().setTableSource('sales', 'csv');
     const stored = JSON.parse(localStorage.getItem('lingua-workspace-sql-state') ?? '{}');
@@ -208,9 +214,9 @@ describe('useWorkspaceSqlStore', () => {
     stored.state.explorerFolded = 'yes';
     stored.state.tableSources = { sales: 'csv', evil: 'exe', list: ['csv'] };
     localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(stored));
-    await useWorkspaceSqlStore.persist.rehydrate();
-    expect(useWorkspaceSqlStore.getState().explorerFolded).toBe(false);
-    expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ sales: 'csv' });
+    const booted = await bootStore();
+    expect(booted.getState().explorerFolded).toBe(false);
+    expect(booted.getState().tableSources).toEqual({ sales: 'csv' });
   });
 
   describe('query tabs, saving and history', () => {
@@ -335,7 +341,7 @@ describe('useWorkspaceSqlStore', () => {
       expect(responsesByQueryId['older']?.[0]?.rows).toEqual([{ x: null }]);
     });
 
-    it('opens only the active query as a tab when rehydrating a store from before tabs', async () => {
+    it('opens only the active query as a tab when booting a store from before tabs', async () => {
       const legacy = {
         state: {
           queries: [q('old1'), q('old2', { name: 'Named' })],
@@ -345,8 +351,7 @@ describe('useWorkspaceSqlStore', () => {
         version: 1,
       };
       localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(legacy));
-      await useWorkspaceSqlStore.persist.rehydrate();
-      const state = useWorkspaceSqlStore.getState();
+      const state = (await bootStore()).getState();
       expect(state.openQueryIds).toEqual(['old2']);
       expect(state.queries.every((query) => query.kind === undefined)).toBe(true);
       expect(state.history).toEqual([]);
