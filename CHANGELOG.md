@@ -87,6 +87,8 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- Free's run capsule gate lists your last three runs read-only, one upsell pitch shows per session while later blocked actions still answer at once, and the active SQL query tab carries its connection's environment colour.
+- Shared controls show the same focus gap and ring as buttons, and icon buttons a pressed state.
 - Utility pipelines keep their controls reachable beside the expanded tool list: the columns follow the panel's width and stack when it is narrow, instead of sliding under Results.
 - A utility pipeline step that blocks its worker, such as a catastrophic regex, now times out after 30 seconds instead of hanging until the app reloads, and closing the panel stops a run in progress.
 - An SSH tunnel that fails before sign-in, such as a port that accepts the connection and never answers, or a refused sign-in or host key followed by a reset, reports its error and leaves your other database connections open, instead of stopping the SQL host and everything running in it.

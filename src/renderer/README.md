@@ -1038,6 +1038,23 @@ If you add a new global class, place it in the closest subsection instead of app
 - The primary action shows its shortcut as a keycap inside the button; menus
   print keys right-aligned; destructive actions never show a key. Toolbar icons
   are 28px targets and list rows 24px; toggles are 36×20 with a 16px knob.
+- Thesis: *signal, not chrome*. A control that does not serve the signal is chrome.
+- One command surface per window: one field takes search and commands, and its
+  results carry a group label so names never collide. That is the command
+  palette, on `⌘⇧P`.
+- Tab order follows reading order. The 44px target belongs to iOS and menu-bar
+  apps in this family, not to this desktop app.
+- Type and radius come from the tokens: Inter and JetBrains Mono, with radii
+  4, 6, 10 and 14.
+
+  | Role | Size / weight | Font |
+  | --- | --- | --- |
+  | Page title | 28 / 700 | Inter |
+  | Tool name | 17 / 600 | Inter |
+  | Body | 13 / 400 | Inter |
+  | Code | 13 / 400 | JetBrains Mono |
+  | Eyebrow | 10.5 / 700 | Inter, uppercase |
+
 - `tests/build/themeTokenContrast.test.ts` measures every text pair in both
   themes and `tests/shared/languagePackContrast.test.ts` every language chip;
   `pnpm run test:visual:web` compares the shared surfaces pixel by pixel.

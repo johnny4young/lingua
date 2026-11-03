@@ -66,7 +66,6 @@ const sorted = sortCliDocs(entries);
   a {
     display: block;
     padding: 0.48rem 0.65rem;
-    border-left: 2px solid transparent;
     border-radius: var(--radius-sm);
     color: var(--color-text-muted);
     font-size: var(--text-small);
@@ -76,8 +75,8 @@ const sorted = sortCliDocs(entries);
     background: var(--color-bg-elevated);
   }
   a[aria-current='page'] {
-    border-left-color: var(--color-accent);
     color: var(--color-accent);
+    font-weight: 600;
     background: color-mix(in srgb, var(--color-accent-muted) 30%, transparent);
   }
 </style>

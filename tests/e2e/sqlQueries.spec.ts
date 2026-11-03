@@ -112,6 +112,7 @@ test.describe('SQL queries', () => {
     await page.getByTestId('sql-query-editor-run-menu').click();
     await expect(page.getByTestId('sql-run-menu-selection')).toBeDisabled();
     await expect(page.getByTestId('sql-run-menu-statement')).toContainText('Ejecutar sentencia');
+    await expect(page.getByTestId('sql-run-menu-all')).toContainText('Ejecutar todas las sentencias');
     await page.getByTestId('sql-run-menu-explain').click();
     await expect(page.getByTestId('sql-plan-view')).toBeVisible();
     await expect(page.getByTestId('sql-plan-view')).toContainText('Analizado');

@@ -54,6 +54,15 @@ export interface HttpEnvironmentPreviewProps {
 
 type ChipState = 'resolved' | 'secret' | 'unresolved';
 
+const MASKED_VALUE = '••••••';
+const VALUE_PREVIEW_CHARS = 80;
+
+/** A non-secret variable's effective value: duplicate rows are last-edit-wins, as in interpolation. */
+function previewValue(env: HttpEnvironmentPreviewProps['env'], key: string): string | undefined {
+  const value = env?.variables.filter((variable) => variable.key === key).at(-1)?.value;
+  return value !== undefined && value.length > VALUE_PREVIEW_CHARS ? `${value.slice(0, VALUE_PREVIEW_CHARS)}…` : value;
+}
+
 export function HttpEnvironmentPreview({
   request,
   env,
@@ -152,10 +161,12 @@ export function HttpEnvironmentPreview({
                   overridden: source.overrides.map((scope) => t(`httpWorkspace.scope.${scope}`)).join(', '),
                 })
               : undefined;
+            const shown = isSecret ? MASKED_VALUE : previewValue(env, chip.key);
+            const detail = shown === undefined ? origin : `${shown} · ${origin}`;
             const chipNode = (
               <span
                 key={`${chip.state}:${chip.key}`}
-                {...(source ? { 'data-scope': source.scope, title: origin, style: tintPill(SCOPE_TINTS[source.scope]) } : {})}
+                {...(source ? { 'data-scope': source.scope, title: detail, style: tintPill(SCOPE_TINTS[source.scope]) } : {})}
                 data-testid={
                   isUnresolved
                     ? 'http-environment-preview-chip-unresolved'
@@ -170,7 +181,7 @@ export function HttpEnvironmentPreview({
                 }
               >
                 <span>{chip.key}</span>
-                {origin ? <span className="sr-only">{origin}</span> : null}
+                {detail ? <span className="sr-only">{detail}</span> : null}
                 {isSecret ? (
                   <span className="rounded-sm bg-bg-panel px-1 text-nano font-semibold uppercase tracking-wide text-fg-subtle">
                     {t('httpWorkspace.environment.preview.secretBadge')}

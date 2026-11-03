@@ -119,7 +119,7 @@ test('holds sends while offline, sends reads by themselves and leaves writes for
   const send = page.getByTestId('http-request-editor-send');
   await url.fill(`${API}/users`);
   await context.setOffline(true);
-  await expect(send).toHaveText('Send when online');
+  await expect(send).toHaveText('Queue and send when online');
   await send.click();
   await expect(page.getByTestId('http-request-editor-queued')).toContainText('Queued');
   await expect(page.getByTestId('http-response-preview-body-tree')).toHaveCount(0);

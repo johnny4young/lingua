@@ -1345,6 +1345,8 @@ describe('editorStore', () => {
     });
 
     it('blocks addTab past the Free ceiling and pushes an upsell notice', async () => {
+      const { resetUpsellNoticesForTests } = await import('@/utils/upsellNotice');
+      resetUpsellNoticesForTests();
       const { useLicenseStore } = await import('@/stores/licenseStore');
       const { useUIStore } = await import('@/stores/uiStore');
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });

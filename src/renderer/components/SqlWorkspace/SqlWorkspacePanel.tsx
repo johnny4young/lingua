@@ -54,6 +54,7 @@ import { SqlImportButton } from './SqlImportButton';
 import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlExplorerModel';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
 import { SqlQueryTabs } from './SqlQueryTabs';
+import { toneOf } from './sqlConnectionStyle';
 import { SqlSaveQueryPopover } from './SqlSaveQueryPopover';
 import { ENGINE_LABEL } from './sqlConnectionStyle';
 import { SqlHistorySection } from './SqlHistorySection';
@@ -668,6 +669,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           onClose={tabActions.close}
           onCreate={() => handleCreate()}
           freeHint={tier === 'free' ? t('sqlWorkspace.tabs.freeHint') : null}
+          tone={activeConnection ? toneOf(activeConnection.env) : 'local'}
         />
       ) : null}
       <div className="min-h-0 flex-1">{split}</div>
