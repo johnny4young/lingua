@@ -315,11 +315,15 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
       if (!activePipeline) return;
       if (steps.length === 0) return;
       if (useUtilityPipelineStore.getState().isExecutingActive) return;
+      const sliced = steps.slice(0, stepLimit);
+      const ranSteps = controlsOn ? sliced : sliced.map(withoutStepControls);
+      if (ranSteps.every((step) => step.disabled === true)) {
+        resetRun();
+        return;
+      }
       useUtilityPipelineStore.getState().setIsExecutingActive(true);
       lastRunRef.current = { steps: activePipeline.steps, input: activeInput };
       const runInput = activeInput;
-      const sliced = steps.slice(0, stepLimit);
-      const ranSteps = controlsOn ? sliced : sliced.map(withoutStepControls);
       const runPipelineId = activePipeline.id;
       const runPipelineName = activePipeline.name;
       setCapsuleRunSnapshot(null);
@@ -346,7 +350,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
               // The recipe a capsule records is what ran.
               steps: clonePipelineSteps(ranSteps.filter((step) => step.disabled !== true)),
               input: runInput,
-              outcome,
+              outcome: { ...outcome, results: outcome.results.filter((result) => result.status !== 'disabled') },
             });
           }
         }
@@ -354,7 +358,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
         useUtilityPipelineStore.getState().setIsExecutingActive(false);
       }
     },
-    [activePipeline, activeInput, run, t, announce, stepLimit, controlsOn]
+    [activePipeline, activeInput, run, resetRun, t, announce, stepLimit, controlsOn]
   );
 
   const handleRun = useCallback(() => execute(true), [execute]);
@@ -420,6 +424,14 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   const handleSendOutput = useCallback(
     (afterStepId: string, utilityId: UtilityAdapterId) => {
       if (!activePipeline) return;
+      // Past the plan's limit the new step would never run.
+      if (activePipeline.steps.length >= stepLimit) {
+        pushUpsellNotice({
+          messageKey: 'upsell.freeCeilingReached',
+          featureLabel: t('upsell.feature.utilityWorkflows'),
+        });
+        return;
+      }
       if (activePipeline.steps.length >= PIPELINE_MAX_STEPS) {
         useUIStore.getState().pushStatusNotice({
           tone: 'warning',
@@ -429,11 +441,13 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
         return;
       }
       const next = activePipeline.steps.slice();
-      next.splice(next.findIndex((step) => step.id === afterStepId) + 1, 0, createBlankStep({ id: crypto.randomUUID(), utilityId }));
+      // Results outlive edits, so the step that made this output may be gone.
+      const source = next.findIndex((step) => step.id === afterStepId);
+      next.splice(source === -1 ? next.length : source + 1, 0, createBlankStep({ id: crypto.randomUUID(), utilityId }));
       handleStepsPatch(next);
       useUtilityPipelineStore.getState().setPendingRunPipelineId(activePipeline.id);
     },
-    [activePipeline, handleStepsPatch]
+    [activePipeline, handleStepsPatch, stepLimit, t]
   );
 
   // The snippet holds the steps this plan runs, and never the input.
@@ -589,7 +603,10 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 type="button"
                 onClick={handleRun}
                 disabled={
-                  isExecuting || activePipeline.steps.length === 0 || runState.phase === 'running'
+                  isExecuting ||
+                  activePipeline.steps.length === 0 ||
+                  runState.phase === 'running' ||
+                  (controlsOn && activePipeline.steps.every((step) => step.disabled === true))
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}

@@ -19,6 +19,7 @@
   "utilityPipeline.result.continue": "Continue",
   "utilityPipeline.result.disabledHint": "Disabled: its input passed through.",
   "utilityPipeline.result.pausedHint": "Waiting at the breakpoint.",
+  "utilityPipeline.send.action": "Send",
   "utilityPipeline.send.label": "Send output to…",
   "utilityPipeline.send.empty": "This tool has no output to send yet.",
   "utilityPipeline.send.capReached": "The pipeline library is full. Delete one first."

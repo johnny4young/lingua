@@ -231,16 +231,56 @@ describe('UtilityPipelinePanel, step controls', () => {
     expect(stored().steps[0]).not.toHaveProperty('breakpoint');
   });
 
-  it('offers neither Send nor Continue while a run is in flight', () => {
-    const stepResults = [{ stepId: 's0', utilityId: 'url-encode', status: 'ok', output: 'a%20b', input: 'a b', durationMs: 1 }] as const;
+  it('offers Send and Continue only where each one can act', () => {
+    const made = { stepId: 's0', utilityId: 'url-encode', status: 'ok', output: 'a%20b', input: 'a b', durationMs: 1 };
+    const held = { stepId: 's1', utilityId: 'url-decode', status: 'paused', durationMs: 0 };
     const props = { canSaveCapsule: false, onSaveCapsule: vi.fn(), onSendOutput: vi.fn(), onContinue: vi.fn() };
-    const state = (phase: string) => ({ phase, stepResults }) as unknown as PipelineRunState;
-    const { rerender } = render(<UtilityPipelineResults {...props} runState={state('running')} />);
-    expect(screen.queryByTestId('utility-pipeline-send-select')).toBeNull();
-    expect(screen.queryByTestId('utility-pipeline-continue')).toBeNull();
-    rerender(<UtilityPipelineResults {...props} runState={state('settled')} />);
-    expect(screen.getByTestId('utility-pipeline-send-select')).toBeTruthy();
-    expect(screen.getByTestId('utility-pipeline-continue')).toBeTruthy();
+    const state = (phase: string, stepResults: unknown[]) => ({ phase, stepResults }) as unknown as PipelineRunState;
+    const send = () => screen.queryByTestId('utility-pipeline-send-select');
+    const resume = () => screen.queryByTestId('utility-pipeline-continue');
+
+    const { rerender } = render(<UtilityPipelineResults {...props} runState={state('running', [made, held])} />);
+    expect(send()).toBeNull();
+    expect(resume()).toBeNull();
+    rerender(<UtilityPipelineResults {...props} runState={state('settled', [made, held])} />);
+    expect(send()).toBeNull();
+    expect(resume()).not.toBeNull();
+    // A breakpoint on the last step holds nothing back.
+    rerender(<UtilityPipelineResults {...props} runState={state('settled', [made])} />);
+    expect(send()).not.toBeNull();
+    expect(resume()).toBeNull();
+  });
+
+  it('moves focus to the results before Continue unmounts', async () => {
+    seed([['url-encode', { breakpoint: true }], ['url-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await user.click(await screen.findByTestId('utility-pipeline-continue'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
+    expect(document.activeElement).toBe(screen.getByTestId('utility-pipeline-result'));
+  });
+
+  it('runs nothing when every step is off', async () => {
+    seed([['url-encode', { disabled: true }]], 'a b', { autoBake: true });
+    const { rerender } = render(<UtilityPipelinePanel />);
+    expect((screen.getByTestId('utility-pipeline-editor-run') as HTMLButtonElement).disabled).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    rerender(<UtilityPipelinePanel />);
+    expect(screen.queryAllByTestId('utility-pipeline-result-row')).toHaveLength(0);
+    expect(useUtilityPipelineStore.getState().isExecutingActive).toBe(false);
+  });
+
+  it('numbers a capsule failure by its recipe line, without the disabled steps', async () => {
+    seed([['url-encode', { disabled: true }], ['url-encode'], ['jwt-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['disabled', 'ok', 'error']));
+    await user.click(screen.getByTestId('pipeline-save-capsule'));
+    await waitFor(() => expect(useExecutionHistoryStore.getState().entries.length).toBeGreaterThan(0));
+    const capsule = useExecutionHistoryStore.getState().entries.at(-1)?.lastCapsule;
+    expect(capsule?.result?.stderr).toMatch(/^#2 jwt-decode:/);
   });
 
   it('keeps the controls when a step changes utility', async () => {
@@ -354,17 +394,59 @@ describe('UtilityPipelinePanel, step controls', () => {
     await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'ok']));
   });
 
+  const sendTo = async (user: ReturnType<typeof userEvent.setup>, utilityId: string) => {
+    await user.selectOptions(screen.getByTestId('utility-pipeline-send-select'), utilityId);
+    await user.click(screen.getByTestId('utility-pipeline-send-select-go'));
+  };
+
   it('sends the last output to a new step right after the step that made it, and runs', async () => {
-    seed([['url-encode', { breakpoint: true }], ['url-decode']]);
+    seed([['url-encode'], ['url-decode', { disabled: true }]]);
     const user = userEvent.setup();
     render(<UtilityPipelinePanel />);
     await user.click(screen.getByTestId('utility-pipeline-editor-run'));
-    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused']));
-    await user.selectOptions(screen.getByTestId('utility-pipeline-send-select'), 'hash');
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'disabled']));
+    await sendTo(user, 'hash');
     expect(stored().steps.map((step) => step.utilityId)).toEqual(['url-encode', 'hash', 'url-decode']);
-    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused', 'paused']));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'disabled']));
     expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBeNull();
     expect((screen.getByTestId('utility-pipeline-send-select') as HTMLSelectElement).value).toBe('');
+  });
+
+  it('sends only from the button, as a closed select fires change on arrow keys', async () => {
+    seed([['url-encode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok']));
+    const go = () => screen.getByTestId('utility-pipeline-send-select-go') as HTMLButtonElement;
+    expect(go().disabled).toBe(true);
+    await user.selectOptions(screen.getByTestId('utility-pipeline-send-select'), 'hash');
+    expect(stored().steps).toHaveLength(1);
+    expect(go().disabled).toBe(false);
+  });
+
+  it('refuses a Send past the Free step limit, as that step would never run', async () => {
+    setFreeTier();
+    useSettingsStore.setState({ featureFlags: { clipboardChains: true, teachingPaywall: true } });
+    seed([['url-encode'], ['url-decode'], ['url-encode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'ok']));
+    await sendTo(user, 'hash');
+    expect(stored().steps).toHaveLength(3);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+  });
+
+  it('appends a Send whose source step was deleted after the run', async () => {
+    seed([['url-encode'], ['url-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
+    await user.click(screen.getAllByTestId('utility-pipeline-step-delete')[1]!);
+    await sendTo(user, 'hash');
+    expect(stored().steps.map((step) => step.utilityId)).toEqual(['url-encode', 'hash']);
   });
 
   it('suggests the next step from the output, but not the step that made it', async () => {

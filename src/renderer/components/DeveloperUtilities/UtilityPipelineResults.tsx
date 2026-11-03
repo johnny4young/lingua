@@ -1,6 +1,7 @@
 /** Streaming output region for the Utility Pipelines workspace. */
 
 import { Lightbulb, PackagePlus, Play } from 'lucide-react';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { classifyClipboard, type UtilitySuggestionId } from '../../clipboard/pasteHandlers';
 import type { PipelineRunState } from '../../hooks/useUtilityPipelineRun';
@@ -41,16 +42,23 @@ export function UtilityPipelineResults({
   onContinue,
 }: UtilityPipelineResultsProps) {
   const { t } = useTranslation();
+  const asideRef = useRef<HTMLElement>(null);
+  const paused = runState.stepResults.some((result) => result.status === 'paused');
+  // A paused run has no result to send yet: a new step would wait behind the breakpoint.
   const lastOutput =
-    runState.phase === 'settled' && onSendOutput
+    runState.phase === 'settled' && onSendOutput && !paused
       ? [...runState.stepResults].reverse().find((result) => result.status === 'ok' && typeof result.output === 'string')
       : undefined;
   const next = lastOutput ? suggestedNext(lastOutput) : null;
+  // These controls unmount when the run starts, so keyboard focus moves to their region first.
+  const keepFocus = () => asideRef.current?.focus();
 
   return (
     <aside
+      ref={asideRef}
+      tabIndex={-1}
       data-testid="utility-pipeline-result"
-      className="flex min-h-0 flex-col gap-2 @[67rem]:border-l @[67rem]:border-border/60 @[67rem]:pl-2"
+      className="flex min-h-0 flex-col gap-2 outline-none @[67rem]:border-l @[67rem]:border-border/60 @[67rem]:pl-2"
     >
       <header className="flex items-center gap-2 pb-1">
         <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
@@ -116,10 +124,13 @@ export function UtilityPipelineResults({
                   {result.errorMessage ?? t(`utilityPipeline.result.${result.status}`)}
                 </p>
               ) : null}
-              {typeof result.input === 'string' && onContinue && runState.phase === 'settled' ? (
+              {typeof result.input === 'string' && onContinue && runState.phase === 'settled' && paused ? (
                 <button
                   type="button"
-                  onClick={() => onContinue(result.stepId)}
+                  onClick={() => {
+                    keepFocus();
+                    onContinue(result.stepId);
+                  }}
                   data-testid="utility-pipeline-continue"
                   className="focus-ring inline-flex h-6 w-fit items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-foreground hover:border-border-strong"
                 >
@@ -147,11 +158,20 @@ export function UtilityPipelineResults({
       )}
       {lastOutput && onSendOutput ? (
         <footer data-testid="utility-pipeline-send" className="flex flex-wrap items-center gap-2 pt-1">
-          <SendOutputSelect testId="utility-pipeline-send-select" onSend={(id) => onSendOutput(lastOutput.stepId, id)} />
+          <SendOutputSelect
+            testId="utility-pipeline-send-select"
+            onSend={(id) => {
+              keepFocus();
+              onSendOutput(lastOutput.stepId, id);
+            }}
+          />
           {next ? (
             <button
               type="button"
-              onClick={() => onSendOutput(lastOutput.stepId, next)}
+              onClick={() => {
+                keepFocus();
+                onSendOutput(lastOutput.stepId, next);
+              }}
               data-testid="utility-pipeline-send-suggested"
               className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-warning/45 bg-warning/10 px-2 text-caption font-medium text-warning-fg"
             >

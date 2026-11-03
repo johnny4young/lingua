@@ -19,6 +19,7 @@
   "utilityPipeline.result.continue": "Continuar",
   "utilityPipeline.result.disabledHint": "Desactivado: su entrada pasó tal cual.",
   "utilityPipeline.result.pausedHint": "Esperando en el punto de interrupción.",
+  "utilityPipeline.send.action": "Enviar",
   "utilityPipeline.send.label": "Enviar salida a…",
   "utilityPipeline.send.empty": "Esta herramienta aún no tiene salida para enviar.",
   "utilityPipeline.send.capReached": "La biblioteca de pipelines está llena. Borra uno primero."

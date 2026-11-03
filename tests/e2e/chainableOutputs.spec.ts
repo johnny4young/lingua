@@ -38,6 +38,7 @@ for (const language of ['en', 'es'] as const) {
     await page.keyboard.press('ControlOrMeta+K');
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     await page.getByTestId('utility-send-output').selectOption('json-minify');
+    await page.getByTestId('utility-send-output-go').click();
 
     await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
     await expect(page.getByTestId('utility-pipeline-step-row')).toHaveCount(1);
@@ -46,6 +47,7 @@ for (const language of ['en', 'es'] as const) {
     await expect(page.getByTestId('utility-pipeline-result-output')).toContainText('"name":"Lingua"');
 
     await page.getByTestId('utility-pipeline-send-select').selectOption('hash');
+    await page.getByTestId('utility-pipeline-send-select-go').click();
     await expect(page.getByTestId('utility-pipeline-step-row')).toHaveCount(2);
     await expectStatuses(page, ['ok', 'ok']);
     await expect(page.getByTestId('utility-pipeline-result-output').last()).toHaveText(/^[0-9a-f]{64}$/);
