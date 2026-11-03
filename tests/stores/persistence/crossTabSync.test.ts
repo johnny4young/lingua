@@ -75,10 +75,13 @@ function sqlResponse(status: SqlResponseV1['status']): SqlResponseV1 {
 describe('attachCrossTabSync', () => {
   function fakeStore(version = 2) {
     return {
+      getState: () => ({ value: 'live' }),
       persist: {
         getOptions: () => ({
           name: 'probe',
           version,
+          partialize: (state: { value: string }) => state,
+          storage: { setItem: vi.fn() },
           merge: (persisted: unknown, live: { value: string }) => ({
             ...live,
             ...(persisted as object),
@@ -137,6 +140,30 @@ describe('attachCrossTabSync', () => {
     localStorage.removeItem('probe');
     window.dispatchEvent(new StorageEvent('storage', { key: null }));
     expect(store.persist.rehydrate).toHaveBeenCalledTimes(2);
+  });
+
+  it('writes only what differs from the last value read or written', () => {
+    const store = fakeStore();
+    const options = store.persist.getOptions();
+    store.persist.getOptions = () => options;
+    attachCrossTabSync(store, { defaults: () => ({ value: 'default' }) });
+    const { merge, storage } = store.persist.setOptions.mock.calls[0]![0];
+    const write = (value: string) => storage.setItem('probe', { state: { value }, version: 2 });
+
+    write('live');
+    expect(options.storage.setItem).not.toHaveBeenCalled();
+
+    write('changed');
+    write('changed');
+    expect(options.storage.setItem).toHaveBeenCalledTimes(1);
+
+    merge({ value: 'stored' }, { value: 'changed' });
+    write('stored');
+    expect(options.storage.setItem).toHaveBeenCalledTimes(1);
+
+    merge(undefined, { value: 'stored' });
+    write('default');
+    expect(options.storage.setItem).toHaveBeenCalledTimes(1);
   });
 
   it('tells subscribers a change came from a rehydrate', () => {
@@ -397,6 +424,54 @@ describe('lingua-workspace-sql-state across tabs', () => {
     expect(useWorkspaceSqlStore.getState().getLatestResponse('b')?.status).toBe('success');
   });
 
+  it('leaves the stored value alone when the engine loads and changes nothing stored', () => {
+    const store = useWorkspaceSqlStore.getState();
+    otherTabStores(KEY, { openQueryIds: ['b'], activeQueryId: 'b' });
+    const raw = localStorage.getItem(KEY);
+
+    store.setStorageMode('opfs', 'opfs');
+    store.setStorageMode('opfs', 'opfs');
+    store.pruneTableSources([]);
+
+    expect(localStorage.getItem(KEY)).toBe(raw);
+    expect(useWorkspaceSqlStore.getState().storageMode).toBe('opfs');
+  });
+
+  it('stores this tab fields again on its next real change', () => {
+    otherTabStores(KEY, { openQueryIds: ['b'], activeQueryId: 'b' });
+
+    useWorkspaceSqlStore.getState().toggleExplorerFolded();
+
+    expect(stored(KEY)).toMatchObject({
+      openQueryIds: ['c', 'a'],
+      activeQueryId: 'a',
+      explorerFolded: false,
+    });
+  });
+
+  it('does not bring back a removed key until something changes', () => {
+    otherTabRemoves(KEY);
+
+    useWorkspaceSqlStore.getState().setStorageMode('opfs', 'opfs');
+    useWorkspaceSqlStore.getState().pruneTableSources([]);
+    expect(localStorage.getItem(KEY)).toBeNull();
+
+    useWorkspaceSqlStore.getState().toggleExplorerFolded();
+    expect(stored(KEY).explorerFolded).toBe(true);
+  });
+
+  it('retries a value whose write failed', () => {
+    const failure = vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => {
+      throw new DOMException('full', 'QuotaExceededError');
+    });
+    expect(() => useWorkspaceSqlStore.getState().toggleExplorerFolded()).toThrow('full');
+    failure.mockRestore();
+
+    useWorkspaceSqlStore.getState().pruneTableSources([]);
+
+    expect(stored(KEY).explorerFolded).toBe(false);
+  });
+
   it('resets stored data and keeps the engine backing when the key is removed', () => {
     useWorkspaceSqlStore.getState().setStorageMode('opfs', 'opfs');
     localStorage.removeItem(KEY);
@@ -430,6 +505,15 @@ describe('lingua-workspace-tool-state across tabs', () => {
     const state = useWorkspaceToolStore.getState();
     expect(state.activeRequestId).toBe('one');
     expect(state.executingRequestId).toBe('one');
+  });
+
+  it('does not store its active request when a run starts', () => {
+    otherTabStores(KEY, { activeRequestId: 'two' });
+    const raw = localStorage.getItem(KEY);
+
+    useWorkspaceToolStore.getState().setExecutingRequestId('one');
+
+    expect(localStorage.getItem(KEY)).toBe(raw);
   });
 
   it('keeps a network failure on screen and out of storage', () => {

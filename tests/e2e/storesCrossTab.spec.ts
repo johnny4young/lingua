@@ -5,7 +5,7 @@
  * from controls, so it does not depend on copy.
  */
 
-import type { Page } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 import {
   createJavaScriptTab,
   expect,
@@ -251,6 +251,33 @@ for (const language of ['en', 'es'] as const) {
         .poll(async () => ((await storedState(other, KEY)) as { queries: unknown[] } | null)?.queries.length)
         .toBe(1);
       await expectTabsSettled(page, other);
+      expect(otherErrors).toEqual([]);
+    });
+
+    // Holding the engine makes this certain: the settle check only sees a late load by chance.
+    test('a tab whose SQL engine loads late leaves what the other tab stored', async ({ page, context }) => {
+      const KEY = 'lingua-workspace-sql-state';
+      const ENGINE = /duckdb-[^/]*\.wasm/;
+      const held: Route[] = [];
+      await context.route(ENGINE, (route) => {
+        held.push(route);
+      });
+      await openFirstTab(page, language);
+      await page.keyboard.press('ControlOrMeta+Alt+S');
+      const { other, otherErrors } = await openSecondTab(page);
+      await other.keyboard.press('ControlOrMeta+Alt+S');
+      await other.getByTestId('sql-query-list-create').click();
+      await expect(page.getByTestId('sql-query-list-row')).toHaveCount(1);
+      await expect.poll(() => held.length).toBeGreaterThan(0);
+      const before = await storedRaw(other, KEY);
+      expect(before).toContain(await other.getByTestId('sql-query-list-row').getAttribute('data-query-id'));
+
+      await context.unroute(ENGINE);
+      await Promise.all(held.map((route) => route.fallback()));
+      await expect(page.getByTestId('sql-explorer-empty')).toBeVisible({ timeout: 60_000 });
+      await expect(other.getByTestId('sql-explorer-empty')).toBeVisible({ timeout: 60_000 });
+
+      expect(await storedRaw(other, KEY)).toBe(before);
       expect(otherErrors).toEqual([]);
     });
 

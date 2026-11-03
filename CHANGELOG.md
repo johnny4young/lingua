@@ -87,6 +87,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- In the web app, a SQL tab that finishes loading its engine no longer replaces the open query tabs another browser tab just saved, so reloading that tab keeps them. A tab now saves a store only when something in it changed.
 - Lingua on the web boots and runs when the browser blocks site storage, as block-all-cookies does, instead of stopping at a blank page. Settings and work stay in memory and are gone on reload.
 - Pasting a hostname or a version such as `www.example.com` or `1.2.3` no longer suggests the JWT Debugger; the first segment has to be a JWT header.
 - The HTML entity decode step in utility pipelines leaves `&constructor;` and other names it does not know as written, instead of printing JavaScript source in their place.
