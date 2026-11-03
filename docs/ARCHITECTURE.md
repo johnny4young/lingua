@@ -1856,6 +1856,24 @@ window focus, with no polling, behind the `clipboardChains` flag, `DEV_UTILITIES
 `clipboard-read`, where each read could prompt, and a read on focus never asks. It keeps only the result of `classifyClipboard`,
 so the text never reaches a store, the DOM, a log or telemetry.
 
+### Utility pipeline run controls
+
+Behind `clipboardChains` and non-locked `DEV_UTILITIES` access, Free's slice included and
+with no clipboard consent, steps can carry `disabled` and `breakpoint`, and a pipeline
+`autoBake`. All three are additive to version 1 and only `true` survives a parse. `runPipeline` reports
+`disabled` and `paused` step statuses, which the aggregate telemetry status does not count,
+so `PIPELINE_RUN_STATUSES` is unchanged. Auto-bake lives in `UtilityPipelinePanel`: it
+debounces, never overlaps a run, and records no telemetry. Continue re-runs with the
+breakpoints up to that step removed, for that run only, rather than resuming, since each
+run owns a worker. `sendOutputToNewPipeline` and the results' Send set the transient
+`pendingRunPipelineId`, which the panel runs once that pipeline is on screen.
+
+`runPipeline`'s step timer lives in the worker, so a synchronous adapter starves it.
+`runPipelineOffThread` keeps a main-thread deadline, re-armed on each reported step, that
+terminates the worker and settles with `outcomeOfStalledRun`. It settles rather than
+failing because the inline fallback would hang the renderer on the same step. Resetting or
+unmounting `useUtilityPipelineRun` aborts the worker too.
+
 ### Utility pipeline export
 
 Labs › GUI actions to code adds **Save as JS snippet** to a utility pipeline

@@ -8,5 +8,19 @@
   "utilities.clipboard.banner.json": "Clipboard looks like JSON",
   "utilities.clipboard.suggested": "Suggested for your clipboard",
   "utilities.clipboard.railLabel": "{{category}}, suggested for your clipboard",
-  "utilities.settings.clipboardOnFocus.hint": "When enabled, a utility reads the clipboard when opened and offers to apply it, and Labs can add reads on window focus. It is never polled in the background."
+  "utilities.settings.clipboardOnFocus.hint": "When enabled, a utility reads the clipboard when opened and offers to apply it, and Labs can add reads on window focus. It is never polled in the background.",
+  "utilityPipeline.step.disable": "Disable step",
+  "utilityPipeline.step.breakpoint": "Breakpoint",
+  "utilityPipeline.step.status.disabled": "Disabled",
+  "utilityPipeline.step.status.paused": "Not run",
+  "utilityPipeline.editor.autoBake": "Auto-bake",
+  "utilityPipeline.result.inputLabel": "Input",
+  "utilityPipeline.result.outputLabel": "Output",
+  "utilityPipeline.result.continue": "Continue",
+  "utilityPipeline.result.disabledHint": "Disabled: its input passed through.",
+  "utilityPipeline.result.pausedHint": "Waiting at the breakpoint.",
+  "utilityPipeline.send.action": "Send",
+  "utilityPipeline.send.label": "Send output to…",
+  "utilityPipeline.send.empty": "This tool has no output to send yet.",
+  "utilityPipeline.send.capReached": "The pipeline library is full. Delete one first."
 }

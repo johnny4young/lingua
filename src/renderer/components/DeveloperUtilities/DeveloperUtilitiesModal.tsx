@@ -18,6 +18,7 @@ import { ModalShell } from '../ui/ModalShell';
 import { Tooltip } from '../ui/chrome';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { ClipboardBanner } from './ClipboardBanner';
+import { SendOutputSelect } from './SendOutputSelect';
 import { UtilityRail } from './UtilityRail';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -30,6 +31,11 @@ import { UtilityCopyShortcutHint } from './UtilityHeaderPills';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { CLIPBOARD_TOOLS } from '../../data/clipboardTools';
 import { useClipboardSuggestion } from '../../hooks/useClipboardSuggestion';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useUIStore } from '../../stores/uiStore';
+import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
+import { sendOutputToNewPipeline } from '../../stores/utilityPipelineSend';
+import type { UtilityAdapterId } from '../../../shared/utilities/types';
 import { useProAccess } from '../../hooks/useProAccess';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
@@ -146,6 +152,9 @@ function DeveloperUtilitiesWorkspaceBody({
   // Labs › Pro in context opens pipelines to Free as a slice of three steps.
   const canUseUtilityWorkflows = useProAccess('DEV_UTILITIES') !== 'locked';
   const clipboardKind = useClipboardSuggestion(active);
+  const canSendOutput = useSettingsStore(state => state.featureFlags.clipboardChains === true) && canUseUtilityWorkflows;
+  // Tool panels load lazily and register their output once mounted.
+  const outputReady = useUtilityOutputStore(state => state.provider !== null);
   const suggestedTools = clipboardKind ? CLIPBOARD_TOOLS[clipboardKind] : [];
   // Button refs let keyboard navigation move actual focus into the list
   // after a search-box arrow key, matching a roving-tabindex pattern
@@ -345,6 +354,18 @@ function DeveloperUtilitiesWorkspaceBody({
     }
   };
 
+  const handleSendOutput = (utilityId: UtilityAdapterId) => {
+    const output = useUtilityOutputStore.getState().getProvider()?.() ?? '';
+    const notice = (messageKey: string) => useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey });
+    if (output.length === 0) {
+      notice('utilityPipeline.send.empty');
+    } else if (!sendOutputToNewPipeline(output, utilityId, t(selectedUtility.titleKey))) {
+      notice('utilityPipeline.send.capReached');
+    } else {
+      handleSelectUtility('utility-pipelines');
+    }
+  };
+
   const panel = (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg-panel-alt/40">
       {/* The selected sidebar row already shows this utility's title and
@@ -353,6 +374,11 @@ function DeveloperUtilitiesWorkspaceBody({
           The heading stays as a visually hidden landmark for screen readers
           and heading-based tests. */}
       <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
+      {canSendOutput && activeSelectedUtilityId !== 'utility-pipelines' ? (
+        <div className="flex justify-end px-7 pt-3">
+          <SendOutputSelect testId="utility-send-output" ready={outputReady} onSend={handleSendOutput} />
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
         <DeveloperUtilityPanel
           toolId={activeSelectedUtilityId}

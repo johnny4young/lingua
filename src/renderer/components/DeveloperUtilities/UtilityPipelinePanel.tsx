@@ -1,9 +1,8 @@
 /**
  * Utility Pipelines panel.
  *
- * 3-section layout inside the Developer Utilities workspace. It started
- * life inside the utilities overlay, but the workspace shell now gives
- * the input editor and per-step outputs enough horizontal room:
+ * 3-section layout inside the Developer Utilities workspace, stacked when
+ * the panel is too narrow for the columns:
  *
  *   - LEFT  : pipeline list (create / select / rename / duplicate /
  *             delete / import / export).
@@ -25,6 +24,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
 } from 'react';
@@ -49,6 +49,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { buildPipelineJs } from '../../../shared/utilityPipelineJs';
+import '../../i18n/clipboardChainsCatalog';
 import { getAdapter } from '../../../shared/utilities/registry';
 import '../../i18n/pipelineJsCatalog';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -59,6 +60,7 @@ import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   PIPELINE_MAX_STEPS,
   createBlankStep,
+  withoutStepControls,
   type PipelineRunOutcome,
   type PipelineStepResult,
   type PipelineStepStatus,
@@ -90,6 +92,8 @@ type CapsuleRunSnapshot = {
   input: string;
   outcome: PipelineRunOutcome;
 };
+
+const AUTO_BAKE_DEBOUNCE_MS = 400;
 
 function clonePipelineSteps(steps: readonly PipelineStepV1[]): PipelineStepV1[] {
   return steps.map(step => ({
@@ -143,12 +147,18 @@ export function UtilityPipelinePanel() {
     );
   }
 
-  return <UtilityPipelinePanelUnlocked stepLimit={access === 'slice' ? FREE_TIER_LIMITS.pipelineSteps : Infinity} />;
+  // The columns follow the panel's width: the tool list beside it can take 300px.
+  return (
+    <div className="@container h-full">
+      <UtilityPipelinePanelUnlocked stepLimit={access === 'slice' ? FREE_TIER_LIMITS.pipelineSteps : Infinity} />
+    </div>
+  );
 }
 
 /** `stepLimit`: Free's slice runs only the first steps; the rest show dimmed behind a PRO chip. */
 function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   const canEject = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
+  const controlsOn = useSettingsStore((state) => state.featureFlags.clipboardChains === true);
   const { t } = useTranslation();
   const announce = useAnnounce();
   const { track } = useTelemetry();
@@ -169,6 +179,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     [pipelines, activePipelineId]
   );
   const activeInput = activePipelineId ? (inputsByPipelineId[activePipelineId] ?? '') : '';
+  const pendingRunPipelineId = useUtilityPipelineStore(state => state.pendingRunPipelineId);
 
   const { state: runState, run, reset: resetRun } = useUtilityPipelineRun();
   const [capsuleRunSnapshot, setCapsuleRunSnapshot] = useState<CapsuleRunSnapshot | null>(null);
@@ -246,7 +257,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     (stepId: string, utilityId: UtilityAdapterId) => {
       if (!activePipeline) return;
       const next = activePipeline.steps.map(step =>
-        step.id === stepId ? createBlankStep({ id: step.id, utilityId }) : step
+        step.id === stepId ? { ...step, utilityId, options: createBlankStep({ id: step.id, utilityId }).options } : step
       );
       handleStepsPatch(next);
     },
@@ -294,52 +305,160 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     [activePipeline]
   );
 
-  const handleRun = useCallback(async () => {
-    if (!activePipeline) return;
-    if (activePipeline.steps.length === 0) return;
-    if (useUtilityPipelineStore.getState().isExecutingActive) return;
-    useUtilityPipelineStore.getState().setIsExecutingActive(true);
-    const runInput = activeInput;
-    const ranSteps = activePipeline.steps.slice(0, stepLimit);
-    const runSteps = clonePipelineSteps(ranSteps);
-    const runPipelineId = activePipeline.id;
-    const runPipelineName = activePipeline.name;
-    setCapsuleRunSnapshot(null);
-    try {
-      const outcome = await run({ ...activePipeline, steps: ranSteps }, runInput);
-      if (outcome) {
-        trackUtilityPipelineExecuted(outcome);
-        // accessibility pass — announce the run result to screen readers; the
-        // streaming result table conveys it to sighted users only.
-        const okCount = outcome.results.filter((result) => result.status === 'ok').length;
-        announce(
-          t('utilityPipeline.run.announce', {
-            ok: okCount,
-            count: outcome.results.length,
-          })
-        );
-        setCapsuleRunSnapshot({
-          pipelineId: runPipelineId,
-          pipelineName: runPipelineName,
-          steps: runSteps,
-          input: runInput,
-          outcome,
-        });
+  // The last input and steps a run started from, so auto-bake repeats neither while mounted.
+  const lastRunRef = useRef<{ steps: PipelineStepV1[] | null; input: string | null }>({ steps: null, input: null });
+
+  // `steps` may differ from the saved ones when Continue runs past a breakpoint.
+  const execute = useCallback(
+    async (manual: boolean, steps = activePipeline?.steps ?? []) => {
+      if (!activePipeline) return;
+      if (steps.length === 0) return;
+      if (useUtilityPipelineStore.getState().isExecutingActive) return;
+      const sliced = steps.slice(0, stepLimit);
+      const ranSteps = controlsOn ? sliced : sliced.map(withoutStepControls);
+      if (ranSteps.every((step) => step.disabled === true)) {
+        resetRun();
+        return;
       }
-    } finally {
-      useUtilityPipelineStore.getState().setIsExecutingActive(false);
+      useUtilityPipelineStore.getState().setIsExecutingActive(true);
+      lastRunRef.current = { steps: activePipeline.steps, input: activeInput };
+      const runInput = activeInput;
+      const runPipelineId = activePipeline.id;
+      const runPipelineName = activePipeline.name;
+      setCapsuleRunSnapshot(null);
+      try {
+        const outcome = await run({ ...activePipeline, steps: ranSteps }, runInput);
+        if (outcome) {
+          if (manual) {
+            trackUtilityPipelineExecuted(outcome);
+            // accessibility pass — announce the run result to screen readers; the
+            // streaming result table conveys it to sighted users only.
+            const okCount = outcome.results.filter((result) => result.status === 'ok').length;
+            announce(
+              t('utilityPipeline.run.announce', {
+                ok: okCount,
+                count: outcome.results.length,
+              })
+            );
+          }
+          // A paused run has no result to keep yet.
+          if (!outcome.results.some((result) => result.status === 'paused')) {
+            setCapsuleRunSnapshot({
+              pipelineId: runPipelineId,
+              pipelineName: runPipelineName,
+              // The recipe a capsule records is what ran.
+              steps: clonePipelineSteps(ranSteps.filter((step) => step.disabled !== true)),
+              input: runInput,
+              outcome: { ...outcome, results: outcome.results.filter((result) => result.status !== 'disabled') },
+            });
+          }
+        }
+      } finally {
+        useUtilityPipelineStore.getState().setIsExecutingActive(false);
+      }
+    },
+    [activePipeline, activeInput, run, resetRun, t, announce, stepLimit, controlsOn]
+  );
+
+  const handleRun = useCallback(() => execute(true), [execute]);
+
+  const autoBake = controlsOn && activePipeline?.autoBake === true;
+  const activeSteps = activePipeline?.steps;
+  useEffect(() => {
+    if (!autoBake || isExecuting || !activeSteps) return;
+    if (lastRunRef.current.steps === activeSteps && lastRunRef.current.input === activeInput) return;
+    if (activeInput === '') {
+      lastRunRef.current = { steps: activeSteps, input: activeInput };
+      resetRun();
+      return;
     }
-  }, [activePipeline, activeInput, run, t, announce, stepLimit]);
+    const timer = setTimeout(() => void execute(false), AUTO_BAKE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [autoBake, isExecuting, activeSteps, activeInput, execute, resetRun]);
+
+  // A Send asks for one run once this pipeline is the one on screen.
+  useEffect(() => {
+    if (pendingRunPipelineId === null || pendingRunPipelineId !== activePipelineId || isExecuting) return;
+    useUtilityPipelineStore.getState().setPendingRunPipelineId(null);
+    void execute(true);
+  }, [pendingRunPipelineId, activePipelineId, isExecuting, execute]);
+
+  const handleToggleControl = useCallback(
+    (stepId: string, control: 'disabled' | 'breakpoint') => {
+      if (!activePipeline) return;
+      handleStepsPatch(
+        activePipeline.steps.map((step) => {
+          if (step.id !== stepId) return step;
+          const { [control]: current, ...rest } = step;
+          return current ? rest : { ...rest, [control]: true };
+        })
+      );
+    },
+    [activePipeline, handleStepsPatch]
+  );
+
+  const handleToggleAutoBake = useCallback(() => {
+    if (!activePipeline) return;
+    useUtilityPipelineStore
+      .getState()
+      .updatePipeline(activePipeline.id, { autoBake: activePipeline.autoBake ? undefined : true });
+  }, [activePipeline]);
+
+  const handleContinue = useCallback(
+    (stepId: string) => {
+      if (!activePipeline) return;
+      const index = activePipeline.steps.findIndex((step) => step.id === stepId);
+      void execute(
+        true,
+        activePipeline.steps.map((step, position) => {
+          if (position > index) return step;
+          const { breakpoint: _breakpoint, ...rest } = step;
+          return rest;
+        })
+      );
+    },
+    [activePipeline, execute]
+  );
+
+  const handleSendOutput = useCallback(
+    (afterStepId: string, utilityId: UtilityAdapterId) => {
+      if (!activePipeline) return;
+      // Past the plan's limit the new step would never run.
+      if (activePipeline.steps.length >= stepLimit) {
+        pushUpsellNotice({
+          messageKey: 'upsell.freeCeilingReached',
+          featureLabel: t('upsell.feature.utilityWorkflows'),
+        });
+        return;
+      }
+      if (activePipeline.steps.length >= PIPELINE_MAX_STEPS) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'warning',
+          messageKey: 'utilityPipeline.editor.maxStepsReached',
+          values: { max: PIPELINE_MAX_STEPS },
+        });
+        return;
+      }
+      const next = activePipeline.steps.slice();
+      // Results outlive edits, so the step that made this output may be gone.
+      const source = next.findIndex((step) => step.id === afterStepId);
+      next.splice(source === -1 ? next.length : source + 1, 0, createBlankStep({ id: crypto.randomUUID(), utilityId }));
+      handleStepsPatch(next);
+      useUtilityPipelineStore.getState().setPendingRunPipelineId(activePipeline.id);
+    },
+    [activePipeline, handleStepsPatch, stepLimit, t]
+  );
 
   // The snippet holds the steps this plan runs, and never the input.
   const handleEject = useCallback(() => {
     if (!activePipeline) return;
     const steps = activePipeline.steps.slice(0, stepLimit);
+    const planned = controlsOn ? steps.filter((step) => step.disabled !== true) : steps;
     const id = useSnippetsStore.getState().addSnippet({
       language: 'javascript',
       label: activePipeline.name.trim() || t('utilityPipeline.list.renamePlaceholder'),
       description: t('utilityPipeline.eject.description'),
-      code: buildPipelineJs(steps, {
+      code: buildPipelineJs(planned, {
         input: t('utilityPipeline.eject.input'),
         title: (utilityId) => t(getAdapter(utilityId)?.titleKey ?? utilityId),
         skipped: (title) => t('utilityPipeline.eject.skipped', { title }),
@@ -348,10 +467,10 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     if (id === null) return;
     useUIStore.getState().pushStatusNotice(
       steps.length < activePipeline.steps.length
-        ? { tone: 'success', messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: steps.length } }
+        ? { tone: 'success', messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: planned.length } }
         : { tone: 'success', messageKey: 'utilityPipeline.eject.saved' }
     );
-  }, [activePipeline, stepLimit, t]);
+  }, [activePipeline, stepLimit, t, controlsOn]);
 
   // EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
@@ -359,6 +478,8 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   // comparator) when the user asks for it. Keep a snapshot of the exact
   // run inputs so edits made after settle cannot pair a stale outcome with
   // the current recipe/input.
+  const everyStepOff = controlsOn && activePipeline?.steps.every((step) => step.disabled === true) === true;
+
   const canSaveCapsule =
     runState.phase === 'settled' &&
     capsuleRunSnapshot !== null &&
@@ -425,7 +546,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   return (
     <div
       data-testid="utility-pipeline-panel"
-      className="grid h-full min-h-[42rem] grid-cols-1 gap-4 xl:min-h-0 xl:grid-cols-[240px_minmax(22rem,0.85fr)_minmax(28rem,1.15fr)] 2xl:grid-cols-[260px_minmax(24rem,0.8fr)_minmax(36rem,1.35fr)]"
+      className="grid h-full min-h-[42rem] grid-cols-1 gap-4 @[67rem]:min-h-0 @[67rem]:grid-cols-[240px_minmax(22rem,1fr)_minmax(28rem,1fr)] @[80rem]:grid-cols-[260px_minmax(24rem,0.8fr)_minmax(36rem,1.35fr)]"
     >
       <UtilityPipelineLibrarySidebar />
 
@@ -443,7 +564,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
           </div>
         ) : (
           <>
-            <header className="flex items-center gap-2">
+            <header className="flex flex-wrap items-center gap-2">
               <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
                 {t('utilityPipeline.editor.stepsLabel')}
               </span>
@@ -452,7 +573,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 onClick={handleAddStep}
                 disabled={activePipeline.steps.length >= PIPELINE_MAX_STEPS}
                 data-testid="utility-pipeline-editor-add-step"
-                className="focus-ring ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="focus-ring ml-auto inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.addStep')}</span>
@@ -461,7 +582,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 <button
                   type="button"
                   onClick={handleEject}
-                  disabled={activePipeline.steps.length === 0}
+                  disabled={activePipeline.steps.length === 0 || everyStepOff}
                   data-testid="utility-pipeline-editor-eject"
                   className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -469,11 +590,25 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                   <span>{t('utilityPipeline.editor.eject')}</span>
                 </button>
               ) : null}
+              {controlsOn ? (
+                <label className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap text-caption font-medium text-muted">
+                  <input
+                    type="checkbox"
+                    checked={activePipeline.autoBake === true}
+                    onChange={handleToggleAutoBake}
+                    data-testid="utility-pipeline-auto-bake"
+                  />
+                  {t('utilityPipeline.editor.autoBake')}
+                </label>
+              ) : null}
               <button
                 type="button"
                 onClick={handleRun}
                 disabled={
-                  isExecuting || activePipeline.steps.length === 0 || runState.phase === 'running'
+                  isExecuting ||
+                  activePipeline.steps.length === 0 ||
+                  runState.phase === 'running' ||
+                  everyStepOff
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}
@@ -521,6 +656,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                             onUtilityChange={handleStepUtilityChange}
                             onOptionsChange={handleStepOptionsChange}
                             onDelete={handleStepDelete}
+                            {...(controlsOn ? { onToggleControl: handleToggleControl } : {})}
                           />
                         </div>
                       );
@@ -552,6 +688,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
         runState={runState}
         canSaveCapsule={canSaveCapsule}
         onSaveCapsule={handleSaveCapsule}
+        {...(controlsOn ? { onSendOutput: handleSendOutput, onContinue: handleContinue } : {})}
       />
     </div>
   );

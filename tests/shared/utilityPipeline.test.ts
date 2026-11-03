@@ -20,6 +20,8 @@ import {
   parsePipelineStep,
   runPipeline,
   tryImportPipelineJson,
+  withoutStepControls,
+  type PipelineStepV1,
   type UtilityPipelineV1,
 } from '../../src/shared/utilityPipeline';
 
@@ -46,11 +48,13 @@ function fixturePipeline(): UtilityPipelineV1 {
 }
 
 describe('PIPELINE_STEP_STATUSES', () => {
-  it('is a closed five-status enum', () => {
+  it('is a closed seven-status enum', () => {
     expect([...PIPELINE_STEP_STATUSES].sort()).toEqual([
+      'disabled',
       'error',
       'incompatible',
       'ok',
+      'paused',
       'skipped',
       'timeout',
     ]);
@@ -348,5 +352,79 @@ describe('createBlankPipeline + createBlankStep', () => {
     const step = createBlankStep({ id: 's1', utilityId: 'json-format' });
     expect(step.utilityId).toBe('json-format');
     expect(step.options).toEqual({ indent: '2' });
+  });
+});
+
+describe('step controls', () => {
+  const step = (id: string, utilityId: PipelineStepV1['utilityId'], controls: Partial<PipelineStepV1> = {}): PipelineStepV1 => ({
+    ...createBlankStep({ id, utilityId }),
+    ...controls,
+  });
+  const pipeline = (steps: PipelineStepV1[]) => ({ ...createBlankPipeline({ id: 'p' }), steps });
+  const summary = async (steps: PipelineStepV1[], input: string) => {
+    const outcome = await runPipeline(pipeline(steps), input, { skipYield: true });
+    return { status: outcome.status, results: outcome.results.map((r) => [r.stepId, r.status, r.output, r.input]) };
+  };
+
+  it('passes the input through a disabled step', async () => {
+    expect(await summary([step('a', 'url-encode', { disabled: true }), step('b', 'base64-encode')], 'a b')).toEqual({
+      status: 'all-ok',
+      results: [
+        ['a', 'disabled', undefined, undefined],
+        ['b', 'ok', btoa('a b'), undefined],
+      ],
+    });
+  });
+
+  it('counts a run with every step disabled as passing, with nothing to show', async () => {
+    expect(await summary([step('a', 'url-encode', { disabled: true })], 'x')).toEqual({
+      status: 'all-ok',
+      results: [['a', 'disabled', undefined, undefined]],
+    });
+  });
+
+  it('stops after a breakpoint and shows what that step received and returned', async () => {
+    const steps = [step('a', 'url-encode'), step('b', 'base64-encode', { breakpoint: true }), step('c', 'url-decode')];
+    expect(await summary(steps, 'a b')).toEqual({
+      status: 'all-ok',
+      results: [
+        ['a', 'ok', 'a%20b', undefined],
+        ['b', 'ok', btoa('a%20b'), 'a%20b'],
+        ['c', 'paused', undefined, undefined],
+      ],
+    });
+  });
+
+  it('lets a failure win over a breakpoint', async () => {
+    const steps = [step('a', 'url-decode', { breakpoint: true }), step('b', 'url-encode')];
+    const { results, status } = await summary(steps, '%');
+    expect(status).toBe('all-failed');
+    expect(results.map(([id, state]) => [id, state])).toEqual([
+      ['a', 'error'],
+      ['b', 'skipped'],
+    ]);
+  });
+
+  it('ignores a breakpoint on a disabled step', async () => {
+    const steps = [step('a', 'url-encode', { disabled: true, breakpoint: true }), step('b', 'url-encode')];
+    expect((await summary(steps, 'a b')).results.map(([, state]) => state)).toEqual(['disabled', 'ok']);
+  });
+
+  it('shows the passed-through value at a breakpoint after a disabled step', async () => {
+    const steps = [step('a', 'url-encode', { disabled: true }), step('b', 'url-encode', { breakpoint: true })];
+    expect((await summary(steps, 'a b')).results[1]).toEqual(['b', 'ok', 'a%20b', 'a b']);
+  });
+
+  it('keeps the controls through a parse, only when they are exactly true', () => {
+    const raw = { id: 's', utilityId: 'url-encode', options: {} };
+    expect(parsePipelineStep({ ...raw, disabled: true, breakpoint: true })).toEqual({ ...raw, disabled: true, breakpoint: true });
+    expect(parsePipelineStep({ ...raw, disabled: 'yes', breakpoint: 1 })).toEqual(raw);
+    const shell = { version: 1, id: 'p', name: '', createdAt: 'a', updatedAt: 'b', steps: [] };
+    expect(parsePipeline({ ...shell, autoBake: true })?.autoBake).toBe(true);
+    expect(parsePipeline({ ...shell, autoBake: 'yes' })).not.toHaveProperty('autoBake');
+  });
+
+  it('strips the controls for a run where they do not apply', () => {
+    expect(withoutStepControls(step('a', 'url-encode', { disabled: true, breakpoint: true }))).toEqual(step('a', 'url-encode'));
   });
 });
