@@ -6,14 +6,14 @@ import { defineConfig } from '@playwright/test';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = __dirname;
-const port = 4175;
+const port = process.env.LINGUA_E2E_PORT;
 const host = 'localhost';
 const publicKeyJwk = process.env.LINGUA_DEV_LICENSE_PUBLIC_KEY_JWK;
 const token = process.env.LINGUA_DEV_LICENSE_TOKEN;
 
-if (!publicKeyJwk || !token) {
+if (!publicKeyJwk || !token || !port) {
   throw new Error(
-    'Missing LINGUA_DEV_LICENSE_PUBLIC_KEY_JWK / LINGUA_DEV_LICENSE_TOKEN. Run this config through scripts/run-playwright-web-validation.mjs.'
+    'Missing LINGUA_DEV_LICENSE_PUBLIC_KEY_JWK / LINGUA_DEV_LICENSE_TOKEN / LINGUA_E2E_PORT. Run this config through scripts/run-playwright-web-validation.mjs.'
   );
 }
 
@@ -70,10 +70,9 @@ export default defineConfig({
     command: `npx vite preview --config vite.web.config.mts --host ${host} --port ${port} --strictPort`,
     url: `http://${host}:${port}`,
     cwd: repoRoot,
-    // Reuse a running preview between invocations when the operator
-    // is iterating. CI sets `CI=1` and skips reuse so each release
-    // matrix entry has a pristine server.
-    reuseExistingServer: !process.env.CI,
+    // The wrapper sets this only after verifying the port serves this
+    // checkout's dist/web, and never on CI.
+    reuseExistingServer: process.env.LINGUA_E2E_REUSE_SERVER === '1',
     timeout: 60_000,
     env: {
       ...process.env,
