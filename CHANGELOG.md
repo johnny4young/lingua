@@ -6,6 +6,8 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-11-03
+
 ### Added
 - Clipboard-aware utilities (Labs, Pro, with clipboard access allowed in Settings): Utilities classifies the clipboard on this device when it opens and on window focus, names what it found and marks the tools that fit, in the list and on the folded rail. Only the kind is kept. With the same Labs setting, on Pro or on Free with Pro in context and with no clipboard read, any tool's output can go to a pipeline step with Send output to…, and pipeline steps can be disabled, paused with a breakpoint and continued, or re-run with auto-bake.
 - GUI actions to code (Labs): an HTTP request opens as a JavaScript tab that runs in the Worker with its secret variables and recognizable credentials left as placeholders to fill in, the SQL a grid's filters, sort and columns generate saves as a snippet, and a utility pipeline saves as a JavaScript snippet that keeps its steps and never its input.
@@ -122,6 +124,9 @@ The format follows Keep a Changelog and groups changes by release.
 - HTTP requests queued during an earlier reconnect send resume when it finishes; queued writes still wait for Send now.
 - Fast typing in the SQL editor no longer drops keystrokes or saves an older draft; Run and Format use the newest text.
 - Undo in a SQL query no longer reverts what you typed in another query with the same text.
+- The HTTP response header keeps its timing and size on one line; a long status text is shortened first.
+- Quick Open describes an unsaved tab as "Unsaved · edited 2 min ago" instead of showing its internal id, and shows the project-relative path for files on disk.
+- SQL result columns are labeled with DuckDB type names (VARCHAR, INTEGER, DECIMAL(6,2)), the same names the column profile uses; the Arrow name is in the tooltip.
 
 ### Security
 - On desktop, under Ask and Block in Network from running code, `fetch` and `XMLHttpRequest` in the Worker, Pyodide and Ruby WASM refuse local files outside the app. They read any local file before. Allow, the default, is unchanged, and a dynamic `import()` can still load a local `.js`, `.mjs` or `.json` file; USAGE explains what these runtimes can reach on desktop.
@@ -131,11 +136,6 @@ The format follows Keep a Changelog and groups changes by release.
 - On MySQL and ClickHouse connections, the write check and the History read SQL by that server's own quoting rules. A comment, string or name that the shared Postgres-style reading missed can no longer hide a write such as INTO OUTFILE from the typed-name confirm on production and Confirm every write connections. History now masks MySQL passwords in double quotes or with escaped quotes, and ClickHouse heredocs, instead of keeping all or part of them. On MySQL, locking reads, variable assignments and named locks also ask first.
 - Desktop builds run Electron 44.9.1 instead of 44.3.0, with Chromium 152.0.7977.167 and the mitigation for the compromised eMudhra intermediate certificates (GHSA-jr5w-w6x2-84p9).
 - In the web app, settings, AI configuration, snippets, environment variables, the trust log, utility history and favorites, SQL queries and HTTP requests now reach your other open tabs. Turning off analytics, removing an API key or clearing a store in one tab applies in the others right away. Before, another tab kept the old copy and its next change restored it. Each tab keeps its own open queries, active request and any history that is not saved.
-
-### Fixed
-- The HTTP response header keeps its timing and size on one line; a long status text is shortened first.
-- Quick Open describes an unsaved tab as "Unsaved · edited 2 min ago" instead of showing its internal id, and shows the project-relative path for files on disk.
-- SQL result columns are labeled with DuckDB type names (VARCHAR, INTEGER, DECIMAL(6,2)), the same names the column profile uses; the Arrow name is in the tooltip.
 
 ## [1.6.2] — 2026-10-19
 

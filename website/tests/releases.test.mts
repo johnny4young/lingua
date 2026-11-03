@@ -277,7 +277,7 @@ describe('release metadata trust boundary', () => {
 
     await assert.rejects(
       fetchLatestRelease({
-        fetchImpl: fetchReturning(Response.json(githubRelease('2.0.0'))),
+        fetchImpl: fetchReturning(Response.json(githubRelease('99.0.0'))),
         retryDelaysMs: [],
       }),
       /is newer than repository version/u
