@@ -163,7 +163,7 @@ describe('renderer locale bundle boundary', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
     ) as Record<string, string>;
-    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.labs.flag.httpScopes.'))).toEqual([]);
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.labs.flag.'))).toEqual([]);
     expect(rendererI18n).toContain("import('./locales/es/labs.json')");
     const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/labsCatalog.ts'), 'utf8');
     expect(registration).toContain("import en from './locales/en/labs.json'");

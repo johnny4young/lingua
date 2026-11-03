@@ -24,5 +24,11 @@
   "settings.labs.flag.ejectToCode.label": "Acciones a código",
   "settings.labs.flag.ejectToCode.description": "Un request HTTP puede abrirse como pestaña JavaScript que corre en el Worker, con sus secretos y credenciales como marcadores, y el SQL que generan los filtros, el orden y las columnas de la grilla se puede guardar como snippet, y un pipeline de utilidades como snippet de JavaScript.",
   "settings.labs.flag.clipboardChains.label": "Utilidades que leen el portapapeles",
-  "settings.labs.flag.clipboardChains.description": "Con Aplicar desde el portapapeles al enfocar el panel activo en Configuración › Editor › Utilidades para desarrollo, Utilidades clasifica el portapapeles en este dispositivo al abrirse y cuando la ventana recupera el foco, y marca las herramientas que encajan. Requiere Pro."
+  "settings.labs.flag.clipboardChains.description": "Con Aplicar desde el portapapeles al enfocar el panel activo en Configuración › Editor › Utilidades para desarrollo, Utilidades clasifica el portapapeles en este dispositivo al abrirse y cuando la ventana recupera el foco, y marca las herramientas que encajan. Requiere Pro.",
+  "settings.labs.flag.networkPolicy.label": "Política de red para el código en ejecución",
+  "settings.labs.flag.networkPolicy.description": "Añade Red desde el código en ejecución a Configuración › Privacidad, donde eliges si el código de los runtimes Worker, Pyodide y Ruby WASM puede usar la red.",
+  "settings.labs.flag.dbClient.label": "Conexiones a bases de datos",
+  "settings.labs.flag.dbClient.description": "Conecta la pestaña SQL a servidores Postgres, MySQL, SQL Server y ClickHouse y a archivos SQLite. Solo en escritorio; DuckDB local sigue siendo el predeterminado.",
+  "settings.labs.flag.editRows.label": "Editar filas de tablas",
+  "settings.labs.flag.editRows.description": "Edita celdas y agrega, duplica o borra filas de una tabla abierta desde el Explorer de SQL, revisa el SQL y confírmalo en una sola transacción. Nunca en conexiones de solo lectura o de producción, ni en ClickHouse."
 }

@@ -117,39 +117,31 @@ export function settingsPartialize(state: SettingsState) {
   };
 }
 
-function isSameSchema(raw: string, version: number | undefined): boolean {
-  try {
-    return (JSON.parse(raw) as { version?: unknown } | null)?.version === version;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Re-read `lingua-settings` when another tab changes it, or when this page comes
  * back from the back/forward cache, where it received no `storage` events.
  * Without this a tab keeps a revoked consent and its next write restores it.
  * Reads storage instead of `event.newValue`, which a later write may have
  * replaced. Skips other schema versions: zustand writes back after any version
- * mismatch, so two bundles would rewrite each other forever.
+ * mismatch, so two bundles would rewrite each other forever. `persist` is absent
+ * when storage is blocked.
  */
 export function attachSettingsCrossTabSync(store: {
-  persist: {
+  persist?: {
     getOptions: () => { name?: string; version?: number };
     rehydrate: () => Promise<void> | void;
   };
 }): void {
-  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
-  const { name, version } = store.persist.getOptions();
+  const { persist } = store;
+  if (!persist || typeof window === 'undefined') return;
+  const { name, version } = persist.getOptions() as { name: string; version: number };
   const sync = () => {
-    let raw: string | null;
     try {
-      raw = name ? window.localStorage.getItem(name) : null;
+      const raw = window.localStorage.getItem(name);
+      if (raw === null || JSON.parse(raw)?.version === version) void persist.rehydrate();
     } catch {
-      return;
+      // Unreadable value: keep the live copy.
     }
-    if (raw !== null && !isSameSchema(raw, version)) return;
-    void store.persist.rehydrate();
   };
   window.addEventListener('storage', (event) => {
     // A null key means `localStorage.clear()`.
