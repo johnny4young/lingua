@@ -14,6 +14,8 @@ Lingua ships the everyday panels that usually force a code-runner workflow into 
 - <span id="json-csv"></span>**JSON / CSV** — convert tabular payloads between JSON and CSV.
 - <span id="sql-formatter"></span>**SQL Formatter** — format SQL for readable diffs.
 - <span id="number-base"></span>**Number Base** — convert decimal, binary, hex, and related bases.
+- <span id="mock-data"></span>**Mock Data** — generate realistic test data.
+- <span id="utility-pipelines"></span>**Utility Pipelines** — chain utilities into saved steps (Pro).
 
 ## Text
 

@@ -146,7 +146,7 @@ export const es = {
       eyebrow: 'Ya disponible en Lingua',
       title: 'Seis flujos que definen Lingua hoy.',
       releaseTitle: 'Seis flujos que definen Lingua 1.0.',
-      lede: 'Capturados desde builds actuales, no desde mockups. Cada flujo indica dónde funciona y cuándo necesita Pro; el registro técnico completo vive en el changelog.',
+      lede: 'Capturados desde builds reales, no desde mockups. Cada flujo indica dónde funciona y cuándo necesita Pro; el registro técnico completo vive en el changelog.',
       cta: 'Lee el changelog completo',
       latest: {
         label: 'Nuevo en',
@@ -206,7 +206,7 @@ export const es = {
     tour: {
       eyebrow: 'Dentro de la app',
       title: 'El producto real, haciendo trabajo real.',
-      lede: 'Abajo no hay mockups — cada cuadro es la app tal como se distribuye, capturada a mitad de tarea sobre el build web de producción.',
+      lede: 'Abajo no hay mockups — cada cuadro es un build real capturado a mitad de tarea.',
       items: [
         {
           image: '/screenshots/tour/workspace-python-es.png',
@@ -275,7 +275,7 @@ export const es = {
         {
           icon: 'lock',
           title: 'Local-first y privado',
-          body: 'Un modelo local significa que el código nunca sale de tu dispositivo. Los secretos evidentes se ocultan antes de la vista previa, y la clave vive solo en Configuración — nunca en exportaciones, cápsulas, enlaces para compartir ni telemetría.',
+          body: 'Un modelo local significa que el código nunca sale de tu dispositivo. Los secretos evidentes se ocultan antes de la vista previa, y la clave se queda en tu dispositivo — nunca en exportaciones, cápsulas, enlaces para compartir ni telemetría.',
         },
       ],
     },
@@ -353,7 +353,7 @@ export const es = {
       bodyStart:
         'La telemetría excluye código y rutas de proyecto. Las solicitudes HTTP y la IA remota envían a sus endpoints los payloads que eliges; revísalos antes de enviarlos. Lee la',
       link: 'página de privacidad',
-      bodyEnd: 'para ver qué contiene cada evento.',
+      bodyEnd: 'para ver qué contiene la telemetría.',
     },
     finalCta: {
       title: 'Lánzale tu próximo script de 10 líneas.',
@@ -411,7 +411,7 @@ export const es = {
             'Todo lo de Free',
             'Pestañas, snippets y conexiones de base de datos guardadas ilimitados',
             'Runners de Go y Rust',
-            'Notebooks de TypeScript, Python y SQL',
+            'Notebooks de JavaScript, TypeScript, Python y SQL',
             'IA local-first con tu propio endpoint y clave',
             'Historial de ejecución persistente y workflows de utilidades',
             'Cada actualización mientras estés suscrito',

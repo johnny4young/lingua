@@ -48,8 +48,8 @@ const sections = [
       <h1>{isEs ? 'Todo lo que hace Lingua. Sin adornos.' : 'Everything Lingua does. Honestly.'}</h1>
       <p class="lede">
         {isEs
-          ? 'Cada línea de esta página corresponde a comportamiento que ya se distribuye en la app de escritorio. Donde todavía no estamos, lo decimos. Los visuales son representaciones HTML de la interfaz real.'
-          : "Every line below maps to behavior shipping in the desktop app today. Where we're not there yet, we say so. The visuals are HTML representations of the real interface."}
+          ? 'Cada línea de esta página corresponde a comportamiento de la app de escritorio. Donde todavía no estamos, lo decimos. Los visuales son representaciones HTML de la interfaz real.'
+          : "Every line below maps to behavior in the desktop app. Where we're not there yet, we say so. The visuals are HTML representations of the real interface."}
       </p>
 
       <nav class="section-jump" aria-label={isEs ? 'Saltar a sección' : 'Jump to section'}>
@@ -259,8 +259,8 @@ const sections = [
           <h3>{isEs ? 'Telemetría desactivada por defecto' : 'Telemetry off by default'}</h3>
           <p>
             {isEs
-              ? 'Nada sale de tu dispositivo hasta que das consentimiento explícito en el prompt inicial. Incluso activada, los payloads son nombres de eventos anónimos con la versión de la app: nunca tu código, nunca rutas de archivos, nunca un vendor de terceros.'
-              : 'Nothing leaves your device until you explicitly opt in from the first-run prompt below. Even when on, payloads are anonymous event names with the app version — never your code, never your file paths, never a third-party vendor.'}
+              ? 'Ninguna telemetría sale de tu dispositivo hasta que das consentimiento explícito en el prompt inicial. Incluso activada, los payloads son nombres de eventos y propiedades permitidas con la versión de la app: nunca tu código, nunca rutas de archivos, nunca un vendor de terceros.'
+              : 'No telemetry leaves your device until you explicitly opt in from the first-run prompt below. Even when on, payloads are event names and allow-listed properties with the app version — never your code, never your file paths, never a third-party vendor.'}
           </p>
           <h3>{isEs ? 'Ejecución en sandbox' : 'Sandboxed execution'}</h3>
           <p>
@@ -307,10 +307,10 @@ const sections = [
           <strong>SHA256SUMS.txt</strong> {isEs ? 'se publica junto a cada release. Verifica antes de instalar.' : 'ships next to every release. Verify before you install (the snippet on the left).'}
         </li>
         <li>
-          <strong>{isEs ? 'Verificación offline de licencias' : 'Offline license verification'}</strong> — {isEs ? 'los tokens Pro están firmados con Ed25519 y se verifican contra una llave pública embebida. Sin cuenta, sin check de servidor.' : 'Pro tokens are Ed25519-signed and verified against an embedded public key. No account, no server check.'}
+          <strong>{isEs ? 'Verificación offline de licencias' : 'Offline license verification'}</strong> — {isEs ? 'los tokens Pro están firmados con Ed25519 y se verifican contra una llave pública embebida. Sin cuenta; el estado y los límites de dispositivos usan el servidor de licencias.' : 'Pro tokens are Ed25519-signed and verified against an embedded public key. No account; status and device limits use the license server.'}
         </li>
         <li>
-          <strong>Auto-updates</strong> {isEs ? 'usan el canal oficial de GitHub Releases y los controles de integridad de cada plataforma. Puedes desactivarlas por instalación.' : 'use the official GitHub Releases channel and each platform\'s integrity checks. You can disable them per install.'}
+          <strong>Auto-updates</strong> {isEs ? 'usan el canal oficial de GitHub Releases y los controles de integridad de cada plataforma. Se buscan al abrir y cada hora, y se instalan al cerrar.' : 'use the official GitHub Releases channel and each platform\'s integrity checks. They are checked at launch and hourly, and install on quit.'}
         </li>
         <li>
           <strong>Source-available</strong> {isEs ? 'bajo la Licencia Comercial de Lingua. Compílalo tú mismo si quieres auditar lo que corre en tu máquina.' : 'under the Lingua Commercial License. Build it yourself if you want to audit what runs on your machine.'}
