@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { expect, test as base, type Locator, type Page, type Route } from '@playwright/test';
+import {
+  expect,
+  test as base,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  type Route,
+} from '@playwright/test';
 import type { WorkflowMode } from '../../src/shared/workflowMode';
 import { isKnownBenignConsoleError } from './consoleErrorFilter';
 
@@ -121,12 +129,14 @@ async function fulfillCorsPreflight(route: Route): Promise<boolean> {
   return true;
 }
 
-export async function installLicenseServerMock(page: Page): Promise<void> {
+// On the context so a page opened by hand is covered too. A spec's own page.route
+// still runs first, so it can capture a mocked endpoint such as /telemetry.
+async function installLicenseServerMock(context: BrowserContext): Promise<void> {
   // Keep every web E2E independent from the production update worker. The
   // app polls this endpoint on boot even when telemetry is declined; without
   // a route, an offline or DNS-restricted runner logs a browser-level resource
   // error and turns the zero-console-errors fixture into a network flake.
-  await page.route('**/updates.linguacode.dev/web/version', async route => {
+  await context.route('**/updates.linguacode.dev/web/version', async route => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -142,7 +152,7 @@ export async function installLicenseServerMock(page: Page): Promise<void> {
   // `declined`, so no fire is expected. Belt-and-suspenders: this
   // global stub returns 204 so an accidental fire never reaches the
   // real production worker.
-  await page.route('**/updates.linguacode.dev/telemetry', async route => {
+  await context.route('**/updates.linguacode.dev/telemetry', async route => {
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({
         status: 204,
@@ -160,7 +170,7 @@ export async function installLicenseServerMock(page: Page): Promise<void> {
     });
   });
 
-  await page.route(`${LICENSE_SERVER_HOST}/licenses/status**`, async route => {
+  await context.route(`${LICENSE_SERVER_HOST}/licenses/status**`, async route => {
     if (await fulfillCorsPreflight(route)) return;
 
     const url = new URL(route.request().url());
@@ -179,7 +189,7 @@ export async function installLicenseServerMock(page: Page): Promise<void> {
     });
   });
 
-  await page.route(`${LICENSE_SERVER_HOST}/licenses/activate`, async route => {
+  await context.route(`${LICENSE_SERVER_HOST}/licenses/activate`, async route => {
     if (await fulfillCorsPreflight(route)) return;
 
     let input: { deviceId?: string };
@@ -199,7 +209,7 @@ export async function installLicenseServerMock(page: Page): Promise<void> {
     });
   });
 
-  await page.route(`${LICENSE_SERVER_HOST}/licenses/devices/remove`, async route => {
+  await context.route(`${LICENSE_SERVER_HOST}/licenses/devices/remove`, async route => {
     if (await fulfillCorsPreflight(route)) return;
 
     await fulfillLicenseJson(route, {
@@ -220,9 +230,9 @@ export async function installLicenseServerMock(page: Page): Promise<void> {
  * i18next missing-key warnings, etc.).
  */
 export const test = base.extend<{ consoleErrors: string[] }>({
-  page: async ({ page }, use) => {
-    await installLicenseServerMock(page);
-    await use(page);
+  context: async ({ context }, use) => {
+    await installLicenseServerMock(context);
+    await use(context);
   },
   consoleErrors: [
     async ({ page }, use) => {
@@ -235,6 +245,13 @@ export const test = base.extend<{ consoleErrors: string[] }>({
 });
 
 export { expect };
+
+/** For a spec that needs its own storage: `browser.newContext()` alone has no mocks. */
+export async function newMockedContext(browser: Browser): Promise<BrowserContext> {
+  const context = await browser.newContext();
+  await installLicenseServerMock(context);
+  return context;
+}
 
 export async function seedSession(page: Page, options: SeedOptions = {}): Promise<void> {
   const {
