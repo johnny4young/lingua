@@ -119,7 +119,12 @@ test('holds sends while offline, sends reads by themselves and leaves writes for
   const send = page.getByTestId('http-request-editor-send');
   await url.fill(`${API}/users`);
   await context.setOffline(true);
-  await expect(send).toHaveText('Send when online');
+  await expect(send).toHaveText('Queue and send when online');
+  // A narrow pane keeps the URL usable: the long label gives way first.
+  await page.setViewportSize({ width: 1024, height: 700 });
+  expect((await url.boundingBox())!.width).toBeGreaterThanOrEqual(100);
+  await expect(send).toBeInViewport({ ratio: 1 });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await send.click();
   await expect(page.getByTestId('http-request-editor-queued')).toContainText('Queued');
   await expect(page.getByTestId('http-response-preview-body-tree')).toHaveCount(0);

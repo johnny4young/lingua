@@ -803,7 +803,7 @@
    className on bespoke JSX controls — Tailwind v4 only resolves @apply
    against registered utilities, not against sibling component classes. */
 @utility focus-ring {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
 @layer components {
@@ -849,7 +849,7 @@
      both the box and the glyph and `tests/build/iconButtonDensity.test.ts`
      keeps call sites on them. */
   .icon-button {
-    @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground active:bg-surface-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
     transition:
       background-color var(--duration-fast) var(--curve-ease-out),
       border-color var(--duration-fast) var(--curve-ease-out),
@@ -1845,10 +1845,11 @@
     font-size: 13px;
     font-weight: 600;
     line-height: 1;
+    /* The spring plays on release; `:active` presses in without it. */
     transition:
       background-color var(--duration-fast) var(--curve-ease-out),
       box-shadow var(--duration-fast) var(--curve-ease-out),
-      transform var(--duration-fast) var(--curve-ease-out);
+      transform var(--duration-fast) var(--curve-spring);
     /* Run is the surface's one saturated control: the accent fill with ink
        chosen by contrast (`--color-fg-on-accent` is dark in dark, white in
        light). RuntimeSelector and SQL Run share the same pair. */
@@ -1965,6 +1966,7 @@
 
   .action-pill-run:not(:disabled):active {
     transform: scale(0.96);
+    transition-timing-function: var(--curve-ease-out);
   }
 
   .action-pill-run:disabled {
@@ -2158,8 +2160,9 @@
     @apply px-4 pb-1.5 pt-2 font-mono text-micro font-bold uppercase tracking-[0.16em] text-fg-subtle;
   }
 
+  /* Full-bleed rows have no room around them, so the ring draws inside. */
   .settings-rail-row {
-    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    @apply focus-ring focus-visible:ring-inset focus-visible:ring-offset-0 grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
     width: 100%;
   }
 
@@ -2329,7 +2332,7 @@
 }
 
 .dock-tab-body {
-  animation: dock-tab-enter var(--duration-normal) var(--curve-ease-out);
+  animation: dock-tab-enter var(--duration-normal) var(--curve-spring);
 }
 
 /* Execution timeline: one tick per recorded step, the current one taller. */
@@ -2454,9 +2457,11 @@
 @keyframes dock-tab-enter {
   from {
     opacity: 0;
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 

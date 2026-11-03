@@ -96,10 +96,8 @@ const activeSlug = slugFor(entry.id);
     border-radius: var(--radius-sm);
     color: var(--color-text-muted);
     font-size: var(--text-small);
-    border-left: 2px solid transparent;
     transition: color var(--duration-fast) var(--ease-out),
-      background var(--duration-fast) var(--ease-out),
-      border-color var(--duration-fast) var(--ease-out);
+      background var(--duration-fast) var(--ease-out);
   }
   .doc-link:hover {
     color: var(--color-text);
@@ -107,7 +105,7 @@ const activeSlug = slugFor(entry.id);
   }
   .doc-link.is-active {
     color: var(--color-accent);
-    border-left-color: var(--color-accent);
+    font-weight: 600;
     background: color-mix(in srgb, var(--color-accent-muted) 30%, transparent);
   }
   .doc-link.is-pending {

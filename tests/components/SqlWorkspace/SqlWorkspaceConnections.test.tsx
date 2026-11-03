@@ -229,6 +229,7 @@ describe('SQL workspace on a saved connection', () => {
     openQuery("UPDATE customers SET plan = 'pro' WHERE id <= 10", 'c_prod');
     await renderPanel();
     expect(screen.getByTestId('sql-prod-banner').textContent).toContain('orders-prod');
+    expect(screen.getByTestId('sql-query-tab').dataset.env).toBe('prod');
     act(() => pressSqlChord('statement'));
     const dialog = await screen.findByTestId('sql-write-confirm');
     expect(dialog.textContent).toContain('read-only');

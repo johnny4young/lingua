@@ -79,10 +79,35 @@ describe('preview chips', () => {
     render(<HttpEnvironmentPreview request={request} env={layeredEnvironment(layers)} sources={variableSources(layers)} />);
     const base = screen.getAllByTestId('http-environment-preview-chip').find((chip) => chip.textContent?.startsWith('base'))!;
     expect(base.dataset.scope).toBe('environment');
-    expect(base.title).toBe('Scope: environment · overrides collection');
+    expect(base.title).toBe('https://staging.example · Scope: environment · overrides collection');
     const secret = screen.getByTestId('http-environment-preview-chip-secret');
     expect(secret.dataset.scope).toBe('collection');
+    expect(secret.title).toBe('•••••• · Scope: collection');
     expect(screen.getByTestId('http-environment-preview').textContent).not.toContain('coll-secret');
+  });
+});
+
+describe('preview chip values', () => {
+  it('adds nothing to a chip without scopes', () => {
+    const env = { id: 'e', name: 'e', variables: [v('a', 'base', 'https://x'), v('b', 'token', 'hidden', true)] } as unknown as Parameters<typeof HttpEnvironmentPreview>[0]['env'];
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), url: '{{base}}/{{token}}' };
+    render(<HttpEnvironmentPreview request={request} env={env} />);
+    expect(screen.getByTestId('http-environment-preview-chip').textContent).toBe('base');
+    expect(screen.getByTestId('http-environment-preview-chip-secret').textContent).not.toContain('undefined');
+  });
+
+  it('shows the last row of a duplicated key and shortens a long value', () => {
+    const long = 'x'.repeat(200);
+    const scoped = {
+      collection: [v('c1', 'dup', 'older'), v('c2', 'dup', 'newer'), v('c3', 'long', long)],
+      environment: null,
+      request: [],
+    };
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), url: '{{dup}}/{{long}}' };
+    render(<HttpEnvironmentPreview request={request} env={layeredEnvironment(scoped)} sources={variableSources(scoped)} />);
+    const [dup, shortened] = screen.getAllByTestId('http-environment-preview-chip');
+    expect(dup!.title).toBe('newer · Scope: collection');
+    expect(shortened!.title).toBe(`${'x'.repeat(80)}… · Scope: collection`);
   });
 });
 

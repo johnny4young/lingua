@@ -52,24 +52,19 @@ describe('pushUpsellNotice', () => {
     });
   });
 
-  it('makes the pitch once per feature and still answers later blocks', () => {
+  it('makes one pitch a session across features, and still answers later blocks', () => {
     const block = (featureLabel: string) => pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel });
     block('additional open tabs');
-    useUIStore.getState().dismissStatusNotice();
-
-    block('additional open tabs');
-    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'upsell.freeCeilingReached', values: { feature: 'additional open tabs' } });
-    expect(useUIStore.getState().statusNotice?.actions).toBeUndefined();
-    expect(useUIStore.getState().statusNotice?.priority).toBeUndefined();
-
-    block('run capsules');
     expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1);
 
-    // A different message for the same feature still makes its own pitch.
-    useUIStore.getState().dismissStatusNotice();
+    // With the pitch still on screen, the next blocked action answers at once.
+    block('run capsules');
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'upsell.freeCeilingReached', values: { feature: 'run capsules' } });
+    expect(useUIStore.getState().statusNotice?.actions).toBeUndefined();
+
     pushUpsellNotice({ messageKey: 'upsell.desktopLanguageOnWeb', featureLabel: 'additional open tabs' });
     expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'upsell.desktopLanguageOnWeb' });
-    expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1);
+    expect(useUIStore.getState().statusNotice?.actions).toBeUndefined();
   });
 
   it('routes the shared CTA through the App license-settings command', () => {
@@ -100,7 +95,7 @@ describe('pushUpsellNotice', () => {
       pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel: 'more snippets' });
       const second = useUIStore.getState().statusNotice!;
       expect(second.actions).toBeUndefined();
-      expect(second.priority).toBeUndefined();
+      expect(second.priority).toBe('high');
     } finally {
       useSettingsStore.setState({ featureFlags: {} });
     }

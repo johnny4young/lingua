@@ -153,10 +153,10 @@ rules above are superseded by these:
   and normal or low priority is superseded by the next one, as before; only
   the newest waits in the queue. A repeat of a visible or waiting notice
   (same key and values) refreshes it in place.
-- **Upsells pitch once per feature.** `pushUpsellNotice` shows the full
-  message with *See what Pro includes* the first time a feature is blocked in
-  a session; later blocks of that feature show the same message without the
-  call to action. With Labs › Pro in context, a single pitch covers every feature and its action opens Compare plans.
+- **Upsells pitch once per session.** `pushUpsellNotice` shows the full
+  message with *See what Pro includes* the first time any feature is blocked in
+  a session; later blocks show their own message without the call to action.
+  With Labs › Pro in context, that one pitch's action opens Compare plans.
 
 Coverage: `tests/stores/statusNoticeQueue.test.ts`,
 `tests/stores/uiStore.test.ts`, `tests/components/StatusNoticeBanner.test.tsx`,

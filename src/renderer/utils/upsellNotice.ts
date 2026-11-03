@@ -17,28 +17,27 @@ export interface UpsellNoticeInput {
   detail?: string;
 }
 
-// Features whose upsell already showed with its CTA this session ('any' with Labs › Pro in context).
-const pitched = new Set<string>();
+// One pitch with its CTA a session, whatever the feature.
+let pitched = false;
 
 /** Test hook: a fresh session. */
 export function resetUpsellNoticesForTests(): void {
-  pitched.clear();
+  pitched = false;
 }
 
 export function pushUpsellNotice(input: UpsellNoticeInput): void {
-  // A blocked action always answers, but each feature makes its pitch once a session;
-  // with Labs › Pro in context, one pitch covers every feature.
-  const inContext = teachingPaywallOn();
-  const pitch = inContext ? 'any' : `${input.messageKey}:${input.featureLabel}`;
-  if (pitched.has(pitch)) {
+  // A blocked action always answers, but only the first one a session makes the pitch.
+  if (pitched) {
     useUIStore.getState().pushStatusNotice({
       tone: 'info',
       messageKey: input.messageKey,
+      // Replaces the pitch still on screen: this action needs its own answer now.
+      priority: 'high',
       values: { feature: input.featureLabel },
     });
     return;
   }
-  pitched.add(pitch);
+  pitched = true;
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: input.messageKey,
@@ -49,7 +48,7 @@ export function pushUpsellNotice(input: UpsellNoticeInput): void {
     values: { feature: input.featureLabel },
     detail: input.detail,
     actions: [
-      inContext
+      teachingPaywallOn()
         ? { labelKey: 'plans.title', onClick: () => emitCommand('plans.compare') }
         : { labelKey: 'upsell.viewPro', onClick: () => emitCommand('settings.openLicense') },
     ],
