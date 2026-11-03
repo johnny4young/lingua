@@ -2,8 +2,8 @@ import type { SettingsState } from '../types/settings';
 
 /**
  * Settings persist-boundary helpers, extracted verbatim from
- * `settingsStore.ts`: the `partialize` durable-field projection and the
- * consent-mirror side-effect. The rehydrate sanitizer (`merge`) lives in
+ * `settingsStore.ts`: the `partialize` durable-field projection, the
+ * consent-mirror side-effect and the cross-tab sync. The rehydrate sanitizer (`merge`) lives in
  * `settingsMerge.ts`; `onRehydrateStorage` stays inline in the assembly (it is
  * a 3-line call into `syncConsentMirror`). Depends only on the `SettingsState`
  * type and the `window.lingua.consent` bridge — never on the store or actions.
@@ -115,4 +115,47 @@ export function settingsPartialize(state: SettingsState) {
     // notebook code cells; merge sanitizes it back to JS/TS on rehydrate.
     notebookDefaultCellLanguage: state.notebookDefaultCellLanguage,
   };
+}
+
+function isSameSchema(raw: string, version: number | undefined): boolean {
+  try {
+    return (JSON.parse(raw) as { version?: unknown } | null)?.version === version;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Re-read `lingua-settings` when another tab changes it, or when this page comes
+ * back from the back/forward cache, where it received no `storage` events.
+ * Without this a tab keeps a revoked consent and its next write restores it.
+ * Reads storage instead of `event.newValue`, which a later write may have
+ * replaced. Skips other schema versions: zustand writes back after any version
+ * mismatch, so two bundles would rewrite each other forever.
+ */
+export function attachSettingsCrossTabSync(store: {
+  persist: {
+    getOptions: () => { name?: string; version?: number };
+    rehydrate: () => Promise<void> | void;
+  };
+}): void {
+  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+  const { name, version } = store.persist.getOptions();
+  const sync = () => {
+    let raw: string | null;
+    try {
+      raw = name ? window.localStorage.getItem(name) : null;
+    } catch {
+      return;
+    }
+    if (raw !== null && !isSameSchema(raw, version)) return;
+    void store.persist.rehydrate();
+  };
+  window.addEventListener('storage', (event) => {
+    // A null key means `localStorage.clear()`.
+    if (event.key === name || event.key === null) sync();
+  });
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) sync();
+  });
 }
