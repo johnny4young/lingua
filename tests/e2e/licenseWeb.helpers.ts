@@ -704,39 +704,29 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 // -----------------------------------------------------------------------------
 
 /**
- * Click the "New JavaScript" (or localized equivalent) fast-path button.
- * This is the shortest path from "empty shell" to "a tab I can Run".
- *
- * The seeded `welcome.js` scratchpad already counts as a JS tab in some
- * onboarding paths, so we short-circuit when a JS tab is already on
- * screen — clicking the empty-state quick-start would time out
- * because the empty state never renders when a tab is open.
+ * Make sure a JavaScript tab is open, clicking the empty-state quick start only
+ * when no tab is coming. A tab that is already open, usually the seeded
+ * `welcome.js`, is reused.
  */
 export async function createJavaScriptTab(page: Page): Promise<void> {
-  const existingJsTab = page.getByRole('button', { name: /JS .*\.js/i });
-  const explicitNewButton = page.getByRole('button', {
-    name: /new javascript|nuevo javascript/i,
-  });
+  const existingJsTab = page.getByRole('button', { name: /JS .*\.js/i }).first();
   const emptyStateQuickStart = page.getByTestId('empty-state-quick-start-javascript');
 
-  // App hydration can restore welcome.js just after gotoApp resolves. Wait for
-  // one stable creation state instead of sampling too early and then waiting
-  // forever for an empty state that will never render.
-  await expect(existingJsTab.or(explicitNewButton).or(emptyStateQuickStart).first()).toBeVisible();
-  if (
-    await existingJsTab
-      .first()
-      .isVisible()
-      .catch(() => false)
-  ) {
-    return;
-  }
-  if (await explicitNewButton.isVisible().catch(() => false)) {
-    await explicitNewButton.click();
-  } else {
-    await emptyStateQuickStart.click();
-  }
-  await expect(page.getByRole('button', { name: /JS .*\.js/i })).toBeVisible();
+  // The welcome seed comes from a lazy chunk, so the empty state can render first
+  // and then vanish. It is only final once the seed has been decided.
+  const welcomeSeedDecided = () =>
+    page.evaluate(
+      key =>
+        JSON.parse(localStorage.getItem(key) ?? '{}').state?.hasCompletedOnboardingWelcome === true,
+      SETTINGS_KEY
+    );
+  await expect(existingJsTab.or(emptyStateQuickStart)).toBeVisible();
+  await expect
+    .poll(async () => (await existingJsTab.isVisible()) || (await welcomeSeedDecided()))
+    .toBe(true);
+  if (await existingJsTab.isVisible()) return;
+  await emptyStateQuickStart.click();
+  await expect(existingJsTab).toBeVisible();
 }
 
 export async function createLanguageTab(
