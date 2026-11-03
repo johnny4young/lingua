@@ -50,7 +50,7 @@ export function UtilityPipelineResults({
   return (
     <aside
       data-testid="utility-pipeline-result"
-      className="flex min-h-0 flex-col gap-2 border-l border-border/60 pl-2"
+      className="flex min-h-0 flex-col gap-2 @[67rem]:border-l @[67rem]:border-border/60 @[67rem]:pl-2"
     >
       <header className="flex items-center gap-2 pb-1">
         <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">

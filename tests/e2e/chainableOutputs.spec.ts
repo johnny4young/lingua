@@ -71,6 +71,31 @@ for (const language of ['en', 'es'] as const) {
   });
 }
 
+test('keeps every step control reachable beside the expanded tool list', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page, 'es');
+  await page.keyboard.press('ControlOrMeta+K');
+  await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
+  await pipelineWith(page, ['url-encode', 'base64-encode'], 'a b');
+  await page.getByTestId('utility-pipeline-step-breakpoint').first().click();
+  await page.getByTestId('utility-pipeline-editor-run').click();
+  await expectStatuses(page, ['ok', 'paused']);
+
+  const steps = page.getByTestId('utility-pipeline-step-row');
+  for (const row of await steps.all()) {
+    const overflow = await row.evaluate((node) => node.scrollWidth - node.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  }
+  const panelOverflow = await page
+    .getByTestId('utility-pipeline-panel')
+    .evaluate((node) => node.scrollWidth - node.clientWidth);
+  expect(panelOverflow).toBeLessThanOrEqual(0);
+
+  await page.getByTestId('utility-pipeline-step-disable').last().click();
+  await page.getByTestId('utility-pipeline-step-delete').last().click();
+  await expect(steps).toHaveCount(1);
+});
+
 test('auto-bake follows the input in the Worker, and stops at a breakpoint', async ({ page }) => {
   await open(page, 'en');
   await pipelineWith(page, ['url-encode', 'base64-encode'], 'a b');

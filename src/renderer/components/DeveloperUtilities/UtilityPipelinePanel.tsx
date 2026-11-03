@@ -148,7 +148,12 @@ export function UtilityPipelinePanel() {
     );
   }
 
-  return <UtilityPipelinePanelUnlocked stepLimit={access === 'slice' ? FREE_TIER_LIMITS.pipelineSteps : Infinity} />;
+  // The columns follow the panel's width: the tool list beside it can take 300px.
+  return (
+    <div className="@container h-full">
+      <UtilityPipelinePanelUnlocked stepLimit={access === 'slice' ? FREE_TIER_LIMITS.pipelineSteps : Infinity} />
+    </div>
+  );
 }
 
 /** `stepLimit`: Free's slice runs only the first steps; the rest show dimmed behind a PRO chip. */
@@ -525,7 +530,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   return (
     <div
       data-testid="utility-pipeline-panel"
-      className="grid h-full min-h-[42rem] grid-cols-1 gap-4 xl:min-h-0 xl:grid-cols-[240px_minmax(22rem,0.85fr)_minmax(28rem,1.15fr)] 2xl:grid-cols-[260px_minmax(24rem,0.8fr)_minmax(36rem,1.35fr)]"
+      className="grid h-full min-h-[42rem] grid-cols-1 gap-4 @[67rem]:min-h-0 @[67rem]:grid-cols-[240px_minmax(22rem,1fr)_minmax(28rem,1fr)] @[80rem]:grid-cols-[260px_minmax(24rem,0.8fr)_minmax(36rem,1.35fr)]"
     >
       <UtilityPipelineLibrarySidebar />
 
@@ -543,7 +548,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
           </div>
         ) : (
           <>
-            <header className="flex items-center gap-2">
+            <header className="flex flex-wrap items-center gap-2">
               <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
                 {t('utilityPipeline.editor.stepsLabel')}
               </span>
@@ -552,7 +557,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 onClick={handleAddStep}
                 disabled={activePipeline.steps.length >= PIPELINE_MAX_STEPS}
                 data-testid="utility-pipeline-editor-add-step"
-                className="focus-ring ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="focus-ring ml-auto inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.addStep')}</span>
@@ -570,7 +575,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 </button>
               ) : null}
               {controlsOn ? (
-                <label className="inline-flex h-7 items-center gap-1.5 text-caption font-medium text-muted">
+                <label className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap text-caption font-medium text-muted">
                   <input
                     type="checkbox"
                     checked={activePipeline.autoBake === true}

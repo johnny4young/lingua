@@ -114,7 +114,7 @@ export function UtilityPipelineStepRow({
         onToggleControl && step.disabled && 'opacity-60'
       )}
     >
-      <header className="flex items-center gap-2">
+      <header className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           aria-label={t('utilityPipeline.step.dragHandleAria', { index: index + 1 })}
@@ -124,7 +124,7 @@ export function UtilityPipelineStepRow({
         >
           <GripVertical size={14} aria-hidden="true" />
         </button>
-        <span className="text-eyebrow font-bold uppercase tracking-wider text-muted">
+        <span className="whitespace-nowrap text-eyebrow font-bold uppercase tracking-wider text-muted">
           {t('utilityPipeline.step.indexLabel', { index: index + 1 })}
         </span>
         <select
@@ -132,7 +132,7 @@ export function UtilityPipelineStepRow({
           onChange={handleUtilityChange}
           data-testid="utility-pipeline-step-utility"
           aria-label={t('utilityPipeline.step.utilityLabel')}
-          className="min-w-[180px] rounded-md border border-border/60 bg-background px-2 py-1 text-body-sm"
+          className="min-w-[8rem] flex-1 rounded-md border border-border/60 bg-background px-2 py-1 text-body-sm"
         >
           {UTILITY_ADAPTER_IDS.map((id) => {
             const a = getAdapter(id);
@@ -148,7 +148,7 @@ export function UtilityPipelineStepRow({
             data-testid="utility-pipeline-step-status"
             data-status={status}
             className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-eyebrow font-medium ring-1',
+              'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-eyebrow font-medium ring-1',
               STATUS_TONE[status]
             )}
           >
@@ -156,41 +156,43 @@ export function UtilityPipelineStepRow({
             <span>{t(`utilityPipeline.step.status.${status}`)}</span>
           </span>
         ) : null}
-        {onToggleControl ? (
-          <span className="ml-auto inline-flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => onToggleControl(step.id, 'disabled')}
-              aria-pressed={step.disabled === true}
-              aria-label={t('utilityPipeline.step.disable')}
-              title={t('utilityPipeline.step.disable')}
-              data-testid="utility-pipeline-step-disable"
-              className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.disabled && 'bg-accent-tint text-accent-fg')}
-            >
-              <EyeOff size={11} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onToggleControl(step.id, 'breakpoint')}
-              aria-pressed={step.breakpoint === true}
-              aria-label={t('utilityPipeline.step.breakpoint')}
-              title={t('utilityPipeline.step.breakpoint')}
-              data-testid="utility-pipeline-step-breakpoint"
-              className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.breakpoint && 'bg-accent-tint text-accent-fg')}
-            >
-              <Pause size={11} aria-hidden="true" />
-            </button>
-          </span>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => onDelete(step.id)}
-          aria-label={t('utilityPipeline.step.deleteAria', { index: index + 1 })}
-          data-testid="utility-pipeline-step-delete"
-          className={cn(!onToggleControl && 'ml-auto', 'inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-rose-500')}
-        >
-          <Trash2 size={11} aria-hidden="true" />
-        </button>
+        <span className="ml-auto inline-flex items-center gap-1">
+          {onToggleControl ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onToggleControl(step.id, 'disabled')}
+                aria-pressed={step.disabled === true}
+                aria-label={t('utilityPipeline.step.disable')}
+                title={t('utilityPipeline.step.disable')}
+                data-testid="utility-pipeline-step-disable"
+                className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.disabled && 'bg-accent-tint text-accent-fg')}
+              >
+                <EyeOff size={11} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggleControl(step.id, 'breakpoint')}
+                aria-pressed={step.breakpoint === true}
+                aria-label={t('utilityPipeline.step.breakpoint')}
+                title={t('utilityPipeline.step.breakpoint')}
+                data-testid="utility-pipeline-step-breakpoint"
+                className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.breakpoint && 'bg-accent-tint text-accent-fg')}
+              >
+                <Pause size={11} aria-hidden="true" />
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onDelete(step.id)}
+            aria-label={t('utilityPipeline.step.deleteAria', { index: index + 1 })}
+            data-testid="utility-pipeline-step-delete"
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-rose-500"
+          >
+            <Trash2 size={11} aria-hidden="true" />
+          </button>
+        </span>
       </header>
 
       {adapter && adapter.optionsSchema.length > 0 ? (
