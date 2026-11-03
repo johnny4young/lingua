@@ -40,6 +40,7 @@ import type { TrustEvent, TrustFeature, TrustSensitivity } from '../../stores/tr
 import { emitCommand } from '../../stores/commandBus';
 import { isAiConfigured, useAiConfigStore } from '../../stores/aiConfigStore';
 import type { TabId } from './settingsRailModel';
+import { isStorageEphemeral } from '../../utils/ephemeralStorage';
 
 /** Newest N trust events shown in the Recent activity feed. */
 const RECENT_ACTIVITY_LIMIT = 8;
@@ -235,7 +236,7 @@ export function PrivacyTrustSection() {
     <div className="space-y-7" data-testid="privacy-trust-section" data-surface={surface}>
       <SettingsSection
         eyebrow={t('settings.privacy.localStores.title')}
-        description={t('settings.privacy.localStores.hint')}
+        description={t(isStorageEphemeral() ? 'storage.ephemeral.message' : 'settings.privacy.localStores.hint')}
       >
         <div className="overflow-hidden rounded-[10px] border border-border-subtle bg-bg-panel">
           <div className="px-4">

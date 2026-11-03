@@ -31,6 +31,7 @@ describe.each(HTML_ENTRIES)('theme bootstrap storage fallback in %s', (entry) =>
     Object.defineProperty(window, 'localStorage', original);
     localStorage.clear();
     document.documentElement.className = '';
+    delete document.documentElement.dataset.storage;
   });
 
   it('leaves working storage in place', () => {
@@ -39,12 +40,14 @@ describe.each(HTML_ENTRIES)('theme bootstrap storage fallback in %s', (entry) =>
     runBootstrap(entry);
     expect(window.localStorage).toBe(before);
     expect(window.localStorage.getItem('kept')).toBe('1');
+    expect(document.documentElement.dataset.storage).toBeUndefined();
   });
 
   it('installs an in-memory Storage when reading localStorage throws', () => {
     blockStorage();
     runBootstrap(entry);
 
+    expect(document.documentElement.dataset.storage).toBe('memory');
     const storage = window.localStorage;
     expect(storage.getItem('missing')).toBeNull();
     storage.setItem('first', 'a');

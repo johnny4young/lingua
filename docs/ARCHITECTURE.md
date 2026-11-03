@@ -1125,6 +1125,17 @@ entry, can evaluate after chunks that already read storage, and the shell CSP
 authorizes only the hash of that one inline script. `sessionStorage` throws the
 same way and has no fallback, so renderer code must not read it.
 
+The script marks this mode with `<html data-storage="memory">`, which
+`isStorageEphemeral()` reads. In it the guided tour and the first-run and
+first-snippet toasts do not start on their own, because they would repeat on
+every load. The toolbar pill says "not saved" in place of "autosave", a warning
+says so on each boot, and the browser asks before a reload drops an edited tab.
+A license is pasted again after a reload, so its device id is derived from the
+license and the browser family and OS rather than minted: re-pasting and a
+second tab reuse one web seat. Machines with the same browser and OS that both
+block storage share that seat, which adds no bypass since the client already
+chooses its device id.
+
 ## Browser permission posture
 
 The Electron shell is **deny-by-default** for browser permissions. `src/main/permissionHandlers.ts` installs both
