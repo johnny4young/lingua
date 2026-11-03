@@ -134,9 +134,12 @@ jobs:
       # The full suite, benchmarks included. The coverage job runs the
       # instrumented pass without them, so this job is what keeps the timing
       # budgets in *.bench.test.ts gated.
+      # Each test file starts a new process that reloads jsdom, so the shared
+      # V8 code cache saves about 10 to 12 percent even from cold.
       - name: Tests
         run: pnpm test --shard="$SHARD/2"
         env:
+          NODE_COMPILE_CACHE: ${{ runner.temp }}/node-compile-cache
           SHARD: ${{ matrix.shard }}
       # These run once per workflow run, so they stay on the first shard.
       - name: Linux standalone CLI verification smoke
@@ -273,6 +276,7 @@ jobs:
       - name: Instrumented tests
         run: pnpm run test:coverage --shard="$SHARD/2" --reporter=default --reporter=blob
         env:
+          NODE_COMPILE_CACHE: ${{ runner.temp }}/node-compile-cache
           SHARD: ${{ matrix.shard }}
       - name: Upload coverage blob
         if: ${{ !cancelled() }}

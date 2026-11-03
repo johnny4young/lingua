@@ -131,7 +131,9 @@ and already runs Vitest at 4 workers. `unit` runs `pnpm test --shard=<n>/2`, and
 `coverage` runs `pnpm run test:coverage --shard=<n>/2` with the blob reporter.
 A shard run skips the coverage reports and floors, since it measures part of the
 suite. `coverage-floors` then merges both blobs and enforces the floors on the
-whole suite; it also fails if a shard left no blob. Reproduce it locally:
+whole suite; it also fails if a shard left no blob. Both jobs set
+`NODE_COMPILE_CACHE`, because every test file starts a process that reloads
+jsdom. Reproduce the merge locally:
 
 ```bash
 pnpm run test:coverage --shard=1/2 --reporter=default --reporter=blob
