@@ -16,9 +16,8 @@
       cdn.jsdelivr.net. Pyodide assets ship inside the renderer
       output via build/copyRuntimeAssetsPlugin.mts and load from the
       same origin as the renderer (file:// when packaged,
-      http://localhost:5173 in dev). The web build keeps jsdelivr
-      until implementation completes the first-party hosting decision; see
-      docs/RUNTIME_ASSETS_ADR.md.
+      http://localhost:5173 in dev). The web build self-hosts Pyodide
+      too; see docs/RUNTIME_ASSETS_ADR.md.
 
       connect-src additionally allows plain-http localhost/127.0.0.1
       (any port) so the Local AI mode can reach a server on this

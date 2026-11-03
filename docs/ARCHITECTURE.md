@@ -1133,7 +1133,7 @@ same way and has no fallback, so renderer code must not read it.
 The script marks this mode with `<html data-storage="memory">`, which
 `isStorageEphemeral()` reads. In it the guided tour and the first-run and
 first-snippet toasts do not start on their own, because they would repeat on
-every load. The toolbar pill says "not saved" in place of "autosave", a warning
+every load. The command bar says "not saved" in place of "autosave", a warning
 says so on each boot, and the browser asks before a reload drops an edited tab.
 A license is pasted again after a reload, so its device id is derived from the
 license and the browser family and OS rather than minted: re-pasting and a
