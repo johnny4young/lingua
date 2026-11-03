@@ -1111,6 +1111,20 @@ other tab, which is the cost to watch for large SQL and HTTP stores. Turning a
 tool's persistence off in one tab leaves its history in the memory of both tabs, and
 only a clear removes it there.
 
+### Blocked storage
+
+With site storage blocked (block-all-cookies), reading `window.localStorage`
+throws `SecurityError`, and `typeof localStorage` throws too, because it runs
+the getter. The inline `lingua-theme-bootstrap` script probes it and, on a
+throw, replaces the property with an in-memory `Storage`. Stores, `safeBoot` and
+the panel layouts then run unchanged, and state is gone on reload. A failed
+write alone does not trigger this, so full storage keeps its data.
+
+The fallback has to live in that script: a module, even the first import of the
+entry, can evaluate after chunks that already read storage, and the shell CSP
+authorizes only the hash of that one inline script. `sessionStorage` throws the
+same way and has no fallback, so renderer code must not read it.
+
 ## Browser permission posture
 
 The Electron shell is **deny-by-default** for browser permissions. `src/main/permissionHandlers.ts` installs both
