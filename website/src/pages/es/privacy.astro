@@ -5,12 +5,14 @@ import Legal from '~/layouts/Legal.astro';
 <Legal
   title="Privacidad"
   description="Qué recopila Lingua, qué nunca recopila y cómo revocar consentimiento. La telemetría está desactivada por defecto."
-  lastUpdated="2026-10-26"
+  lastUpdated="2026-11-03"
   locale="es"
 >
   <p>
-    Lingua trata tu código y tu filesystem como privados. La instalación por defecto no lee nada,
-    no envía nada y no pide nada.
+    Lingua trata tu código y tu filesystem como privados. Se quedan en tu dispositivo a menos que
+    decidas enviarlos, y la telemetría y los reportes de crash están apagados hasta que das
+    consentimiento. La app hace algunas solicitudes propias, para buscar actualizaciones y para
+    revisar una licencia. Ambas se describen abajo.
   </p>
 
   <h2>Qué nunca recopilamos</h2>
@@ -18,7 +20,7 @@ import Legal from '~/layouts/Legal.astro';
     <li><strong>Tu código fuente.</strong> Los snippets se quedan en tu máquina. El historial de ejecución opcional guarda snapshots solo localmente: nunca salen del dispositivo.</li>
     <li><strong>Tu filesystem.</strong> No transmitimos rutas de proyecto, nombres de archivo ni listados de directorios.</li>
     <li><strong>Tu input.</strong> No registramos teclas, contenido del clipboard ni historial de comandos.</li>
-    <li><strong>Identificadores personales.</strong> No se envía email, nombre, ubicación derivada de IP ni fingerprint de dispositivo sin consentimiento explícito.</li>
+    <li><strong>Identificadores personales.</strong> La telemetría no lleva email, nombre, ubicación ni identificador de dispositivo.</li>
   </ul>
 
   <h2>Qué recopilamos si das consentimiento</h2>
@@ -27,9 +29,10 @@ import Legal from '~/layouts/Legal.astro';
     explica qué se envía si decides activarla:
   </p>
   <ul>
-    <li>Nombres de eventos anónimos, por ejemplo <code>overlay.opened</code>, <code>runner.executed</code> o <code>feature.blocked</code>.</li>
-    <li>La versión de Lingua y la plataforma (<code>darwin-arm64</code>, <code>win32-x64</code>, <code>linux-x64</code>).</li>
-    <li>Un ID seudónimo de instalación generado localmente, sin vínculo con datos personales.</li>
+    <li>Nombres de eventos de una lista fija, por ejemplo <code>overlay.opened</code>, <code>runner.executed</code> o <code>feature.blocked</code>.</li>
+    <li>Las propiedades permitidas para ese evento, como el estado de una ejecución o un motor SQL. Pasan por una capa de redacción y nunca incluyen código, rutas de archivos, valores de entorno ni tokens de licencia.</li>
+    <li>La versión de Lingua, el sistema operativo y el nivel de licencia.</li>
+    <li>Un ID de sesión aleatorio que cambia cada vez que la app arranca.</li>
   </ul>
   <p>
     Los eventos se envían a un endpoint propio. No hay vendor de analytics de terceros en la app
@@ -39,24 +42,47 @@ import Legal from '~/layouts/Legal.astro';
 
   <h2>Reportes de crash</h2>
   <p>
-    Los reportes de crash usan el mismo consentimiento opt-in. Incluyen stack trace y versión de
-    Lingua; no incluyen tu código, tu input ni rutas de archivos.
+    Los reportes de crash usan el mismo consentimiento opt-in y están apagados cuando no hay un
+    endpoint de crash configurado. Lingua no adjunta código, rutas de archivos ni nombres de
+    proyecto, pero Electron incluye un minidump de diagnóstico, y un minidump puede contener datos
+    que estaban en memoria al fallar.
+  </p>
+
+  <h2>Actualizaciones</h2>
+  <p>
+    La app de escritorio consulta GitHub Releases poco después de abrir y luego cada hora, descarga
+    cualquier actualización y la instala al cerrar. Ningún ajuste lo desactiva. La versión web le
+    pide a <code>updates.linguacode.dev</code> la última versión al arrancar para mostrar un aviso de
+    actualización. Ambas intercambian información de versión, no datos de tu proyecto.
+  </p>
+
+  <h2>Revisión de licencias y dispositivos</h2>
+  <p>
+    Los planes de pago usan tokens de licencia firmados que se verifican en tu dispositivo. Lingua
+    también puede revisarlos contra <code>licenses.linguacode.dev</code> para activación, actualización
+    de estado, límites de dispositivos, recuperación, pruebas y acceso educativo. Ese servicio guarda
+    un identificador de dispositivo y datos generales del equipo, como el sistema operativo, para
+    aplicar los límites y listar tus dispositivos en Settings. Los tokens viajan en encabezados de
+    autorización, nunca en URLs.
   </p>
 
   <h2>Funciones de IA</h2>
   <p>
-    Explicar error, Explicar selección, Preguntar a la IA en SQL y el compositor de frases cron
-    están apagados hasta que configuras un modelo en Settings. Lingua no trae endpoint remoto ni
-    key, y no envía nada hasta que eliges Enviar después de ver el payload exacto. Los valores que
-    parecen secretos se ocultan antes, y SQL envía nombres y tipos de tablas y columnas, nunca filas.
+    Explicar error, Explicar selección, Editar con IA, Preguntar a la IA en SQL y el compositor de
+    frases cron están apagados hasta que configuras un modelo en Settings. Lingua no trae endpoint
+    remoto ni key, y no envía nada hasta que eliges Enviar después de ver el payload exacto. Los
+    valores que parecen secretos se ocultan antes. El payload es lo que la función necesita: el
+    error, el código de la pestaña y sus valores de ejecución solo si los incluyes, el código
+    seleccionado o el archivo completo, el archivo con el tramo a editar marcado, o la frase cron.
+    SQL envía nombres y tipos de tablas y columnas, nunca filas.
   </p>
   <ul>
     <li><strong>Local</strong> solo envía a <code>localhost</code> o <code>127.0.0.1</code>, como Ollama. Nada sale del dispositivo.</li>
     <li><strong>Mi endpoint</strong> envía al proveedor que configuras, con tu cuenta y sus términos.</li>
   </ul>
   <p>
-    La key se guarda en el llavero del sistema cuando hay uno disponible y, si no, en el
-    almacenamiento local. Las conversaciones nunca se guardan, y la telemetría nunca lleva prompts,
+    En escritorio la key se guarda en el llavero del sistema cuando hay uno disponible y, si no, en
+    el almacenamiento local. En la web se queda en el almacenamiento local del navegador. Las conversaciones nunca se guardan, y la telemetría nunca lleva prompts,
     respuestas, endpoints ni keys.
   </p>
 
@@ -70,8 +96,8 @@ import Legal from '~/layouts/Legal.astro';
   <h2>La versión web</h2>
   <p>
     <a href="https://app.linguacode.dev">app.linguacode.dev</a> usa el mismo renderer que la app
-    desktop. Pyodide se descarga una vez desde <code>cdn.jsdelivr.net</code> en la primera carga y
-    luego se sirve desde cache de Service Worker.
+    desktop. Pyodide se sirve desde el mismo origen que la app. Los runtimes más grandes de DuckDB
+    y Ruby se descargan desde <code>downloads.linguacode.dev</code> cuando se necesitan por primera vez.
   </p>
 
   <h2>Contacto</h2>

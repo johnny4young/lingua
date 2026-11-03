@@ -5,12 +5,13 @@ import Legal from '~/layouts/Legal.astro';
 <Legal
   title="Privacy"
   description="What Lingua collects, what it never collects, and how to revoke consent. Telemetry is off by default."
-  lastUpdated="2026-10-26"
+  lastUpdated="2026-11-03"
   locale="en"
 >
   <p>
-    Lingua treats your code and your filesystem as private. The default install reads nothing,
-    sends nothing, and asks for nothing.
+    Lingua treats your code and your filesystem as private. They stay on your device unless you
+    choose to send them, and telemetry and crash reports are off until you opt in. The app makes a
+    few requests of its own, to check for updates and to check a license. Both are described below.
   </p>
 
   <h2>What we never collect</h2>
@@ -18,7 +19,7 @@ import Legal from '~/layouts/Legal.astro';
     <li><strong>Your source code.</strong> Snippets stay on your machine. The opt-in execution-history feature stores snapshots locally only — they never leave the device.</li>
     <li><strong>Your filesystem.</strong> Project paths, file names, and directory listings are not transmitted to us.</li>
     <li><strong>Your input.</strong> Keystrokes, clipboard contents, and command history are not logged.</li>
-    <li><strong>Personal identifiers.</strong> No email, name, IP-derived location, or device fingerprint is sent without explicit consent.</li>
+    <li><strong>Personal identifiers.</strong> Telemetry carries no email, name, location, or device identifier.</li>
   </ul>
 
   <h2>What we collect (only if you opt in)</h2>
@@ -27,9 +28,10 @@ import Legal from '~/layouts/Legal.astro';
     sent if you opt in:
   </p>
   <ul>
-    <li>Anonymous event names — for example, <code>overlay.opened</code>, <code>runner.executed</code>, <code>feature.blocked</code>.</li>
-    <li>The Lingua version and platform string (<code>darwin-arm64</code>, <code>win32-x64</code>, <code>linux-x64</code>).</li>
-    <li>A pseudonymous installation ID generated locally — not tied to anything personal.</li>
+    <li>Event names from a fixed list — for example, <code>overlay.opened</code>, <code>runner.executed</code>, <code>feature.blocked</code>.</li>
+    <li>The properties allowed for that event, such as a run's status or a SQL engine. They pass through a redaction layer and never include code, file paths, environment values, or license tokens.</li>
+    <li>The Lingua version, the operating system, and the license tier.</li>
+    <li>A random session ID that changes each time the app starts.</li>
   </ul>
   <p>
     Events are sent to a self-hosted endpoint we control. There is no third-party analytics vendor
@@ -39,24 +41,44 @@ import Legal from '~/layouts/Legal.astro';
 
   <h2>Crash reporting</h2>
   <p>
-    Crash reports are opt-in under the same consent flow. Reports include a stack trace and
-    Lingua version — they do not include your code, your input, or file paths.
+    Crash reports are opt-in under the same consent flow, and off when no crash endpoint is
+    configured. Lingua attaches no code, file paths, or project names to a report, but Electron
+    includes a diagnostic minidump, and a minidump can contain data that was in memory at the crash.
+  </p>
+
+  <h2>Updates</h2>
+  <p>
+    The desktop app checks GitHub Releases shortly after launch and then hourly, downloads any
+    update, and installs it when you quit. No setting turns this off. The web build asks
+    <code>updates.linguacode.dev</code> for the latest version at startup to show an update banner.
+    Both exchange version information, not your project data.
+  </p>
+
+  <h2>License and device checks</h2>
+  <p>
+    Paid plans use signed license tokens that are verified on your device. Lingua may also check
+    them against <code>licenses.linguacode.dev</code> for activation, status refresh, device limits,
+    recovery, trials, and education access. That service keeps a device identifier and coarse device
+    details, such as the operating system, to enforce limits and list your devices in Settings.
+    Tokens travel in authorization headers, never in URLs.
   </p>
 
   <h2>AI features</h2>
   <p>
-    Explain error, Explain selection, Ask AI in SQL and the cron phrase composer are off until you
-    set a model in Settings. Lingua ships no remote endpoint or key, and sends nothing until you
-    choose Send after seeing the exact payload. Secret-looking values are redacted first, and SQL
-    sends table and column names and types, never rows.
+    Explain error, Explain selection, Edit with AI, Ask AI in SQL and the cron phrase composer are
+    off until you set a model in Settings. Lingua ships no remote endpoint or key, and sends nothing
+    until you choose Send after seeing the exact payload. Secret-looking values are redacted first.
+    The payload is what the feature needs: the error, the tab's code and its runtime values only if
+    you include them, the selected code or the whole file, the file with the span to edit marked,
+    or the cron phrase. SQL sends table and column names and types, never rows.
   </p>
   <ul>
     <li><strong>Local</strong> sends only to <code>localhost</code> or <code>127.0.0.1</code>, such as Ollama. Nothing leaves the device.</li>
     <li><strong>My endpoint</strong> sends to the provider you configure, under your account and its terms.</li>
   </ul>
   <p>
-    The key stays in the system keychain when one is available, otherwise in local storage.
-    Conversations are never saved, and telemetry never carries prompts, answers, endpoints or keys.
+    On desktop the key stays in the system keychain when one is available, otherwise in local
+    storage. On the web it stays in the browser's local storage. Conversations are never saved, and telemetry never carries prompts, answers, endpoints or keys.
   </p>
 
   <h2>This website</h2>
@@ -69,8 +91,8 @@ import Legal from '~/layouts/Legal.astro';
   <h2>The web build</h2>
   <p>
     <a href="https://app.linguacode.dev">app.linguacode.dev</a> uses the same renderer as the
-    desktop app. Pyodide is downloaded once from <code>cdn.jsdelivr.net</code> on first load and
-    served from a Service Worker cache after that.
+    desktop app. Pyodide is served from the same origin as the app. The larger DuckDB and Ruby
+    runtimes download from <code>downloads.linguacode.dev</code> when first needed.
   </p>
 
   <h2>Contact</h2>

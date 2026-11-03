@@ -146,7 +146,7 @@ export const en = {
       eyebrow: 'Shipped in Lingua',
       title: 'Six workflows that define Lingua today.',
       releaseTitle: 'Six workflows that define Lingua 1.0.',
-      lede: 'Captured from current builds, not mockups. Each workflow states where it runs and when it needs Pro; the complete technical record lives in the changelog.',
+      lede: 'Captured from real builds, not mockups. Each workflow states where it runs and when it needs Pro; the complete technical record lives in the changelog.',
       cta: 'Read the full changelog',
       latest: {
         label: 'New in',
@@ -206,7 +206,7 @@ export const en = {
     tour: {
       eyebrow: 'Inside the app',
       title: 'The actual product, doing actual work.',
-      lede: 'No mockups below — every frame is the shipping app captured mid-task on the production web build.',
+      lede: 'No mockups below — every frame is a real build captured mid-task.',
       items: [
         {
           image: '/screenshots/tour/workspace-python.png',
@@ -275,7 +275,7 @@ export const en = {
         {
           icon: 'lock',
           title: 'Local-first & private',
-          body: 'A local model means code never leaves your device. Obvious secrets are redacted before the preview, and the key lives only in Settings — never in exports, capsules, share links, or telemetry.',
+          body: 'A local model means code never leaves your device. Obvious secrets are redacted before the preview, and the key stays on your device — never in exports, capsules, share links, or telemetry.',
         },
       ],
     },
@@ -353,7 +353,7 @@ export const en = {
       bodyStart:
         'Telemetry excludes source and project paths. HTTP requests and remote AI send the payloads you choose to their endpoints; review them before sending. Read the',
       link: 'privacy page',
-      bodyEnd: 'for what every event contains.',
+      bodyEnd: 'for what telemetry contains.',
     },
     finalCta: {
       title: 'Throw your next 10-line script at it.',
@@ -411,7 +411,7 @@ export const en = {
             'Everything in Free',
             'Unlimited tabs, snippets and saved database connections',
             'Go and Rust runners',
-            'TypeScript, Python, and SQL notebooks',
+            'JavaScript, TypeScript, Python, and SQL notebooks',
             'Local-first AI with your own endpoint and key',
             'Persistent execution history and utility workflows',
             'Every update while subscribed',

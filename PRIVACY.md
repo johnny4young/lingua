@@ -67,6 +67,11 @@ in Settings › Privacy without its content, and a Helpful / Not helpful vote
 keeps only the error's kind. Telemetry never carries prompts, answers,
 endpoints or keys.
 
+## Desktop Updates
+
+Packaged desktop builds check GitHub Releases shortly after launch and then
+hourly, download any update, and install it on quit. No setting turns this off.
+
 ## Web App Updates
 
 The web build may poll `updates.linguacode.dev` for the latest published version
