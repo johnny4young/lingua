@@ -29,6 +29,8 @@ vi.mock('../../../src/renderer/runtime/pipelineCapsule', async (importOriginal) 
 });
 
 import { UtilityPipelinePanel } from '../../../src/renderer/components/DeveloperUtilities/UtilityPipelinePanel';
+import { UtilityPipelineResults } from '../../../src/renderer/components/DeveloperUtilities/UtilityPipelineResults';
+import type { PipelineRunState } from '../../../src/renderer/hooks/useUtilityPipelineRun';
 import { buildPipelineCapsule } from '../../../src/renderer/runtime/pipelineCapsule';
 import {
   resetUtilityPipelineStoreForTests,
@@ -222,10 +224,23 @@ describe('UtilityPipelinePanel, step controls', () => {
     await user.click(breakpoint);
     expect(stored().steps[0]).toMatchObject({ disabled: true, breakpoint: true });
     expect(screen.getByTestId('utility-pipeline-step-disable').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('utility-pipeline-step-row').className).toContain('border-accent');
     await user.click(screen.getByTestId('utility-pipeline-step-disable'));
     await user.click(screen.getByTestId('utility-pipeline-step-breakpoint'));
     expect(stored().steps[0]).not.toHaveProperty('disabled');
     expect(stored().steps[0]).not.toHaveProperty('breakpoint');
+  });
+
+  it('offers neither Send nor Continue while a run is in flight', () => {
+    const stepResults = [{ stepId: 's0', utilityId: 'url-encode', status: 'ok', output: 'a%20b', input: 'a b', durationMs: 1 }] as const;
+    const props = { canSaveCapsule: false, onSaveCapsule: vi.fn(), onSendOutput: vi.fn(), onContinue: vi.fn() };
+    const state = (phase: string) => ({ phase, stepResults }) as unknown as PipelineRunState;
+    const { rerender } = render(<UtilityPipelineResults {...props} runState={state('running')} />);
+    expect(screen.queryByTestId('utility-pipeline-send-select')).toBeNull();
+    expect(screen.queryByTestId('utility-pipeline-continue')).toBeNull();
+    rerender(<UtilityPipelineResults {...props} runState={state('settled')} />);
+    expect(screen.getByTestId('utility-pipeline-send-select')).toBeTruthy();
+    expect(screen.getByTestId('utility-pipeline-continue')).toBeTruthy();
   });
 
   it('keeps the controls when a step changes utility', async () => {
