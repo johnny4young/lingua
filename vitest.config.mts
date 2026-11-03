@@ -13,6 +13,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // projects. Exclude timing benches from instrumented runs in each project,
 // while keeping them in the ordinary uninstrumented suite.
 const coverageBenchExcludes = process.argv.includes('--coverage') ? ['**/*.bench.test.ts'] : [];
+// A shard measures part of the suite, so reports and floors wait for the merge.
+const isShardRun = process.argv.some(arg => arg.startsWith('--shard'));
 
 export default defineConfig({
   plugins: [nodeTypingChunkPlugin()],
@@ -75,7 +77,7 @@ export default defineConfig({
       enabled: false,
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.d.ts', 'src/types.d.ts'],
-      reporter: ['text-summary', 'json-summary', 'lcov'],
+      reporter: isShardRun ? [] : ['text-summary', 'json-summary', 'lcov'],
       reportsDirectory: 'output/coverage',
       // Measured 2026-09-06 on the full suite (benches excluded):
       // Initial: lines 80.69, statements 77.92, functions 78.99, branches 69.82.
@@ -83,12 +85,14 @@ export default defineConfig({
       // Under vitest 5 a fresh full run measured lines 80.89, statements 78.10,
       // functions 79.06 and branches 70.01, raising statements to 76 and
       // branches to 68.
-      thresholds: {
-        lines: 78,
-        statements: 76,
-        functions: 77,
-        branches: 68,
-      },
+      thresholds: isShardRun
+        ? {}
+        : {
+            lines: 78,
+            statements: 76,
+            functions: 77,
+            branches: 68,
+          },
     },
   },
   resolve: {

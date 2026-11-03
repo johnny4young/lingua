@@ -49,6 +49,7 @@ npm-debug.log*
 
 # Coverage
 coverage/
+.vitest/
 *.lcov
 
 # TypeScript cache
