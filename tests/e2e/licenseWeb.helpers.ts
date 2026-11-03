@@ -541,21 +541,17 @@ export async function clearLicense(page: Page): Promise<void> {
 // -----------------------------------------------------------------------------
 
 /**
- * Waits for a finished manual run. The toolbar Run button flips to
- * `Running...` / `Ejecutando...` while a worker-backed execution is in
- * flight, and returns to its idle label once the lifecycle finally settles
- * `isRunning` back to false. Gating on the disappearance of that loading
- * label is more portable than parsing console text — it works regardless
- * of console visibility or whether the runner emitted a completion entry.
+ * Waits for a manual run started by `clickRun` to settle. The run claims its
+ * session synchronously in the click handler, so `data-running` is already
+ * true when the click returns. Auto-runs do not set this attribute.
  *
  * Generous 30s timeout because the web build still does worker warmup on
  * the first run per session; subsequent runs are near-instant.
  */
 export async function waitForRunCompleted(page: Page): Promise<void> {
-  const runningButton = page.getByRole('button', {
-    name: /^running\.\.\.$|^ejecutando\.\.\.$/i,
+  await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'false', {
+    timeout: 30_000,
   });
-  await expect(runningButton).toHaveCount(0, { timeout: 30_000 });
 }
 
 /** Replace the active Monaco buffer wholesale with `source`. */
