@@ -6,6 +6,7 @@ import type {
   LocalMcpStartFailureReason,
   LocalMcpState,
 } from '../../../shared/localMcp';
+import '../../i18n/localMcpCatalog';
 import { useProjectStore } from '../../stores/projectStore';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { StatusBadge } from '../ui/StatusBadge';
