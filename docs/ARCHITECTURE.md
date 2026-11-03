@@ -1775,6 +1775,13 @@ window focus, with no polling, behind the `clipboardChains` flag, `DEV_UTILITIES
 `clipboard-read`, where each read could prompt, and a read on focus never asks. It keeps only the result of `classifyClipboard`,
 so the text never reaches a store, the DOM, a log or telemetry.
 
+Those steps can also carry `disabled` and `breakpoint`, and a pipeline `autoBake`. All three
+are additive to version 1 and only `true` survives a parse. `runPipeline` reports
+`disabled` and `paused` step statuses, which the aggregate telemetry status does not count,
+so `PIPELINE_RUN_STATUSES` is unchanged. Auto-bake lives in `UtilityPipelinePanel`: it
+debounces, never overlaps a run, and records no telemetry. Continue re-runs with the
+breakpoints up to that step removed rather than resuming, since each run owns a worker.
+
 ### Utility pipeline export
 
 Labs › GUI actions to code adds **Save as JS snippet** to a utility pipeline
