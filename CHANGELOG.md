@@ -87,6 +87,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- An SSH tunnel that fails before sign-in, such as a port that accepts the connection and never answers, or a refused sign-in or host key followed by a reset, reports its error and leaves your other database connections open, instead of stopping the SQL host and everything running in it.
 - In the web app, a SQL tab that finishes loading its engine no longer replaces the open query tabs another browser tab just saved, so reloading that tab keeps them. A tab now saves a store only when something in it changed.
 - With the browser blocking site data, Lingua says that nothing is saved after a reload: the toolbar shows not saved instead of autosave, a warning appears on load, and the browser asks before a reload drops edits. The guided tour no longer reopens on every load, and pasting a license again after a reload keeps one web seat instead of using up all three.
 - Lingua on the web boots and runs when the browser blocks site storage, as block-all-cookies does, instead of stopping at a blank page. Settings and work stay in memory and are gone on reload.
