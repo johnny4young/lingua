@@ -17,7 +17,7 @@
  *   - `settingsDefaults`         — seed consts + `createInitialSettingsState()`
  *   - `settingsSanitizers`       — rehydrate/runtime value narrowing
  *   - `settingsMerge`            — the persist `merge` rehydrate sanitizer
- *   - `settingsPersistence`      — `partialize` + `syncConsentMirror` + cross-tab sync
+ *   - `settingsPersistence`      — `partialize` + `syncConsentMirror`
  *   - `settings{Appearance,Runtime,Privacy,Session}Actions` — setter factories
  *
  * The action factories each take the zustand `(set[, get])` and return a disjoint
@@ -30,11 +30,8 @@ import { persist } from 'zustand/middleware';
 import type { SettingsState } from '../types/settings';
 import { createMigrate } from './persistence/migrationRegistry';
 import { createInitialSettingsState } from './settingsDefaults';
-import {
-  attachSettingsCrossTabSync,
-  settingsPartialize,
-  syncConsentMirror,
-} from './settingsPersistence';
+import { attachCrossTabSync } from './persistence/crossTabSync';
+import { settingsPartialize, syncConsentMirror } from './settingsPersistence';
 import { settingsMerge } from './settingsMerge';
 import { createAppearanceActions } from './settingsAppearanceActions';
 import { createRuntimeActions } from './settingsRuntimeActions';
@@ -68,13 +65,7 @@ export const useSettingsStore = create<SettingsState>()(
       version: 4,
       migrate: createMigrate('lingua-settings'),
       partialize: settingsPartialize,
-      // No stored value means defaults, as at boot: another tab may have cleared
-      // settings, and keeping the live copy would restore them on the next write.
-      merge: (persisted, current) =>
-        settingsMerge(
-          persisted,
-          persisted === undefined ? { ...current, ...createInitialSettingsState() } : current
-        ),
+      merge: settingsMerge,
       onRehydrateStorage: () => (state) => {
         if (!state) {
           return;
@@ -88,7 +79,7 @@ export const useSettingsStore = create<SettingsState>()(
   )
 );
 
-attachSettingsCrossTabSync(useSettingsStore);
+attachCrossTabSync(useSettingsStore, { defaults: createInitialSettingsState });
 
 // Register only after the persisted store is fully assembled. Telemetry policy
 // reads through this leaf bridge instead of importing the store back into the

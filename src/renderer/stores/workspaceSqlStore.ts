@@ -29,6 +29,8 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { attachCrossTabSync } from './persistence/crossTabSync';
+import { keepLatestTransient } from './persistence/keepLatestTransient';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   SQL_WORKSPACE_STORAGE_KEY,
@@ -197,6 +199,14 @@ function sanitizeTableSources(value: unknown): Record<string, SqlImportFormat> {
     }
   }
   return out;
+}
+
+function isTransientSqlResponse(response: SqlResponseV1): boolean {
+  return (
+    response.status === 'timeout' ||
+    response.status === 'engine-load-failed' ||
+    response.status === 'cancelled'
+  );
 }
 
 export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
@@ -433,12 +443,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           ReadonlyArray<SqlResponseV1>
         > = {};
         for (const [qid, list] of Object.entries(state.responsesByQueryId)) {
-          const surviving = list.filter(
-            (entry) =>
-              entry.status !== 'timeout' &&
-              entry.status !== 'engine-load-failed' &&
-              entry.status !== 'cancelled'
-          );
+          const surviving = list.filter((entry) => !isTransientSqlResponse(entry));
           if (surviving.length > 0) persistedResponses[qid] = surviving;
         }
         return {
@@ -524,6 +529,32 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
     }
   )
 );
+
+attachCrossTabSync(useWorkspaceSqlStore, {
+  // The storage backing describes this tab's engine, not stored data.
+  defaults: () => {
+    const { storageMode: _mode, storageRequestedMode: _requested, ...stored } = createInitialState();
+    return stored;
+  },
+  keepLocal: (next, live) => {
+    const exists = (id: string) => next.queries.some((query) => query.id === id);
+    const openQueryIds = live.openQueryIds.filter(exists);
+    return {
+      openQueryIds,
+      activeQueryId:
+        live.activeQueryId !== null && openQueryIds.includes(live.activeQueryId)
+          ? live.activeQueryId
+          : (openQueryIds[0] ?? null),
+      explorerFolded: live.explorerFolded,
+      responsesByQueryId: keepLatestTransient(
+        live.responsesByQueryId,
+        next.responsesByQueryId,
+        exists,
+        isTransientSqlResponse
+      ),
+    };
+  },
+});
 
 registerSqlQueryTabCounter(() => useWorkspaceSqlStore.getState().openQueryIds.length);
 registerSqlStoreClear(() => useWorkspaceSqlStore.setState(createInitialState()));

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './licenseWeb.helpers';
 
 // axe-core cannot reliably resolve this app's OKLCH design tokens. Measure the
 // emitted colors in Chromium instead of disabling contrast without a gate.

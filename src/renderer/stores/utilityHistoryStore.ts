@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import i18next from 'i18next';
+import { attachCrossTabSync } from './persistence/crossTabSync';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   DEVELOPER_UTILITY_CATALOG,
@@ -305,3 +306,16 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
     }
   )
 );
+
+attachCrossTabSync(useUtilityHistoryStore, {
+  defaults: () => ({ history: {}, persistEnabled: {}, favorites: [] }),
+  // A tool without persistence on keeps its history only in this tab's memory.
+  keepLocal: (next, live) => ({
+    history: {
+      ...Object.fromEntries(
+        Object.entries(live.history).filter(([toolId]) => !next.persistEnabled[toolId as DeveloperUtilityId])
+      ),
+      ...next.history,
+    },
+  }),
+});

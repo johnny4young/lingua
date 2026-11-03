@@ -1060,31 +1060,56 @@ The drift guard in that test fails CI if any new `persist(...)` store ships
 without a `version` + `createMigrate(...)`, so a store can never silently go
 unversioned.
 
-### Settings across tabs
+### Stores across tabs
 
 Zustand's `persist` does not sync tabs, and every write saves the store's whole
-partialized state. A web tab holding an old `lingua-settings` would keep acting on
-a revoked consent, then restore it on its next write. `attachSettingsCrossTabSync`
-(`settingsPersistence.ts`) rehydrates on the `storage` event, and on `pageshow`
-when the page returns from the back/forward cache, where it received no events.
-The desktop app has one window, so nothing fires there. Rules that keep it safe:
+partialized state. A web tab holding an old copy would keep acting on a revoked
+consent or a removed API key, then restore it on its next write.
+`attachCrossTabSync` (`stores/persistence/crossTabSync.ts`) rehydrates on the
+`storage` event, and on `pageshow` when the page returns from the back/forward
+cache, where it received no events. The desktop app has one window, so nothing
+fires there. Rules that keep it safe:
 
 - It reads the current stored value, not `event.newValue`, which a later write may
   have replaced. Clear store writes defaults and then removes the key.
 - It skips a stored value with another schema version. Zustand writes back after
   any version mismatch, so a tab on an old bundle and one on a new bundle would
   rewrite each other forever. An old-bundle tab stays stale until it reloads, and
-  its next write can still overwrite newer settings.
-- A missing key means defaults: the `merge` wrapper in `settingsStore.ts` resets the
-  live copy without writing. This covers Clear store and factory reset (`storage`
-  event with a null key), and at boot it changes nothing.
+  its next write can still overwrite newer data.
+- A missing key means the store's `defaults`, without writing. Zustand's default
+  merge keeps the live copy, which the next write would restore. This covers Clear
+  store and `localStorage.clear()` (`storage` event with a null key).
+- `keepLocal` names the fields that belong to one tab and resolves them against what
+  was stored. A missing key skips it: a clear reaches session-only data too.
+- Boot and migrations keep the store's own `merge`. The sync installs its merge after
+  `create()`, where localStorage has already hydrated synchronously.
 - A rehydrate writes nothing, and rewriting an identical value fires no event, so
-  two tabs on the same schema settle.
+  two tabs on the same schema settle. For the same reason `keepLocal` runs inside the
+  merge: a `setState` afterwards would write.
+- A subscriber that reports or reacts to a user action checks
+  `persist.hasHydrated()`, which is false while a rehydrate applies. Otherwise each
+  tab would report the action again.
+
+| Store | Kept per tab |
+| --- | --- |
+| `lingua-settings`, `lingua-ai`, `lingua-snippets`, `lingua-trust-events`, `lingua-env-vars` | Nothing |
+| `lingua-utility-state` | History of tools whose stored persistence is off |
+| `lingua-workspace-sql-state` | Open and active query, folded explorer, the newest response when it is transient |
+| `lingua-workspace-tool-state` | Active request, environment and pipeline, the request in flight, the newest response when it is transient |
+
+Stores that do not sync: `lingua-session` and `lingua-notebook-state` are each tab's
+working copy, `lingua-utility-workspace` is its selected tool, and the rest hold
+nothing sensitive or clearable. `lingua-license` has its own listener because a
+rehydrate there revalidates with the server. A test in
+`tests/stores/persistence/crossTabSync.test.ts` fails until a new persisted store
+joins one of these lists.
 
 Limits: rehydrating skips setter side effects, so a language change from another
 tab is stored but the UI text changes only after a reload. Two writes a few
-milliseconds apart still resolve to the last one. Other persisted stores do not
-sync across tabs yet.
+milliseconds apart still resolve to the last one. Each write parses the store in the
+other tab, which is the cost to watch for large SQL and HTTP stores. Turning a
+tool's persistence off in one tab leaves its history in the memory of both tabs, and
+only a clear removes it there.
 
 ### Blocked storage
 
