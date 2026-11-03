@@ -1086,6 +1086,10 @@ fires there. Rules that keep it safe:
 - A rehydrate writes nothing, and rewriting an identical value fires no event, so
   two tabs on the same schema settle. For the same reason `keepLocal` runs inside the
   merge: a `setState` afterwards would write.
+- A tab writes only when its stored fields differ from what it last read or wrote.
+  Zustand writes on every `set`, even one that changes nothing stored, and each write
+  carries the tab's `keepLocal` fields. Without this check an idle tab finishing its
+  DuckDB load replaces the open query tabs another tab just stored.
 - A subscriber that reports or reacts to a user action checks
   `persist.hasHydrated()`, which is false while a rehydrate applies. Otherwise each
   tab would report the action again.
@@ -1106,10 +1110,11 @@ joins one of these lists.
 
 Limits: rehydrating skips setter side effects, so a language change from another
 tab is stored but the UI text changes only after a reload. Two writes a few
-milliseconds apart still resolve to the last one. Each write parses the store in the
-other tab, which is the cost to watch for large SQL and HTTP stores. Turning a
-tool's persistence off in one tab leaves its history in the memory of both tabs, and
-only a clear removes it there.
+milliseconds apart still resolve to the last one, and a real change still stores that
+tab's own `keepLocal` fields, so a reload opens what the last writer had open. Each
+write parses the store in the other tab, which is the cost to watch for large SQL and
+HTTP stores. Turning a tool's persistence off in one tab leaves its history in the
+memory of both tabs, and only a clear removes it there.
 
 ### Blocked storage
 
