@@ -2,8 +2,8 @@ import type { SettingsState } from '../types/settings';
 
 /**
  * Settings persist-boundary helpers, extracted verbatim from
- * `settingsStore.ts`: the `partialize` durable-field projection and the
- * consent-mirror side-effect. The rehydrate sanitizer (`merge`) lives in
+ * `settingsStore.ts`: the `partialize` durable-field projection, the
+ * consent-mirror side-effect and the cross-tab sync. The rehydrate sanitizer (`merge`) lives in
  * `settingsMerge.ts`; `onRehydrateStorage` stays inline in the assembly (it is
  * a 3-line call into `syncConsentMirror`). Depends only on the `SettingsState`
  * type and the `window.lingua.consent` bridge — never on the store or actions.
@@ -115,4 +115,39 @@ export function settingsPartialize(state: SettingsState) {
     // notebook code cells; merge sanitizes it back to JS/TS on rehydrate.
     notebookDefaultCellLanguage: state.notebookDefaultCellLanguage,
   };
+}
+
+/**
+ * Re-read `lingua-settings` when another tab changes it, or when this page comes
+ * back from the back/forward cache, where it received no `storage` events.
+ * Without this a tab keeps a revoked consent and its next write restores it.
+ * Reads storage instead of `event.newValue`, which a later write may have
+ * replaced. Skips other schema versions: zustand writes back after any version
+ * mismatch, so two bundles would rewrite each other forever. `persist` is absent
+ * when storage is blocked.
+ */
+export function attachSettingsCrossTabSync(store: {
+  persist?: {
+    getOptions: () => { name?: string; version?: number };
+    rehydrate: () => Promise<void> | void;
+  };
+}): void {
+  const { persist } = store;
+  if (!persist || typeof window === 'undefined') return;
+  const { name, version } = persist.getOptions() as { name: string; version: number };
+  const sync = () => {
+    try {
+      const raw = window.localStorage.getItem(name);
+      if (raw === null || JSON.parse(raw)?.version === version) void persist.rehydrate();
+    } catch {
+      // Unreadable value: keep the live copy.
+    }
+  };
+  window.addEventListener('storage', (event) => {
+    // A null key means `localStorage.clear()`.
+    if (event.key === name || event.key === null) sync();
+  });
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) sync();
+  });
 }

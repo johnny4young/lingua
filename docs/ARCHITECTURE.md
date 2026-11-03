@@ -1060,6 +1060,32 @@ The drift guard in that test fails CI if any new `persist(...)` store ships
 without a `version` + `createMigrate(...)`, so a store can never silently go
 unversioned.
 
+### Settings across tabs
+
+Zustand's `persist` does not sync tabs, and every write saves the store's whole
+partialized state. A web tab holding an old `lingua-settings` would keep acting on
+a revoked consent, then restore it on its next write. `attachSettingsCrossTabSync`
+(`settingsPersistence.ts`) rehydrates on the `storage` event, and on `pageshow`
+when the page returns from the back/forward cache, where it received no events.
+The desktop app has one window, so nothing fires there. Rules that keep it safe:
+
+- It reads the current stored value, not `event.newValue`, which a later write may
+  have replaced. Clear store writes defaults and then removes the key.
+- It skips a stored value with another schema version. Zustand writes back after
+  any version mismatch, so a tab on an old bundle and one on a new bundle would
+  rewrite each other forever. An old-bundle tab stays stale until it reloads, and
+  its next write can still overwrite newer settings.
+- A missing key means defaults: the `merge` wrapper in `settingsStore.ts` resets the
+  live copy without writing. This covers Clear store and factory reset (`storage`
+  event with a null key), and at boot it changes nothing.
+- A rehydrate writes nothing, and rewriting an identical value fires no event, so
+  two tabs on the same schema settle.
+
+Limits: rehydrating skips setter side effects, so a language change from another
+tab is stored but the UI text changes only after a reload. Two writes a few
+milliseconds apart still resolve to the last one. Other persisted stores do not
+sync across tabs yet.
+
 ## Browser permission posture
 
 The Electron shell is **deny-by-default** for browser permissions. `src/main/permissionHandlers.ts` installs both

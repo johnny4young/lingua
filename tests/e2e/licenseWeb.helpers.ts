@@ -70,7 +70,7 @@ function buildSeededSnippets(count: number): SeededSnippet[] {
   }));
 }
 
-function trackConsoleErrors(page: Page): string[] {
+export function trackConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('console', message => {
     if (message.type() === 'error') {
@@ -121,7 +121,7 @@ async function fulfillCorsPreflight(route: Route): Promise<boolean> {
   return true;
 }
 
-async function installLicenseServerMock(page: Page): Promise<void> {
+export async function installLicenseServerMock(page: Page): Promise<void> {
   // Keep every web E2E independent from the production update worker. The
   // app polls this endpoint on boot even when telemetry is declined; without
   // a route, an offline or DNS-restricted runner logs a browser-level resource
