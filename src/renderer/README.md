@@ -899,8 +899,8 @@ Primary task contracts:
 
 | Task | Canonical text entry | Contextual/direct entry | Keyboard entry | Interaction budget |
 | --- | --- | --- | --- | --- |
-| Run the active tab | `Run active tab` | floating Run action | `Mod+Enter` | 1 direct or 3 through the palette |
-| Change JS/TS runtime | `Switch runtime to …` | floating Runtime menu | `Mod+Alt+M` cycles modes | 2 direct or 3 through the palette |
+| Run the active tab | `Run active tab` | command bar Run action | `Mod+Enter` | 1 direct or 3 through the palette |
+| Change JS/TS runtime | `Switch runtime to …` | command bar Runtime menu | `Mod+Alt+M` cycles modes | 2 direct or 3 through the palette |
 | Open a project | `Open project folder…` | Explorer empty state / footer | Command Palette | 1 direct or 3 to the folder picker |
 | Run project tests | `Run project tests` | Explorer ⋯ menu | Command Palette | 3 direct: open the menu, choose Detect and run project tests, then Run all tests |
 | Apply a license | `Apply license token` | license badge / Settings → Account | Command Palette | 5 through the palette, including paste + Apply |

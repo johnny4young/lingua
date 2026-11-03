@@ -482,7 +482,7 @@
   "capsuleList.compare.pick": "Elige una cápsula para comparar con {{name}}.",
   "capsuleList.compare.cancel": "Cancelar",
   "capsuleList.gate.quota": "Free · {{count}} de {{max}} guardadas",
-  "capsuleList.gate.lastRun": "Tus últimas ejecuciones",
+  "capsuleList.gate.lastRun": "Tu última ejecución",
   "capsuleList.gate.pro": "Pro explora, compara y exporta todas tus cápsulas.",
   "capsuleWorkspace.title": "Crear Capsule Workspace",
   "capsuleWorkspace.subtitle": "Empaqueta una ejecución con pestañas de texto abiertas que elijas de forma explícita. Revisa el payload exacto antes de que salga de este dispositivo.",

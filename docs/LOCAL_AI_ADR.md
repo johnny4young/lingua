@@ -186,3 +186,11 @@ providers. Streaming updates are coalesced to 50 ms plus first/final text.
 A budget failure is a typed failure, not a successful truncated answer. The
 EN/ES consumers do not retain partial output as an assistant turn or SQL to
 insert. This does not change explicit consent, entitlement, or BYO transport.
+
+## Amendment (2026-11-03): what shipped
+
+The explain flows, Explain this code, Edit with AI and Ask AI in SQL have all
+shipped, behind `LOCAL_AI`. The API key no longer lives only in Settings: on
+desktop it is in the system keychain when one is available and in local storage
+otherwise, and on the web it is in the browser's local storage. The controls sit
+under Settings › Account. The consent and payload rules above still apply.
