@@ -482,7 +482,7 @@
   "capsuleList.compare.pick": "Pick a capsule to compare with {{name}}.",
   "capsuleList.compare.cancel": "Cancel",
   "capsuleList.gate.quota": "Free · {{count}} of {{max}} kept",
-  "capsuleList.gate.lastRun": "Your last runs",
+  "capsuleList.gate.lastRun": "Your last run",
   "capsuleList.gate.pro": "Pro browses, compares and exports every capsule.",
   "capsuleWorkspace.title": "Create Capsule Workspace",
   "capsuleWorkspace.subtitle": "Package one run with explicitly selected open text tabs. Review the exact payload before it leaves this device.",

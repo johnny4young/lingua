@@ -142,7 +142,7 @@ Notes:
 - Web builds poll `updates.linguacode.dev/web/version` and show a reload banner when the deployed web tag is strictly newer than the running bundle.
 - The renderer exposes update state in Settings and a manual "Check for updates" command in the command palette, which opens Settings so the current state and message are visible immediately.
 - Restart-to-apply is only enabled after the main process reports that an update has been downloaded.
-- When a desktop update is ready, Lingua also shows a success notice and an update-ready chip in the app chrome; either path points back to Settings → Updates for the restart action.
+- When a desktop update is ready, Lingua also shows a success notice and an update-ready chip in the command bar; either path points back to Settings › General › Updates for the restart action.
 - The updater currently targets the stable GitHub Release channel only.
 
 ## Local plugins
@@ -407,7 +407,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - A **PRO** chip next to a limited feature opens the same table. On Free, the flag also turns three locks into slices of your own data:
   - **Recent runs** on a tab lists the last 3 runs, with status, language, time and age; replay and pins stay Pro.
   - **Utility pipelines** open and run their first 3 steps; later steps show dimmed under *Free runs the first 3 steps*.
-  - **Run capsules** keeps previewing your last three runs read-only, with Import, and a PRO chip in place of the upgrade button.
+  - **Run capsules** keeps previewing your last run read-only, with Import, and a PRO chip in place of the upgrade button.
 - The timeline's *Free keeps the last 20 of …* chip also opens the table.
 - Only the first notice about a Pro limit in a session carries **Compare plans**; later ones only say what was blocked.
 

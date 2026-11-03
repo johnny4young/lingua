@@ -378,25 +378,13 @@ describe('CapsuleListOverlay — Free gate', () => {
     mockTier = 'free';
   });
 
-  it('reads a sample run on Free by picking it, and never lists more than three', () => {
-    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS, FIXTURE_PYTHON_ERROR, FIXTURE_STOPPED);
-    render(<CapsuleListOverlay onClose={vi.fn()} />);
-    const rows = screen.getAllByTestId('capsule-list-row');
-    expect(rows).toHaveLength(3);
-    expect(rows[0]!.getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(rows[2]!);
-    expect(rows[2]!.getAttribute('aria-pressed')).toBe('true');
-    expect(rows[0]!.getAttribute('aria-pressed')).toBe('false');
-    expect(screen.getByTestId('capsule-detail-code').textContent).toContain(FIXTURE_FULL_TS.source.content);
-  });
-
   it('previews the last own run read-only with the quota and Import', () => {
     seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS, FIXTURE_PYTHON_ERROR);
     useImportedCapsuleStore.getState().add(FIXTURE_TIMEOUT);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
 
     expect(screen.getByTestId('capsule-list-upsell')).toBeTruthy();
-    expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(3);
+    expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
     expect(screen.getByTestId('capsule-detail-code').textContent).toContain(FIXTURE_PYTHON_ERROR.source.content);
     expect(screen.getByTestId('capsule-list-quota').textContent).toBe('Free · 3 of 5 kept');
     expect(screen.getByTestId('capsule-list-import')).toBeTruthy();
