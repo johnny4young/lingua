@@ -18,6 +18,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { attachCrossTabSync } from './persistence/crossTabSync';
 import { createMigrate } from './persistence/migrationRegistry';
 import { AI_API_KEY_SECRET_ID } from '../../shared/secretVault';
 import {
@@ -157,6 +158,10 @@ export const useAiConfigStore = create<AiConfigState>()(
     }
   )
 );
+
+attachCrossTabSync(useAiConfigStore, {
+  defaults: () => ({ mode: 'remote' as const, local: EMPTY_LOCAL, remote: EMPTY_REMOTE, remoteApiKey: '', apiKeyInVault: false }),
+});
 
 /**
  * Moves a plaintext key left in localStorage by an older build into the

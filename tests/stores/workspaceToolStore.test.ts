@@ -3,7 +3,7 @@
  * lifecycle.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   resetWorkspaceToolStoreForTests,
   useWorkspaceToolStore,
@@ -452,7 +452,7 @@ describe('useWorkspaceToolStore environments ', () => {
     expect(useWorkspaceToolStore.getState().environments).toHaveLength(0);
   });
 
-  it('rehydrate drops invalid environments but keeps valid ones', () => {
+  it('boot drops invalid environments but keeps valid ones', async () => {
     localStorage.setItem(
       'lingua-workspace-tool-state',
       JSON.stringify({
@@ -476,10 +476,12 @@ describe('useWorkspaceToolStore environments ', () => {
         version: 1,
       })
     );
-    void useWorkspaceToolStore.persist.rehydrate();
-    expect(
-      useWorkspaceToolStore.getState().environments.map((e) => e.id)
-    ).toEqual(['e1']);
-    expect(useWorkspaceToolStore.getState().activeEnvironmentId).toBe('e1');
+    // A fresh module hydrates inside `create()`, as a page load does.
+    vi.resetModules();
+    const { useWorkspaceToolStore: booted } = await import(
+      '../../src/renderer/stores/workspaceToolStore'
+    );
+    expect(booted.getState().environments.map((e) => e.id)).toEqual(['e1']);
+    expect(booted.getState().activeEnvironmentId).toBe('e1');
   });
 });

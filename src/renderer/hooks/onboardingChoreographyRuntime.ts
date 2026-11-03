@@ -111,7 +111,8 @@ export function startOnboardingChoreography({
     const next = state.snippets.length;
     const previous = lastSnippetCount;
     lastSnippetCount = next;
-    if (next > previous) {
+    // During a rehydrate the snippet came from another tab, which already handled it.
+    if (next > previous && useSnippetsStore.persist?.hasHydrated() !== false) {
       handleFirstSnippetSave(track);
     }
   });

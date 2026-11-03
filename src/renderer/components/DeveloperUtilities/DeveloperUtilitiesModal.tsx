@@ -76,7 +76,8 @@ function useFavoriteTelemetry(): void {
     let lastSize = useUtilityHistoryStore.getState().favorites.length;
     return useUtilityHistoryStore.subscribe(state => {
       const nextSize = state.favorites.length;
-      if (nextSize > lastSize) {
+      // During a rehydrate the pin came from another tab, which already reported it.
+      if (nextSize > lastSize && useUtilityHistoryStore.persist?.hasHydrated() !== false) {
         const last = state.favorites[state.favorites.length - 1];
         if (last) {
           track('utility.favorite.pinned', {

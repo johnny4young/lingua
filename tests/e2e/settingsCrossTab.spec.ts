@@ -125,7 +125,6 @@ for (const language of ['en', 'es'] as const) {
       const { other, otherErrors } = await openSecondTab(page);
       await expect(telemetrySwitch(other)).toHaveAttribute('aria-checked', 'true');
 
-      // What factory reset does before it reloads the tab.
       await page.evaluate(() => window.localStorage.clear());
       await expect(telemetrySwitch(other)).toHaveAttribute('aria-checked', 'false');
 
