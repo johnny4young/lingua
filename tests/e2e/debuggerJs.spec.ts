@@ -156,9 +156,17 @@ test.describe('Debugger ', () => {
     await page.getByRole('tab', { name: /^Console/ }).click();
     await expect(page.getByTestId('console-paused-summary')).toContainText('Paused at line 3');
     await page.getByTestId('console-paused-summary').getByRole('button', { name: 'Open Debugger' }).click();
-    const pausedLine = await page.locator('.monaco-editor .lingua-debugger-paused-line').boundingBox();
-    const hudBox = await hud.boundingBox();
-    expect(hudBox!.y).toBeGreaterThanOrEqual(pausedLine!.y + pausedLine!.height - 1);
+    const pausedLine = page.locator('.monaco-editor .lingua-debugger-paused-line');
+    await expect(pausedLine).toBeVisible();
+    await expect(hud).toBeVisible();
+    // Monaco replaces an overlay line's nodes when a decoration lands there, and a replaced node has no box.
+    await expect(async () => {
+      const pausedLineBox = await pausedLine.boundingBox();
+      const hudBox = await hud.boundingBox();
+      expect(pausedLineBox).not.toBeNull();
+      expect(hudBox).not.toBeNull();
+      expect(hudBox!.y).toBeGreaterThanOrEqual(pausedLineBox!.y + pausedLineBox!.height - 1);
+    }).toPass({ timeout: 15_000 });
     await page.getByTestId('debugger-hud-step-over').click();
     await expect(hud).toContainText('Paused · line 4');
     await expect(page.locator('.monaco-editor .lingua-debugger-inline-value')).toHaveText('label → value:42');
