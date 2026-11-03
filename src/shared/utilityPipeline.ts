@@ -54,7 +54,7 @@ import { PIPELINE_MAX_STEPS } from './utilityPipelineLimits';
 export const PIPELINE_CAP = 100;
 export { PIPELINE_MAX_STEPS };
 /** Per-step timeout when running. Adapters that take longer settle as `'timeout'`. */
-const STEP_TIMEOUT_MS = 30_000;
+export const STEP_TIMEOUT_MS = 30_000;
 /** Yield budget between steps via `requestIdleCallback` / `setTimeout(0)`. */
 const YIELD_BETWEEN_STEPS_MS = 5;
 /** UTF-8 byte cap on the chained intermediate values (per step). 256 KiB. */
@@ -90,7 +90,7 @@ export type PipelineStepStatus = (typeof PIPELINE_STEP_STATUSES)[number];
 /**
  * Closed enum of aggregate pipeline outcomes for telemetry.
  *
- *   - `'all-ok'`         — every step `'ok'`.
+ *   - `'all-ok'`         — every step that ran was `'ok'`; disabled and paused steps do not count.
  *   - `'partial'`        — some steps `'ok'`, some not (typical mid-failure).
  *   - `'all-failed'`     — no step ran successfully.
  *   - `'incompatible'`   — engine detected kind mismatch on first step (no run).
@@ -129,7 +129,7 @@ export interface UtilityPipelineV1 {
   steps: PipelineStepV1[];
   createdAt: string;
   updatedAt: string;
-  /** Re-run when the input or the steps change. Absent when off. */
+  /** Run whenever the input is not empty and differs from the last run's. Absent when off. */
   autoBake?: true;
 }
 
@@ -143,7 +143,7 @@ export interface PipelineStepResult {
   input?: string;
   /** Failure detail when `status === 'error' | 'timeout' | 'incompatible'`. */
   errorMessage?: string;
-  /** Wall-clock duration in ms (set for every status except `'skipped'`). */
+  /** Wall-clock duration in ms; 0 for a step that never ran (`'skipped'`, `'disabled'`, `'paused'`). */
   durationMs: number;
 }
 
@@ -406,6 +406,27 @@ function aggregateStatus(results: ReadonlyArray<PipelineStepResult>): PipelineRu
  * returned `results` array. Upstream failure cascades as `'skipped'`
  * for every downstream step.
  */
+/**
+ * The outcome of a run whose worker stopped answering: a synchronous adapter, such as a
+ * catastrophic regex, starves the timer inside `runPipeline`. The next step timed out
+ * and the rest never ran.
+ */
+export function outcomeOfStalledRun(
+  pipeline: UtilityPipelineV1,
+  settled: ReadonlyArray<PipelineStepResult>,
+  stepTimeoutMs: number,
+  durationMs: number
+): PipelineRunOutcome {
+  const results = pipeline.steps.map((step, index): PipelineStepResult => {
+    const known = settled[index];
+    if (known) return known;
+    return index === settled.length
+      ? { stepId: step.id, utilityId: step.utilityId, status: 'timeout', errorMessage: `Step exceeded ${stepTimeoutMs} ms`, durationMs: stepTimeoutMs }
+      : { stepId: step.id, utilityId: step.utilityId, status: 'skipped', durationMs: 0 };
+  });
+  return { status: aggregateStatus(results), results, durationMs };
+}
+
 export async function runPipeline(
   pipeline: UtilityPipelineV1,
   input: string,

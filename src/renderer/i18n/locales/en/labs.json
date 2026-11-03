@@ -24,7 +24,7 @@
   "settings.labs.flag.ejectToCode.label": "GUI actions to code",
   "settings.labs.flag.ejectToCode.description": "An HTTP request can open as a JavaScript tab that runs in the Worker, with its secrets and credentials left as placeholders, and the SQL a grid's filters, sort and columns generate can be saved as a snippet, and a utility pipeline as a JavaScript snippet.",
   "settings.labs.flag.clipboardChains.label": "Clipboard-aware utilities",
-  "settings.labs.flag.clipboardChains.description": "With Apply from clipboard on panel focus on in Settings › Editor › Developer Utilities, Utilities classifies the clipboard on this device when it opens and on window focus, and marks the tools that fit. Needs Pro. Outputs can also go to a pipeline step, and pipeline steps can be disabled, paused with a breakpoint or re-run with auto-bake.",
+  "settings.labs.flag.clipboardChains.description": "With Apply from clipboard on panel focus on in Settings › Editor › Developer Utilities, Utilities classifies the clipboard on this device when it opens and on window focus, and marks the tools that fit. Needs Pro. Without that setting or any clipboard read, outputs can go to a pipeline step, and pipeline steps can be disabled, paused with a breakpoint or re-run with auto-bake, on Pro or on Free with Pro in context.",
   "settings.labs.flag.networkPolicy.label": "Network policy for running code",
   "settings.labs.flag.networkPolicy.description": "Adds Network from running code to Settings › Privacy, where you choose whether code in the Worker, Pyodide and Ruby WASM runtimes may reach the network.",
   "settings.labs.flag.dbClient.label": "Database connections",

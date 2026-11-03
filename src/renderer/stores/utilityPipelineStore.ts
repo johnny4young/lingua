@@ -127,9 +127,14 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
         set((state) => {
           // LRU cap: trim oldest pipelines (tail) when at cap.
           const next = [pipeline, ...state.pipelines].slice(0, PIPELINE_CAP);
+          // An evicted pipeline's input can hold a token, and no screen reaches it any more.
+          const kept = new Set(next.map((p) => p.id));
           return {
             pipelines: next,
             activePipelineId: pipeline.id,
+            inputsByPipelineId: Object.fromEntries(
+              Object.entries(state.inputsByPipelineId).filter(([id]) => kept.has(id))
+            ),
           };
         }),
 

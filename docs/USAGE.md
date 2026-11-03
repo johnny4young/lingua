@@ -91,14 +91,16 @@ Utilities opens, never on a window focus. Browsers that cannot report this permi
 such as Firefox and Safari, could ask on each read, so there Lingua does not read it for
 this.
 
-The same setting adds chaining, with no clipboard read involved:
+The same setting adds chaining, on Pro or on Free with Pro in context (first 3 steps), with no clipboard read and without **Apply from clipboard on panel focus**:
 
-- **Send output to…**, above any tool, creates a pipeline with that tool's output as its input and the chosen utility as its step, opens it and runs it. Below a pipeline's results, it inserts the step right after the one that made the last output and runs again; a light bulb suggests a next step when the output looks like a JWT, JSON, Base64, a timestamp or a color. The input stays out of storage like any pipeline input.
-- **Disable step** skips a step and passes its input through.
-- **Breakpoint** stops a run after that step, shows what it received and returned, and marks the next steps as not run. **Continue** runs again from the start past that breakpoint, so a generator such as UUID produces a new value.
-- **Auto-bake**, off by default and saved with the pipeline, runs it again when the input or a step changes, stops at breakpoints and adds nothing to usage telemetry. It waits for a non-empty input and runs one at a time.
+- **Send output to…**, above any tool, takes a pick and then **Send**. It creates a pipeline with that tool's output as its input and the chosen utility as its step, opens it and runs it. Below a pipeline's results, it inserts the step right after the one that made the last output and runs again; a light bulb suggests a next step when the output looks like a JWT, JSON, Base64, a timestamp or a color. The input stays out of storage like any pipeline input.
+- **Disable step** skips a step and passes its input through. With every step off, **Run** and **Save as JS snippet** are unavailable.
+- **Breakpoint** stops a run after that step, shows what it received and returned, and marks the next steps as not run. **Continue** runs again from the start past that breakpoint, for that run only, so a generator such as UUID produces a new value. A breakpoint on a disabled step does nothing, one on the last step holds nothing back, and a failing step stops the run as usual.
+- **Auto-bake**, off by default and saved with the pipeline, runs when it is turned on or the pipeline opens with an input, and again when the input or a step changes. It stops at breakpoints, adds nothing to usage telemetry and runs one at a time. Clearing the input clears the results.
 
-A paused run cannot be saved as a capsule, a capsule records only the steps that ran, and **Save as JS snippet** leaves disabled steps out. With the setting off, saved controls stay in the recipe but do nothing.
+A run with steps held back by a breakpoint offers no **Send output to…** and cannot be saved as a capsule. A capsule's recipe leaves out disabled steps and the steps past Free's limit, and **Save as JS snippet** leaves disabled steps out. With the setting off, saved controls stay in the recipe but do nothing.
+
+A step that blocks its worker for more than 30 seconds, such as a catastrophic regex, is stopped and reported as timed out, and closing the panel stops a run in progress.
 
 ## Saving a utility pipeline as JavaScript
 

@@ -261,6 +261,24 @@ describe('UtilityPipelinePanel, step controls', () => {
     expect(document.activeElement).toBe(screen.getByTestId('utility-pipeline-result'));
   });
 
+  it('counts only the steps a Free snippet holds, and offers none with every step off', async () => {
+    setFreeTier();
+    useSettingsStore.setState({ featureFlags: { clipboardChains: true, ejectToCode: true, teachingPaywall: true } });
+    useSnippetsStore.setState({ snippets: [] });
+    useUIStore.setState({ statusNoticeQueue: [] });
+    seed([['url-encode', { disabled: true }], ['url-decode'], ['url-encode'], ['url-decode']]);
+    const user = userEvent.setup();
+    const { unmount } = render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: 2 } });
+    unmount();
+    useUtilityPipelineStore.getState().updatePipeline('p1', {
+      steps: stored().steps.map((step) => ({ ...step, disabled: true as const })),
+    });
+    render(<UtilityPipelinePanel />);
+    expect((screen.getByTestId('utility-pipeline-editor-eject') as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('runs nothing when every step is off', async () => {
     seed([['url-encode', { disabled: true }]], 'a b', { autoBake: true });
     const { rerender } = render(<UtilityPipelinePanel />);

@@ -25,6 +25,16 @@ describe('useUtilityPipelineStore', () => {
     expect(state.activePipelineId).toBeNull();
   });
 
+  it('drops the input of a pipeline evicted at the cap', () => {
+    const store = useUtilityPipelineStore.getState();
+    const seed = (id: string) => createBlankPipeline({ id, name: id });
+    for (let index = 0; index < PIPELINE_CAP; index += 1) store.createPipeline(seed(`p${index}`));
+    store.setPipelineInput('p0', 'token');
+    store.setPipelineInput('p1', 'token');
+    store.createPipeline(seed('new'));
+    expect(useUtilityPipelineStore.getState().inputsByPipelineId).toEqual({ p1: 'token' });
+  });
+
   it('createPipeline prepends and sets active', () => {
     const a = createBlankPipeline({ id: 'a', name: 'first' });
     const b = createBlankPipeline({ id: 'b', name: 'second' });

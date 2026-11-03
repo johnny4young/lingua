@@ -1,9 +1,8 @@
 /**
  * Utility Pipelines panel.
  *
- * 3-section layout inside the Developer Utilities workspace. It started
- * life inside the utilities overlay, but the workspace shell now gives
- * the input editor and per-step outputs enough horizontal room:
+ * 3-section layout inside the Developer Utilities workspace, stacked when
+ * the panel is too narrow for the columns:
  *
  *   - LEFT  : pipeline list (create / select / rename / duplicate /
  *             delete / import / export).
@@ -306,7 +305,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     [activePipeline]
   );
 
-  // The last input and steps a run started from, so auto-bake re-runs only on a change.
+  // The last input and steps a run started from, so auto-bake repeats neither while mounted.
   const lastRunRef = useRef<{ steps: PipelineStepV1[] | null; input: string | null }>({ steps: null, input: null });
 
   // `steps` may differ from the saved ones when Continue runs past a breakpoint.
@@ -454,11 +453,12 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   const handleEject = useCallback(() => {
     if (!activePipeline) return;
     const steps = activePipeline.steps.slice(0, stepLimit);
+    const planned = controlsOn ? steps.filter((step) => step.disabled !== true) : steps;
     const id = useSnippetsStore.getState().addSnippet({
       language: 'javascript',
       label: activePipeline.name.trim() || t('utilityPipeline.list.renamePlaceholder'),
       description: t('utilityPipeline.eject.description'),
-      code: buildPipelineJs(controlsOn ? steps.filter((step) => step.disabled !== true) : steps, {
+      code: buildPipelineJs(planned, {
         input: t('utilityPipeline.eject.input'),
         title: (utilityId) => t(getAdapter(utilityId)?.titleKey ?? utilityId),
         skipped: (title) => t('utilityPipeline.eject.skipped', { title }),
@@ -467,7 +467,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     if (id === null) return;
     useUIStore.getState().pushStatusNotice(
       steps.length < activePipeline.steps.length
-        ? { tone: 'success', messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: steps.length } }
+        ? { tone: 'success', messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: planned.length } }
         : { tone: 'success', messageKey: 'utilityPipeline.eject.saved' }
     );
   }, [activePipeline, stepLimit, t, controlsOn]);
@@ -478,6 +478,8 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   // comparator) when the user asks for it. Keep a snapshot of the exact
   // run inputs so edits made after settle cannot pair a stale outcome with
   // the current recipe/input.
+  const everyStepOff = controlsOn && activePipeline?.steps.every((step) => step.disabled === true) === true;
+
   const canSaveCapsule =
     runState.phase === 'settled' &&
     capsuleRunSnapshot !== null &&
@@ -580,7 +582,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 <button
                   type="button"
                   onClick={handleEject}
-                  disabled={activePipeline.steps.length === 0}
+                  disabled={activePipeline.steps.length === 0 || everyStepOff}
                   data-testid="utility-pipeline-editor-eject"
                   className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -606,7 +608,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                   isExecuting ||
                   activePipeline.steps.length === 0 ||
                   runState.phase === 'running' ||
-                  (controlsOn && activePipeline.steps.every((step) => step.disabled === true))
+                  everyStepOff
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}
