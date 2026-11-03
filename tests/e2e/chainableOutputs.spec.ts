@@ -71,30 +71,29 @@ for (const language of ['en', 'es'] as const) {
   });
 }
 
-test('keeps every step control reachable beside the expanded tool list', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await open(page, 'es');
-  await page.keyboard.press('ControlOrMeta+K');
-  await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
-  await pipelineWith(page, ['url-encode', 'base64-encode'], 'a b');
-  await page.getByTestId('utility-pipeline-step-breakpoint').first().click();
-  await page.getByTestId('utility-pipeline-editor-run').click();
-  await expectStatuses(page, ['ok', 'paused']);
+// 1184px with the list folded leaves the three columns at their minimum widths.
+for (const [list, width, fold] of [['expanded', 1280, false], ['folded', 1184, true]] as const) {
+  test(`keeps every step control reachable with the tool list ${list}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await open(page, 'es');
+    await page.keyboard.press('ControlOrMeta+K');
+    await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
+    await pipelineWith(page, ['url-encode', 'base64-encode'], 'a b');
+    if (fold) await page.keyboard.press('ControlOrMeta+B');
+    await page.getByTestId('utility-pipeline-step-breakpoint').first().click();
+    await page.getByTestId('utility-pipeline-editor-run').click();
+    await expectStatuses(page, ['ok', 'paused']);
 
-  const steps = page.getByTestId('utility-pipeline-step-row');
-  for (const row of await steps.all()) {
-    const overflow = await row.evaluate((node) => node.scrollWidth - node.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(0);
-  }
-  const panelOverflow = await page
-    .getByTestId('utility-pipeline-panel')
-    .evaluate((node) => node.scrollWidth - node.clientWidth);
-  expect(panelOverflow).toBeLessThanOrEqual(0);
+    const overflow = (testId: string) =>
+      page.getByTestId(testId).evaluateAll((all) => all.map((node) => node.scrollWidth - node.clientWidth));
+    for (const value of await overflow('utility-pipeline-step-row')) expect(value).toBeLessThanOrEqual(0);
+    for (const value of await overflow('utility-pipeline-panel')) expect(value).toBeLessThanOrEqual(0);
 
-  await page.getByTestId('utility-pipeline-step-disable').last().click();
-  await page.getByTestId('utility-pipeline-step-delete').last().click();
-  await expect(steps).toHaveCount(1);
-});
+    await page.getByTestId('utility-pipeline-step-disable').last().click();
+    await page.getByTestId('utility-pipeline-step-delete').last().click();
+    await expect(page.getByTestId('utility-pipeline-step-row')).toHaveCount(1);
+  });
+}
 
 test('auto-bake follows the input in the Worker, and stops at a breakpoint', async ({ page }) => {
   await open(page, 'en');
