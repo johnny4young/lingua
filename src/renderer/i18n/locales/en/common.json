@@ -71,6 +71,8 @@
   "actionPill.runDesc": "Run the file and surface inline results.",
   "actionPill.debugDesc": "Open the step-by-step debugger with breakpoints.",
   "actionPill.autosave": "autosave",
+  "actionPill.notSaved": "not saved",
+  "storage.ephemeral.message": "Your browser is blocking site data, so nothing here is saved after a reload. Allow site data for this site to keep your work and license.",
   "actionPill.dragHandle": "Move the floating action pill",
   "actionPill.moreActions": "More actions",
   "actionPill.navigate": "navigate",

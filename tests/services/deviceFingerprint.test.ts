@@ -12,7 +12,9 @@ import {
   getDeviceName,
   getOrMintDeviceId,
   getOs,
+  pinEphemeralDeviceId,
 } from '../../src/renderer/services/deviceFingerprint';
+import { base64UrlEncode } from '../../src/shared/license';
 
 function setUserAgent(ua: string): void {
   Object.defineProperty(navigator, 'userAgent', {
@@ -28,6 +30,86 @@ beforeEach(() => {
 afterEach(() => {
   __testClearDeviceId();
   vi.restoreAllMocks();
+});
+
+function tokenFor(payload: { licenseId?: string; issuedTo?: string }): string {
+  const body = {
+    productId: 'lingua_monthly',
+    tier: 'pro',
+    issuedTo: 'user@example.com',
+    issuedAt: new Date().toISOString(),
+    supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+    entitlements: [],
+    ...payload,
+  };
+  const encode = (text: string) => base64UrlEncode(new TextEncoder().encode(text));
+  return `${encode(JSON.stringify(body))}.${encode('signature')}`;
+}
+
+describe('pinEphemeralDeviceId', () => {
+  const CHROME_MAC =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+  const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:130.0) Gecko/20100101 Firefox/130.0';
+
+  async function pinnedId(token: string): Promise<string> {
+    __testClearDeviceId();
+    await pinEphemeralDeviceId(token);
+    return getOrMintDeviceId();
+  }
+
+  beforeEach(() => {
+    document.documentElement.dataset.storage = 'memory';
+    setUserAgent(CHROME_MAC);
+  });
+
+  afterEach(() => {
+    delete document.documentElement.dataset.storage;
+  });
+
+  it('gives a license the same UUID after the id is forgotten, as on a reload', async () => {
+    const token = tokenFor({ licenseId: 'lic_1' });
+    const first = await pinnedId(token);
+    expect(first).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(await pinnedId(token)).toBe(first);
+  });
+
+  it('keeps the id when the same license gets a refreshed token', async () => {
+    const first = await pinnedId(tokenFor({ licenseId: 'lic_1', issuedTo: 'old@example.com' }));
+    expect(await pinnedId(tokenFor({ licenseId: 'lic_1', issuedTo: 'new@example.com' }))).toBe(first);
+  });
+
+  it('separates licenses and browser families', async () => {
+    const first = await pinnedId(tokenFor({ licenseId: 'lic_1' }));
+    expect(await pinnedId(tokenFor({ licenseId: 'lic_2' }))).not.toBe(first);
+    setUserAgent(FIREFOX_MAC);
+    expect(await pinnedId(tokenFor({ licenseId: 'lic_1' }))).not.toBe(first);
+  });
+
+  it('falls back to issuedTo for a token without a licenseId', async () => {
+    const first = await pinnedId(tokenFor({ issuedTo: 'a@example.com' }));
+    expect(await pinnedId(tokenFor({ issuedTo: 'a@example.com' }))).toBe(first);
+    expect(await pinnedId(tokenFor({ issuedTo: 'b@example.com' }))).not.toBe(first);
+  });
+
+  it('leaves the minted id alone for a malformed token', async () => {
+    const minted = getOrMintDeviceId();
+    await pinEphemeralDeviceId('not-a-token');
+    expect(getOrMintDeviceId()).toBe(minted);
+  });
+
+  it('keeps the minted id when hashing is unavailable', async () => {
+    const minted = getOrMintDeviceId();
+    vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(new Error('unavailable'));
+    await pinEphemeralDeviceId(tokenFor({ licenseId: 'lic_1' }));
+    expect(getOrMintDeviceId()).toBe(minted);
+  });
+
+  it('does nothing when storage works', async () => {
+    delete document.documentElement.dataset.storage;
+    const minted = getOrMintDeviceId();
+    await pinEphemeralDeviceId(tokenFor({ licenseId: 'lic_1' }));
+    expect(getOrMintDeviceId()).toBe(minted);
+  });
 });
 
 describe('getOrMintDeviceId', () => {

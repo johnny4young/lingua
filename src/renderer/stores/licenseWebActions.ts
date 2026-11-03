@@ -4,7 +4,12 @@ import {
   removeDevice as serverRemoveDevice,
   type ActivateResult,
 } from '../services/licenseServer';
-import { getDeviceName, getOrMintDeviceId, getOs } from '../services/deviceFingerprint';
+import {
+  getDeviceName,
+  getOrMintDeviceId,
+  getOs,
+  pinEphemeralDeviceId,
+} from '../services/deviceFingerprint';
 import { runVerifyWeb } from './licenseWebVerify';
 import { attemptStaleTokenRefresh, decodeIssuedTo } from './licenseTokenHelpers';
 import { isTransientServerFailure, serverFailureToInvalid } from './licenseServerMappers';
@@ -99,6 +104,7 @@ export function createWebActions(
       // Show the transient verifying pill while the activate call runs.
       set({ token: activeToken, status: VERIFYING_STATUS, lastVerifiedAt: Date.now() });
 
+      await pinEphemeralDeviceId(activeToken);
       const deviceId = getOrMintDeviceId();
       const result: ActivateResult = await serverActivate({
         token: activeToken,
