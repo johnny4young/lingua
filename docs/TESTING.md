@@ -160,8 +160,12 @@ never hides the result of another. The job is a matrix of five shards on
 separate runners; each shard builds its own `dist/web`, runs its slice of the
 suite with `--shard=<n>/5`, and on failure uploads its traces and screenshots
 as a `playwright-web-e2e-shard-<n>` artifact. Re-running failed jobs repeats
-only the shard that failed. Reproduce one shard locally with
-`pnpm run test:e2e:web --shard=2/5`. The job restores the Playwright browser
+only the shard that failed. `PWTEST_SHARD_WEIGHTS` sizes the shards by measured
+duration, since they are contiguous slices in file order and the slow specs
+cluster near the end; every test still lands in exactly one shard. Refresh the
+weights when one shard stays far slower than the others. Reproduce one shard
+locally with `PWTEST_SHARD_WEIGHTS=112:130:123:114:98 pnpm run test:e2e:web --shard=2/5`.
+The job restores the Playwright browser
 cache and uses CI-only timeout scaling so local feedback stays fast.
 
 Locally, each checkout gets its own preview port, derived from its path in

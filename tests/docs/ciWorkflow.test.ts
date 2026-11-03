@@ -262,6 +262,7 @@ describe('CI workflow', () => {
     expect(suite?.run).toBe('pnpm run test:e2e:web --shard="$SHARD/' + total + '"');
     expect(suite?.env?.SHARD).toBe('${{ matrix.shard }}');
     expect(job?.name).toContain('${{ matrix.shard }}/' + total);
+    expect(suite?.env?.PWTEST_SHARD_WEIGHTS?.split(':')).toHaveLength(total);
 
     // Artifact names must be unique within a workflow run.
     const upload = steps.find(step => step.uses?.startsWith('actions/upload-artifact@'));

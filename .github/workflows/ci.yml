@@ -566,6 +566,10 @@ jobs:
         env:
           NODE_OPTIONS: '--max-old-space-size=8192'
           PLAYWRIGHT_BROWSERS_PATH: '0'
+          # Shards are contiguous slices in file order, and the slow specs
+          # cluster near the end. Test counts per shard from measured durations;
+          # every test still lands in exactly one shard.
+          PWTEST_SHARD_WEIGHTS: '112:130:123:114:98'
           SHARD: ${{ matrix.shard }}
       # Traces and screenshots are what make a red run diagnosable; without
       # them a failure here is just a name and a line number.
