@@ -123,8 +123,21 @@ After a fresh full instrumented run, raise a floor when that formula yields a
 higher value; otherwise leave it unchanged. Never lower a floor to make a run
 pass or substitute a partial-suite measurement. The command validates these
 floors but does not automatically update them. CI enforces the floors in a
-dedicated `coverage` job that runs beside the uninstrumented `unit` job, which
-keeps the benchmarks gated.
+dedicated `coverage-floors` job that runs beside the uninstrumented `unit` job,
+which keeps the benchmarks gated.
+
+Both suites shard across two runners because a hosted Linux runner has 4 vCPUs
+and already runs Vitest at 4 workers. `unit` runs `pnpm test --shard=<n>/2`, and
+`coverage` runs `pnpm run test:coverage --shard=<n>/2` with the blob reporter.
+A shard run skips the coverage reports and floors, since it measures part of the
+suite. `coverage-floors` then merges both blobs and enforces the floors on the
+whole suite; it also fails if a shard left no blob. Reproduce it locally:
+
+```bash
+pnpm run test:coverage --shard=1/2 --reporter=default --reporter=blob
+pnpm run test:coverage --shard=2/2 --reporter=default --reporter=blob
+pnpm run test:coverage --merge-reports
+```
 
 Keep `vitest` and `@vitest/coverage-v8` pinned to the same exact version and
 update them together: the provider declares an exact runner peer dependency.
@@ -141,12 +154,12 @@ pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4
 Pull requests run the full `pnpm run test:e2e:web` suite in a dedicated
 `web-e2e` job. It runs in parallel with the Linux gate jobs (`static`, `unit`,
 `coverage`, `build-web`, and `subprojects`), so a red gate in one of them
-never hides the result of another. The job is a matrix of three shards on
+never hides the result of another. The job is a matrix of five shards on
 separate runners; each shard builds its own `dist/web`, runs its slice of the
-suite with `--shard=<n>/3`, and on failure uploads its traces and screenshots
+suite with `--shard=<n>/5`, and on failure uploads its traces and screenshots
 as a `playwright-web-e2e-shard-<n>` artifact. Re-running failed jobs repeats
 only the shard that failed. Reproduce one shard locally with
-`pnpm run test:e2e:web --shard=2/3`. The job restores the Playwright browser
+`pnpm run test:e2e:web --shard=2/5`. The job restores the Playwright browser
 cache and uses CI-only timeout scaling so local feedback stays fast.
 
 Locally, each checkout gets its own preview port, derived from its path in
@@ -595,7 +608,7 @@ path, preserves displayed stack text and ambiguous relative filenames, and
 leaves unknown external frames visible. A real worker-source-mapper unit test
 compares named and unnamed async forms of its trusted probe location.
 
-The three existing E2E shards retain their full inventory and failure traces.
+The E2E shards retain their full inventory and failure traces.
 A narrow first-use screenshot upload also runs on successful jobs; inspect
 those screenshots before calling a visual change verified. Passing component
 geometry tests alone does not establish visual correctness or native first use.

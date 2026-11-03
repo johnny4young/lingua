@@ -116,17 +116,54 @@ describe('CI workflow', () => {
     expect(checkout?.with?.['fetch-depth']).toBe(0);
   });
 
+  // The denominator has to match the matrix or part of the suite would never run.
+  function expectEveryShardRuns(jobId: string, command: (total: number) => string): void {
+    const job = workflow.jobs?.[jobId];
+    const shards = job?.strategy?.matrix?.shard ?? [];
+    const total = shards.length;
+    expect(total, `${jobId} shards`).toBeGreaterThan(1);
+    expect(shards).toEqual(Array.from({ length: total }, (_, index) => index + 1));
+    expect(job?.strategy?.['fail-fast']).toBe(false);
+    expect(job?.name).toContain('${{ matrix.shard }}/' + total);
+    expect(runLines(workflow, jobId)).toContain(command(total));
+    const suite = stepsOf(workflow, jobId).find(step => step.run === command(total));
+    expect(suite?.env?.SHARD).toBe('${{ matrix.shard }}');
+    expect(suite?.if).toBeUndefined();
+  }
+
   it('runs the full uninstrumented suite and the template smoke in the unit job', () => {
-    const commands = runLines(workflow, 'unit');
-    expect(commands).toContain('pnpm test');
-    expect(commands).toContain('pnpm run smoke:project-templates');
+    expectEveryShardRuns('unit', total => `pnpm test --shard="$SHARD/${total}"`);
+    expect(runLines(workflow, 'unit')).toContain('pnpm run smoke:project-templates');
+    const smoke = stepsOf(workflow, 'unit').find(
+      step => step.run === 'pnpm run smoke:project-templates'
+    );
+    expect(smoke?.if).toBe('matrix.shard == 1');
   });
 
-  it('enforces the coverage floors in their own job', () => {
+  it('enforces the coverage floors on the merged shards in their own job', () => {
     // test:coverage excludes the timing benches, so it cannot replace the
     // plain suite in the unit job.
-    expect(runLines(workflow, 'coverage')).toContain('pnpm run test:coverage');
-    expect(runLines(workflow, 'unit')).not.toContain('pnpm run test:coverage');
+    expectEveryShardRuns(
+      'coverage',
+      total => `pnpm run test:coverage --shard="$SHARD/${total}" --reporter=default --reporter=blob`
+    );
+    expect(runLines(workflow, 'unit').join('\n')).not.toContain('test:coverage');
+
+    const floors = workflow.jobs?.['coverage-floors'];
+    expect(floors?.needs).toBe('coverage');
+    // Red shards must still report through this job rather than skip it.
+    expect(floors?.if).toBe('${{ !cancelled() }}');
+    const commands = runLines(workflow, 'coverage-floors');
+    expect(commands).toContain('pnpm run test:coverage --merge-reports');
+    expect(commands.join('\n')).not.toContain('--shard');
+    const total = workflow.jobs?.coverage?.strategy?.matrix?.shard?.length;
+    expect(commands).toContain(`test "$(find .vitest/blob -name 'blob-*.json' | wc -l)" -eq ${total}`);
+  });
+
+  it('keeps the coverage floors in force outside shard runs', () => {
+    const config = readFileSync(resolve(__dirname, '../../vitest.config.mts'), 'utf-8');
+    expect(config).toContain("process.argv.some(arg => arg.startsWith('--shard'))");
+    expect(config).toMatch(/thresholds: isShardRun\s+\? \{\}\s+: \{\s+lines: 78,/u);
   });
 
   it('measures web once after its build and keeps report-writing budget/slack enforcement', () => {
