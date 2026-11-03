@@ -2160,8 +2160,9 @@
     @apply px-4 pb-1.5 pt-2 font-mono text-micro font-bold uppercase tracking-[0.16em] text-fg-subtle;
   }
 
+  /* Full-bleed rows have no room around them, so the ring draws inside. */
   .settings-rail-row {
-    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    @apply focus-ring focus-visible:ring-inset focus-visible:ring-offset-0 grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
     width: 100%;
   }
 

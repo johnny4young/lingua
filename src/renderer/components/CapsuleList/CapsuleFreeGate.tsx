@@ -3,14 +3,13 @@ import { useTeachingPaywall } from '../../hooks/useProAccess';
 import { ProChip } from '../ui/ProChip';
 import { useTranslation } from 'react-i18next';
 import { ArrowUpFromLine, Package } from 'lucide-react';
+import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
 import { CAPSULE_LRU_CAP } from '../../stores/executionHistoryStore';
 import { ModalShell } from '../ui/ModalShell';
 import { EmptyState } from '../ui/EmptyState';
 import { CapsuleDialogHeader, CapsuleRowCells } from './CapsuleBrowserParts';
 import { CapsuleDetail } from './CapsuleDetail';
 import { CAPSULE_ROW_GRID, type CapsuleBrowserRow } from './capsuleBrowserRows';
-
-const FREE_SAMPLE_RUNS = 3;
 
 /** Free shows its own last runs read-only; browsing every capsule is the Pro part. */
 export function CapsuleFreeGate({
@@ -27,7 +26,7 @@ export function CapsuleFreeGate({
   const { t } = useTranslation();
   const titleId = useId();
   const [now] = useState(() => Date.now());
-  const samples = runs.slice(0, FREE_SAMPLE_RUNS);
+  const samples = runs.slice(0, FREE_TIER_LIMITS.recentRuns);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selected = samples[selectedIndex] ?? samples[0];
   // Labs › Pro in context: a PRO chip to Compare plans instead of the upgrade button.
@@ -81,7 +80,7 @@ export function CapsuleFreeGate({
             <div className="mb-4 flex flex-col gap-1.5">
               {samples.map((row, index) => (
                 <button
-                  key={row.capsule.capsuleId}
+                  key={row.id}
                   type="button"
                   data-testid="capsule-list-row"
                   aria-pressed={row === selected}

@@ -88,6 +88,14 @@ describe('preview chips', () => {
 });
 
 describe('preview chip values', () => {
+  it('adds nothing to a chip without scopes', () => {
+    const env = { id: 'e', name: 'e', variables: [v('a', 'base', 'https://x'), v('b', 'token', 'hidden', true)] } as unknown as Parameters<typeof HttpEnvironmentPreview>[0]['env'];
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), url: '{{base}}/{{token}}' };
+    render(<HttpEnvironmentPreview request={request} env={env} />);
+    expect(screen.getByTestId('http-environment-preview-chip').textContent).toBe('base');
+    expect(screen.getByTestId('http-environment-preview-chip-secret').textContent).not.toContain('undefined');
+  });
+
   it('shows the last row of a duplicated key and shortens a long value', () => {
     const long = 'x'.repeat(200);
     const scoped = {

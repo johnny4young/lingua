@@ -162,7 +162,7 @@ export function HttpEnvironmentPreview({
                 })
               : undefined;
             const shown = isSecret ? MASKED_VALUE : previewValue(env, chip.key);
-            const detail = shown === undefined ? origin : `${shown} · ${origin}`;
+            const detail = origin && shown !== undefined ? `${shown} · ${origin}` : origin;
             const chipNode = (
               <span
                 key={`${chip.state}:${chip.key}`}

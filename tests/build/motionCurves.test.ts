@@ -25,5 +25,6 @@ describe('spring motion', () => {
     expect(focusRing).toContain('focus-visible:ring-accent-fg');
     expect(focusRing).toContain('focus-visible:ring-offset-2');
     expect(rule('.icon-button')).toContain('active:bg-surface-strong');
+    expect(rule('.settings-rail-row')).toContain('focus-visible:ring-inset');
   });
 });

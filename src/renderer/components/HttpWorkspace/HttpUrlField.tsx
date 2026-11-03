@@ -100,7 +100,7 @@ export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, desc
     <div
       data-testid="http-request-editor-url-field"
       data-mirrored={mirrored}
-      className="relative h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset focus-within:border-border-strong"
+      className="relative h-8 min-w-[7rem] flex-1 rounded-md border border-border-subtle bg-bg-inset focus-within:border-border-strong"
     >
       {mirrored ? (
         <div
