@@ -64,6 +64,9 @@ interface UtilityPipelineState {
   setPipelineInput: (id: string, input: string) => void;
   /** Flip the execution flag (called by the panel layer). */
   setIsExecutingActive: (value: boolean) => void;
+  /** The panel runs this pipeline once it is on screen; never persisted. */
+  pendingRunPipelineId: string | null;
+  setPendingRunPipelineId: (id: string | null) => void;
 
   // -------- selectors -----------------------------------------------------
 
@@ -82,13 +85,14 @@ interface UtilityPipelineState {
 
 function createInitialState(): Pick<
   UtilityPipelineState,
-  'pipelines' | 'inputsByPipelineId' | 'activePipelineId' | 'isExecutingActive'
+  'pipelines' | 'inputsByPipelineId' | 'activePipelineId' | 'isExecutingActive' | 'pendingRunPipelineId'
 > {
   return {
     pipelines: [],
     inputsByPipelineId: {},
     activePipelineId: null,
     isExecutingActive: false,
+    pendingRunPipelineId: null,
   };
 }
 
@@ -172,10 +176,10 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
           id: newId,
           name: source.name.length > 0 ? `${source.name} ${copySuffix}` : copySuffix.trim(),
           steps: source.steps.map((step) => ({
-            id: step.id, // step ids stay stable — the parent pipeline's id distinguishes them
-            utilityId: step.utilityId,
+            ...step, // step ids stay stable — the parent pipeline's id distinguishes them
             options: { ...step.options },
           })),
+          ...(source.autoBake ? { autoBake: true as const } : {}),
           createdAt: now,
           updatedAt: now,
         };
@@ -197,6 +201,8 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
         set((state) => ({
           inputsByPipelineId: { ...state.inputsByPipelineId, [id]: input },
         })),
+
+      setPendingRunPipelineId: (id) => set({ pendingRunPipelineId: id }),
 
       setIsExecutingActive: (value) =>
         set((state) =>

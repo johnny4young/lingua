@@ -6,7 +6,7 @@
  * tests; this suite just verifies the wiring.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,7 +40,7 @@ import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
-import { createBlankPipeline, createBlankStep } from '../../../src/shared/utilityPipeline';
+import { createBlankPipeline, createBlankStep, type PipelineStepV1, type UtilityPipelineV1 } from '../../../src/shared/utilityPipeline';
 
 function setFreeTier() {
   useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
@@ -171,6 +171,216 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
     expect(useSnippetsStore.getState().snippets).toHaveLength(5);
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     expect(useUIStore.getState().statusNoticeQueue).toEqual([]);
+  });
+});
+
+describe('UtilityPipelinePanel, step controls', () => {
+  const seed = (steps: Array<[string, Partial<PipelineStepV1>?]>, input = 'a b', extra: Partial<UtilityPipelineV1> = {}) => {
+    const pipeline = { ...createBlankPipeline({ id: 'p1', name: 'demo' }), ...extra };
+    steps.forEach(([utilityId, controls], index) =>
+      pipeline.steps.push({ ...createBlankStep({ id: `s${index}`, utilityId } as Parameters<typeof createBlankStep>[0]), ...controls })
+    );
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', input);
+  };
+  const statuses = () => screen.getAllByTestId('utility-pipeline-result-row').map((row) => row.getAttribute('data-status'));
+  const stored = () => useUtilityPipelineStore.getState().pipelines[0]!;
+
+  beforeEach(() => {
+    useSettingsStore.setState({ featureFlags: { clipboardChains: true } });
+    useUtilityPipelineStore.setState({ pendingRunPipelineId: null });
+  });
+
+  afterEach(() => {
+    useSettingsStore.setState({ featureFlags: {} });
+    vi.useRealTimers();
+  });
+
+  it('hides the controls and ignores saved ones without the flag', async () => {
+    useSettingsStore.setState({ featureFlags: {} });
+    seed([['url-encode', { disabled: true, breakpoint: true }], ['url-decode']], 'a b', { autoBake: true });
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    expect(screen.queryByTestId('utility-pipeline-step-disable')).toBeNull();
+    expect(screen.queryByTestId('utility-pipeline-step-breakpoint')).toBeNull();
+    expect(screen.queryByTestId('utility-pipeline-auto-bake')).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(screen.queryAllByTestId('utility-pipeline-result-row')).toHaveLength(0);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
+    expect(screen.queryByTestId('utility-pipeline-send')).toBeNull();
+    expect(screen.queryByTestId('utility-pipeline-continue')).toBeNull();
+  });
+
+  it('toggles disable and breakpoint on a step, on and off', async () => {
+    seed([['url-encode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    const disable = screen.getByTestId('utility-pipeline-step-disable');
+    const breakpoint = screen.getByTestId('utility-pipeline-step-breakpoint');
+    await user.click(disable);
+    await user.click(breakpoint);
+    expect(stored().steps[0]).toMatchObject({ disabled: true, breakpoint: true });
+    expect(screen.getByTestId('utility-pipeline-step-disable').getAttribute('aria-pressed')).toBe('true');
+    await user.click(screen.getByTestId('utility-pipeline-step-disable'));
+    await user.click(screen.getByTestId('utility-pipeline-step-breakpoint'));
+    expect(stored().steps[0]).not.toHaveProperty('disabled');
+    expect(stored().steps[0]).not.toHaveProperty('breakpoint');
+  });
+
+  it('keeps the controls when a step changes utility', async () => {
+    seed([['url-encode', { breakpoint: true }]]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.selectOptions(screen.getByTestId('utility-pipeline-step-utility'), 'base64-encode');
+    expect(stored().steps[0]).toMatchObject({ utilityId: 'base64-encode', breakpoint: true });
+  });
+
+  it('stops at a breakpoint, offers no capsule, and Continue runs the rest', async () => {
+    seed([['url-encode', { breakpoint: true }], ['base64-encode', { breakpoint: true }], ['url-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused', 'paused']));
+    expect(screen.getByTestId('utility-pipeline-result-input').textContent).toBe('a b');
+    expect((screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement).disabled).toBe(true);
+
+    await user.click(screen.getByTestId('utility-pipeline-continue'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'paused']));
+    expect(screen.getByTestId('utility-pipeline-result-input').textContent).toBe('a%20b');
+
+    await user.click(screen.getByTestId('utility-pipeline-continue'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'ok']));
+    expect((screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement).disabled).toBe(false);
+    expect(stored().steps.filter((step) => step.breakpoint)).toHaveLength(2);
+  });
+
+  it('records only the steps that ran in a capsule', async () => {
+    seed([['url-encode', { disabled: true }], ['base64-encode']]);
+    vi.mocked(buildPipelineCapsule).mockClear();
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['disabled', 'ok']));
+    await user.click(screen.getByTestId('pipeline-save-capsule'));
+    await waitFor(() => expect(vi.mocked(buildPipelineCapsule)).toHaveBeenCalled());
+    expect(vi.mocked(buildPipelineCapsule).mock.calls[0]![0].steps.map((step) => step.utilityId)).toEqual(['base64-encode']);
+  });
+
+  it('leaves a disabled step out of the JavaScript export', async () => {
+    useSettingsStore.setState({ featureFlags: { clipboardChains: true, ejectToCode: true } });
+    useSnippetsStore.setState({ snippets: [] });
+    seed([['url-encode', { disabled: true }], ['base64-encode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-eject'));
+    const code = useSnippetsStore.getState().snippets[0]!.code;
+    expect(code).not.toContain('encodeURIComponent');
+    expect(code).toContain('btoa');
+  });
+
+  it('does not run on an input change with auto-bake off', async () => {
+    seed([['url-encode']]);
+    render(<UtilityPipelinePanel />);
+    fireEvent.change(screen.getByTestId('utility-pipeline-editor-input'), { target: { value: 'changed' } });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(screen.queryAllByTestId('utility-pipeline-result-row')).toHaveLength(0);
+  });
+
+  it('auto-bake re-runs after a pause in typing, without telemetry, and saves with the recipe', async () => {
+    seed([['url-encode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-auto-bake'));
+    expect(stored().autoBake).toBe(true);
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-result-output').textContent).toBe('a%20b'));
+    fireEvent.change(screen.getByTestId('utility-pipeline-editor-input'), { target: { value: 'c d' } });
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-result-output').textContent).toBe('c%20d'));
+    expect(mockTrackEvent.mock.calls.filter(([name]) => name === 'utility.pipeline_executed')).toEqual([]);
+
+    fireEvent.change(screen.getByTestId('utility-pipeline-editor-input'), { target: { value: '' } });
+    await waitFor(() => expect(screen.queryAllByTestId('utility-pipeline-result-row')).toHaveLength(0));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(screen.queryAllByTestId('utility-pipeline-result-row')).toHaveLength(0);
+
+    await user.click(screen.getByTestId('utility-pipeline-auto-bake'));
+    expect(stored().autoBake).toBeUndefined();
+  });
+
+  it('auto-bake re-runs when a step changes, and catches up with a change made during a run', async () => {
+    seed([['url-encode']], 'a b', { autoBake: true });
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-result-output').textContent).toBe('a%20b'));
+    await user.selectOptions(screen.getByTestId('utility-pipeline-step-utility'), 'base64-encode');
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-result-output').textContent).toBe(btoa('a b')));
+    useUtilityPipelineStore.getState().setIsExecutingActive(true);
+    fireEvent.change(screen.getByTestId('utility-pipeline-editor-input'), { target: { value: 'later' } });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(screen.getByTestId('utility-pipeline-result-output').textContent).toBe(btoa('a b'));
+    act(() => useUtilityPipelineStore.getState().setIsExecutingActive(false));
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-result-output').textContent).toBe(btoa('later')));
+  });
+
+  it('auto-bake runs once per change, not in a loop', async () => {
+    seed([['uuid']], 'a b', { autoBake: true });
+    render(<UtilityPipelinePanel />);
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-result-output').textContent).not.toBe(''));
+    const first = screen.getByTestId('utility-pipeline-result-output').textContent;
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    expect(screen.getByTestId('utility-pipeline-result-output').textContent).toBe(first);
+  });
+
+  it('auto-bake runs only what Free runs', async () => {
+    setFreeTier();
+    useSettingsStore.setState({ featureFlags: { clipboardChains: true, teachingPaywall: true } });
+    seed([['url-encode'], ['url-decode'], ['url-encode'], ['base64-encode']], 'a b', { autoBake: true });
+    render(<UtilityPipelinePanel />);
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'ok']));
+  });
+
+  it('sends the last output to a new step right after the step that made it, and runs', async () => {
+    seed([['url-encode', { breakpoint: true }], ['url-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused']));
+    await user.selectOptions(screen.getByTestId('utility-pipeline-send-select'), 'hash');
+    expect(stored().steps.map((step) => step.utilityId)).toEqual(['url-encode', 'hash', 'url-decode']);
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused', 'paused']));
+    expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBeNull();
+    expect((screen.getByTestId('utility-pipeline-send-select') as HTMLSelectElement).value).toBe('');
+  });
+
+  it('suggests the next step from the output, but not the step that made it', async () => {
+    seed([['base64-decode']], btoa('{"a":1,"b":2}'));
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    const suggested = await screen.findByTestId('utility-pipeline-send-suggested');
+    expect(suggested.textContent).toBe('JSON format');
+    await user.click(suggested);
+    expect(stored().steps.map((step) => step.utilityId)).toEqual(['base64-decode', 'json-format']);
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
+    expect(screen.queryByTestId('utility-pipeline-send-suggested')).toBeNull();
+  });
+
+  it('leaves a Send for another pipeline waiting', async () => {
+    seed([['url-encode']]);
+    useUtilityPipelineStore.getState().setPendingRunPipelineId('elsewhere');
+    render(<UtilityPipelinePanel />);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryAllByTestId('utility-pipeline-result-row')).toHaveLength(0);
+    expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBe('elsewhere');
+  });
+
+  it('runs a pipeline a Send created elsewhere once it is on screen', async () => {
+    seed([['url-encode']]);
+    useUtilityPipelineStore.getState().setPendingRunPipelineId('p1');
+    render(<UtilityPipelinePanel />);
+    await waitFor(() => expect(statuses()).toEqual(['ok']));
+    expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBeNull();
+    expect(mockTrackEvent.mock.calls.filter(([name]) => name === 'utility.pipeline_executed')).toHaveLength(1);
   });
 });
 

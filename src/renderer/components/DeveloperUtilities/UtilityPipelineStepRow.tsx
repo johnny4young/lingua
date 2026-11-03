@@ -8,7 +8,7 @@
  *.
  */
 
-import { GripVertical, Trash2 } from 'lucide-react';
+import { EyeOff, GripVertical, Pause, Trash2 } from 'lucide-react';
 import { useCallback, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSortable } from '@dnd-kit/sortable';
@@ -32,6 +32,8 @@ const STATUS_TONE: Record<PipelineStepStatus, string> = {
   timeout: 'text-amber-700 dark:text-amber-300 bg-amber-500/15 ring-amber-500/30',
   incompatible:
     'text-amber-700 dark:text-amber-300 bg-amber-500/15 ring-amber-500/30',
+  disabled: 'text-muted bg-surface-strong/40 ring-border/40',
+  paused: 'text-muted bg-surface-strong/40 ring-border/40',
 };
 
 // Keep this map total over PipelineStepStatus: adding a runner status should
@@ -42,6 +44,8 @@ const STATUS_GLYPH: Record<PipelineStepStatus, string> = {
   skipped: '⊘',
   timeout: '⏱',
   incompatible: '⚠',
+  disabled: '○',
+  paused: '‖',
 };
 
 export interface UtilityPipelineStepRowProps {
@@ -52,6 +56,8 @@ export interface UtilityPipelineStepRowProps {
   onUtilityChange: (stepId: string, newUtilityId: UtilityAdapterId) => void;
   onOptionsChange: (stepId: string, nextOptions: Record<string, unknown>) => void;
   onDelete: (stepId: string) => void;
+  /** Absent when Labs › Clipboard-aware utilities is off. */
+  onToggleControl?: (stepId: string, control: 'disabled' | 'breakpoint') => void;
 }
 
 export function UtilityPipelineStepRow({
@@ -62,6 +68,7 @@ export function UtilityPipelineStepRow({
   onUtilityChange,
   onOptionsChange,
   onDelete,
+  onToggleControl,
 }: UtilityPipelineStepRowProps) {
   const { t } = useTranslation();
   const adapter = getAdapter(step.utilityId);
@@ -100,7 +107,12 @@ export function UtilityPipelineStepRow({
       data-testid="utility-pipeline-step-row"
       data-step-id={step.id}
       data-status={status ?? 'pending'}
-      className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface/30 p-3"
+      data-disabled={onToggleControl && step.disabled ? true : undefined}
+      className={cn(
+        'flex flex-col gap-2 rounded-lg border bg-surface/30 p-3',
+        onToggleControl && step.breakpoint ? 'border-accent' : 'border-border/60',
+        onToggleControl && step.disabled && 'opacity-60'
+      )}
     >
       <header className="flex items-center gap-2">
         <button
@@ -144,12 +156,38 @@ export function UtilityPipelineStepRow({
             <span>{t(`utilityPipeline.step.status.${status}`)}</span>
           </span>
         ) : null}
+        {onToggleControl ? (
+          <span className="ml-auto inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onToggleControl(step.id, 'disabled')}
+              aria-pressed={step.disabled === true}
+              aria-label={t('utilityPipeline.step.disable')}
+              title={t('utilityPipeline.step.disable')}
+              data-testid="utility-pipeline-step-disable"
+              className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.disabled && 'bg-accent-tint text-accent-fg')}
+            >
+              <EyeOff size={11} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggleControl(step.id, 'breakpoint')}
+              aria-pressed={step.breakpoint === true}
+              aria-label={t('utilityPipeline.step.breakpoint')}
+              title={t('utilityPipeline.step.breakpoint')}
+              data-testid="utility-pipeline-step-breakpoint"
+              className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.breakpoint && 'bg-accent-tint text-accent-fg')}
+            >
+              <Pause size={11} aria-hidden="true" />
+            </button>
+          </span>
+        ) : null}
         <button
           type="button"
           onClick={() => onDelete(step.id)}
           aria-label={t('utilityPipeline.step.deleteAria', { index: index + 1 })}
           data-testid="utility-pipeline-step-delete"
-          className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-rose-500"
+          className={cn(!onToggleControl && 'ml-auto', 'inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-rose-500')}
         >
           <Trash2 size={11} aria-hidden="true" />
         </button>

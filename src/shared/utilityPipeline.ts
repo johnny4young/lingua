@@ -69,6 +69,8 @@ export const STEP_VALUE_BYTE_CAP = 256 * 1024;
  *   - `'timeout'`   — adapter exceeded `STEP_TIMEOUT_MS`.
  *   - `'incompatible'` — adapter's `inputKind` doesn't match the
  *                       upstream's `outputKind`. Reserved for later.
+ *   - `'disabled'`  — the step is off; its input passed through.
+ *   - `'paused'`    — an earlier breakpoint stopped the run before this step.
  *
  * Mirrored on `update-server/src/telemetry.ts` if telemetry later
  * surfaces this enum directly (today it uses an aggregate
@@ -80,6 +82,8 @@ export const PIPELINE_STEP_STATUSES = [
   'skipped',
   'timeout',
   'incompatible',
+  'disabled',
+  'paused',
 ] as const;
 export type PipelineStepStatus = (typeof PIPELINE_STEP_STATUSES)[number];
 
@@ -112,6 +116,10 @@ export interface PipelineStepV1 {
   utilityId: UtilityAdapterId;
   /** Adapter-specific options blob. Shape validated by the adapter's `parseOptions`. */
   options: Record<string, unknown>;
+  /** The step is off; its input passes through. Absent when on. */
+  disabled?: true;
+  /** A run stops after this step and shows its input and output. */
+  breakpoint?: true;
 }
 
 export interface UtilityPipelineV1 {
@@ -121,6 +129,8 @@ export interface UtilityPipelineV1 {
   steps: PipelineStepV1[];
   createdAt: string;
   updatedAt: string;
+  /** Re-run when the input or the steps change. Absent when off. */
+  autoBake?: true;
 }
 
 export interface PipelineStepResult {
@@ -129,6 +139,8 @@ export interface PipelineStepResult {
   status: PipelineStepStatus;
   /** Output value when `status === 'ok'`. Capped at `STEP_VALUE_BYTE_CAP`. */
   output?: string;
+  /** The value this step received, set only where a breakpoint stopped the run. */
+  input?: string;
   /** Failure detail when `status === 'error' | 'timeout' | 'incompatible'`. */
   errorMessage?: string;
   /** Wall-clock duration in ms (set for every status except `'skipped'`). */
@@ -175,7 +187,14 @@ export function parsePipelineStep(value: unknown): PipelineStepV1 | null {
     id: value.id,
     utilityId: value.utilityId,
     options: { ...value.options },
+    ...(value.disabled === true ? { disabled: true as const } : {}),
+    ...(value.breakpoint === true ? { breakpoint: true as const } : {}),
   };
+}
+
+/** A step without its run controls, for a run where they do not apply. */
+export function withoutStepControls(step: PipelineStepV1): PipelineStepV1 {
+  return { id: step.id, utilityId: step.utilityId, options: step.options };
 }
 
 /**
@@ -211,6 +230,7 @@ export function parsePipeline(value: unknown): UtilityPipelineV1 | null {
     steps,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
+    ...(value.autoBake === true ? { autoBake: true as const } : {}),
   };
 }
 
@@ -369,10 +389,11 @@ async function yieldToBrowser(skip: boolean): Promise<void> {
 }
 
 function aggregateStatus(results: ReadonlyArray<PipelineStepResult>): PipelineRunStatus {
-  if (results.length === 0) return 'all-ok';
-  const okCount = results.filter((r) => r.status === 'ok').length;
-  const incompat = results.some((r) => r.status === 'incompatible');
-  if (okCount === results.length) return 'all-ok';
+  // A step that is off, or that a breakpoint held back, neither passed nor failed.
+  const counted = results.filter((r) => r.status !== 'disabled' && r.status !== 'paused');
+  const okCount = counted.filter((r) => r.status === 'ok').length;
+  const incompat = counted.some((r) => r.status === 'incompatible');
+  if (okCount === counted.length) return 'all-ok';
   if (okCount === 0) {
     return incompat ? 'incompatible' : 'all-failed';
   }
@@ -397,21 +418,22 @@ export async function runPipeline(
 
   let chainedInput = input;
   let upstreamFailed = false;
+  let paused = false;
   let lastOutputKind: 'text' | 'json' | 'binary' = 'text';
 
   for (let i = 0; i < pipeline.steps.length; i += 1) {
     const step = pipeline.steps[i];
     if (step === undefined) continue;
 
-    if (upstreamFailed) {
-      const skipped: PipelineStepResult = {
+    if (upstreamFailed || paused || step.disabled === true) {
+      const held: PipelineStepResult = {
         stepId: step.id,
         utilityId: step.utilityId,
-        status: 'skipped',
+        status: upstreamFailed ? 'skipped' : paused ? 'paused' : 'disabled',
         durationMs: 0,
       };
-      results.push(skipped);
-      options.onStepSettled?.(skipped);
+      results.push(held);
+      options.onStepSettled?.(held);
       continue;
     }
 
@@ -513,8 +535,10 @@ export async function runPipeline(
             utilityId: step.utilityId,
             status: 'ok',
             output: raced.value,
+            ...(step.breakpoint === true ? { input: chainedInput } : {}),
             durationMs,
           };
+          paused = step.breakpoint === true;
           chainedInput = raced.value;
           lastOutputKind = adapter.outputKind;
         }
