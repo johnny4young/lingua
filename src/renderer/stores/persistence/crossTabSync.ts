@@ -1,10 +1,11 @@
-type CrossTabMerge<S> = (stored: unknown, live: S) => S;
+import type { PersistOptions } from 'zustand/middleware';
 
-interface CrossTabStore<S> {
+interface CrossTabStore<S, P> {
+  getState: () => S;
   /** Absent when storage is blocked: zustand then creates the store without it. */
   persist?: {
-    getOptions: () => { name?: string; version?: number; merge?: CrossTabMerge<S> };
-    setOptions: (options: { merge: CrossTabMerge<S> }) => void;
+    getOptions: () => Partial<PersistOptions<S, P>>;
+    setOptions: (options: Partial<PersistOptions<S, P>>) => void;
     rehydrate: () => Promise<void> | void;
   };
 }
@@ -27,21 +28,40 @@ interface CrossTabOptions<S> {
  * Call it right after `create()`. localStorage hydrates synchronously there, so
  * boot and migrations keep the store's own `merge`; only later rehydrates use the
  * one installed here. It never calls `setState`, which would write.
+ *
+ * zustand writes on every `set`, even one that changes nothing stored, and each
+ * write carries this tab's own fields. So a tab writes only when its stored fields
+ * differ from what it last read or wrote.
  */
-export function attachCrossTabSync<S>(
-  store: CrossTabStore<S>,
+export function attachCrossTabSync<S, P>(
+  store: CrossTabStore<S, P>,
   { defaults, keepLocal }: CrossTabOptions<S>
 ): void {
   const { persist } = store;
   if (!persist || typeof window === 'undefined') return;
-  const options = persist.getOptions();
-  const { name, version } = options as { name: string; version: number };
-  const merge = options.merge as CrossTabMerge<S>;
+  const { name, version, merge, partialize, storage } = persist.getOptions() as Required<
+    PersistOptions<S, P>
+  >;
+  let lastSeen = JSON.stringify(partialize(store.getState()));
+  const seen = (state: S): S => {
+    lastSeen = JSON.stringify(partialize(state));
+    return state;
+  };
   persist.setOptions({
     merge: (stored, live) => {
-      if (stored === undefined) return merge(undefined, { ...live, ...defaults() });
+      if (stored === undefined) return seen(merge(undefined, { ...live, ...defaults() }));
       const next = merge(stored, live);
-      return keepLocal ? { ...next, ...keepLocal(next, live) } : next;
+      return seen(keepLocal ? { ...next, ...keepLocal(next, live) } : next);
+    },
+    storage: {
+      ...storage,
+      setItem: (key, value) => {
+        const next = JSON.stringify(value.state);
+        if (next === lastSeen) return;
+        const written = storage.setItem(key, value);
+        lastSeen = next;
+        return written;
+      },
     },
   });
   const sync = () => {
