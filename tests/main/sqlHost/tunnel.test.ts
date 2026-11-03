@@ -1,7 +1,7 @@
 import net, { type AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { Server, utils, type Connection } from 'ssh2';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sshFingerprint } from '../../../src/main/sqlSsh/knownHosts';
 import type { HostSshConfig, HostSshHop } from '../../../src/main/sqlHost/protocol';
 import { createTunnelPool } from '../../../src/main/sqlHost/tunnel';
@@ -214,3 +214,85 @@ describe('SSH tunnel pool', () => {
   });
 });
 
+describe('SSH tunnel pool, as a connection that failed before sign-in closes', () => {
+  const uncaught: Error[] = [];
+  const record = (error: Error) => void uncaught.push(error);
+  const servers: net.Server[] = [];
+  const sockets: net.Socket[] = [];
+  let resets = 0;
+
+  beforeEach(() => {
+    uncaught.length = 0;
+    resets = 0;
+    process.on('uncaughtException', record);
+  });
+
+  afterEach(() => {
+    process.off('uncaughtException', record);
+    for (const socket of sockets.splice(0)) socket.destroy();
+    for (const server of servers.splice(0)) server.close();
+  });
+
+  const track = (socket: net.Socket) => {
+    sockets.push(socket);
+    socket.on('error', () => undefined);
+    return socket;
+  };
+
+  const serve = async (onConnection: (socket: net.Socket) => void) => {
+    const server = net.createServer({ allowHalfOpen: true }, (socket) => onConnection(track(socket)));
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    return (server.address() as AddressInfo).port;
+  };
+
+  /** A proxy to the SSH server that does not close with the client: it resets the connection or holds it open. */
+  const proxyThat = (onClientEnd: 'resets' | 'holds') =>
+    serve((client) => {
+      const ssh = track(net.connect(sshPort, '127.0.0.1'));
+      client.pipe(ssh, { end: false });
+      ssh.pipe(client, { end: false });
+      if (onClientEnd === 'holds') return;
+      client.once('end', () => {
+        client.resetAndDestroy();
+        ssh.destroy();
+        resets += 1;
+      });
+    });
+
+  const settle = (ms: number) => new Promise((resolve) => realSetTimeout(resolve, ms));
+
+  // In the SQL host an uncaught error ends the process, and every other session with it.
+  it('keeps the host up when a refused sign-in is followed by a reset', async () => {
+    const port = await proxyThat('resets');
+    await expect(createTunnelPool().acquire(config({ hops: [hop({ port })], password: 'nope' }))).rejects.toMatchObject({ detail: { fix: 'ssh-auth' } });
+    await until(() => resets === 1);
+    await settle(100);
+    expect(uncaught).toEqual([]);
+  });
+
+  it('keeps the host up when a refused host key is followed by a reset', async () => {
+    const port = await proxyThat('resets');
+    await expect(createTunnelPool().acquire(config({ hops: [hop({ port, known: [] })] }))).rejects.toMatchObject({ detail: { fix: 'ssh-host-unknown' } });
+    await until(() => resets === 1);
+    await settle(100);
+    expect(uncaught).toEqual([]);
+  });
+
+  it('keeps the host up when the peer never closes after a refused sign-in, so the sign-in timeout still fires', async () => {
+    const timeoutMs = 1000;
+    const port = await proxyThat('holds');
+    await expect(createTunnelPool({ timeoutMs }).acquire(config({ hops: [hop({ port })], password: 'nope' }))).rejects.toMatchObject({ detail: { step: 'ssh' } });
+    await settle(timeoutMs + 100);
+    expect(uncaught).toEqual([]);
+  });
+
+  it('keeps the host up when a port accepts the connection and never answers', async () => {
+    const port = await serve((socket) => socket.resume());
+    await expect(createTunnelPool({ timeoutMs: 200 }).acquire(config({ hops: [hop({ port })] }))).rejects.toMatchObject({
+      detail: { fix: 'ssh-unreachable', message: expect.stringContaining('Timed out') },
+    });
+    await settle(100);
+    expect(uncaught).toEqual([]);
+  });
+});

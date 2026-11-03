@@ -142,12 +142,17 @@ function connectHop(client: Client, hop: HostSshHop, ssh: HostSshConfig, sock: D
   return new Promise((resolve, reject) => {
     let seen: { verdict: HostKeyVerdict; type: string; fingerprint: string } | null = null;
     const serverHostKey = hostKeyAlgorithms(hop.known);
+    let signedIn = false;
     client.once('ready', () => {
-      // Errors after sign-in end the connection, which drops the tunnel; they must not crash the host.
-      client.on('error', () => client.end());
+      signedIn = true;
       resolve();
     });
-    client.once('error', (err) => reject(new TunnelError(hopError(err, hop, seen))));
+    // ssh2 can emit several errors as a connection fails and closes, and one with no listener would crash the host.
+    // The first before sign-in names the failure; any after it end the connection, which drops the tunnel.
+    client.on('error', (err) => {
+      if (signedIn) client.end();
+      else reject(new TunnelError(hopError(err, hop, seen)));
+    });
     client.connect({
       ...(sock ? { sock } : { host: hop.host, port: hop.port }),
       username: hop.user,
