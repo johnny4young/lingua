@@ -194,10 +194,11 @@ describe('SettingsModal', () => {
       <SettingsModal onClose={() => {}} onOpenWhatsNew={() => {}} onStartGuidedTour={() => {}} />
     );
     fireEvent.click(screen.getByTestId('settings-tab-editor'));
-    await waitFor(() => expect(screen.getAllByTestId('settings-section-chip')).toHaveLength(6));
+    await waitFor(() => expect(screen.getAllByTestId('settings-section-chip')).toHaveLength(7));
     expect(screen.getAllByTestId('settings-section-chip').map(chip => chip.textContent)).toEqual(
       [
         'editor.title',
+        'settings.editor.runPolicy.title',
         'settings.perLanguage.chip',
         'settings.editor.sqlWorkspace.title',
         'executionHistory.title',

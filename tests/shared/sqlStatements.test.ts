@@ -126,6 +126,7 @@ describe('redactSqlSecrets', () => {
     [`SELECT * FROM t WHERE "api_key" = 'abc123'`, `SELECT * FROM t WHERE "api_key" = '•••'`],
     [`SELECT * FROM t WHERE t."authToken" LIKE 'abc%'`, `SELECT * FROM t WHERE t."authToken" LIKE '•••'`],
     [`SELECT * FROM t WHERE t.password = 'x'`, `SELECT * FROM t WHERE t.password = '•••'`],
+    [`SELECT * FROM t WHERE "user.password" = 'x'`, `SELECT * FROM t WHERE "user.password" = '•••'`],
     [`SELECT * FROM t WHERE "api key" = 'x'`, `SELECT * FROM t WHERE "api key" = '•••'`],
     [`SELECT * FROM t WHERE session_id IN ('a', 'b')`, `SELECT * FROM t WHERE session_id IN ('•••', '•••')`],
     [`SELECT * FROM t WHERE note = 'Bearer eyJabc'`, `SELECT * FROM t WHERE note = '•••'`],

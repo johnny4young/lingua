@@ -517,7 +517,7 @@ function followsSecretColumn(sqlBefore: string): boolean {
   const match = COMPARED_COLUMN.exec(sqlBefore.slice(-200));
   const name = match?.[1] ?? match?.[2] ?? match?.[3] ?? match?.[4];
   if (!name) return false;
-  const column = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[\s-]+/g, '_').toLowerCase();
+  const column = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[\s.-]+/g, '_').toLowerCase();
   return SECRET_COLUMN.test(column);
 }
 
