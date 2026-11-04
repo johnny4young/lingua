@@ -78,6 +78,15 @@ describe('Python display', () => {
     expect((await execute('print(callable(display))')).console.map(message => message.args[0])).toEqual(['True']);
   });
 
+  it('keeps a lingua the scratchpad assigned across runs', async () => {
+    await execute('lingua = 5');
+    expect((await execute('print(lingua)')).console.map(message => message.args[0])).toEqual(['5']);
+    await execute('del lingua');
+    expect(
+      (await execute('print(callable(lingua.display))')).console.map(message => message.args[0])
+    ).toEqual(['True']);
+  });
+
   it('reads the mime of a data URL', async () => {
     const result = await execute('display("data:image/jpeg;base64,/9j/4AAQ")');
     expect(result.console[0]).toMatchObject({ payload: [{ kind: 'image', mime: 'image/jpeg' }] });
