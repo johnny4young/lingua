@@ -12,6 +12,7 @@ not telemetry payloads.
 - execution history snapshots
 - environment variables configured for runners
 - console output and runtime errors from user code
+- hosts the network policy blocked or the user allowed, with the runtime and the host only
 
 ## Telemetry
 
@@ -78,8 +79,17 @@ The web build may poll `updates.linguacode.dev` for the latest published version
 so it can show an update banner. The response is version metadata, not user
 project data.
 
+## Code The User Runs
+
+Code the user runs can reach the network. Settings › Privacy › Network from
+running code sets Allow, the default, Ask or Block for the Worker, Pyodide and
+Ruby WASM runtimes. It is a best-effort guard, not a sandbox. Node, Deno, Bun,
+Go, Rust and system Ruby are outside it.
+
 ## User Controls
 
-Users can change telemetry and crash-reporting consent in Settings. Removing a
+Users can change telemetry and crash-reporting consent in Settings, the network
+policy for running code, and whether runs keep code copies for replay and
+Compare (Capture code for replay). Removing a
 license clears local license state and asks the license service to remove the
 current device when the server is reachable.

@@ -17,7 +17,7 @@ import Legal from '~/layouts/Legal.astro';
 
   <h2>Qué nunca recopilamos</h2>
   <ul>
-    <li><strong>Tu código fuente.</strong> Los snippets se quedan en tu máquina. El historial de ejecución opcional guarda snapshots solo localmente: nunca salen del dispositivo.</li>
+    <li><strong>Tu código fuente.</strong> Los snippets se quedan en tu máquina. El historial de ejecución guarda los datos de cada ejecución en memoria, en tu dispositivo, y nunca salen de él.</li>
     <li><strong>Tu filesystem.</strong> No transmitimos rutas de proyecto, nombres de archivo ni listados de directorios.</li>
     <li><strong>Tu input.</strong> No registramos teclas, contenido del clipboard ni historial de comandos.</li>
     <li><strong>Identificadores personales.</strong> La telemetría no lleva email, nombre, ubicación ni identificador de dispositivo.</li>
@@ -64,6 +64,15 @@ import Legal from '~/layouts/Legal.astro';
     un identificador de dispositivo y datos generales del equipo, como el sistema operativo, para
     aplicar los límites y listar tus dispositivos en Settings. Los tokens viajan en encabezados de
     autorización, nunca en URLs.
+  </p>
+
+  <h2>El código que ejecutas</h2>
+  <p>
+    El código que ejecutas puede acceder a la red. Configuración → Privacidad → Red desde el código en
+    ejecución elige entre Permitir, la opción predeterminada, Preguntar o Bloquear para los runtimes
+    Worker, Pyodide y Ruby WASM. Es una protección de mejor esfuerzo, no un sandbox. Node, Deno, Bun,
+    Go, Rust y el Ruby del sistema quedan fuera. Los hosts que bloquea, y los que permites cuando te
+    pregunta, aparecen en Actividad reciente en este dispositivo solo con el runtime y el host.
   </p>
 
   <h2>Funciones de IA</h2>
