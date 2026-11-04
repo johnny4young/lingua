@@ -47,9 +47,9 @@ pnpm run compliance:release
 
 | File | Source | License |
 | --- | --- | --- |
-| `vendor/duckdb-extensions/v1.4.3/wasm_mvp/json.duckdb_extension.wasm` | [DuckDB](https://github.com/duckdb/duckdb) | MIT |
-| `vendor/duckdb-extensions/v1.4.3/wasm_mvp/icu.duckdb_extension.wasm` | [DuckDB](https://github.com/duckdb/duckdb) | MIT, with ICU under the Unicode license |
-| `vendor/duckdb-extensions/v1.4.3/wasm_mvp/parquet.duckdb_extension.wasm` | [DuckDB](https://github.com/duckdb/duckdb) | MIT, with Apache Thrift (Apache-2.0), Snappy (BSD-3-Clause), LZ4 (BSD-2-Clause) and Brotli (MIT) |
+| `vendor/duckdb-extensions/v1.4.3/wasm_eh/json.duckdb_extension.wasm` | [DuckDB](https://github.com/duckdb/duckdb) | MIT |
+| `vendor/duckdb-extensions/v1.4.3/wasm_eh/icu.duckdb_extension.wasm` | [DuckDB](https://github.com/duckdb/duckdb) | MIT, with ICU under the Unicode license |
+| `vendor/duckdb-extensions/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm` | [DuckDB](https://github.com/duckdb/duckdb) | MIT, with Apache Thrift (Apache-2.0), Snappy (BSD-3-Clause), LZ4 (BSD-2-Clause) and Brotli (MIT) |
 
 ## Bundled Fonts
 

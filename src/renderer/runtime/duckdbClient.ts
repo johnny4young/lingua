@@ -529,7 +529,7 @@ async function fetchVerifiedWasmUrl(
   return URL.createObjectURL(await response.blob());
 }
 
-const VENDORED_EXTENSIONS_DIR = '../duckdb-extensions/v1.4.3/wasm_mvp';
+const VENDORED_EXTENSIONS_DIR = '../duckdb-extensions/v1.4.3/wasm_eh';
 const EXTENSION_FETCH_TIMEOUT_MS = 15_000;
 
 /** Extensions Lingua ships; DuckDB reaches for any other one by name and fails. */
@@ -537,9 +537,10 @@ export const VENDORED_DUCKDB_EXTENSIONS = ['json', 'icu', 'parquet'] as const;
 type VendoredDuckDbExtension = (typeof VENDORED_DUCKDB_EXTENSIONS)[number];
 type DuckDbExtensionLoaders = Record<VendoredDuckDbExtension, () => Promise<boolean>>;
 
-/** Makes DuckDB fail on a missing extension, naming it, instead of fetching it from its own host. */
-const CLOSE_EXTENSION_REPOSITORY_SQL = "SET custom_extension_repository='data:'";
-const MISSING_EXTENSION_ERROR = /Failed to load 'data:[^']*\/([a-z0-9_]+)\.duckdb_extension\.wasm'/;
+/** Keeps DuckDB off its own host. An autoload through this repository traps in the EH build, so autoloading stays off. */
+const CLOSE_EXTENSION_REPOSITORY_SQL = ["SET custom_extension_repository='data:'", 'SET autoload_known_extensions=false'];
+/** `LOAD` and `ATTACH` reach the closed repository; anything else is named by the catalog error. */
+const MISSING_EXTENSION_ERROR = /(?:Failed to load 'data:[^']*\/|but it exists in the )([a-z0-9_]+)(?:\.duckdb_extension\.wasm'| extension)/;
 /** Parquet weighs too much to load for everyone, so the first SQL that names it pays. */
 const PARQUET_SQL = /parquet/i;
 
@@ -616,42 +617,43 @@ export async function runWithExtensions<T>(
  * the bundler emits it on the `duckdb-wasm` chunk (see
  * `vite.web.config.mts` + `vite.renderer.config.mts`). Desktop keeps
  * the WASM blob bundled; the standalone web build points the >25 MiB
- * MVP WASM at the public R2 runtime prefix because Cloudflare Pages
- * rejects oversized single assets.
+ * WASM at the public R2 runtime prefix because Cloudflare Pages
+ * rejects oversized single assets. The EH build, because the MVP one
+ * fails on any C++ exception that DuckDB catches, including internal ones.
  */
 async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   // Dynamic imports keep the chunk lazy. The browser fetches the
   // ~1 MiB JS shim first; the WASM only when DuckDB
   // actually instantiates.
   const duckdb = await import('@duckdb/duckdb-wasm');
-  const mvpWorkerModule = await import(
-    '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url'
+  const workerModule = await import(
+    '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url'
   );
-  const mvpWorkerUrl: string = mvpWorkerModule.default;
-  let mvpWasmUrl: string;
+  const workerUrl: string = workerModule.default;
+  let wasmUrl: string;
   let revokeWasmUrl: (() => void) | null = null;
-  if (__LINGUA_DUCKDB_MVP_WASM_URL__) {
-    const expectedSha256 = __LINGUA_DUCKDB_MVP_WASM_SHA256__;
+  if (__LINGUA_DUCKDB_WASM_URL__) {
+    const expectedSha256 = __LINGUA_DUCKDB_WASM_SHA256__;
     if (expectedSha256) {
-      mvpWasmUrl = await fetchVerifiedWasmUrl(
-        __LINGUA_DUCKDB_MVP_WASM_URL__,
+      wasmUrl = await fetchVerifiedWasmUrl(
+        __LINGUA_DUCKDB_WASM_URL__,
         expectedSha256
       );
-      const blobUrl = mvpWasmUrl;
+      const blobUrl = wasmUrl;
       revokeWasmUrl = () => URL.revokeObjectURL(blobUrl);
     } else {
-      mvpWasmUrl = __LINGUA_DUCKDB_MVP_WASM_URL__;
+      wasmUrl = __LINGUA_DUCKDB_WASM_URL__;
     }
   } else {
-    const mvpWasmModule = await import(
-      '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url'
+    const wasmModule = await import(
+      '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url'
     );
-    mvpWasmUrl = mvpWasmModule.default;
+    wasmUrl = wasmModule.default;
   }
   // Wrap the worker URL into an actual `Worker` instance. DuckDB's
   // `createWorker` would normally fetch the URL itself; we pass our
   // bundled URL directly so the same-origin guarantee holds.
-  const worker = new Worker(mvpWorkerUrl);
+  const worker = new Worker(workerUrl);
   // Reviewer pass (HIGH-1) — if WASM instantiation fails (offline,
   // CSP rejection, OOM), the just-spawned worker must be terminated
   // so it doesn't sit idle in the browser. Without this guard each
@@ -661,7 +663,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   try {
     const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
     const db = new duckdb.AsyncDuckDB(logger, worker);
-    await db.instantiate(mvpWasmUrl);
+    await db.instantiate(wasmUrl);
     // The verified blob URL has served its purpose once instantiation
     // completes; revoking frees the duplicated WASM bytes.
     revokeWasmUrl?.();
@@ -689,7 +691,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       }
     };
     // After the open above, which replaces the database and its settings.
-    await runAlone(CLOSE_EXTENSION_REPOSITORY_SQL);
+    for (const sql of CLOSE_EXTENSION_REPOSITORY_SQL) await runAlone(sql);
     const extensionLoader = (name: VendoredDuckDbExtension) =>
       createExtensionLoader(runAlone, () =>
         readExtensionToBlobUrl(
@@ -1139,9 +1141,6 @@ interface QueryTimeoutSentinel {
  * of a string so a query result can never collide with it accidentally.
  */
 const TIMEOUT_SENTINEL: QueryTimeoutSentinel = { __sqlWorkspaceTimeout: true };
-const DUCKDB_WASM_INTERNAL_ERROR = /_setThrew is not defined/i;
-const DUCKDB_WASM_INTERNAL_ERROR_MESSAGE =
-  'DuckDB could not return the detailed SQL error. Check the query syntax, table names, and column names.';
 
 function isTimeoutSentinel(value: unknown): value is QueryTimeoutSentinel {
   return (
@@ -1158,22 +1157,29 @@ export function missingExtensionMessage(err: unknown): string | undefined {
   return i18next.t(isVendoredExtension(name) ? 'sqlWorkspace.extension.notLoaded' : 'sqlWorkspace.extension.notIncluded', { name });
 }
 
+/** A parser error comes as JSON on a streamed statement and with its source line twice on a script. */
+function readableDuckDbError(raw: string): string {
+  if (raw.startsWith('{"exception_type"')) {
+    try {
+      const { exception_type: type, exception_message: message } = JSON.parse(raw) as Record<string, string>;
+      return `${type} Error: ${message}`;
+    } catch {
+      return raw;
+    }
+  }
+  return raw.replace(/(\n\nLINE [\s\S]*)\1$/, '$1');
+}
+
 function errorMessageForUser(err: unknown, fallback: string): string {
   const missing = missingExtensionMessage(err);
   if (missing) return missing;
-  const raw = err instanceof Error ? err.message : String(err ?? fallback);
-  if (DUCKDB_WASM_INTERNAL_ERROR.test(raw)) {
-    return DUCKDB_WASM_INTERNAL_ERROR_MESSAGE;
-  }
-  return raw;
+  return readableDuckDbError(err instanceof Error ? err.message : String(err ?? fallback));
 }
 
-/** DuckDB's own reason for a failure, or undefined when the wasm build lost it. */
+/** DuckDB's own reason for a failure, or undefined when it gave none. */
 export function duckDbErrorDetail(err: unknown): string | undefined {
-  const missing = missingExtensionMessage(err);
-  if (missing) return missing;
-  const raw = err instanceof Error ? err.message : String(err ?? '');
-  return raw.trim() === '' || DUCKDB_WASM_INTERNAL_ERROR.test(raw) ? undefined : raw;
+  const message = errorMessageForUser(err, '');
+  return message.trim() === '' ? undefined : message;
 }
 
 /** Statement count for the UX badge and the stream decision, from the shared splitter. */

@@ -83,7 +83,7 @@ describe('web runtime mirror verification', () => {
     expect(verifier).toBeGreaterThan(upload);
     expect(deploy).toBeGreaterThan(verifier);
     expect(workflow).toContain(
-      '"${duckdb_src}" "${runtime_base}/duckdb/${duckdb_version}/duckdb-mvp.wasm"'
+      '"${duckdb_src}" "${runtime_base}/duckdb/${duckdb_version}/duckdb-eh.wasm"'
     );
     expect(workflow).toContain(
       '"${ruby_src}" "${runtime_base}/ruby/${ruby_version}/ruby+stdlib.wasm"'
