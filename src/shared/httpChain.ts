@@ -7,6 +7,7 @@
 import {
   interpolateString,
   looksSecret,
+  looksSecretValue,
   referencedVariables,
   type HttpEnvironmentV1,
   type HttpEnvVariableV1,
@@ -177,7 +178,7 @@ export function chainRows(
   for (const tag of tags) {
     const value = chainValue(tag, latest(tag.sourceId));
     if (value === null) continue;
-    rows.push({ id: `chain-${tag.key}`, key: tag.key, value, secret: secretKeys.has(tag.key) || looksSecret(tag.key) });
+    rows.push({ id: `chain-${tag.key}`, key: tag.key, value, secret: secretKeys.has(tag.key) || looksSecret(tag.key) || looksSecretValue(value) });
   }
   return rows;
 }

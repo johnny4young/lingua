@@ -18,6 +18,7 @@ import {
   interpolateRequest,
   interpolateString,
   looksSecret,
+  looksSecretValue,
   maskSecretsForCapsule,
   maskSecretValuesInResponse,
   parseHttpEnvironment,
@@ -575,6 +576,21 @@ describe('looksSecret ', () => {
     ]) {
       expect(looksSecret(key)).toBe(true);
     }
+  });
+
+  it('matches the credential names a chain tag or capture often uses', () => {
+    for (const key of ['jwt', 'authToken', 'auth', 'bearer', 'session', 'sessionId', 'sid', 'cookie', 'csrf', 'xsrf', 'apikey']) {
+      expect(looksSecret(key)).toBe(true);
+    }
+    for (const key of ['author', 'sessions', 'inside', 'cookies_count']) {
+      expect(looksSecret(key)).toBe(false);
+    }
+  });
+
+  it('treats a JSON Web Token shape as secret, not any dotted value', () => {
+    expect(looksSecretValue('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc-_1')).toBe(true);
+    expect(looksSecretValue('api.example.com')).toBe(false);
+    expect(looksSecretValue('')).toBe(false);
   });
 
   it('does NOT match non-secret keys (no false positives)', () => {

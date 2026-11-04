@@ -5,7 +5,7 @@ import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
 
-const png = btoa(String.fromCharCode(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a));
+const png = btoa(String.fromCharCode(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1));
 
 function response(): SqlResponseV1 {
   return {

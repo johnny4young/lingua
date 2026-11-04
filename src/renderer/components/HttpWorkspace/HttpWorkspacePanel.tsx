@@ -10,6 +10,7 @@
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { secretCaptureValues } from '../../../shared/httpPersistedSecrets';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { HttpStarterRequests } from './HttpStarterRequests';
 import { isPristineRequest, type StarterPatch } from './httpStarters';
@@ -35,6 +36,8 @@ import {
   findUnresolvedVariables,
   interpolateRequest,
   looksSecret,
+  looksSecretValue,
+  collectSecretKeys,
   maskSecretsForCapsule,
   maskSecretValuesInResponse,
 } from '../../../shared/httpEnvironment';
@@ -112,7 +115,7 @@ function applyCapturesToActiveEnvironment(
           id: crypto.randomUUID(),
           key: write.targetVariable,
           value: write.value,
-          secret: looksSecret(write.targetVariable),
+          secret: looksSecret(write.targetVariable) || looksSecretValue(write.value),
         });
       }
     }
@@ -559,7 +562,11 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             appVersion: appInfo.version,
             requestName: requestToSend.name,
             request: capsuleSafe,
-            response,
+            // A token this response introduced was not a known secret when it was masked.
+            response: maskSecretValuesInResponse(
+              response,
+              secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env))
+            ),
             platform,
             userSensitiveHeaders: sensitiveHttpHeaders,
           });

@@ -130,7 +130,7 @@ function MagicCell({ magic, text }: { magic: SqlCellMagic; text: string }) {
         </span>
       );
     case 'image':
-      return <img src={magic.src} alt="" data-testid="sql-cell-thumb" className="inline-block h-5 max-w-[6rem] rounded-sm object-contain align-middle" />;
+      return <img src={magic.src} alt="" decoding="async" data-testid="sql-cell-thumb" className="inline-block h-5 max-w-[6rem] rounded-sm object-contain align-middle" />;
   }
 }
 
