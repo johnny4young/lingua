@@ -1809,7 +1809,10 @@ from lowest to highest precedence, so the existing last-row-wins lookups,
 secret masking and response scrubbing apply to every scope unchanged;
 `variableSources` says which scope supplies each key for the colours. Secret
 values of the new scopes follow the environments' vault rules, and
-`maskSecretsForCapsule` also blanks secret request variables.
+`maskSecretsForCapsule` also blanks secret request variables. The store's
+`partialize` runs `maskPersistedHttpData`: responses stay raw in the session so
+chain tags can read them, but the stored copies and snapshots mask every secret
+value, including tokens a capture rule surfaced after the send.
 
 A variable that another request's
 capture rule writes is a chain tag (`src/shared/httpChain.ts`): the graph is

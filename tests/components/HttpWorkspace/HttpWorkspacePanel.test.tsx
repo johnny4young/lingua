@@ -955,6 +955,53 @@ describe('HttpWorkspacePanel — collection workspace (rail-driven)', () => {
     });
   });
 
+  it('keeps a token this response introduced out of the run capsule and off disk', async () => {
+    const user = userEvent.setup();
+    const token = 'tok_0123456789abcdef';
+    useExecutionHistoryStore.getState().clear();
+    useWorkspaceToolStore.setState({
+      environments: [devEnv([])],
+      activeEnvironmentId: 'e1',
+      requests: [seedCaptureRequest()],
+      activeRequestId: 'req-login',
+    });
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({ body: JSON.stringify({ data: { token } }) })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(useExecutionHistoryStore.getState().entries).toHaveLength(1));
+
+    const capsule = useExecutionHistoryStore.getState().entries[0]?.lastCapsule;
+    expect(capsule).toBeDefined();
+    expect(JSON.stringify(capsule)).not.toContain(token);
+    const stored = JSON.parse(localStorage.getItem('lingua-workspace-tool-state') ?? '{}').state;
+    expect(JSON.stringify(stored.responsesByRequestId)).not.toContain(token);
+    expect(useWorkspaceToolStore.getState().responsesByRequestId['req-login']?.[0]?.body).toContain(token);
+  });
+
+  it('marks a captured JSON Web Token secret whatever its variable is called', async () => {
+    const user = userEvent.setup();
+    const [rule] = seedCaptureRequest().captures;
+    useWorkspaceToolStore.setState({
+      environments: [devEnv([])],
+      activeEnvironmentId: 'e1',
+      requests: [{ ...seedCaptureRequest(), captures: [{ ...rule!, targetVariable: 'me' }] }],
+      activeRequestId: 'req-login',
+    });
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({ body: JSON.stringify({ data: { token: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig' } }) })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => {
+      const row = useWorkspaceToolStore.getState().environments[0]?.variables.find((v) => v.key === 'me');
+      expect(row?.secret).toBe(true);
+    });
+  });
+
   it('updates an existing variable in place rather than duplicating it', async () => {
     const user = userEvent.setup();
     useWorkspaceToolStore.setState({

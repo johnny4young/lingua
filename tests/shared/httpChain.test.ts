@@ -127,6 +127,13 @@ describe('chain tags', () => {
     expect(capturersOf('owner', [listRepos, getRepo, second]).map(requestLabel)).toEqual(['list', 'https://x']);
   });
 
+  it('mark a row secret when its value is a JSON Web Token, whatever the key', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig';
+    const login = request('login', 'https://x', { captures: [capture('cl', 'me', 'me')] });
+    const tags = chainTags(request('me', 'https://x/{{me}}', {}), [login]);
+    expect(chainRows(tags, () => response({ me: jwt }), new Set()).map(({ secret }) => secret)).toEqual([true]);
+  });
+
   it('give the chain layer its rows, secret when the key is secret elsewhere or looks like one', () => {
     const login = request('login', 'https://x', { captures: [capture('cl', 'token', 'accessToken'), capture('cu', 'user', 'user')] });
     const me = request('me', 'https://x/{{user}}?t={{accessToken}}&p={{plain}}', {});

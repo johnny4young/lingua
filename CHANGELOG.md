@@ -12,6 +12,11 @@ The format follows Keep a Changelog and groups changes by release.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
 - TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
 
+### Fixed
+- HTTP responses and snapshots saved to disk no longer hold tokens a capture rule surfaced in plain text. Run capsules leave those tokens out too.
+- Variables named like credentials (`jwt`, `auth`, `session`, `cookie` and similar) and values shaped like a JSON Web Token now count as secret.
+- SQL grid thumbnails skip images whose header states more than 4096 pixels on a side, or no size at all.
+
 ## [2.0.0] — 2026-11-03
 
 ### Added

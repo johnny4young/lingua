@@ -51,6 +51,7 @@ import {
   type HttpPipelineV1,
 } from '../../shared/httpPipeline';
 import { httpEnvSecretId, HTTP_ENV_SECRET_PREFIX } from '../../shared/secretVault';
+import { maskPersistedHttpData } from '../../shared/httpPersistedSecrets';
 import {
   getSecretVault,
   writeSecret,
@@ -608,9 +609,15 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           const surviving = list.filter((entry) => !isTransientHttpResponse(entry));
           if (surviving.length > 0) persistedResponses[reqId] = surviving;
         }
-        return {
-          requests: vaultOwnsEnvSecrets ? blankRequestSecrets(state.requests) : state.requests,
+        const masked = maskPersistedHttpData({
+          requests: state.requests,
           responsesByRequestId: persistedResponses,
+          environments: state.environments,
+          collectionVariables: state.collectionVariables,
+        });
+        return {
+          requests: vaultOwnsEnvSecrets ? blankRequestSecrets(masked.requests) : masked.requests,
+          responsesByRequestId: masked.responsesByRequestId,
           activeRequestId: state.activeRequestId,
           // Additive fields. No persist `version` bump:
           // a v1 blob predating this field has no `environments` key, and
