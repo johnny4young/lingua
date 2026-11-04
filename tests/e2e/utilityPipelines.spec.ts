@@ -8,20 +8,19 @@
  */
 
 import { mkdirSync } from 'node:fs';
-import { expect, expectNoticeContains, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
 test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
-  test('keeps the Pipelines shortcut Pro-gated on Free', async ({ page }) => {
+  test('opens the Pipelines panel on Free, with no upgrade notice', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
 
     await page.keyboard.press('ControlOrMeta+Shift+G');
 
-    await expectNoticeContains(page, 'utility workflows');
-    await expect(page.getByTestId('developer-utilities-workspace')).toHaveCount(0);
-    await expect(page.getByTestId('utility-pipeline-panel')).toHaveCount(0);
+    await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
+    await expect(page.getByTestId('status-notice-banner')).toHaveCount(0);
   });
 
   test('opens the Pipelines panel inside Developer Utilities (EN)', async ({ page }) => {

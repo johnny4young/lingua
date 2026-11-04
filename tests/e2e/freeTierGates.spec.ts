@@ -100,7 +100,7 @@ test.describe('Free tier gates', () => {
     await expect(page.getByRole('button', { name: /Go .*\.go/i })).toHaveCount(0);
   });
 
-  test('three-tab ceiling upsells on the fourth tab and CTA opens License', async ({ page }) => {
+  test('three-tab ceiling upsells on the fourth tab and CTA opens Compare plans', async ({ page }) => {
     await createJavaScriptTab(page);
     for (let index = 1; index < 3; index += 1) {
       await page.getByTestId('action-pill-lang').click();
@@ -120,9 +120,8 @@ test.describe('Free tier gates', () => {
       });
     }
 
-    await page.getByRole('button', { name: 'See what Pro includes' }).click();
-    await expect(page.getByTestId('settings-tab-account')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByTestId('license-status-pill')).toContainText('Free plan');
+    await page.getByRole('button', { name: 'Compare plans' }).click();
+    await expect(page.getByTestId('compare-plans')).toBeVisible();
     if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
       await page.screenshot({
         path: 'output/review/project-sequence/t04-free-three-tabs/web-en-license-destination.png',
@@ -149,7 +148,7 @@ test.describe('Free tier gates', () => {
     await page.getByTestId('action-pill-lang').click();
     await page.getByRole('menuitem', { name: /^JavaScript\b/i }).click();
 
-    await expect(page.getByRole('button', { name: 'Ver qué incluye Pro' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Comparar planes' })).toBeVisible();
     await expectNoticeContains(page, 'más pestañas abiertas');
     await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(3);
     if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
@@ -262,7 +261,7 @@ test.describe('Free tier gates', () => {
     await expect(page.getByTestId('execution-history-popover')).toHaveCount(0);
   });
 
-  test('developer utilities toolbar button opens the free workspace and locks workflows', async ({
+  test('developer utilities toolbar button opens the workspace and a slice of pipelines', async ({
     page,
   }) => {
     await page.getByRole('button', { name: 'Developer utilities' }).click();
@@ -272,13 +271,9 @@ test.describe('Free tier gates', () => {
 
     await page.getByTestId('utility-rail-expand').click();
     await page.getByTestId('utilities-search-input').fill('pipeline');
-    await expect(page.getByTestId('utility-lock-utility-pipelines')).toBeVisible();
     await page.getByTestId('utility-item-utility-pipelines').click();
-    await expect(page.getByTestId('utility-pipeline-locked')).toBeVisible();
-    await expectNoticeContains(page, 'utility workflows');
-    await page.getByTestId('utility-pipeline-unlock').click();
-    await expectNoticeContains(page, 'utility workflows');
-    await expect(page.getByTestId('utility-pipeline-panel')).toHaveCount(0);
+    await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
+    await expect(page.getByTestId('status-notice-banner')).toHaveCount(0);
   });
 
   test('developer utilities shortcut opens the free workspace', async ({ page }) => {
@@ -287,11 +282,10 @@ test.describe('Free tier gates', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'JSON Formatter' })).toBeVisible();
   });
 
-  test('utility pipelines shortcut remains Pro-gated', async ({ page }) => {
+  test('utility pipelines shortcut opens the Free slice', async ({ page }) => {
     await page.keyboard.press('ControlOrMeta+Shift+G');
-    await expectNoticeContains(page, 'utility workflows');
-    await expect(page.getByTestId('developer-utilities-workspace')).toHaveCount(0);
-    await expect(page.getByTestId('utility-pipeline-panel')).toHaveCount(0);
+    await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
+    await expect(page.getByTestId('status-notice-banner')).toHaveCount(0);
   });
 
   test('clipboard-on-focus automation is locked in Free settings', async ({ page }) => {
