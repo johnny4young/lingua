@@ -22,7 +22,7 @@ import {
 } from '../runtime/sqlExplainPlan';
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
 import { executeRemoteScript, sqlDbBridge } from '../runtime/sqlRemote';
-import { dbClientEnabled, findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
+import { findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
 import type { SqlDbConnectionView, SqlDbSecretKind } from '../../shared/sqlDb';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
@@ -326,7 +326,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     async (request: SqlRunRequest) => {
       const { query, mode, statements } = request;
       if (activeController !== null || statements.length === 0 || confirmResolve !== null) return;
-      const enabled = dbClientEnabled();
+      const enabled = sqlDbBridge() !== null;
       // Right after launch the catalog may not have arrived yet; a missing connection needs it.
       if (enabled && query.connectionId && useSqlConnectionsStore.getState().catalog === null) {
         await useSqlConnectionsStore.getState().refresh();

@@ -20,7 +20,7 @@ const outcome = { status: 'success', columns: [], rows: [], rowCount: 0, duratio
 beforeEach(() => {
   executeQuery.mockReset().mockResolvedValue(outcome);
   loadLocalEditTable.mockReset();
-  useSettingsStore.setState({ featureFlags: { editRows: true, dbClient: true } });
+  useSettingsStore.setState({ featureFlags: { editRows: true } });
 });
 afterEach(() => {
   useSettingsStore.setState({ featureFlags: {} });

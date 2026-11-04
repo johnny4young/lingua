@@ -20,11 +20,6 @@ async function openConnection(page: Page, language: 'en' | 'es'): Promise<string
     });
   });
   await seedSession(page, { language });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { dbClient: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
   await gotoApp(page);
   await page.keyboard.press('ControlOrMeta+Alt+S');
   await page.getByTestId('sql-query-list-create').click();

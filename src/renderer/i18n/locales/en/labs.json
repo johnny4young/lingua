@@ -1,8 +1,6 @@
 {
   "settings.labs.flag.instantSql.label": "Instant SQL",
   "settings.labs.flag.instantSql.description": "In the SQL workspace on Local, a sampled preview of the statement under the cursor refreshes as you type, above the results. With the cursor in a CTE it shows that CTE and marks what reads it. Writes, remote reads and functions with side effects never run on their own, and connections never preview. A computed column's header breaks it down by NULLs.",
-  "settings.labs.flag.dbClient.label": "Database connections",
-  "settings.labs.flag.dbClient.description": "Connect the SQL tab to Postgres, MySQL, SQL Server and ClickHouse servers and to SQLite files. Desktop only; Local DuckDB stays the default.",
   "settings.labs.flag.editRows.label": "Edit table rows",
   "settings.labs.flag.editRows.description": "Edit cells, add, duplicate and delete rows of a table opened from the SQL Explorer, review the SQL, and commit it in one transaction. Never on read-only or production connections, nor on ClickHouse."
 }

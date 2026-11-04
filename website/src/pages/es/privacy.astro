@@ -5,7 +5,7 @@ import Legal from '~/layouts/Legal.astro';
 <Legal
   title="Privacidad"
   description="Qué recopila Lingua, qué nunca recopila y cómo revocar consentimiento. La telemetría está desactivada por defecto."
-  lastUpdated="2026-11-03"
+  lastUpdated="2026-11-04"
   locale="es"
 >
   <p>
@@ -124,6 +124,40 @@ import Legal from '~/layouts/Legal.astro';
     <code>extensions.duckdb.org</code>, así que escribir o ejecutar una consulta no contacta ese
     servidor. Una consulta que necesita otra extensión falla y la nombra. El SQL sigue llegando a
     cualquier servidor que nombre, como una URL que le pases a <code>read_csv</code>.
+  </p>
+
+  <h2>Conexiones a bases de datos</h2>
+  <p>
+    Una conexión a una base de datos va de tu dispositivo al servidor que configuras. Lingua no
+    ejecuta ningún servicio en medio. Turso, Neon y Cloudflare D1 van por HTTPS a esos proveedores.
+  </p>
+  <p>
+    En escritorio, las contraseñas, los tokens y las frases de contraseña de las llaves se cifran con
+    el llavero de tu sistema, o se quedan en memoria hasta que cierras la app en una conexión que
+    pregunta en cada sesión, y siempre donde no hay llavero. Nunca se escriben en texto plano ni en
+    logs, y la interfaz no puede volver a leer una guardada. La lista de conexiones guardadas no
+    tiene secretos. Guarda nombres, servidores, usuarios y bases de datos en un archivo que solo tú
+    puedes leer en macOS y Linux. En el navegador, las conexiones a Turso y Neon duran lo que dura
+    la pestaña y sus tokens se quedan en memoria.
+  </p>
+  <p>
+    Los resultados y los errores del driver de una conexión se quedan en la sesión y no entran en
+    las cápsulas de ejecución. Una consulta en una conexión llega al disco con sus secretos
+    enmascarados. La telemetría lleva el motor y el paso que falló, nunca un servidor, usuario,
+    consulta o fila. El minidump de un reporte de crash puede contener lo que estaba en memoria,
+    como una contraseña en uso o filas, y por eso, entre otras razones, esos reportes requieren tu
+    consentimiento.
+  </p>
+  <p>
+    En un túnel SSH, Lingua lee <code>~/.ssh/known_hosts</code> y <code>~/.ssh/config</code> y no
+    los escribe. Abre una llave privada de <code>~/.ssh</code> solo cuando la eliges, cuando tu
+    configuración de ssh la nombra o cuando guardas una conexión importada con ella. Una conexión
+    guardada conserva la ruta de la llave, no su contenido. Las llaves de servidor en las que confías
+    se guardan en un archivo propio de Lingua, y con el agente SSH la llave se queda en el agente.
+  </p>
+  <p>
+    Importar conexiones lee el archivo que eliges, el archivo a su lado que lo completa o los
+    archivos <code>.env</code> de la raíz del proyecto abierto, y descarta toda contraseña. Una exportación no tiene secretos.
   </p>
 
   <h2>Contacto</h2>

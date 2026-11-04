@@ -24,7 +24,6 @@ import { sqlDbBridge } from '../runtime/sqlRemote';
 import { appPlatform } from '../utils/appPlatform';
 import { useProjectStore } from '../stores/projectStore';
 import { findConnection, keepsAskedSecret, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
-import { useSettingsStore } from '../stores/settingsStore';
 import { useSqlRemoteCatalogStore, type SqlObjectRef } from '../stores/sqlRemoteCatalogStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
 import { setQuickOpenScope } from '../utils/quickOpenScope';
@@ -66,9 +65,6 @@ export function useSqlConnectionObjects({
   insertSql,
 }: Options) {
   const { t } = useTranslation();
-  // Labs: desktop runs every engine; the web opens Turso and Neon for the tab and says why the rest need Desktop.
-  const dbFlag = useSettingsStore((state) => state.featureFlags.dbClient === true);
-  const dbBridge = sqlDbBridge() !== null;
   const catalog = useSqlConnectionsStore((state) => state.catalog);
   const [connectionSheet, setConnectionSheet] = useState<SqlConnectionSheetMode | null>(null);
   // The manager stays open under the sheet it opened, and shows again when the sheet closes.
@@ -76,11 +72,11 @@ export function useSqlConnectionObjects({
   const [managerQuery, setManagerQuery] = useState('');
   const project = useProjectStore((state) => state.currentProject);
   useEffect(() => {
-    if (dbFlag && dbBridge) void useSqlConnectionsStore.getState().refresh();
-  }, [dbFlag, dbBridge]);
+    void useSqlConnectionsStore.getState().refresh();
+  }, []);
   const listed = (id: string | undefined): SqlDbConnectionView | undefined =>
     id ? [...(catalog?.connections ?? []), ...(catalog?.adhoc ?? [])].find((entry) => entry.id === id) : undefined;
-  const activeConnection = dbFlag ? listed(activeQuery?.connectionId) : undefined;
+  const activeConnection = listed(activeQuery?.connectionId);
   const selectConnection = useCallback(
     (connectionId: string | undefined) => {
       let id = useWorkspaceSqlStore.getState().activeQueryId;
@@ -136,7 +132,7 @@ export function useSqlConnectionObjects({
     quickOpenRef.current = {
       localTables,
       queries,
-      connection: (id) => (dbFlag ? findConnection(id) : undefined),
+      connection: findConnection,
       showRemote: (connectionId, object, tab) => {
         const store = useWorkspaceSqlStore.getState();
         if (store.queries.find((q) => q.id === store.activeQueryId)?.connectionId !== connectionId) {
@@ -188,14 +184,12 @@ export function useSqlConnectionObjects({
       )
     : undefined;
 
-  const connectionLabel = dbFlag
-    ? (id: string | undefined) => {
-        if (!id) return t('sqlWorkspace.connection.localName');
-        const connection = findConnection(id);
-        if (!connection) return t('sqlWorkspace.remote.missingConnection');
-        return connection.readOnly ? t('sqlWorkspace.remote.readOnlyName', { name: connection.name }) : connection.name;
-      }
-    : undefined;
+  const connectionLabel = (id: string | undefined) => {
+    if (!id) return t('sqlWorkspace.connection.localName');
+    const connection = findConnection(id);
+    if (!connection) return t('sqlWorkspace.remote.missingConnection');
+    return connection.readOnly ? t('sqlWorkspace.remote.readOnlyName', { name: connection.name }) : connection.name;
+  };
 
   // Stays open and says so when the server refuses the password.
   const catalogPasswordPrompt = catalogPassword ? (
@@ -219,21 +213,20 @@ export function useSqlConnectionObjects({
     />
   ) : null;
 
-  const barRemote = dbFlag
-    ? {
-        desktop: appPlatform() === 'desktop',
-        catalog,
-        activeId: activeQuery?.connectionId,
-        onSelect: selectConnection,
-        onNew: () => setConnectionSheet({ kind: 'new' }),
-        onOpenUrl: () => setConnectionSheet({ kind: 'url' }),
-        onEdit: (id: string) => {
-          const connection = listed(id);
-          if (connection) setConnectionSheet({ kind: 'edit', connection });
-        },
-        onManage: () => setManagerOpen(true),
-      }
-    : undefined;
+  // Desktop runs every engine; the web opens Turso and Neon for the tab and says why the rest need Desktop.
+  const barRemote = {
+    desktop: appPlatform() === 'desktop',
+    catalog,
+    activeId: activeQuery?.connectionId,
+    onSelect: selectConnection,
+    onNew: () => setConnectionSheet({ kind: 'new' }),
+    onOpenUrl: () => setConnectionSheet({ kind: 'url' }),
+    onEdit: (id: string) => {
+      const connection = listed(id);
+      if (connection) setConnectionSheet({ kind: 'edit', connection });
+    },
+    onManage: () => setManagerOpen(true),
+  };
 
   const connectionSheetElement = connectionSheet ? (
     <SqlConnectionSheet
@@ -282,7 +275,6 @@ export function useSqlConnectionObjects({
     );
 
   return {
-    dbFlag,
     activeConnection,
     barRemote,
     connectionSheetElement,

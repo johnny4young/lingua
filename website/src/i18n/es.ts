@@ -393,7 +393,7 @@ export const es = {
           features: [
             '3 pestañas abiertas a la vez',
             'Hasta 5 snippets guardados',
-            '3 conexiones de base de datos guardadas (escritorio, Labs)',
+            '3 conexiones de base de datos guardadas (escritorio)',
             'Runners de JavaScript, TypeScript, Python y Ruby',
             'Todas las utilidades de una sola acción',
             'Editor Monaco + resaltado de sintaxis',

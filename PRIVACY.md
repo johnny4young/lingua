@@ -88,6 +88,35 @@ A query that needs another extension fails and names it. SQL still reaches any
 host it names itself, such as a URL passed to `read_csv` or a repository set with
 `SET custom_extension_repository`.
 
+## Database Connections
+
+A database connection goes from the device to the server the user sets up. Lingua
+runs no service in between. Turso, Neon and Cloudflare D1 go over HTTPS to those
+providers.
+
+On desktop, passwords, tokens and key passphrases are encrypted with the system
+keychain, or stay in memory until the app quits for a connection that asks each
+session, and always where no keychain is available. They are never written in plain
+text or logged, and the interface cannot read a saved one back. The list of saved
+connections has no secrets. It holds names, hosts, users and databases in a file only
+the user can read on macOS and Linux. In the browser, Turso and Neon connections last
+for the tab and their tokens stay in memory.
+
+Results and driver errors from a connection stay in the session and leave run
+capsules. A query on a connection reaches disk with its secret literals masked.
+Telemetry carries the engine and the step that failed, never a host, user, query or
+row. Crash reports are opt-in, and a report's minidump can hold what was in memory,
+such as a password in use or rows.
+
+For an SSH tunnel, Lingua reads `~/.ssh/known_hosts` and `~/.ssh/config` and does not
+write them. It opens a private key from `~/.ssh` only when the user picks it, the ssh
+config names it, or the user saves a connection imported with it. A saved connection
+keeps the key's path, not its content. Host keys the user trusts are kept in a file of
+Lingua's own, and with the SSH agent the agent holds the key.
+
+Importing connections reads the file the user picks, the file beside it that completes
+it, or the `.env` files at the open project's root, and drops every password. An export has no secrets.
+
 ## Code The User Runs
 
 Code the user runs can reach the network. Settings › Privacy › Network from

@@ -9,7 +9,6 @@ import type { SqlConnectionDraft } from '../../shared/sqlConnections';
 import type { SqlDbCatalogView, SqlDbConnectionView, SqlDbSaveResult } from '../../shared/sqlDb';
 import { sqlDbBridge } from '../runtime/sqlRemote';
 import { useSqlRemoteCatalogStore } from './sqlRemoteCatalogStore';
-import { useSettingsStore } from './settingsStore';
 
 interface SqlConnectionsState {
   catalog: SqlDbCatalogView | null;
@@ -60,9 +59,6 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
     return result;
   },
 }));
-
-/** Database connections are on: the Labs flag, with a bridge (every desktop build, and the web's for Turso and Neon). */
-export const dbClientEnabled = () => useSettingsStore.getState().featureFlags.dbClient === true && sqlDbBridge() !== null;
 
 /** Whether a password typed at connect time is kept in the keychain once it signs in. */
 export function keepsAskedSecret(id: string | undefined, kind: 'database' | 'ssh'): boolean {
