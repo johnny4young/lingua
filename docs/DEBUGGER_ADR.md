@@ -48,7 +48,7 @@ The MVP ships exactly:
 
 Out of scope for the MVP:
 
-- Time-travel debugging. (Since then, Record run in Labs replays a recorded
+- Time-travel debugging. (Since then, Record run replays a recorded
   JS / TS run step by step; see the Execution timeline in USAGE.md.)
 - Remote / distributed tracing hooks.
 - Edit-and-continue.

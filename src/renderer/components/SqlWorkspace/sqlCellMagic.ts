@@ -1,7 +1,7 @@
 import { validateImageSrc } from '../../../shared/richOutput';
 import { sniffImage } from './sqlCellValue';
 
-/** How a cell draws beyond its text, with Rich display on. */
+/** How a cell draws beyond its text. */
 export type SqlCellMagic = { kind: 'link'; href: string; host: string } | { kind: 'bar'; value: number } | { kind: 'check'; on: boolean } | { kind: 'image'; src: string };
 
 const URL_CHARS = 2048;

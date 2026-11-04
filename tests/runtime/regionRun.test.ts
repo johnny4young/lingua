@@ -20,7 +20,7 @@ afterEach(() => {
 
 describe('region run at the cursor', () => {
   it('runs the region at the cursor of a focused editor, with the masked answers of its tab', async () => {
-    useSettingsStore.setState({ featureFlags: { runRegions: true } });
+    useSettingsStore.setState({ featureFlags: {} });
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE }] as never, 't1');
     useRunRegionStore.setState({ masked: { t1: { input: '', content: CODE, answers: [{ index: 0, value: 's' }] } } });
     focusEditor(3);
@@ -37,11 +37,8 @@ describe('region run at the cursor', () => {
     expect(await regionRunAtCursor()).toBeUndefined();
   });
 
-  it('leaves the Run shortcut alone with the flag off, outside the editor, in other languages or without markers', () => {
+  it('leaves the Run shortcut alone outside the editor, in other languages or without markers', () => {
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE }] as never, 't1');
-    focusEditor(3);
-    expect(regionRunAtCursor()).toBeUndefined();
-    useSettingsStore.setState({ featureFlags: { runRegions: true } });
     focusEditor(3, false);
     expect(regionRunAtCursor()).toBeUndefined();
     focusEditor(3);

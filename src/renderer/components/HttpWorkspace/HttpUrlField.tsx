@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next';
 import {
   splitVariableTokens,
-  type HttpEnvironmentV1,
   type HttpUrlState,
   type HttpVariableSource,
 } from '../../../shared/httpEnvironment';
@@ -57,9 +56,8 @@ export function HttpUrlHint({
 
 export interface HttpUrlFieldProps {
   value: string;
-  env: HttpEnvironmentV1 | null;
-  /** With variable scopes on: each token takes the colour of the scope that resolves it. */
-  sources?: ReadonlyMap<string, HttpVariableSource>;
+  /** Each token takes the colour of the scope that resolves it. */
+  sources: ReadonlyMap<string, HttpVariableSource>;
   placeholder: string;
   ariaLabel: string;
   describedBy?: string;
@@ -72,16 +70,14 @@ const TEXT = 'px-3 font-mono text-body-sm';
 
 /**
  * The URL input. With `{{tokens}}` in it, the text is drawn by a layer behind
- * a transparent input, which keeps native editing and highlights each token:
- * accent when the environment defines it, red when it does not, or with
- * variable scopes on, the colour of the scope that resolves it.
+ * a transparent input, which keeps native editing and colours each token by
+ * the scope that resolves it, red when none does.
  */
-export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, describedBy, onChange, onPaste }: HttpUrlFieldProps) {
+export function HttpUrlField({ value, sources, placeholder, ariaLabel, describedBy, onChange, onPaste }: HttpUrlFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
   const pieces = useMemo(() => splitVariableTokens(value), [value]);
   const mirrored = pieces.some((piece) => piece.key !== undefined);
-  const known = useMemo(() => new Set(env?.variables.map((variable) => variable.key) ?? []), [env]);
 
   const syncScroll = useCallback(() => {
     if (inputRef.current && mirrorRef.current) mirrorRef.current.scrollLeft = inputRef.current.scrollLeft;
@@ -111,26 +107,14 @@ export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, desc
         >
           {pieces.map((piece, index) => {
             if (piece.key === undefined) return <span key={index}>{piece.text}</span>;
-            if (sources) {
-              const scope = sources.get(piece.key)?.scope;
-              return (
-                <span
-                  key={index}
-                  data-testid="http-request-editor-url-token"
-                  data-state={scope ?? 'missing'}
-                  className="rounded-sm"
-                  style={tintPill(scope ? SCOPE_TINTS[scope] : UNRESOLVED_TINT)}
-                >
-                  {piece.text}
-                </span>
-              );
-            }
+            const scope = sources.get(piece.key)?.scope;
             return (
               <span
                 key={index}
                 data-testid="http-request-editor-url-token"
-                data-state={known.has(piece.key) ? 'defined' : 'missing'}
-                className={cn('rounded-sm', known.has(piece.key) ? 'bg-accent-tint text-accent-fg' : 'bg-error-bg text-error-fg')}
+                data-state={scope ?? 'missing'}
+                className="rounded-sm"
+                style={tintPill(scope ? SCOPE_TINTS[scope] : UNRESOLVED_TINT)}
               >
                 {piece.text}
               </span>

@@ -14,11 +14,6 @@ const CODE = [
 
 async function seedTimeline(page: Page, language: 'en' | 'es', pro: boolean): Promise<void> {
   await seedSession(page, { language, primeProLicense: pro, workflowModeDefaultsByLanguage: { javascript: 'run' } });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { runTimeline: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
 }
 
 async function recordRun(page: Page): Promise<void> {

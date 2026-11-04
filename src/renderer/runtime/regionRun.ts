@@ -1,7 +1,6 @@
 import type { RunOptions } from '../hooks/useRunner';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useRunRegionStore } from '../stores/runRegionStore';
-import { useSettingsStore } from '../stores/settingsStore';
 import type { RunRegion } from '../utils/runRegions';
 import { supportsRunRegions } from '../utils/runRegionLanguages';
 import { getActiveEditor, getActiveEditorCursorLine } from './editorAccess';
@@ -13,11 +12,10 @@ export function regionRunOptions(tabId: string, region: RunRegion): RunOptions {
 }
 
 /**
- * With Run regions on and the editor focused, the Run shortcut runs the region at the cursor.
+ * With the editor focused, the Run shortcut runs the region at the cursor.
  * Undefined right away when that cannot apply; otherwise the parser loads on demand, off the startup graph.
  */
 export function regionRunAtCursor(): Promise<RunOptions | undefined> | undefined {
-  if (useSettingsStore.getState().featureFlags.runRegions !== true) return undefined;
   if (!getActiveEditor()?.hasTextFocus()) return undefined;
   const tab = getActiveTab(useEditorStore.getState());
   const line = getActiveEditorCursorLine();

@@ -238,17 +238,10 @@ describe('run regions', () => {
     expect(screen.queryByTestId('run-regions-insert')).toBeNull();
   });
 
-  it('loads only with the flag on, for a supported tab with a marker', async () => {
+  it('loads for a supported tab with a marker', async () => {
     const fake = fakeEditor(CODE);
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE }] as never, 't1');
     const { rerender } = render(<RunRegionsHost editor={fake.editor as never} monaco={monaco as never} />);
-    await act(async () => {
-      await import('@/components/RunRegions/RunRegions');
-    });
-    expect(screen.queryByTestId('run-regions-bar')).toBeNull();
-
-    useSettingsStore.setState({ featureFlags: { runRegions: true } });
-    rerender(<RunRegionsHost editor={fake.editor as never} monaco={monaco as never} />);
     await waitFor(() => expect(screen.getByTestId('run-regions-bar')).toBeTruthy());
 
     useEditorStore.getState().restoreTabs([{ id: 't2', name: 'a.go', language: 'go', content: CODE }] as never, 't2');

@@ -49,7 +49,7 @@ export interface BuildCommandPaletteModelArgs {
   executionHistory?: readonly ExecutionHistoryEntry[];
   /** Canonical baseline Run entry, independent from paid replay/history. */
   onRunActiveTab?: () => void;
-  /** Record run, offered only while the timeline flag is on and the tab can be recorded. */
+  /** Record run, offered only when the tab can be recorded. */
   onRecordRun?: () => void;
   /** Open a folder as the active project. */
   onOpenProject?: () => void | Promise<void>;

@@ -44,7 +44,7 @@ import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 export interface HttpEnvironmentPreviewProps {
   request: HttpRequestV1;
   env: HttpEnvironmentV1 | null;
-  /** With variable scopes on: chips take their scope's colour and say where the value comes from. */
+  /** Chips take their scope's colour and say where the value comes from. */
   sources?: ReadonlyMap<string, HttpVariableSource>;
   /** Chain tag keys: their chips open the tag. */
   chainKeys?: ReadonlySet<string>;

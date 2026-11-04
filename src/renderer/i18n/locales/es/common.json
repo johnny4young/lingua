@@ -1071,7 +1071,7 @@
   "plans.row.snippets": "Fragmentos",
   "plans.row.languages": "Lenguajes",
   "plans.row.dbConnections": "Conexiones de base de datos guardadas (escritorio, Labs)",
-  "plans.row.timeline": "Línea de tiempo de ejecución (Labs)",
+  "plans.row.timeline": "Línea de tiempo de ejecución",
   "plans.row.ai": "Explicar, Editar con IA y Preguntar a la IA",
   "plans.row.notebooks": "Notebooks",
   "plans.row.benchmark": "Benchmark",

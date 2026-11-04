@@ -12,7 +12,7 @@
   "runCompare.status.ok": "OK",
   "runCompare.status.error": "ERR",
   "runCompare.select": "Compare {{name}} at {{time}}",
-  "runCompare.notComparable": "Ran before Compare runs was on",
+  "runCompare.notComparable": "No comparison data for this run",
   "runCompare.pickTwo": "Pick two runs to compare.",
   "runCompare.compare.title": "Compare · {{from}} → {{to}}",
   "runCompare.section.code": "code",

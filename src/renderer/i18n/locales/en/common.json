@@ -1071,7 +1071,7 @@
   "plans.row.snippets": "Snippets",
   "plans.row.languages": "Languages",
   "plans.row.dbConnections": "Saved database connections (desktop, Labs)",
-  "plans.row.timeline": "Execution timeline (Labs)",
+  "plans.row.timeline": "Execution timeline",
   "plans.row.ai": "Explain, Edit with AI and Ask AI",
   "plans.row.notebooks": "Notebooks",
   "plans.row.benchmark": "Benchmark",

@@ -7,11 +7,6 @@ import { clickRun, expect, gotoApp, replaceEditorText, seedSession, test, waitFo
 
 async function seedRunCompare(page: Page, language: 'en' | 'es', pro: boolean): Promise<void> {
   await seedSession(page, { language, primeProLicense: pro, workflowModeDefaultsByLanguage: { javascript: 'run' } });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { runCompare: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
 }
 
 async function run(page: Page, source: string): Promise<void> {

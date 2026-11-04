@@ -2,7 +2,7 @@
  * Right column: response preview.
  *
  * The shared `<ResultHeader>` carries status, `245 ms · 83 B` and the
- * Body / Headers / Raw / Timing tabs (Snapshot with its Labs flag); the no-response and loading states use
+ * Body / Headers / Raw / Timing and Snapshot tabs; the no-response and loading states use
  * `<EmptyState>`. Search, Wrap and Pretty sit in a row under the header.
  *
  * The Body view picks the renderer based on content-type:
@@ -47,7 +47,7 @@ import { splitForHighlight } from './httpTextHighlight';
 
 type PreviewTab = 'body' | 'headers' | 'raw' | 'timing' | 'snapshot';
 
-/** With snapshot assertions on: the request's snapshot and the ways to change it. */
+/** The request's snapshot and the ways to change it. */
 interface HttpResponseSnapshots {
   snapshot: HttpResponseSnapshot | undefined;
   onChange: (snapshot: HttpResponseSnapshot | undefined) => void;

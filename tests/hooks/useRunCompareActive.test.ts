@@ -20,7 +20,7 @@ beforeEach(() => {
   act(() => {
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'q.sql', language: 'python', content: '' }] as never, 't1');
     useResultStore.setState({ snapshotRing: [], scopeSnapshot: null });
-    useSettingsStore.setState({ featureFlags: { runCompare: true } });
+    useSettingsStore.setState({ featureFlags: {} });
     useExecutionHistoryStore.setState({
       entries: [{ id: 'r', language: 'http', status: 'ok', durationMs: 1, timestamp: 0, snapshot: null }],
     });
@@ -46,7 +46,7 @@ describe('Compare tab with Compare runs on', () => {
     expect(result.current.tabs.compare).toBe(false);
 
     act(() => {
-      useSettingsStore.setState({ featureFlags: { runCompare: true } });
+      useSettingsStore.setState({ featureFlags: {} });
       useExecutionHistoryStore.setState({ entries: [] });
     });
     expect(result.current.tabs.compare).toBe(false);

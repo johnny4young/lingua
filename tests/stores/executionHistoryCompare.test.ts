@@ -24,7 +24,7 @@ const initialSettings = useSettingsStore.getState();
 beforeEach(() => {
   mockTier = 'pro';
   useExecutionHistoryStore.setState(initial, true);
-  useSettingsStore.setState({ featureFlags: { runCompare: true } });
+  useSettingsStore.setState({ featureFlags: {} });
 });
 
 afterEach(() => {
@@ -33,13 +33,10 @@ afterEach(() => {
 });
 
 describe('execution history for Compare runs', () => {
-  it('keeps compare data only with the flag on and a tier that keeps history', () => {
+  it('keeps compare data only on a tier that keeps history', () => {
     expect(record('one', { kind: 'rows', count: 2, columns: ['id'] }).runCompare).toMatchObject({
       code: 'one', stdout: 'ok', summary: { kind: 'rows', count: 2, columns: ['id'] },
     });
-    useSettingsStore.setState({ featureFlags: {} });
-    expect(record('two').runCompare).toBeUndefined();
-    useSettingsStore.setState({ featureFlags: { runCompare: true } });
     mockTier = 'free';
     expect(record('three').runCompare).toBeUndefined();
   });

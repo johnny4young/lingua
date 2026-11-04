@@ -4,6 +4,13 @@ const loaderConfig = vi.fn();
 const jsSetCompilerOptions = vi.fn();
 const jsSetDiagnosticsOptions = vi.fn();
 const jsSetEagerModelSync = vi.fn();
+const linguaAddExtraLib = vi.fn();
+// Node typings load on demand, while the lingua global registers at once, so these track them apart.
+function routeExtraLib(nodeLib: ReturnType<typeof vi.fn>) {
+  return function (this: unknown, content: string, filePath?: string) {
+    return (filePath?.includes('lingua-worker') ? linguaAddExtraLib : nodeLib).call(this, content, filePath);
+  };
+}
 const jsAddExtraLib = vi.fn();
 const registerCompletionItemProvider = vi.fn();
 const registerHoverProvider = vi.fn();
@@ -53,13 +60,13 @@ const monacoMock = {
     registerReferenceProvider,
     typescript: {
       javascriptDefaults: {
-        addExtraLib: jsAddExtraLib,
+        addExtraLib: routeExtraLib(jsAddExtraLib),
         setCompilerOptions: jsSetCompilerOptions,
         setDiagnosticsOptions: jsSetDiagnosticsOptions,
         setEagerModelSync: jsSetEagerModelSync,
       },
       typescriptDefaults: {
-        addExtraLib: tsAddExtraLib,
+        addExtraLib: routeExtraLib(tsAddExtraLib),
         setCompilerOptions: tsSetCompilerOptions,
         setDiagnosticsOptions: tsSetDiagnosticsOptions,
         setEagerModelSync: tsSetEagerModelSync,
@@ -361,6 +368,17 @@ describe('Node typings on the web build', () => {
     const editor = fakeEditorNamespace([fakeModel('typescript', source)]);
     applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
     await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled(), { timeout: 2000 });
+  });
+
+  it('declares the lingua global for JavaScript and TypeScript without loading Node typings', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    linguaAddExtraLib.mockClear();
+    applyTypeScriptDefaults(monacoMock as never);
+    expect(linguaAddExtraLib).toHaveBeenCalledTimes(2);
+    expect(linguaAddExtraLib.mock.calls[0]![0]).toContain('display: LinguaDisplay');
+    // Mirrors DISPLAY_AS in shared/richDisplay.ts.
+    expect(linguaAddExtraLib.mock.calls[0]![0]).toContain("as?: 'table' | 'json' | 'image' | 'html' | 'text' | 'chart'");
+    expect(tsAddExtraLib).not.toHaveBeenCalled();
   });
 
   it('shares one observer set across repeated editor mounts', async () => {

@@ -24,7 +24,7 @@ export interface NetworkRunPolicy {
   blockedHosts: string[];
 }
 
-/** Every host refused; a run can ask for it to tighten, never loosen, the Labs policy. */
+/** Every host refused; a run can ask for it to tighten, never loosen, the saved policy. */
 export const BLOCK_ALL_NETWORK: NetworkRunPolicy = { policy: 'block', allowedHosts: [], blockedHosts: [] };
 
 export type NetworkRuntime = 'worker' | 'pyodide' | 'ruby';

@@ -28,13 +28,7 @@ afterEach(() => {
 });
 
 describe('Network from running code row', () => {
-  it('stays hidden until the Labs flag is on', () => {
-    render(<NetworkFromRunningCodeRow />);
-    expect(screen.queryByTestId('privacy-network-policy')).toBeNull();
-  });
-
   it('switches the policy with the segmented control', () => {
-    useSettingsStore.setState({ featureFlags: { networkPolicy: true } });
     render(<NetworkFromRunningCodeRow />);
     expect(screen.getByRole('button', { name: 'Allow' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Block' }));
@@ -68,11 +62,11 @@ describe('AI assistance source row', () => {
 });
 
 describe('Labs', () => {
-  it('turns the network policy flag on and off', () => {
+  it('turns a flag on and off', () => {
     render(<LabsSection />);
-    const toggle = screen.getByTestId('labs-flag-networkPolicy');
+    const toggle = screen.getByTestId('labs-flag-dbClient');
     fireEvent.click(toggle);
-    expect(useSettingsStore.getState().featureFlags).toEqual({ networkPolicy: true });
+    expect(useSettingsStore.getState().featureFlags).toEqual({ dbClient: true });
     fireEvent.click(toggle);
     expect(useSettingsStore.getState().featureFlags).toEqual({});
   });
@@ -102,11 +96,11 @@ describe('Network ask dialog', () => {
 describe('settings persistence', () => {
   it('drops an unknown policy and unknown flags on rehydrate', () => {
     const merged = settingsMerge(
-      { networkFromRunningCode: 'deny', featureFlags: { networkPolicy: true, other: true } },
+      { networkFromRunningCode: 'deny', featureFlags: { dbClient: true, other: true } },
       useSettingsStore.getState()
     );
     expect(merged.networkFromRunningCode).toBe('allow');
-    expect(merged.featureFlags).toEqual({ networkPolicy: true });
+    expect(merged.featureFlags).toEqual({ dbClient: true });
   });
 
   it('keeps Run Ledger and running-code events in the trust feed', () => {

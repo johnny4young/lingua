@@ -1,6 +1,6 @@
 /**
- * Network from running code (Labs flag): Block refuses a user fetch in the JS
- * worker, Ask confirms a host once per tab, and with the flag off nothing changes.
+ * Network from running code: Block refuses a user fetch in the JS worker, Ask
+ * confirms a host once per tab, and under Allow, the default, nothing changes.
  */
 
 import type { Page } from '@playwright/test';
@@ -37,9 +37,6 @@ const fetchSource = (marker: string) =>
 
 async function choosePolicy(page: Page, option: 'allow' | 'ask' | 'block'): Promise<void> {
   await openSettings(page);
-  await openSettingsTab(page, 'labs');
-  const flag = page.getByTestId('labs-flag-networkPolicy');
-  if ((await flag.getAttribute('aria-checked')) !== 'true') await flag.click();
   await openSettingsTab(page, 'privacy');
   await page.getByTestId(`privacy-network-policy-${option}`).click();
   await expect(page.getByTestId(`privacy-network-policy-${option}`)).toHaveAttribute(
@@ -95,14 +92,14 @@ test('Ask confirms a host once per tab and then lets it through', async ({ page 
   expect(hits.length).toBeGreaterThanOrEqual(2);
 });
 
-test('with the Labs flag off, Privacy has no network row and fetch is unchanged', async ({
+test('under the default Allow, fetch is unchanged', async ({
   page,
 }) => {
   const hits = await routeHost(page);
   await boot(page);
   await openSettings(page);
   await openSettingsTab(page, 'privacy');
-  await expect(page.getByTestId('privacy-network-policy')).toHaveCount(0);
+  await expect(page.getByTestId('privacy-network-policy-allow')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('privacy-ai-source')).toHaveText('Not configured');
   await closeSettings(page);
 
@@ -113,13 +110,9 @@ test('with the Labs flag off, Privacy has no network row and fetch is unchanged'
   expect(hits.length).toBeGreaterThanOrEqual(1);
 });
 
-test('the Labs tab and the network row read in Spanish', async ({ page }) => {
+test('the network row reads in Spanish', async ({ page }) => {
   await boot(page, 'es');
   await openSettings(page);
-  await openSettingsTab(page, 'labs');
-  await expect(page.getByTestId('settings-tab-labs')).toContainText('Labs');
-  await expect(page.getByText('Política de red para el código en ejecución')).toBeVisible();
-  await page.getByTestId('labs-flag-networkPolicy').click();
   await openSettingsTab(page, 'privacy');
   await expect(page.getByText('Red desde el código en ejecución')).toBeVisible();
   await expect(page.getByTestId('privacy-network-policy-block')).toHaveText('Bloquear');

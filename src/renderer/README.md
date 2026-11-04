@@ -87,7 +87,7 @@ first render before a DOM measurement exists.
 
 All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
 full-width editor. Its tab row always lists Console; Input, Compare, Timeline
-(Labs, after a Record run), Variables,
+(after a Record run), Variables,
 Terminal and Tests (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
 and carries the run controls: auto-log, run status, recent runs, time, capsule
@@ -216,10 +216,10 @@ a failed refresh cannot display another tab's preview.
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
-| [`components/Timeline/`](components/Timeline)           | `TimelinePanel.tsx` (lazy Timeline dock tab), `TimelineLineHost.tsx` | Execution timeline (Labs): replay of the latest Record run from `stores/timelineStore.ts` and `utils/timelineModel.ts`, with the editor showing the selected step, its echoes and unreached lines |
-| [`components/RunRegions/`](components/RunRegions)       | `RunRegionsHost.tsx`, `RunRegions.tsx` (lazy), `runtime/regionRun.ts` | Run regions (Labs): `%%` regions from `utils/runRegions.ts`, the region chips above the editor, Cmd/Ctrl+Shift+Enter (run all) in the editor and the latest region output from `stores/runRegionStore.ts` under its region, with an inline stdin row when the run stopped for input; the Run shortcut picks the region at the cursor through `runtime/regionRun.ts`, and masked stdin answers stay in memory in `runRegionStore` |
+| [`components/Timeline/`](components/Timeline)           | `TimelinePanel.tsx` (lazy Timeline dock tab), `TimelineLineHost.tsx` | Execution timeline: replay of the latest Record run from `stores/timelineStore.ts` and `utils/timelineModel.ts`, with the editor showing the selected step, its echoes and unreached lines |
+| [`components/RunRegions/`](components/RunRegions)       | `RunRegionsHost.tsx`, `RunRegions.tsx` (lazy), `runtime/regionRun.ts` | Run regions: `%%` regions from `utils/runRegions.ts`, the region chips above the editor, Cmd/Ctrl+Shift+Enter (run all) in the editor and the latest region output from `stores/runRegionStore.ts` under its region, with an inline stdin row when the run stopped for input; the Run shortcut picks the region at the cursor through `runtime/regionRun.ts`, and masked stdin answers stay in memory in `runRegionStore` |
 | Run state (Labs)                                          | `hooks/useRunStale.ts`, `Editor/RunStalePill.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
-| [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs (Labs): runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
+| [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs: runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
 | [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestFailureCardHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestFailureCard.tsx`), `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, and the failure card under the assertion line |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
@@ -491,8 +491,8 @@ Sharing separates its always-available triggers from both implementations:
 Result comparison has its own activation boundary:
 
 - [`hooks/useLayoutAvailability.ts`](hooks/useLayoutAvailability.ts) keeps the
-  stable-snapshot gate that decides when the dock offers Compare. With Compare
-  runs on ([`hooks/useRunCompareActive.ts`](hooks/useRunCompareActive.ts)), any
+  stable-snapshot gate that decides when the dock offers Compare. On a tier that
+  keeps run history ([`hooks/useRunCompareActive.ts`](hooks/useRunCompareActive.ts)), any
   recorded run opens the tab, which then loads the lazy
   [`components/RunCompare/RunComparePanel.tsx`](components/RunCompare/RunComparePanel.tsx).
 - [`components/Editor/CompareResultsPanelHost.tsx`](components/Editor/CompareResultsPanelHost.tsx)
@@ -739,8 +739,7 @@ second modal from inside a tour step.
 
 ### Network policy for running code
 
-Behind the `networkPolicy` flag (`src/shared/featureFlags.ts`, toggled in
-Settings › Labs), Settings › Privacy chooses Allow, Ask or Block for code in the
+Settings › Privacy chooses Allow, Ask or Block for code in the
 JS/TS worker, Pyodide and ruby.wasm. Each run carries a `NetworkRunPolicy` built
 by `networkAskStore.networkRunPolicyFor`; inside the worker,
 `workers/networkGuard.ts` wraps fetch, XMLHttpRequest, WebSocket, EventSource

@@ -13,11 +13,6 @@ const QUERY = [
 
 async function seed(page: Page, language: 'en' | 'es'): Promise<void> {
   await seedSession(page, { language });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { richDisplay: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
 }
 
 test.describe('SQL grid magics', () => {

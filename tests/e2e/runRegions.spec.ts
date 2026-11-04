@@ -19,11 +19,6 @@ const JS = [
 
 async function seedRegions(page: Page, language: 'en' | 'es'): Promise<void> {
   await seedSession(page, { language, workflowModeDefaultsByLanguage: { javascript: 'run', python: 'run' } });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { runRegions: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
 }
 
 async function moveCursorTo(page: Page, line: number): Promise<void> {

@@ -338,6 +338,27 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
   return false;
 }
 
+const LINGUA_GLOBAL_TYPES = `
+interface LinguaProgressBar { update(fraction: number, text?: string): void }
+interface LinguaDisplay {
+  (value: unknown, options?: { as?: 'table' | 'json' | 'image' | 'html' | 'text' | 'chart' }): void;
+  progress(label?: string): LinguaProgressBar;
+}
+declare const lingua: {
+  display: LinguaDisplay;
+  chart(spec: unknown): void;
+  image(source: unknown): void;
+  html(markup: unknown): void;
+};
+`;
+const LINGUA_GLOBAL_TYPES_URI = 'file:///node_modules/@types/lingua-worker/index.d.ts';
+
+/** The Worker's `lingua` bridge, so TypeScript tabs stop underlining it. */
+function registerLinguaGlobalTypes(ts: MonacoTypeScriptDefaultsWithExtraLib): void {
+  ts.javascriptDefaults.addExtraLib?.(LINGUA_GLOBAL_TYPES, LINGUA_GLOBAL_TYPES_URI);
+  ts.typescriptDefaults.addExtraLib?.(LINGUA_GLOBAL_TYPES, LINGUA_GLOBAL_TYPES_URI);
+}
+
 /**
  * Decide when the Node typings load.
  *
@@ -348,6 +369,7 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
  * the models and load on the first match, then stop watching.
  */
 function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWithExtraLib): void {
+  registerLinguaGlobalTypes(ts);
   if (nodeTypeDefinitionsRegistered || nodeTypeDefinitionsScheduled) return;
   const desktop = hasNodeRuntime();
   const editorNamespace = m.editor as unknown as MonacoEditorNamespaceLike;

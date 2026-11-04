@@ -222,18 +222,7 @@ describe('the message pump', () => {
     worker.emitForRun({ type: 'done', executionTime: 1 });
     expect((await promise).stdinRequest).toEqual({ message: 'Name?' });
     const plain = startRun();
-    expect(plain.worker.posted[0]).toMatchObject({ askStdin: false, richDisplay: false });
-  });
-
-  it('hands the worker lingua.display when the Labs flag is on', async () => {
-    const { useSettingsStore } = await import('@/stores/settingsStore');
-    const previous = useSettingsStore.getState().featureFlags;
-    useSettingsStore.setState({ featureFlags: { richDisplay: true } });
-    try {
-      expect(startRun().worker.posted[0]).toMatchObject({ richDisplay: true });
-    } finally {
-      useSettingsStore.setState({ featureFlags: previous });
-    }
+    expect(plain.worker.posted[0]).toMatchObject({ askStdin: false });
   });
 
   it('keeps one output per progress bar and streams each update', async () => {
@@ -554,7 +543,7 @@ describe('debugger stepping', () => {
 
   it('sends the network policy and holds the deadline while the user answers a host', async () => {
     vi.useFakeTimers();
-    useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'ask' });
+    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'ask' });
     try {
       const { promise, worker } = startRun({ timeout: 1_000, context: { tabId: 'tab-net' } });
       expect(worker.posted[0]?.['network']).toEqual({ policy: 'ask', allowedHosts: [], blockedHosts: [] });
@@ -588,7 +577,7 @@ describe('debugger stepping', () => {
   });
 
   it('drops an unanswered network question when the run ends', async () => {
-    useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'ask' });
+    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'ask' });
     try {
       const { shell, promise, worker } = startRun({ context: { tabId: 'tab-stop' } });
       worker.emitForRun({ type: 'network-request', requestId: 'net-1', host: 'api.example' });

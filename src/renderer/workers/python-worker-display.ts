@@ -58,16 +58,9 @@ def __lingua_display_progress(label=""):
 
 __lingua_display.progress = __lingua_display_progress
 __lingua.display = __lingua_display
-globals()["display"] = __lingua_display
-globals()["lingua"] = __lingua
-`;
-
-// The worker keeps its globals between runs, so a run with the flag off drops the names a flagged run defined.
-export const PYTHON_DISPLAY_OFF_SOURCE = `
-if getattr(globals().get("display"), "__name__", "") == "__lingua_display":
-    del globals()["display"]
-if hasattr(globals().get("lingua"), "display") and hasattr(globals().get("lingua"), "chart"):
-    del globals()["lingua"]
-for __lingua_name in ("__lingua_display", "__lingua_display_entry", "__lingua_display_progress", "__LinguaProgress"):
-    globals().pop(__lingua_name, None)
+# A name the user assigned stays theirs across runs; the helpers stay reachable as lingua.display.
+if "display" not in globals() or getattr(globals()["display"], "__name__", "") == "__lingua_display":
+    globals()["display"] = __lingua_display
+if hasattr(globals().get("lingua", __lingua), "display"):
+    globals()["lingua"] = __lingua
 `;

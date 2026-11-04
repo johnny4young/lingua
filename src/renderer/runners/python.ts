@@ -670,7 +670,6 @@ export class PythonRunner implements LanguageRunner {
         sourceMappingEnabled: true,
         autoLog: context?.autoLog === true,
         askStdin: context?.askStdin === true,
-        richDisplay: useSettingsStore.getState().featureFlags.richDisplay === true,
         network,
       });
     });

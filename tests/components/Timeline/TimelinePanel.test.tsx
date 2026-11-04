@@ -124,7 +124,7 @@ describe('timeline panel', () => {
 
 describe('timeline in the editor and the Run menu', () => {
   it('highlights the selected line only while the Timeline tab is open', () => {
-    useSettingsStore.setState({ featureFlags: { runTimeline: true } });
+    useSettingsStore.setState({ featureFlags: {} });
     const clear = vi.fn();
     const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
     const set = vi.fn();
@@ -146,7 +146,7 @@ describe('timeline in the editor and the Run menu', () => {
   it('shows what the line changed, dims unreached lines and flashes a move with nowhere to go', () => {
     vi.useFakeTimers();
     try {
-      useSettingsStore.setState({ featureFlags: { runTimeline: true } });
+      useSettingsStore.setState({ featureFlags: {} });
       useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
       useTimelineStore.setState({ current: 1 });
       const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
@@ -181,7 +181,7 @@ describe('timeline in the editor and the Run menu', () => {
   });
 
   it('strips bidi and control characters from the value pill', () => {
-    useSettingsStore.setState({ featureFlags: { runTimeline: true } });
+    useSettingsStore.setState({ featureFlags: {} });
     useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
     const tricky: TimelineStep[] = [
       { line: 1, frames: [{ name: '<module>', line: 1 }], vars: [] },
@@ -202,13 +202,10 @@ describe('timeline in the editor and the Run menu', () => {
     expect(JSON.stringify(created)).toContain('"content":"label = \\" evil line x  \\""');
   });
 
-  it('offers Record run for JavaScript Worker tabs with the flag on', async () => {
+  it('offers Record run for JavaScript Worker tabs', async () => {
     const onRecord = vi.fn();
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: '' }] as never, 't1');
     const { rerender } = render(<RecordRunMenuItem disabled={false} onRecord={onRecord} />);
-    expect(screen.queryByTestId('action-pill-record')).toBeNull();
-    useSettingsStore.setState({ featureFlags: { runTimeline: true } });
-    rerender(<RecordRunMenuItem disabled={false} onRecord={onRecord} />);
     await userEvent.click(screen.getByTestId('action-pill-record'));
     expect(onRecord).toHaveBeenCalledOnce();
     useEditorStore.getState().restoreTabs([{ id: 't2', name: 'a.py', language: 'python', content: '' }] as never, 't2');

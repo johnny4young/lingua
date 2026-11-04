@@ -38,16 +38,15 @@ beforeEach(async () => {
   initI18n('en');
   await i18next.changeLanguage('en');
   resetWorkspaceToolStoreForTests();
-  useSettingsStore.setState({ featureFlags: { httpScopes: true } });
+  useSettingsStore.setState({ featureFlags: {} });
 });
 
 describe('scope colours in the URL', () => {
-  const field = (sources?: ReturnType<typeof variableSources>) =>
+  const field = (sources: ReturnType<typeof variableSources>) =>
     render(
       <HttpUrlField
         value="{{base}}/{{owner}}/{{repo}}/{{missing}}"
-        env={layeredEnvironment(layers)}
-        {...(sources ? { sources } : {})}
+        sources={sources}
         placeholder=""
         ariaLabel="URL"
         onChange={vi.fn()}
@@ -63,13 +62,6 @@ describe('scope colours in the URL', () => {
     expect(tokens[1]!.style.color).toBe(SCOPE_TINTS.collection.fg);
     expect(tokens[2]!.style.color).toBe(SCOPE_TINTS.request.fg);
     expect(tokens[3]!.style.color).toBe(UNRESOLVED_TINT.fg);
-  });
-
-  it('keeps the defined and missing look without scopes', () => {
-    field();
-    const tokens = screen.getAllByTestId('http-request-editor-url-token');
-    expect(tokens.map((token) => token.dataset.state)).toEqual(['defined', 'defined', 'defined', 'missing']);
-    expect(tokens[0]!.getAttribute('style')).toBeNull();
   });
 });
 
@@ -253,11 +245,9 @@ describe('scope helpers', () => {
     expect(rows[0]!.id).not.toBe('s1');
   });
 
-  it('layers collection and request variables only with the flag on', () => {
+  it('layers collection and request variables', () => {
     useWorkspaceToolStore.setState({ collectionVariables: [v('c', 'owner', 'octocat')] });
-    const request = { variables: [v('r', 'repo', 'lingua')] };
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), variables: [v('r', 'repo', 'lingua')] };
     expect(scopedEnvironmentFor(request, null)?.variables.map((row) => row.key)).toEqual(['owner', 'repo']);
-    useSettingsStore.setState({ featureFlags: {} });
-    expect(scopedEnvironmentFor(request, null)).toBeNull();
   });
 });

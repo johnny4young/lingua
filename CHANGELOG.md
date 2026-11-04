@@ -6,6 +6,11 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, and Compare runs (Pro). Settings › Labs no longer lists them.
+- Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
+- TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
+
 ## [2.0.0] — 2026-11-03
 
 ### Added

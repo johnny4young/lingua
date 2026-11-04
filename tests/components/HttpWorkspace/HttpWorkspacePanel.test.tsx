@@ -1024,7 +1024,7 @@ describe('HttpWorkspacePanel — variable scopes', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpScopes: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: {} });
     useUIStore.setState({ statusNotice: null });
     executeHttpRequestMock.mockReset();
     executeHttpRequestMock.mockResolvedValue(makeResponse());
@@ -1053,15 +1053,6 @@ describe('HttpWorkspacePanel — variable scopes', () => {
     await user.click(screen.getByTestId('http-request-editor-send'));
     await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalled());
     expect(executeHttpRequestMock.mock.calls[0]![0].url).toBe('https://staging.example/repos/octocat/lingua');
-  });
-
-  it('ignores the new scopes with the flag off', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
-    useWorkspaceToolStore.setState({ collectionVariables: [{ id: 'c1', key: 'owner', value: 'octocat', secret: false }] });
-    const user = await sendUrl('https://api.example.com/{{owner}}');
-    await user.click(screen.getByTestId('http-request-editor-send'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(executeHttpRequestMock).not.toHaveBeenCalled();
   });
 
   const twoEnvironments = () =>
@@ -1140,7 +1131,7 @@ describe('HttpWorkspacePanel — chain tags', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpChainTags: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: {} });
     useUIStore.setState({ statusNotice: null });
     executeHttpRequestMock.mockReset();
   });
@@ -1332,13 +1323,6 @@ describe('HttpWorkspacePanel — chain tags', () => {
     });
   });
 
-  it('leaves tags alone with the flag off', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
-    seed({ owner: 'source-first' });
-    render(<HttpWorkspacePanel />);
-    expect(screen.queryByTestId('http-chain')).toBeNull();
-    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
-  });
 });
 
 describe('HttpWorkspacePanel — snapshot assertions', () => {
@@ -1346,7 +1330,7 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpSnapshots: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: {} });
     executeHttpRequestMock.mockReset();
   });
 

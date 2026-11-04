@@ -77,7 +77,7 @@ export interface HttpEnvironmentManagerProps {
    * id, appends). `{ ok: false }` on malformed input.
    */
   onImport: (json: string) => { ok: true; id: string } | { ok: false };
-  /** With variable scopes on: the collection's variables and a colour per environment. */
+  /** The collection's variables and a colour per environment. */
   scopes?: {
     collectionVariables: ReadonlyArray<HttpEnvVariableV1>;
     onUpdateCollection: (updater: VariablesUpdater) => void;

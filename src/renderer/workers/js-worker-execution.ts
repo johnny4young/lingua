@@ -326,7 +326,6 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           // forward that flag to `runtime.rich_media_payload_rejected`.
           lingua = buildLinguaWorkerBridge(ctx, runId, {
             ...(exec.sourceMappingEnabled !== false ? { callingLine: source.callingLine } : {}),
-            richDisplay: exec.richDisplay === true,
             truncate: text => truncateJsWorkerValue(text, marker),
           });
 

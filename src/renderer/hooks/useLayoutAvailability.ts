@@ -70,7 +70,6 @@ export function useLayoutAvailability(): LayoutAvailability {
   const comparableCount = useResultStore(s => comparableSnapshotCountFor(s, language));
   const runCompareActive = useRunCompareActive();
   const hasRuns = useExecutionHistoryStore(s => s.entries.length > 0);
-  const timelineOn = useSettingsStore(s => s.featureFlags.runTimeline === true);
   const hasRecording = useTimelineStore(s => s.recording !== null && s.recording.tabId === activeTabId);
   const hasScope = useResultStore(s => hasScopeSnapshotFor(s, language, runtimeMode));
   const hasProject = useProjectStore(s => s.currentProject !== null);
@@ -82,7 +81,7 @@ export function useLayoutAvailability(): LayoutAvailability {
   const tabs: DockTabAvailability = {
     stdin: showStdinPanel && runtimeMode !== 'browser-preview' && workerLanguage,
     compare: (runMode && comparableCount > 0) || (runCompareActive && hasRuns),
-    timeline: timelineOn && hasRecording,
+    timeline: hasRecording,
     variables:
       variableInspectorSurface === 'bottom' &&
       runMode &&
