@@ -16,10 +16,7 @@ import { LiveAnnouncer } from './components/a11y/LiveAnnouncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
-import {
-  findDeveloperUtilityCatalogEntry,
-  type DeveloperUtilityId,
-} from './data/developerUtilityCatalog';
+import type { DeveloperUtilityId } from './data/developerUtilityCatalog';
 import { getActiveAppLanguage } from './i18n';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
@@ -50,8 +47,6 @@ import { useAppTheme } from './hooks/useAppTheme';
 import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
 import { useLicenseSettingsNavigation } from './hooks/useLicenseSettingsNavigation';
 import { useCommandListener } from './hooks/useCommandListener';
-import { useEffectiveTier } from './hooks/useEntitlement';
-import { useProAccess } from './hooks/useProAccess';
 import { useTelemetry } from './hooks/useTelemetry';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
@@ -60,7 +55,6 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
-import { pushUpsellNotice } from './utils/upsellNotice';
 import { toggleExplorerOrToolList } from './utils/explorerToggle';
 
 function FactoryRecoveryNotice() {
@@ -93,7 +87,6 @@ function AppChrome({
   closeOverlay: () => void;
 }) {
   const { run, stop, isRunning } = useRunner();
-  const { t } = useTranslation();
   const { track } = useTelemetry();
   const saveActiveTab = useEditorStore(s => s.saveActiveTab);
   const saveActiveTabAs = useEditorStore(s => s.saveActiveTabAs);
@@ -112,9 +105,6 @@ function AppChrome({
   const initializePlugins = usePluginStore(s => s.initialize);
   const initializeUpdates = useUpdateStore(s => s.initialize);
   const appInfo = useAppInfo();
-  const effectiveTier = useEffectiveTier();
-  // Labs › Pro in context opens pipelines to Free as a slice of three steps.
-  const canUseUtilityWorkflows = useProAccess('DEV_UTILITIES') !== 'locked';
   // rust-analyzer lifecycle.
   // Gopls lifecycle. Same hook shape via the shared
   // `useLspLifecycle`; the two languages have independent stores so a
@@ -290,18 +280,6 @@ function AppChrome({
   }, []);
 
   const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
-    const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
-    if (requestedUtility?.requiresEntitlement && !canUseUtilityWorkflows) {
-      pushUpsellNotice({
-        messageKey: 'upsell.freeCeilingReached',
-        featureLabel: t('upsell.feature.utilityWorkflows'),
-      });
-      track('feature.blocked', {
-        entitlement: 'utility-workflows',
-        tier: effectiveTier,
-      });
-      return;
-    }
     openUtilitiesWorkspaceTab(utilityId);
     closeOverlay();
     // Preserve the pre-workspace adoption signal: the telemetry enum still

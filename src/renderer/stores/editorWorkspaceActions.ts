@@ -1,17 +1,12 @@
 import type { EditorState, FileTab } from '../types/editor';
-import { currentProAccess } from './proAccess';
 import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
 import { useSettingsStore } from './settingsStore';
 import { useUtilityWorkspaceStore } from './utilityWorkspaceStore';
-import {
-  findDeveloperUtilityCatalogEntry,
-  type DeveloperUtilityId,
-} from '../data/developerUtilityCatalog';
+import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled, isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
-import { trackEvent } from '../utils/telemetry';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   budgetedTabCount,
@@ -181,23 +176,6 @@ export function createWorkspaceActions(
      * different tab.
      */
     addUtilitiesTab: (utilityId?: DeveloperUtilityId) => {
-      const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
-      const tier = currentEffectiveTier();
-      // Labs › Pro in context opens a gated utility as a slice instead of refusing it.
-      if (
-        requestedUtility?.requiresEntitlement &&
-        currentProAccess(requestedUtility.requiresEntitlement) === 'locked'
-      ) {
-        pushUpsellNotice({
-          messageKey: 'upsell.freeCeilingReached',
-          featureLabel: i18next.t('upsell.feature.utilityWorkflows'),
-        });
-        void trackEvent('feature.blocked', {
-          entitlement: 'utility-workflows',
-          tier,
-        });
-        return null;
-      }
       if (utilityId) {
         useUtilityWorkspaceStore.getState().setActiveUtilityId(utilityId);
       }

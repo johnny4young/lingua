@@ -1,5 +1,5 @@
 /**
- * Labs › GUI actions to code: an HTTP request opens as a JS tab that runs in
+ * GUI actions to code: an HTTP request opens as a JS tab that runs in
  * the Worker without its secrets, and the grid's SQL saves as a snippet.
  */
 import type { Page } from '@playwright/test';
@@ -8,7 +8,7 @@ import { clickRun, expect, gotoApp, seedSession, test, waitForRunCompleted, wait
 const API = 'https://api.example.com';
 const SECRET = 'tok-SECRET-value';
 
-async function openRequest(page: Page, language: 'en' | 'es', flag: boolean): Promise<string[]> {
+async function openRequest(page: Page, language: 'en' | 'es'): Promise<string[]> {
   const seen: string[] = [];
   await page.route(`${API}/**`, async (route) => {
     const request = route.request();
@@ -21,16 +21,15 @@ async function openRequest(page: Page, language: 'en' | 'es', flag: boolean): Pr
   });
   await seedSession(page, { language });
   await page.addInitScript(
-    ({ flag, API, SECRET }) => {
+    ({ API, SECRET }) => {
       const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-      settings.state.featureFlags = flag ? { ejectToCode: true } : {};
       localStorage.setItem('lingua-settings', JSON.stringify(settings));
       if (localStorage.getItem('lingua-workspace-tool-state')) return;
       const request = { id: 'r', name: 'Users', method: 'GET', url: `${API}/users?page=1`, headers: [], auth: { kind: 'bearer', token: '{{apiToken}}' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', responses: [], captures: [], assertions: [], params: [], version: 1 };
       const environment = { version: 1, id: 'prod', name: 'prod', variables: [{ id: 'v', key: 'apiToken', value: SECRET, secret: true }], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
       localStorage.setItem('lingua-workspace-tool-state', JSON.stringify({ state: { requests: [request], activeRequestId: 'r', environments: [environment], activeEnvironmentId: 'prod' }, version: 0 }));
     },
-    { flag, API, SECRET }
+    { API, SECRET }
   );
   await gotoApp(page);
   await waitForSeededWorkspaceSettled(page);
@@ -44,7 +43,7 @@ const editorText = async (page: Page) => (await page.locator('.monaco-editor .vi
 
 for (const language of ['en', 'es'] as const) {
   test(`opens a request as a JS tab without its secret (${language})`, async ({ page }) => {
-    const seen = await openRequest(page, language, true);
+    const seen = await openRequest(page, language);
     // The secret is really in play: Send would resolve it.
     await expect(page.getByRole('combobox').filter({ hasText: 'prod' }).first()).toHaveValue('prod');
     await page.getByTestId('http-request-editor-copy-menu').click();
@@ -68,18 +67,10 @@ for (const language of ['en', 'es'] as const) {
   });
 }
 
-test('keeps the menu as it was without the flag', async ({ page }) => {
-  await openRequest(page, 'en', false);
-  await page.getByTestId('http-request-editor-copy-menu').click();
-  await expect(page.getByTestId('http-request-editor-copy-fetch')).toBeVisible();
-  await expect(page.getByTestId('http-request-editor-open-tab')).toHaveCount(0);
-});
-
 test('saves the SQL a grid filter generates as a snippet', async ({ page }) => {
   await seedSession(page, { language: 'en' });
   await page.addInitScript(() => {
     const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    settings.state.featureFlags = { ejectToCode: true };
     localStorage.setItem('lingua-settings', JSON.stringify(settings));
   });
   await gotoApp(page);

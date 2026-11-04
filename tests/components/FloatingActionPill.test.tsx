@@ -126,7 +126,6 @@ describe('FloatingActionPill', () => {
   });
 
   it('pulses Run while the results are stale, but not while it runs', () => {
-    useSettingsStore.setState({ featureFlags: { runState: true } });
     useEditorStore.setState(state => ({ tabs: state.tabs.map(tab => ({ ...tab, workflowMode: 'run' as const })) }));
     useResultStore.setState({
       ranCode: { tabId: 'tab-ts', code: 'console.log(0)', input: runInputKey(undefined, undefined), at: 1 },

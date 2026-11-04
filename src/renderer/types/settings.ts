@@ -156,7 +156,7 @@ export interface SettingsState {
    * this preference for one tab without mutating the persisted setting.
    */
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval;
-  /** When Scratchpad runs per language group, read only while Run state is on in Labs. */
+  /** When Scratchpad runs per language group. */
   runPolicyByGroup: RunPolicyByGroup;
   /**
    * per-language inline-lint enablement. Keyed by language id;

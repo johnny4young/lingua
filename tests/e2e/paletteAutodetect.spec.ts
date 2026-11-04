@@ -17,9 +17,6 @@ const REMOTE = 'https://licenses.linguacode.dev/palette-autodetect';
 async function seed(page: Page, language: 'en' | 'es') {
   await seedSession(page, { language, primeProLicense: true, workflowModeDefaultsByLanguage: { javascript: 'run' } });
   await page.addInitScript(({ endpoint }) => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') || '{"state":{},"version":0}');
-    raw.state.featureFlags = { ...(raw.state.featureFlags ?? {}), paletteAutodetect: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
     localStorage.setItem('lingua-ai', JSON.stringify({ state: { endpoint, apiKey: 'remote-fixture-only', model: 'gpt-fixture' }, version: 1 }));
   }, { endpoint: REMOTE });
   await gotoApp(page);

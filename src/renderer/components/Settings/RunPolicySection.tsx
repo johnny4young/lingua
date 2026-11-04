@@ -4,13 +4,11 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 
-/** When Scratchpad runs, per language group. Shown only with Run state on in Labs. */
+/** When Scratchpad runs, per language group. */
 export function RunPolicySection() {
   const { t } = useTranslation();
-  const enabled = useSettingsStore(state => state.featureFlags.runState === true);
   const policies = useSettingsStore(state => state.runPolicyByGroup);
   const setRunPolicy = useSettingsStore(state => state.setRunPolicy);
-  if (!enabled) return null;
 
   return (
     <SettingsSection eyebrow={t('settings.editor.runPolicy.title')}>

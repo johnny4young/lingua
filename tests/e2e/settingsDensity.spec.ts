@@ -54,6 +54,7 @@ test('Editor section chips jump to a section and follow the scroll', async ({ pa
   const chips = page.getByTestId('settings-section-chip');
   await expect(chips).toHaveText([
     'Editor',
+    'Run policy',
     'Per-language',
     'SQL workspace',
     'Execution history',

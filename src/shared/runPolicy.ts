@@ -1,5 +1,5 @@
 /**
- * When Scratchpad runs, per language group, with Run state on in Labs.
+ * When Scratchpad runs, per language group.
  * Manual never schedules a run; SQL and HTTP have no group and never auto-run.
  */
 export const RUN_POLICY_GROUPS = ['jsTs', 'pythonRuby', 'goRust'] as const;

@@ -5,7 +5,6 @@ import {
   formatShortcutLabel,
 } from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
-import type { FeatureFlagId } from '../../../shared/featureFlags';
 
 interface SettingsSearchEntry {
   id: string;
@@ -16,8 +15,6 @@ interface SettingsSearchEntry {
   descriptionValues?: () => Record<string, string>;
   targetId: string;
   keywords: readonly string[];
-  /** Hidden from search while this Labs flag is off, like the row itself. */
-  requiresFlag?: FeatureFlagId;
 }
 
 export interface SettingsSearchResult extends SettingsSearchEntry {
@@ -278,7 +275,6 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     labelKey: 'settings.editor.runPolicy.title',
     targetId: 'editor-run-policy',
     keywords: ['run policy', 'scratchpad', 'auto run', 'keystroke', 'pause', 'manual', 'política', 'ejecución'],
-    requiresFlag: 'runState',
   },
   {
     id: 'network-policy',
@@ -400,10 +396,8 @@ export function searchSettings(
   if (!normalizedQuery) return [];
 
   const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
-  const flags = useSettingsStore.getState().featureFlags;
 
   return SETTINGS_SEARCH_ENTRIES.flatMap((entry, index) => {
-    if (entry.requiresFlag && flags[entry.requiresFlag] !== true) return [];
     const label = t(entry.labelKey);
     const description = entry.descriptionKey
       ? t(entry.descriptionKey, entry.descriptionValues?.())

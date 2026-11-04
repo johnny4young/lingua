@@ -161,10 +161,3 @@ test('keeps Utilities as it was without the flag', async ({ page }) => {
   await expectStatuses(page, ['ok']);
   await expect(page.getByTestId('utility-pipeline-send')).toHaveCount(0);
 });
-
-test('offers no Send to on a plan with no pipelines', async ({ page }) => {
-  await open(page, 'en', { pro: false });
-  await page.keyboard.press('ControlOrMeta+K');
-  await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
-  await expect(page.getByTestId('utility-send-output')).toHaveCount(0);
-});

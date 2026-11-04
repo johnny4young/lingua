@@ -398,13 +398,7 @@ describe('HttpRequestEditor', () => {
       fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
     };
 
-    it('stays out of the menu without the flag', () => {
-      open();
-      expect(screen.queryByTestId('http-request-editor-open-tab')).toBeNull();
-    });
-
     it('opens a tab that waits for Run, with a literal credential withheld', () => {
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
       open({ auth: { kind: 'bearer', token: 'tok-SECRET' } });
       fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
       const { tabs, activeTabId } = useEditorStore.getState();
@@ -416,7 +410,6 @@ describe('HttpRequestEditor', () => {
     });
 
     it('keeps an environment secret out of the tab and resolves the rest', () => {
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
       const environment: HttpEnvironmentV1 = {
         version: 1,
         id: 'env-1',
@@ -441,7 +434,7 @@ describe('HttpRequestEditor', () => {
 
     it('runs in the Worker whatever the default runtime is', () => {
       const { defaultRuntimeMode } = useSettingsStore.getState();
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true }, defaultRuntimeMode: 'browser-preview' });
+      useSettingsStore.setState({ defaultRuntimeMode: 'browser-preview' });
       open();
       fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
       const { tabs, activeTabId } = useEditorStore.getState();
@@ -450,7 +443,6 @@ describe('HttpRequestEditor', () => {
     });
 
     it('strips path separators and hidden characters from the tab name', () => {
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
       open({ name: '../..\\x\u202Ey' });
       fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
       const { tabs, activeTabId } = useEditorStore.getState();
@@ -458,7 +450,6 @@ describe('HttpRequestEditor', () => {
     });
 
     it('keeps the default tab name for an unnamed request', () => {
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
       open({ name: '  ' });
       const before = useEditorStore.getState().tabs.length;
       fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
@@ -468,7 +459,7 @@ describe('HttpRequestEditor', () => {
     });
 
     it('treats the headers the user marked sensitive as secrets', () => {
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true }, sensitiveHttpHeaders: ['x-internal'] });
+      useSettingsStore.setState({ sensitiveHttpHeaders: ['x-internal'] });
       open({ headers: [{ id: 'h', name: 'X-Internal', value: 'hdr-SECRET', enabled: true }] });
       fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
       const { tabs, activeTabId } = useEditorStore.getState();

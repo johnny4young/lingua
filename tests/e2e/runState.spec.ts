@@ -7,11 +7,6 @@ import { clickRun, expect, gotoApp, replaceEditorText, seedSession, test, waitFo
 
 async function seedRunState(page: Page, language: 'en' | 'es'): Promise<void> {
   await seedSession(page, { language, workflowModeDefaultsByLanguage: { javascript: 'run' } });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { runState: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
 }
 
 test.describe('Run state', () => {

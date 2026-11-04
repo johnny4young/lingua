@@ -100,7 +100,7 @@ describe('LicenseBadge', () => {
   it('has tooltip labels for server-minted trial and education tiers', () => {
     seedActiveTier('trial');
     const { unmount } = render(<LicenseBadge />);
-    expect(screen.getByTestId('license-badge').textContent).toBe('PRO');
+    expect(screen.getByTestId('license-badge').textContent).toMatch(/^TRIAL · /);
     expect(screen.getByTestId('license-badge').getAttribute('title') ?? '').toContain('Trial');
     unmount();
 
@@ -131,6 +131,7 @@ describe('LicenseBadge', () => {
   });
 
   it('renders a button when onClick is supplied and invokes it on click', async () => {
+    seedActiveTier('pro');
     const onClick = vi.fn();
     const user = userEvent.setup();
     render(<LicenseBadge onClick={onClick} />);
@@ -160,7 +161,6 @@ describe('LicenseBadge', () => {
     });
 
     it('shows the days a trial has left and opens Compare plans', async () => {
-      useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
       seedActiveTier('trial');
       const compare = vi.fn();
       const openLicense = vi.fn();
@@ -175,7 +175,6 @@ describe('LicenseBadge', () => {
     });
 
     it('says the trial ended in grace, and stays a plain label without onClick', () => {
-      useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
       act(() => {
         useLicenseStore.setState({
           token: 'dev-trial.token',
@@ -207,7 +206,6 @@ describe('LicenseBadge', () => {
     it('updates the days left while the window stays open', () => {
       vi.useFakeTimers();
       try {
-        useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
         act(() => {
           useLicenseStore.setState({
             token: 'dev-trial.token',
@@ -240,7 +238,6 @@ describe('LicenseBadge', () => {
     });
 
     it('opens Compare plans from Free and License settings from a paid plan', async () => {
-      useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
       const compare = vi.fn();
       const openLicense = vi.fn();
       subscribeCommand('plans.compare', compare);

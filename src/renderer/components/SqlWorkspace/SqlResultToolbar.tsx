@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 import type { SqlEngineKind } from '../../../shared/sqlConnections';
 import { redactSqlSecrets } from '../../../shared/sqlStatements';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
 import {
   SQL_FILTER_OPS,
@@ -178,7 +177,6 @@ export function SqlResultToolbar({
   snippetLabel?: string;
 }) {
   const { t } = useTranslation();
-  const canEject = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState(false);
   const addRef = useRef<HTMLButtonElement | null>(null);
@@ -257,11 +255,9 @@ export function SqlResultToolbar({
               {t('sqlWorkspace.grid.applyToQuery')}
             </button>
           ) : null}
-          {canEject ? (
-            <button type="button" onClick={() => saveSqlSnippet(redactSqlSecrets(gridSql, engine), snippetLabel)} data-testid="sql-grid-sql-snippet" className="shrink-0 text-caption font-medium text-accent-fg hover:underline">
-              {t('sqlWorkspace.grid.saveSnippet')}
-            </button>
-          ) : null}
+          <button type="button" onClick={() => saveSqlSnippet(redactSqlSecrets(gridSql, engine), snippetLabel)} data-testid="sql-grid-sql-snippet" className="shrink-0 text-caption font-medium text-accent-fg hover:underline">
+            {t('sqlWorkspace.grid.saveSnippet')}
+          </button>
         </div>
       ) : null}
       {editing ? (

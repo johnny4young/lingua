@@ -4,7 +4,7 @@ import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 export interface RecentRunsPopoverProps {
   readonly entries: readonly ExecutionHistoryEntry[];
   readonly onClose: () => void;
-  /** Free's slice (Labs › Pro in context): how many runs the tab has; rows show without pin or replay. */
+  /** Free's slice: how many runs the tab has; rows show without pin or replay. */
   readonly sliceOf?: number;
 }
 

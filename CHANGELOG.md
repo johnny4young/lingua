@@ -7,12 +7,16 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
-- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, and Compare runs (Pro). Settings › Labs no longer lists them.
+- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code and Pro in context. Settings › Labs no longer lists them.
+- Scratchpad now follows Settings › Editor › Run policy: 500 ms after typing for JavaScript and TypeScript, 1 s for Python, and Manual for Go and Rust, where it used to wait 1.2 s for every language.
+- On Free, Recent runs, Utility pipelines and Run capsules open as slices of your own data instead of locks, and the first upgrade notice in a session opens Compare plans.
 - Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
 - TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
 
 ### Fixed
+- SQL History and grid snippets also mask `?api_key=`-style parameters, `password=x` connection strings, values compared to columns named like credentials, and those patterns in comments and quoted names, with SQL Server and SQLite quoting read correctly.
+- Open as JS tab and run capsules keep a variable named like a credential, or holding a JSON Web Token, as a placeholder even if nobody marked it secret.
 - HTTP responses and snapshots saved to disk no longer hold tokens a capture rule surfaced in plain text. Run capsules leave those tokens out too.
 - Variables named like credentials (`jwt`, `auth`, `session`, `cookie` and similar) and values shaped like a JSON Web Token now count as secret.
 - SQL grid thumbnails skip images whose header states more than 4096 pixels on a side, or no size at all.

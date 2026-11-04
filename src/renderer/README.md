@@ -218,7 +218,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
 | [`components/Timeline/`](components/Timeline)           | `TimelinePanel.tsx` (lazy Timeline dock tab), `TimelineLineHost.tsx` | Execution timeline: replay of the latest Record run from `stores/timelineStore.ts` and `utils/timelineModel.ts`, with the editor showing the selected step, its echoes and unreached lines |
 | [`components/RunRegions/`](components/RunRegions)       | `RunRegionsHost.tsx`, `RunRegions.tsx` (lazy), `runtime/regionRun.ts` | Run regions: `%%` regions from `utils/runRegions.ts`, the region chips above the editor, Cmd/Ctrl+Shift+Enter (run all) in the editor and the latest region output from `stores/runRegionStore.ts` under its region, with an inline stdin row when the run stopped for input; the Run shortcut picks the region at the cursor through `runtime/regionRun.ts`, and masked stdin answers stay in memory in `runRegionStore` |
-| Run state (Labs)                                          | `hooks/useRunStale.ts`, `Editor/RunStalePill.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
+| Run state                                                 | `hooks/useRunStale.ts`, `Editor/RunStalePill.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
 | [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs: runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
 | [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestFailureCardHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestFailureCard.tsx`), `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, and the failure card under the assertion line |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
@@ -253,12 +253,12 @@ group jump. Keep shortcuts out of command descriptions; add the command id to
 that map instead, so the keycap follows the user's overrides. A combo outside
 the remappable catalog (paste as plain text) sets `CommandEntry.shortcut`.
 While filtering, groups follow their best-ranked match so Enter runs the top hit.
-With Labs › Palette autodetect, `usePaletteAutodetect.ts` reads the query with
+`usePaletteAutodetect.ts` reads the query with
 `shared/paletteIntent.ts` and puts one Autodetected row above the groups (a
 question for Explain this code, or a file for Quick Open); that row is not a
 registry command, so it never enters the recent stack or the ranking.
 
-Labs › Pro in context routes upgrade surfaces through the `plans.compare`
+Upgrade surfaces go through the `plans.compare`
 command: `components/Plans/ComparePlansDialog.tsx` (lazy overlay
 `compare-plans`) renders `shared/plans.ts`, whose Free numbers come from
 `FREE_TIER_LIMITS` and the timeline caps, and `components/ui/ProChip.tsx` is
@@ -545,8 +545,7 @@ Recent Runs keeps its discoverable shell separate from its paid implementation:
 - [`components/Editor/RecentRunsPopover.tsx`](components/Editor/RecentRunsPopover.tsx)
   owns the rows, relative-time interval, pin/replay controls, runner
   integration, and related icons. It loads only after a user with access opens
-  Recent Runs: Pro, or Free's slice under Labs › Pro in context, which hides pin
-  and replay.
+  Recent Runs: Pro, or Free's slice, which hides pin and replay.
 - A failed module URL remains cached for the current document because browsers
   do not reliably recover it through an inline retry; the host offers an
   explicit Lingua reload instead.
@@ -760,8 +759,7 @@ Settings search uses the curated catalog in
 Settings tab is mounted at a time, so DOM search would silently miss controls
 in every other tab. Catalog entries map localized labels, descriptions, and
 cross-language aliases to a tab plus a stable focus target. Selecting a result
-switches tabs, scrolls to the target, and moves keyboard focus there. An
-entry with `requiresFlag` stays out of results until that Labs flag is on.
+switches tabs, scrolls to the target, and moves keyboard focus there.
 
 `SettingsSectionChips.tsx` reads the open tab's `SettingsSection`s from the
 panel (`data-settings-chip`, the eyebrow or a short `chip` label) and shows a

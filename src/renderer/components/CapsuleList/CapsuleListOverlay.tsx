@@ -32,7 +32,6 @@ import { summarizeRunCapsule, type RunCapsuleV1 } from '../../../shared/runCapsu
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { exportCapsuleAsHtml } from '../../utils/exportCapsuleHtml';
 import { openCapsuleSourceInNewTab } from '../../utils/openCapsuleTab';
-import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { cn } from '../../utils/cn';
 import { ModalShell } from '../ui/ModalShell';
@@ -158,11 +157,6 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
 
   const handleImport = useCallback(() => emitCommand('capsule.openImport'), []);
 
-  const handleUpgrade = useCallback(() => {
-    pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel: t('upsell.feature.capsuleBrowse') });
-    void trackEvent('feature.blocked', { entitlement: 'execution-history', tier: 'free' });
-  }, [t]);
-
   const handleExport = useCallback(
     async (capsule: RunCapsuleV1) => {
       const result = await exportCapsuleToClipboard(capsule, 'list-export');
@@ -236,7 +230,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   );
 
   if (!canBrowse) {
-    return <CapsuleFreeGate runs={rows} onClose={onClose} onImport={handleImport} onUpgrade={handleUpgrade} />;
+    return <CapsuleFreeGate runs={rows} onClose={onClose} onImport={handleImport} />;
   }
 
   const capsule = selected?.capsule ?? null;
