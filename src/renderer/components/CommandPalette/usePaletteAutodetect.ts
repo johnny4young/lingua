@@ -8,7 +8,6 @@ import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { isWorkspaceTab } from '../../stores/editorTabUtils';
 import { useResultStore } from '../../stores/resultStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import type { CommandEntry } from './commandPaletteModelTypes';
 
 /** The program's output and error in the tab's last run; nothing when it belongs to another tab or older code. */
@@ -33,17 +32,15 @@ export interface PaletteAutodetect {
   entry: CommandEntry | null;
 }
 
-/** Labs › Palette autodetect: a question goes to Explain this code, a file name to Quick Open. */
+/** A question goes to Explain this code, a file name to Quick Open. */
 export function usePaletteAutodetect(
   query: string,
   { enabled, onOpenQuickOpen, onClose }: { enabled: boolean; onOpenQuickOpen?: (query: string) => void; onClose: () => void }
 ): PaletteAutodetect {
   const { t } = useTranslation();
-  const flag = useSettingsStore(state => state.featureFlags.paletteAutodetect === true);
   const entitled = useEntitlement('LOCAL_AI');
   const activeTab = useActiveTab();
-  const on = enabled && flag;
-  const intent = useMemo<PaletteIntent>(() => (on ? detectPaletteIntent(query) : { kind: 'command', query }), [on, query]);
+  const intent = useMemo<PaletteIntent>(() => (enabled ? detectPaletteIntent(query) : { kind: 'command', query }), [enabled, query]);
   const askable = intent.kind === 'question' && entitled && activeTab !== null && !isWorkspaceTab(activeTab);
   const tabId = activeTab?.id;
   const tabLanguage = activeTab?.language;

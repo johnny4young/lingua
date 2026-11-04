@@ -1360,7 +1360,7 @@ describe('editorStore', () => {
       useEditorStore.getState().addTab(createDefaultTab('ruby'));
       expect(useEditorStore.getState().tabs).toHaveLength(3);
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
-      expect(useUIStore.getState().statusNotice?.actions?.[0]?.labelKey).toBe('upsell.viewPro');
+      expect(useUIStore.getState().statusNotice?.actions?.[0]?.labelKey).toBe('plans.title');
     });
 
     it('waves paid tiers through the ceiling so Pro users get unlimited tabs', async () => {
@@ -1571,7 +1571,7 @@ describe('editorStore', () => {
       expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('utility-pipelines');
     });
 
-    it('addUtilitiesTab refuses the Pro-only Pipelines utility on Free', async () => {
+    it('addUtilitiesTab opens Pipelines on Free, whose panel runs the first steps', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       const { useUIStore } = await import('@/stores/uiStore');
       useLicenseStore.setState(freeTier);
@@ -1579,10 +1579,10 @@ describe('editorStore', () => {
 
       const result = useEditorStore.getState().addUtilitiesTab('utility-pipelines');
 
-      expect(result).toBeNull();
-      expect(useEditorStore.getState().tabs.filter(t => t.kind === 'utilities')).toHaveLength(0);
-      expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('json');
-      expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+      expect(result).not.toBeNull();
+      expect(useEditorStore.getState().tabs.filter(t => t.kind === 'utilities')).toHaveLength(1);
+      expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('utility-pipelines');
+      expect(useUIStore.getState().statusNotice).toBeNull();
     });
 
     it('exempts workspace tabs from the Free tab budget so a Free user still gets a code tab', async () => {

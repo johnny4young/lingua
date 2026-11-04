@@ -1074,7 +1074,6 @@ describe('CommandPalette autodetect (Labs)', () => {
     vi.clearAllMocks();
     grantedEntitlements.clear();
     grantedEntitlements.add('LOCAL_AI');
-    settingsState.featureFlags = { paletteAutodetect: true };
     editorState.tabs = [{ id: 'tab-py', language: 'python', content: 'print(sorted(xs))', name: 'main.py' } as never];
     editorState.activeTabId = 'tab-py';
     setActiveEditor(fakeEditor as never);
@@ -1192,10 +1191,4 @@ describe('CommandPalette autodetect (Labs)', () => {
     expect(screen.queryByTestId('command-palette-group-autodetected')).toBeNull();
   });
 
-  it('stays a plain command search with the flag off', () => {
-    settingsState.featureFlags = {};
-    const { input } = renderPalette({ onOpenQuickOpen: vi.fn() });
-    fireEvent.change(input, { target: { value: 'main.py' } });
-    expect(screen.queryByTestId('command-palette-autodetect')).toBeNull();
-  });
 });

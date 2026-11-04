@@ -36,7 +36,6 @@ export function HttpCopyAsMenu({
   maskedRequest: () => HttpRequestV1;
 }) {
   const { t } = useTranslation();
-  const canOpenTab = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
   const openAsTab = () => {
     const request = maskedRequest();
     // The name also seeds the save dialog, and bidi controls can disguise it.
@@ -112,20 +111,18 @@ export function HttpCopyAsMenu({
               {label}
             </button>
           ))}
-          {canOpenTab ? (
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="http-request-editor-open-tab"
-              onClick={() => {
-                setCopyMenuOpen(false);
-                openAsTab();
-              }}
-              className="focus-ring block w-full border-t border-border-subtle px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset"
-            >
-              {t('httpWorkspace.editor.openAsTab')}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="http-request-editor-open-tab"
+            onClick={() => {
+              setCopyMenuOpen(false);
+              openAsTab();
+            }}
+            className="focus-ring block w-full border-t border-border-subtle px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset"
+          >
+            {t('httpWorkspace.editor.openAsTab')}
+          </button>
         </div>
       ) : null}
     </div>

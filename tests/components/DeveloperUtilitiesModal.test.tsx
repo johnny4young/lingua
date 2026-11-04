@@ -173,7 +173,7 @@ describe('DeveloperUtilitiesModal', () => {
     );
   });
 
-  it('keeps the Pipelines workflow locked on Free while base utilities render', async () => {
+  it('opens Pipelines on Free with no upgrade notice', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesWorkspaceView />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
@@ -181,14 +181,13 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
 
     await user.type(screen.getByTestId('utilities-search-input'), 'pipeline');
-    await waitFor(() => expect(screen.getByTestId('utility-lock-utility-pipelines')).toBeTruthy());
-    await user.click(screen.getByTestId('utility-item-utility-pipelines'));
+    await user.click(await screen.findByTestId('utility-item-utility-pipelines'));
     // This panel is lazy-loaded. Full-suite transform contention can make the
     // import exceed Testing Library's 1 s default without changing behavior.
     expect(
-      await screen.findByTestId('utility-pipeline-locked', undefined, { timeout: 5000 })
+      await screen.findByTestId('utility-pipeline-panel', undefined, { timeout: 5000 })
     ).toBeTruthy();
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+    expect(useUIStore.getState().statusNotice).toBeNull();
   });
 
   it('folds the workspace list to an icon rail and opens it at a category', async () => {

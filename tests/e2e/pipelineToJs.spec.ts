@@ -1,5 +1,5 @@
 /**
- * Labs › GUI actions to code: a pipeline saves as a JavaScript snippet that
+ * GUI actions to code: a pipeline saves as a JavaScript snippet that
  * gives the same answer in a JS tab, and never holds the pipeline's input.
  */
 import type { Page } from '@playwright/test';
@@ -7,13 +7,8 @@ import { clickRun, expect, gotoApp, openSnippets, seedSession, test, waitForRunC
 
 const INPUT = 'tok-SECRET value';
 
-async function openPanel(page: Page, language: 'en' | 'es', flag: boolean) {
+async function openPanel(page: Page, language: 'en' | 'es') {
   await seedSession(page, { language, primeProLicense: true });
-  await page.addInitScript((flag) => {
-    const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    settings.state.featureFlags = flag ? { ejectToCode: true } : {};
-    localStorage.setItem('lingua-settings', JSON.stringify(settings));
-  }, flag);
   await gotoApp(page);
   await page.keyboard.press('ControlOrMeta+Shift+G');
   await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
@@ -21,7 +16,7 @@ async function openPanel(page: Page, language: 'en' | 'es', flag: boolean) {
 }
 
 async function saveAndRun(page: Page, language: 'en' | 'es', utilities: string[], input: string) {
-  await openPanel(page, language, true);
+  await openPanel(page, language);
   for (const [index, utility] of utilities.entries()) {
     await page.getByTestId('utility-pipeline-editor-add-step').click();
     await page.getByTestId('utility-pipeline-step-utility').nth(index).selectOption(utility);
@@ -82,8 +77,3 @@ for (const [name, utilities, input] of CHAINS) {
   });
 }
 
-test('keeps the panel as it was without the flag', async ({ page }) => {
-  await openPanel(page, 'en', false);
-  await expect(page.getByTestId('utility-pipeline-editor-run')).toBeVisible();
-  await expect(page.getByTestId('utility-pipeline-editor-eject')).toHaveCount(0);
-});

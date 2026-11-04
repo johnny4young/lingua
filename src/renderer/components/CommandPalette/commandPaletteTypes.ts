@@ -13,7 +13,7 @@ export interface CommandPaletteProps {
   onOpenWhatsNew: () => void;
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
-  /** Opens Quick Open with this query typed in (Labs › Palette autodetect). */
+  /** Opens Quick Open with this query typed in. */
   onOpenQuickOpen?: (query: string) => void;
   onOpenProjectSearch?: () => void;
   onOpenProjectReplace?: () => void;

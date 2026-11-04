@@ -8,9 +8,7 @@ import {
   useExecutionHistoryStore,
 } from '../../stores/executionHistoryStore';
 import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
-import { useProAccess } from '../../hooks/useProAccess';
-import { useTelemetry } from '../../hooks/useTelemetry';
-import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import {
   setRecentRunsPopoverOpener,
@@ -22,16 +20,13 @@ import { RecentRunsPopoverHost } from './RecentRunsPopoverHost';
 /**
  * Per-tab Recent Runs trigger and activation boundary.
  *
- * The visible count, Free upsell, and keyboard opener remain ready with the
- * result header. The row renderer, relative-time timer, pin/replay controls,
- * and their icons load only when a user with access (Pro, or Free's slice under
- * Labs › Pro in context) opens the popover.
+ * The visible count and keyboard opener remain ready with the result header.
+ * The row renderer, relative-time timer, pin/replay controls and their icons
+ * load only when someone opens the popover: Pro's full list or Free's slice.
  */
 export function RecentRunsPill() {
   const { t } = useTranslation();
-  const { track } = useTelemetry();
-  const access = useProAccess('EXECUTION_HISTORY');
-  const canUseExecutionHistory = access !== 'locked';
+  const entitled = useEntitlement('EXECUTION_HISTORY');
   const activeTabId = useEditorStore(state => state.activeTabId);
   const activeTabLanguage = useEditorStore(state => getActiveTab(state)?.language ?? null);
   // Subscribe to the underlying `entries` array (stable reference) and derive
@@ -63,7 +58,7 @@ export function RecentRunsPill() {
   const runnableSurface =
     activeTabLanguage !== null && executionModeForLanguage(activeTabLanguage) === 'run';
   const canOpenRecentRuns =
-    canUseExecutionHistory && activeTabId !== null && runnableSurface && tabEntries.length > 0;
+    activeTabId !== null && runnableSurface && tabEntries.length > 0;
   const open = activeTabId !== null && openTabId === activeTabId && canOpenRecentRuns;
 
   // The trigger owns dismissal so Escape, outside click, and the global
@@ -102,33 +97,6 @@ export function RecentRunsPill() {
     };
   }, [activeTabId, canOpenRecentRuns]);
 
-  // Free users retain the discoverable upsell without downloading the Pro
-  // popover implementation.
-  if (!canUseExecutionHistory) {
-    if (!activeTabId || !runnableSurface) return null;
-    return (
-      <button
-        type="button"
-        data-testid="recent-runs-upsell-pill"
-        title={t('executionHistory.tabPill.upsell.tooltip')}
-        onClick={() => {
-          pushUpsellNotice({
-            messageKey: 'upsell.freeCeilingReached',
-            featureLabel: t('upsell.feature.executionHistory'),
-          });
-          track('feature.blocked', {
-            entitlement: 'execution-history',
-            tier: 'free',
-          });
-        }}
-        className="status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-eyebrow font-medium uppercase tracking-[0.08em] text-muted hover:bg-surface"
-      >
-        <History size={11} aria-hidden="true" className="mr-1" />
-        {t('executionHistory.tabPill.upsell.label')}
-      </button>
-    );
-  }
-
   if (!canOpenRecentRuns) return null;
 
   return (
@@ -154,8 +122,8 @@ export function RecentRunsPill() {
         ? createPortal(
             <div ref={popoverRef} className="fixed z-50" style={{ bottom: anchor.bottom, right: anchor.right }}>
               <RecentRunsPopoverHost
-                entries={access === 'slice' ? tabEntries.slice(0, FREE_TIER_LIMITS.recentRuns) : tabEntries}
-                {...(access === 'slice' ? { sliceOf: tabEntries.length } : {})}
+                entries={!entitled ? tabEntries.slice(0, FREE_TIER_LIMITS.recentRuns) : tabEntries}
+                {...(!entitled ? { sliceOf: tabEntries.length } : {})}
                 onClose={() => setOpenTabId(null)}
               />
             </div>,

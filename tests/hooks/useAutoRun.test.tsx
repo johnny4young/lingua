@@ -1,3 +1,4 @@
+import { DEFAULT_RUN_POLICY_BY_GROUP } from '../../src/shared/runPolicy';
 import { act, renderHook } from '@testing-library/react';
 import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/stores/nativeToolchainStore';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -148,7 +149,6 @@ describe('useAutoRun', () => {
 
   it('follows the run policy with Run state on: 500 ms for JS, never for Go', async () => {
     const execute = mockSuccessfulRunner();
-    useSettingsStore.setState({ featureFlags: { runState: true } });
     useEditorStore.setState({
       tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'console.log(1)', isDirty: false, workflowMode: 'scratchpad' }],
       activeTabId: 'tab-js',
@@ -177,7 +177,7 @@ describe('useAutoRun', () => {
   it('stops an auto-run in flight when the policy turns Manual', async () => {
     const execute = vi.fn(() => new Promise(() => {}));
     vi.mocked(runnerManager.prepareRunner).mockResolvedValue({ runner: { execute }, initialized: false } as never);
-    useSettingsStore.setState({ featureFlags: { runState: true }, nativeExecutionAcknowledged: true });
+    useSettingsStore.setState({ nativeExecutionAcknowledged: true });
     useEditorStore.setState({
       tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'while (true) ;', isDirty: false, workflowMode: 'scratchpad' }],
       activeTabId: 'tab-js',
@@ -445,6 +445,8 @@ describe('useAutoRun', () => {
       ],
       activeTabId: 'tab-go',
     });
+    // Go and Rust default to Manual; this covers a run policy that opts in.
+    useSettingsStore.setState({ runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP, goRust: 'keystroke' }, nativeExecutionAcknowledged: true });
 
     renderHook(() => useAutoRun());
 

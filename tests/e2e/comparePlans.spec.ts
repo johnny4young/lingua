@@ -1,23 +1,18 @@
 /**
- * Labs › Pro in context: the license pill and PRO chips open one Compare plans
+ * Pro in context: the license pill and PRO chips open one Compare plans
  * table, and the trial moves up in Settings › Account.
  */
 import type { Page } from '@playwright/test';
 import { expect, gotoApp, replaceEditorText, seedSession, test, waitForRunCompleted } from './licenseWeb.helpers';
 
-async function seed(page: Page, language: 'en' | 'es', flags: Record<string, boolean>): Promise<void> {
+async function seed(page: Page, language: 'en' | 'es'): Promise<void> {
   await seedSession(page, { language, workflowModeDefaultsByLanguage: { javascript: 'run' } });
-  await page.addInitScript(on => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = on;
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  }, flags);
   await gotoApp(page);
 }
 
 for (const language of ['en', 'es'] as const) {
   test(`Free opens Compare plans from the license pill and starts a trial from Account (${language})`, async ({ page }) => {
-    await seed(page, language, { teachingPaywall: true });
+    await seed(page, language);
     await page.getByTestId('license-badge').click();
 
     const plans = page.getByTestId('compare-plans');
@@ -33,7 +28,7 @@ for (const language of ['en', 'es'] as const) {
 }
 
 test('the timeline PRO chip opens Compare plans', async ({ page }) => {
-  await seed(page, 'en', { teachingPaywall: true });
+  await seed(page, 'en');
   await replaceEditorText(page, 'let total = 0;\nfor (let i = 0; i < 30; i++) { total += i; }\nconsole.log(total);');
   await page.getByTestId('action-pill-run-menu').click();
   await page.getByTestId('action-pill-record').click();
@@ -42,9 +37,3 @@ test('the timeline PRO chip opens Compare plans', async ({ page }) => {
   await expect(page.getByTestId('compare-plans')).toBeVisible();
 });
 
-test('without the flag the license pill still opens License settings', async ({ page }) => {
-  await seed(page, 'en', {});
-  await page.getByTestId('license-badge').click();
-  await expect(page.getByTestId('compare-plans')).toHaveCount(0);
-  await expect(page.getByTestId('trial-email-input')).toBeVisible();
-});

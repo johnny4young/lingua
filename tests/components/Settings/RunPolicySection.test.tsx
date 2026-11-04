@@ -19,13 +19,7 @@ afterEach(() => {
 });
 
 describe('run policy settings', () => {
-  it('stays hidden until Run state is on in Labs', () => {
-    const { container } = render(<RunPolicySection />);
-    expect(container.textContent).toBe('');
-  });
-
   it('chooses a policy per language group', async () => {
-    useSettingsStore.setState({ featureFlags: { runState: true } });
     render(<RunPolicySection />);
     expect(screen.getByTestId('run-policy-goRust-manual').getAttribute('aria-pressed')).toBe('true');
     await userEvent.click(screen.getByTestId('run-policy-goRust-pause'));
@@ -35,7 +29,6 @@ describe('run policy settings', () => {
 
   it('reads in Spanish', async () => {
     await i18next.changeLanguage('es');
-    useSettingsStore.setState({ featureFlags: { runState: true } });
     render(<RunPolicySection />);
     expect(screen.getByText('Política de ejecución')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Al teclear' })).toHaveLength(3);

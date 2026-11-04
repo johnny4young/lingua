@@ -430,7 +430,12 @@ function buildFullLookup(env: HttpEnvironmentV1 | null): Map<string, string> {
 function buildNonSecretLookup(
   env: HttpEnvironmentV1 | null
 ): Map<string, string> {
-  return buildLookupFromFinalVariables(buildFinalVariableMap(env), false);
+  const lookup = buildLookupFromFinalVariables(buildFinalVariableMap(env), false);
+  // A row nobody marked secret can still be one; it stays a placeholder in anything saved or copied.
+  for (const [key, value] of lookup) {
+    if (looksSecret(key) || looksSecretValue(value)) lookup.delete(key);
+  }
+  return lookup;
 }
 
 /**

@@ -32,7 +32,7 @@ interface RendererCommandPayloadMap {
   'share.trigger': { readonly trigger: ShareCreateTrigger };
   'share.succeeded': undefined;
   'settings.openLicense': undefined;
-  /** Opens the one Free against Pro table (Labs › Pro in context). */
+  /** Opens the one Free against Pro table. */
   'plans.compare': undefined;
   'settings.navigate': {
     readonly tab: SettingsTabId;

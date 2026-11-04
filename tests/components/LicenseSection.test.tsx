@@ -1036,7 +1036,6 @@ describe('LicenseSection', () => {
 
   it('puts the trial under the current plan with Pro in context, once', async () => {
     const { useSettingsStore } = await import('@/stores/settingsStore');
-    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
     try {
       render(<LicenseSection />);
       const trial = screen.getAllByTestId('trial-start');

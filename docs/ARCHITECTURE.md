@@ -1223,7 +1223,7 @@ running it.
 Each run records the code and the stdin and arguments it started from in
 `resultStore.ranCode` (manual runs in `publishRunStart`, Scratchpad in
 `executeAutoRun`); a tab switch clears it.
-With **Run state** on in Labs, `useRunStale` compares it with the editor: the
+`useRunStale` compares it with the editor: the
 results are stale when the code differs, results are visible and nothing is
 running. A Scratchpad whose policy runs on its own is only stale while the
 incomplete-code gate holds it. The run policy (`shared/runPolicy.ts`, persisted
@@ -1843,7 +1843,7 @@ sessions are intentionally excluded because a long-lived connection has no
 deterministic next-step boundary.
 
 
-With Labs › GUI actions to code, **Open as JS tab** (`src/shared/httpJsTab.ts`)
+**Open as JS tab** (`src/shared/httpJsTab.ts`)
 is a deliberate exit from this path: the tab is user code, so its `fetch` gets
 only the Worker's `networkGuard`, with no SSRF guard, redirect header stripping,
 response caps or masking at send time. That is why the generated source reads
@@ -1877,7 +1877,7 @@ unmounting `useUtilityPipelineRun` aborts the worker too.
 
 ### Utility pipeline export
 
-Labs › GUI actions to code adds **Save as JS snippet** to a utility pipeline
+**Save as JS snippet** on a utility pipeline
 (`src/shared/utilityPipelineJs.ts`). It emits one block per step from the step's
 parsed options, with the engine's fallback to defaults, and never reads the
 pipeline's input. The utilities remain the source of truth: each template is a

@@ -30,7 +30,7 @@ describe('pushUpsellNotice', () => {
       priority: 'high',
       values: { feature: 'additional open tabs' },
       detail: 'Visit linguacode.dev for pricing and downloads.',
-      actions: [expect.objectContaining({ labelKey: 'upsell.viewPro' })],
+      actions: [expect.objectContaining({ labelKey: 'plans.title' })],
     });
   });
 
@@ -67,9 +67,9 @@ describe('pushUpsellNotice', () => {
     expect(useUIStore.getState().statusNotice?.actions).toBeUndefined();
   });
 
-  it('routes the shared CTA through the App license-settings command', () => {
+  it('routes the shared CTA through the Compare plans command', () => {
     const listener = vi.fn();
-    const unsubscribe = subscribeCommand('settings.openLicense', listener);
+    const unsubscribe = subscribeCommand('plans.compare', listener);
     pushUpsellNotice({
       messageKey: 'upsell.freeCeilingReached',
       featureLabel: 'additional open tabs',
@@ -81,8 +81,7 @@ describe('pushUpsellNotice', () => {
     unsubscribe();
   });
 
-  it('pitches once a session across features with Pro in context, opening Compare plans', () => {
-    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
+  it('pitches once a session across features, opening Compare plans', () => {
     try {
       const compare = vi.fn();
       subscribeCommand('plans.compare', compare);

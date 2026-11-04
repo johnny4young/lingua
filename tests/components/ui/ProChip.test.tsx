@@ -16,14 +16,7 @@ describe('ProChip', () => {
     _resetCommandBusForTesting();
   });
 
-  it('is a plain mark without the flag', () => {
-    render(<ProChip>44 earlier steps</ProChip>);
-    expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.getByText('44 earlier steps')).toBeTruthy();
-  });
-
   it('opens Compare plans with Pro in context', () => {
-    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
     const compare = vi.fn();
     subscribeCommand('plans.compare', compare);
     render(<ProChip>44 earlier steps</ProChip>);
