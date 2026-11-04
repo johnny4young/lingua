@@ -24,6 +24,7 @@ type PreviewState =
   | { kind: 'shown'; shown: InstantShown }
   | { kind: 'error'; message: string; shown?: InstantShown }
   | { kind: 'timeout'; shown?: InstantShown }
+  | { kind: 'unavailable'; shown?: InstantShown }
   | { kind: 'rejected'; sql: string; shown?: InstantShown }
   | { kind: 'blocked'; reason: InstantBlockReason; sql: string; shown?: InstantShown }
   /** DuckDB did not stop the last sample; previews wait for the next Run. */
@@ -153,13 +154,15 @@ export function SqlInstantPreview({ channel, queryId, busy }: SqlInstantPreviewP
           </nav>
         ) : null}
       </header>
-      {!blocked && (state.kind === 'error' || state.kind === 'timeout' || stuck) ? (
+      {!blocked && (state.kind === 'error' || state.kind === 'timeout' || state.kind === 'unavailable' || stuck) ? (
         <p role="status" data-testid="sql-instant-error" className="truncate px-3 pb-1.5 font-mono text-caption text-error-fg" title={state.kind === 'error' ? state.message : undefined}>
           {state.kind === 'error'
             ? state.message
-            : stuck
-              ? t('sqlWorkspace.instant.stuck')
-              : t('sqlWorkspace.instant.timeout', { seconds: INSTANT_TIMEOUT_MS / 1000 })}
+            : state.kind === 'unavailable'
+              ? t('sqlWorkspace.instant.unavailable')
+              : stuck
+                ? t('sqlWorkspace.instant.stuck')
+                : t('sqlWorkspace.instant.timeout', { seconds: INSTANT_TIMEOUT_MS / 1000 })}
         </p>
       ) : null}
       {shown ? <SqlInstantTable shown={shown} dimmed={state.kind !== 'shown'} busy={busy || stuck || state.kind === 'running'} onStuck={pauseOnStuck} /> : null}

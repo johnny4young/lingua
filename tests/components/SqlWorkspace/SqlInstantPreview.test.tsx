@@ -144,6 +144,14 @@ describe('SqlInstantPreview', () => {
     expect(screen.getByTestId('sql-instant-preview').textContent).not.toContain('Remote reads never auto-run');
   });
 
+  it('says the preview could not load what it needs', async () => {
+    runInstantPreview.mockResolvedValueOnce({ kind: 'unavailable' });
+    render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);
+    publish(channel, 'SELECT 1', 8);
+    await settle();
+    expect(screen.getByTestId('sql-instant-error').textContent).toBe('Previews need a file that did not load. The next edit tries again.');
+  });
+
   it('pauses while DuckDB is stuck on a sample, until the next Run', async () => {
     runInstantPreview.mockResolvedValueOnce({ kind: 'timeout', stuck: true });
     render(<SqlInstantPreview channel={channel} queryId="q1" busy={false} />);

@@ -67,7 +67,7 @@ describe('runtime-assets.lock.json integrity', () => {
       expect(
         entry.sourceUrl,
         `${id} runtime registry source URL must include the package version`
-      ).toContain(packageJson.version);
+      ).toContain(entry.sourceVersion ?? packageJson.version);
 
       for (const file of entry.criticalFiles) {
         const expected = lockEntry.integrity[file];
@@ -107,6 +107,19 @@ describe('runtime-assets.lock.json integrity', () => {
     const sw = await readFile(serviceWorkerPath, 'utf8');
     expect(sw).not.toContain('PYODIDE_CACHE_PREFIX');
     expect(sw).not.toContain(RUNTIME_ASSETS.pyodide.sourceUrl);
+  });
+
+  it('pins the vendored JSON extension to the DuckDB build that loads it', async () => {
+    const { servedPath, sourceVersion, nodeModulesPath, criticalFiles } = RUNTIME_ASSETS.duckdbJson;
+    const [file] = criticalFiles;
+    expect(servedPath).toBe(`duckdb-extensions/${sourceVersion}/wasm_mvp`);
+    const footer = (await readFile(path.join(repoRoot, nodeModulesPath, String(file)))).subarray(-512).toString('latin1');
+    expect(footer).toContain(`${sourceVersion}`);
+    expect(footer).toContain('wasm_mvp');
+    const client = await readFile(path.join(repoRoot, 'src/renderer/runtime/duckdbClient.ts'), 'utf8');
+    expect(client).toContain(`'../${servedPath}/${file}'`);
+    const engine = await readFile(path.join(repoRoot, 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm'));
+    expect(engine.includes(`${sourceVersion}\0`, 0, 'latin1')).toBe(true);
   });
 
   it('keeps Ruby JS bindings paired with the version-specific WASM package', async () => {

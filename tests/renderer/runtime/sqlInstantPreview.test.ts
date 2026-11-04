@@ -42,6 +42,16 @@ describe('runInstantPreview', () => {
     expect(executeQuery.mock.calls.map((call) => (call[1] as { timeoutMs: number }).timeoutMs)).toEqual([INSTANT_TIMEOUT_MS, INSTANT_TIMEOUT_MS]);
   });
 
+  it('runs nothing when the JSON extension did not load, and tries again on the next edit', async () => {
+    const loadJsonExtension = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    getDuckDbEngine.mockResolvedValue({ loadJsonExtension });
+    expect(await runInstantPreview('SELECT 1', new AbortController().signal)).toEqual({ kind: 'unavailable' });
+    expect(executeQuery).not.toHaveBeenCalled();
+    executeQuery.mockResolvedValueOnce(verdict(ONE_SELECT)).mockResolvedValueOnce(outcome({ rows: [{ x: 1 }] }));
+    expect((await runInstantPreview('SELECT 1', new AbortController().signal))?.kind).toBe('rows');
+    expect(loadJsonExtension).toHaveBeenCalledTimes(2);
+  });
+
   it('reports an engine that fails to start, and stops if the edit moved on while it started', async () => {
     getDuckDbEngine.mockRejectedValueOnce(new Error('wasm 503'));
     executeQuery.mockResolvedValueOnce(outcome({ status: 'engine-load-failed', errorMessage: 'wasm 503' }));

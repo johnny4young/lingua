@@ -17,6 +17,7 @@ import {
   countSqlStatements,
   estimateOriginStorageBytes,
   executeQuery,
+  createJsonExtensionLoader,
   fetchRuntimeAssetWithRetry,
   flushAndReleaseDuckDbEngine,
   getDuckDbEngine,
@@ -146,6 +147,18 @@ describe('fetchRuntimeAssetWithRetry — R2 runtime WASM fetch resilience', () =
       fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 2, 1, noSleep)
     ).rejects.toThrow(/offline/);
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('createJsonExtensionLoader', () => {
+  it('loads once, retries only after a failure, and quotes the URL', async () => {
+    const run = vi.fn<(sql: string) => Promise<void>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
+    const load = createJsonExtensionLoader(run, "file:///Users/o'brien/json.duckdb_extension.wasm");
+    expect(await load()).toBe(false);
+    expect(await load()).toBe(true);
+    expect(await load()).toBe(true);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run).toHaveBeenLastCalledWith("LOAD 'file:///Users/o''brien/json.duckdb_extension.wasm'");
   });
 });
 

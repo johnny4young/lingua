@@ -145,6 +145,8 @@ export interface DuckDbEngineHandle {
   registerEmptyFile?: (name: string) => Promise<void>;
   /** The bytes of a virtual file, after `COPY … TO` wrote it. */
   readFile?: (name: string) => Promise<Uint8Array>;
+  /** Loads Lingua's copy of the JSON extension; false when it could not. */
+  loadJsonExtension?: () => Promise<boolean>;
 }
 
 /**
@@ -527,6 +529,25 @@ async function fetchVerifiedWasmUrl(
 }
 
 /**
+ * DuckDB would fetch this extension from its own host on first use. A failed
+ * load leaves the next call free to retry; DuckDB checks the file's signature.
+ */
+export function createJsonExtensionLoader(
+  run: (sql: string) => Promise<void>,
+  url: string
+): () => Promise<boolean> {
+  let loading: Promise<boolean> | null = null;
+  return () =>
+    (loading ??= run(`LOAD '${url.replaceAll("'", "''")}'`).then(
+      () => true,
+      () => {
+        loading = null;
+        return false;
+      }
+    ));
+}
+
+/**
  * Production factory. Dynamically imports `@duckdb/duckdb-wasm` so
  * the bundler emits it on the `duckdb-wasm` chunk (see
  * `vite.web.config.mts` + `vite.renderer.config.mts`). Desktop keeps
@@ -595,7 +616,23 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       isOpfsStorageAvailable()
     );
     resolvedStorageRequestedMode = requestedStorageMode;
+    const loadJsonExtension = createJsonExtensionLoader(
+      async (sql) => {
+        const connection = await db.connect();
+        try {
+          await connection.query(sql);
+        } finally {
+          await connection.close();
+        }
+      },
+      new URL(
+        /* @vite-ignore */ '../duckdb-extensions/v1.4.3/wasm_mvp/json.duckdb_extension.wasm',
+        import.meta.url
+      ).href
+    );
+    await loadJsonExtension();
     return {
+      loadJsonExtension,
       connect: async (): Promise<DuckDbConnection> => {
         const connection = await db.connect();
         return {

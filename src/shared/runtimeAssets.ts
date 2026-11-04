@@ -8,6 +8,8 @@
  *     Pyodide directory under packaged + dev modes.
  *   - `src/renderer/workers/ruby-worker.ts` — to resolve the bundled
  *     Ruby WASM in desktop/dev, unless the web build injects an R2 URL.
+ *   - `src/renderer/runtime/duckdbClient.ts` — to load DuckDB's vendored
+ *     JSON extension on every surface.
  *   - `build/copyRuntimeAssetsPlugin.mts` — to copy/serve selected
  *     runtime files for desktop, dev, and same-origin web assets.
  *   - `scripts/build-runtime-asset-manifest.mjs` — to compute and
@@ -27,14 +29,16 @@
  * remains upstream provenance for docs, lock drift review, and version checks.
  */
 
-export type RuntimeAssetId = 'pyodide' | 'ruby';
+export type RuntimeAssetId = 'pyodide' | 'ruby' | 'duckdbJson';
 
 export type RuntimeAssetEntry = {
   /** Semver string. Must match the dependency pin in package.json. */
   readonly version: string;
   /** Upstream source URL where the same files can be fetched. */
   readonly sourceUrl: string;
-  /** Path under `node_modules/...` where the files are read at build/check time. */
+  /** Upstream version named in `sourceUrl`, when it differs from `version`. */
+  readonly sourceVersion?: string;
+  /** Path under `node_modules/...` (or `vendor/...`) where the files are read at build/check time. */
   readonly nodeModulesPath: string;
   /** Path under the renderer build output (and dev server) where copies are served. */
   readonly servedPath: string;
@@ -99,5 +103,16 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
     packageDir: 'node_modules/@ruby/3.4-wasm-wasi',
     servedPath: 'ruby',
     criticalFiles: ['ruby+stdlib.wasm'],
+  },
+  // The npm package leaves this extension out, so the signed upstream build is
+  // vendored. It only loads into the DuckDB version and platform in its path.
+  duckdbJson: {
+    version: '1.32.0',
+    sourceVersion: 'v1.4.3',
+    sourceUrl: 'https://extensions.duckdb.org/v1.4.3/wasm_mvp/json.duckdb_extension.wasm',
+    nodeModulesPath: 'vendor/duckdb-extensions/v1.4.3/wasm_mvp',
+    packageDir: 'node_modules/@duckdb/duckdb-wasm',
+    servedPath: 'duckdb-extensions/v1.4.3/wasm_mvp',
+    criticalFiles: ['json.duckdb_extension.wasm'],
   },
 } as const;

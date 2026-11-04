@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   copyRuntimeAssetFiles,
   resolveRuntimeAssetRequestPath,
+  runtimeAssetUrlPrefixes,
   selectRuntimeAssetEntries,
 } from '../../build/copyRuntimeAssetsPlugin.mts';
 
@@ -26,6 +27,14 @@ describe('copyRuntimeAssetsPlugin helpers', () => {
         rm(tempDir, { recursive: true, force: true })
       )
     );
+  });
+
+  it('serves a runtime tree at both dev module roots', () => {
+    expect(runtimeAssetUrlPrefixes('/Users/me/my repo', 'ruby')).toEqual([
+      '/src/renderer/ruby/',
+      '/@fs/Users/me/my%20repo/src/renderer/ruby/',
+    ]);
+    expect(runtimeAssetUrlPrefixes('C:\\work\\lingua', 'ruby')[1]).toBe('/@fs/C:/work/lingua/src/renderer/ruby/');
   });
 
   it('resolves only valid dev-server asset paths under the source dir', () => {
@@ -100,6 +109,6 @@ describe('copyRuntimeAssetsPlugin helpers', () => {
   it('can exclude runtime assets that are hosted outside the Pages bundle', () => {
     const entries = selectRuntimeAssetEntries(['ruby']);
 
-    expect(entries.map((entry) => entry.servedPath)).toEqual(['pyodide']);
+    expect(entries.map((entry) => entry.servedPath)).toEqual(['pyodide', 'duckdb-extensions/v1.4.3/wasm_mvp']);
   });
 });
