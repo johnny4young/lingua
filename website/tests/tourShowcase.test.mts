@@ -41,7 +41,7 @@ describe('landing tour', () => {
 
   it('points each locale at its own captures', () => {
     for (const [locale, copy] of [['en', en], ['es', es]] as const) {
-      const images = copy.home.tour.items.map(item => item.image);
+      const images = [...copy.home.tour.items.map(item => item.image), copy.home.ai.shot.image];
       assert.deepEqual(
         images,
         showcase.items.map(item => item.images[locale]),

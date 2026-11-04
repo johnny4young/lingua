@@ -1,18 +1,26 @@
 # Lingua
 
+**The offline-first code runner and scratchpad for JavaScript, TypeScript, Python, Go, Rust, Ruby and SQL.**
+
+Open it, write code and see the result next to each line. Lingua also brings a debugger, an HTTP client, a database client, notebooks and 30+ developer utilities into one app, on macOS, Windows, Linux and the web. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, with Python, Go, Rust, Ruby and SQL as first-class citizens.
+
+[**Try it in your browser**](https://app.linguacode.dev) · [**Download**](https://github.com/johnny4young/lingua/releases/latest) · [Website](https://linguacode.dev)
+
+[![Latest release](https://img.shields.io/github/v/release/johnny4young/lingua)](https://github.com/johnny4young/lingua/releases/latest)
 [![CI](https://github.com/johnny4young/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/lingua/actions/workflows/ci.yml)
 [![Node 24.x](https://img.shields.io/badge/node-24.x-brightgreen)](https://nodejs.org)
 [![License: Source-available (commercial)](https://img.shields.io/badge/license-source--available%20(commercial)-6f42c1)](./LICENSE)
 
-**Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, Rust, and Ruby in one offline-first Monaco-powered app.** Lingua combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, but with Go, Rust, Python, and Ruby as first-class citizens instead of JavaScript-only.
+![Lingua running Python with inline results next to each line and the console docked below](website/public/screenshots/tour/workspace-python.png)
 
-**Marketing site:** [linguacode.dev](https://linguacode.dev) — downloads, pricing, press kit, language-specific landing pages.
-**Web app:** [app.linguacode.dev](https://app.linguacode.dev) — the in-browser build.
+## What you get
 
-Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two separate deploys, two Pages projects):
-
-- **Web app** → [app.linguacode.dev](https://app.linguacode.dev): the Vite `dist/web` build, deployed by [`.github/workflows/deploy-web.yml`](./.github/workflows/deploy-web.yml) (Cloudflare Pages project `lingua-app`).
-- **Marketing site** → [linguacode.dev](https://linguacode.dev): a standalone Astro package under [`website/`](./website), deployed by [`.github/workflows/deploy-website.yml`](./.github/workflows/deploy-website.yml) (Cloudflare Pages project `lingua-web`).
+- **Inline results:** values appear next to the code that produced them, and stale ones are marked after you edit.
+- **Real debugging:** breakpoints, conditional breakpoints, logpoints, stepping and watches for JavaScript and TypeScript.
+- **SQL with DuckDB:** import a CSV and query it locally, with a result grid, column profiles and exports.
+- **HTTP client:** requests, a foldable JSON response tree, timing, captures, assertions and pipelines.
+- **AI you control:** explain an error with a local model or your own endpoint, and see the exact payload before anything is sent.
+- **Local first:** your code stays on your device, and telemetry is off until you opt in.
 
 ## Install
 
@@ -77,20 +85,28 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 
 ## Lingua at a glance
 
-These are deterministic captures from a released product build, not design mockups. The website presents the current journeys in English and Spanish and labels each one by platform and tier.
+These are captures of the real app from reproducible runs, not design mockups. The website presents the current journeys in English and Spanish and labels each one by platform and tier.
 
 <table>
   <tr>
-    <td width="50%"><img src="website/public/screenshots/v1.0/debugger-en.png" alt="JavaScript debugger paused with a conditional breakpoint, logpoint, watch, and locals" /><br /><strong>Debugger</strong> — breakpoints, stepping, watches, locals, and call stacks.</td>
-    <td width="50%"><img src="website/public/screenshots/v1.0/notebook-en.png" alt="Reactive notebook with refreshed dependent JavaScript cells" /><br /><strong>Reactive notebooks</strong> — explicit stale-state tracking and replay across languages.</td>
+    <td width="50%"><img src="website/public/screenshots/tour/sql-workspace.png" alt="SQL workspace with a local DuckDB explorer, a formatted aggregate query, a result table and column statistics" /><br /><strong>SQL workspace</strong> — a local DuckDB database with an explorer, result grid and column statistics.</td>
+    <td width="50%"><img src="website/public/screenshots/tour/http-workspace.png" alt="HTTP workspace with a GET request, query parameters and a foldable JSON response" /><br /><strong>HTTP workspace</strong> — requests, query parameters and a foldable JSON response.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="website/public/screenshots/v1.0/http-pipeline-en.png" alt="Named HTTP pipeline with a request step and stop-on-failure control" /><br /><strong>HTTP pipelines</strong> — requests, live transports, captures, assertions, and repeatable flows.</td>
+    <td width="50%"><img src="website/public/screenshots/tour/ai-explain.png" alt="Explain panel beside a failed JavaScript run with the failing line marked and a proposed fix" /><br /><strong>AI explain</strong> — opens beside your code, with a fix you apply and run again.</td>
+    <td width="50%"><img src="website/public/screenshots/v1.0/debugger-en.png" alt="JavaScript debugger paused at a conditional breakpoint with step controls, watches and locals" /><br /><strong>Debugger</strong> — breakpoints, stepping, watches, locals and call stacks.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/v1.0/notebook-en.png" alt="Reactive notebook with refreshed dependent JavaScript cells" /><br /><strong>Reactive notebooks</strong> — explicit stale-state tracking and replay across languages.</td>
+    <td width="50%"><img src="website/public/screenshots/v1.0/project-tests-en.png" alt="Tests tab with Vitest results grouped by file and one failing test showing its assertion" /><br /><strong>Project tests</strong> — per-test results by file, and one file or one test run again.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="website/public/screenshots/v1.0/http-pipeline-en.png" alt="Named HTTP pipeline with a request step and stop-on-failure control" /><br /><strong>HTTP pipelines</strong> — requests, live transports, captures, assertions and repeatable flows.</td>
     <td width="50%"><img src="website/public/screenshots/v1.0/project-terminal-en.png" alt="Project terminal active inside a synthetic polyglot checkout" /><br /><strong>Project terminal</strong> — an explicit local-shell boundary rooted in the approved project.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="website/public/screenshots/v1.0/project-tests-en.png" alt="Tests tab with Vitest results grouped by file and one failing test showing its assertion" /><br /><strong>Project tests</strong> — per-test results by file, and one file or one test run again.</td>
     <td width="50%"><img src="website/public/screenshots/v1.0/local-mcp-en.png" alt="Active loopback-only local MCP server with a masked session token and read-only trust guarantees" /><br /><strong>Local MCP</strong> — a project-scoped, read-only doorway for trusted AI clients.</td>
+    <td width="50%"><img src="website/public/screenshots/tour/utilities.png" alt="JSON formatter utility with a pretty-printed payload and a tree view" /><br /><strong>Developer utilities</strong> — 31 panels for JSON, regex, JWT, Base64, timestamps, colors and more.</td>
   </tr>
 </table>
 
@@ -215,6 +231,13 @@ and output drift as evidence rather than hiding them. Read the
 [agent integration guide](./docs/AGENT_INTEGRATION.md) for VS Code, Codex, and
 Claude Code setup—including Claude's managed install/update/uninstall
 lifecycle—plus the full execution boundary.
+
+## Repository layout
+
+Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two separate deploys, two Pages projects):
+
+- **Web app** → [app.linguacode.dev](https://app.linguacode.dev): the Vite `dist/web` build, deployed by [`.github/workflows/deploy-web.yml`](./.github/workflows/deploy-web.yml) (Cloudflare Pages project `lingua-app`).
+- **Marketing site** → [linguacode.dev](https://linguacode.dev): a standalone Astro package under [`website/`](./website), deployed by [`.github/workflows/deploy-website.yml`](./.github/workflows/deploy-website.yml) (Cloudflare Pages project `lingua-web`).
 
 ## Requirements
 
