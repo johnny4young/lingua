@@ -19,7 +19,6 @@ function openTab(workflowMode: 'run' | 'scratchpad', language = 'javascript', co
 beforeEach(async () => {
   initI18n('en');
   await i18next.changeLanguage('en');
-  useSettingsStore.setState({ featureFlags: { runState: true } });
   useResultStore.setState({ ranCode: { tabId: 't1', code: 'const a = 1;', input: runInputKey(undefined, undefined), at: 1_000 }, lineResults: [{ line: 1, value: '1', type: 'result' }] });
 });
 
@@ -46,7 +45,7 @@ describe('run state', () => {
     expect(result.current.stale).toBe(true);
   });
 
-  it('stays current with the flag off, while running, without results, or for another tab', () => {
+  it('stays current while running, without results, or for another tab', () => {
     openTab('run');
     const { result } = renderHook(() => useRunStale());
     act(() => useResultStore.setState({ isManualRunning: true }));
@@ -54,11 +53,6 @@ describe('run state', () => {
     act(() => useResultStore.setState({ isManualRunning: false, lineResults: [], fullOutput: '', error: null }));
     expect(result.current.stale).toBe(false);
     act(() => useResultStore.setState({ lineResults: [{ line: 1, value: '1', type: 'result' }], ranCode: { tabId: 'other', code: '', input: '', at: 1 } }));
-    expect(result.current.stale).toBe(false);
-    act(() => {
-      useResultStore.setState({ ranCode: { tabId: 't1', code: 'const a = 1;', input: runInputKey(undefined, undefined), at: 1_000 } });
-      useSettingsStore.setState({ featureFlags: {} });
-    });
     expect(result.current.stale).toBe(false);
   });
 

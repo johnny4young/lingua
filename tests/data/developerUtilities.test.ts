@@ -46,16 +46,6 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     }
   });
 
-  it('keeps only workflow automation behind the DEV_UTILITIES entitlement', () => {
-    for (const utility of DEVELOPER_UTILITIES) {
-      if (utility.id === 'utility-pipelines') {
-        expect(utility.requiresEntitlement).toBe('DEV_UTILITIES');
-      } else {
-        expect(utility.requiresEntitlement, utility.id).toBeUndefined();
-      }
-    }
-  });
-
   it('default utility id resolves to a real catalog entry', () => {
     const found = DEVELOPER_UTILITIES.find(utility => utility.id === DEFAULT_DEVELOPER_UTILITY_ID);
     expect(found).toBeDefined();

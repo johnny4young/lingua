@@ -39,7 +39,6 @@ export function useAutoRun() {
   const browserPreviewRefreshPreference = useSettingsStore(
     state => state.browserPreviewRefreshIntervalMs
   );
-  const runStateOn = useSettingsStore(state => state.featureFlags.runState === true);
   const runPolicies = useSettingsStore(state => state.runPolicyByGroup);
 
   const hasActiveTab = activeTab !== null && activeTab !== undefined;
@@ -63,7 +62,7 @@ export function useAutoRun() {
     runtimeMode,
     code,
     browserPreviewRefreshPreference,
-    runStateOn ? runPolicyDelayMs(language, runPolicies) : undefined
+    runPolicyDelayMs(language, runPolicies)
   );
 
   // A timer skipped (or a run preempted) while a manual run or a notebook

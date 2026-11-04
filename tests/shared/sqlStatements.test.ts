@@ -111,6 +111,49 @@ describe('redactSqlSecrets', () => {
     const sql = "SELECT 'secret garden' AS title, 'https://example.com/a' AS url -- key=1";
     expect(redactSqlSecrets(sql)).toBe(sql);
   });
+
+  it.each([
+    ["SELECT * FROM read_csv('https://h/x?api_key=abc')", "SELECT * FROM read_csv('•••')"],
+    ["SELECT * FROM read_csv('https://h/x?secret=abc')", "SELECT * FROM read_csv('•••')"],
+    ["SELECT * FROM read_csv('https://h/x?client_secret=abc')", "SELECT * FROM read_csv('•••')"],
+    ["SELECT * FROM postgres_scan('host=h password=x', 'public', 't')", "SELECT * FROM postgres_scan('•••', 'public', 't')"],
+    ["SELECT * FROM conn_scan('Server=h;Pwd=x', 't')", "SELECT * FROM conn_scan('•••', 't')"],
+    ['SELECT * FROM "https://u:x@h/f.csv"', 'SELECT * FROM "https://•••@h/f.csv"'],
+    ['SELECT * FROM "https://h/f.csv?token=abc"', 'SELECT * FROM "https://h/f.csv?token=•••"'],
+    ['SELECT 1 /* token=abc */', 'SELECT 1 /* token=••• */'],
+    ['SELECT 1 -- password=abc', 'SELECT 1 -- password=•••'],
+    [`SELECT * FROM t WHERE "password" = 'hunter2' AND "name" = 'ada'`, `SELECT * FROM t WHERE "password" = '•••' AND "name" = 'ada'`],
+    [`SELECT * FROM t WHERE "api_key" = 'abc123'`, `SELECT * FROM t WHERE "api_key" = '•••'`],
+    [`SELECT * FROM t WHERE t."authToken" LIKE 'abc%'`, `SELECT * FROM t WHERE t."authToken" LIKE '•••'`],
+    [`SELECT * FROM t WHERE session_id IN ('a', 'b')`, `SELECT * FROM t WHERE session_id IN ('•••', '•••')`],
+    [`SELECT * FROM t WHERE note = 'Bearer eyJabc'`, `SELECT * FROM t WHERE note = '•••'`],
+    [`SELECT * FROM t WHERE note = 'eyJhbGci.eyJzdWIi.sig'`, `SELECT * FROM t WHERE note = '•••'`],
+  ])('closes %j', (sql, expected) => {
+    expect(redactSqlSecrets(sql)).toBe(expected);
+  });
+
+  it('keeps values on columns that only look nearby', () => {
+    for (const sql of [
+      `SELECT * FROM t WHERE "author" = 'ada'`,
+      `SELECT * FROM t WHERE "tokens_used" = '5'`,
+      `SELECT * FROM t WHERE "keyword" = 'x'`,
+      `SELECT * FROM t WHERE "name" IN ('a', 'b')`,
+    ]) {
+      expect(redactSqlSecrets(sql)).toBe(sql);
+    }
+  });
+
+  it.each([
+    ['sqlserver', "SELECT [it's], 'https://a:x@h/x'", "SELECT [it's], '•••'"],
+    ['sqlite', "SELECT [it's], 'https://a:x@h/x'", "SELECT [it's], '•••'"],
+    ['sqlserver', "SELECT [a]]'b], 'https://h/x?api_key=abc'", "SELECT [a]]'b], '•••'"],
+    ['sqlserver', "SELECT * FROM #tmp WHERE [password] = 'x'", "SELECT * FROM #tmp WHERE [password] = '•••'"],
+    ['sqlite', "SELECT `it's`, 'https://a:x@h/x'", "SELECT `it's`, '•••'"],
+    ['mysql', "SELECT 1 /* token=abc */", "SELECT 1 /* token=••• */"],
+    ['clickhouse', "SELECT \"https://u:x@h\" -- password=abc", "SELECT \"https://•••@h\" -- password=•••"],
+  ] as const)('reads %s quoting: %j', (engine, sql, expected) => {
+    expect(redactSqlSecrets(sql, engine)).toBe(expected);
+  });
 });
 
 describe('isWriteSqlStatement', () => {

@@ -578,6 +578,16 @@ describe('looksSecret ', () => {
     }
   });
 
+  it('keeps a variable that looks secret as a placeholder in a capsule, marked or not', () => {
+    const request = { ...createBlankHttpRequest({}), url: 'https://{{host}}/x?t={{API_TOKEN}}&j={{me}}' };
+    const env = { version: 1 as const, id: 'e', name: 'e', createdAt: '', updatedAt: '', variables: [
+      { id: '1', key: 'host', value: 'api.test', secret: false },
+      { id: '2', key: 'API_TOKEN', value: 'abc', secret: false },
+      { id: '3', key: 'me', value: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig', secret: false },
+    ] };
+    expect(maskSecretsForCapsule(request, env).url).toBe('https://api.test/x?t={{API_TOKEN}}&j={{me}}');
+  });
+
   it('matches the credential names a chain tag or capture often uses', () => {
     for (const key of ['jwt', 'authToken', 'auth', 'bearer', 'session', 'sessionId', 'sid', 'cookie', 'csrf', 'xsrf', 'apikey']) {
       expect(looksSecret(key)).toBe(true);

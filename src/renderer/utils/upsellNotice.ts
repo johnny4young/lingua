@@ -1,6 +1,5 @@
 import { useUIStore } from '../stores/uiStore';
 import { emitCommand } from '../stores/commandBus';
-import { teachingPaywallOn } from '../stores/proAccess';
 
 /**
  * One-stop upsell notice helper so stores/components do not reinvent copy.
@@ -47,10 +46,6 @@ export function pushUpsellNotice(input: UpsellNoticeInput): void {
     priority: 'high',
     values: { feature: input.featureLabel },
     detail: input.detail,
-    actions: [
-      teachingPaywallOn()
-        ? { labelKey: 'plans.title', onClick: () => emitCommand('plans.compare') }
-        : { labelKey: 'upsell.viewPro', onClick: () => emitCommand('settings.openLicense') },
-    ],
+    actions: [{ labelKey: 'plans.title', onClick: () => emitCommand('plans.compare') }],
   });
 }

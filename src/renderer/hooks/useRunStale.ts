@@ -16,12 +16,11 @@ export interface RunStale {
 const CURRENT: RunStale = { stale: false, ranAt: null };
 
 /**
- * With Run state on, the visible results are stale once the editor no longer
+ * The visible results are stale once the editor no longer
  * holds the code, stdin or arguments they ran from. A Scratchpad that runs on its own is only
  * stale while an incomplete edit keeps it from running.
  */
 export function useRunStale(): RunStale {
-  const on = useSettingsStore(state => state.featureFlags.runState === true);
   const policies = useSettingsStore(state => state.runPolicyByGroup);
   const previewRefresh = useSettingsStore(state => state.browserPreviewRefreshIntervalMs);
   const ranCode = useResultStore(state => state.ranCode);
@@ -30,7 +29,7 @@ export function useRunStale(): RunStale {
   const gated = useResultStore(state => state.autoRunGateReason === 'incomplete');
   const tab = useEditorStore(state => getActiveTab(state));
 
-  if (!on || !tab || !ranCode || ranCode.tabId !== tab.id || !hasResults || running) return CURRENT;
+  if (!tab || !ranCode || ranCode.tabId !== tab.id || !hasResults || running) return CURRENT;
   if (tab.content === ranCode.code && runInputKey(tab.stdinBuffer, tab.inputArgs) === ranCode.input) return CURRENT;
   const workflowMode = tab.workflowMode ?? defaultWorkflowMode(tab.language);
   const schedule = resolveAutoRunSchedule(tab.runtimeMode, tab.content, previewRefresh, runPolicyDelayMs(tab.language, policies));

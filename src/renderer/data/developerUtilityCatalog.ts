@@ -1,4 +1,3 @@
-import type { Entitlement } from '../../shared/entitlements';
 
 /**
  * Startup-safe identity and authorization data for developer utilities.
@@ -43,7 +42,6 @@ export type DeveloperUtilityId =
 export interface DeveloperUtilityCatalogEntry {
   readonly id: DeveloperUtilityId;
   readonly titleKey: string;
-  readonly requiresEntitlement?: Entitlement;
 }
 
 export const DEFAULT_DEVELOPER_UTILITY_ID: DeveloperUtilityId = 'json';
@@ -172,7 +170,6 @@ export const DEVELOPER_UTILITY_CATALOG = [
   {
     id: 'utility-pipelines',
     titleKey: 'utilities.tool.utilityPipelines.titleLabel',
-    requiresEntitlement: 'DEV_UTILITIES',
   },
 ] as const satisfies readonly DeveloperUtilityCatalogEntry[];
 

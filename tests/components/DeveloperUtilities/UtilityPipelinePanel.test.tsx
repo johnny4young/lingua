@@ -93,19 +93,10 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
   beforeEach(() => {
     useSnippetsStore.setState({ snippets: [] });
     useUIStore.setState({ statusNoticeQueue: [] });
-    useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
   });
 
   afterEach(() => {
     useSettingsStore.setState({ featureFlags: {} });
-  });
-
-  it('is absent without the flag', () => {
-    useSettingsStore.setState({ featureFlags: {} });
-    seed(['url-encode']);
-    render(<UtilityPipelinePanel />);
-    expect(screen.getByTestId('utility-pipeline-editor-run')).toBeTruthy();
-    expect(screen.queryByTestId('utility-pipeline-editor-eject')).toBeNull();
   });
 
   it('waits for a step', () => {
@@ -500,21 +491,8 @@ describe('UtilityPipelinePanel, step controls', () => {
 });
 
 describe('UtilityPipelinePanel', () => {
-  it('renders a locked workflow card on Free', async () => {
-    setFreeTier();
-    const user = userEvent.setup();
-    render(<UtilityPipelinePanel />);
-
-    expect(screen.getByTestId('utility-pipeline-locked')).toBeTruthy();
-    expect(screen.queryByTestId('utility-pipeline-panel')).toBeNull();
-
-    await user.click(screen.getByTestId('utility-pipeline-unlock'));
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
-  });
-
   it('runs only the first three steps on Free with Pro in context', async () => {
     setFreeTier();
-    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
     try {
       const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
       for (const [id, utilityId] of [['s1', 'base64-encode'], ['s2', 'base64-decode'], ['s3', 'base64-encode'], ['s4', 'base64-decode']] as const) {

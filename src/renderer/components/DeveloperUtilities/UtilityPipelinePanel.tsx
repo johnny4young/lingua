@@ -7,7 +7,7 @@
  *   - LEFT  : pipeline list (create / select / rename / duplicate /
  *             delete / import / export).
  *   - CENTER: step editor (sortable via @dnd-kit drag handles),
- *             Add step button, Save as JS snippet (Labs), Run button,
+ *             Add step button, Save as JS snippet, Run button,
  *             input textarea.
  *   - RIGHT : streaming result table with per-step status + output.
  *
@@ -17,7 +17,6 @@
  */
 
 import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
-import { useProAccess } from '../../hooks/useProAccess';
 import { ProChip } from '../ui/ProChip';
 import { Code2, PlayCircle, Plus } from 'lucide-react';
 import {
@@ -55,7 +54,7 @@ import '../../i18n/pipelineJsCatalog';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
-import { useEffectiveTier } from '../../hooks/useEntitlement';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   PIPELINE_MAX_STEPS,
@@ -103,61 +102,17 @@ function clonePipelineSteps(steps: readonly PipelineStepV1[]): PipelineStepV1[] 
 }
 
 export function UtilityPipelinePanel() {
-  const { t } = useTranslation();
-  const { track } = useTelemetry();
-  const effectiveTier = useEffectiveTier();
-  const access = useProAccess('DEV_UTILITIES');
-  const canUseUtilityWorkflows = access !== 'locked';
-
-  const handleUnlock = useCallback(() => {
-    pushUpsellNotice({
-      messageKey: 'upsell.freeCeilingReached',
-      featureLabel: t('upsell.feature.utilityWorkflows'),
-    });
-    track('feature.blocked', {
-      entitlement: 'utility-workflows',
-      tier: effectiveTier,
-    });
-  }, [effectiveTier, t, track]);
-
-  if (!canUseUtilityWorkflows) {
-    return (
-      <div
-        data-testid="utility-pipeline-locked"
-        className="flex h-full min-h-[34rem] flex-col items-center justify-center gap-4 rounded-2xl border border-warning/30 bg-warning/5 p-16 text-center"
-      >
-        <span className="rounded-full border border-warning/45 bg-warning/10 px-2 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.16em] text-warning">
-          {t('utilities.locked.proBadge')}
-        </span>
-        <div className="max-w-xl">
-          <h3 className="text-h3 font-semibold text-foreground">
-            {t('utilityPipeline.locked.title')}
-          </h3>
-          <p className="mt-2 text-body leading-6 text-muted">{t('utilityPipeline.locked.body')}</p>
-        </div>
-        <button
-          type="button"
-          data-testid="utility-pipeline-unlock"
-          onClick={handleUnlock}
-          className="button-primary"
-        >
-          {t('utilityPipeline.locked.action')}
-        </button>
-      </div>
-    );
-  }
-
+  const entitled = useEntitlement('DEV_UTILITIES');
   // The columns follow the panel's width: the tool list beside it can take 300px.
   return (
     <div className="@container h-full">
-      <UtilityPipelinePanelUnlocked stepLimit={access === 'slice' ? FREE_TIER_LIMITS.pipelineSteps : Infinity} />
+      <UtilityPipelinePanelUnlocked stepLimit={entitled ? Infinity : FREE_TIER_LIMITS.pipelineSteps} />
     </div>
   );
 }
 
 /** `stepLimit`: Free's slice runs only the first steps; the rest show dimmed behind a PRO chip. */
 function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
-  const canEject = useSettingsStore((state) => state.featureFlags.ejectToCode === true);
   const controlsOn = useSettingsStore((state) => state.featureFlags.clipboardChains === true);
   const { t } = useTranslation();
   const announce = useAnnounce();
@@ -578,18 +533,16 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 <Plus size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.addStep')}</span>
               </button>
-              {canEject ? (
-                <button
-                  type="button"
-                  onClick={handleEject}
-                  disabled={activePipeline.steps.length === 0 || everyStepOff}
-                  data-testid="utility-pipeline-editor-eject"
-                  className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Code2 size={11} aria-hidden="true" />
-                  <span>{t('utilityPipeline.editor.eject')}</span>
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={handleEject}
+                disabled={activePipeline.steps.length === 0 || everyStepOff}
+                data-testid="utility-pipeline-editor-eject"
+                className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Code2 size={11} aria-hidden="true" />
+                <span>{t('utilityPipeline.editor.eject')}</span>
+              </button>
               {controlsOn ? (
                 <label className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap text-caption font-medium text-muted">
                   <input

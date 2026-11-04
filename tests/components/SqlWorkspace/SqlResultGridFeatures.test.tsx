@@ -132,20 +132,12 @@ describe('cell menu and filters', () => {
     });
 
     it('falls back to the default label for an unnamed query', async () => {
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
       const user = await filtered('SELECT * FROM orders', '  ');
       await user.click(screen.getByTestId('sql-grid-sql-snippet'));
       expect(useSnippetsStore.getState().snippets[0]!.label).toBe(i18next.t('sqlWorkspace.snippet.defaultLabel'));
     });
 
-    it('stays out of the strip without the flag', async () => {
-      await filtered('SELECT * FROM orders');
-      expect(screen.getByTestId('sql-grid-sql')).toBeTruthy();
-      expect(screen.queryByTestId('sql-grid-sql-snippet')).toBeNull();
-    });
-
     it('saves what the grid generates, with literal secrets masked', async () => {
-      useSettingsStore.setState({ featureFlags: { ejectToCode: true } });
       const user = await filtered("SELECT * FROM 'https://ana:pw-SECRET@h.test/orders.csv'");
       await user.click(screen.getByTestId('sql-grid-sql-snippet'));
       const [snippet] = useSnippetsStore.getState().snippets;

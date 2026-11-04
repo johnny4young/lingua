@@ -400,15 +400,7 @@ describe('CapsuleListOverlay — Free gate', () => {
     expect(screen.getByTestId('capsule-list-quota').textContent).toBe('Free · 0 of 5 kept');
   });
 
-  it('the upgrade CTA pushes the upsell notice and feature.blocked', () => {
-    render(<CapsuleListOverlay onClose={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('capsule-list-upsell-cta'));
-    expect(pushUpsellNotice).toHaveBeenCalledTimes(1);
-    expect(trackEvent).toHaveBeenCalledWith('feature.blocked', { entitlement: 'execution-history', tier: 'free' });
-  });
-
   it('swaps the upgrade button for a PRO chip with Pro in context', () => {
-    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
     try {
       const compare = vi.fn();
       subscribeCommand('plans.compare', compare);

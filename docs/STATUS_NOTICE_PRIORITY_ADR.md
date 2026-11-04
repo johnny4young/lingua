@@ -154,9 +154,8 @@ rules above are superseded by these:
   the newest waits in the queue. A repeat of a visible or waiting notice
   (same key and values) refreshes it in place.
 - **Upsells pitch once per session.** `pushUpsellNotice` shows the full
-  message with *See what Pro includes* the first time any feature is blocked in
-  a session; later blocks show their own message without the call to action.
-  With Labs › Pro in context, that one pitch's action opens Compare plans.
+  message with *Compare plans* the first time any feature is blocked in a
+  session; later blocks show their own message without the call to action.
 
 Coverage: `tests/stores/statusNoticeQueue.test.ts`,
 `tests/stores/uiStore.test.ts`, `tests/components/StatusNoticeBanner.test.tsx`,

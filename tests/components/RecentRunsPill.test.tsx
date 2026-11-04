@@ -115,17 +115,8 @@ describe('RecentRunsPill', () => {
     expect(screen.queryByTestId('recent-runs-popover-host-probe')).toBeNull();
   });
 
-  it('keeps the Free upsell eager without mounting the Pro popover host', () => {
-    mocks.entitled = false;
-    render(<RecentRunsPill />);
-
-    expect(screen.getByTestId('recent-runs-upsell-pill')).toBeTruthy();
-    expect(screen.queryByTestId('recent-runs-popover-host-probe')).toBeNull();
-  });
-
   it('opens the last three runs on Free with Pro in context', async () => {
     mocks.entitled = false;
-    useSettingsStore.setState({ featureFlags: { teachingPaywall: true } });
     try {
       useExecutionHistoryStore.setState({
         entries: Array.from({ length: 5 }, (_, index) => ({ ...makeEntry(), id: `run-${index}`, timestamp: 100 + index })),

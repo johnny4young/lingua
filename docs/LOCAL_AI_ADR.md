@@ -102,7 +102,7 @@ action and a preview of exactly what is sent.
   the error's kind, the vote and its time in `lingua-explain-ratings`.
 - SQL workspace: "Ask AI" sends only the live schema and typed question, then
   inserts the generated SQL for user review; it never auto-runs generated SQL.
-- Labs › Palette autodetect sends a question typed in the command palette to
+- Palette autodetect sends a question typed in the command palette to
   the Explain this code consent dialog. **Include the last run**, off by
   default, appends the tab's Console output and error (capped) to the payload
   preview. Output gets
