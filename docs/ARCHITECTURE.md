@@ -342,7 +342,7 @@ credential-bearing string literals with `redactSqlSecrets` before keeping SQL;
 for a MySQL or ClickHouse run it finds literals by that server's quoting
 rules, and an unclosed literal masks the rest of the text.
 
-Instant SQL (Labs) samples the statement under the cursor on Local only. The
+Instant SQL (`sqlWorkspaceInstantPreview`, on by default) samples the statement under the cursor on Local only. The
 editor computes the target with `planInstantPreview`
 (`src/shared/sqlCtePreview.ts`): a token scanner finds the WITH chain, because
 DuckDB's serialized AST has no CTE positions, and the sampled SQL is the chain

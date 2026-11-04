@@ -49,6 +49,12 @@ export function SqlWorkspaceSettingsSection() {
   const setSqlWorkspaceQueryTimeoutMs = useSettingsStore(
     (state) => state.setSqlWorkspaceQueryTimeoutMs
   );
+  const sqlWorkspaceInstantPreview = useSettingsStore(
+    (state) => state.sqlWorkspaceInstantPreview
+  );
+  const setSqlWorkspaceInstantPreview = useSettingsStore(
+    (state) => state.setSqlWorkspaceInstantPreview
+  );
   const sqlWorkspacePersistTables = useSettingsStore(
     (state) => state.sqlWorkspacePersistTables
   );
@@ -176,6 +182,20 @@ export function SqlWorkspaceSettingsSection() {
                 </option>
               ))}
             </Select>
+          }
+        />
+
+        <SpecRow
+          label={t('settings.editor.sqlWorkspace.instantPreview.label')}
+          description={t('settings.editor.sqlWorkspace.instantPreview.hint')}
+          control={
+            <Toggle
+              value={sqlWorkspaceInstantPreview}
+              onChange={() =>
+                setSqlWorkspaceInstantPreview(!sqlWorkspaceInstantPreview)
+              }
+              aria-label={t('settings.editor.sqlWorkspace.instantPreview.label')}
+            />
           }
         />
 

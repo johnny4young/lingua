@@ -107,6 +107,7 @@ export function settingsPartialize(state: SettingsState) {
     // Persist SQL workspace preferences.
     sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,
+    sqlWorkspaceInstantPreview: state.sqlWorkspaceInstantPreview,
     // Persist the table-persistence toggle.
     sqlWorkspacePersistTables: state.sqlWorkspacePersistTables,
     // Persist the Run Ledger opt-in.

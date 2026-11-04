@@ -15,11 +15,6 @@ const extensionFile = (url: string) => /([a-z_]+)\.duckdb_extension/.exec(url)?.
 
 async function openQuery(page: Page, language: 'en' | 'es'): Promise<void> {
   await seedSession(page, { language });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { instantSql: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
   await gotoApp(page);
   await page.keyboard.press('ControlOrMeta+Alt+S');
   await page.getByTestId('sql-query-list-create').click();
@@ -58,6 +53,39 @@ test.describe('Instant SQL', () => {
       await expect(preview).toHaveCount(0);
     });
   }
+
+  test('keeps rows in sight on a short pane, with the results one scroll below', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 620 });
+    await openQuery(page, 'en');
+    await replaceQuery(page, 'SELECT 7 AS answer');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(page.getByTestId('sql-result-preview-row')).toHaveCount(1);
+    await replaceQuery(page, QUERY);
+    const row = page.getByTestId('sql-instant-preview').locator('tbody tr').first();
+    await expect(row).toContainText('Bogota');
+    await expect(row).toBeInViewport({ ratio: 1 });
+    const results = page.getByTestId('sql-result-preview-row').first();
+    await results.scrollIntoViewIfNeeded();
+    const reachable = await results.evaluate((row) => {
+      const box = row.getBoundingClientRect();
+      return row.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
+    });
+    expect(reachable).toBe(true);
+  });
+
+  test('stays off with its setting off', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await page.getByRole('button', { name: /Open settings/ }).click();
+    await page.getByTestId('settings-tab-editor').click();
+    await page.getByRole('switch', { name: 'Instant SQL' }).click();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ControlOrMeta+Alt+S');
+    await page.getByTestId('sql-query-list-create').click();
+    await replaceQuery(page, QUERY);
+    await page.waitForTimeout(800);
+    await expect(page.getByTestId('sql-instant-preview')).toHaveCount(0);
+  });
 
   test('previews on the first edit when the engine starts slowly', async ({ page }) => {
     await page.context().route(/duckdb-mvp.*\.wasm/, async (route) => {

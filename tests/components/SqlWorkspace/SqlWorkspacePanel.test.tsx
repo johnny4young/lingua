@@ -1115,12 +1115,7 @@ describe('SqlWorkspacePanel Instant SQL', () => {
     );
     useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'q', name: 'q', query: 'SELECT 7 AS v' }));
   });
-  afterEach(() => {
-    useSettingsStore.setState({ featureFlags: {} });
-  });
-
   it('samples the statement above the results on Local', async () => {
-    useSettingsStore.setState({ featureFlags: { instantSql: true } });
     render(<SqlWorkspacePanel />);
     const preview = await screen.findByTestId('sql-instant-table');
     expect(preview.textContent).toContain('v INTEGER');
@@ -1129,10 +1124,12 @@ describe('SqlWorkspacePanel Instant SQL', () => {
     expect(results.contains(screen.getByTestId('sql-instant-preview'))).toBe(true);
   });
 
-  it('stays off without the flag', async () => {
+  it('stays off with its setting off', async () => {
+    useSettingsStore.setState({ sqlWorkspaceInstantPreview: false });
     render(<SqlWorkspacePanel />);
     await screen.findByTestId('sql-query-editor');
     expect(screen.queryByTestId('sql-instant-preview')).toBeNull();
     expect(seen.some((sql) => sql.includes('lingua_instant'))).toBe(false);
+    useSettingsStore.setState({ sqlWorkspaceInstantPreview: true });
   });
 });

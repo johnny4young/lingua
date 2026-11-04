@@ -348,6 +348,8 @@ export interface SettingsState {
    * by the runtime regardless of this value.
    */
   sqlWorkspaceQueryTimeoutMs: number;
+  /** Instant SQL samples the statement under the cursor as you type, on Local. */
+  sqlWorkspaceInstantPreview: boolean;
   /**
    * Opt into persisting the SQL workspace
    * DuckDB database to this browser's OPFS so tables + rows survive a
@@ -549,6 +551,7 @@ export interface SettingsState {
    * is not migrated mid-session.
    */
   setSqlWorkspacePersistTables: (value: boolean) => void;
+  setSqlWorkspaceInstantPreview: (value: boolean) => void;
   /** Toggle the local Run Ledger (see `runLedgerEnabled`). */
   setRunLedgerEnabled: (value: boolean) => void;
   /**
