@@ -252,9 +252,9 @@ export const es = {
       lede: 'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
       shot: {
         image: '/screenshots/tour/ai-explain-es.png',
-        alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la lectura de una propiedad sobre null, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
+        alt: 'Panel de explicar junto a un run de JavaScript fallido: la respuesta explica la lectura de una propiedad sobre null, propone un fix con guard en un bloque de código y ofrece Aplicar y re-ejecutar',
         caption:
-          'Una respuesta real de un modelo local — qwen3-coder en Ollama, sin viaje a la nube. El diálogo muestra el payload exacto antes de enviar nada, y Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas.',
+          'El panel se abre junto a tu código y muestra el payload exacto antes de enviar nada. Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas. La respuesta aquí es de ejemplo.',
       },
       cards: [
         {

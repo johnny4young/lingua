@@ -72,6 +72,18 @@
         "en": "/screenshots/tour/settings-privacy.png",
         "es": "/screenshots/tour/settings-privacy-es.png"
       }
+    },
+    {
+      "id": "ai-explain",
+      "spec": "tests/e2e/tourVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/tour/ai-explain-en.png",
+        "es": "output/playwright/tour/ai-explain-es.png"
+      },
+      "images": {
+        "en": "/screenshots/tour/ai-explain.png",
+        "es": "/screenshots/tour/ai-explain-es.png"
+      }
     }
   ]
 }
