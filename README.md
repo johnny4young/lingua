@@ -15,11 +15,11 @@ Open it, write code and see the result next to each line. Lingua also brings a d
 
 ## What you get
 
-- **Inline results:** values appear next to the code that produced them, and stale ones are marked after you edit.
+- **Inline results:** values appear next to the code that produced them.
 - **Real debugging:** breakpoints, conditional breakpoints, logpoints, stepping and watches for JavaScript and TypeScript.
 - **SQL with DuckDB:** import a CSV and query it locally, with a result grid, column profiles and exports.
 - **HTTP client:** requests, a foldable JSON response tree, timing, captures, assertions and pipelines.
-- **AI you control:** explain an error with a local model or your own endpoint, and see the exact payload before anything is sent.
+- **AI you control (Pro):** explain an error with a local model or your own endpoint, and see the exact payload before anything is sent.
 - **Local first:** your code stays on your device, and telemetry is off until you opt in.
 
 ## Install
