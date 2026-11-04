@@ -59,6 +59,7 @@ describe('run compare panel', () => {
       expect.stringContaining('Untitled querySQL · DuckDB13 ms3 rows · city, orders'),
     ]);
     expect((within(rows[1]!).getByRole('checkbox') as HTMLInputElement).disabled).toBe(true);
+    expect(rows[1]!.title).toBe('No comparison data for this run');
     expect(screen.getByTestId('run-compare-selected').textContent).toBe('2 selected');
     expect(screen.getByTestId('run-compare-code').textContent).toBe('- const mid = [pivot];+ const mid = arr.filter((x) => x === pivot);');
     expect(screen.getByTestId('run-compare-stdout').textContent).toContain('+ QuickSort: [ 1, 1, 2, 3 ]');
