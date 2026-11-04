@@ -510,13 +510,14 @@ const SECRET_LITERAL =
   /:\/\/[^\s'"/]*@|[?&;](token|key|sig|signature|password|access_token|accountkey|sharedaccesssignature|x-amz-[a-z-]+)=|(?:^|[^a-z0-9])(password|passwd|pwd|secret|client_secret|api[_-]?key|apikey|auth[_-]?token|access[_-]?token)\s*=|\bbearer\s+\S|\beyJ[\w-]+\.[\w-]+\./i
 
 // A value on a column named like a credential, as a grid's filter writes it.
-const COMPARED_COLUMN = /["`[]?([\w$ .-]+?)["`\]]?\s*(?:=|<>|!=|\blike\s|\bilike\s|\bin\s*\((?:\s*'•••'\s*,)*)\s*$/i;
+const COMPARED_COLUMN = /(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([\w$-]+))\s*(?:=|<>|!=|\blike\s|\bilike\s|\bin\s*\((?:\s*'•••'\s*,)*)\s*$/i;
 const SECRET_COLUMN = /(?:^|_)(password|passwd|pwd|secret|token|apikey|api_key|jwt|bearer|credential|credentials|session|cookie|auth)(?:_|$)/;
 
 function followsSecretColumn(sqlBefore: string): boolean {
-  const name = COMPARED_COLUMN.exec(sqlBefore.slice(-200))?.[1];
+  const match = COMPARED_COLUMN.exec(sqlBefore.slice(-200));
+  const name = match?.[1] ?? match?.[2] ?? match?.[3] ?? match?.[4];
   if (!name) return false;
-  const column = name.slice(name.lastIndexOf('.') + 1).replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[\s-]+/g, '_').toLowerCase();
+  const column = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[\s-]+/g, '_').toLowerCase();
   return SECRET_COLUMN.test(column);
 }
 

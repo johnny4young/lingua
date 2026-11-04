@@ -125,6 +125,8 @@ describe('redactSqlSecrets', () => {
     [`SELECT * FROM t WHERE "password" = 'hunter2' AND "name" = 'ada'`, `SELECT * FROM t WHERE "password" = '•••' AND "name" = 'ada'`],
     [`SELECT * FROM t WHERE "api_key" = 'abc123'`, `SELECT * FROM t WHERE "api_key" = '•••'`],
     [`SELECT * FROM t WHERE t."authToken" LIKE 'abc%'`, `SELECT * FROM t WHERE t."authToken" LIKE '•••'`],
+    [`SELECT * FROM t WHERE t.password = 'x'`, `SELECT * FROM t WHERE t.password = '•••'`],
+    [`SELECT * FROM t WHERE "api key" = 'x'`, `SELECT * FROM t WHERE "api key" = '•••'`],
     [`SELECT * FROM t WHERE session_id IN ('a', 'b')`, `SELECT * FROM t WHERE session_id IN ('•••', '•••')`],
     [`SELECT * FROM t WHERE note = 'Bearer eyJabc'`, `SELECT * FROM t WHERE note = '•••'`],
     [`SELECT * FROM t WHERE note = 'eyJhbGci.eyJzdWIi.sig'`, `SELECT * FROM t WHERE note = '•••'`],
@@ -138,6 +140,7 @@ describe('redactSqlSecrets', () => {
       `SELECT * FROM t WHERE "tokens_used" = '5'`,
       `SELECT * FROM t WHERE "keyword" = 'x'`,
       `SELECT * FROM t WHERE "name" IN ('a', 'b')`,
+      `SELECT password FROM t WHERE name = 'ada'`,
     ]) {
       expect(redactSqlSecrets(sql)).toBe(sql);
     }
