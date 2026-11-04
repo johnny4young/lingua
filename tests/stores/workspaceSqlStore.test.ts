@@ -219,6 +219,90 @@ describe('useWorkspaceSqlStore', () => {
     expect(booted.getState().tableSources).toEqual({ sales: 'csv' });
   });
 
+  describe('a query on a connection', () => {
+    const KEY = 'lingua-workspace-sql-state';
+    const response = (engine?: SqlResponseV1['engine']): SqlResponseV1 => ({
+      version: 1,
+      status: 'success',
+      rows: [{ email: 'a@b.example' }],
+      columns: [{ name: 'email', type: 'TEXT' }],
+      rowCount: 1,
+      durationMs: 1,
+      tooLarge: false,
+      statementCount: 1,
+      recordedAt: '2026-11-04T00:00:00.000Z',
+      ...(engine ? { engine } : {}),
+    });
+    const addRemoteQuery = () => {
+      const query = { ...createBlankSqlQuery({ id: 'remote' }), connectionId: 'conn-1', query: "ALTER USER app PASSWORD 'hunter2'" };
+      useWorkspaceSqlStore.setState({ queries: [query] });
+      useWorkspaceSqlStore.getState().recordResponse(query.id, response('mysql'));
+      return query;
+    };
+
+    it('reaches disk without its secrets, its rows or its errors, and keeps them on screen', () => {
+      const query = addRemoteQuery();
+      const raw = localStorage.getItem(KEY) ?? '';
+      expect(raw).not.toContain('hunter2');
+      expect(raw).not.toContain('a@b.example');
+      expect(useWorkspaceSqlStore.getState().getQuery(query.id)?.query).toContain('hunter2');
+      expect(useWorkspaceSqlStore.getState().getLatestResponse(query.id)?.rows).toHaveLength(1);
+    });
+
+    it('masks by every server\'s quoting while the engine is unknown', () => {
+      const query = { ...createBlankSqlQuery({ id: 'unknown' }), connectionId: 'conn-gone', query: 'CREATE USER app IDENTIFIED BY "hunter2"' };
+      useWorkspaceSqlStore.setState({ queries: [query] });
+      expect(localStorage.getItem(KEY)).not.toContain('hunter2');
+    });
+
+    it.each([
+      ['duplicateQuery', () => useWorkspaceSqlStore.getState().duplicateQuery('remote', { id: 'copy', name: 'copy' })],
+      ['saveQueryAs', () => useWorkspaceSqlStore.getState().saveQueryAs('remote', { id: 'copy', name: 'copy' })],
+    ])('stays on the connection and masked through %s', (_name, copy) => {
+      addRemoteQuery();
+      copy();
+      expect(useWorkspaceSqlStore.getState().getQuery('copy')?.connectionId).toBe('conn-1');
+      expect(localStorage.getItem(KEY)).not.toContain('hunter2');
+    });
+
+    it('leaves its secrets behind when it moves to Local', () => {
+      addRemoteQuery();
+      useWorkspaceSqlStore.getState().updateQuery('remote', { connectionId: undefined });
+      expect(useWorkspaceSqlStore.getState().getQuery('remote')?.query).not.toContain('hunter2');
+      expect(localStorage.getItem(KEY)).not.toContain('hunter2');
+    });
+
+    it('leaves a Local query and its rows as they were', () => {
+      const query = { ...createBlankSqlQuery({ id: 'local' }), query: "CREATE SECRET s (KEY_ID 'hunter2')" };
+      useWorkspaceSqlStore.setState({ queries: [query] });
+      useWorkspaceSqlStore.getState().recordResponse(query.id, response());
+      const raw = localStorage.getItem(KEY) ?? '';
+      expect(raw).toContain('hunter2');
+      expect(raw).toContain('a@b.example');
+    });
+
+    it('drops a connection result an older version stored', async () => {
+      const query = addRemoteQuery();
+      const stored = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+      stored.state.responsesByQueryId = { [query.id]: [response('mysql')] };
+      localStorage.setItem(KEY, JSON.stringify(stored));
+      const store = await bootStore();
+      expect(store.getState().getQuery(query.id)).toBeDefined();
+      expect(store.getState().responsesByQueryId[query.id]).toBeUndefined();
+    });
+
+    it('keeps its text and result when another tab writes', async () => {
+      const query = addRemoteQuery();
+      const stored = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+      stored.state.queries.push(createBlankSqlQuery({ id: 'other' }));
+      localStorage.setItem(KEY, JSON.stringify(stored));
+      window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+      await vi.waitFor(() => expect(useWorkspaceSqlStore.getState().queries).toHaveLength(2));
+      expect(useWorkspaceSqlStore.getState().getQuery(query.id)?.query).toContain('hunter2');
+      expect(useWorkspaceSqlStore.getState().getLatestResponse(query.id)?.rows).toHaveLength(1);
+    });
+  });
+
   describe('query tabs, saving and history', () => {
     const q = (id: string, extra: Partial<Parameters<typeof createBlankSqlQuery>[0]> = {}) =>
       createBlankSqlQuery({ id, query: `SELECT '${id}'`, ...extra });

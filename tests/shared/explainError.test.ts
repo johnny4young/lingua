@@ -12,8 +12,23 @@ import {
   redactSecretsFromOutput,
   buildExplainErrorRequest,
   redactSecretsFromCode,
+  redactSecretsFromExcerpt,
   MAX_EXPLAIN_CODE_CHARS, formatRuntimeValues } from '../../src/shared/ai/explainError';
 import { FAKE_DSN, FAKE_GITHUB_PAT, FAKE_JWT } from './secret.fixtures';
+
+describe('redactSecretsFromExcerpt', () => {
+  it('masks a SQL literal the line-based mask cannot read, only in SQL', () => {
+    const sql = "CREATE USER app PASSWORD 'hunter2'";
+    expect(redactSecretsFromExcerpt(sql, 'sql').code).not.toContain('hunter2');
+    expect(redactSecretsFromExcerpt(sql, 'sql').redactedCount).toBe(1);
+    expect(redactSecretsFromExcerpt(sql, 'python').code).toContain('hunter2');
+  });
+
+  it('reaches the request sent for an error', () => {
+    const request = buildExplainErrorRequest({ errorMessage: 'boom', code: "CREATE USER app PASSWORD 'hunter2'", language: 'sql' });
+    expect(JSON.stringify(request)).not.toContain('hunter2');
+  });
+});
 
 describe('redactSecretsFromCode', () => {
   it('masks a string assigned to a secret-looking identifier', () => {

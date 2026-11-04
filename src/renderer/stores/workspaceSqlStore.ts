@@ -29,8 +29,10 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { redactSqlSecrets, redactSqlSecretsOnAnyEngine } from '../../shared/sqlStatements';
 import { attachCrossTabSync } from './persistence/crossTabSync';
 import { keepLatestTransient } from './persistence/keepLatestTransient';
+import { findConnection } from './sqlConnectionsStore';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   SQL_WORKSPACE_STORAGE_KEY,
@@ -38,6 +40,7 @@ import {
   registerSqlStoreClear,
 } from './sqlQueryTabCount';
 import {
+  isRemoteSqlResponse,
   parseSqlQuery,
   parseSqlResponse,
   type SqlImportFormat,
@@ -201,6 +204,24 @@ function sanitizeTableSources(value: unknown): Record<string, SqlImportFormat> {
   return out;
 }
 
+const maskedQueries = new WeakMap<SqlQueryV1, SqlQueryV1>();
+
+function maskForConnection(sql: string, connectionId: string): string {
+  const engine = findConnection(connectionId)?.engine;
+  return engine ? redactSqlSecrets(sql, engine) : redactSqlSecretsOnAnyEngine(sql);
+}
+
+/** A query on a connection reaches disk without its secret literals; the editor keeps them for the session. */
+function persistedQuery(query: SqlQueryV1): SqlQueryV1 {
+  if (!query.connectionId) return query;
+  const cached = maskedQueries.get(query);
+  if (cached) return cached;
+  const masked = { ...query, query: maskForConnection(query.query, query.connectionId) };
+  // The catalog may arrive later and name the engine, so only a known engine's mask is final.
+  if (findConnection(query.connectionId)) maskedQueries.set(query, masked);
+  return masked;
+}
+
 function isTransientSqlResponse(response: SqlResponseV1): boolean {
   return (
     response.status === 'timeout' ||
@@ -234,6 +255,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
             ...(source.timeoutMs !== undefined
               ? { timeoutMs: source.timeoutMs }
               : {}),
+            ...(source.connectionId ? { connectionId: source.connectionId } : {}),
             createdAt: now,
             updatedAt: now,
           };
@@ -259,6 +281,10 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
             id: existing.id,
             updatedAt: new Date().toISOString(),
           };
+          // Local text is stored as typed, so a connection's secrets do not come along.
+          if (existing.connectionId && !updated.connectionId) {
+            updated.query = maskForConnection(updated.query, existing.connectionId);
+          }
           const next = state.queries.slice();
           next[idx] = updated;
           return { queries: next };
@@ -339,6 +365,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
             query: source.query,
             ...(source.timeoutMs !== undefined ? { timeoutMs: source.timeoutMs } : {}),
             ...(trimmedFolder ? { folder: trimmedFolder } : {}),
+            ...(source.connectionId ? { connectionId: source.connectionId } : {}),
             createdAt: now,
             updatedAt: now,
           };
@@ -443,11 +470,12 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           ReadonlyArray<SqlResponseV1>
         > = {};
         for (const [qid, list] of Object.entries(state.responsesByQueryId)) {
-          const surviving = list.filter((entry) => !isTransientSqlResponse(entry));
+          // A connection's rows and driver errors stay in the session too.
+          const surviving = list.filter((entry) => !isTransientSqlResponse(entry) && !isRemoteSqlResponse(entry));
           if (surviving.length > 0) persistedResponses[qid] = surviving;
         }
         return {
-          queries: state.queries,
+          queries: state.queries.map(persistedQuery),
           responsesByQueryId: persistedResponses,
           activeQueryId: state.activeQueryId,
           explorerFolded: state.explorerFolded,
@@ -490,7 +518,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
               const safeList: SqlResponseV1[] = [];
               for (const raw of list) {
                 const parsed = parseSqlResponse(raw);
-                if (parsed !== null) safeList.push(parsed);
+                if (parsed !== null && !isRemoteSqlResponse(parsed)) safeList.push(parsed);
               }
               if (safeList.length > 0) safeByQuery[qid] = safeList;
             }
@@ -540,6 +568,11 @@ attachCrossTabSync(useWorkspaceSqlStore, {
     const exists = (id: string) => next.queries.some((query) => query.id === id);
     const openQueryIds = live.openQueryIds.filter(exists);
     return {
+      // Another tab's write holds this tab's text with its secrets masked.
+      queries: next.queries.map((query) => {
+        const own = live.queries.find((entry) => entry.id === query.id);
+        return own?.connectionId && persistedQuery(own).query === query.query ? { ...query, query: own.query } : query;
+      }),
       openQueryIds,
       activeQueryId:
         live.activeQueryId !== null && openQueryIds.includes(live.activeQueryId)
@@ -550,7 +583,7 @@ attachCrossTabSync(useWorkspaceSqlStore, {
         live.responsesByQueryId,
         next.responsesByQueryId,
         exists,
-        isTransientSqlResponse
+        (response) => isTransientSqlResponse(response) || isRemoteSqlResponse(response)
       ),
     };
   },

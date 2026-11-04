@@ -334,6 +334,8 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Format, autocomplete, Ask AI and the grid's view as SQL follow the query's engine: Format uses the engine's formatter, completion quotes names the engine's way (backticks on MySQL and ClickHouse, brackets on SQL Server) and offers its keywords and the connection's tables, columns and functions, and Ask AI names the engine and sends the connection's schema, shown in the consent preview.
 - `Cmd/Ctrl+P` on the SQL tab also lists up to 50 tables, views, materialized views, functions and procedures of every connection read so far; every word you type must match. On a table or view, `Enter` opens its data, `Cmd/Ctrl+Enter` its structure and `Alt+Enter` puts its quoted name at the cursor; a function or procedure opens its DDL and inserts its bare name. An object of another connection opens in a new query on that connection.
 - History shows the runs of the query's connection (runs from before connections count as Local), names it in its header, clears only those runs, and opens a run as a scratch on the connection it ran on. Saved queries show their connection, *RO* when it is read-only.
+- Results and driver errors from a connection stay in the session and leave run capsules, and a query on a connection reaches disk with its secret literals masked. After a reload it shows `•••` in place of the value and will not run until you type the value again.
+- A password in a pasted connection URL moves to the password field, whether or not the rest of the URL can be read.
 - With **Database connections** off in Labs, every query runs on Local, including queries saved against a connection.
 
 ## Edit table rows (Labs)

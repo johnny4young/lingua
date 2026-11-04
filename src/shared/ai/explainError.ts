@@ -18,6 +18,7 @@
  */
 
 import { looksSecret } from '../httpEnvironment';
+import { redactSqlSecrets } from '../sqlStatements';
 
 /** Max characters of code context included in the prompt. */
 export const MAX_EXPLAIN_CODE_CHARS = 4000;
@@ -85,6 +86,13 @@ export function redactSecretsFromCode(code: string): RedactionResult {
     });
   }
   return { code: out, redactedCount };
+}
+
+/** `redactSecretsFromCode`, after SQL's own mask, which reads literals the line-based one cannot. */
+export function redactSecretsFromExcerpt(code: string, language: string): RedactionResult {
+  const masked = language === 'sql' ? redactSqlSecrets(code) : code;
+  const result = redactSecretsFromCode(masked);
+  return { code: result.code, redactedCount: result.redactedCount + (masked === code ? 0 : 1) };
 }
 
 function clip(value: string, max: number): string {
@@ -265,7 +273,7 @@ export function buildExplainErrorRequest(
 ): ExplainErrorRequest {
   const redact = input.redact !== false;
   const redaction = redact
-    ? redactSecretsFromCode(input.code)
+    ? redactSecretsFromExcerpt(input.code, input.language)
     : { code: input.code, redactedCount: 0 };
 
   const code = clip(redaction.code, MAX_EXPLAIN_CODE_CHARS);

@@ -84,6 +84,64 @@ describe('SqlConnectionSheet', () => {
     expect(screen.getByTestId('sql-connection-ssl-require').getAttribute('aria-checked')).toBe('true');
   });
 
+  it('takes the password out of a URL that does not parse, or names it in a parameter', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    const field = screen.getByTestId('sql-connection-url') as HTMLInputElement;
+    const password = screen.getByTestId('sql-connection-password') as HTMLInputElement;
+    await user.click(field);
+    await user.paste('postgres://u:pa/ss@db.internal/orders');
+    expect(field.value).toBe('postgres://u@db.internal/orders');
+    expect(password.value).toBe('pa/ss');
+    await user.clear(field);
+    await user.paste('clickhouse://db.internal/orders?password=s3cret');
+    expect(field.value).toBe('clickhouse://db.internal/orders');
+    expect(password.value).toBe('s3cret');
+  });
+
+  it('saves the password taken from a parameter', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByTestId('sql-connection-url'));
+    await user.paste('clickhouse://db.internal/orders?password=s3cret');
+    await user.click(screen.getByTestId('sql-connection-save'));
+    await vi.waitFor(() => expect(db.save).toHaveBeenCalledWith(expect.objectContaining({ passwordMode: 'keychain' }), undefined, 's3cret', undefined));
+  });
+
+  it('leaves a parameter alone while it is typed, and takes it when the field loses focus', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    const field = screen.getByTestId('sql-connection-url') as HTMLInputElement;
+    await user.type(field, 'clickhouse://db.internal/orders?password=ab');
+    expect(field.value).toBe('clickhouse://db.internal/orders?password=ab');
+    await user.tab();
+    expect(field.value).toBe('clickhouse://db.internal/orders');
+    expect((screen.getByTestId('sql-connection-password') as HTMLInputElement).value).toBe('ab');
+  });
+
+  it('keeps edits to the form when the URL field loses focus with nothing to take', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByTestId('sql-connection-url'));
+    await user.paste('postgres://app@db.internal/orders');
+    const host = screen.getByTestId('sql-connection-host') as HTMLInputElement;
+    await user.clear(host);
+    await user.type(host, 'db.other');
+    await user.click(screen.getByTestId('sql-connection-url'));
+    await user.tab();
+    expect(host.value).toBe('db.other');
+  });
+
+  it('hides the password of a URL the browser cannot use', async () => {
+    const user = userEvent.setup();
+    setCatalog({ limit: null, vault: 'session', sessionOnly: true });
+    renderSheet();
+    const field = screen.getByTestId('sql-connection-url') as HTMLInputElement;
+    await user.click(field);
+    await user.paste('mysql://u:s3cret@db.internal/orders');
+    expect(field.value).toBe('mysql://u@db.internal/orders');
+  });
+
   it('offers only Turso and Neon in the browser, and says a plain HTTP Turso URL needs Desktop there', async () => {
     const user = userEvent.setup();
     setCatalog({ limit: null, vault: 'session', sessionOnly: true });

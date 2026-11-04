@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { capHistorySql } from '../../shared/sqlHistory';
-import { isWriteSqlStatementOn, provesReadsOnly, redactSqlSecrets } from '../../shared/sqlStatements';
+import { hasMaskedSqlSecret, isWriteSqlStatementOn, provesReadsOnly, redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
@@ -334,6 +334,11 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const connection = enabled ? findConnection(query.connectionId) : undefined;
       if (enabled && query.connectionId && !connection) {
         useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey: 'sqlWorkspace.connection.missing' });
+        return;
+      }
+      // Text restored from disk has its secrets masked, and running it would store the mask as the value.
+      if (connection && statements.some(hasMaskedSqlSecret)) {
+        useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey: 'sqlWorkspace.connection.maskedSecret' });
         return;
       }
       // Remote engines explain through their own EXPLAIN, shown as rows.

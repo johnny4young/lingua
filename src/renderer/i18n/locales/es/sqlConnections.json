@@ -9,6 +9,7 @@
   "sqlWorkspace.connection.readOnlyShort": "SL",
   "sqlWorkspace.connection.edit": "Editar {{name}}",
   "sqlWorkspace.connection.missingName": "Conexión no encontrada",
+  "sqlWorkspace.connection.maskedSecret": "Esta sentencia todavía tiene un valor enmascarado (•••). Escribe el valor real antes de ejecutarla.",
   "sqlWorkspace.connection.missing": "La conexión de esta consulta ya no existe. Elige una conexión en el selector para ejecutarla.",
   "sqlWorkspace.connection.desktopEngines": "Postgres, MySQL, SQL Server, ClickHouse, SQLite, D1",
   "sqlWorkspace.connection.desktopOnly": "Solo escritorio",
