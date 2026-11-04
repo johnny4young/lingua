@@ -639,7 +639,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
       className="h-full min-h-0"
     >
-      <Panel id="sql-editor-pane" defaultSize="40%" minSize={140}>
+      <Panel id="sql-editor-pane" defaultSize="40%" minSize={96}>
         {editorPane}
       </Panel>
       <ResizeHandle orientation="horizontal" />

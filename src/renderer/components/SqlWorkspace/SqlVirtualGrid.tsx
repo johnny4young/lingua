@@ -547,7 +547,7 @@ export function SqlVirtualGrid({
       aria-label={t('sqlWorkspace.grid.ariaLabel')}
       onKeyDown={handleKeyDown}
       onScroll={(event) => setViewport(readViewport(event.currentTarget))}
-      className="min-h-[6.5rem] flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+      className="min-h-[4.5rem] flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
     >
       <table
         data-testid="sql-result-preview-table"
