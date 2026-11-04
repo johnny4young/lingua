@@ -297,7 +297,7 @@
   "commandPalette.toggleVimMode.descriptionEnable": "Activa los atajos de Vim dentro del editor. La barra de estado al pie del editor indica el modo activo.",
   "commandPalette.toggleVimMode.descriptionDisable": "Desactiva los atajos de Vim y restaura los accesos directos nativos de Monaco.",
   "editor.executionHistorySnapshot.label": "Captura el código para reproducir",
-  "editor.executionHistorySnapshot.hint": "Activado en Pro. El código guardado vive solo en memoria — no sobrevive a un reinicio. Apágalo si prefieres no capturar.",
+  "editor.executionHistorySnapshot.hint": "Activado en Pro. Vive solo en memoria y no sobrevive a un reinicio. Apágalo para dejar de copiar el código para reproducir y comparar; las cápsulas de ejecuciones recientes lo siguen guardando en memoria.",
   "editor.executionHistorySnapshot.lockedHint": "Disponible en Lingua Pro. Las capturas viven solo en memoria y no sobreviven a un reinicio.",
   "toolbar.run.proOnlyTooltip": "Este runtime está disponible en Lingua Pro.",
   "results.inline.loadFailed": "No se pudieron cargar los resultados en línea. Recarga Lingua y ejecuta de nuevo.",

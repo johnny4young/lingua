@@ -24,7 +24,7 @@ const initialSettings = useSettingsStore.getState();
 beforeEach(() => {
   mockTier = 'pro';
   useExecutionHistoryStore.setState(initial, true);
-  useSettingsStore.setState({ featureFlags: {} });
+  useSettingsStore.setState({ executionHistorySnapshotEnabled: true });
 });
 
 afterEach(() => {
@@ -39,6 +39,11 @@ describe('execution history for Compare runs', () => {
     });
     mockTier = 'free';
     expect(record('three').runCompare).toBeUndefined();
+  });
+
+  it('keeps no compare data with code capture off', () => {
+    useSettingsStore.setState({ executionHistorySnapshotEnabled: false });
+    expect(record('one').runCompare).toBeUndefined();
   });
 
   it('keeps compare data after the capsule cap strips older capsules', () => {

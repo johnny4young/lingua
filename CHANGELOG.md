@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, and Compare runs (Pro). Settings › Labs no longer lists them.
+- Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
 - TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
 

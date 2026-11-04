@@ -20,7 +20,7 @@ beforeEach(() => {
   act(() => {
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'q.sql', language: 'python', content: '' }] as never, 't1');
     useResultStore.setState({ snapshotRing: [], scopeSnapshot: null });
-    useSettingsStore.setState({ featureFlags: {} });
+    useSettingsStore.setState({ executionHistorySnapshotEnabled: true });
     useExecutionHistoryStore.setState({
       entries: [{ id: 'r', language: 'http', status: 'ok', durationMs: 1, timestamp: 0, snapshot: null }],
     });
@@ -29,11 +29,11 @@ beforeEach(() => {
 
 afterEach(() => {
   useExecutionHistoryStore.setState(initialHistory, true);
-  useSettingsStore.setState({ featureFlags: {} });
+  useSettingsStore.setState({ executionHistorySnapshotEnabled: true });
 });
 
-describe('Compare tab with Compare runs on', () => {
-  it('opens on any recorded run while the flag is on and the tier keeps history', () => {
+describe('Compare tab', () => {
+  it('opens on any recorded run while the tier keeps history and code capture is on', () => {
     const { result, rerender } = renderHook(() => useLayoutAvailability());
     expect(result.current.tabs.compare).toBe(true);
 
@@ -42,11 +42,14 @@ describe('Compare tab with Compare runs on', () => {
     expect(result.current.tabs.compare).toBe(false);
 
     entitled = true;
-    act(() => useSettingsStore.setState({ featureFlags: {} }));
+    rerender();
+    expect(result.current.tabs.compare).toBe(true);
+
+    act(() => useSettingsStore.setState({ executionHistorySnapshotEnabled: false }));
     expect(result.current.tabs.compare).toBe(false);
 
     act(() => {
-      useSettingsStore.setState({ featureFlags: {} });
+      useSettingsStore.setState({ executionHistorySnapshotEnabled: true });
       useExecutionHistoryStore.setState({ entries: [] });
     });
     expect(result.current.tabs.compare).toBe(false);
