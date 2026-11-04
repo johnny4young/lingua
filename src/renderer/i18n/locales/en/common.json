@@ -297,7 +297,7 @@
   "commandPalette.toggleVimMode.descriptionEnable": "Turn on Vim keybindings inside the editor. The status bar at the bottom of the editor shows the active mode.",
   "commandPalette.toggleVimMode.descriptionDisable": "Turn off Vim keybindings and restore the native Monaco shortcuts.",
   "editor.executionHistorySnapshot.label": "Capture code for replay",
-  "editor.executionHistorySnapshot.hint": "On for Pro. The captured code stays in memory only — it never persists across reloads. Turn off to skip capture.",
+  "editor.executionHistorySnapshot.hint": "On for Pro. Kept in memory only, never across reloads. Turn off to stop copying code for replay and Compare; recent run capsules still hold their code in memory.",
   "editor.executionHistorySnapshot.lockedHint": "Available in Lingua Pro. Captures stay in memory only and never persist across reloads.",
   "toolbar.run.proOnlyTooltip": "This runtime is available in Lingua Pro.",
   "results.inline.loadFailed": "Inline results could not load. Reload Lingua and run again.",

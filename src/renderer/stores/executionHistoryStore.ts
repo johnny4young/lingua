@@ -7,8 +7,8 @@
  * persists across reloads — keeping history in memory is a deliberate
  * privacy choice, same spirit as the telemetry posture. No code
  * body, no stdout / stderr, no file path is captured by default — only the
- * bucketed metadata the future UI actually needs. On paid tiers
- * each entry also keeps a capped copy of its code, output
+ * bucketed metadata the future UI actually needs. On paid tiers with code
+ * capture on each entry also keeps a capped copy of its code, output
  * and inline values for the Compare tab, still in memory only.
  *
  * opt-in code snapshot. When the caller passes a
@@ -27,6 +27,7 @@
 import { create } from 'zustand';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
 import { currentEffectiveTier } from './licenseSelectors';
+import { useSettingsStore } from './settingsStore';
 import { isEntitled } from '../../shared/entitlements';
 import { buildRunCompareRecord, type RunCompareRecord, type RunCompareSummary } from '../utils/runCompareRecord';
 
@@ -93,7 +94,7 @@ export interface ExecutionHistoryEntry {
    * `lastCapsule`.
    */
   lastCapsule?: RunCapsuleV1;
-  /** Compare data for the Compare tab, captured only on paid tiers. */
+  /** Compare data for the Compare tab, captured only on paid tiers with code capture on. */
   runCompare?: RunCompareRecord;
 }
 
@@ -127,10 +128,13 @@ interface ExecutionHistoryRecord {
   summary?: RunCompareSummary;
 }
 
-/** The Compare tab keeps compare data only for paid tiers. */
+/** The Compare tab keeps compare data only for paid tiers with code capture on. */
 export function runCompareCaptureOn(): boolean {
   try {
-    return isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY');
+    return (
+      useSettingsStore.getState().executionHistorySnapshotEnabled === true &&
+      isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY')
+    );
   } catch {
     return false;
   }
