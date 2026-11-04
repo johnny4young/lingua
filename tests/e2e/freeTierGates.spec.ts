@@ -120,7 +120,7 @@ test.describe('Free tier gates', () => {
       });
     }
 
-    await page.getByRole('button', { name: 'Compare plans' }).click();
+    await page.getByTestId('status-notice-action-plans.title').click();
     await expect(page.getByTestId('compare-plans')).toBeVisible();
     if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
       await page.screenshot({
@@ -148,7 +148,7 @@ test.describe('Free tier gates', () => {
     await page.getByTestId('action-pill-lang').click();
     await page.getByRole('menuitem', { name: /^JavaScript\b/i }).click();
 
-    await expect(page.getByRole('button', { name: 'Comparar planes' })).toBeVisible();
+    await expect(page.getByTestId('status-notice-action-plans.title')).toHaveText('Comparar planes');
     await expectNoticeContains(page, 'más pestañas abiertas');
     await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(3);
     if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
