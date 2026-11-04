@@ -644,7 +644,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       </Panel>
       <ResizeHandle orientation="horizontal" />
       <Panel id="sql-results-pane" defaultSize="60%" minSize={140}>
-        <div className="flex h-full min-h-0 flex-col">
+        {/* A short pane scrolls as a whole, so the preview keeps its rows and the results stay in reach. */}
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto">
           {runner.stuck ? (
             <SqlStuckQueryBand onRestart={() => void runner.restartEngine()} isRestarting={runner.isRestarting} />
           ) : null}
@@ -652,7 +653,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           {showResultTabs ? (
             <SqlResultTabs runSet={runSet} hasPlan={plan !== null} view={view} onSelect={runner.setView} />
           ) : null}
-          <div className="min-h-0 flex-1">{resultBody}</div>
+          <div className="min-h-[6.5rem] flex-1">{resultBody}</div>
         </div>
       </Panel>
     </Group>
