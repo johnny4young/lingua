@@ -58,6 +58,9 @@ def __lingua_display_progress(label=""):
 
 __lingua_display.progress = __lingua_display_progress
 __lingua.display = __lingua_display
-globals()["display"] = __lingua_display
-globals()["lingua"] = __lingua
+# A name the user assigned stays theirs across runs; the helpers stay reachable as lingua.display.
+if "display" not in globals() or getattr(globals()["display"], "__name__", "") == "__lingua_display":
+    globals()["display"] = __lingua_display
+if hasattr(globals().get("lingua", __lingua), "display"):
+    globals()["lingua"] = __lingua
 `;

@@ -376,6 +376,8 @@ describe('Node typings on the web build', () => {
     applyTypeScriptDefaults(monacoMock as never);
     expect(linguaAddExtraLib).toHaveBeenCalledTimes(2);
     expect(linguaAddExtraLib.mock.calls[0]![0]).toContain('display: LinguaDisplay');
+    // Mirrors DISPLAY_AS in shared/richDisplay.ts.
+    expect(linguaAddExtraLib.mock.calls[0]![0]).toContain("as?: 'table' | 'json' | 'image' | 'html' | 'text' | 'chart'");
     expect(tsAddExtraLib).not.toHaveBeenCalled();
   });
 

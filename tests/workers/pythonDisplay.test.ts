@@ -56,11 +56,26 @@ describe('Python display', () => {
     expect(result.console[1]).toMatchObject({ args: ['user update'], line: 5 });
   });
 
-  it('shows a multi-line string on one row, and gives a notebook the helpers, not a user display or lingua', async () => {
+  it('shows a multi-line string on one row', async () => {
     expect((await execute('display("a\\nb")')).console).toHaveLength(1);
+  });
+
+  it('gives a notebook the helpers, not the scratchpad names, and keeps names a cell assigned', async () => {
     await execute('display = 5\nlingua = "es"');
-    const scoped = await execute('print(callable(display), callable(lingua.display))', 'nb-2');
-    expect(scoped.console.map(message => message.args[0])).toEqual(['True True']);
+    const helpers = await execute('print(callable(display), callable(lingua.display))', 'nb-2');
+    expect(helpers.console.map(message => message.args[0])).toEqual(['True True']);
+    await execute('del display, lingua');
+    await execute('def display(x):\n    print("mine", x)\nlingua = "es"', 'nb-3');
+    const later = await execute('display(1)\nprint(lingua)', 'nb-3');
+    expect(later.console.map(message => message.args[0])).toEqual(['mine 1', 'es']);
+  });
+
+  it('keeps a name the scratchpad assigned across runs, and the helper stays on lingua', async () => {
+    await execute('display = 5');
+    const kept = await execute('print(f"{display} {callable(lingua.display)}")');
+    expect(kept.console.map(message => message.args[0])).toEqual(['5 True']);
+    await execute('del display');
+    expect((await execute('print(callable(display))')).console.map(message => message.args[0])).toEqual(['True']);
   });
 
   it('reads the mime of a data URL', async () => {

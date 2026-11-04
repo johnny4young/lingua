@@ -350,7 +350,7 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
 const LINGUA_GLOBAL_TYPES = `
 interface LinguaProgressBar { update(fraction: number, text?: string): void }
 interface LinguaDisplay {
-  (value: unknown, options?: { as?: 'table' | 'image' | 'chart' | 'tree' | 'html'; [key: string]: unknown }): void;
+  (value: unknown, options?: { as?: 'table' | 'json' | 'image' | 'html' | 'text' | 'chart' }): void;
   progress(label?: string): LinguaProgressBar;
 }
 declare const lingua: {

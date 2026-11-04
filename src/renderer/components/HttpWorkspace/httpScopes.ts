@@ -81,10 +81,10 @@ export function rowsFromOtherEnvironments(
 
 interface ScopedView {
   env: HttpEnvironmentV1 | null;
-  sources: ReadonlyMap<string, HttpVariableSource> | null;
+  sources: ReadonlyMap<string, HttpVariableSource>;
   tags: HttpChainTag[];
   /** For the URL colours: tags whose source sends first count as chain values. */
-  check: { env: HttpEnvironmentV1 | null; sources: ReadonlyMap<string, HttpVariableSource> | null };
+  check: { env: HttpEnvironmentV1 | null; sources: ReadonlyMap<string, HttpVariableSource> };
   /** Tag keys with no value yet: those Send fills by sending the source first, and all of them for Run chain. */
   deferred: { send: ReadonlySet<string>; chain: ReadonlySet<string> };
 }

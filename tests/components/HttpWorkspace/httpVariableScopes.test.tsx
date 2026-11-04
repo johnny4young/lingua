@@ -42,12 +42,11 @@ beforeEach(async () => {
 });
 
 describe('scope colours in the URL', () => {
-  const field = (sources?: ReturnType<typeof variableSources>) =>
+  const field = (sources: ReturnType<typeof variableSources>) =>
     render(
       <HttpUrlField
         value="{{base}}/{{owner}}/{{repo}}/{{missing}}"
-        env={layeredEnvironment(layers)}
-        {...(sources ? { sources } : {})}
+        sources={sources}
         placeholder=""
         ariaLabel="URL"
         onChange={vi.fn()}
@@ -63,13 +62,6 @@ describe('scope colours in the URL', () => {
     expect(tokens[1]!.style.color).toBe(SCOPE_TINTS.collection.fg);
     expect(tokens[2]!.style.color).toBe(SCOPE_TINTS.request.fg);
     expect(tokens[3]!.style.color).toBe(UNRESOLVED_TINT.fg);
-  });
-
-  it('keeps the defined and missing look without scopes', () => {
-    field();
-    const tokens = screen.getAllByTestId('http-request-editor-url-token');
-    expect(tokens.map((token) => token.dataset.state)).toEqual(['defined', 'defined', 'defined', 'missing']);
-    expect(tokens[0]!.getAttribute('style')).toBeNull();
   });
 });
 

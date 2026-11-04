@@ -701,8 +701,7 @@ export function HttpRequestEditor({
         </select>
         <HttpUrlField
           value={url}
-          env={check.env}
-          {...(check.sources ? { sources: check.sources } : {})}
+          sources={check.sources}
           placeholder={t(
             transport === 'websocket'
               ? 'httpWorkspace.editor.url.websocketPlaceholder'
@@ -743,7 +742,7 @@ export function HttpRequestEditor({
       <HttpEnvironmentPreview
         request={previewRequest}
         env={scopedEnv}
-        {...(sources ? { sources } : {})}
+        sources={sources}
         {...(tags.length > 0 ? { chainKeys: new Set(tags.map((tag) => tag.key)), openTag, onOpenTag: (key: string) => setOpenTag(key || null) } : {})}
       />
       {tags.length > 0 ? (
