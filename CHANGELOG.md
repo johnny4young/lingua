@@ -13,6 +13,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
 - TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
+- SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
 
 ### Fixed
 - SQL History and grid snippets also mask `?api_key=`-style parameters, `password=x` connection strings, values compared to columns named like credentials, and those patterns in comments and quoted names, with SQL Server and SQLite quoting read correctly.
@@ -20,6 +21,7 @@ The format follows Keep a Changelog and groups changes by release.
 - HTTP responses and snapshots saved to disk no longer hold tokens a capture rule surfaced in plain text. Run capsules leave those tokens out too.
 - Variables named like credentials (`jwt`, `auth`, `session`, `cookie` and similar) and values shaped like a JSON Web Token now count as secret.
 - SQL grid thumbnails skip images whose header states more than 4096 pixels on a side, or no size at all.
+- Arrow keys in the SQL grid scroll a selected cell into view sideways as well as up and down.
 
 ## [2.0.0] — 2026-11-03
 
