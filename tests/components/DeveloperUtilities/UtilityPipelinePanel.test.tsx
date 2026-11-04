@@ -96,7 +96,6 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
   });
 
   afterEach(() => {
-    useSettingsStore.setState({ featureFlags: {} });
   });
 
   it('waits for a step', () => {
@@ -129,7 +128,6 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
 
   it('exports what Free runs when Pro is in context', async () => {
     setFreeTier();
-    useSettingsStore.setState({ featureFlags: { ejectToCode: true, teachingPaywall: true } });
     seed(['url-encode', 'url-decode', 'url-encode', 'base64-encode']);
     const user = userEvent.setup();
     render(<UtilityPipelinePanel />);
@@ -143,7 +141,6 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
 
   it('reports the whole pipeline when Free runs all of it', async () => {
     setFreeTier();
-    useSettingsStore.setState({ featureFlags: { ejectToCode: true, teachingPaywall: true } });
     seed(['url-encode', 'url-decode', 'url-encode']);
     const user = userEvent.setup();
     render(<UtilityPipelinePanel />);
@@ -153,7 +150,6 @@ describe('UtilityPipelinePanel, saved as a JavaScript snippet', () => {
 
   it('claims nothing when the Free snippet ceiling refuses it', async () => {
     setFreeTier();
-    useSettingsStore.setState({ featureFlags: { ejectToCode: true, teachingPaywall: true } });
     useSnippetsStore.setState({
       snippets: Array.from({ length: 5 }, (_, index) => ({ id: `s${index}`, language: 'javascript' as const, label: 'x', description: '', code: '', createdAt: 0 })),
     });
@@ -180,29 +176,11 @@ describe('UtilityPipelinePanel, step controls', () => {
   const stored = () => useUtilityPipelineStore.getState().pipelines[0]!;
 
   beforeEach(() => {
-    useSettingsStore.setState({ featureFlags: { clipboardChains: true } });
     useUtilityPipelineStore.setState({ pendingRunPipelineId: null });
   });
 
   afterEach(() => {
-    useSettingsStore.setState({ featureFlags: {} });
     vi.useRealTimers();
-  });
-
-  it('hides the controls and ignores saved ones without the flag', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
-    seed([['url-encode', { disabled: true, breakpoint: true }], ['url-decode']], 'a b', { autoBake: true });
-    const user = userEvent.setup();
-    render(<UtilityPipelinePanel />);
-    expect(screen.queryByTestId('utility-pipeline-step-disable')).toBeNull();
-    expect(screen.queryByTestId('utility-pipeline-step-breakpoint')).toBeNull();
-    expect(screen.queryByTestId('utility-pipeline-auto-bake')).toBeNull();
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    expect(screen.queryAllByTestId('utility-pipeline-result-row')).toHaveLength(0);
-    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
-    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
-    expect(screen.queryByTestId('utility-pipeline-send')).toBeNull();
-    expect(screen.queryByTestId('utility-pipeline-continue')).toBeNull();
   });
 
   it('toggles disable and breakpoint on a step, on and off', async () => {
@@ -254,7 +232,6 @@ describe('UtilityPipelinePanel, step controls', () => {
 
   it('counts only the steps a Free snippet holds, and offers none with every step off', async () => {
     setFreeTier();
-    useSettingsStore.setState({ featureFlags: { clipboardChains: true, ejectToCode: true, teachingPaywall: true } });
     useSnippetsStore.setState({ snippets: [] });
     useUIStore.setState({ statusNoticeQueue: [] });
     seed([['url-encode', { disabled: true }], ['url-decode'], ['url-encode'], ['url-decode']]);
@@ -332,7 +309,6 @@ describe('UtilityPipelinePanel, step controls', () => {
   });
 
   it('leaves a disabled step out of the JavaScript export', async () => {
-    useSettingsStore.setState({ featureFlags: { clipboardChains: true, ejectToCode: true } });
     useSnippetsStore.setState({ snippets: [] });
     seed([['url-encode', { disabled: true }], ['base64-encode']]);
     const user = userEvent.setup();
@@ -397,7 +373,6 @@ describe('UtilityPipelinePanel, step controls', () => {
 
   it('auto-bake runs only what Free runs', async () => {
     setFreeTier();
-    useSettingsStore.setState({ featureFlags: { clipboardChains: true, teachingPaywall: true } });
     seed([['url-encode'], ['url-decode'], ['url-encode'], ['base64-encode']], 'a b', { autoBake: true });
     render(<UtilityPipelinePanel />);
     await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'ok']));
@@ -436,7 +411,6 @@ describe('UtilityPipelinePanel, step controls', () => {
 
   it('refuses a Send past the Free step limit, as that step would never run', async () => {
     setFreeTier();
-    useSettingsStore.setState({ featureFlags: { clipboardChains: true, teachingPaywall: true } });
     seed([['url-encode'], ['url-decode'], ['url-encode']]);
     const user = userEvent.setup();
     render(<UtilityPipelinePanel />);
@@ -513,7 +487,6 @@ describe('UtilityPipelinePanel', () => {
       await waitFor(() => expect(vi.mocked(buildPipelineCapsule)).toHaveBeenCalled());
       expect(vi.mocked(buildPipelineCapsule).mock.lastCall?.[0].steps.map(step => step.id)).toEqual(['s1', 's2', 's3']);
     } finally {
-      useSettingsStore.setState({ featureFlags: {} });
     }
   });
 

@@ -1852,15 +1852,14 @@ placeholders the user fills in, and never receives a secret from the workspace.
 ### Clipboard suggestions in Utilities
 
 `useClipboardSuggestion` reads the clipboard when the Utilities tab becomes active and on
-window focus, with no polling, behind the `clipboardChains` flag, `DEV_UTILITIES` and
+window focus, with no polling, behind `DEV_UTILITIES` and
 `utilitiesClipboardOnFocusConsent`. It skips browsers whose Permissions API cannot report
 `clipboard-read`, where each read could prompt, and a read on focus never asks. It keeps only the result of `classifyClipboard`,
 so the text never reaches a store, the DOM, a log or telemetry.
 
 ### Utility pipeline run controls
 
-Behind `clipboardChains` and non-locked `DEV_UTILITIES` access, Free's slice included and
-with no clipboard consent, steps can carry `disabled` and `breakpoint`, and a pipeline
+On every tier, Free's slice included and with no clipboard consent, steps can carry `disabled` and `breakpoint`, and a pipeline
 `autoBake`. All three are additive to version 1 and only `true` survives a parse. `runPipeline` reports
 `disabled` and `paused` step statuses, which the aggregate telemetry status does not count,
 so `PIPELINE_RUN_STATUSES` is unchanged. Auto-bake lives in `UtilityPipelinePanel`: it

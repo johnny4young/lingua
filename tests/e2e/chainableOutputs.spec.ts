@@ -5,13 +5,8 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
 
-async function open(page: Page, language: 'en' | 'es', { flag = true, pro = true } = {}) {
+async function open(page: Page, language: 'en' | 'es', { pro = true } = {}) {
   await seedSession(page, { language, primeProLicense: pro });
-  await page.addInitScript((flag) => {
-    const stored = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    stored.state.featureFlags = flag ? { clipboardChains: true } : {};
-    localStorage.setItem('lingua-settings', JSON.stringify(stored));
-  }, flag);
   await gotoApp(page);
 }
 
@@ -148,16 +143,3 @@ test('keeps the controls across a reload, and never the input', async ({ page })
   await expect(page.getByTestId('utility-pipeline-editor-input')).toHaveValue('');
 });
 
-test('keeps Utilities as it was without the flag', async ({ page }) => {
-  await open(page, 'en', { flag: false });
-  await page.keyboard.press('ControlOrMeta+K');
-  await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
-  await expect(page.getByTestId('utility-send-output')).toHaveCount(0);
-  await pipelineWith(page, ['url-encode'], 'a b');
-  await expect(page.getByTestId('utility-pipeline-step-disable')).toHaveCount(0);
-  await expect(page.getByTestId('utility-pipeline-step-breakpoint')).toHaveCount(0);
-  await expect(page.getByTestId('utility-pipeline-auto-bake')).toHaveCount(0);
-  await page.getByTestId('utility-pipeline-editor-run').click();
-  await expectStatuses(page, ['ok']);
-  await expect(page.getByTestId('utility-pipeline-send')).toHaveCount(0);
-});

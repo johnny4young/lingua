@@ -56,8 +56,7 @@ export interface UtilityPipelineStepRowProps {
   onUtilityChange: (stepId: string, newUtilityId: UtilityAdapterId) => void;
   onOptionsChange: (stepId: string, nextOptions: Record<string, unknown>) => void;
   onDelete: (stepId: string) => void;
-  /** Absent when Labs › Clipboard-aware utilities is off. */
-  onToggleControl?: (stepId: string, control: 'disabled' | 'breakpoint') => void;
+  onToggleControl: (stepId: string, control: 'disabled' | 'breakpoint') => void;
 }
 
 export function UtilityPipelineStepRow({
@@ -107,11 +106,11 @@ export function UtilityPipelineStepRow({
       data-testid="utility-pipeline-step-row"
       data-step-id={step.id}
       data-status={status ?? 'pending'}
-      data-disabled={onToggleControl && step.disabled ? true : undefined}
+      data-disabled={step.disabled ? true : undefined}
       className={cn(
         'flex flex-col gap-2 rounded-lg border bg-surface/30 p-3',
-        onToggleControl && step.breakpoint ? 'border-accent' : 'border-border/60',
-        onToggleControl && step.disabled && 'opacity-60'
+        step.breakpoint ? 'border-accent' : 'border-border/60',
+        step.disabled && 'opacity-60'
       )}
     >
       <header className="flex flex-wrap items-center gap-2">
@@ -157,32 +156,28 @@ export function UtilityPipelineStepRow({
           </span>
         ) : null}
         <span className="ml-auto inline-flex items-center gap-1">
-          {onToggleControl ? (
-            <>
-              <button
-                type="button"
-                onClick={() => onToggleControl(step.id, 'disabled')}
-                aria-pressed={step.disabled === true}
-                aria-label={t('utilityPipeline.step.disable')}
-                title={t('utilityPipeline.step.disable')}
-                data-testid="utility-pipeline-step-disable"
-                className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.disabled && 'bg-accent-tint text-accent-fg')}
-              >
-                <EyeOff size={11} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleControl(step.id, 'breakpoint')}
-                aria-pressed={step.breakpoint === true}
-                aria-label={t('utilityPipeline.step.breakpoint')}
-                title={t('utilityPipeline.step.breakpoint')}
-                data-testid="utility-pipeline-step-breakpoint"
-                className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.breakpoint && 'bg-accent-tint text-accent-fg')}
-              >
-                <Pause size={11} aria-hidden="true" />
-              </button>
-            </>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => onToggleControl(step.id, 'disabled')}
+            aria-pressed={step.disabled === true}
+            aria-label={t('utilityPipeline.step.disable')}
+            title={t('utilityPipeline.step.disable')}
+            data-testid="utility-pipeline-step-disable"
+            className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.disabled && 'bg-accent-tint text-accent-fg')}
+          >
+            <EyeOff size={11} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleControl(step.id, 'breakpoint')}
+            aria-pressed={step.breakpoint === true}
+            aria-label={t('utilityPipeline.step.breakpoint')}
+            title={t('utilityPipeline.step.breakpoint')}
+            data-testid="utility-pipeline-step-breakpoint"
+            className={cn('inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground', step.breakpoint && 'bg-accent-tint text-accent-fg')}
+          >
+            <Pause size={11} aria-hidden="true" />
+          </button>
           <button
             type="button"
             onClick={() => onDelete(step.id)}

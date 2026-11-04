@@ -29,9 +29,8 @@ interface UtilityPipelineResultsProps {
   readonly runState: PipelineRunState;
   readonly canSaveCapsule: boolean;
   readonly onSaveCapsule: () => void;
-  /** Present when Labs › Clipboard-aware utilities is on. */
-  readonly onSendOutput?: (afterStepId: string, utilityId: UtilityAdapterId) => void;
-  readonly onContinue?: (stepId: string) => void;
+  readonly onSendOutput: (afterStepId: string, utilityId: UtilityAdapterId) => void;
+  readonly onContinue: (stepId: string) => void;
 }
 
 export function UtilityPipelineResults({
@@ -46,7 +45,7 @@ export function UtilityPipelineResults({
   const paused = runState.stepResults.some((result) => result.status === 'paused');
   // A paused run has no result to send yet: a new step would wait behind the breakpoint.
   const lastOutput =
-    runState.phase === 'settled' && onSendOutput && !paused
+    runState.phase === 'settled' && !paused
       ? [...runState.stepResults].reverse().find((result) => result.status === 'ok' && typeof result.output === 'string')
       : undefined;
   const next = lastOutput ? suggestedNext(lastOutput) : null;
@@ -124,7 +123,7 @@ export function UtilityPipelineResults({
                   {result.errorMessage ?? t(`utilityPipeline.result.${result.status}`)}
                 </p>
               ) : null}
-              {typeof result.input === 'string' && onContinue && runState.phase === 'settled' && paused ? (
+              {typeof result.input === 'string' && runState.phase === 'settled' && paused ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -156,7 +155,7 @@ export function UtilityPipelineResults({
           ))}
         </ol>
       )}
-      {lastOutput && onSendOutput ? (
+      {lastOutput ? (
         <footer data-testid="utility-pipeline-send" className="flex flex-wrap items-center gap-2 pt-1">
           <SendOutputSelect
             testId="utility-pipeline-send-select"

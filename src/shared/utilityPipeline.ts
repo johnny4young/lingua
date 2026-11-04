@@ -192,11 +192,6 @@ export function parsePipelineStep(value: unknown): PipelineStepV1 | null {
   };
 }
 
-/** A step without its run controls, for a run where they do not apply. */
-export function withoutStepControls(step: PipelineStepV1): PipelineStepV1 {
-  return { id: step.id, utilityId: step.utilityId, options: step.options };
-}
-
 /**
  * Recovery parser. Returns `null` if the top-level shape is broken or
  * valid steps share an id. Invalid steps, including unknown utility ids,

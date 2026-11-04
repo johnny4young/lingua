@@ -20,7 +20,6 @@ import {
   parsePipelineStep,
   runPipeline,
   tryImportPipelineJson,
-  withoutStepControls,
   type PipelineStepV1,
   type UtilityPipelineV1,
 } from '../../src/shared/utilityPipeline';
@@ -424,7 +423,4 @@ describe('step controls', () => {
     expect(parsePipeline({ ...shell, autoBake: 'yes' })).not.toHaveProperty('autoBake');
   });
 
-  it('strips the controls for a run where they do not apply', () => {
-    expect(withoutStepControls(step('a', 'url-encode', { disabled: true, breakpoint: true }))).toEqual(step('a', 'url-encode'));
-  });
 });

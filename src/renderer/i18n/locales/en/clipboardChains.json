@@ -8,7 +8,7 @@
   "utilities.clipboard.banner.json": "Clipboard looks like JSON",
   "utilities.clipboard.suggested": "Suggested for your clipboard",
   "utilities.clipboard.railLabel": "{{category}}, suggested for your clipboard",
-  "utilities.settings.clipboardOnFocus.hint": "When enabled, a utility reads the clipboard when opened and offers to apply it, and Labs can add reads on window focus. It is never polled in the background.",
+  "utilities.settings.clipboardOnFocus.hint": "When enabled, a utility reads the clipboard when opened and offers to apply it. Utilities also reads it when opened and on window focus to suggest a tool, keeping only the kind of value. It is never polled in the background.",
   "utilityPipeline.step.disable": "Disable step",
   "utilityPipeline.step.breakpoint": "Breakpoint",
   "utilityPipeline.step.status.disabled": "Disabled",

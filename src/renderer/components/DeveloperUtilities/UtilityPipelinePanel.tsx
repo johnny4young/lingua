@@ -44,7 +44,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useUtilityPipelineStore } from '../../stores/utilityPipelineStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { buildPipelineJs } from '../../../shared/utilityPipelineJs';
@@ -59,7 +58,6 @@ import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   PIPELINE_MAX_STEPS,
   createBlankStep,
-  withoutStepControls,
   type PipelineRunOutcome,
   type PipelineStepResult,
   type PipelineStepStatus,
@@ -113,7 +111,6 @@ export function UtilityPipelinePanel() {
 
 /** `stepLimit`: Free's slice runs only the first steps; the rest show dimmed behind a PRO chip. */
 function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
-  const controlsOn = useSettingsStore((state) => state.featureFlags.clipboardChains === true);
   const { t } = useTranslation();
   const announce = useAnnounce();
   const { track } = useTelemetry();
@@ -269,8 +266,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
       if (!activePipeline) return;
       if (steps.length === 0) return;
       if (useUtilityPipelineStore.getState().isExecutingActive) return;
-      const sliced = steps.slice(0, stepLimit);
-      const ranSteps = controlsOn ? sliced : sliced.map(withoutStepControls);
+      const ranSteps = steps.slice(0, stepLimit);
       if (ranSteps.every((step) => step.disabled === true)) {
         resetRun();
         return;
@@ -312,12 +308,12 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
         useUtilityPipelineStore.getState().setIsExecutingActive(false);
       }
     },
-    [activePipeline, activeInput, run, resetRun, t, announce, stepLimit, controlsOn]
+    [activePipeline, activeInput, run, resetRun, t, announce, stepLimit]
   );
 
   const handleRun = useCallback(() => execute(true), [execute]);
 
-  const autoBake = controlsOn && activePipeline?.autoBake === true;
+  const autoBake = activePipeline?.autoBake === true;
   const activeSteps = activePipeline?.steps;
   useEffect(() => {
     if (!autoBake || isExecuting || !activeSteps) return;
@@ -408,7 +404,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   const handleEject = useCallback(() => {
     if (!activePipeline) return;
     const steps = activePipeline.steps.slice(0, stepLimit);
-    const planned = controlsOn ? steps.filter((step) => step.disabled !== true) : steps;
+    const planned = steps.filter((step) => step.disabled !== true);
     const id = useSnippetsStore.getState().addSnippet({
       language: 'javascript',
       label: activePipeline.name.trim() || t('utilityPipeline.list.renamePlaceholder'),
@@ -425,7 +421,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
         ? { tone: 'success', messageKey: 'utilityPipeline.eject.savedFirst', values: { steps: planned.length } }
         : { tone: 'success', messageKey: 'utilityPipeline.eject.saved' }
     );
-  }, [activePipeline, stepLimit, t, controlsOn]);
+  }, [activePipeline, stepLimit, t]);
 
   // EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
@@ -433,7 +429,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   // comparator) when the user asks for it. Keep a snapshot of the exact
   // run inputs so edits made after settle cannot pair a stale outcome with
   // the current recipe/input.
-  const everyStepOff = controlsOn && activePipeline?.steps.every((step) => step.disabled === true) === true;
+  const everyStepOff = activePipeline?.steps.every((step) => step.disabled === true) === true;
 
   const canSaveCapsule =
     runState.phase === 'settled' &&
@@ -543,17 +539,15 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 <Code2 size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.eject')}</span>
               </button>
-              {controlsOn ? (
-                <label className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap text-caption font-medium text-muted">
-                  <input
-                    type="checkbox"
-                    checked={activePipeline.autoBake === true}
-                    onChange={handleToggleAutoBake}
-                    data-testid="utility-pipeline-auto-bake"
-                  />
-                  {t('utilityPipeline.editor.autoBake')}
-                </label>
-              ) : null}
+              <label className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap text-caption font-medium text-muted">
+                <input
+                  type="checkbox"
+                  checked={activePipeline.autoBake === true}
+                  onChange={handleToggleAutoBake}
+                  data-testid="utility-pipeline-auto-bake"
+                />
+                {t('utilityPipeline.editor.autoBake')}
+              </label>
               <button
                 type="button"
                 onClick={handleRun}
@@ -609,7 +603,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                             onUtilityChange={handleStepUtilityChange}
                             onOptionsChange={handleStepOptionsChange}
                             onDelete={handleStepDelete}
-                            {...(controlsOn ? { onToggleControl: handleToggleControl } : {})}
+                            onToggleControl={handleToggleControl}
                           />
                         </div>
                       );
@@ -641,7 +635,8 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
         runState={runState}
         canSaveCapsule={canSaveCapsule}
         onSaveCapsule={handleSaveCapsule}
-        {...(controlsOn ? { onSendOutput: handleSendOutput, onContinue: handleContinue } : {})}
+        onSendOutput={handleSendOutput}
+        onContinue={handleContinue}
       />
     </div>
   );

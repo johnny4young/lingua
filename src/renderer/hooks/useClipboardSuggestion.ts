@@ -7,15 +7,14 @@ import { useEffectiveTier } from './useEntitlement';
 
 /**
  * The kind of value on the clipboard while the Utilities tab is active, read
- * when it becomes active and on each window focus. It needs the Labs flag, Pro, the
+ * when it becomes active and on each window focus. It needs Pro, the
  * Settings opt-in and a browser that can report the permission. Only the kind
  * stays; the text is never stored or sent.
  */
 export function useClipboardSuggestion(active: boolean): UtilitySuggestionId | null {
-  const flag = useSettingsStore((state) => state.featureFlags.clipboardChains === true);
   const consent = useSettingsStore((state) => state.utilitiesClipboardOnFocusConsent);
   const tier = useEffectiveTier();
-  const allowed = active && flag && clipboardAutomationAllowed(tier, consent);
+  const allowed = active && clipboardAutomationAllowed(tier, consent);
   const [kind, setKind] = useState<UtilitySuggestionId | null>(null);
 
   useEffect(() => {
