@@ -103,6 +103,96 @@ test.describe('SQL result grid', () => {
   });
 
   for (const language of ['en', 'es'] as const) {
+    test(`windows a wide result: scroll, sticky header, arrow keys and the editor (${language})`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await seedSession(page, { language });
+      await page.addInitScript(() => {
+        const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
+        raw.state.featureFlags = { editRows: true };
+        localStorage.setItem('lingua-settings', JSON.stringify(raw));
+      });
+      await gotoApp(page);
+      await openSqlScratch(page);
+      const names = Array.from({ length: 99 }, (_, c) => `c${c + 1}`);
+      await runAll(
+        page,
+        [
+          `CREATE TABLE wide (id INTEGER PRIMARY KEY, ${names.map((name) => `${name} VARCHAR`).join(', ')});`,
+          `INSERT INTO wide SELECT i, ${names.map((name) => `'${name}-' || i`).join(', ')} FROM range(300) t(i);`,
+        ].join('\n')
+      );
+      const wide = page.locator('[data-testid="sql-explorer-table"][data-table-name="wide"]');
+      await expect(wide).toBeVisible();
+      await wide.click();
+
+      const grid = page.getByTestId('sql-result-preview-table-container');
+      const firstRow = page.getByTestId('sql-result-preview-row').first();
+      const header = (name: string) => page.locator(`th:has([data-testid="sql-result-preview-sort"][data-column="${name}"])`);
+      await expect(firstRow.locator('td[data-column="id"]')).toBeVisible();
+      await expect(page.locator('thead th')).toHaveCount(100);
+      await expect(header('c1').getByTestId('sql-result-preview-sort')).toHaveAttribute('title', language === 'es' ? 'Ordenar por c1' : 'Sort by c1');
+      const mountedCells = await firstRow.locator('td[role="gridcell"]').count();
+      expect(mountedCells).toBeLessThan(30);
+      await expect(firstRow.locator('td[data-column="c50"]')).toHaveCount(0);
+
+      // Sideways the window follows, with header and cells on one column grid.
+      await grid.evaluate((node) => {
+        node.scrollLeft = node.scrollWidth / 2;
+      });
+      await expect(firstRow.locator('td[data-column="c50"]')).toBeVisible();
+      await expect(firstRow.locator('td[data-column="id"]')).toHaveCount(0);
+      await expect(firstRow.locator('td[data-column="c50"]')).toHaveAttribute('aria-colindex', '51');
+      const cellBox = await firstRow.locator('td[data-column="c50"]').boundingBox();
+      const headerBox = await header('c50').boundingBox();
+      expect(cellBox!.x).toBeCloseTo(headerBox!.x, 0);
+      expect(cellBox!.width).toBeCloseTo(headerBox!.width, 0);
+
+      // Down, the header stays at the top of the grid and the columns keep their widths.
+      await grid.evaluate((node) => {
+        node.scrollTop = 26 * 60;
+      });
+      await expect(page.getByTestId('sql-result-preview-row').first()).toHaveAttribute('aria-rowindex', /^[4-9]\d$/);
+      const gridBox = await grid.boundingBox();
+      expect((await header('c50').boundingBox())!.y).toBeCloseTo(gridBox!.y, 0);
+      expect((await header('c50').boundingBox())!.width).toBeCloseTo(headerBox!.width, 0);
+
+      // The arrow keys walk off the mounted window and bring each cell into view.
+      await grid.evaluate((node) => {
+        node.scrollLeft = 0;
+        node.scrollTop = 0;
+      });
+      await firstRow.locator('td[data-column="c1"]').click();
+      await grid.focus();
+      for (let press = 0; press < 25; press++) await page.keyboard.press('ArrowRight');
+      const selected = firstRow.locator('td[data-column="c26"]');
+      await expect(selected).toHaveAttribute('aria-selected', 'true');
+      await expect(selected).toBeInViewport({ ratio: 1 });
+      await page.keyboard.press('Escape');
+
+      // An editor scrolled away stays mounted, keeps its draft and still saves.
+      await grid.evaluate((node) => {
+        node.scrollLeft = 0;
+      });
+      await firstRow.locator('td[data-column="c1"]').dblclick();
+      const editor = page.getByTestId('sql-cell-editor');
+      await expect(editor).toBeFocused();
+      await editor.fill('edited');
+      await grid.evaluate((node) => {
+        node.scrollLeft = node.scrollWidth / 2;
+      });
+      await expect(firstRow.locator('td[data-column="c50"]')).toBeVisible();
+      await expect(editor).toBeFocused();
+      await expect(editor).toHaveValue('edited');
+      await page.keyboard.press('Enter');
+      await expect(editor).toHaveCount(0);
+      await expect(page.getByTestId('sql-edit-count')).toBeVisible();
+      await grid.evaluate((node) => {
+        node.scrollLeft = 0;
+      });
+      await expect(firstRow.locator('td[data-column="c1"]')).toHaveText('edited');
+      expect(errors).toEqual([]);
+    });
+
     test(`shows Infinity and NaN as numbers and only a real NULL as null (${language})`, async ({ page }) => {
       const errors = collectConsoleErrors(page);
       await seedSession(page, { language });
