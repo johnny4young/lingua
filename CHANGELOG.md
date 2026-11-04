@@ -7,7 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
-- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code, Pro in context and Clipboard-aware utilities (reads stay off until you turn on Apply from clipboard on panel focus, on Pro). Settings › Labs no longer lists them.
+- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code, Pro in context, Clipboard-aware utilities (reads stay off until you turn on Apply from clipboard on panel focus, on Pro) and Database connections (Free keeps 3 saved connections; a query saved against a connection now runs on it). Settings › Labs no longer lists them.
 - Scratchpad now follows Settings › Editor › Run policy: 500 ms after typing for JavaScript and TypeScript, 1 s for Python, and Manual for Go and Rust, where it used to wait 1.2 s for every language.
 - On Free, Recent runs, Utility pipelines and Run capsules open as slices of your own data instead of locks, and the first upgrade notice in a session opens Compare plans.
 - Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.
@@ -16,7 +16,7 @@ The format follows Keep a Changelog and groups changes by release.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
 
 ### Fixed
-- Database connections (Labs): results, driver errors and secret literals of a query on a connection no longer reach disk or a run capsule. After a reload the query shows ••• in place of the value, and it will not run until you type it again.
+- Database connections: results, driver errors and secret literals of a query on a connection no longer reach disk or a run capsule. After a reload the query shows ••• in place of the value, and it will not run until you type it again.
 - A connection URL no longer shows its password in the field when the URL does not parse, names it in a parameter, or does not suit the browser. The password moves to its own field.
 - SQL History, snippets and Explain with AI also mask `ALTER USER`, `CREATE ROLE` and foreign server passwords written without `=`.
 - Instant SQL (Labs) previews work offline and no longer download DuckDB's JSON extension from DuckDB's host, because Lingua ships its own copy. JSON columns and Explain use the same copy.

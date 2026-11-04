@@ -7,7 +7,7 @@ import { ChipContent as Chip, ConnectionChip } from './SqlConnectionChip';
 import { CONNECTION_TONE, ENGINE_LABEL, engineDetail as detailOf, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
 import '../../i18n/sqlConnectionsCatalog';
 
-/** Saved connections in the picker; absent while the Database connections flag is off. */
+/** What the picker lists and where its actions go. */
 export interface SqlConnectionPickerRemote {
   /** False on the web build: the picker says which engines need Desktop. */
   desktop: boolean;
@@ -24,7 +24,7 @@ export interface SqlConnectionPickerRemote {
 interface SqlConnectionBarProps {
   /** Right-aligned actions (Import data). */
   actions?: ReactNode;
-  remote?: SqlConnectionPickerRemote;
+  remote: SqlConnectionPickerRemote;
 }
 
 const LOCAL_ENGINE = 'DuckDB';
@@ -32,8 +32,8 @@ const LOCAL_ENGINE = 'DuckDB';
 
 /**
  * Connection toolbar of the SQL tab. Local (DuckDB) is first and the default;
- * with the Database connections flag on, saved connections follow it, with
- * their environment colour, and the picker opens the new-connection sheet.
+ * saved connections follow it, with their environment colour, and the picker
+ * opens the new-connection sheet.
  */
 export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
   const { t } = useTranslation();
@@ -71,12 +71,11 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
   const needle = search.trim().toLowerCase();
   const matches = (text: string) => needle.length === 0 || text.toLowerCase().includes(needle);
   const localMatches = matches(`${localName} ${LOCAL_ENGINE}`);
-  const desktop = remote?.desktop === true;
-  const catalog = remote?.catalog ?? null;
+  const { desktop, catalog } = remote;
   const sessionOnly = catalog?.sessionOnly === true;
   const all = catalog ? [...catalog.connections, ...catalog.adhoc] : [];
-  const active = remote?.activeId ? all.find((entry) => entry.id === remote.activeId) : undefined;
-  const missing = Boolean(remote?.activeId) && catalog !== null && !active;
+  const active = remote.activeId ? all.find((entry) => entry.id === remote.activeId) : undefined;
+  const missing = Boolean(remote.activeId) && catalog !== null && !active;
   const saved = (catalog?.connections ?? []).filter((entry) => matches(`${entry.name} ${ENGINE_LABEL[entry.engine]} ${entry.group ?? ''}`));
   const adhoc = (catalog?.adhoc ?? []).filter((entry) => matches(`${entry.name} ${ENGINE_LABEL[entry.engine]}`));
 
@@ -90,14 +89,14 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
   };
 
   const choose = (id: string | undefined) => {
-    remote?.onSelect(id);
+    remote.onSelect(id);
     close();
   };
 
   const optionProps = (id: string | undefined) => ({
     role: 'option' as const,
     tabIndex: -1,
-    'aria-selected': (remote?.activeId ?? undefined) === id,
+    'aria-selected': remote.activeId === id,
     onClick: () => choose(id),
     onKeyDown: (event: KeyboardEvent<HTMLLIElement>) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -115,7 +114,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
       data-connection-id={connection.id}
       className={cn(
         'focus-ring group flex h-[30px] cursor-pointer items-center gap-2 rounded-md px-2 hover:bg-bg-panel-alt',
-        connection.id === remote?.activeId && 'bg-accent-tint'
+        connection.id === remote.activeId && 'bg-accent-tint'
       )}
     >
       <ConnectionChip connection={connection} readOnlyLabel={readOnly} />
@@ -128,7 +127,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
         onClick={(event) => {
           event.stopPropagation();
           setOpen(false);
-          remote?.onEdit(connection.id);
+          remote.onEdit(connection.id);
         }}
         className="focus-ring rounded p-0.5 text-fg-subtle opacity-0 hover:text-fg-base group-hover:opacity-100 group-focus:opacity-100"
       >
@@ -201,7 +200,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                   {!active ? <Check size={12} aria-hidden="true" className="text-accent-fg" /> : null}
                 </li>
               ) : null}
-              {remote && !desktop ? (
+              {!desktop ? (
                 <li role="presentation" data-testid="sql-connection-desktop-only" className="px-2 py-1.5">
                   <span className="flex items-center gap-2 text-body-sm text-fg-subtle">
                     <Lock size={12} aria-hidden="true" />
@@ -246,7 +245,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                   data-testid="sql-connection-new"
                   onClick={() => {
                     setOpen(false);
-                    remote?.onNew();
+                    remote.onNew();
                   }}
                   className="focus-ring flex h-8 w-full items-center gap-2 rounded-md px-2 text-body-sm text-accent-fg hover:bg-bg-panel-alt"
                 >
@@ -258,7 +257,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                   data-testid="sql-connection-open-url"
                   onClick={() => {
                     setOpen(false);
-                    remote?.onOpenUrl();
+                    remote.onOpenUrl();
                   }}
                   className="focus-ring flex h-[30px] w-full items-center rounded-md px-2 text-body-sm text-fg-base hover:bg-bg-panel-alt"
                 >
@@ -270,7 +269,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                   data-testid="sql-connection-manage"
                   onClick={() => {
                     setOpen(false);
-                    remote?.onManage();
+                    remote.onManage();
                   }}
                   className="focus-ring flex h-[30px] w-full items-center rounded-md px-2 text-body-sm text-fg-base hover:bg-bg-panel-alt"
                 >

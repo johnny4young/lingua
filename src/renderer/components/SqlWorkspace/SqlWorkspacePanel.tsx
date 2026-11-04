@@ -466,7 +466,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     insertAtCursor: (text) => setPredicateSignal((prev) => ({ text, raw: true, nonce: (prev?.nonce ?? 0) + 1 })),
     insertSql: handleEditInEditor,
   });
-  const { activeConnection, dbFlag } = remote;
+  const { activeConnection } = remote;
   const instantSql = useInstantSqlChannel(!activeConnection);
 
   const explorer = (
@@ -498,12 +498,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onDelete={tabActions.remove}
         onDuplicate={tabActions.duplicate}
         filter={explorerFilter}
-        {...(remote.connectionLabel ? { connectionLabel: remote.connectionLabel } : {})}
+        connectionLabel={remote.connectionLabel}
       />
       <SqlHistorySection
         entries={history}
         {...(activeConnection ? { connectionId: activeConnection.id } : {})}
-        {...(dbFlag ? { connectionLabel: activeConnection?.name ?? t('sqlWorkspace.connection.localName') } : {})}
+        connectionLabel={activeConnection?.name ?? t('sqlWorkspace.connection.localName')}
         open={historyOpen}
         onToggle={() => setHistoryOpen((open) => !open)}
         onOpenEntry={tabActions.openHistoryEntry}
@@ -686,7 +686,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
       <SqlConnectionBar
-        {...(remote.barRemote ? { remote: remote.barRemote } : {})}
+        remote={remote.barRemote}
         actions={
           <SqlImportButton
             inputRef={importInputRef}

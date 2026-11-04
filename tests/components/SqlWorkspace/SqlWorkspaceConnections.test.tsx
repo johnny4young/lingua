@@ -146,7 +146,7 @@ beforeEach(() => {
   resetWorkspaceSqlStoreForTests();
   resetSqlRunStateForTests();
   useUIStore.setState({ statusNotice: null });
-  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, featureFlags: { dbClient: true } });
+  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, featureFlags: {} });
   useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
   useSqlConnectionsStore.setState({ catalog: null });
   duckRan = [];
@@ -173,7 +173,7 @@ afterEach(() => {
 
 describe('SQL workspace on a saved connection', () => {
   it('never previews as you type on a connection, even with Instant SQL on', async () => {
-    useSettingsStore.setState({ featureFlags: { dbClient: true, instantSql: true } });
+    useSettingsStore.setState({ featureFlags: { instantSql: true } });
     openQuery('SELECT id FROM orders', 'c_dev');
     await renderPanel();
     expect(screen.queryByTestId('sql-instant-preview')).toBeNull();
@@ -298,8 +298,8 @@ describe('SQL workspace on a saved connection', () => {
     expect(db.execute).not.toHaveBeenCalled();
   });
 
-  it('runs on Local when the Labs flag is off, whatever the query points at', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
+  it('runs on Local when the app has no database bridge, whatever the query points at', async () => {
+    (window as { lingua?: unknown }).lingua = { platform: 'darwin' };
     openQuery('SELECT 1', 'c_dev');
     render(<SqlWorkspacePanel />);
     expect(screen.getByTestId('sql-connection-pill').getAttribute('data-env')).toBe('local');
