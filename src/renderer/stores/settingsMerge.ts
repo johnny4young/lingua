@@ -290,6 +290,7 @@ export function settingsMerge(
     ...sanitizeLabsSettings(merged),
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
+    sqlWorkspaceInstantPreview: merged.sqlWorkspaceInstantPreview !== false,
     sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // OPFS: coerce to boolean on rehydrate
     runLedgerEnabled: merged.runLedgerEnabled === true, // Coerce to boolean on rehydrate
     notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // Only the runnable pair; anything else falls back to JS

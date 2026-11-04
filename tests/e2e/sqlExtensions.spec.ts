@@ -27,15 +27,8 @@ function watchExtensions(context: BrowserContext) {
   return { host, files };
 }
 
-async function openQuery(page: Page, language: 'en' | 'es', instant = false): Promise<void> {
+async function openQuery(page: Page, language: 'en' | 'es'): Promise<void> {
   await seedSession(page, { language });
-  if (instant) {
-    await page.addInitScript(() => {
-      const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-      raw.state.featureFlags = { instantSql: true };
-      localStorage.setItem('lingua-settings', JSON.stringify(raw));
-    });
-  }
   await gotoApp(page);
   await page.keyboard.press('ControlOrMeta+Alt+S');
   await page.getByTestId('sql-query-list-create').click();
@@ -116,7 +109,7 @@ test.describe('DuckDB extensions', () => {
 
   test('Instant SQL previews date functions from the copy and names the rest as you type', async ({ page, context }) => {
     const seen = watchExtensions(context);
-    await openQuery(page, 'en', true);
+    await openQuery(page, 'en');
     const preview = page.getByTestId('sql-instant-preview');
 
     await typeQuery(page, 'SELECT current_date AS d, today() AS t');

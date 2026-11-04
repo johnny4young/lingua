@@ -146,7 +146,7 @@ beforeEach(() => {
   resetWorkspaceSqlStoreForTests();
   resetSqlRunStateForTests();
   useUIStore.setState({ statusNotice: null });
-  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, featureFlags: {} });
+  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, sqlWorkspaceInstantPreview: false, featureFlags: {} });
   useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
   useSqlConnectionsStore.setState({ catalog: null });
   duckRan = [];
@@ -173,7 +173,7 @@ afterEach(() => {
 
 describe('SQL workspace on a saved connection', () => {
   it('never previews as you type on a connection, even with Instant SQL on', async () => {
-    useSettingsStore.setState({ featureFlags: { instantSql: true } });
+    useSettingsStore.setState({ sqlWorkspaceInstantPreview: true });
     openQuery('SELECT id FROM orders', 'c_dev');
     await renderPanel();
     expect(screen.queryByTestId('sql-instant-preview')).toBeNull();

@@ -3308,6 +3308,8 @@
   "settings.editor.sqlWorkspace.queryTimeout.option30s": "30 segundos",
   "settings.editor.sqlWorkspace.queryTimeout.option60s": "60 segundos",
   "settings.editor.sqlWorkspace.queryTimeout.option5m": "5 minutos",
+  "settings.editor.sqlWorkspace.instantPreview.label": "SQL instantáneo",
+  "settings.editor.sqlWorkspace.instantPreview.hint": "En Local, muestra una vista previa de la sentencia bajo el cursor mientras escribes. Las escrituras y las URL remotas nunca se ejecutan solas.",
   "settings.editor.sqlWorkspace.persistTables.label": "Conserva las tablas entre sesiones",
   "settings.editor.sqlWorkspace.persistTables.hint": "Guarda la base de datos del espacio de trabajo SQL en el almacenamiento de este navegador (OPFS) para que las tablas y los datos sobrevivan a una recarga. Se aplica en la próxima recarga o con Reconecta ahora. Desactivado por defecto — de lo contrario el espacio de trabajo es un scratchpad en memoria.",
   "settings.editor.sqlWorkspace.persistTables.unavailable": "Este navegador no admite almacenamiento persistente, así que el espacio de trabajo permanecerá en memoria.",

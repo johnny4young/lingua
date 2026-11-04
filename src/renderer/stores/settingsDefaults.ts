@@ -235,6 +235,7 @@ export function createInitialSettingsState() {
     // SQL grid page size and default timeout; `MAX_QUERY_TIMEOUT_MS` (5 min) still bounds the timeout.
     sqlWorkspaceRowDisplayLimit: 1000,
     sqlWorkspaceQueryTimeoutMs: 30_000,
+    sqlWorkspaceInstantPreview: true,
     // Off by default; the SQL workspace is
     // an in-memory scratchpad unless the user opts into persistence.
     sqlWorkspacePersistTables: false,

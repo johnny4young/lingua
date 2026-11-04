@@ -50,7 +50,7 @@ export function createInstantSqlChannel(): InstantSqlChannel {
 
 /** The panel's channel while Instant SQL is on; it runs as you type, so only on the local engine. */
 export function useInstantSqlChannel(local: boolean): InstantSqlChannel | null {
-  const on = useSettingsStore((state) => state.featureFlags.instantSql === true);
+  const on = useSettingsStore((state) => state.sqlWorkspaceInstantPreview);
   const [channel] = useState(createInstantSqlChannel);
   return on && local ? channel : null;
 }

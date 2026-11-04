@@ -3284,6 +3284,8 @@
   "settings.editor.sqlWorkspace.queryTimeout.option30s": "30 seconds",
   "settings.editor.sqlWorkspace.queryTimeout.option60s": "60 seconds",
   "settings.editor.sqlWorkspace.queryTimeout.option5m": "5 minutes",
+  "settings.editor.sqlWorkspace.instantPreview.label": "Instant SQL",
+  "settings.editor.sqlWorkspace.instantPreview.hint": "On Local, preview the statement under the cursor as you type. Writes and remote URLs never run on their own.",
   "settings.editor.sqlWorkspace.persistTables.label": "Persist tables across sessions",
   "settings.editor.sqlWorkspace.persistTables.hint": "Save the SQL workspace database to this browser's storage (OPFS) so tables and data survive a reload. Takes effect on the next reload or via Reconnect now. Off by default — otherwise the workspace is an in-memory scratchpad.",
   "settings.editor.sqlWorkspace.persistTables.unavailable": "This browser does not support persistent storage, so the workspace will stay in-memory.",

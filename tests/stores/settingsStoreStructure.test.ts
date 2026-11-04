@@ -102,6 +102,7 @@ const EXPECTED_STORE_KEYS = [
   'setShortcutOverride',
   'setShowStatusBar',
   'setSqlWorkspacePersistTables',
+  'setSqlWorkspaceInstantPreview',
   'setRunLedgerEnabled',
   'setSqlWorkspaceQueryTimeoutMs',
   'setSqlWorkspaceRowDisplayLimit',
@@ -119,6 +120,7 @@ const EXPECTED_STORE_KEYS = [
   'smartPasteDetectionEnabled',
   'sqlWorkspacePersistTables',
   'sqlWorkspaceQueryTimeoutMs',
+  'sqlWorkspaceInstantPreview',
   'sqlWorkspaceRowDisplayLimit',
   'suppressTourAutoStart',
   'telemetryConsent',
@@ -203,6 +205,7 @@ const STATE_FIELDS = new Set([
   'featureFlags',
   'sqlWorkspaceRowDisplayLimit',
   'sqlWorkspaceQueryTimeoutMs',
+  'sqlWorkspaceInstantPreview',
   'sqlWorkspacePersistTables',
   'notebookDefaultCellLanguage',
 ]);
