@@ -4,8 +4,8 @@ import Legal from '~/layouts/Legal.astro';
 
 <Legal
   title="Seguridad"
-  description="Firma de código, notarización, checksums SHA256, ejecución en sandbox y cómo reportar una vulnerabilidad."
-  lastUpdated="2026-07-20"
+  description="Firma de código, notarización, checksums SHA256, cómo se ejecuta el código y cómo reportar una vulnerabilidad."
+  lastUpdated="2026-11-03"
   locale="es"
 >
   <p>
@@ -47,7 +47,14 @@ import Legal from '~/layouts/Legal.astro';
     Worker en la primera carga y lo sirve localmente después.
   </p>
 
-  <h2>Ejecución en sandbox</h2>
+  <h2>Cómo se ejecuta el código</h2>
+  <p>
+    Lingua contiene el código descontrolado, pero no es un sandbox. En las builds de escritorio
+    empaquetadas, el código que ejecutas puede leer una respuesta de cualquier host y cualquier
+    archivo local que tu cuenta pueda leer. Configuración → Privacidad → Red desde el código en ejecución
+    puede preguntar o bloquear en los runtimes Worker, Pyodide y Ruby WASM, como protección de mejor
+    esfuerzo.
+  </p>
   <ul>
     <li>JavaScript y TypeScript corren dentro de un Web Worker con timeouts y buffers de salida controlados por el padre; un loop infinito no bloquea el renderer.</li>
     <li>Python corre en un worker dedicado de Pyodide con los mismos límites de timeout y salida.</li>

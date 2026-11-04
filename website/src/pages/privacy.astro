@@ -16,7 +16,7 @@ import Legal from '~/layouts/Legal.astro';
 
   <h2>What we never collect</h2>
   <ul>
-    <li><strong>Your source code.</strong> Snippets stay on your machine. The opt-in execution-history feature stores snapshots locally only — they never leave the device.</li>
+    <li><strong>Your source code.</strong> Snippets stay on your machine. Execution history keeps run data in memory on your device, and it never leaves the device.</li>
     <li><strong>Your filesystem.</strong> Project paths, file names, and directory listings are not transmitted to us.</li>
     <li><strong>Your input.</strong> Keystrokes, clipboard contents, and command history are not logged.</li>
     <li><strong>Personal identifiers.</strong> Telemetry carries no email, name, location, or device identifier.</li>
@@ -61,6 +61,15 @@ import Legal from '~/layouts/Legal.astro';
     recovery, trials, and education access. That service keeps a device identifier and coarse device
     details, such as the operating system, to enforce limits and list your devices in Settings.
     Tokens travel in authorization headers, never in URLs.
+  </p>
+
+  <h2>Code you run</h2>
+  <p>
+    Code you run can reach the network. Settings → Privacy → Network from running code sets Allow,
+    the default, Ask or Block for the Worker, Pyodide and Ruby WASM runtimes. It is a best-effort
+    guard, not a sandbox. Node, Deno, Bun, Go, Rust and system Ruby are outside it. Hosts it blocks,
+    and hosts you allow when asked, are listed in Recent activity on this device with only the
+    runtime and the host.
   </p>
 
   <h2>AI features</h2>
