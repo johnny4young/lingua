@@ -13,6 +13,7 @@
   "sqlWorkspace.instant.crumbs": "CTEs of this statement",
   "sqlWorkspace.instant.dependent": "Reads {{name}}, refreshes with it",
   "sqlWorkspace.instant.timeout": "The preview stopped after {{seconds}} s. Run the statement to see it.",
+  "sqlWorkspace.instant.unavailable": "Previews need a file that did not load. The next edit tries again.",
   "sqlWorkspace.instant.moreRows_one": "{{rows}} more row in the sample",
   "sqlWorkspace.instant.moreRows_other": "{{rows}} more rows in the sample",
   "sqlWorkspace.instant.blocked.write": "DML / DDL never auto-run",

@@ -122,6 +122,30 @@ Concretely:
   configs to `JSON.stringify(null)` for `__LINGUA_PYODIDE_INDEX_URL__`, and
   pins the R2 URL defines for Ruby/DuckDB web runtime assets.
 
+### DuckDB's JSON extension (vendored)
+
+`@duckdb/duckdb-wasm` leaves its loadable extensions out of the package, and
+DuckDB fetches them from `extensions.duckdb.org` on first use. Instant SQL
+parses every statement with `json_serialize_sql`, so that fetch would happen
+while the user types, and it would fail offline.
+
+`vendor/duckdb-extensions/<duckdb>/wasm_mvp/json.duckdb_extension.wasm` holds
+the signed upstream build (722 KiB, 110 KiB over Brotli). The registry copies it
+to the same path on web and desktop, the lock records its hash, and the engine
+loads it when it starts. The main thread reads the file with a time limit and
+gives `LOAD` a blob URL, because DuckDB's own request blocks its worker with
+none. DuckDB checks the file's signature, so a changed file does not load. If the load fails the engine still starts, and
+Instant SQL says so instead of letting DuckDB fetch its own copy.
+
+The other extensions, such as Parquet and ICU, still come from DuckDB's host.
+
+To bump `@duckdb/duckdb-wasm`: read the DuckDB version it embeds, download the
+`wasm_mvp` JSON extension for that version into a new `vendor` folder, update
+the `duckdbJson` entry and the URL in `duckdbClient.ts`, and run
+`pnpm run build:runtime-assets`. `tests/shared/runtimeAssets.test.ts` fails
+until the version, the path and the footer agree, and the Instant SQL e2e fails
+if the engine rejects the file.
+
 ## Consequences
 
 - The packaged macOS / Windows / Linux desktop apps gain Pyodide and Ruby

@@ -16,6 +16,7 @@ The format follows Keep a Changelog and groups changes by release.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
 
 ### Fixed
+- Instant SQL (Labs) previews work offline and no longer download DuckDB's JSON extension from DuckDB's host, because Lingua ships its own copy. JSON columns and Explain use the same copy.
 - SQL results stay usable on short windows with the dock open: the rows show first under the status and tabs, the SQL strip and toolbar sit one scroll above them, Load more and Export one scroll below, and staged row edits stay on screen. The editor and results split keeps its 40/60 default there too.
 - SQL History and grid snippets also mask `?api_key=`-style parameters, `password=x` connection strings, values compared to columns named like credentials, and those patterns in comments and quoted names, with SQL Server and SQLite quoting read correctly.
 - Open as JS tab and run capsules keep a variable named like a credential, or holding a JSON Web Token, as a placeholder even if nobody marked it secret.

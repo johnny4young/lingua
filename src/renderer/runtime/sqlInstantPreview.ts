@@ -21,7 +21,9 @@ export type InstantPreviewResult =
   | { kind: 'timeout'; stuck?: boolean }
   /** DuckDB's parser says the sampled SQL is not exactly one SELECT. */
   | { kind: 'rejected' }
-  | { kind: 'blocked'; reason: InstantBlockReason };
+  | { kind: 'blocked'; reason: InstantBlockReason }
+  /** Lingua's copy of the parser's extension did not load, so DuckDB is not left to fetch its own. */
+  | { kind: 'unavailable' };
 
 const NOT_A_SELECT = /only select statements/i;
 
@@ -58,8 +60,10 @@ function singleSelectVerdict(rows: ReadonlyArray<Record<string, unknown>>): { st
 export async function runInstantPreview(sql: string, signal: AbortSignal): Promise<InstantPreviewResult | null> {
   // A cold engine start can outlast the budget, which is for the check and the sample.
   // The check itself reports an engine that failed to start.
-  await getDuckDbEngine().catch(() => undefined);
+  const engine = await getDuckDbEngine().catch(() => undefined);
+  const parserReady = (await engine?.loadJsonExtension?.()) ?? true;
   if (signal.aborted) return null;
+  if (!parserReady) return { kind: 'unavailable' };
   const deadline = performance.now() + INSTANT_TIMEOUT_MS;
   const options = () => ({ timeoutMs: Math.max(1, Math.round(deadline - performance.now())), signal });
   const check = await executeQuery(buildCheckSql(sql), options());

@@ -145,6 +145,8 @@ export interface DuckDbEngineHandle {
   registerEmptyFile?: (name: string) => Promise<void>;
   /** The bytes of a virtual file, after `COPY … TO` wrote it. */
   readFile?: (name: string) => Promise<Uint8Array>;
+  /** Loads Lingua's copy of the JSON extension; false when it could not. */
+  loadJsonExtension?: () => Promise<boolean>;
 }
 
 /**
@@ -526,6 +528,44 @@ async function fetchVerifiedWasmUrl(
   return URL.createObjectURL(await response.blob());
 }
 
+const JSON_EXTENSION_FILE = 'json.duckdb_extension.wasm';
+const JSON_EXTENSION_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * DuckDB's own request for an extension blocks its worker with no time limit,
+ * so it gets a local URL. It names the extension after the URL's last segment.
+ */
+export async function readJsonExtensionToBlobUrl(url: string): Promise<string> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(JSON_EXTENSION_FETCH_TIMEOUT_MS) });
+  if (!response.ok) throw new Error(`Failed to fetch ${JSON_EXTENSION_FILE} (${response.status})`);
+  return `${URL.createObjectURL(await response.blob())}#/${JSON_EXTENSION_FILE}`;
+}
+
+/**
+ * DuckDB would fetch this extension from its own host on first use. A failed
+ * load leaves the next call free to retry; DuckDB checks the file's signature.
+ */
+export function createJsonExtensionLoader(
+  run: (sql: string) => Promise<void>,
+  readToBlobUrl: () => Promise<string>
+): () => Promise<boolean> {
+  let loading: Promise<boolean> | null = null;
+  const load = async (): Promise<boolean> => {
+    const blobUrl = await readToBlobUrl();
+    try {
+      await run(`LOAD '${blobUrl}'`);
+      return true;
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+  };
+  return () =>
+    (loading ??= load().catch(() => {
+      loading = null;
+      return false;
+    }));
+}
+
 /**
  * Production factory. Dynamically imports `@duckdb/duckdb-wasm` so
  * the bundler emits it on the `duckdb-wasm` chunk (see
@@ -595,7 +635,26 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       isOpfsStorageAvailable()
     );
     resolvedStorageRequestedMode = requestedStorageMode;
+    const loadJsonExtension = createJsonExtensionLoader(
+      async (sql) => {
+        const connection = await db.connect();
+        try {
+          await connection.query(sql);
+        } finally {
+          await connection.close();
+        }
+      },
+      () =>
+        readJsonExtensionToBlobUrl(
+          new URL(
+            /* @vite-ignore */ '../duckdb-extensions/v1.4.3/wasm_mvp/json.duckdb_extension.wasm',
+            import.meta.url
+          ).href
+        )
+    );
+    await loadJsonExtension();
     return {
+      loadJsonExtension,
       connect: async (): Promise<DuckDbConnection> => {
         const connection = await db.connect();
         return {

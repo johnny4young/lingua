@@ -13,6 +13,7 @@
   "sqlWorkspace.instant.crumbs": "CTE de esta sentencia",
   "sqlWorkspace.instant.dependent": "Lee {{name}} y se actualiza con ella",
   "sqlWorkspace.instant.timeout": "La vista previa se detuvo a los {{seconds}} s. Ejecuta la sentencia para verla.",
+  "sqlWorkspace.instant.unavailable": "Las vistas previas necesitan un archivo que no cargó. El siguiente cambio lo intenta de nuevo.",
   "sqlWorkspace.instant.moreRows_one": "{{rows}} fila más en la muestra",
   "sqlWorkspace.instant.moreRows_other": "{{rows}} filas más en la muestra",
   "sqlWorkspace.instant.blocked.write": "DML / DDL nunca se ejecutan solos",

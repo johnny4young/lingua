@@ -42,6 +42,12 @@ pnpm run compliance:release
 | `terser` | BSD-2-Clause |
 | `zustand` | MIT |
 
+## Vendored Runtime Files
+
+| File | Source | License |
+| --- | --- | --- |
+| `vendor/duckdb-extensions/v1.4.3/wasm_mvp/json.duckdb_extension.wasm` | [DuckDB](https://github.com/duckdb/duckdb) | MIT |
+
 ## Bundled Fonts
 
 | Font | License | Files |

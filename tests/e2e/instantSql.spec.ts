@@ -68,6 +68,86 @@ test.describe('Instant SQL', () => {
     await expect(page.getByTestId('sql-instant-preview').locator('tbody tr')).toHaveCount(3);
   });
 
+  test('previews offline from its own copy of the JSON extension', async ({ page, context }) => {
+    const extensionRequests: string[] = [];
+    context.on('request', (request) => {
+      if (request.url().includes('.duckdb_extension')) extensionRequests.push(request.url());
+    });
+    await openQuery(page, 'en');
+    await replaceQuery(page, QUERY);
+    await expect(page.getByTestId('sql-instant-preview').locator('tbody tr')).toHaveCount(3);
+    expect(extensionRequests).toHaveLength(1);
+    expect(new URL(extensionRequests[0] ?? '').origin).toBe(new URL(page.url()).origin);
+
+    await context.setOffline(true);
+    await replaceQuery(page, "SELECT '{\"a\":1}'::JSON->>'a' AS a");
+    await expect(page.getByTestId('sql-instant-preview').locator('tbody tr')).toHaveCount(1);
+    expect(extensionRequests).toHaveLength(1);
+  });
+
+  test('a Run reads JSON from the same copy with the preview off', async ({ page, context }) => {
+    const extensionRequests: string[] = [];
+    context.on('request', (request) => {
+      if (request.url().includes('.duckdb_extension')) extensionRequests.push(request.url());
+    });
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+Alt+S');
+    await page.getByTestId('sql-query-list-create').click();
+    await replaceQuery(page, "SELECT '{\"a\":1}'::JSON->>'a' AS a");
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(page.getByTestId('sql-result-preview-row')).toHaveCount(1);
+    expect(extensionRequests).toHaveLength(1);
+    expect(new URL(extensionRequests[0] ?? '').origin).toBe(new URL(page.url()).origin);
+  });
+
+  test.describe('with the service worker', () => {
+    test.use({ serviceWorkers: 'allow' });
+
+    test('previews after an offline reload', async ({ page, context }) => {
+      await openQuery(page, 'en');
+      await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+      await page.reload();
+      await page.evaluate(() => navigator.serviceWorker.controller !== null);
+      await page.keyboard.press('ControlOrMeta+Alt+S');
+      await page.getByTestId('sql-query-list-create').click();
+      await replaceQuery(page, 'SELECT 1 AS x');
+      await expect(page.getByTestId('sql-instant-preview').locator('tbody tr')).toHaveCount(1);
+
+      await context.setOffline(true);
+      await page.reload();
+      await page.keyboard.press('ControlOrMeta+Alt+S');
+      await page.getByTestId('sql-query-list-create').click();
+      await replaceQuery(page, 'SELECT 2 AS x');
+      await expect(page.getByTestId('sql-instant-preview').locator('tbody tr')).toHaveCount(1);
+      await expect(page.getByTestId('sql-instant-error')).toHaveCount(0);
+    });
+  });
+
+  for (const language of ['en', 'es'] as const) {
+    test(`says so when its JSON extension cannot load, and recovers (${language})`, async ({ page, context }) => {
+      const upstream: string[] = [];
+      context.on('request', (request) => {
+        if (request.url().includes('extensions.duckdb.org')) upstream.push(request.url());
+      });
+      let broken = true;
+      await context.route(/\/json\.duckdb_extension\.wasm$/, (route) => (broken ? route.fulfill({ status: 200, contentType: 'application/wasm', body: 'not a signed extension' }) : route.continue()));
+      await openQuery(page, language);
+      await replaceQuery(page, 'SELECT 1 AS x');
+      await expect(page.getByTestId('sql-instant-error')).toHaveText(
+        language === 'en'
+          ? 'Previews need a file that did not load. The next edit tries again.'
+          : 'Las vistas previas necesitan un archivo que no cargó. El siguiente cambio lo intenta de nuevo.'
+      );
+      expect(upstream).toEqual([]);
+
+      broken = false;
+      await replaceQuery(page, 'SELECT 2 AS x');
+      await expect(page.getByTestId('sql-instant-preview').locator('tbody tr')).toHaveCount(1);
+      await expect(page.getByTestId('sql-instant-error')).toHaveCount(0);
+    });
+  }
+
   test('never runs a write as you type', async ({ page }) => {
     await openQuery(page, 'en');
     await replaceQuery(page, 'CREATE TABLE instant_probe AS SELECT 1 AS x');
