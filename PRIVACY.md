@@ -86,10 +86,17 @@ running code sets Allow, the default, Ask or Block for the Worker, Pyodide and
 Ruby WASM runtimes. It is a best-effort guard, not a sandbox. Node, Deno, Bun,
 Go, Rust and system Ruby are outside it.
 
+## Clipboard
+
+Apply from clipboard on panel focus is off until the user turns it on, and needs
+Pro. With it on, Utilities reads the clipboard when it opens and when the window
+regains focus, and classifies the value on the device. Only the kind of value
+stays; the text is not stored, logged or sent. There is no background polling.
+
 ## User Controls
 
 Users can change telemetry and crash-reporting consent in Settings, the network
-policy for running code, and whether runs keep code copies for replay and
+policy for running code, clipboard reads, and whether runs keep code copies for replay and
 Compare (Capture code for replay). Removing a
 license clears local license state and asks the license service to remove the
 current device when the server is reachable.

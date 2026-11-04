@@ -30,7 +30,6 @@ import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { UtilityCopyShortcutHint } from './UtilityHeaderPills';
 import { CLIPBOARD_TOOLS } from '../../data/clipboardTools';
 import { useClipboardSuggestion } from '../../hooks/useClipboardSuggestion';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
 import { sendOutputToNewPipeline } from '../../stores/utilityPipelineSend';
@@ -145,7 +144,6 @@ function DeveloperUtilitiesWorkspaceBody({
   }
   const searchRef = useRef<HTMLInputElement>(null);
   const clipboardKind = useClipboardSuggestion(active);
-  const canSendOutput = useSettingsStore(state => state.featureFlags.clipboardChains === true);
   // Tool panels load lazily and register their output once mounted.
   const outputReady = useUtilityOutputStore(state => state.provider !== null);
   const suggestedTools = clipboardKind ? CLIPBOARD_TOOLS[clipboardKind] : [];
@@ -335,7 +333,7 @@ function DeveloperUtilitiesWorkspaceBody({
           The heading stays as a visually hidden landmark for screen readers
           and heading-based tests. */}
       <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
-      {canSendOutput && activeSelectedUtilityId !== 'utility-pipelines' ? (
+      {activeSelectedUtilityId !== 'utility-pipelines' ? (
         <div className="flex justify-end px-7 pt-3">
           <SendOutputSelect testId="utility-send-output" ready={outputReady} onSend={handleSendOutput} />
         </div>

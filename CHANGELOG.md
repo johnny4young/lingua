@@ -7,7 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
-- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code and Pro in context. Settings › Labs no longer lists them.
+- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code, Pro in context and Clipboard-aware utilities (reads stay off until you turn on Apply from clipboard on panel focus, on Pro). Settings › Labs no longer lists them.
 - Scratchpad now follows Settings › Editor › Run policy: 500 ms after typing for JavaScript and TypeScript, 1 s for Python, and Manual for Go and Rust, where it used to wait 1.2 s for every language.
 - On Free, Recent runs, Utility pipelines and Run capsules open as slices of your own data instead of locks, and the first upgrade notice in a session opens Compare plans.
 - Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.

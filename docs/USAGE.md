@@ -78,20 +78,20 @@ option defaults and execution-time validation are unchanged.
 
 ## Clipboard-aware utilities
 
-With **Settings › Labs › Clipboard-aware utilities** on, a Pro license and **Apply from
+With a Pro license and **Apply from
 clipboard on panel focus** on in **Settings › Editor › Developer Utilities**, Utilities
 reads the clipboard when it opens or you switch back to it, and each time the window
 regains focus. It classifies the
 value on this device as a JWT, JSON, cron expression, epoch timestamp, Base64, UUID
 or color. A banner above the tool list names the kind, a light bulb marks the tools
 that fit, and on the folded rail a dot marks their category. Only the kind stays:
-Lingua does not store, log or send the text. Without any of those three conditions it
+Lingua does not store, log or send the text. Without both it
 does not read the clipboard for this. Chromium browsers may ask for permission when
 Utilities opens, never on a window focus. Browsers that cannot report this permission,
 such as Firefox and Safari, could ask on each read, so there Lingua does not read it for
 this.
 
-The same setting adds chaining, on Pro or on Free (first 3 steps), with no clipboard read and without **Apply from clipboard on panel focus**:
+Chaining works on Pro and on Free (first 3 steps), with no clipboard read and without **Apply from clipboard on panel focus**:
 
 - **Send output to…**, above any tool, takes a pick and then **Send**. It creates a pipeline with that tool's output as its input and the chosen utility as its step, opens it and runs it. Below a pipeline's results, it inserts the step right after the one that made the last output and runs again; a light bulb suggests a next step when the output looks like a JWT, JSON, Base64, a timestamp or a color. The input stays out of storage like any pipeline input.
 - **Disable step** skips a step and passes its input through. With every step off, **Run** and **Save as JS snippet** are unavailable.

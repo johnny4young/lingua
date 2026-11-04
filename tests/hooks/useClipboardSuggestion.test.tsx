@@ -49,7 +49,7 @@ beforeEach(() => {
   read.mockReset();
   read.mockResolvedValue(JWT);
   setPro(true);
-  useSettingsStore.setState({ featureFlags: { clipboardChains: true }, utilitiesClipboardOnFocusConsent: 'granted' });
+  useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'granted' });
 });
 
 afterEach(() => {
@@ -86,7 +86,6 @@ describe('useClipboardSuggestion', () => {
   });
 
   it.each([
-    ['without the flag', () => useSettingsStore.setState({ featureFlags: {} })],
     ['with consent unset', () => useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'unset' })],
     ['with consent declined', () => useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'declined' })],
     ['on Free, even with a stale consent', () => setPro(false)],
