@@ -7,14 +7,14 @@ vi.hoisted(() => {
 
 type Message = { type: string; [key: string]: unknown };
 
-async function run(code: string, richDisplay = true) {
+async function run(code: string) {
   vi.resetModules();
   const messages: Message[] = [];
   vi.stubGlobal('postMessage', (message: Message) => messages.push(message));
   vi.stubGlobal('self', globalThis);
   const { createJsWorkerMessageHandler } = await import('@/workers/js-worker-execution');
   const handler = createJsWorkerMessageHandler(globalThis as unknown as Worker);
-  await handler({ data: { type: 'execute', runId: 'disp', code, richDisplay } } as MessageEvent);
+  await handler({ data: { type: 'execute', runId: 'disp', code } } as MessageEvent);
   return { console: messages.filter(message => message.type === 'console'), errors: messages.filter(message => message.type === 'error') };
 }
 
@@ -59,10 +59,5 @@ describe('JS worker lingua.display', () => {
   it('always posts the note a finished bar ends on', async () => {
     const messages = (await run('const bar = lingua.display.progress("t");\nbar.update(1, "almost");\nbar.update(1, "done");')).console;
     expect(messages.at(-1)).toMatchObject({ payload: [{ value: 1, text: 'done' }] });
-  });
-
-  it('leaves lingua.display out with the Labs flag off', async () => {
-    const result = await run('console.log(typeof lingua.display, typeof lingua.chart);', false);
-    expect(result.console[0]).toMatchObject({ args: ['undefined', 'function'] });
   });
 });

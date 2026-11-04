@@ -33,7 +33,7 @@ for (const language of ['en', 'es'] as const) {
 }
 
 test('the timeline PRO chip opens Compare plans', async ({ page }) => {
-  await seed(page, 'en', { runTimeline: true, teachingPaywall: true });
+  await seed(page, 'en', { teachingPaywall: true });
   await replaceEditorText(page, 'let total = 0;\nfor (let i = 0; i < 30; i++) { total += i; }\nconsole.log(total);');
   await page.getByTestId('action-pill-run-menu').click();
   await page.getByTestId('action-pill-record').click();

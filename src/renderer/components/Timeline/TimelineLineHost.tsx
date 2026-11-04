@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as monacoTypes from 'monaco-editor';
 import '../../i18n/timelineCatalog';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useUIStore } from '../../stores/uiStore';
 import { timelineEchoes, timelineLineChanges, timelineUnreachedLines } from '../../utils/timelineModel';
@@ -25,7 +24,6 @@ export function TimelineLineHost({
   tabId: string | null;
 }) {
   const { t } = useTranslation();
-  const on = useSettingsStore(state => state.featureFlags.runTimeline === true);
   const open = useUIStore(state => state.consoleVisible && state.activeBottomPanel === 'timeline');
   const steps = useTimelineStore(state => (state.recording && state.recording.tabId === tabId ? state.recording.steps : null));
   const current = useTimelineStore(state => state.current);
@@ -58,7 +56,7 @@ export function TimelineLineHost({
       unreached: timelineUnreachedLines(steps, current),
     };
   }, [steps, current, t]);
-  const active = Boolean(editor && monaco && on && open && view);
+  const active = Boolean(editor && monaco && open && view);
 
   // One collection, updated in place as the step moves.
   useEffect(() => {

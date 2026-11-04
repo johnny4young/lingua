@@ -164,7 +164,7 @@ export function HttpRequestEditor({
     () => environments.find(e => e.id === activeEnvironmentId) ?? null,
     [environments, activeEnvironmentId]
   );
-  // Collection and request variables join the environment with the scopes flag on.
+  // Collection and request variables join the environment.
 
   // A LIVE request snapshot for the
   // resolution preview, rebuilt from the in-editor draft state on every
@@ -182,8 +182,8 @@ export function HttpRequestEditor({
     }),
     [request, transport, method, url, headers, params, auth, body]
   );
-  const { scopes, env: scopedEnv, sources, tags, check, deferred } = useScopedEnvironment(previewRequest, activeEnv);
-  const envColor = scopes ? environmentColor(activeEnv) : undefined;
+  const { env: scopedEnv, sources, tags, check, deferred } = useScopedEnvironment(previewRequest, activeEnv);
+  const envColor = environmentColor(activeEnv);
   const tint = envColor ? ENVIRONMENT_TINTS[envColor] : undefined;
   const [openTag, setOpenTag] = useState<string | null>(null);
 
@@ -352,7 +352,7 @@ export function HttpRequestEditor({
   const urlState = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.send), [url, transport, scopedEnv, deferred.send]);
   const missingTag = !urlState.ok && urlState.reason === 'unresolved' ? tags.find((tag) => tag.key === urlState.key) : undefined;
   const urlFix = useMemo(() => {
-    if (!scopes || !activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
+    if (!activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
     const rows = rowsFromOtherEnvironments(findUnresolvedVariables(previewRequest, scopedEnv), environments, activeEnv.id);
     if (rows.length === 0) return undefined;
     return {
@@ -363,7 +363,7 @@ export function HttpRequestEditor({
         if (secret) onManageEnvironment?.({ environmentId: activeEnv.id, variableId: secret.id });
       },
     };
-  }, [scopes, activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
+  }, [activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
   const chainUrlOk = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.chain).ok, [url, transport, scopedEnv, deferred.chain]);
   const sendCurrentDraft = useCallback(
     (options?: HttpSendOptions) => {
@@ -783,14 +783,10 @@ export function HttpRequestEditor({
         onAddAssertion={handleAddAssertion}
         onUpdateAssertion={handleUpdateAssertion}
         onRemoveAssertion={handleRemoveAssertion}
-        {...(scopes
-          ? {
-              variables: {
-                rows: request.variables ?? [],
-                onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
-              },
-            }
-          : {})}
+        variables={{
+          rows: request.variables ?? [],
+          onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
+        }}
         {...(tint ? { tint } : {})}
       />
     </div>

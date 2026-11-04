@@ -86,10 +86,4 @@ describe('SQL grid magics', () => {
     expect(cells[3]!.className).toContain('italic');
   });
 
-  it('keeps plain text with the flag off', () => {
-    render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
-    expect(screen.queryByTestId('sql-cell-link')).toBeNull();
-    expect(screen.queryByTestId('sql-cell-bar')).toBeNull();
-    expect(screen.queryByTestId('sql-cell-thumb')).toBeNull();
-  });
 });

@@ -737,7 +737,7 @@ describe('HttpRequestEditor', () => {
     it('judges a URL after the active environment fills it, and names a missing variable', () => {
       editor('{{base}}/users', { environments: [environment], activeEnvironmentId: 'env-1' });
       expect(send().disabled).toBe(false);
-      expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('defined');
+      expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('environment');
       fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: '{{host}}/users' } });
       expect(hint()).toBe('Give host a value in the active environment to send.');
       expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('missing');

@@ -95,7 +95,7 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
-The network policy for running code (Labs flag `networkPolicy`) is enforced
+The network policy for running code is enforced
 inside these workers by `networkGuard.ts`, which wraps `fetch`,
 `XMLHttpRequest`, `WebSocket`, `EventSource`, `WebTransport`,
 `WebSocketStream`, `Cache.add` and nested workers, leaving no prototype path
@@ -131,7 +131,7 @@ per-response CSP; `webRequest` sees a worker's http(s) requests but not its
 `file:` reads or its script.
 
 `ExecutionContext.blockNetwork` blocks every host for one run whatever the
-Labs policy says; it can only tighten the policy, never loosen it. Edit with AI
+policy says; it can only tighten the policy, never loosen it. Edit with AI
 (`runtime/aiEditPreview.ts`) uses it, on the user's Run preview click, to run
 the file before and after the AI's change with a 5 s timeout. Both runs use the redacted file the model saw, so the
 file they run holds no secret that was masked from it; on packaged desktop the
@@ -800,7 +800,7 @@ optional on the preload contract for compatible direct callers.
 
 ### Execution timeline recording
 
-Record run (Labs) is separate from the debugger. The JS / TS runner asks
+Record run is separate from the debugger. The JS / TS runner asks
 `timelineInstrument.ts` to put `__lingua_rec(line, locals)` before every
 statement in every statement list, on the same line, so nothing pauses and no
 `await` is added; synchronous functions also push and pop a frame, while async
@@ -822,7 +822,7 @@ changed against the next step in the same call, and the lines not reached yet.
 
 ### Rich display
 
-With the Labs flag on, the runners pass `richDisplay` to the workers.
+The workers always expose the display helpers.
 `shared/richDisplay.ts` turns a value into one payload (detected, or forced
 with `as`, reusing the auto-table, the scope serializer and the media
 validators) and builds `progress` payloads. The JS bridge adds
@@ -853,7 +853,7 @@ refuses URLs with credentials for every caller.
 
 ### Run regions
 
-Run regions (Labs) split a JS / TS / Python tab at `%%` markers
+Run regions split a JS / TS / Python tab at `%%` markers
 (`utils/runRegions.ts`: top-level `//` comments found with the magic-comment
 line walker, or `#` at column 0 outside triple-quoted strings). A region run
 threads `region` through the manual run like Record run: `resolveRunPlan`
@@ -1207,8 +1207,7 @@ limits, and CLI boundary.
 
 ### Compare runs
 
-With **Compare runs** on in Settings › Labs and a tier that keeps run history,
-the Compare dock tab lists the execution history by day and diffs any two runs.
+With a tier that keeps run history, the Compare dock tab lists the execution history by day and diffs any two runs.
 `executionHistoryStore.record` cuts a `RunCompareRecord`
 (`utils/runCompareRecord.ts`) from each run's capsule: code up to 256 KiB,
 stdout and stderr up to 64 KiB each, up to 200 inline values, the exit status,
@@ -1802,7 +1801,7 @@ held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
 The drain picks each next entry from the live queue, so one queued while a send
 is pending is not stranded.
 
-With the `httpScopes` Labs flag, variables resolve from three scopes:
+Variables resolve from three scopes:
 collection (`collectionVariables` in the workspace store), the active
 environment and the request's own `variables`. `layeredEnvironment` in
 `src/shared/httpEnvironment.ts` joins them into one environment whose rows run
@@ -1813,7 +1812,7 @@ values of the new scopes follow the environments' vault rules, and
 `maskSecretsForCapsule` also blanks secret request variables. With the flag
 off the request resolves against the active environment alone, as before.
 
-With the `httpChainTags` Labs flag, a variable that another request's
+A variable that another request's
 capture rule writes is a chain tag (`src/shared/httpChain.ts`): the graph is
 read from the capture rules, never stored, and each request keeps only a
 per-tag sending rule (`chainRules`). Tag values form a `chain` layer between
@@ -1827,7 +1826,7 @@ or a stream source is refused before sending. When a value the chain just
 captured sets a request's scheme or host (`chainedOrigin`), that send waits for
 the user to confirm the resolved origin. Explicit pipelines also skip chains.
 
-With the `httpSnapshots` Labs flag, a request can keep a snapshot
+A request can keep a snapshot
 (`HttpRequestV1.snapshot`): the status and the recorded body, already masked
 like every recorded response, capped at 256 KB, plus its scrubbers.
 `src/shared/httpSnapshot.ts` scrubs both sides at compare time and diffs them
@@ -1836,7 +1835,7 @@ the response strip and fails a pipeline step.
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
-active environment fresh for each step, and stop after transport, HTTP, assertion or (with `httpSnapshots`) snapshot
+active environment fresh for each step, and stop after transport, HTTP, assertion or snapshot
 failure unless the saved pipeline says to continue. SSE and WebSocket
 sessions are intentionally excluded because a long-lived connection has no
 deterministic next-step boundary.

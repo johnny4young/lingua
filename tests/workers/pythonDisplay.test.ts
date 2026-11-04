@@ -24,9 +24,9 @@ beforeAll(async () => {
 }, 30_000);
 afterAll(() => vi.unstubAllGlobals());
 
-async function execute(code: string, richDisplay = true, scopeId?: string) {
+async function execute(code: string, scopeId?: string) {
   messages.length = 0;
-  await handle({ type: 'execute', runId: 'py-display', code, richDisplay, ...(scopeId ? { scopeId } : {}) });
+  await handle({ type: 'execute', runId: 'py-display', code, ...(scopeId ? { scopeId } : {}) });
   return {
     console: messages.filter(message => message.type === 'console') as Array<Extract<PythonWorkerOutboundMessage, { type: 'console' }>>,
     errors: messages.filter(message => message.type === 'error'),
@@ -56,22 +56,11 @@ describe('Python display', () => {
     expect(result.console[1]).toMatchObject({ args: ['user update'], line: 5 });
   });
 
-  it('drops display and lingua when a later run has the flag off', async () => {
-    await execute('display(1)');
-    const off = await execute('print("display" in globals(), "lingua" in globals())', false);
-    expect(off.console.map(message => message.args[0])).toEqual(['False False']);
-    await execute('display(1)', true, 'nb-1');
-    const scoped = await execute('print("display" in globals(), "lingua" in globals())', false, 'nb-1');
-    expect(scoped.console.map(message => message.args[0])).toEqual(['False False']);
-  });
-
-  it('shows a multi-line string on one row, and never copies a user display or lingua into a notebook', async () => {
+  it('shows a multi-line string on one row, and gives a notebook the helpers, not a user display or lingua', async () => {
     expect((await execute('display("a\\nb")')).console).toHaveLength(1);
-    await execute('display = 5\nlingua = "es"', false);
-    const scoped = await execute('print("display" in globals(), "lingua" in globals())', false, 'nb-2');
-    expect(scoped.console.map(message => message.args[0])).toEqual(['False False']);
-    const helpers = await execute('print("__lingua_display" in globals())', false);
-    expect(helpers.console.map(message => message.args[0])).toEqual(['False']);
+    await execute('display = 5\nlingua = "es"');
+    const scoped = await execute('print(callable(display), callable(lingua.display))', 'nb-2');
+    expect(scoped.console.map(message => message.args[0])).toEqual(['True True']);
   });
 
   it('reads the mime of a data URL', async () => {

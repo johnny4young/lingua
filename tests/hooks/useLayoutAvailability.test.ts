@@ -67,13 +67,10 @@ describe('useLayoutAvailability', () => {
     expect(result.current.dockShown).toBe(false);
   });
 
-  it('offers Timeline for the tab that was recorded while the flag is on', () => {
+  it('offers Timeline for the tab that was recorded', () => {
     openTab({});
     act(() => useTimelineStore.setState({ recording: { tabId: 't1', steps: [], total: 0, truncated: false, limited: false }, current: 0 }));
     const { result, rerender } = renderHook(() => useLayoutAvailability());
-    expect(result.current.tabs.timeline).toBe(false);
-    act(() => useSettingsStore.setState({ featureFlags: { runTimeline: true } }));
-    rerender();
     expect(result.current.tabs.timeline).toBe(true);
     act(() => useTimelineStore.setState(state => ({ recording: { ...state.recording!, tabId: 'other' } })));
     rerender();

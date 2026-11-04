@@ -52,8 +52,6 @@ import { useHttpOfflineSend } from './useHttpOfflineSend';
 import type { HttpAssertionTarget } from './useHttpAssertionTarget';
 import { snapshotChanges } from '../../../shared/httpSnapshot';
 import {
-  httpChainEnabled,
-  httpScopesEnabled,
   rowsFromOtherEnvironments,
   scopedEnvironmentFor,
   type HttpEnvironmentFocus,
@@ -153,8 +151,6 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
-  const scopesOn = useSettingsStore(state => state.featureFlags.httpScopes === true);
-  const snapshotsOn = useSettingsStore(state => state.featureFlags.httpSnapshots === true);
   const assertionTargetRef = useRef<HttpAssertionTarget | null>(null);
   const collectionVariables = useWorkspaceToolStore(state => state.collectionVariables);
   // Environments + active selection drive the
@@ -232,7 +228,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       ? livePreview.response
       : activeHistory[safeHistoryIndex];
   // Older history rows have no body left to compare or keep.
-  const snapshotsShown = snapshotsOn && safeHistoryIndex === 0;
+  const snapshotsShown = safeHistoryIndex === 0;
 
   // SQL/HTTP MODEL rework — a new request is a row in the collection,
   // NOT a new editor tab. `createRequest` appends it and selects it (the
@@ -403,7 +399,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       if (useWorkspaceToolStore.getState().executingRequestId === requestToSend.id) {
         return null;
       }
-      if (httpChainEnabled() && !options?.skipChain) {
+      if (!options?.skipChain) {
         // One chain at a time: a second click while sources go out is ignored.
         if (chainLockRef.current) return null;
         chainLockRef.current = true;
@@ -440,7 +436,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       // environment without guessing which token is missing.
       const unresolved = findUnresolvedVariables(requestToSend, env);
       if (unresolved.length > 0) {
-        const fix = activeEnv && httpScopesEnabled() ? rowsFromOtherEnvironments(unresolved, tools.environments, activeEnv.id) : [];
+        const fix = activeEnv ? rowsFromOtherEnvironments(unresolved, tools.environments, activeEnv.id) : [];
         useUIStore.getState().pushStatusNotice({
           tone: 'error',
           messageKey: 'httpWorkspace.environment.unresolved.body',
@@ -531,7 +527,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         // so extracting from `raw` (not the masked `response`) is what
         // yields the real value to store.
         if (response.kind === 'success' && requestToSend.captures?.length) {
-          applyCapturesToActiveEnvironment(applyCaptureRules(raw, requestToSend.captures), options?.skipChain === true && httpChainEnabled());
+          applyCapturesToActiveEnvironment(applyCaptureRules(raw, requestToSend.captures), options?.skipChain === true);
         }
         const resolvedCount = findResolvedVariables(requestToSend, env).length;
         trackHttpRequestExecuted(requestToSend.method, response, resolvedCount);
@@ -694,7 +690,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               ).length;
               // A pending snapshot diff fails the step like a failed assertion.
               const snapshotFailed =
-                useSettingsStore.getState().featureFlags.httpSnapshots === true && request.snapshot !== undefined && snapshotChanges(request.snapshot, response).length > 0;
+                request.snapshot !== undefined && snapshotChanges(request.snapshot, response).length > 0;
               const passed = response.kind === 'success' && assertionFailures === 0 && !snapshotFailed;
               results.push({
                 stepId: step.id,
@@ -847,14 +843,10 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           }
           onExport={id => useWorkspaceToolStore.getState().exportEnvironmentJson(id)}
           onImport={json => useWorkspaceToolStore.getState().importEnvironmentJson(json)}
-          {...(scopesOn
-            ? {
-                scopes: {
-                  collectionVariables,
-                  onUpdateCollection: updater => useWorkspaceToolStore.getState().updateCollectionVariables(updater),
-                },
-              }
-            : {})}
+          scopes={{
+            collectionVariables,
+            onUpdateCollection: updater => useWorkspaceToolStore.getState().updateCollectionVariables(updater),
+          }}
         />
       ) : null}
       {isPipelineManagerOpen ? (

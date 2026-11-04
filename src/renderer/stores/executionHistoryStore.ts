@@ -28,7 +28,6 @@ import { create } from 'zustand';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
-import { useSettingsStore } from './settingsStore';
 import { buildRunCompareRecord, type RunCompareRecord, type RunCompareSummary } from '../utils/runCompareRecord';
 
 type ExecutionStatus = 'ok' | 'error';
@@ -128,13 +127,10 @@ interface ExecutionHistoryRecord {
   summary?: RunCompareSummary;
 }
 
-/** The Compare tab keeps compare data only for paid tiers with its Labs flag on. */
+/** The Compare tab keeps compare data only for paid tiers. */
 export function runCompareCaptureOn(): boolean {
   try {
-    return (
-      useSettingsStore.getState().featureFlags.runCompare === true &&
-      isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY')
-    );
+    return isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY');
   } catch {
     return false;
   }

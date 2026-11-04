@@ -253,11 +253,9 @@ describe('scope helpers', () => {
     expect(rows[0]!.id).not.toBe('s1');
   });
 
-  it('layers collection and request variables only with the flag on', () => {
+  it('layers collection and request variables', () => {
     useWorkspaceToolStore.setState({ collectionVariables: [v('c', 'owner', 'octocat')] });
-    const request = { variables: [v('r', 'repo', 'lingua')] };
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), variables: [v('r', 'repo', 'lingua')] };
     expect(scopedEnvironmentFor(request, null)?.variables.map((row) => row.key)).toEqual(['owner', 'repo']);
-    useSettingsStore.setState({ featureFlags: {} });
-    expect(scopedEnvironmentFor(request, null)).toBeNull();
   });
 });

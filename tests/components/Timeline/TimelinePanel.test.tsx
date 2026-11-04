@@ -202,13 +202,10 @@ describe('timeline in the editor and the Run menu', () => {
     expect(JSON.stringify(created)).toContain('"content":"label = \\" evil line x  \\""');
   });
 
-  it('offers Record run for JavaScript Worker tabs with the flag on', async () => {
+  it('offers Record run for JavaScript Worker tabs', async () => {
     const onRecord = vi.fn();
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: '' }] as never, 't1');
     const { rerender } = render(<RecordRunMenuItem disabled={false} onRecord={onRecord} />);
-    expect(screen.queryByTestId('action-pill-record')).toBeNull();
-    useSettingsStore.setState({ featureFlags: { runTimeline: true } });
-    rerender(<RecordRunMenuItem disabled={false} onRecord={onRecord} />);
     await userEvent.click(screen.getByTestId('action-pill-record'));
     expect(onRecord).toHaveBeenCalledOnce();
     useEditorStore.getState().restoreTabs([{ id: 't2', name: 'a.py', language: 'python', content: '' }] as never, 't2');

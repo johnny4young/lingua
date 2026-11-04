@@ -36,10 +36,10 @@ describe('network policy helpers', () => {
 
 describe('feature flags', () => {
   it('keeps only known flags that are explicitly on', () => {
-    expect(sanitizeFeatureFlags({ networkPolicy: true, unknown: true })).toEqual({
-      networkPolicy: true,
+    expect(sanitizeFeatureFlags({ dbClient: true, networkPolicy: true, unknown: true })).toEqual({
+      dbClient: true,
     });
-    expect(sanitizeFeatureFlags({ networkPolicy: 'yes' })).toEqual({});
+    expect(sanitizeFeatureFlags({ dbClient: 'yes' })).toEqual({});
     expect(sanitizeFeatureFlags(null)).toEqual({});
   });
 });

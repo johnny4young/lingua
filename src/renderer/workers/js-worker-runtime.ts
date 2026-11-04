@@ -43,9 +43,8 @@ export function buildLinguaWorkerBridge(
   runId: string,
   {
     callingLine = () => undefined,
-    richDisplay = false,
     truncate = (text: string) => text,
-  }: { callingLine?: () => number | undefined; richDisplay?: boolean; truncate?: (text: string) => string } = {}
+  }: { callingLine?: () => number | undefined; truncate?: (text: string) => string } = {}
 ): {
   chart: (spec: unknown) => void;
   image: (payload: unknown) => void;
@@ -142,7 +141,7 @@ export function buildLinguaWorkerBridge(
   progressFlushes.set(display, () => [...pending.values()].forEach(flush => flush()));
 
   return {
-    ...(richDisplay ? { display } : {}),
+    display,
     chart: spec => {
       const validated = validateChartSpec(spec);
       if (validated === null) {

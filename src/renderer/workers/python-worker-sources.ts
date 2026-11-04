@@ -1,10 +1,10 @@
 import type { PythonWorkerExecuteMessage } from './python-worker-protocol';
 import { PYTHON_ASK_STDIN_SOURCE, PYTHON_RESTORE_INPUT_SOURCE } from './python-worker-stdin-request';
-import { PYTHON_DISPLAY_OFF_SOURCE, PYTHON_DISPLAY_SOURCE } from './python-worker-display';
+import { PYTHON_DISPLAY_SOURCE } from './python-worker-display';
 
 /** Build the Python bootstrap installed before each user-code execution. */
 export function buildPythonExecutionBootstrapSource(
-  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled' | 'askStdin' | 'richDisplay'>
+  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled' | 'askStdin'>
 ): string {
   return `
 import io
@@ -427,7 +427,7 @@ __lingua = __lingua_types.SimpleNamespace(
     image=__lingua_image_helper,
     html=__lingua_html_helper,
 )
-${message.richDisplay === true ? PYTHON_DISPLAY_SOURCE : PYTHON_DISPLAY_OFF_SOURCE}
+${PYTHON_DISPLAY_SOURCE}
 
 
 def __lingua_seed_scope(ns):

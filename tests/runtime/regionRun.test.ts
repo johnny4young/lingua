@@ -37,11 +37,8 @@ describe('region run at the cursor', () => {
     expect(await regionRunAtCursor()).toBeUndefined();
   });
 
-  it('leaves the Run shortcut alone with the flag off, outside the editor, in other languages or without markers', () => {
+  it('leaves the Run shortcut alone outside the editor, in other languages or without markers', () => {
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE }] as never, 't1');
-    focusEditor(3);
-    expect(regionRunAtCursor()).toBeUndefined();
-    useSettingsStore.setState({ featureFlags: { runRegions: true } });
     focusEditor(3, false);
     expect(regionRunAtCursor()).toBeUndefined();
     focusEditor(3);

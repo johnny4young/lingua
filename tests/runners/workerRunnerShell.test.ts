@@ -222,18 +222,7 @@ describe('the message pump', () => {
     worker.emitForRun({ type: 'done', executionTime: 1 });
     expect((await promise).stdinRequest).toEqual({ message: 'Name?' });
     const plain = startRun();
-    expect(plain.worker.posted[0]).toMatchObject({ askStdin: false, richDisplay: false });
-  });
-
-  it('hands the worker lingua.display when the Labs flag is on', async () => {
-    const { useSettingsStore } = await import('@/stores/settingsStore');
-    const previous = useSettingsStore.getState().featureFlags;
-    useSettingsStore.setState({ featureFlags: { richDisplay: true } });
-    try {
-      expect(startRun().worker.posted[0]).toMatchObject({ richDisplay: true });
-    } finally {
-      useSettingsStore.setState({ featureFlags: previous });
-    }
+    expect(plain.worker.posted[0]).toMatchObject({ askStdin: false });
   });
 
   it('keeps one output per progress bar and streams each update', async () => {

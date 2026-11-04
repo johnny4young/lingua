@@ -2,17 +2,15 @@ import { Circle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { canRecordTimeline } from '../../../shared/timeline';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 
-/** Record run in the Run menu, for JS / TS Worker tabs while the timeline flag is on. */
+/** Record run in the Run menu, for JS / TS Worker tabs. */
 export function RecordRunMenuItem({ disabled, onRecord }: { disabled: boolean; onRecord: () => void }) {
   const { t } = useTranslation();
-  const on = useSettingsStore(state => state.featureFlags.runTimeline === true);
   const recordable = useEditorStore(state => {
     const tab = getActiveTab(state);
     return tab ? canRecordTimeline(tab) : false;
   });
-  if (!on || !recordable) return null;
+  if (!recordable) return null;
   return (
     <button
       type="button"

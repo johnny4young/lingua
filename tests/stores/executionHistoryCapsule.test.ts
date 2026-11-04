@@ -29,11 +29,12 @@ import {
 import type { RunCapsuleV1 } from '@/../shared/runCapsule';
 
 function makeCapsule(language = 'javascript'): RunCapsuleV1 {
-  // Minimal shape — the store only checks `lastCapsule !== undefined`
-  // and reads `tab.language`; it never re-validates the schema.
+  // Minimal shape: the store never re-validates the schema, and paid tiers read source and result for Compare.
   return {
     version: 1,
     tab: { language },
+    source: { content: '' },
+    result: { status: 'success' },
   } as unknown as RunCapsuleV1;
 }
 

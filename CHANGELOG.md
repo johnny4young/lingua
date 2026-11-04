@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- Out of Labs and on for everyone: Execution timeline, Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro) and Network from running code. Settings › Labs no longer lists them, and TypeScript tabs no longer underline `lingua.display`.
+
 ## [2.0.0] — 2026-11-03
 
 ### Added

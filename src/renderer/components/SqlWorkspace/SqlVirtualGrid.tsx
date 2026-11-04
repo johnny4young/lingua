@@ -168,7 +168,7 @@ const GridRow = memo(function GridRow({
   /** The cell being edited in this row, with its text. */
   editor: { column: string; value: string } | null;
   /** With Rich display on: the numeric columns drawn as 0–1 bars. */
-  fractions: ReadonlySet<string> | null;
+  fractions: ReadonlySet<string>;
 }) {
   const rowSelected = selectedColumn !== null;
   return (
@@ -186,7 +186,7 @@ const GridRow = memo(function GridRow({
         const cellSelected = selectedColumn === col.name;
         const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
         const tone = cellTone(row, col.name);
-        const magic = fractions && !linked ? cachedMagic(row, col.name, value, duckType, fractions.has(col.name)) : null;
+        const magic = !linked ? cachedMagic(row, col.name, value, duckType, fractions.has(col.name)) : null;
         if (editor?.column === col.name) {
           return (
             <td key={col.name} role="gridcell" data-column={col.name} className="p-0">
@@ -268,7 +268,6 @@ export function SqlVirtualGrid({
   linkedColumns,
   onFollowLink,
   editing,
-  magics = false,
 }: {
   columns: ReadonlyArray<SqlColumnMetadata>;
   rows: ReadonlyArray<Record<string, unknown>>;
@@ -283,7 +282,6 @@ export function SqlVirtualGrid({
   onFollowLink?: (column: string, value: unknown) => void;
   editing?: SqlGridEditing;
   /** Rich display: links, 0–1 bars, checks and thumbnails in the cells. */
-  magics?: boolean;
 }) {
   const { t } = useTranslation();
   const [editor, setEditor] = useState<{ row: number; column: string; value: string; target: Record<string, unknown>; wasEmpty: boolean } | null>(null);
@@ -315,11 +313,11 @@ export function SqlVirtualGrid({
 
   // Keyed by the column names, so a new rows array (filter, Load more) with the same bars leaves unchanged rows memoized.
   const fractionNames = useMemo(
-    () => (magics ? [...fractionColumns(typed.map(({ col, numeric }) => ({ name: col.name, numeric })), rows)].join('\u0000') : null),
-    [magics, typed, rows]
+    () => [...fractionColumns(typed.map(({ col, numeric }) => ({ name: col.name, numeric })), rows)].join('\u0000'),
+    [typed, rows]
   );
   const fractions = useMemo(
-    () => (fractionNames === null ? null : new Set(fractionNames ? fractionNames.split('\u0000') : [])),
+    () => new Set(fractionNames ? fractionNames.split('\u0000') : []),
     [fractionNames]
   );
 

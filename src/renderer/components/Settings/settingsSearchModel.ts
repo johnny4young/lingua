@@ -287,7 +287,6 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     descriptionKey: 'settings.privacy.networkPolicy.hint',
     targetId: 'privacy-network-policy',
     keywords: ['network', 'fetch', 'internet', 'block', 'sandbox', 'red', 'bloquear'],
-    requiresFlag: 'networkPolicy',
   },
   {
     id: 'privacy-trust',

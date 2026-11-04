@@ -144,7 +144,6 @@ export function useCommandPaletteCommands({
   const latestCapsule = useExecutionHistoryStore(state => state.latestCapsule());
   const snapshotRing = useResultStore(state => state.snapshotRing);
   const runCompareActive = useRunCompareActive();
-  const timelineOn = useSettingsStore(state => state.featureFlags.runTimeline === true);
   const compareDockOpen = useUIStore(state => isCompareDockOpen(state));
   const dependencyDetectionEnabled = useSettingsStore(state => state.dependencyDetectionEnabled);
   const dependencyDetectionEntry = useDependencyDetectionStore(state =>
@@ -202,7 +201,7 @@ export function useCommandPaletteCommands({
         executionModeForLanguage(activeTab.language) === 'run'
           ? onRunActiveTab
           : undefined,
-      onRecordRun: timelineOn && activeTab && canRecordTimeline(activeTab) ? onRecordRun : undefined,
+      onRecordRun: activeTab && canRecordTimeline(activeTab) ? onRecordRun : undefined,
       onOpenProject,
       onOpenProjectTests,
       onOpenProjectTerminal,
@@ -717,7 +716,6 @@ export function useCommandPaletteCommands({
     executionHistory,
     snapshotRing,
     runCompareActive,
-    timelineOn,
     onRecordRun,
     compareDockOpen,
     onRunActiveTab,
