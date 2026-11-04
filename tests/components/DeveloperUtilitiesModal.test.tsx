@@ -173,6 +173,17 @@ describe('DeveloperUtilitiesModal', () => {
     );
   });
 
+  it('offers Send output above a tool, not on the Pipelines tool', async () => {
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'json' });
+    const { unmount } = render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+    expect(screen.getByTestId('utility-send-output')).toBeTruthy();
+    unmount();
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'utility-pipelines' });
+    render(<DeveloperUtilitiesWorkspaceView />);
+    expect(screen.queryByTestId('utility-send-output')).toBeNull();
+  });
+
   it('opens Pipelines on Free with no upgrade notice', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesWorkspaceView />);
