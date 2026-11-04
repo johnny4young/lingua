@@ -79,6 +79,15 @@ The web build may poll `updates.linguacode.dev` for the latest published version
 so it can show an update banner. The response is version metadata, not user
 project data.
 
+## SQL Engine
+
+The SQL workspace runs DuckDB inside the app. Lingua ships the DuckDB extensions
+it uses (JSON, ICU and Parquet) and turns off DuckDB's download of the others from
+`extensions.duckdb.org`, so typing or running a query does not contact that host.
+A query that needs another extension fails and names it. SQL still reaches any
+host it names itself, such as a URL passed to `read_csv` or a repository set with
+`SET custom_extension_repository`.
+
 ## Code The User Runs
 
 Code the user runs can reach the network. Settings › Privacy › Network from

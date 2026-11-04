@@ -117,6 +117,15 @@ import Legal from '~/layouts/Legal.astro';
     y Ruby se descargan desde <code>downloads.linguacode.dev</code> cuando se necesitan por primera vez.
   </p>
 
+  <h2>El motor SQL</h2>
+  <p>
+    El espacio de trabajo SQL ejecuta DuckDB dentro de la app. Lingua incluye las extensiones de
+    DuckDB que usa (JSON, ICU y Parquet) y desactiva la descarga de las demás desde
+    <code>extensions.duckdb.org</code>, así que escribir o ejecutar una consulta no contacta ese
+    servidor. Una consulta que necesita otra extensión falla y la nombra. El SQL sigue llegando a
+    cualquier servidor que nombre, como una URL que le pases a <code>read_csv</code>.
+  </p>
+
   <h2>Contacto</h2>
   <p>
     ¿Preguntas sobre privacidad? Escribe a
