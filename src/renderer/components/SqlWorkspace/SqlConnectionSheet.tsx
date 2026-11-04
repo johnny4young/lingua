@@ -18,6 +18,7 @@ import {
   SQL_SSL_MODES,
   parseConnectionDraft,
   parseConnectionUrl,
+  takeUrlPassword,
   sameSshTarget,
   WEB_SQL_ENGINES,
   withoutUrlPassword,
@@ -132,8 +133,11 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     setTest(null);
   };
 
-  const applyUrl = (value: string) => {
+  const applyUrl = (raw: string, final = false) => {
+    const taken = takeUrlPassword(raw, final);
+    const value = taken.url;
     setUrl(value);
+    if (taken.password !== undefined) setPassword(taken.password);
     if (value.trim().length === 0) {
       setUrlError(null);
       return;
@@ -159,7 +163,13 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     }
     setUrlError(null);
     setUrlFilled(true);
-    setDraft((current) => ({ ...filled, ...(current.env ? { env: current.env } : {}), readOnly: current.readOnly }));
+    const hasPassword = taken.password !== undefined || password.length > 0;
+    setDraft((current) => ({
+      ...filled,
+      ...(hasPassword && filled.engine !== 'sqlite' ? { passwordMode: 'keychain' as const } : {}),
+      ...(current.env ? { env: current.env } : {}),
+      readOnly: current.readOnly,
+    }));
     if (parsed.password !== undefined) {
       setPassword(parsed.password);
       setUrl(withoutUrlPassword(value));
@@ -415,7 +425,10 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
           <span className={LABEL}>{t('sqlWorkspace.connection.url')}</span>
           <input
             value={url}
-            onChange={(event) => applyUrl(event.target.value)}
+            onChange={(event) => applyUrl(event.target.value, (event.nativeEvent as InputEvent).inputType === 'insertFromPaste')}
+            onBlur={() => {
+              if (url) applyUrl(url, true);
+            }}
             placeholder={t('sqlWorkspace.connection.urlPlaceholder')}
             spellCheck={false}
             autoComplete="off"

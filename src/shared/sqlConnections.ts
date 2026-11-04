@@ -306,6 +306,38 @@ const SSL_PARAM: Readonly<Record<string, SqlSslMode>> = {
   verify_identity: 'verify-full',
 };
 
+/** A password in a query or a `;key=value` list; a separator after it marks a finished value. */
+const URL_PASSWORD_PARAM = /([?&;])(?:password|passwd|pwd)=([^&;#]*)([&;]?)/i;
+
+/**
+ * Takes the password out of a connection URL, even one that does not parse, so
+ * the field never shows it. `final` also takes a parameter that may still be typed.
+ */
+export function takeUrlPassword(raw: string, final: boolean): { url: string; password?: string } {
+  let url = raw;
+  let password: string | undefined;
+  try {
+    const parsed = new URL(raw.trim());
+    if (parsed.password) {
+      password = decode(parsed.password);
+      parsed.password = '';
+      url = parsed.toString();
+    }
+  } catch {
+    const match = /^(\s*[a-z][a-z0-9+.-]*:\/\/[^:/@\s]*):(.*)@/i.exec(raw);
+    if (match) {
+      password = decode(match[2] ?? '');
+      url = `${match[1]}@${raw.slice(match[0].length)}`;
+    }
+  }
+  const param = URL_PASSWORD_PARAM.exec(url);
+  if (param && (final || param[3])) {
+    password ??= decode(param[2] ?? '');
+    url = url.slice(0, param.index) + (param[3] ? param[1] : '') + url.slice(param.index + param[0].length);
+  }
+  return { url, ...(password !== undefined ? { password } : {}) };
+}
+
 /**
  * The URL with its password removed, so the field that showed it can keep
  * showing the rest. Uses the same parser as `parseConnectionUrl`, so both
