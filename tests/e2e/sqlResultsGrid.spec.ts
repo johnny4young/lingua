@@ -244,6 +244,82 @@ test.describe('SQL result grid', () => {
     });
   }
 
+  for (const language of ['en', 'es'] as const) {
+    test(`keeps the grid and its controls in reach on a short window with the dock open (${language})`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await page.setViewportSize({ width: 1100, height: 620 });
+      await seedSession(page, { language });
+      await page.addInitScript(() => {
+        const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
+        raw.state.featureFlags = { editRows: true };
+        localStorage.setItem('lingua-settings', JSON.stringify(raw));
+      });
+      await gotoApp(page);
+      await openSqlScratch(page);
+      await runAll(page, "CREATE TABLE places (id INTEGER PRIMARY KEY, name VARCHAR, city VARCHAR); INSERT INTO places SELECT i, 'n' || i, 'c' || i FROM range(40) t(i);");
+      const table = page.locator('[data-testid="sql-explorer-table"][data-table-name="places"]');
+      await expect(page.getByTestId('sql-explorer-row-count')).toHaveText('40');
+      await table.click();
+
+      const pane = page.getByTestId('sql-result-preview');
+      const grid = page.getByTestId('sql-result-preview-table-container');
+      // One read of both boxes: the run tabs above the pane leave as the table opens.
+      const inPane = (testId: string) =>
+        page.evaluate((id) => {
+          const outer = document.querySelector('[data-testid="sql-result-preview"]')?.getBoundingClientRect();
+          const inner = document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect();
+          return outer !== undefined && inner !== undefined && inner.top >= outer.top - 1 && inner.bottom <= outer.bottom + 1;
+        }, testId);
+      const wheelOverGrid = async (deltaY: number) => {
+        const box = (await grid.boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y + 30);
+        await page.mouse.wheel(0, deltaY);
+      };
+
+      await expect(page.getByTestId('bottom-panel-hide')).toBeVisible();
+      await expect(page.getByTestId('sql-result-strip-sql')).toHaveText('SELECT * FROM "places" LIMIT 100;');
+      await expect(pane).toHaveAttribute('data-grid-first', 'true');
+      // Rows on open, with the status above them, and the pointer lands on the grid.
+      await expect.poll(() => inPane('sql-result-preview-row')).toBe(true);
+      expect(await inPane('sql-status-pill')).toBe(true);
+      const box = (await grid.boundingBox())!;
+      const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid="sql-result-preview-table-container"]') !== null, { x: box.x + 40, y: box.y + 40 });
+      expect(hit).toBe(true);
+
+      // Rows first, then the footer past the last one.
+      await expect.poll(async () => {
+        await wheelOverGrid(600);
+        return inPane('sql-result-preview-export');
+      }).toBe(true);
+      expect(await inPane('sql-status-pill')).toBe(true);
+      await expect.poll(async () => {
+        await wheelOverGrid(-600);
+        return inPane('sql-result-strip');
+      }).toBe(true);
+      await expect.poll(() => inPane('sql-edit-add')).toBe(true);
+      expect(await inPane('sql-status-pill')).toBe(true);
+
+      // Staged writes stay on screen wherever the pane is scrolled, and clear the grid.
+      await page.getByTestId('sql-edit-add').click();
+      await expect(page.getByTestId('sql-edit-commit')).toBeVisible();
+      await expect.poll(async () => {
+        await wheelOverGrid(600);
+        return inPane('sql-result-preview-export');
+      }).toBe(true);
+      expect(await inPane('sql-edit-commit')).toBe(true);
+      await page.getByTestId('sql-edit-discard').click();
+      await expect(page.getByTestId('sql-edit-commit')).toBeHidden();
+
+      // A tall pane keeps every band and the footer on screen with no scrolling.
+      await page.setViewportSize({ width: 1440, height: 960 });
+      await expect(pane).not.toHaveAttribute('data-grid-first', 'true');
+      for (const testId of ['sql-status-pill', 'sql-result-strip', 'sql-edit-add', 'sql-result-preview-table-container', 'sql-result-preview-export']) {
+        await expect.poll(() => inPane(testId)).toBe(true);
+      }
+      expect(errors).toEqual([]);
+    });
+  }
+
   test('inserts a predicate from the column rail at the editor cursor (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
