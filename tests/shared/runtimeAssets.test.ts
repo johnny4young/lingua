@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { VENDORED_DUCKDB_EXTENSIONS } from '#src/renderer/runtime/duckdbClient';
 import { RUNTIME_ASSETS } from '#src/shared/runtimeAssets';
 
 /**
@@ -109,15 +110,17 @@ describe('runtime-assets.lock.json integrity', () => {
     expect(sw).not.toContain(RUNTIME_ASSETS.pyodide.sourceUrl);
   });
 
-  it('pins the vendored JSON extension to the DuckDB build that loads it', async () => {
-    const { servedPath, sourceVersion, nodeModulesPath, criticalFiles } = RUNTIME_ASSETS.duckdbJson;
-    const [file] = criticalFiles;
+  it('pins the vendored extensions to the DuckDB build that loads them', async () => {
+    const { servedPath, sourceVersion, nodeModulesPath, criticalFiles } = RUNTIME_ASSETS.duckdbExtensions;
     expect(servedPath).toBe(`duckdb-extensions/${sourceVersion}/wasm_mvp`);
-    const footer = (await readFile(path.join(repoRoot, nodeModulesPath, String(file)))).subarray(-512).toString('latin1');
-    expect(footer).toContain(`${sourceVersion}`);
-    expect(footer).toContain('wasm_mvp');
+    expect(criticalFiles).toEqual(VENDORED_DUCKDB_EXTENSIONS.map((name) => `${name}.duckdb_extension.wasm`));
+    for (const file of criticalFiles) {
+      const footer = (await readFile(path.join(repoRoot, nodeModulesPath, file))).subarray(-512).toString('latin1');
+      expect(footer).toContain(`${sourceVersion}`);
+      expect(footer).toContain('wasm_mvp');
+    }
     const client = await readFile(path.join(repoRoot, 'src/renderer/runtime/duckdbClient.ts'), 'utf8');
-    expect(client).toContain(`'../${servedPath}/${file}'`);
+    expect(client).toContain(`'../${servedPath}'`);
     const engine = await readFile(path.join(repoRoot, 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm'));
     expect(engine.includes(`${sourceVersion}\0`, 0, 'latin1')).toBe(true);
   });

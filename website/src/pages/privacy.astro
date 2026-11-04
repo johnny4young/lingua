@@ -112,6 +112,15 @@ import Legal from '~/layouts/Legal.astro';
     runtimes download from <code>downloads.linguacode.dev</code> when first needed.
   </p>
 
+  <h2>The SQL engine</h2>
+  <p>
+    The SQL workspace runs DuckDB inside the app. Lingua ships the DuckDB extensions it uses (JSON,
+    ICU and Parquet) and turns off DuckDB's download of the others from
+    <code>extensions.duckdb.org</code>, so typing or running a query does not contact that host. A
+    query that needs another extension fails and names it. SQL still reaches any host it names
+    itself, such as a URL passed to <code>read_csv</code>.
+  </p>
+
   <h2>Contact</h2>
   <p>
     Questions about privacy? Email <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a>.

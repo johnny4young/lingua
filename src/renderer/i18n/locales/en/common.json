@@ -3984,6 +3984,8 @@
   "sqlWorkspace.plan.copied": "Plan copied.",
   "sqlWorkspace.plan.copyFailed": "Could not copy the plan.",
   "sqlWorkspace.plan.unreadable": "DuckDB returned a plan this view cannot read.",
+  "sqlWorkspace.extension.notIncluded": "This query needs DuckDB's {{name}} extension, which Lingua doesn't include.",
+  "sqlWorkspace.extension.notLoaded": "This query needs DuckDB's {{name}} extension, and Lingua's copy did not load. Try again.",
   "sqlWorkspace.tabs.label": "Query tabs",
   "sqlWorkspace.tabs.unsaved": "Unsaved scratch",
   "sqlWorkspace.tabs.close": "Close {{name}}",

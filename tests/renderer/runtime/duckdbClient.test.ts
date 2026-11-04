@@ -17,8 +17,11 @@ import {
   countSqlStatements,
   estimateOriginStorageBytes,
   executeQuery,
-  createJsonExtensionLoader,
-  readJsonExtensionToBlobUrl,
+  createExtensionLoader,
+  duckDbErrorDetail,
+  missingExtensionName,
+  readExtensionToBlobUrl,
+  runWithExtensions,
   fetchRuntimeAssetWithRetry,
   flushAndReleaseDuckDbEngine,
   getDuckDbEngine,
@@ -151,12 +154,12 @@ describe('fetchRuntimeAssetWithRetry — R2 runtime WASM fetch resilience', () =
   });
 });
 
-describe('createJsonExtensionLoader', () => {
+describe('createExtensionLoader', () => {
   it('loads once, retries after a failed read or load, and frees the blob URL', async () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     const read = vi.fn<() => Promise<string>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValue('blob:x#/json.duckdb_extension.wasm');
     const run = vi.fn<(sql: string) => Promise<void>>().mockRejectedValueOnce(new Error('bad signature')).mockResolvedValue(undefined);
-    const load = createJsonExtensionLoader(run, read);
+    const load = createExtensionLoader(run, read);
     expect(await load()).toBe(false);
     expect(run).not.toHaveBeenCalled();
     expect(await load()).toBe(false);
@@ -172,10 +175,90 @@ describe('createJsonExtensionLoader', () => {
   it('names the blob URL after the extension, and rejects an HTTP error', async () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(new Uint8Array(1)));
-    await expect(readJsonExtensionToBlobUrl('https://app/x.wasm')).resolves.toBe('blob:x#/json.duckdb_extension.wasm');
+    await expect(readExtensionToBlobUrl('https://app/a/icu.duckdb_extension.wasm')).resolves.toBe('blob:x#/icu.duckdb_extension.wasm');
     expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
-    await expect(readJsonExtensionToBlobUrl('https://app/x.wasm')).rejects.toThrow('404');
+    await expect(readExtensionToBlobUrl('https://app/a/icu.duckdb_extension.wasm')).rejects.toThrow('404');
+  });
+});
+
+const closedRepositoryError = (name: string) =>
+  new Error(`Failed to execute 'send' on 'XMLHttpRequest': Failed to load 'data:/v1.4.3/wasm_mvp/${name}.duckdb_extension.wasm'.`);
+
+describe('runWithExtensions', () => {
+  const setup = (loaded = true) => {
+    const loaders = {
+      json: vi.fn(async () => loaded),
+      icu: vi.fn(async () => loaded),
+      parquet: vi.fn(async () => loaded),
+    };
+    return { loaders, run: vi.fn(async () => 'rows') };
+  };
+
+  it('loads Parquet first only for SQL that names it', async () => {
+    const { loaders, run } = setup();
+    await runWithExtensions('SELECT 1', run, loaders, () => false);
+    expect(loaders.parquet).not.toHaveBeenCalled();
+    await runWithExtensions("COPY t TO 'a' (FORMAT PARQUET)", run, loaders, () => false);
+    expect(loaders.parquet).toHaveBeenCalledTimes(1);
+    expect(loaders.parquet.mock.invocationCallOrder[0]).toBeLessThan(run.mock.invocationCallOrder[1] ?? 0);
+  });
+
+  it('runs one statement again once the extension it needed has loaded', async () => {
+    const { loaders, run } = setup();
+    run.mockRejectedValueOnce(closedRepositoryError('parquet'));
+    await expect(runWithExtensions('SELECT * FROM saved_view', run, loaders, () => false)).resolves.toBe('rows');
+    expect(loaders.parquet).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('never runs a script again, an extension it does not ship, or after a failed load', async () => {
+    const script = setup();
+    script.run.mockRejectedValueOnce(closedRepositoryError('icu'));
+    await expect(runWithExtensions('CREATE TABLE a (x INT); SELECT current_date', script.run, script.loaders, () => false)).rejects.toThrow('icu');
+    expect(script.run).toHaveBeenCalledTimes(1);
+
+    const other = setup();
+    other.run.mockRejectedValueOnce(closedRepositoryError('inet'));
+    await expect(runWithExtensions('SELECT 1', other.run, other.loaders, () => false)).rejects.toThrow('inet');
+    expect(other.run).toHaveBeenCalledTimes(1);
+
+    const failed = setup(false);
+    failed.run.mockRejectedValueOnce(closedRepositoryError('icu'));
+    await expect(runWithExtensions('SELECT current_date', failed.run, failed.loaders, () => false)).rejects.toThrow('icu');
+    expect(failed.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends nothing when a cancel arrives during the load', async () => {
+    const { loaders, run } = setup();
+    await expect(runWithExtensions('SELECT * FROM read_parquet(1)', run, loaders, () => true)).rejects.toThrow('cancelled');
+    expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('a missing extension', () => {
+  it('is named from the closed repository error only', () => {
+    expect(missingExtensionName(closedRepositoryError('sqlite_scanner'))).toBe('sqlite_scanner');
+    expect(missingExtensionName(new Error("Failed to load 'https://x.dev/inet.duckdb_extension.wasm'"))).toBeUndefined();
+    expect(missingExtensionName(new Error('_setThrew is not defined'))).toBeUndefined();
+  });
+
+  it('reads as a sentence that says whether Lingua ships it', async () => {
+    const message = async (name: string) => {
+      __setDuckDbEngineFactoryForTests(async () => ({
+        terminate: async () => {},
+        connect: async () => ({
+          query: async () => {
+            throw closedRepositoryError(name);
+          },
+          close: async () => {},
+        }),
+      }));
+      return (await executeQuery('SELECT 1')).errorMessage;
+    };
+    expect(await message('inet')).toBe("This query needs DuckDB's inet extension, which Lingua doesn't include.");
+    expect(await message('icu')).toBe("This query needs DuckDB's icu extension, and Lingua's copy did not load. Try again.");
+    expect(duckDbErrorDetail(closedRepositoryError('inet'))).toBe("This query needs DuckDB's inet extension, which Lingua doesn't include.");
   });
 });
 

@@ -4008,6 +4008,8 @@
   "sqlWorkspace.plan.copied": "Plan copiado.",
   "sqlWorkspace.plan.copyFailed": "No se pudo copiar el plan.",
   "sqlWorkspace.plan.unreadable": "DuckDB devolvió un plan que esta vista no puede leer.",
+  "sqlWorkspace.extension.notIncluded": "Esta consulta necesita la extensión {{name}} de DuckDB, que Lingua no incluye.",
+  "sqlWorkspace.extension.notLoaded": "Esta consulta necesita la extensión {{name}} de DuckDB y la copia de Lingua no cargó. Inténtalo de nuevo.",
   "sqlWorkspace.tabs.label": "Pestañas de consulta",
   "sqlWorkspace.tabs.unsaved": "Borrador sin guardar",
   "sqlWorkspace.tabs.close": "Cerrar {{name}}",

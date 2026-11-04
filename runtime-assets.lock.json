@@ -17,11 +17,13 @@
       "ruby+stdlib.wasm": "sha256-4b814fc9d13505ea5b4c1f3bd3a7cc7ccca137f551196b9b21f0a7caf9cc5878"
     }
   },
-  "duckdbJson": {
+  "duckdbExtensions": {
     "version": "1.32.0",
-    "sourceUrl": "https://extensions.duckdb.org/v1.4.3/wasm_mvp/json.duckdb_extension.wasm",
+    "sourceUrl": "https://extensions.duckdb.org/v1.4.3/wasm_mvp/",
     "integrity": {
-      "json.duckdb_extension.wasm": "sha256-5771b6d57335eca8e2ba4fdaacb491a53b49577bd7f1b0c39e2cd7a39b4e9313"
+      "json.duckdb_extension.wasm": "sha256-5771b6d57335eca8e2ba4fdaacb491a53b49577bd7f1b0c39e2cd7a39b4e9313",
+      "icu.duckdb_extension.wasm": "sha256-584a02fe3d1b008ea1517c49497e84b8b736c6195094da7badee97688e8847fd",
+      "parquet.duckdb_extension.wasm": "sha256-0785c6c95d003eff4faa7b3b4b660f02c9c92f6d68d135ddf330d42e3a650600"
     }
   }
 }

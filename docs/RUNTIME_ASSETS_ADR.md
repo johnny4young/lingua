@@ -122,29 +122,52 @@ Concretely:
   configs to `JSON.stringify(null)` for `__LINGUA_PYODIDE_INDEX_URL__`, and
   pins the R2 URL defines for Ruby/DuckDB web runtime assets.
 
-### DuckDB's JSON extension (vendored)
+### DuckDB's extensions (vendored)
 
 `@duckdb/duckdb-wasm` leaves its loadable extensions out of the package, and
-DuckDB fetches them from `extensions.duckdb.org` on first use. Instant SQL
-parses every statement with `json_serialize_sql`, so that fetch would happen
-while the user types, and it would fail offline.
+DuckDB would fetch them from `extensions.duckdb.org` on first use, in a request
+from its worker. Everyday SQL asks for them: `current_date` needs ICU, and
+Instant SQL parses every statement with `json_serialize_sql`, so that fetch would
+happen while the user types, and it would fail offline.
 
-`vendor/duckdb-extensions/<duckdb>/wasm_mvp/json.duckdb_extension.wasm` holds
-the signed upstream build (722 KiB, 110 KiB over Brotli). The registry copies it
-to the same path on web and desktop, the lock records its hash, and the engine
-loads it when it starts. The main thread reads the file with a time limit and
-gives `LOAD` a blob URL, because DuckDB's own request blocks its worker with
-none. DuckDB checks the file's signature, so a changed file does not load. If the load fails the engine still starts, and
-Instant SQL says so instead of letting DuckDB fetch its own copy.
+The engine sets `custom_extension_repository` to `data:` right after it opens the
+database, so no extension comes from that host. Autoloading stays on: DuckDB
+still looks for what a query needs, the lookup fails at once, and its error names
+the file, which the app turns into a sentence naming the extension. Turning
+autoloading off does not do this, because `date_trunc(now())` and `LOAD` still
+reach the host, and every other case loses the name. A user who types their own
+`SET custom_extension_repository` opts out of this, as with any URL they type.
 
-The other extensions, such as Parquet and ICU, still come from DuckDB's host.
+`vendor/duckdb-extensions/<duckdb>/wasm_mvp/` holds the signed upstream builds.
+The registry copies them to the same path on web and desktop, and the lock
+records their hashes.
+
+| Extension | Size | Brotli | Loads |
+| --- | --- | --- | --- |
+| JSON | 722 KiB | 110 KiB | When the engine starts |
+| ICU | 6.1 MiB | 1.3 MiB | When the engine starts, because `now() - INTERVAL 1 DAY` fails without it and never asks for it |
+| Parquet | 2.7 MiB | 467 KiB | The first time SQL names `parquet` |
+
+The main thread reads each file with a time limit and gives `LOAD` a blob URL,
+because DuckDB's own request blocks its worker with none. DuckDB checks the
+file's signature, so a changed file does not load. If a load fails the engine
+still starts, and the next statement that needs the extension tries again. A
+single statement that failed for an extension Lingua ships runs again once it has
+loaded, which covers a failed load at start and SQL that needs Parquet without
+naming it. A script does not run again, since an earlier statement may have
+written.
+
+Any other extension, such as INET, spatial, Excel or SQLite, is not shipped: the
+query fails with a message naming it. On the web, a Parquet file that was never
+used online is not in the service worker's cache, so it reports that its copy did
+not load until the app is online.
 
 To bump `@duckdb/duckdb-wasm`: read the DuckDB version it embeds, download the
-`wasm_mvp` JSON extension for that version into a new `vendor` folder, update
-the `duckdbJson` entry and the URL in `duckdbClient.ts`, and run
-`pnpm run build:runtime-assets`. `tests/shared/runtimeAssets.test.ts` fails
-until the version, the path and the footer agree, and the Instant SQL e2e fails
-if the engine rejects the file.
+`wasm_mvp` extensions for that version into a new `vendor` folder, update the
+`duckdbExtensions` entry and the folder in `duckdbClient.ts`, and run
+`pnpm run build:runtime-assets`. `tests/shared/runtimeAssets.test.ts` fails until
+the version, the path and the footers agree, and `tests/e2e/sqlExtensions.spec.ts`
+fails if the engine rejects a file.
 
 ## Consequences
 
