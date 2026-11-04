@@ -80,7 +80,13 @@ export function columnStats(
 ): SqlColumnStats[] {
   const limit = statsRowLimit(columns.length);
   const rows = allRows.length > limit ? allRows.slice(0, limit) : allRows;
-  return columns.map((column) => {
+  // Row by row: rows are hash tables scattered over the heap, so a column at a time misses the cache on every cell.
+  const cells = columns.map(() => new Array<unknown>(rows.length));
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r]!;
+    for (let c = 0; c < columns.length; c++) cells[c]![r] = row[columns[c]!.name];
+  }
+  return columns.map((column, columnIndex) => {
     const duckType = arrowTypeToDuckDb(column.type);
     const kind: SqlColumnStats['kind'] = isNumericSqlType(duckType) ? 'number' : isTemporal(duckType) ? 'date' : 'text';
     let nulls = 0;
@@ -92,8 +98,7 @@ export function columnStats(
     let lowNumber = Number.POSITIVE_INFINITY;
     let highNumber = Number.NEGATIVE_INFINITY;
     const nonFinite = new Set<string>();
-    for (const row of rows) {
-      const value = row[column.name];
+    for (const value of cells[columnIndex]!) {
       if (value === null || value === undefined) {
         nulls += 1;
         continue;

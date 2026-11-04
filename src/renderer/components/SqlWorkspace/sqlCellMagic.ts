@@ -25,23 +25,24 @@ export function fractionColumns(
   columns: ReadonlyArray<{ name: string; numeric: boolean }>,
   rows: ReadonlyArray<Record<string, unknown>>
 ): ReadonlySet<string> {
-  const fractions = new Set<string>();
-  for (const { name, numeric } of columns) {
-    if (!numeric) continue;
-    let fractional = false;
-    let fits = true;
-    for (const row of rows) {
-      const value = row[name];
-      if (value === null || value === undefined) continue;
-      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
-        fits = false;
-        break;
+  // Row by row: rows are hash tables scattered over the heap, so a column at a time misses the cache on every cell.
+  const open = columns.filter(({ numeric }) => numeric).map(({ name }) => ({ name, fractional: false }));
+  let openCount = open.length;
+  for (const row of rows) {
+    if (openCount === 0) break;
+    let kept = 0;
+    for (let index = 0; index < openCount; index++) {
+      const column = open[index]!;
+      const value = row[column.name];
+      if (value !== null && value !== undefined) {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) continue;
+        if (!Number.isInteger(value)) column.fractional = true;
       }
-      if (!Number.isInteger(value)) fractional = true;
+      open[kept++] = column;
     }
-    if (fits && fractional) fractions.add(name);
+    openCount = kept;
   }
-  return fractions;
+  return new Set(open.slice(0, openCount).filter(({ fractional }) => fractional).map(({ name }) => name));
 }
 
 /** Width and height from the image's header, or null when the header does not state them. */
