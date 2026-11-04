@@ -503,9 +503,10 @@ export function isEstimableSqlStatement(statement: string): boolean {
 }
 
 // Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.
-// So can logins (PASSWORD =, IDENTIFIED BY) and ClickHouse table functions that take a remote user and password.
+// So can logins (PASSWORD =, IDENTIFIED BY, CREATE or ALTER of a user, role, login or foreign server) and ClickHouse
+// table functions that take a remote user and password.
 const SECRET_STATEMENT =
-  /\b(secret|attach)\b|^\s*(set|reset|pragma)\b|\bpassword\s*=|\bidentified\b|\b(remote|remoteSecure|mysql|postgresql|s3|s3Cluster|gcs|azureBlobStorage|mongodb|redis|jdbc|odbc)\s*\(/i;
+  /\b(secret|attach)\b|^\s*(set|reset|pragma)\b|\bpassword\s*=|\bidentified\b|\b(create|alter)\s+(user|role|login|server)\b|\b(remote|remoteSecure|mysql|postgresql|s3|s3Cluster|gcs|azureBlobStorage|mongodb|redis|jdbc|odbc)\s*\(/i;
 const SECRET_LITERAL =
   /:\/\/[^\s'"/]*@|[?&;](token|key|sig|signature|password|access_token|accountkey|sharedaccesssignature|x-amz-[a-z-]+)=|(?:^|[^a-z0-9])(password|passwd|pwd|secret|client_secret|api[_-]?key|apikey|auth[_-]?token|access[_-]?token)\s*=|\bbearer\s+\S|\beyJ[\w-]+\.[\w-]+\./i
 
@@ -532,12 +533,15 @@ function maskSecretFragments(text: string): string {
 
 /**
  * Masks credentials before SQL is kept in the run History or a snippet: every
- * literal of a SECRET, ATTACH, SET, RESET or PRAGMA statement, a literal with
+ * literal of a SECRET, ATTACH, SET, RESET, PRAGMA or login statement, a literal with
  * URL credentials, a token-like parameter or a token shape, a value compared to
  * a column named like a credential, and those same patterns anywhere else in
  * the text. On MySQL, ClickHouse, SQL Server and SQLite, literals are found by
  * that server's quoting rules.
  */
+/** True when text still holds what `redactSqlSecrets` left in place of a value. */
+export const hasMaskedSqlSecret = (sql: string): boolean => sql.includes('•••');
+
 export function redactSqlSecrets(sql: string, engine?: SqlEngineKind): string {
   const dialects = engine === 'sqlserver' || engine === 'sqlite' ? BRACKET_DIALECTS : dialectsFor(engine);
   if (dialects) return maskSecretFragments(redactDialectSecrets(sql, dialects));
