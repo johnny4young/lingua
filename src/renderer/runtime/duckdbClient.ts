@@ -33,6 +33,7 @@
  *     same code path as web.
  */
 
+import i18next from 'i18next';
 import { sha256HexToIntegrity } from './wasmIntegrity';
 import { DuckDbEngineLifecycle } from './duckdbEngineLifecycle';
 import {
@@ -528,24 +529,42 @@ async function fetchVerifiedWasmUrl(
   return URL.createObjectURL(await response.blob());
 }
 
-const JSON_EXTENSION_FILE = 'json.duckdb_extension.wasm';
-const JSON_EXTENSION_FETCH_TIMEOUT_MS = 15_000;
+const VENDORED_EXTENSIONS_DIR = '../duckdb-extensions/v1.4.3/wasm_mvp';
+const EXTENSION_FETCH_TIMEOUT_MS = 15_000;
+
+/** Extensions Lingua ships; DuckDB reaches for any other one by name and fails. */
+export const VENDORED_DUCKDB_EXTENSIONS = ['json', 'icu', 'parquet'] as const;
+type VendoredDuckDbExtension = (typeof VENDORED_DUCKDB_EXTENSIONS)[number];
+type DuckDbExtensionLoaders = Record<VendoredDuckDbExtension, () => Promise<boolean>>;
+
+/** Makes DuckDB fail on a missing extension, naming it, instead of fetching it from its own host. */
+const CLOSE_EXTENSION_REPOSITORY_SQL = "SET custom_extension_repository='data:'";
+const MISSING_EXTENSION_ERROR = /Failed to load 'data:[^']*\/([a-z0-9_]+)\.duckdb_extension\.wasm'/;
+/** Parquet weighs too much to load for everyone, so the first SQL that names it pays. */
+const PARQUET_SQL = /parquet/i;
+
+/** The extension a failed statement needed, when DuckDB's closed repository is why it failed. */
+export function missingExtensionName(err: unknown): string | undefined {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  return MISSING_EXTENSION_ERROR.exec(raw)?.[1];
+}
+
+const isVendoredExtension = (name: string | undefined): name is VendoredDuckDbExtension =>
+  (VENDORED_DUCKDB_EXTENSIONS as readonly string[]).includes(name ?? '');
 
 /**
  * DuckDB's own request for an extension blocks its worker with no time limit,
  * so it gets a local URL. It names the extension after the URL's last segment.
  */
-export async function readJsonExtensionToBlobUrl(url: string): Promise<string> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(JSON_EXTENSION_FETCH_TIMEOUT_MS) });
-  if (!response.ok) throw new Error(`Failed to fetch ${JSON_EXTENSION_FILE} (${response.status})`);
-  return `${URL.createObjectURL(await response.blob())}#/${JSON_EXTENSION_FILE}`;
+export async function readExtensionToBlobUrl(url: string): Promise<string> {
+  const file = url.slice(url.lastIndexOf('/') + 1);
+  const response = await fetch(url, { signal: AbortSignal.timeout(EXTENSION_FETCH_TIMEOUT_MS) });
+  if (!response.ok) throw new Error(`Failed to fetch ${file} (${response.status})`);
+  return `${URL.createObjectURL(await response.blob())}#/${file}`;
 }
 
-/**
- * DuckDB would fetch this extension from its own host on first use. A failed
- * load leaves the next call free to retry; DuckDB checks the file's signature.
- */
-export function createJsonExtensionLoader(
+/** A failed load leaves the next call free to retry; DuckDB checks the file's signature. */
+export function createExtensionLoader(
   run: (sql: string) => Promise<void>,
   readToBlobUrl: () => Promise<string>
 ): () => Promise<boolean> {
@@ -564,6 +583,32 @@ export function createJsonExtensionLoader(
       loading = null;
       return false;
     }));
+}
+
+/**
+ * Loads what `sql` needs before it runs. SQL can need an extension without naming
+ * it, through a saved view or after a failed load at start, so a statement that
+ * failed for one it ships runs again. Only one statement: a script may have written.
+ */
+export async function runWithExtensions<T>(
+  sql: string,
+  run: () => Promise<T>,
+  loaders: DuckDbExtensionLoaders,
+  wasStopped: () => boolean
+): Promise<T> {
+  const load = async (loader: () => Promise<boolean>): Promise<boolean> => {
+    const loaded = await loader();
+    if (wasStopped()) throw new Error('Query cancelled');
+    return loaded;
+  };
+  if (PARQUET_SQL.test(sql)) await load(loaders.parquet);
+  try {
+    return await run();
+  } catch (err) {
+    const name = missingExtensionName(err);
+    if (!isVendoredExtension(name) || countSqlStatements(sql) !== 1 || !(await load(loaders[name]))) throw err;
+    return run();
+  }
 }
 
 /**
@@ -635,36 +680,50 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       isOpfsStorageAvailable()
     );
     resolvedStorageRequestedMode = requestedStorageMode;
-    const loadJsonExtension = createJsonExtensionLoader(
-      async (sql) => {
-        const connection = await db.connect();
-        try {
-          await connection.query(sql);
-        } finally {
-          await connection.close();
-        }
-      },
-      () =>
-        readJsonExtensionToBlobUrl(
-          new URL(
-            /* @vite-ignore */ '../duckdb-extensions/v1.4.3/wasm_mvp/json.duckdb_extension.wasm',
-            import.meta.url
-          ).href
+    const runAlone = async (sql: string) => {
+      const connection = await db.connect();
+      try {
+        await connection.query(sql);
+      } finally {
+        await connection.close();
+      }
+    };
+    // After the open above, which replaces the database and its settings.
+    await runAlone(CLOSE_EXTENSION_REPOSITORY_SQL);
+    const extensionLoader = (name: VendoredDuckDbExtension) =>
+      createExtensionLoader(runAlone, () =>
+        readExtensionToBlobUrl(
+          new URL(/* @vite-ignore */ `${VENDORED_EXTENSIONS_DIR}/${name}.duckdb_extension.wasm`, import.meta.url).href
         )
-    );
-    await loadJsonExtension();
+      );
+    const extensions: DuckDbExtensionLoaders = {
+      json: extensionLoader('json'),
+      icu: extensionLoader('icu'),
+      parquet: extensionLoader('parquet'),
+    };
+    // ICU cannot wait for first use: `now() - INTERVAL` fails without it and never asks for it.
+    await Promise.all([extensions.json(), extensions.icu()]);
     return {
-      loadJsonExtension,
+      loadJsonExtension: extensions.json,
       connect: async (): Promise<DuckDbConnection> => {
         const connection = await db.connect();
+        // A cancel during an extension load has no statement to stop yet.
+        let stopped = false;
+        const withExtensions = <T>(sql: string, run: () => Promise<T>) => {
+          stopped = false;
+          return runWithExtensions(sql, run, extensions, () => stopped);
+        };
         return {
           query: async (sql: string) => {
-            const arrowTable = await connection.query(sql);
+            const arrowTable = await withExtensions(sql, () => connection.query(sql));
             return mapArrowTable(arrowTable);
           },
           stream: async (sql: string) => {
-            const reader = await connection.send(sql, true);
-            await reader.open();
+            const reader = await withExtensions(sql, async () => {
+              const opened = await connection.send(sql, true);
+              await opened.open();
+              return opened;
+            });
             return {
               fields: () => reader.schema?.fields ?? [],
               next: async () => {
@@ -673,7 +732,10 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
               },
             };
           },
-          cancel: () => connection.cancelSent(),
+          cancel: () => {
+            stopped = true;
+            return connection.cancelSent();
+          },
           close: async () => {
             await connection.close();
           },
@@ -1089,7 +1151,16 @@ function isTimeoutSentinel(value: unknown): value is QueryTimeoutSentinel {
   );
 }
 
+/** A sentence for a statement that failed for want of an extension; undefined for any other failure. */
+export function missingExtensionMessage(err: unknown): string | undefined {
+  const name = missingExtensionName(err);
+  if (!name) return undefined;
+  return i18next.t(isVendoredExtension(name) ? 'sqlWorkspace.extension.notLoaded' : 'sqlWorkspace.extension.notIncluded', { name });
+}
+
 function errorMessageForUser(err: unknown, fallback: string): string {
+  const missing = missingExtensionMessage(err);
+  if (missing) return missing;
   const raw = err instanceof Error ? err.message : String(err ?? fallback);
   if (DUCKDB_WASM_INTERNAL_ERROR.test(raw)) {
     return DUCKDB_WASM_INTERNAL_ERROR_MESSAGE;
@@ -1099,6 +1170,8 @@ function errorMessageForUser(err: unknown, fallback: string): string {
 
 /** DuckDB's own reason for a failure, or undefined when the wasm build lost it. */
 export function duckDbErrorDetail(err: unknown): string | undefined {
+  const missing = missingExtensionMessage(err);
+  if (missing) return missing;
   const raw = err instanceof Error ? err.message : String(err ?? '');
   return raw.trim() === '' || DUCKDB_WASM_INTERNAL_ERROR.test(raw) ? undefined : raw;
 }

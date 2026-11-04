@@ -9,7 +9,7 @@
  *   - `src/renderer/workers/ruby-worker.ts` — to resolve the bundled
  *     Ruby WASM in desktop/dev, unless the web build injects an R2 URL.
  *   - `src/renderer/runtime/duckdbClient.ts` — to load DuckDB's vendored
- *     JSON extension on every surface.
+ *     extensions on every surface.
  *   - `build/copyRuntimeAssetsPlugin.mts` — to copy/serve selected
  *     runtime files for desktop, dev, and same-origin web assets.
  *   - `scripts/build-runtime-asset-manifest.mjs` — to compute and
@@ -29,7 +29,7 @@
  * remains upstream provenance for docs, lock drift review, and version checks.
  */
 
-export type RuntimeAssetId = 'pyodide' | 'ruby' | 'duckdbJson';
+export type RuntimeAssetId = 'pyodide' | 'ruby' | 'duckdbExtensions';
 
 export type RuntimeAssetEntry = {
   /** Semver string. Must match the dependency pin in package.json. */
@@ -104,15 +104,19 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
     servedPath: 'ruby',
     criticalFiles: ['ruby+stdlib.wasm'],
   },
-  // The npm package leaves this extension out, so the signed upstream build is
-  // vendored. It only loads into the DuckDB version and platform in its path.
-  duckdbJson: {
+  // The npm package leaves these extensions out, so the signed upstream builds are
+  // vendored. They only load into the DuckDB version and platform in their path.
+  duckdbExtensions: {
     version: '1.32.0',
     sourceVersion: 'v1.4.3',
-    sourceUrl: 'https://extensions.duckdb.org/v1.4.3/wasm_mvp/json.duckdb_extension.wasm',
+    sourceUrl: 'https://extensions.duckdb.org/v1.4.3/wasm_mvp/',
     nodeModulesPath: 'vendor/duckdb-extensions/v1.4.3/wasm_mvp',
     packageDir: 'node_modules/@duckdb/duckdb-wasm',
     servedPath: 'duckdb-extensions/v1.4.3/wasm_mvp',
-    criticalFiles: ['json.duckdb_extension.wasm'],
+    criticalFiles: [
+      'json.duckdb_extension.wasm',
+      'icu.duckdb_extension.wasm',
+      'parquet.duckdb_extension.wasm',
+    ],
   },
 } as const;
