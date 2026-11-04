@@ -33,12 +33,14 @@ const mountedRows = (table: HTMLTableElement) =>
   [...table.tBodies[0]!.rows].filter((row) => row.dataset.testid === 'sql-result-preview-row');
 
 describe('grid at 100,000 rows by 100 columns', () => {
-  it('mounts a screenful of rows and moves the window on scroll', () => {
+  it('mounts a screenful of rows and columns and moves both windows on scroll', () => {
     const { container: root } = render(<SqlResultPreview response={response} isExecuting={false} rowDisplayLimit={ROWS} />);
     const table = root.querySelector('table')!;
     expect(table.getAttribute('aria-rowcount')).toBe(String(ROWS + 1));
     expect(mountedRows(table).length).toBeLessThan(100);
-    expect(table.querySelectorAll('td').length).toBeLessThan(100 * (COLUMNS + 2));
+    // About 53 rows of 12 cells and a gap, where a screen shows perhaps 15 columns.
+    expect(table.querySelectorAll('td').length).toBeLessThan(750);
+    expect(table.tHead!.rows[0]!.cells.length).toBe(COLUMNS);
 
     const container = table.parentElement!;
     expect(container.dataset.testid).toBe('sql-result-preview-table-container');
@@ -48,6 +50,15 @@ describe('grid at 100,000 rows by 100 columns', () => {
     const mounted = mountedRows(table);
     expect(Number(mounted[0]!.getAttribute('aria-rowindex'))).toBeGreaterThan(59_000);
     expect(mounted.length).toBeLessThan(100);
+    expect(table.querySelectorAll('td').length).toBeLessThan(750);
+
+    container.scrollLeft = 165 * 50;
+    fireEvent.scroll(container);
+    const cells = [...mountedRows(table)[0]!.cells].filter((cell) => cell.dataset.column);
+    expect(cells.length).toBeLessThan(20);
+    expect(cells[0]!.getAttribute('aria-colindex')).toBe(String(Number(cells[0]!.dataset.column!.slice(1)) + 1));
+    expect(cells.map((cell) => cell.dataset.column)).toContain('c50');
+    expect(table.querySelectorAll('td').length).toBeLessThan(1_500);
     // The rail summarizes the first rows of a result this wide, and says so.
     expect(root.querySelector('aside [data-testid="sql-column-rail-sample"]')!.textContent).toBe('of the first 10,000 of 100,000 rows loaded');
   });
