@@ -5,7 +5,7 @@ import Legal from '~/layouts/Legal.astro';
 <Legal
   title="Privacy"
   description="What Lingua collects, what it never collects, and how to revoke consent. Telemetry is off by default."
-  lastUpdated="2026-11-03"
+  lastUpdated="2026-11-04"
   locale="en"
 >
   <p>
@@ -119,6 +119,37 @@ import Legal from '~/layouts/Legal.astro';
     <code>extensions.duckdb.org</code>, so typing or running a query does not contact that host. A
     query that needs another extension fails and names it. SQL still reaches any host it names
     itself, such as a URL passed to <code>read_csv</code>.
+  </p>
+
+  <h2>Database connections</h2>
+  <p>
+    A database connection goes from your device to the server you set up. Lingua runs no service in
+    between. Turso, Neon and Cloudflare D1 go over HTTPS to those providers.
+  </p>
+  <p>
+    On desktop, passwords, tokens and key passphrases are encrypted with your system keychain, or
+    stay in memory until you quit for a connection that asks each session, and always where no
+    keychain is available. They are never written in plain text or logged, and the interface cannot
+    read a saved one back. The list of saved connections has no secrets. It holds names, hosts, users
+    and databases in a file only you can read on macOS and Linux. In the browser, Turso and Neon
+    connections last for the tab and their tokens stay in memory.
+  </p>
+  <p>
+    Results and driver errors from a connection stay in the session and leave run capsules. A query
+    on a connection reaches disk with its secret literals masked. Telemetry carries the engine and
+    the step that failed, never a host, user, query or row. A crash report's minidump can hold what
+    was in memory, such as a password in use or rows, which is one reason crash reports are opt-in.
+  </p>
+  <p>
+    For an SSH tunnel, Lingua reads <code>~/.ssh/known_hosts</code> and <code>~/.ssh/config</code>
+    and does not write them. It opens a private key from <code>~/.ssh</code> only when you pick it,
+    your ssh config names it, or you save a connection imported with it. A saved connection keeps
+    the key's path, not its content. Host keys you trust are kept in a file of Lingua's own, and
+    with the SSH agent the agent holds the key.
+  </p>
+  <p>
+    Importing connections reads the file you pick, the file beside it that completes it, or the
+    <code>.env</code> files at the open project's root, and drops every password. An export has no secrets.
   </p>
 
   <h2>Contact</h2>

@@ -393,7 +393,7 @@ export const en = {
           features: [
             '3 open tabs at a time',
             'Up to 5 saved snippets',
-            '3 saved database connections (desktop, Labs)',
+            '3 saved database connections (desktop)',
             'JavaScript, TypeScript, Python, Ruby runners',
             'All single-shot developer utilities',
             'Monaco editor + syntax highlighting',
