@@ -88,6 +88,10 @@ A query that needs another extension fails and names it. SQL still reaches any
 host it names itself, such as a URL passed to `read_csv` or a repository set with
 `SET custom_extension_repository`.
 
+Instant SQL runs a sample of the statement under the cursor as you type, on Local and
+on the device. It never runs a write or a statement that names a remote URL on its own,
+and its rows are not saved. Settings › Editor › SQL workspace turns it off.
+
 ## Database Connections
 
 A database connection goes from the device to the server the user sets up. Lingua
