@@ -87,7 +87,7 @@ first render before a DOM measurement exists.
 
 All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
 full-width editor. Its tab row always lists Console; Input, Compare, Timeline
-(Labs, after a Record run), Variables,
+(after a Record run), Variables,
 Terminal and Tests (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
 and carries the run controls: auto-log, run status, recent runs, time, capsule
@@ -491,8 +491,8 @@ Sharing separates its always-available triggers from both implementations:
 Result comparison has its own activation boundary:
 
 - [`hooks/useLayoutAvailability.ts`](hooks/useLayoutAvailability.ts) keeps the
-  stable-snapshot gate that decides when the dock offers Compare. With Compare
-  runs on ([`hooks/useRunCompareActive.ts`](hooks/useRunCompareActive.ts)), any
+  stable-snapshot gate that decides when the dock offers Compare. On a tier that
+  keeps run history ([`hooks/useRunCompareActive.ts`](hooks/useRunCompareActive.ts)), any
   recorded run opens the tab, which then loads the lazy
   [`components/RunCompare/RunComparePanel.tsx`](components/RunCompare/RunComparePanel.tsx).
 - [`components/Editor/CompareResultsPanelHost.tsx`](components/Editor/CompareResultsPanelHost.tsx)

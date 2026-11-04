@@ -47,7 +47,7 @@ import { splitForHighlight } from './httpTextHighlight';
 
 type PreviewTab = 'body' | 'headers' | 'raw' | 'timing' | 'snapshot';
 
-/** With snapshot assertions on: the request's snapshot and the ways to change it. */
+/** The request's snapshot and the ways to change it. */
 interface HttpResponseSnapshots {
   snapshot: HttpResponseSnapshot | undefined;
   onChange: (snapshot: HttpResponseSnapshot | undefined) => void;

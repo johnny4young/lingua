@@ -28,8 +28,6 @@ async function openBuilder(
   if (scopes) {
     await page.addInitScript(
       ({ tools }) => {
-        const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-        localStorage.setItem('lingua-settings', JSON.stringify(settings));
         if (!localStorage.getItem('lingua-workspace-tool-state')) {
           localStorage.setItem('lingua-workspace-tool-state', JSON.stringify({ state: { requests: [], ...tools }, version: 1 }));
         }

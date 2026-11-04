@@ -260,7 +260,7 @@ allowlist. No source, no breakpoint coordinates, no expression content.
 The execution timeline records a JavaScript or TypeScript run in the Worker
 and replays it step by step. It is a separate path from a debug session: nothing
 pauses, and stepping moves through the recording. See
-[Execution timeline](./USAGE.md#execution-timeline-labs) in USAGE.
+[Execution timeline](./USAGE.md#execution-timeline) in USAGE.
 
 ## Current limitations
 

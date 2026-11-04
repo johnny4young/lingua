@@ -7,8 +7,8 @@
  * persists across reloads — keeping history in memory is a deliberate
  * privacy choice, same spirit as the telemetry posture. No code
  * body, no stdout / stderr, no file path is captured by default — only the
- * bucketed metadata the future UI actually needs. With Compare runs on
- * (Labs, paid tiers) each entry also keeps a capped copy of its code, output
+ * bucketed metadata the future UI actually needs. On paid tiers
+ * each entry also keeps a capped copy of its code, output
  * and inline values for the Compare tab, still in memory only.
  *
  * opt-in code snapshot. When the caller passes a
@@ -93,7 +93,7 @@ export interface ExecutionHistoryEntry {
    * `lastCapsule`.
    */
   lastCapsule?: RunCapsuleV1;
-  /** Compare data for the Compare tab, captured only while its Labs flag is on. */
+  /** Compare data for the Compare tab, captured only on paid tiers. */
   runCompare?: RunCompareRecord;
 }
 

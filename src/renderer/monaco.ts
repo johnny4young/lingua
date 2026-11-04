@@ -338,15 +338,6 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
   return false;
 }
 
-/**
- * Decide when the Node typings load.
- *
- * Desktop with the Node runtime: on idle after the first editor mount — the
- * user can run Node code there, so `crypto`/`fs` intellisense should be ready
- * by the time they type. Web: Node code cannot run, so the 2.4 MB chunk is
- * only worth its download once a JS/TS buffer actually refers to Node; watch
- * the models and load on the first match, then stop watching.
- */
 const LINGUA_GLOBAL_TYPES = `
 interface LinguaProgressBar { update(fraction: number, text?: string): void }
 interface LinguaDisplay {
@@ -368,6 +359,15 @@ function registerLinguaGlobalTypes(ts: MonacoTypeScriptDefaultsWithExtraLib): vo
   ts.typescriptDefaults.addExtraLib?.(LINGUA_GLOBAL_TYPES, LINGUA_GLOBAL_TYPES_URI);
 }
 
+/**
+ * Decide when the Node typings load.
+ *
+ * Desktop with the Node runtime: on idle after the first editor mount — the
+ * user can run Node code there, so `crypto`/`fs` intellisense should be ready
+ * by the time they type. Web: Node code cannot run, so the 2.4 MB chunk is
+ * only worth its download once a JS/TS buffer actually refers to Node; watch
+ * the models and load on the first match, then stop watching.
+ */
 function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWithExtraLib): void {
   registerLinguaGlobalTypes(ts);
   if (nodeTypeDefinitionsRegistered || nodeTypeDefinitionsScheduled) return;

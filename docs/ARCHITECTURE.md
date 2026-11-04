@@ -138,7 +138,7 @@ file they run holds no secret that was masked from it; on packaged desktop the
 limits above still apply to what that code can import. They stay outside the
 tab's console,
 results and history; blocked hosts still reach the Privacy & Trust log, as for
-Labs runs. Both runs go to a new runner instance, never the shared
+any other run. Both runs go to a new runner instance, never the shared
 `runnerManager` one, and the runner is stopped afterwards, terminating its
 worker. That way a tab's own run is never interrupted, and timers, tasks or
 patched globals the AI's code leaves behind die with that worker instead of
@@ -835,8 +835,8 @@ does not belong to the run, so it cannot redraw another run's row. The Python bo
 trees and text to the print buffer, so they keep their order with `print()`,
 and edits one buffered entry per bar; images, HTML and charts go through the
 `__lingua_emit_*` bridge like `__lingua.image/html/chart`, so they post at
-once, without a line. A run with the flag off drops the names a flagged run
-defined, from the editor's globals and from notebook scopes. A progress output carries its bar id in the payload:
+once, without a line. A `display` or `lingua` the user assigned stays theirs
+across runs and notebook cells. A progress output carries its bar id in the payload:
 `replaceProgressOutput` keeps one output per bar in each runner's stdout and in
 the streamed result panel, and the console store redraws that bar's row in
 place, keeping its id.
@@ -1809,8 +1809,7 @@ from lowest to highest precedence, so the existing last-row-wins lookups,
 secret masking and response scrubbing apply to every scope unchanged;
 `variableSources` says which scope supplies each key for the colours. Secret
 values of the new scopes follow the environments' vault rules, and
-`maskSecretsForCapsule` also blanks secret request variables. With the flag
-off the request resolves against the active environment alone, as before.
+`maskSecretsForCapsule` also blanks secret request variables.
 
 A variable that another request's
 capture rule writes is a chain tag (`src/shared/httpChain.ts`): the graph is

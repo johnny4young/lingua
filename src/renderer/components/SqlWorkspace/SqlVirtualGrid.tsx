@@ -167,7 +167,7 @@ const GridRow = memo(function GridRow({
   actions: RowActions;
   /** The cell being edited in this row, with its text. */
   editor: { column: string; value: string } | null;
-  /** With Rich display on: the numeric columns drawn as 0–1 bars. */
+  /** The numeric columns drawn as 0–1 bars. */
   fractions: ReadonlySet<string>;
 }) {
   const rowSelected = selectedColumn !== null;
@@ -281,7 +281,6 @@ export function SqlVirtualGrid({
   linkedColumns?: ReadonlySet<string>;
   onFollowLink?: (column: string, value: unknown) => void;
   editing?: SqlGridEditing;
-  /** Rich display: links, 0–1 bars, checks and thumbnails in the cells. */
 }) {
   const { t } = useTranslation();
   const [editor, setEditor] = useState<{ row: number; column: string; value: string; target: Record<string, unknown>; wasEmpty: boolean } | null>(null);

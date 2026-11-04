@@ -145,7 +145,7 @@ function ComparePane({
   );
 }
 
-/** The Compare tab with Compare runs on: runs by day, and a diff of any two. */
+/** The Compare tab: runs by day, and a diff of any two. */
 export function RunComparePanel({ activeTabId }: { activeTabId: string | null }) {
   const { t, i18n } = useTranslation();
   const entries = useExecutionHistoryStore(state => state.entries);
