@@ -131,7 +131,7 @@ test.describe('Instant SQL', () => {
         if (request.url().includes('extensions.duckdb.org')) upstream.push(request.url());
       });
       let broken = true;
-      await context.route(/\/json\.duckdb_extension\.wasm$/, (route) => (broken ? route.fulfill({ status: 404 }) : route.continue()));
+      await context.route(/\/json\.duckdb_extension\.wasm$/, (route) => (broken ? route.fulfill({ status: 200, contentType: 'application/wasm', body: 'not a signed extension' }) : route.continue()));
       await openQuery(page, language);
       await replaceQuery(page, 'SELECT 1 AS x');
       await expect(page.getByTestId('sql-instant-error')).toHaveText(

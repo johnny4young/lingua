@@ -132,8 +132,9 @@ while the user types, and it would fail offline.
 `vendor/duckdb-extensions/<duckdb>/wasm_mvp/json.duckdb_extension.wasm` holds
 the signed upstream build (722 KiB, 110 KiB over Brotli). The registry copies it
 to the same path on web and desktop, the lock records its hash, and the engine
-runs `LOAD '<url>'` when it starts. DuckDB checks the file's signature, so a
-changed file does not load. If the load fails the engine still starts, and
+loads it when it starts. The main thread reads the file with a time limit and
+gives `LOAD` a blob URL, because DuckDB's own request blocks its worker with
+none. DuckDB checks the file's signature, so a changed file does not load. If the load fails the engine still starts, and
 Instant SQL says so instead of letting DuckDB fetch its own copy.
 
 The other extensions, such as Parquet and ICU, still come from DuckDB's host.

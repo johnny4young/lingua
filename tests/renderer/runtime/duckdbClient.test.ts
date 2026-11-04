@@ -18,6 +18,7 @@ import {
   estimateOriginStorageBytes,
   executeQuery,
   createJsonExtensionLoader,
+  readJsonExtensionToBlobUrl,
   fetchRuntimeAssetWithRetry,
   flushAndReleaseDuckDbEngine,
   getDuckDbEngine,
@@ -151,14 +152,30 @@ describe('fetchRuntimeAssetWithRetry — R2 runtime WASM fetch resilience', () =
 });
 
 describe('createJsonExtensionLoader', () => {
-  it('loads once, retries only after a failure, and quotes the URL', async () => {
-    const run = vi.fn<(sql: string) => Promise<void>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
-    const load = createJsonExtensionLoader(run, "file:///Users/o'brien/json.duckdb_extension.wasm");
+  it('loads once, retries after a failed read or load, and frees the blob URL', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const read = vi.fn<() => Promise<string>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValue('blob:x#/json.duckdb_extension.wasm');
+    const run = vi.fn<(sql: string) => Promise<void>>().mockRejectedValueOnce(new Error('bad signature')).mockResolvedValue(undefined);
+    const load = createJsonExtensionLoader(run, read);
     expect(await load()).toBe(false);
+    expect(run).not.toHaveBeenCalled();
+    expect(await load()).toBe(false);
+    expect(revoke).toHaveBeenCalledTimes(1);
     expect(await load()).toBe(true);
     expect(await load()).toBe(true);
+    expect(read).toHaveBeenCalledTimes(3);
     expect(run).toHaveBeenCalledTimes(2);
-    expect(run).toHaveBeenLastCalledWith("LOAD 'file:///Users/o''brien/json.duckdb_extension.wasm'");
+    expect(run).toHaveBeenLastCalledWith("LOAD 'blob:x#/json.duckdb_extension.wasm'");
+    expect(revoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('names the blob URL after the extension, and rejects an HTTP error', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(new Uint8Array(1)));
+    await expect(readJsonExtensionToBlobUrl('https://app/x.wasm')).resolves.toBe('blob:x#/json.duckdb_extension.wasm');
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
+    await expect(readJsonExtensionToBlobUrl('https://app/x.wasm')).rejects.toThrow('404');
   });
 });
 

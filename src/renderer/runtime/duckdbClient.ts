@@ -528,23 +528,42 @@ async function fetchVerifiedWasmUrl(
   return URL.createObjectURL(await response.blob());
 }
 
+const JSON_EXTENSION_FILE = 'json.duckdb_extension.wasm';
+const JSON_EXTENSION_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * DuckDB's own request for an extension blocks its worker with no time limit,
+ * so it gets a local URL. It names the extension after the URL's last segment.
+ */
+export async function readJsonExtensionToBlobUrl(url: string): Promise<string> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(JSON_EXTENSION_FETCH_TIMEOUT_MS) });
+  if (!response.ok) throw new Error(`Failed to fetch ${JSON_EXTENSION_FILE} (${response.status})`);
+  return `${URL.createObjectURL(await response.blob())}#/${JSON_EXTENSION_FILE}`;
+}
+
 /**
  * DuckDB would fetch this extension from its own host on first use. A failed
  * load leaves the next call free to retry; DuckDB checks the file's signature.
  */
 export function createJsonExtensionLoader(
   run: (sql: string) => Promise<void>,
-  url: string
+  readToBlobUrl: () => Promise<string>
 ): () => Promise<boolean> {
   let loading: Promise<boolean> | null = null;
+  const load = async (): Promise<boolean> => {
+    const blobUrl = await readToBlobUrl();
+    try {
+      await run(`LOAD '${blobUrl}'`);
+      return true;
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+  };
   return () =>
-    (loading ??= run(`LOAD '${url.replaceAll("'", "''")}'`).then(
-      () => true,
-      () => {
-        loading = null;
-        return false;
-      }
-    ));
+    (loading ??= load().catch(() => {
+      loading = null;
+      return false;
+    }));
 }
 
 /**
@@ -625,10 +644,13 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
           await connection.close();
         }
       },
-      new URL(
-        /* @vite-ignore */ '../duckdb-extensions/v1.4.3/wasm_mvp/json.duckdb_extension.wasm',
-        import.meta.url
-      ).href
+      () =>
+        readJsonExtensionToBlobUrl(
+          new URL(
+            /* @vite-ignore */ '../duckdb-extensions/v1.4.3/wasm_mvp/json.duckdb_extension.wasm',
+            import.meta.url
+          ).href
+        )
     );
     await loadJsonExtension();
     return {
