@@ -454,6 +454,11 @@ export interface SqlResponseV1 {
   engine?: SqlEngineKind;
 }
 
+/** A result that came from a database connection rather than the local engine. */
+export function isRemoteSqlResponse(response: Pick<SqlResponseV1, 'engine'>): boolean {
+  return response.engine !== undefined && response.engine !== 'duckdb';
+}
+
 // ---------------------------------------------------------------------------
 // Parsers — defense in depth at the localStorage rehydrate boundary.
 // ---------------------------------------------------------------------------

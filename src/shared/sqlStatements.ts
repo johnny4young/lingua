@@ -587,6 +587,11 @@ function redactDialectSecrets(sql: string, dialects: readonly Dialect[]): string
   return out;
 }
 
+/** `redactSqlSecrets` under every server's quoting rules, for text whose connection is unknown. */
+export function redactSqlSecretsOnAnyEngine(sql: string): string {
+  return (['mysql', 'clickhouse', 'sqlserver', undefined] as const).reduce((text, engine) => redactSqlSecrets(text, engine), sql);
+}
+
 /** True when the code (outside strings and comments) already has a WHERE clause. */
 export function hasWhereClause(sql: string): boolean {
   return /\bwhere\b/i.test(sqlCodeOnly(sql));

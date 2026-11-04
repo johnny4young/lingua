@@ -6,11 +6,26 @@ import {
   isWriteSqlStatementOn,
   provesReadsOnly,
   redactSqlSecrets,
+  redactSqlSecretsOnAnyEngine,
   splitSqlStatements,
   statementAtOffset,
 } from '../../src/shared/sqlStatements';
 
 const texts = (sql: string) => splitSqlStatements(sql).map((statement) => statement.text);
+
+describe('redactSqlSecretsOnAnyEngine', () => {
+  it.each([
+    ['CREATE USER app IDENTIFIED BY "hunter2"', "CREATE USER app IDENTIFIED BY '•••'"],
+    ["ALTER USER app IDENTIFIED BY 'hun\\'ter2'", "ALTER USER app IDENTIFIED BY '•••'"],
+    ["ALTER ROLE app PASSWORD 'hunter2'", "ALTER ROLE app PASSWORD '•••'"],
+  ])('masks %s', (sql, masked) => {
+    expect(redactSqlSecretsOnAnyEngine(sql)).toBe(masked);
+  });
+
+  it('leaves an ordinary query alone', () => {
+    expect(redactSqlSecretsOnAnyEngine("SELECT 'a', \"b\" FROM t")).toBe("SELECT 'a', \"b\" FROM t");
+  });
+});
 
 describe('splitSqlStatements', () => {
   it.each([

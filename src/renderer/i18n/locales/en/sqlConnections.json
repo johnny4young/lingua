@@ -9,6 +9,7 @@
   "sqlWorkspace.connection.readOnlyShort": "RO",
   "sqlWorkspace.connection.edit": "Edit {{name}}",
   "sqlWorkspace.connection.missingName": "Missing connection",
+  "sqlWorkspace.connection.maskedSecret": "This statement still has a masked value (•••). Type the real value before you run it.",
   "sqlWorkspace.connection.missing": "This query's connection is gone. Choose a connection in the picker to run it.",
   "sqlWorkspace.connection.desktopEngines": "Postgres, MySQL, SQL Server, ClickHouse, SQLite, D1",
   "sqlWorkspace.connection.desktopOnly": "Desktop only",

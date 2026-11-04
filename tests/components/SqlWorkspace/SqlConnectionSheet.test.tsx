@@ -99,6 +99,15 @@ describe('SqlConnectionSheet', () => {
     expect(password.value).toBe('s3cret');
   });
 
+  it('saves the password taken from a parameter', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByTestId('sql-connection-url'));
+    await user.paste('clickhouse://db.internal/orders?password=s3cret');
+    await user.click(screen.getByTestId('sql-connection-save'));
+    await vi.waitFor(() => expect(db.save).toHaveBeenCalledWith(expect.objectContaining({ passwordMode: 'keychain' }), undefined, 's3cret', undefined));
+  });
+
   it('leaves a parameter alone while it is typed, and takes it when the field loses focus', async () => {
     const user = userEvent.setup();
     renderSheet();
@@ -108,6 +117,19 @@ describe('SqlConnectionSheet', () => {
     await user.tab();
     expect(field.value).toBe('clickhouse://db.internal/orders');
     expect((screen.getByTestId('sql-connection-password') as HTMLInputElement).value).toBe('ab');
+  });
+
+  it('keeps edits to the form when the URL field loses focus with nothing to take', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByTestId('sql-connection-url'));
+    await user.paste('postgres://app@db.internal/orders');
+    const host = screen.getByTestId('sql-connection-host') as HTMLInputElement;
+    await user.clear(host);
+    await user.type(host, 'db.other');
+    await user.click(screen.getByTestId('sql-connection-url'));
+    await user.tab();
+    expect(host.value).toBe('db.other');
   });
 
   it('hides the password of a URL the browser cannot use', async () => {

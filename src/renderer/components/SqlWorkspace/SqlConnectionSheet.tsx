@@ -427,7 +427,8 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
             value={url}
             onChange={(event) => applyUrl(event.target.value, (event.nativeEvent as InputEvent).inputType === 'insertFromPaste')}
             onBlur={() => {
-              if (url) applyUrl(url, true);
+              // Only a password left in the field: applying again would undo edits to the form.
+              if (takeUrlPassword(url, true).url !== url) applyUrl(url, true);
             }}
             placeholder={t('sqlWorkspace.connection.urlPlaceholder')}
             spellCheck={false}
