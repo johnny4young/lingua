@@ -96,7 +96,7 @@ describe('Network ask dialog', () => {
 describe('settings persistence', () => {
   it('drops an unknown policy and unknown flags on rehydrate', () => {
     const merged = settingsMerge(
-      { networkFromRunningCode: 'deny', featureFlags: { dbClient: true, networkPolicy: true, other: true } },
+      { networkFromRunningCode: 'deny', featureFlags: { dbClient: true, other: true } },
       useSettingsStore.getState()
     );
     expect(merged.networkFromRunningCode).toBe('allow');

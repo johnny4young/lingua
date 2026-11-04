@@ -1024,7 +1024,7 @@ describe('HttpWorkspacePanel — variable scopes', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpScopes: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: {} });
     useUIStore.setState({ statusNotice: null });
     executeHttpRequestMock.mockReset();
     executeHttpRequestMock.mockResolvedValue(makeResponse());
@@ -1131,7 +1131,7 @@ describe('HttpWorkspacePanel — chain tags', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpChainTags: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: {} });
     useUIStore.setState({ statusNotice: null });
     executeHttpRequestMock.mockReset();
   });
@@ -1330,7 +1330,7 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpSnapshots: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: {} });
     executeHttpRequestMock.mockReset();
   });
 

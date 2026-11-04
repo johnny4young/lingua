@@ -33,7 +33,7 @@ describe('network ask store', () => {
 
   it('asks once per host per tab, shares the wait, and remembers the answer', async () => {
     useSettingsStore.setState({
-      featureFlags: { networkPolicy: true },
+      featureFlags: {},
       networkFromRunningCode: 'ask',
     });
     const first = askNetworkHost('tab-1', 'api.example', 'worker');

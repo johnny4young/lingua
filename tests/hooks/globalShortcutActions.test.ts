@@ -96,7 +96,7 @@ describe('buildGlobalShortcutActions', () => {
   it('runs the region at the cursor with Run regions on and the editor focused', async () => {
     const { useSettingsStore } = await import('@/stores/settingsStore');
     const previousFlags = useSettingsStore.getState().featureFlags;
-    useSettingsStore.setState({ featureFlags: { runRegions: true } });
+    useSettingsStore.setState({ featureFlags: {} });
     useEditorStore.getState().restoreTabs([{ id: 'r', name: 'r.js', language: 'javascript', content: 'a;\n// %% b\nc;' }] as never, 'r');
     setActiveEditor({ getPosition: () => ({ lineNumber: 3, column: 1 }), hasTextFocus: () => true } as never);
     try {

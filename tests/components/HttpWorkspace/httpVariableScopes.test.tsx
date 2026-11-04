@@ -38,7 +38,7 @@ beforeEach(async () => {
   initI18n('en');
   await i18next.changeLanguage('en');
   resetWorkspaceToolStoreForTests();
-  useSettingsStore.setState({ featureFlags: { httpScopes: true } });
+  useSettingsStore.setState({ featureFlags: {} });
 });
 
 describe('scope colours in the URL', () => {

@@ -24,7 +24,7 @@ const initialSettings = useSettingsStore.getState();
 beforeEach(() => {
   mockTier = 'pro';
   useExecutionHistoryStore.setState(initial, true);
-  useSettingsStore.setState({ featureFlags: { runCompare: true } });
+  useSettingsStore.setState({ featureFlags: {} });
 });
 
 afterEach(() => {

@@ -543,7 +543,7 @@ describe('debugger stepping', () => {
 
   it('sends the network policy and holds the deadline while the user answers a host', async () => {
     vi.useFakeTimers();
-    useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'ask' });
+    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'ask' });
     try {
       const { promise, worker } = startRun({ timeout: 1_000, context: { tabId: 'tab-net' } });
       expect(worker.posted[0]?.['network']).toEqual({ policy: 'ask', allowedHosts: [], blockedHosts: [] });
@@ -577,7 +577,7 @@ describe('debugger stepping', () => {
   });
 
   it('drops an unanswered network question when the run ends', async () => {
-    useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'ask' });
+    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'ask' });
     try {
       const { shell, promise, worker } = startRun({ context: { tabId: 'tab-stop' } });
       worker.emitForRun({ type: 'network-request', requestId: 'net-1', host: 'api.example' });
