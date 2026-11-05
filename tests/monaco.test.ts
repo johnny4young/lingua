@@ -132,6 +132,9 @@ vi.mock('monaco-editor/esm/vs/language/html/html.worker?worker', () => ({
 vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({
   default: MockTsWorker,
 }));
+vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker&url', () => ({
+  default: '/assets/ts.worker-test.js',
+}));
 
 describe('configureMonaco', () => {
   beforeEach(() => {
@@ -800,6 +803,34 @@ describe('TypeScript worker gate', () => {
     for (const listener of created) listener(editor.editor);
     for (const listener of editor.mouseMove) listener();
     expect(await settled(gate())).toBe(true);
+  });
+
+  it('fetches the worker script on web so it is cached for offline use, without starting it', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(''));
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      const { applyTypeScriptDefaults } = await import('@/monaco');
+      applyTypeScriptDefaults(withEditorCreation().monaco as never);
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/assets/ts.worker-test.js'));
+      expect(await settled(gate())).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('leaves the worker script alone on desktop, where it is a local file', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(''));
+    vi.stubGlobal('fetch', fetchSpy);
+    (window as unknown as { lingua?: unknown }).lingua = { node: {} };
+    try {
+      const { applyTypeScriptDefaults } = await import('@/monaco');
+      applyTypeScriptDefaults(withEditorCreation().monaco as never);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(fetchSpy).not.toHaveBeenCalledWith('/assets/ts.worker-test.js');
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+      vi.unstubAllGlobals();
+    }
   });
 
   it('opens when Go to symbol asks for the outline', async () => {

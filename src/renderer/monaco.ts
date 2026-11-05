@@ -26,6 +26,7 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import typeScriptWorkerUrl from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker&url';
 import { getLanguageSupportDescriptor } from './languageSupport/registry';
 import type { NavigationTreeItem } from './utils/symbolNavigation';
 import { loadNodeTypeDefinitions } from './nodeTypeDefinitionsLoader';
@@ -469,6 +470,8 @@ export function startTypeScriptWorker(): void {
 function startTypeScriptWorkerOnFirstUse(m: Monaco): void {
   if (typeScriptWorkerGateWatched || typeof m.editor.onDidCreateEditor !== 'function') return;
   typeScriptWorkerGateWatched = true;
+  // The web service worker caches each chunk as it loads; fetch the script so the worker can start offline.
+  if (!hasNodeRuntime()) runWhenIdle(() => void fetch(typeScriptWorkerUrl).catch(() => {}));
   const subscriptions: Array<{ dispose: () => void }> = [];
   const start = (): void => {
     startTypeScriptWorker();
