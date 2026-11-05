@@ -178,7 +178,8 @@ describe('CI workflow', () => {
 
   it('checks the existing Linux renderer bundle and keeps all three desktop OS jobs', () => {
     const job = workflow.jobs?.['desktop-bundles'];
-    expect(job?.strategy?.matrix?.os).toEqual(['ubuntu-latest', 'windows-latest', 'macos-latest']);
+    expect(job?.strategy?.matrix?.os).toEqual(['ubuntu-latest', 'windows-latest']);
+    expect(workflow.jobs?.['desktop-bundles-macos']?.name).toBe('Desktop bundles (macos-latest)');
     expect(job?.strategy?.['fail-fast']).toBe(false);
     const steps = stepsOf(workflow, 'desktop-bundles');
     const build = indexOfRun(workflow, 'desktop-bundles', 'pnpm run build:desktop-bundles');
@@ -200,12 +201,26 @@ describe('CI workflow', () => {
     expect(steps[config]?.if).toBe("${{ !cancelled() && steps.bundles.outcome == 'success' }}");
   });
 
+  it('runs macOS on a pull request only for risky paths, and whenever the path check fails', () => {
+    const macos = workflow.jobs?.['desktop-bundles-macos'];
+    expect(macos?.needs).toBe('changes');
+    // A job skipped by if reports success to a required check, so a broken path check must run macOS.
+    expect(macos?.if).toContain('!cancelled()');
+    expect(macos?.if).toContain("needs.changes.result != 'success'");
+    expect(macos?.if).toContain("github.event_name != 'pull_request'");
+    const pick = stepsOf(workflow, 'changes').find(step => step.id === 'pick')?.run ?? '';
+    expect(pick).toMatch(/^\s*macos=true$/m);
+    for (const riskyPath of ['src/main/', 'src/preload/', 'src/shared/', 'patches/', 'pnpm-workspace', 'build-resources/', 'website/']) {
+      expect(pick).toContain(riskyPath);
+    }
+  });
+
   it('qualifies native output in the macOS PR app without replacing existing gates', () => {
-    const steps = stepsOf(workflow, 'desktop-bundles');
+    const steps = stepsOf(workflow, 'desktop-bundles-macos');
     const build = steps.findIndex(step => step.run === 'pnpm run build:desktop-bundles');
     const smoke = steps.findIndex(step => step.run === 'node scripts/smoke-native-output.mjs');
     expect(smoke).toBeGreaterThan(build);
-    expect(steps[smoke]?.if).toBe("matrix.os == 'macos-latest' && github.event_name == 'pull_request'");
+    expect(steps[smoke]?.if).toBeUndefined();
     expect(steps[smoke]?.['continue-on-error']).toBeUndefined();
     const evidence = steps.find(step => step.name === 'Upload native output smoke evidence');
     expect(evidence?.if).toContain('always()');
@@ -214,12 +229,12 @@ describe('CI workflow', () => {
   });
 
   it('runs the Seatbelt containment fixtures on every macOS run as a blocking gate', () => {
-    const steps = stepsOf(workflow, 'desktop-bundles');
+    const steps = stepsOf(workflow, 'desktop-bundles-macos');
     const fixtures = steps.find(
       step => step.run === 'pnpm exec vitest run tests/cli/runtime/seatbeltContainment.test.ts'
     );
 
-    expect(fixtures?.if).toBe("matrix.os == 'macos-latest'");
+    expect(fixtures?.if).toBeUndefined();
     expect(fixtures?.['continue-on-error']).toBeUndefined();
   });
 

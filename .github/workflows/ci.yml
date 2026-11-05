@@ -25,6 +25,28 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Choose the macOS lane
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      macos: ${{ steps.pick.outputs.macos }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: pick
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          macos=true
+          if [ -n "$BASE_SHA" ] && files="$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA")" && [ -n "$files" ] \
+            && ! grep -qE '^(src/main/|src/preload/|src/cli/|src/shared/|electron|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.nvmrc$|patches/|vite|tests/build/|tests/cli/runtime/seatbelt|scripts/(smoke|run-website-download|package)|build/|build-resources/|assets/|website/|\.github/workflows/ci\.yml$)' <<<"$files"; then
+            macos=false
+          fi
+          echo "macos=$macos" | tee -a "$GITHUB_OUTPUT"
+
   # The Linux gates run as parallel jobs. In one serial job a failing test
   # skipped every step behind it (the web build, the performance budget, the
   # license policy and all audits), so a red run hid whether those gates were
@@ -358,7 +380,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -380,18 +402,44 @@ jobs:
       - name: Desktop bundle config
         if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
         run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+  # A literal name: a skipped matrix job reports its unexpanded name, which never
+  # satisfies the required check. The runner is the one scarce resource in this workflow,
+  # so a pull request uses it when it touches the packaged app; every push to main does.
+  desktop-bundles-macos:
+    name: Desktop bundles (macos-latest)
+    needs: changes
+    # !cancelled(): a failed changes job must run macOS, not skip it into a passing check.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.macos == 'true') }}
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # Qualify the native Vite resolver on every release OS without signing
+      # or publishing. Packaging/notarization remain separate release gates.
+      - id: bundles
+        run: pnpm run build:desktop-bundles
+      # A budget failure must not hide a bundle-config regression on the same
+      # OS: run whenever the bundles built, whatever the budget step reported.
+      - name: Desktop bundle config
+        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
+        run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
       # Permissioned reproductions need the real Seatbelt sandbox, which only
       # macOS runners have; the unit job skips these fixtures elsewhere.
       - name: Seatbelt containment fixtures
-        if: matrix.os == 'macos-latest'
         run: pnpm exec vitest run tests/cli/runtime/seatbeltContainment.test.ts
       # macOS provides a native display session without disabling Chromium's
       # sandbox. This is the built app + real Node IPC, not browser/CLI smoke.
       - name: Native Unicode capture and Stop smoke
-        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
         run: node scripts/smoke-native-output.mjs
       - name: Upload native output smoke evidence
-        if: always() && matrix.os == 'macos-latest' && github.event_name == 'pull_request'
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-output-smoke
@@ -403,16 +451,14 @@ jobs:
       # renderer-gate regression otherwise surfaces at release time. An ad-hoc
       # signed --dir build exercises the same packaged app without secrets.
       - name: Package unsigned macOS app
-        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
         run: pnpm exec electron-builder --mac --dir --publish never -c.mac.identity=-
       - name: Packaged desktop smoke
         id: packaged-smoke
-        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
         env:
           LINGUA_SMOKE_TIMEOUT_MS: '240000'
         run: pnpm run smoke:desktop:packaged
       - name: Upload packaged smoke artifacts
-        if: always() && matrix.os == 'macos-latest' && github.event_name == 'pull_request' && steps.packaged-smoke.outcome != 'skipped'
+        if: always() && steps.packaged-smoke.outcome != 'skipped'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macos-packaged-smoke-pr
@@ -422,20 +468,17 @@ jobs:
       # Keep runner security settings unchanged; this is a synthetic local
       # website build, not a deployment or a release-asset download.
       - name: Install website smoke dependencies
-        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
         working-directory: website
         run: npm ci --no-audit --no-fund
       - name: Install website smoke Chromium
-        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
         run: pnpm exec playwright install chromium
         env:
           PLAYWRIGHT_BROWSERS_PATH: '0'
       - name: Website download browser smoke
         id: website-download-smoke
-        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
         run: node scripts/run-website-download-smoke.mjs
       - name: Upload website download evidence
-        if: always() && matrix.os == 'macos-latest' && github.event_name == 'pull_request' && steps.website-download-smoke.outcome != 'skipped'
+        if: always() && steps.website-download-smoke.outcome != 'skipped'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: website-download-matrix
