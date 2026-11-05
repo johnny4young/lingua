@@ -17,7 +17,6 @@ import { toSqlResponse } from './useSqlRunner';
 import { ROW_EDIT_ENGINES, rowEditRefusal, rowEditTableFrom, type RowEditRefusal, type RowEditTable } from '../../shared/sqlRowEdits';
 import { loadLocalEditTable } from '../runtime/sqlLocalEdits';
 import { findConnection } from '../stores/sqlConnectionsStore';
-import { useSettingsStore } from '../stores/settingsStore';
 
 /** Whether the opened table's rows can be edited: its target, or why not. */
 export type SqlTableEdit = { table: RowEditTable } | { reason: 'view' | 'read-only' | 'production' | 'engine' | RowEditRefusal };
@@ -31,7 +30,6 @@ export interface SqlTablePreview {
   back?: SqlTablePreview;
   /** Set when the rows come from a database connection rather than Local. */
   connectionId?: string;
-  /** Set when Edit table rows is on. */
   edit?: SqlTableEdit;
 }
 
@@ -53,8 +51,15 @@ async function remoteEdit(table: SqlSchemaTable, remote: SqlRemoteTableTarget): 
   return editable ? { table: editable } : undefined;
 }
 
-/** A keyless Local table is edited by rowid, so the rows on screen must carry it. */
+/** A keyless Local table is edited by rowid, so the rows read must carry it. */
 const withRowid = (statement: string) => statement.replace(/^SELECT \* FROM/i, 'SELECT rowid, * FROM');
+
+/** Non-enumerable, so edits can read a row's rowid while the grid, copies and exports never see it. */
+const hideRowid = (response: SqlResponseV1): SqlResponseV1 => ({
+  ...response,
+  columns: response.columns.filter((column) => column.name !== 'rowid'),
+  rows: response.rows.map(({ rowid, ...row }) => Object.defineProperty(row, 'rowid', { value: rowid })),
+});
 
 export interface SqlRemoteTableTarget {
   connectionId: string;
@@ -81,7 +86,7 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
   // Reads a table without asking; `open` is what navigation goes through.
   const read = useCallback(
     async (table: SqlSchemaTable, sql?: string, back?: SqlTablePreview, remote?: SqlRemoteTableTarget) => {
-      let statement = sql ?? buildSelectStarter(table.sqlName ?? table.name, table.schemaName, remote?.engine);
+      const statement = sql ?? buildSelectStarter(table.sqlName ?? table.name, table.schemaName, remote?.engine);
       tokenRef.current += 1;
       const token = tokenRef.current;
       const db = remote ? sqlDbBridge() : null;
@@ -89,25 +94,27 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
       if (remote && !db) return;
       let edit: SqlTableEdit | undefined;
       let remoteTarget: Promise<SqlTableEdit | undefined> | undefined;
-      if (useSettingsStore.getState().featureFlags.editRows === true) {
-        // A connection's key read runs beside its data read; a Local one decides the SELECT, so it goes first.
-        if (remote) remoteTarget = remoteEdit(table, remote).catch(() => undefined);
-        else {
-          const local = await loadLocalEditTable(table.sqlName ?? table.name, table.schemaName ?? 'main');
-          if (local === 'view') edit = { reason: 'view' };
-          else if (local) {
-            edit = { table: local };
-            if (local.key.kind === 'rowid') statement = withRowid(statement);
-          }
+      let carriesRowid = false;
+      // A connection's key read runs beside its data read; a Local one decides the SELECT, so it goes first.
+      if (remote) remoteTarget = remoteEdit(table, remote).catch(() => undefined);
+      else {
+        const local = await loadLocalEditTable(table.sqlName ?? table.name, table.schemaName ?? 'main').catch(() => null);
+        if (local === 'view') edit = { reason: 'view' };
+        else if (local) {
+          edit = { table: local };
+          carriesRowid = local.key.kind === 'rowid' && !local.columns.includes('rowid');
         }
       }
-      const outcome = remote && db ? (await executeRemoteScript(db, remote.connectionId, [statement], { timeoutMs }))[0] : await executeQuery(statement, { timeoutMs });
+      const outcome =
+        remote && db
+          ? (await executeRemoteScript(db, remote.connectionId, [statement], { timeoutMs }))[0]
+          : await executeQuery(carriesRowid ? withRowid(statement) : statement, { timeoutMs });
       if (remoteTarget) edit = await remoteTarget;
       if (tokenRef.current !== token || !outcome) return;
       setPreview({
         table,
         sql: statement,
-        response: toSqlResponse(outcome),
+        response: carriesRowid ? hideRowid(toSqlResponse(outcome)) : toSqlResponse(outcome),
         ...(back ? { back } : {}),
         ...(remote ? { connectionId: remote.connectionId } : {}),
         ...(edit ? { edit } : {}),
