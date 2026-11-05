@@ -19,6 +19,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Edit table rows: duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
 - Edit table rows: Commit now fails when a row changed since it was read, not only when its key did, for text, whole numbers, decimals and booleans.
 - Edit table rows: running a query or opening another table with changes staged asks before discarding them, and Commit cannot run twice while the table is read again.
+- Edit table rows: switching tabs no longer drops staged changes, closing the window or page asks before losing them, and Shift+Enter opens the value viewer on an editable cell.
 - Edit table rows: SQL Server and Postgres tables whose key a driver cuts or rounds, and MySQL tables without transactions, are read-only; SQL Server no longer counts what triggers write, MySQL rejects a value it would have changed, and clearing a number or date sets NULL.
 - Local SQL accepts `CREATE MACRO` with untyped parameters, such as `CREATE MACRO add_one(a) AS a + 1`, and SQL errors now show DuckDB's own reason, with the line and position, instead of one generic sentence.
 - Instant SQL keeps a few rows in sight on a short results pane, and the results below it are one scroll away. It used to show only its column names.

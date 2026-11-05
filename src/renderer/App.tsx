@@ -17,7 +17,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
 import type { DeveloperUtilityId } from './data/developerUtilityCatalog';
-import { getActiveAppLanguage } from './i18n';
+import { getActiveAppLanguage, translateAppCommon } from './i18n';
+import { stagedRowEdits } from './runtime/sqlStagedEdits';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
@@ -254,6 +255,8 @@ function AppChrome({
     }
 
     return window.lingua.onBeforeClose(() => {
+      const staged = stagedRowEdits();
+      if (staged && !window.confirm(translateAppCommon('sqlWorkspace.edits.leaveConfirm', { count: staged.count }))) return;
       for (const tab of useEditorStore.getState().tabs) flushNotebookDocumentDrafts(tab.id);
       const { tabs } = useEditorStore.getState();
       const dirtyTabs = tabs.filter(tab => tab.isDirty);
