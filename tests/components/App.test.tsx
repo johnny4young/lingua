@@ -72,7 +72,6 @@ const mockEditorState = {
 };
 
 const mockSettingsState = {
-  featureFlags: {} as Record<string, boolean>,
   restoreSessionMode: 'always' as 'never' | 'ask' | 'always',
   lastSeenVersion: null as string | null,
   whatsNewNotificationsEnabled: true,

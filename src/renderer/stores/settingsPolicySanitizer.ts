@@ -1,14 +1,12 @@
 import type { SettingsState } from '../types/settings';
-import { sanitizeFeatureFlags } from '../../shared/featureFlags';
 import { sanitizeNetworkPolicy } from '../../shared/networkPolicy';
 import { sanitizeRunPolicyByGroup } from '../../shared/runPolicy';
 
-/** The Labs flags, the network policy and the run policy. */
-export function sanitizeLabsSettings(
+/** The network policy and the run policy. */
+export function sanitizePolicySettings(
   persisted: Partial<SettingsState>
-): Pick<SettingsState, 'featureFlags' | 'networkFromRunningCode' | 'runPolicyByGroup'> {
+): Pick<SettingsState, 'networkFromRunningCode' | 'runPolicyByGroup'> {
   return {
-    featureFlags: sanitizeFeatureFlags(persisted.featureFlags),
     networkFromRunningCode: sanitizeNetworkPolicy(persisted.networkFromRunningCode),
     runPolicyByGroup: sanitizeRunPolicyByGroup(persisted.runPolicyByGroup),
   };

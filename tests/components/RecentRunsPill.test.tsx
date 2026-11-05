@@ -10,7 +10,6 @@ import {
   toggleRecentRunsPopover,
 } from '@/runtime/recentRunsPopoverBridge';
 import { useEditorStore } from '@/stores/editorStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
@@ -117,19 +116,15 @@ describe('RecentRunsPill', () => {
 
   it('opens the last three runs on Free with Pro in context', async () => {
     mocks.entitled = false;
-    try {
-      useExecutionHistoryStore.setState({
-        entries: Array.from({ length: 5 }, (_, index) => ({ ...makeEntry(), id: `run-${index}`, timestamp: 100 + index })),
-      });
-      render(<RecentRunsPill />);
-      expect(screen.queryByTestId('recent-runs-upsell-pill')).toBeNull();
-      await userEvent.setup().click(screen.getByTestId('recent-runs-pill'));
-      const probe = screen.getByTestId('recent-runs-popover-host-probe');
-      expect(probe.textContent).toContain('3');
-      expect(screen.getByTestId('probe-slice-of').textContent).toBe('5');
-    } finally {
-      useSettingsStore.setState({ featureFlags: {} });
-    }
+    useExecutionHistoryStore.setState({
+      entries: Array.from({ length: 5 }, (_, index) => ({ ...makeEntry(), id: `run-${index}`, timestamp: 100 + index })),
+    });
+    render(<RecentRunsPill />);
+    expect(screen.queryByTestId('recent-runs-upsell-pill')).toBeNull();
+    await userEvent.setup().click(screen.getByTestId('recent-runs-pill'));
+    const probe = screen.getByTestId('recent-runs-popover-host-probe');
+    expect(probe.textContent).toContain('3');
+    expect(screen.getByTestId('probe-slice-of').textContent).toBe('5');
   });
 
   it('stays open on a click inside the popover, which renders on the body', async () => {

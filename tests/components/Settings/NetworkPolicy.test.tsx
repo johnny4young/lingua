@@ -3,7 +3,6 @@ import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { AiSourceRow, NetworkFromRunningCodeRow } from '@/components/Settings/NetworkPolicyRows';
-import { LabsSection } from '@/components/Settings/LabsSection';
 import { NetworkAskDialog } from '@/components/NetworkAsk/NetworkAskDialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAiConfigStore } from '@/stores/aiConfigStore';
@@ -61,17 +60,6 @@ describe('AI assistance source row', () => {
   });
 });
 
-describe('Labs', () => {
-  it('turns a flag on and off', () => {
-    render(<LabsSection />);
-    const toggle = screen.getByTestId('labs-flag-editRows');
-    fireEvent.click(toggle);
-    expect(useSettingsStore.getState().featureFlags).toEqual({ editRows: true });
-    fireEvent.click(toggle);
-    expect(useSettingsStore.getState().featureFlags).toEqual({});
-  });
-});
-
 describe('Network ask dialog', () => {
   it('names the host and runtime and resolves the waiting run', async () => {
     render(<NetworkAskDialog />);
@@ -94,13 +82,12 @@ describe('Network ask dialog', () => {
 });
 
 describe('settings persistence', () => {
-  it('drops an unknown policy and unknown flags on rehydrate', () => {
+  it('drops an unknown policy on rehydrate', () => {
     const merged = settingsMerge(
-      { networkFromRunningCode: 'deny', featureFlags: { editRows: true, dbClient: true, other: true } },
+      { networkFromRunningCode: 'deny' },
       useSettingsStore.getState()
     );
     expect(merged.networkFromRunningCode).toBe('allow');
-    expect(merged.featureFlags).toEqual({ editRows: true });
   });
 
   it('keeps Run Ledger and running-code events in the trust feed', () => {

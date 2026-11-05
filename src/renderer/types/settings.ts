@@ -8,7 +8,6 @@
 
 import type { BrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
 import type { RunPolicy, RunPolicyByGroup, RunPolicyGroup } from '../../shared/runPolicy';
-import type { FeatureFlagId, FeatureFlagState } from '../../shared/featureFlags';
 import type { NetworkPolicy } from '../../shared/networkPolicy';
 import type { ScorecardPlatform } from '../../shared/languageSupport';
 import type { RuntimeMode } from '../../shared/runtimeModes';
@@ -94,7 +93,7 @@ export interface SettingsState {
   telemetryConsent: 'unset' | 'granted' | 'declined';
   /**
    * consent for clipboard reads without a click: apply on panel focus, pipeline
-   * import and Labs clipboard suggestions. Default `unset`,
+   * import and clipboard suggestions. Default `unset`,
    * promoted to `granted` or `declined` by the explicit Settings toggle.
    * The same three-state pattern as `telemetryConsent` so a decline
    * sticks across reloads and the feature never reads without opt-in.
@@ -337,8 +336,6 @@ export interface SettingsState {
   httpAllowPrivateHosts: boolean;
   /** Network access for code in the browser runtimes. */
   networkFromRunningCode: NetworkPolicy;
-  /** Experimental features turned on in Settings › Labs. */
-  featureFlags: FeatureFlagState;
   /** Rows the SQL grid shows first and each Load more adds; the session cap is `sessionRowCap` in useSqlRunner. */
   sqlWorkspaceRowDisplayLimit: 100 | 500 | 1000 | 5000;
   /**
@@ -405,7 +402,6 @@ export interface SettingsState {
   toggleDependencyDetectionEnabled: () => void;
   setHttpAllowPrivateHosts: (enabled: boolean) => void;
   setNetworkFromRunningCode: (policy: NetworkPolicy) => void;
-  setFeatureFlag: (id: FeatureFlagId, enabled: boolean) => void;
   /**
    * Three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut

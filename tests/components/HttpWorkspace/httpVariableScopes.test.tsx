@@ -10,7 +10,6 @@ import { HttpSendButton } from '@/components/HttpWorkspace/HttpSendButton';
 import { HttpUrlField } from '@/components/HttpWorkspace/HttpUrlField';
 import { ENVIRONMENT_TINTS, SCOPE_TINTS, UNRESOLVED_TINT } from '@/components/HttpWorkspace/httpScopeColors';
 import { rowsFromOtherEnvironments, scopedEnvironmentFor } from '@/components/HttpWorkspace/httpScopes';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { resetWorkspaceToolStoreForTests, useWorkspaceToolStore } from '@/stores/workspaceToolStore';
 import {
   createBlankHttpEnvironment,
@@ -38,7 +37,6 @@ beforeEach(async () => {
   initI18n('en');
   await i18next.changeLanguage('en');
   resetWorkspaceToolStoreForTests();
-  useSettingsStore.setState({ featureFlags: {} });
 });
 
 describe('scope colours in the URL', () => {

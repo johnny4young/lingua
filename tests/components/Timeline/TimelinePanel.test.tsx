@@ -124,7 +124,6 @@ describe('timeline panel', () => {
 
 describe('timeline in the editor and the Run menu', () => {
   it('highlights the selected line only while the Timeline tab is open', () => {
-    useSettingsStore.setState({ featureFlags: {} });
     const clear = vi.fn();
     const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
     const set = vi.fn();
@@ -146,7 +145,6 @@ describe('timeline in the editor and the Run menu', () => {
   it('shows what the line changed, dims unreached lines and flashes a move with nowhere to go', () => {
     vi.useFakeTimers();
     try {
-      useSettingsStore.setState({ featureFlags: {} });
       useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
       useTimelineStore.setState({ current: 1 });
       const model = { getLineCount: () => 20, getLineMaxColumn: () => 30 };
@@ -181,7 +179,6 @@ describe('timeline in the editor and the Run menu', () => {
   });
 
   it('strips bidi and control characters from the value pill', () => {
-    useSettingsStore.setState({ featureFlags: {} });
     useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
     const tricky: TimelineStep[] = [
       { line: 1, frames: [{ name: '<module>', line: 1 }], vars: [] },

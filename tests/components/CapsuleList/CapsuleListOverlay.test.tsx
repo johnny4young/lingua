@@ -41,7 +41,6 @@ import {
 import { useImportedCapsuleStore } from '../../../src/renderer/stores/importedCapsuleStore';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
-import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { subscribeCommand, _resetCommandBusForTesting } from '../../../src/renderer/stores/commandBus';
 import { _resetCapsuleListSurfaceForTesting } from '../../../src/renderer/components/CapsuleList/capsuleListSurface';
 import type { RunCompareRecord } from '@/utils/runCompareRecord';
@@ -401,18 +400,14 @@ describe('CapsuleListOverlay — Free gate', () => {
   });
 
   it('swaps the upgrade button for a PRO chip with Pro in context', () => {
-    try {
-      const compare = vi.fn();
-      subscribeCommand('plans.compare', compare);
-      seed(FIXTURE_MINIMAL_JS);
-      render(<CapsuleListOverlay onClose={vi.fn()} />);
-      expect(screen.queryByTestId('capsule-list-upsell-cta')).toBeNull();
-      expect(screen.getByTestId('capsule-detail-code')).toBeTruthy();
-      fireEvent.click(within(screen.getByTestId('capsule-list-free-slice')).getByTestId('pro-chip'));
-      expect(compare).toHaveBeenCalled();
-    } finally {
-      useSettingsStore.setState({ featureFlags: {} });
-    }
+    const compare = vi.fn();
+    subscribeCommand('plans.compare', compare);
+    seed(FIXTURE_MINIMAL_JS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.queryByTestId('capsule-list-upsell-cta')).toBeNull();
+    expect(screen.getByTestId('capsule-detail-code')).toBeTruthy();
+    fireEvent.click(within(screen.getByTestId('capsule-list-free-slice')).getByTestId('pro-chip'));
+    expect(compare).toHaveBeenCalled();
   });
 });
 

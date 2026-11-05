@@ -29,7 +29,6 @@ import { RecipesProgressResetSection } from './RecipesProgressResetSection';
 import { PrivacyTrustSection } from './PrivacyTrustSection';
 import { UtilitiesSection } from './UtilitiesSection';
 import { ThemePresetControls } from './ThemePresetControls';
-import { LabsSection } from './LabsSection';
 import { useShallow } from 'zustand/react/shallow';
 import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
@@ -87,10 +86,9 @@ import {
  *                       modal (keeps the heavy table out of this
  *                       surface)
  *    10. plugins      → PluginsSection (was nested under "editor")
- *    11. labs         → LabsSection, the experimental feature flags
- *    12. recovery     → RecoverySection (was nested under "account")
+ *    11. recovery     → RecoverySection (was nested under "account")
  *
- * Keyboard nav: ⌘1–⌘9 follow the rail order above (plugins and labs have no
+ * Keyboard nav: ⌘1–⌘9 follow the rail order above (plugins has no
  * digit) and ⌘0 opens recovery; Esc closes. Ctrl/Cmd + , focuses the filter bar.
  */
 interface SettingsModalProps {
@@ -210,7 +208,6 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
   shortcuts: ['shortcutOverrides'],
   integrations: [],
   plugins: ['enabledPlugins', 'pluginRoots'],
-  labs: ['featureFlags'],
   recovery: [],
 };
 
@@ -560,12 +557,6 @@ export function SettingsModal({
         return (
           <SettingsSearchTarget id="section-plugins">
             <PluginsSection />
-          </SettingsSearchTarget>
-        );
-      case 'labs':
-        return (
-          <SettingsSearchTarget id="section-labs">
-            <LabsSection />
           </SettingsSearchTarget>
         );
       case 'integrations':

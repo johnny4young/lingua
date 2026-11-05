@@ -26,7 +26,6 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
 import { runInputKey, useResultStore } from '@/stores/resultStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 import { resetLessonProgressStoreForTests, useLessonProgressStore } from '@/stores/lessonProgressStore';
 
@@ -140,7 +139,6 @@ describe('FloatingActionPill', () => {
       </I18nextProvider>,
     );
     expect(screen.getByTestId('action-pill-run').getAttribute('data-stale')).toBeNull();
-    useSettingsStore.setState({ featureFlags: {} });
     useResultStore.setState({ ranCode: null, lineResults: [] });
   });
 

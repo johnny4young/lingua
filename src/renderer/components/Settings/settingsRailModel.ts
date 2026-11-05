@@ -3,7 +3,6 @@
 import {
   Braces,
   FileCode2,
-  FlaskConical,
   Key,
   Keyboard,
   LifeBuoy,
@@ -95,12 +94,6 @@ export const RAIL_ITEMS: readonly RailItem[] = [
     group: 'advanced',
     labelKey: 'settings.tabs.plugins',
     icon: Package,
-  },
-  {
-    id: 'labs',
-    group: 'advanced',
-    labelKey: 'settings.tabs.labs',
-    icon: FlaskConical,
   },
   {
     id: 'recovery',

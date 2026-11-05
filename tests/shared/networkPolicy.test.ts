@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { decideNetworkHost, isNetworkHost, isNetworkPolicy } from '../../src/shared/networkPolicy';
-import { sanitizeFeatureFlags } from '../../src/shared/featureFlags';
 
 describe('network policy helpers', () => {
   it('accepts host[:port] shapes only', () => {
@@ -34,12 +33,3 @@ describe('network policy helpers', () => {
   });
 });
 
-describe('feature flags', () => {
-  it('keeps only known flags that are explicitly on', () => {
-    expect(sanitizeFeatureFlags({ editRows: true, unknown: true })).toEqual({
-      editRows: true,
-    });
-    expect(sanitizeFeatureFlags({ editRows: 'yes' })).toEqual({});
-    expect(sanitizeFeatureFlags(null)).toEqual({});
-  });
-});

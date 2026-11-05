@@ -24,7 +24,7 @@ const COPY_FORMATS: ReadonlyArray<{
   })),
 ];
 
-/** Copy-as menu — cURL + code snippets (fetch / axios / Python), and Open as JS tab with the Labs flag. */
+/** Copy-as menu — cURL + code snippets (fetch / axios / Python), and Open as JS tab. */
 export function HttpCopyAsMenu({
   disabled,
   onCopy,
