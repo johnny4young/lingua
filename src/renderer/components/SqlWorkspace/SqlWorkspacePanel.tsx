@@ -145,13 +145,17 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [catalog.tables, tableSources]
   );
   const explorerCatalog = useMemo(() => ({ ...catalog, tables: schemaTables }), [catalog, schemaTables]);
-  const tables = useSqlTablePreview(queryTimeoutMs, schemaTables);
+  // Set below, once the staged edits exist; they depend on the table preview.
+  const confirmLeaveRef = useRef<() => boolean>(() => true);
+  const canLeaveTable = useCallback(() => confirmLeaveRef.current(), []);
+  const tables = useSqlTablePreview(queryTimeoutMs, schemaTables, canLeaveTable);
   const { preview: tablePreview, show: showTablePreview } = tables;
   // After a commit the table is read again, from the same SQL, so its rows show what the database holds.
   const rowEdits = useSqlRowEdits(tablePreview, (shown) => {
     const engine = shown.connectionId ? findConnection(shown.connectionId)?.engine : undefined;
-    void tables.open(shown.table, shown.sql, shown.back, shown.connectionId && engine ? { connectionId: shown.connectionId, engine } : undefined);
+    return tables.read(shown.table, shown.sql, shown.back, shown.connectionId && engine ? { connectionId: shown.connectionId, engine } : undefined);
   });
+  confirmLeaveRef.current = rowEdits.confirmLeave;
 
   const activeQuery: SqlQueryV1 | undefined = useMemo(
     () => queries.find((q) => q.id === activeQueryId),
@@ -202,11 +206,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     setObjectView(null);
     showTablePreview(null);
   }, [showTablePreview]);
-  const tabActions = useSqlQueryTabActions(resetView);
+  const tabActions = useSqlQueryTabActions(resetView, canLeaveTable);
   const { create: handleCreate, select: handleSelect, saveDialog } = tabActions;
 
   const handleEditInEditor = useCallback(
     (sql: string) => {
+      if (!canLeaveTable()) return;
       showTablePreview(null);
       if (useWorkspaceSqlStore.getState().activeQueryId === null) {
         handleCreate(sql);
@@ -214,7 +219,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       }
       setInsertSignal((prev) => ({ text: sql, nonce: (prev?.nonce ?? 0) + 1 }));
     },
-    [handleCreate, showTablePreview]
+    [canLeaveTable, handleCreate, showTablePreview]
   );
 
   const handleSelectResponse = useCallback((index: number) => {
@@ -238,6 +243,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const runner = useSqlRunner({
     timeoutMs: queryTimeoutMs,
     onBeforeRun: handleBeforeRun,
+    canStartRun: canLeaveTable,
     onSchemaChanged: handleSchemaChanged,
   });
   const runWhole = useCallback(
@@ -465,6 +471,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     selectQuery: handleSelect,
     insertAtCursor: (text) => setPredicateSignal((prev) => ({ text, raw: true, nonce: (prev?.nonce ?? 0) + 1 })),
     insertSql: handleEditInEditor,
+    canLeave: canLeaveTable,
   });
   const { activeConnection } = remote;
   const instantSql = useInstantSqlChannel(!activeConnection);
@@ -568,7 +575,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onSaveSnippet={activeQuery && !tablePreview ? () => handleSaveSnippet(activeQuery) : undefined}
         {...(resultSource !== undefined && !runSetResponse ? { source: resultSource } : {})}
         onEditInEditor={handleEditInEditor}
-        {...(tablePreview?.back ? { onBack: () => showTablePreview(tablePreview.back!) } : {})}
+        {...(tablePreview?.back ? { onBack: () => canLeaveTable() && showTablePreview(tablePreview.back!) } : {})}
         handoffs={handoffs}
         {...(more ? { more, onLoadMore: handleLoadMore } : {})}
         {...(tablePreview && tables.foreignKeys ? { foreignKeys: tables.foreignKeys } : {})}

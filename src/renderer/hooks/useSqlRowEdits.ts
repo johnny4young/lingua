@@ -21,7 +21,7 @@ export interface SqlRowEditNotice {
   text: string;
 }
 
-export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview: SqlTablePreview) => void) {
+export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview: SqlTablePreview) => Promise<void>) {
   const { t } = useTranslation();
   const target = preview?.edit && 'table' in preview.edit ? preview.edit.table : null;
   // Staged edits belong to one read of one table.
@@ -86,13 +86,20 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
           : await applyLocalEdits(target, changes);
     } catch {
       result = { errorMessage: t('sqlWorkspace.edits.failed') };
-    } finally {
-      setBusy(false);
     }
     if ('applied' in result) {
       setNotice({ tone: 'ok', text: t('sqlWorkspace.edits.committed', { count: result.applied }) });
-      reload(preview);
-    } else if ('errorMessage' in result) {
+      // The changes are in the table now, so a click while it is read again has nothing to send.
+      setState({ key: readKey, edits: NO_EDITS });
+      try {
+        await reload(preview);
+      } catch {
+        // The commit stands; the rows on screen stay until the next read.
+      }
+    }
+    setBusy(false);
+    if ('applied' in result) return;
+    if ('errorMessage' in result) {
       setNotice({ tone: 'error', text: result.errorMessage });
     } else if (!('ok' in result)) {
       setNotice({ tone: 'error', text: editFailure(result.edit) });
@@ -111,6 +118,8 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
     edits,
     update,
     discard: () => update(() => NO_EDITS),
+    /** Whether the view may change: nothing is staged, or the user chose to drop it. */
+    confirmLeave: () => stagedCount(edits) === 0 || window.confirm(t('sqlWorkspace.edits.leaveConfirm', { count: stagedCount(edits) })),
     review: target ? rowEditReview(target, changeSet(edits)) : '',
     commit: () => void commit(),
     busy,
