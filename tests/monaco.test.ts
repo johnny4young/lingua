@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const loaderConfig = vi.fn();
 const jsSetCompilerOptions = vi.fn();
-const jsSetDiagnosticsOptions = vi.fn();
 const jsSetEagerModelSync = vi.fn();
 const linguaAddExtraLib = vi.fn();
 // Node typings load on demand, while the lingua global registers at once, so these track them apart.
@@ -18,11 +17,44 @@ const registerSignatureHelpProvider = vi.fn();
 const registerDefinitionProvider = vi.fn();
 const registerReferenceProvider = vi.fn();
 const tsSetCompilerOptions = vi.fn();
-const tsSetDiagnosticsOptions = vi.fn();
 const tsSetEagerModelSync = vi.fn();
 const tsAddExtraLib = vi.fn();
 const getJavaScriptWorker = vi.fn();
 const getTypeScriptWorker = vi.fn();
+
+// Monaco 0.55.1's own diagnostics defaults per language.
+const MONACO_DIAGNOSTICS = {
+  javascript: { noSemanticValidation: true, noSyntaxValidation: false, onlyVisible: false },
+  typescript: { noSemanticValidation: false, noSyntaxValidation: false, onlyVisible: false },
+};
+type DiagnosticsOptions = (typeof MONACO_DIAGNOSTICS)['javascript'];
+const diagnostics = { ...MONACO_DIAGNOSTICS };
+const jsSetDiagnosticsOptions = vi.fn((options: DiagnosticsOptions) => {
+  diagnostics.javascript = options;
+});
+const tsSetDiagnosticsOptions = vi.fn((options: DiagnosticsOptions) => {
+  diagnostics.typescript = options;
+});
+
+// The TypeScript contribution module, the only place Monaco 0.55 exposes these defaults.
+const typeScriptContribution = {
+  javascriptDefaults: {
+    addExtraLib: routeExtraLib(jsAddExtraLib),
+    getDiagnosticsOptions: () => diagnostics.javascript,
+    setCompilerOptions: jsSetCompilerOptions,
+    setDiagnosticsOptions: jsSetDiagnosticsOptions,
+    setEagerModelSync: jsSetEagerModelSync,
+  },
+  typescriptDefaults: {
+    addExtraLib: routeExtraLib(tsAddExtraLib),
+    getDiagnosticsOptions: () => diagnostics.typescript,
+    setCompilerOptions: tsSetCompilerOptions,
+    setDiagnosticsOptions: tsSetDiagnosticsOptions,
+    setEagerModelSync: tsSetEagerModelSync,
+  },
+  getJavaScriptWorker,
+  getTypeScriptWorker,
+};
 
 class MockEditorWorker {}
 class MockJsonWorker {}
@@ -58,32 +90,6 @@ const monacoMock = {
     registerSignatureHelpProvider,
     registerDefinitionProvider,
     registerReferenceProvider,
-    typescript: {
-      javascriptDefaults: {
-        addExtraLib: routeExtraLib(jsAddExtraLib),
-        setCompilerOptions: jsSetCompilerOptions,
-        setDiagnosticsOptions: jsSetDiagnosticsOptions,
-        setEagerModelSync: jsSetEagerModelSync,
-      },
-      typescriptDefaults: {
-        addExtraLib: routeExtraLib(tsAddExtraLib),
-        setCompilerOptions: tsSetCompilerOptions,
-        setDiagnosticsOptions: tsSetDiagnosticsOptions,
-        setEagerModelSync: tsSetEagerModelSync,
-      },
-      ModuleDetectionKind: {
-        Force: 3,
-      },
-      ModuleKind: {
-        ESNext: 99,
-      },
-      ModuleResolutionKind: {
-        NodeJs: 2,
-      },
-      ScriptTarget: {
-        ES2022: 9,
-      },
-    },
   },
 };
 
@@ -95,15 +101,10 @@ vi.mock('@monaco-editor/react', () => ({
 
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => monacoMock);
 vi.mock('monaco-editor/esm/vs/editor/editor.all.js', () => ({}));
-vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({
-  javascriptDefaults: monacoMock.languages.typescript.javascriptDefaults,
-  typescriptDefaults: monacoMock.languages.typescript.typescriptDefaults,
-  ModuleKind: monacoMock.languages.typescript.ModuleKind,
-  ModuleResolutionKind: monacoMock.languages.typescript.ModuleResolutionKind,
-  ScriptTarget: monacoMock.languages.typescript.ScriptTarget,
-  getJavaScriptWorker,
-  getTypeScriptWorker,
-}));
+vi.mock(
+  'monaco-editor/esm/vs/language/typescript/monaco.contribution.js',
+  () => typeScriptContribution
+);
 vi.mock('monaco-editor/esm/vs/language/json/monaco.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/basic-languages/sql/sql.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/basic-languages/javascript/javascript.js', () => basicLanguageModule);
@@ -186,7 +187,7 @@ describe('applyTypeScriptDefaults', () => {
     vi.resetModules();
   });
 
-  it('applies worker-runtime JS and TS compiler defaults to the given Monaco instance', async () => {
+  it('loads the Node typings on idle on desktop and keeps Monaco compiler defaults', async () => {
     const { applyTypeScriptDefaults } = await import('@/monaco');
 
     // Desktop shape: the Node runtime bridge is present, so the typings load
@@ -198,44 +199,12 @@ describe('applyTypeScriptDefaults', () => {
       delete (window as unknown as { lingua?: unknown }).lingua;
     }
 
-    expect(jsSetEagerModelSync).toHaveBeenCalledWith(true);
-    expect(tsSetEagerModelSync).toHaveBeenCalledWith(true);
-    expect(jsSetDiagnosticsOptions).toHaveBeenCalledWith({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-      onlyVisible: false,
-    });
-    expect(tsSetDiagnosticsOptions).toHaveBeenCalledWith({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-      onlyVisible: false,
-    });
-    expect(jsSetCompilerOptions).toHaveBeenCalledWith(
-      expect.objectContaining({
-        allowJs: true,
-        checkJs: true,
-        lib: ['es2022', 'webworker'],
-        module: 99,
-        moduleDetection: 3,
-        moduleResolution: 2,
-        noEmit: true,
-        strict: true,
-        target: 9,
-      })
-    );
-    expect(tsSetCompilerOptions).toHaveBeenCalledWith(
-      expect.objectContaining({
-        allowJs: true,
-        checkJs: true,
-        lib: ['es2022', 'webworker'],
-        module: 99,
-        moduleDetection: 3,
-        moduleResolution: 2,
-        noEmit: true,
-        strict: true,
-        target: 9,
-      })
-    );
+    expect(jsSetCompilerOptions).not.toHaveBeenCalled();
+    expect(tsSetCompilerOptions).not.toHaveBeenCalled();
+    expect(jsSetDiagnosticsOptions).not.toHaveBeenCalled();
+    expect(tsSetDiagnosticsOptions).not.toHaveBeenCalled();
+    expect(jsSetEagerModelSync).not.toHaveBeenCalled();
+    expect(tsSetEagerModelSync).not.toHaveBeenCalled();
     // The Node typings arrive through one dynamic import scheduled on idle,
     // so addExtraLib fires after that chunk resolves — await it rather than
     // asserting synchronously.
@@ -419,8 +388,8 @@ describe('Node typings on the web build', () => {
     expect(editor.changed.size).toBe(0);
     expect(model.listeners.size).toBe(0);
     expect(model.disposing.size).toBe(0);
-    expect(jsAddExtraLib.mock.contexts[0]).toBe(monacoMock.languages.typescript.javascriptDefaults);
-    expect(tsAddExtraLib.mock.contexts[0]).toBe(monacoMock.languages.typescript.typescriptDefaults);
+    expect(jsAddExtraLib.mock.contexts[0]).toBe(typeScriptContribution.javascriptDefaults);
+    expect(tsAddExtraLib.mock.contexts[0]).toBe(typeScriptContribution.typescriptDefaults);
   });
 
   it('invokes extra-lib registration with the original defaults receivers', async () => {
@@ -430,30 +399,14 @@ describe('Node typings on the web build', () => {
     await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled());
     expect(
       jsAddExtraLib.mock.contexts.every(
-        context => context === monacoMock.languages.typescript.javascriptDefaults
+        context => context === typeScriptContribution.javascriptDefaults
       )
     ).toBe(true);
     expect(
       tsAddExtraLib.mock.contexts.every(
-        context => context === monacoMock.languages.typescript.typescriptDefaults
+        context => context === typeScriptContribution.typescriptDefaults
       )
     ).toBe(true);
-  });
-
-  it('registers typings with current ESM Monaco without changing compiler defaults', async () => {
-    const { applyTypeScriptDefaults } = await import('@/monaco');
-    const editor = fakeEditorNamespace([fakeModel('typescript', "import 'node:fs';")]);
-    const currentMonaco = {
-      ...monacoMock,
-      editor: editor.namespace,
-      languages: { ...monacoMock.languages, typescript: undefined },
-    };
-    applyTypeScriptDefaults(currentMonaco as never);
-    await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled());
-    expect(tsSetCompilerOptions).not.toHaveBeenCalled();
-    expect(tsSetDiagnosticsOptions).not.toHaveBeenCalled();
-    expect(tsSetEagerModelSync).not.toHaveBeenCalled();
-    expect(tsAddExtraLib.mock.contexts[0]).toBe(monacoMock.languages.typescript.typescriptDefaults);
   });
 
   it('coalesces desktop idle work across repeated mounts', async () => {
@@ -561,6 +514,45 @@ describe('Node typings on the web build', () => {
       { timeout: 20_000 }
     );
   }, 25_000);
+});
+
+describe('setMonacoInlineLintEnabled', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    Object.assign(diagnostics, MONACO_DIAGNOSTICS);
+  });
+
+  it.each([
+    ['javascript', jsSetDiagnosticsOptions],
+    ['typescript', tsSetDiagnosticsOptions],
+  ] as const)('silences and restores %s diagnostics on the contribution defaults', async (language, setDiagnosticsOptions) => {
+    const { setMonacoInlineLintEnabled } = await import('@/monaco');
+
+    setMonacoInlineLintEnabled(language, false);
+    expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
+      noSemanticValidation: true,
+      noSyntaxValidation: true,
+      onlyVisible: false,
+    });
+
+    setMonacoInlineLintEnabled(language, true);
+    expect(setDiagnosticsOptions).toHaveBeenLastCalledWith(MONACO_DIAGNOSTICS[language]);
+    expect(setDiagnosticsOptions).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves unchanged options alone, since each change restarts the TypeScript worker', async () => {
+    const { setMonacoInlineLintEnabled } = await import('@/monaco');
+
+    setMonacoInlineLintEnabled('javascript', true);
+    setMonacoInlineLintEnabled('typescript', true);
+    expect(jsSetDiagnosticsOptions).not.toHaveBeenCalled();
+    expect(tsSetDiagnosticsOptions).not.toHaveBeenCalled();
+
+    setMonacoInlineLintEnabled('typescript', false);
+    setMonacoInlineLintEnabled('typescript', false);
+    expect(tsSetDiagnosticsOptions).toHaveBeenCalledOnce();
+  });
 });
 
 describe('registerLanguageOnce', () => {

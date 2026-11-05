@@ -104,10 +104,9 @@ export function useInlineLint(
 
   // 1) Native Monaco diagnostics toggle, per language.
   useEffect(() => {
-    if (!monaco) return;
-    setMonacoInlineLintEnabled(monaco, 'javascript', inlineLintEnabledByLanguage.javascript !== false);
-    setMonacoInlineLintEnabled(monaco, 'typescript', inlineLintEnabledByLanguage.typescript !== false);
-  }, [monaco, inlineLintEnabledByLanguage]);
+    setMonacoInlineLintEnabled('javascript', inlineLintEnabledByLanguage.javascript !== false);
+    setMonacoInlineLintEnabled('typescript', inlineLintEnabledByLanguage.typescript !== false);
+  }, [inlineLintEnabledByLanguage]);
 
   // 3) Register the quick-fix provider once per Monaco instance for JS + TS.
   useEffect(() => {
