@@ -2,7 +2,7 @@
 /**
  * Bundle src/cli/lingua.ts into dist/cli/lingua.cjs.
  *
- * Single CJS file, Node 22+ target, everything bundled (utility
+ * Single CJS file, Node 26+ target, everything bundled (utility
  * adapters, capsule schema, command parser, and runtime registry). No
  * Electron, no React — the ESLint rule + this bundle's
  * shape-check at the end of the run keep it that way.
@@ -37,7 +37,7 @@ await build({
   bundle: true,
   format: 'cjs',
   platform: 'node',
-  target: 'node22',
+  target: 'node26',
   // Tree-shake aggressively; the shared adapters + capsule schema
   // are small but no reason to ship dead code.
   minify: false,

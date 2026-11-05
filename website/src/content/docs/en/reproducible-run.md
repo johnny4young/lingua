@@ -9,7 +9,7 @@ This walkthrough uses a JavaScript scratchpad and needs no network request or
 project setup. The editor, run, error, recovery, and **latest-run Capsule
 export** work on the Free tier in the browser or desktop app. The browser
 needs a first online load. For the CLI steps, install the separate CLI and
-provide Node.js 24; [start with the CLI guide](/cli). Go, Rust, and the local
+provide Node.js 26; [start with the CLI guide](/cli). Go, Rust, and the local
 MCP server are desktop-specific, not part of this browser demo. Browser file
 access uses user-granted File System Access handles where supported; desktop
 uses its native filesystem bridge and watcher.
@@ -83,7 +83,7 @@ lingua capsule replay docs/examples/deterministic-run.capsule.json --json
 ```
 
 That example records `3\n`; replay's comparison should report
-`matches: true` with Node.js 24. The content hash catches inconsistency, not
+`matches: true` with Node.js 26. The content hash catches inconsistency, not
 malice: a modified file can carry a recomputed hash. Never replay an untrusted
 Capsule.
 

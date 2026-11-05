@@ -3,7 +3,7 @@
 /**
  * Build the two distributable Lingua CLI surfaces:
  *
- * - a minimal, dependency-free npm tarball for Node.js 24.x;
+ * - a minimal, dependency-free npm tarball for Node.js 26;
  * - a Node single-executable archive for the current Windows/Linux host.
  *
  * Standalone executables are built natively so the preparation blob and Node
