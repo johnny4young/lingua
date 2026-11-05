@@ -536,12 +536,27 @@ describe('setMonacoInlineLintEnabled', () => {
     expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
       noSemanticValidation: true,
       noSyntaxValidation: true,
+      noSuggestionDiagnostics: true,
       onlyVisible: false,
     });
 
     setMonacoInlineLintEnabled(language, true);
-    expect(setDiagnosticsOptions).toHaveBeenLastCalledWith(MONACO_DIAGNOSTICS[language]);
+    expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
+      ...MONACO_DIAGNOSTICS[language],
+      noSuggestionDiagnostics: false,
+    });
     expect(setDiagnosticsOptions).toHaveBeenCalledTimes(2);
+  });
+
+  it('restores the diagnostics Monaco had when the module loaded', async () => {
+    diagnostics.javascript = { ...MONACO_DIAGNOSTICS.javascript, noSemanticValidation: false };
+    const { setMonacoInlineLintEnabled } = await import('@/monaco');
+
+    setMonacoInlineLintEnabled('javascript', false);
+    setMonacoInlineLintEnabled('javascript', true);
+    expect(jsSetDiagnosticsOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ noSemanticValidation: false, noSyntaxValidation: false })
+    );
   });
 
   it('leaves unchanged options alone, since each change restarts the TypeScript worker', async () => {

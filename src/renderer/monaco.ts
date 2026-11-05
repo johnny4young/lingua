@@ -245,6 +245,7 @@ type MonacoTypeScriptDefaultsWithExtraLib = {
 type MonacoDiagnosticsOptions = {
   noSemanticValidation?: boolean;
   noSyntaxValidation?: boolean;
+  noSuggestionDiagnostics?: boolean;
   onlyVisible?: boolean;
 };
 
@@ -507,12 +508,31 @@ export function applyTypeScriptDefaults(m: Monaco): void {
   scheduleNodeTypeDefinitions(m, typeScriptDefaults);
 }
 
-// Monaco's own defaults: JavaScript reports syntax errors only.
+type InlineLintDiagnostics = Required<
+  Pick<
+    MonacoDiagnosticsOptions,
+    'noSemanticValidation' | 'noSyntaxValidation' | 'noSuggestionDiagnostics'
+  >
+>;
+
+function inlineLintDiagnostics(options: MonacoDiagnosticsOptions): InlineLintDiagnostics {
+  return {
+    noSemanticValidation: options.noSemanticValidation ?? false,
+    noSyntaxValidation: options.noSyntaxValidation ?? false,
+    noSuggestionDiagnostics: options.noSuggestionDiagnostics ?? false,
+  };
+}
+
+// Monaco's own defaults, read before anything changes them: JavaScript reports syntax errors only.
 const INLINE_LINT_DIAGNOSTICS = {
-  javascript: { noSemanticValidation: true, noSyntaxValidation: false },
-  typescript: { noSemanticValidation: false, noSyntaxValidation: false },
-} as const;
-const SILENT_DIAGNOSTICS = { noSemanticValidation: true, noSyntaxValidation: true } as const;
+  javascript: inlineLintDiagnostics(typeScriptDefaults.javascriptDefaults.getDiagnosticsOptions()),
+  typescript: inlineLintDiagnostics(typeScriptDefaults.typescriptDefaults.getDiagnosticsOptions()),
+};
+const SILENT_DIAGNOSTICS: InlineLintDiagnostics = {
+  noSemanticValidation: true,
+  noSyntaxValidation: true,
+  noSuggestionDiagnostics: true,
+};
 
 /**
  * Silence or restore Monaco's built-in JS/TS diagnostics for one language, for
@@ -526,10 +546,12 @@ export function setMonacoInlineLintEnabled(
   const defaults = typeScriptDefaults[`${language}Defaults`];
   const next = enabled ? INLINE_LINT_DIAGNOSTICS[language] : SILENT_DIAGNOSTICS;
   const current = defaults.getDiagnosticsOptions();
+  const applied = inlineLintDiagnostics(current);
   // Every change restarts the TypeScript worker, and editors call this on each mount.
   if (
-    current.noSemanticValidation === next.noSemanticValidation &&
-    current.noSyntaxValidation === next.noSyntaxValidation
+    applied.noSemanticValidation === next.noSemanticValidation &&
+    applied.noSyntaxValidation === next.noSyntaxValidation &&
+    applied.noSuggestionDiagnostics === next.noSuggestionDiagnostics
   )
     return;
   defaults.setDiagnosticsOptions({ ...current, ...next });

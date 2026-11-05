@@ -1,9 +1,6 @@
 /**
  * Settings › Editor › Inline lint silences Monaco's own JS/TS diagnostics.
- *
- * The toggle used to write to `monaco.languages.typescript`, which Lingua's
- * `editor.api.js` import never defines, so the squiggles stayed. The status
- * bar error count shows whether Monaco's markers are on the model.
+ * The status bar error count shows whether Monaco's markers are on the model.
  */
 
 import type { Page } from '@playwright/test';
