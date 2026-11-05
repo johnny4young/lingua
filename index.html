@@ -33,13 +33,6 @@
       content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev http://localhost:* http://127.0.0.1:*; base-uri 'self'; form-action 'self';"
     />
     <!--
-      internal — early TLS handshakes to the two first-party
-      hosts the renderer is allowed to reach (see connect-src above).
-      crossorigin because the consumers are CORS fetch calls.
-    -->
-    <link rel="preconnect" href="https://licenses.linguacode.dev" crossorigin />
-    <link rel="preconnect" href="https://updates.linguacode.dev" crossorigin />
-    <!--
       internal — vendored JetBrains Mono (latin subset, OFL;
       see public/fonts/OFL.txt) so the Monaco default editor stack
       (settingsDefaults.ts DEFAULT_EDITOR_FONT_FAMILY) renders the same
