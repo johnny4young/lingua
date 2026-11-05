@@ -42,6 +42,10 @@ extraResources:
 # that slips past non-recursive upload globs in CI).
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 asar: true
+# Chromium's own locales, which also set navigator.language and Intl formats.
+# macOS matches .lproj folder names, other platforms .pak file names. Users on
+# any other system language get en-US dates and numbers.
+electronLanguages: [en, en-US, en_GB, en-GB, es, es-419, es_419]
 # node-pty ships a platform-specific .node addon that cannot be dlopen'd from
 # inside app.asar. Keep every native addon unpacked and prove node-pty's binary
 # exists in the packaged application during the desktop packaging smoke.
