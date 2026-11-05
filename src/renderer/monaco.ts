@@ -250,6 +250,7 @@ type MonacoDiagnosticsOptions = {
 type MonacoLanguageDefaults = MonacoLanguageDefaultsWithExtraLib & {
   getDiagnosticsOptions: () => MonacoDiagnosticsOptions;
   setDiagnosticsOptions: (options: MonacoDiagnosticsOptions) => void;
+  setCompilerOptions: (options: Record<string, unknown>) => void;
 };
 
 // Monaco 0.55 keeps the JS/TS defaults on its contribution module; `languages.typescript`
@@ -257,6 +258,9 @@ type MonacoLanguageDefaults = MonacoLanguageDefaultsWithExtraLib & {
 const typeScriptDefaults = typeScriptContribution as unknown as {
   javascriptDefaults: MonacoLanguageDefaults;
   typescriptDefaults: MonacoLanguageDefaults;
+  ModuleKind: { ESNext: number };
+  ModuleResolutionKind: { NodeJs: number };
+  ScriptTarget: { ESNext: number };
 };
 
 function typeDefinitionUri(modulePath: string): string | null {
@@ -469,14 +473,38 @@ function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWith
     });
 }
 
-/** Register the Lingua and Node typings; call from beforeMount, it never waits on them. */
+/** Set the JS/TS compiler options and register the typings; call from beforeMount, it never waits on them. */
 export function applyTypeScriptDefaults(m: Monaco): void {
+  applyCompilerOptionsOnce();
   scheduleNodeTypeDefinitions(m, typeScriptDefaults);
 }
 
-// Monaco's own defaults: JavaScript reports syntax errors only.
+let compilerOptionsApplied = false;
+
+// Lingua runs JS/TS as an async function body or an ES module, so every tab is a module
+// that may use top-level await, and its names never clash with the DOM's globals.
+function applyCompilerOptionsOnce(): void {
+  if (compilerOptionsApplied) return;
+  compilerOptionsApplied = true;
+  const { ModuleKind, ModuleResolutionKind, ScriptTarget } = typeScriptDefaults;
+  const compilerOptions = {
+    allowNonTsExtensions: true,
+    allowSyntheticDefaultImports: true,
+    module: ModuleKind.ESNext,
+    // ModuleDetectionKind.Force, which Monaco does not export.
+    moduleDetection: 3,
+    moduleResolution: ModuleResolutionKind.NodeJs,
+    noEmit: true,
+    target: ScriptTarget.ESNext,
+  };
+  // Lingua's models have no file extension, and allowJs would read a TypeScript one as JavaScript.
+  typeScriptDefaults.javascriptDefaults.setCompilerOptions({ ...compilerOptions, allowJs: true });
+  typeScriptDefaults.typescriptDefaults.setCompilerOptions(compilerOptions);
+}
+
+// Without checkJs, JavaScript's semantic pass reports only code that always fails.
 const INLINE_LINT_DIAGNOSTICS = {
-  javascript: { noSemanticValidation: true, noSyntaxValidation: false },
+  javascript: { noSemanticValidation: false, noSyntaxValidation: false },
   typescript: { noSemanticValidation: false, noSyntaxValidation: false },
 } as const;
 const SILENT_DIAGNOSTICS = { noSemanticValidation: true, noSyntaxValidation: true } as const;

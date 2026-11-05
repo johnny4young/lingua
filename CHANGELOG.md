@@ -13,7 +13,9 @@ The format follows Keep a Changelog and groups changes by release.
 - On Free, Recent runs, Utility pipelines and Run capsules open as slices of your own data instead of locks, and the first upgrade notice in a session opens Compare plans.
 - Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
-- TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
+- TypeScript tabs no longer underline `lingua.display`.
+- JavaScript and TypeScript tabs are checked as modules, the way Lingua runs them. TypeScript no longer underlines a top-level `await`, names the browser also defines such as `name` or `status`, or `import fs from 'node:fs'`. A top-level `const lingua` is no longer underlined either, and it still fails when run.
+- JavaScript tabs now underline code that always fails, such as a second `let` with the same name or `await` outside an async function. They still do not type-check JavaScript.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
 
 ### Fixed
