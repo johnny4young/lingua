@@ -201,6 +201,21 @@ describe('updater state-machine guards', () => {
     expect(await harness.getState()).not.toMatchObject({ status: 'error' });
   });
 
+  it('tries to load electron-updater again after a failed load', async () => {
+    const harness = await loadUpdaterHarness({ wired: false });
+    vi.doMock('electron-updater', () => {
+      throw new Error('updater failed to load');
+    });
+    await harness.ipcHandlers.get('updates:check')!();
+    expect(await harness.getState()).toMatchObject({ status: 'error' });
+
+    vi.doMock('electron-updater', () => ({
+      autoUpdater: { on: vi.fn(), checkForUpdates: harness.checkForUpdates, quitAndInstall: vi.fn() },
+    }));
+    await harness.ipcHandlers.get('updates:check')!();
+    expect(harness.checkForUpdates).toHaveBeenCalledOnce();
+  });
+
   it('captures every handler registerUpdater is expected to wire up', async () => {
     const harness = await loadUpdaterHarness();
 

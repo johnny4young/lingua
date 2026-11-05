@@ -86,11 +86,18 @@ function resolveReleaseNotes(info: UpdateInfo): string | undefined {
  * A native import() of this CommonJS package from CommonJS main puts its exports on `default`.
  */
 function loadWiredUpdater(): Promise<AppUpdater> {
-  wiredUpdater ??= import('electron-updater').then(mod => {
-    const { autoUpdater } = 'autoUpdater' in mod ? mod : (mod as { default: typeof mod }).default;
-    wireAutoUpdater(autoUpdater);
-    return autoUpdater;
-  });
+  wiredUpdater ??= import('electron-updater').then(
+    mod => {
+      const { autoUpdater } = 'autoUpdater' in mod ? mod : (mod as { default: typeof mod }).default;
+      wireAutoUpdater(autoUpdater);
+      return autoUpdater;
+    },
+    (error: unknown) => {
+      // Let the next check try again instead of failing every check this session.
+      wiredUpdater = null;
+      throw error;
+    }
+  );
   return wiredUpdater;
 }
 
