@@ -122,6 +122,12 @@ change renderer-facing aliases there rather than duplicating them per config.
 The bundle budget remains the second line of defense because it catches costs
 that a source-graph allowlist cannot predict.
 
+Main has the same rule for `src/main/index.ts`, because Electron evaluates all
+of `main.js` before `app.ready`. The i18n catalogs for native dialogs, undici,
+ws, the MCP SDK, zod, acorn and electron-updater load on first use, which took
+`main.js` from 2.4 MB to 330 KB. `tests/build/mainInitialGraph.test.ts` fails
+with the import chain when any of them becomes statically reachable again.
+
 `scripts/lib/staticImportGraph.mjs` is the shared implementation behind that
 guard and the activation report. The report records every eager App-to-package
 chain for `acorn`, `js-yaml`, and `magic-string`; this keeps performance

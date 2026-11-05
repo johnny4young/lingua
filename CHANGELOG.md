@@ -15,6 +15,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
 - TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
+- The desktop app starts with less work: its HTTP client, local MCP server, dialog translations and updater load the first time they are used.
 
 ### Fixed
 - Edit table rows: duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
