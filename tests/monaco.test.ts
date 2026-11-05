@@ -519,57 +519,64 @@ describe('Node typings on the web build', () => {
   }, 25_000);
 });
 
-describe('setMonacoInlineLintEnabled', () => {
+describe('Inline lint setting', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    localStorage.clear();
     Object.assign(diagnostics, MONACO_DIAGNOSTICS);
   });
+
+  async function loadMonacoWithSettings() {
+    await import('@/monaco');
+    const { useSettingsStore } = await import('@/stores/settingsStore');
+    return useSettingsStore.getState().setInlineLintEnabled;
+  }
 
   it.each([
     ['javascript', jsSetDiagnosticsOptions],
     ['typescript', tsSetDiagnosticsOptions],
-  ] as const)('silences and restores %s diagnostics on the contribution defaults', async (language, setDiagnosticsOptions) => {
-    const { setMonacoInlineLintEnabled } = await import('@/monaco');
+  ] as const)(
+    'silences and restores %s diagnostics without a mounted editor',
+    async (language, setDiagnosticsOptions) => {
+      const setInlineLintEnabled = await loadMonacoWithSettings();
 
-    setMonacoInlineLintEnabled(language, false);
-    expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
-      noSemanticValidation: true,
-      noSyntaxValidation: true,
-      noSuggestionDiagnostics: true,
-      onlyVisible: false,
-    });
+      setInlineLintEnabled(language, false);
+      expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
+        noSemanticValidation: true,
+        noSyntaxValidation: true,
+        noSuggestionDiagnostics: true,
+        onlyVisible: false,
+      });
 
-    setMonacoInlineLintEnabled(language, true);
-    expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
-      ...MONACO_DIAGNOSTICS[language],
-      noSuggestionDiagnostics: false,
-    });
-    expect(setDiagnosticsOptions).toHaveBeenCalledTimes(2);
-  });
+      setInlineLintEnabled(language, true);
+      expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
+        ...MONACO_DIAGNOSTICS[language],
+        noSuggestionDiagnostics: false,
+      });
+      expect(setDiagnosticsOptions).toHaveBeenCalledTimes(2);
+    }
+  );
 
   it('restores the diagnostics Monaco had when the module loaded', async () => {
     diagnostics.javascript = { ...MONACO_DIAGNOSTICS.javascript, noSemanticValidation: false };
-    const { setMonacoInlineLintEnabled } = await import('@/monaco');
+    const setInlineLintEnabled = await loadMonacoWithSettings();
 
-    setMonacoInlineLintEnabled('javascript', false);
-    setMonacoInlineLintEnabled('javascript', true);
+    setInlineLintEnabled('javascript', false);
+    setInlineLintEnabled('javascript', true);
     expect(jsSetDiagnosticsOptions).toHaveBeenLastCalledWith(
       expect.objectContaining({ noSemanticValidation: false, noSyntaxValidation: false })
     );
   });
 
-  it('leaves unchanged options alone, since each change restarts the TypeScript worker', async () => {
-    const { setMonacoInlineLintEnabled } = await import('@/monaco');
-
-    setMonacoInlineLintEnabled('javascript', true);
-    setMonacoInlineLintEnabled('typescript', true);
+  it('writes only the language that changed, since each change restarts the TypeScript worker', async () => {
+    const setInlineLintEnabled = await loadMonacoWithSettings();
     expect(jsSetDiagnosticsOptions).not.toHaveBeenCalled();
     expect(tsSetDiagnosticsOptions).not.toHaveBeenCalled();
 
-    setMonacoInlineLintEnabled('typescript', false);
-    setMonacoInlineLintEnabled('typescript', false);
+    setInlineLintEnabled('typescript', false);
     expect(tsSetDiagnosticsOptions).toHaveBeenCalledOnce();
+    expect(jsSetDiagnosticsOptions).not.toHaveBeenCalled();
   });
 });
 
@@ -781,7 +788,9 @@ describe('TypeScript worker gate', () => {
     return { created, monaco: { ...monacoMock, editor: namespace } };
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Earlier web tests leave their idle worker-script fetch queued; let it run first.
+    await new Promise(resolve => setTimeout(resolve, 0));
     vi.clearAllMocks();
     vi.resetModules();
   });

@@ -31,6 +31,7 @@ import { getLanguageSupportDescriptor } from './languageSupport/registry';
 import type { NavigationTreeItem } from './utils/symbolNavigation';
 import { loadNodeTypeDefinitions } from './nodeTypeDefinitionsLoader';
 import { NODE_BUILTINS } from '../shared/dependencies/nodeBuiltins';
+import { useSettingsStore } from './stores/settingsStore';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -534,20 +535,12 @@ const SILENT_DIAGNOSTICS: InlineLintDiagnostics = {
   noSuggestionDiagnostics: true,
 };
 
-/**
- * Silence or restore Monaco's built-in JS/TS diagnostics for one language, for
- * the Settings "Inline lint" toggle. The defaults are global, so this covers
- * every model of that language.
- */
-export function setMonacoInlineLintEnabled(
-  language: 'javascript' | 'typescript',
-  enabled: boolean
-): void {
+function setMonacoInlineLintEnabled(language: 'javascript' | 'typescript', enabled: boolean): void {
   const defaults = typeScriptDefaults[`${language}Defaults`];
   const next = enabled ? INLINE_LINT_DIAGNOSTICS[language] : SILENT_DIAGNOSTICS;
   const current = defaults.getDiagnosticsOptions();
   const applied = inlineLintDiagnostics(current);
-  // Every change restarts the TypeScript worker, and editors call this on each mount.
+  // Every change restarts the TypeScript worker.
   if (
     applied.noSemanticValidation === next.noSemanticValidation &&
     applied.noSyntaxValidation === next.noSyntaxValidation &&
@@ -556,6 +549,20 @@ export function setMonacoInlineLintEnabled(
     return;
   defaults.setDiagnosticsOptions({ ...current, ...next });
 }
+
+function applyInlineLintSetting(enabledByLanguage: Record<string, boolean>): void {
+  setMonacoInlineLintEnabled('javascript', enabledByLanguage.javascript !== false);
+  setMonacoInlineLintEnabled('typescript', enabledByLanguage.typescript !== false);
+}
+
+// Monaco's diagnostics defaults are global, so one subscription covers every model,
+// whether or not an editor is mounted.
+applyInlineLintSetting(useSettingsStore.getState().inlineLintEnabledByLanguage);
+useSettingsStore.subscribe((state, previous) => {
+  if (state.inlineLintEnabledByLanguage !== previous.inlineLintEnabledByLanguage) {
+    applyInlineLintSetting(state.inlineLintEnabledByLanguage);
+  }
+});
 
 // Monaco's direct TypeScript contribution declaration is currently an empty
 // stub even though the ESM module exports the worker accessors at runtime.
