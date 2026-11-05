@@ -55,7 +55,9 @@ SELECT ${HINT} INDEX_NAME AS name, COLUMN_NAME AS col, NON_UNIQUE AS non_unique
 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY INDEX_NAME = 'PRIMARY' DESC, INDEX_NAME, SEQ_IN_INDEX`;
 
 const DETAIL_SIZE = `
-SELECT ${HINT} TABLE_ROWS AS est_rows, DATA_LENGTH + INDEX_LENGTH AS size FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`;
+SELECT ${HINT} TABLE_ROWS AS est_rows, DATA_LENGTH + INDEX_LENGTH AS size,
+  (SELECT e.TRANSACTIONS FROM information_schema.ENGINES e WHERE e.ENGINE = t.ENGINE) AS transactions
+FROM information_schema.TABLES t WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`;
 
 const SHOW_CREATE: Partial<Record<SqlDbObjectKind, { statement: string; column: string }>> = {
   table: { statement: 'SHOW CREATE TABLE', column: 'Create Table' },
@@ -115,6 +117,7 @@ async function detail(query: CatalogQuery, request: Extract<SqlDbIntrospect, { l
       name,
       columns,
       indexes: [...byIndex.values()],
+      ...(kind === 'table' && String(sizeRow?.transactions ?? '').toUpperCase() !== 'YES' ? { transactional: false } : {}),
       ...(kind === 'table' && count(sizeRow?.est_rows) !== undefined ? { rowEstimate: count(sizeRow?.est_rows)! } : {}),
       ...(kind === 'table' && count(sizeRow?.size) !== undefined ? { sizeBytes: count(sizeRow?.size)! } : {}),
       ...(ddl ? { ddl } : {}),

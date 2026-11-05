@@ -202,6 +202,8 @@ export interface SqlDbObjectDetail {
   rowEstimate?: number;
   sizeBytes?: number;
   ddl?: string;
+  /** False when a rollback would not undo a write to this table (MySQL's MyISAM and MEMORY). */
+  transactional?: boolean;
 }
 
 /** Exactly one field per level is set, or `errorMessage`. */

@@ -254,6 +254,8 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
       const inTime = editDeadline();
       // A blocked statement fails on the server, so the transaction can never commit late.
       await query(connection, `SET SESSION innodb_lock_wait_timeout = ${EDIT_LOCK_WAIT_S}, lock_wait_timeout = ${EDIT_LOCK_WAIT_S}`);
+      // Outside strict mode MySQL would store 12 for 12abc and a zero date for a bad one.
+      await query(connection, "SET SESSION sql_mode = CONCAT_WS(',', @@SESSION.sql_mode, 'STRICT_ALL_TABLES')");
       await query(connection, 'START TRANSACTION');
       try {
         for (const [index, statement] of statements.entries()) {
