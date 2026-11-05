@@ -733,3 +733,85 @@ describe('loadNavigationTree', () => {
     expect(getTypeScriptWorker).not.toHaveBeenCalled();
   });
 });
+
+describe('TypeScript worker gate', () => {
+  type Listener = () => void;
+  const gate = () =>
+    (globalThis as { __linguaTypeScriptWorkerGate?: Promise<void> }).__linguaTypeScriptWorkerGate!;
+  const settled = async (promise: Promise<void>) => {
+    let done = false;
+    void promise.then(() => {
+      done = true;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    return done;
+  };
+  function fakeCodeEditor() {
+    const keyDown = new Set<Listener>();
+    const mouseMove = new Set<Listener>();
+    const subscribe = (set: Set<Listener>) => (listener: Listener) => {
+      set.add(listener);
+      return { dispose: () => set.delete(listener) };
+    };
+    return {
+      keyDown,
+      mouseMove,
+      editor: { onKeyDown: subscribe(keyDown), onMouseMove: subscribe(mouseMove) },
+    };
+  }
+  function withEditorCreation() {
+    const created = new Set<(editor: unknown) => void>();
+    const namespace = {
+      onDidCreateEditor: (listener: (editor: unknown) => void) => {
+        created.add(listener);
+        return { dispose: () => created.delete(listener) };
+      },
+    };
+    return { created, monaco: { ...monacoMock, editor: namespace } };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it('holds the worker while editors only exist, and opens on the first key press', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const { created, monaco } = withEditorCreation();
+    applyTypeScriptDefaults(monaco as never);
+    const first = fakeCodeEditor();
+    const second = fakeCodeEditor();
+    for (const listener of created) listener(first.editor);
+    for (const listener of created) listener(second.editor);
+    expect(await settled(gate())).toBe(false);
+
+    for (const listener of second.keyDown) listener();
+    expect(await settled(gate())).toBe(true);
+    // Every subscription goes once the worker may start.
+    expect(created.size + first.keyDown.size + first.mouseMove.size + second.mouseMove.size).toBe(0);
+  });
+
+  it('opens on the first mouse move over an editor', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const { created, monaco } = withEditorCreation();
+    applyTypeScriptDefaults(monaco as never);
+    const editor = fakeCodeEditor();
+    for (const listener of created) listener(editor.editor);
+    for (const listener of editor.mouseMove) listener();
+    expect(await settled(gate())).toBe(true);
+  });
+
+  it('opens when Go to symbol asks for the outline', async () => {
+    getJavaScriptWorker.mockResolvedValue(
+      vi.fn().mockResolvedValue({ getNavigationTree: vi.fn().mockResolvedValue(undefined) })
+    );
+    const { loadNavigationTree } = await import('@/monaco');
+    expect(await settled(gate())).toBe(false);
+    await loadNavigationTree({
+      uri: { toString: () => 'inmemory://model/1' } as never,
+      getLanguageId: () => 'javascript',
+    });
+    expect(await settled(gate())).toBe(true);
+  });
+});
