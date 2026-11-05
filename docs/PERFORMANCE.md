@@ -363,6 +363,21 @@ guards that contract. The web `initial` bundle dropped accordingly
 Refresh `docs/performance/baseline.json` to tighten the ceiling after a
 full `build:web` + desktop-renderer build per "Refreshing the baseline".
 
+## One TypeScript worker, started on first use
+
+Each TypeScript language service worker holds its own program and libraries,
+roughly 100 to 220 MB of footprint. `patches/monaco-editor@0.55.1.patch`
+makes JavaScript and TypeScript share one `WorkerManager`, so there is never
+more than one. It merges both modes' compiler options and extra libraries,
+forces `allowJs`, and sends each model's language to the worker: Lingua's
+models have no file extension, so the worker cannot tell JavaScript from
+TypeScript by name. The worker also waits for `__linguaTypeScriptWorkerGate`,
+which `src/renderer/monaco.ts` opens on the first key press or mouse move in
+any editor, or when Go to symbol asks for the outline. Opening the app or
+restoring tabs starts no worker.
+`tests/e2e/typeScriptLanguageService.spec.ts` counts the workers and checks
+diagnostics and completions with JavaScript, TypeScript and Node code mixed.
+
 ## Lazy Developer Utilities panels
 
 The Developer Utilities workspace shell is itself a lazy chunk, and `UtilityPanelRegistry`

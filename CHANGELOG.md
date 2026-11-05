@@ -17,8 +17,10 @@ The format follows Keep a Changelog and groups changes by release.
 - TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
 - The desktop app no longer ships its dependencies' source maps and TypeScript files, about 30 MB less inside the app.
+- JavaScript and TypeScript tabs share one language service, which starts when you first type or move the pointer in an editor. Lingua uses less memory, most of all while it sits open untouched.
 
 ### Fixed
+- A TypeScript tab opened after a JavaScript tab no longer underlines its type annotations as errors.
 - Edit table rows: duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
 - Edit table rows: Commit now fails when a row changed since it was read, not only when its key did, for text, whole numbers, decimals and booleans.
 - Edit table rows: running a query or opening another table with changes staged asks before discarding them, and Commit cannot run twice while the table is read again.
