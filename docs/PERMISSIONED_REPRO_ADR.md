@@ -139,11 +139,18 @@ with `EPERM`; writes to the output directory succeeded. Cold start was about
 
 Known limits that the backend probe must report honestly:
 
-- **Denial evidence is unavailable.** Denials of a `sandbox-exec` process did
-  not appear in the unified log, and SBPL rejects `(with report)` on deny rules.
-  The backend reports `denial-evidence` as `unsupported`, so a policy with
-  `evidence.denials: required` is refused on macOS, and an `if-available` run
-  can reach `pass` with compliance `not-observed`, never `clean`.
+- **Denial evidence is not collected.** Denials are observable but lossy. On
+  macOS 26.6.2, with this backend's profile, the kernel logged `Sandbox:
+  node(<pid>) deny(1) <operation>` lines for a denied read, fork and outbound
+  TCP. `log stream` caught all three in 21 of 22 runs, and `log show` run
+  afterwards caught them in 7 of 8. An earlier sample under heavier load had 14
+  of 24 complete. SBPL rejects `(with report)` on deny rules but accepts `(with
+  message "<tag>")`, which makes a run's lines easy to filter. Not re-checked on
+  macOS 27. The backend does not collect them and reports `denial-evidence` as
+  `unsupported`, so a policy with `evidence.denials: required` is refused on
+  macOS, and an `if-available` run can reach `pass` with compliance
+  `not-observed`, never `clean`. A collector could prove `violated`, but an
+  empty capture would still be `not-observed`.
 - **Memory and disk are not enforced.** Node exposes no `setrlimit` and the
   supervisor does not poll, so the backend reports both as `unsupported`. A
   policy that sets either limit is refused.
