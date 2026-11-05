@@ -278,6 +278,16 @@ describe('CI workflow', () => {
     expect(install?.if).toBeUndefined();
   });
 
+  it('checks the desktop footprint budget right after the packaged smoke on macOS', () => {
+    const steps = stepsOf(workflow, 'desktop-bundles');
+    const smoke = steps.findIndex(step => step.run === 'pnpm run smoke:desktop:packaged');
+    const budget = steps.findIndex(step => step.name === 'Desktop memory budget');
+    expect(budget).toBe(smoke + 1);
+    expect(steps[budget]?.run).toBe('pnpm run check:performance --memory');
+    expect(steps[budget]?.if).toBe(steps[smoke]?.if);
+    expect(steps[budget]?.['continue-on-error']).toBeUndefined();
+  });
+
   it('keeps the end-to-end and Windows jobs on pull requests only', () => {
     expect(workflow.jobs?.['web-e2e']?.if).toBe("github.event_name == 'pull_request'");
     expect(workflow.jobs?.['windows-path-hardening']?.if).toBe(

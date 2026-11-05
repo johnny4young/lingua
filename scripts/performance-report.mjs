@@ -46,6 +46,10 @@ const DEFAULT_TARGETS = [
 ];
 
 const CATEGORY_ORDER = ['initial', 'runtime', 'worker', 'utility', 'lazy', 'other'];
+// The GPU process follows the frames being painted (100 to 650 MB within seconds), so the
+// memory budget counts every other process.
+const FOOTPRINT_EXCLUDED_PROCESS_TYPES = new Set(['GPU']);
+const MEMORY_BUDGET_HEADROOM = 1.15;
 const BUDGET_HEADROOM_BY_CATEGORY = {
   initial: 1.1,
   lazy: 1.15,
@@ -462,6 +466,45 @@ function normalizeTimingRecord(value) {
   };
 }
 
+/**
+ * Footprint per process type for every snapshot that measured all of its
+ * processes, and the snapshot where the non-GPU total peaked.
+ */
+export function summarizeSmokeFootprint(memorySnapshots) {
+  const samples = [];
+  for (const entry of Array.isArray(memorySnapshots) ? memorySnapshots : []) {
+    const processes = entry?.snapshot?.ok === true ? entry.snapshot.chromium : null;
+    if (!Array.isArray(processes) || processes.length === 0) continue;
+    if (!processes.every((proc) => Number.isFinite(proc?.footprintBytes))) continue;
+    const byType = {};
+    let totalBytes = 0;
+    let withoutGpuBytes = 0;
+    for (const proc of processes) {
+      byType[proc.type] = (byType[proc.type] ?? 0) + proc.footprintBytes;
+      totalBytes += proc.footprintBytes;
+      if (!FOOTPRINT_EXCLUDED_PROCESS_TYPES.has(proc.type)) withoutGpuBytes += proc.footprintBytes;
+    }
+    samples.push({
+      label: typeof entry.label === 'string' ? entry.label : null,
+      totalBytes,
+      withoutGpuBytes,
+      byType,
+    });
+  }
+  if (samples.length === 0) {
+    return { available: false, samples, peakWithoutGpuBytes: null, peakLabel: null };
+  }
+  const peak = samples.reduce((max, sample) =>
+    sample.withoutGpuBytes > max.withoutGpuBytes ? sample : max
+  );
+  return {
+    available: true,
+    samples,
+    peakWithoutGpuBytes: peak.withoutGpuBytes,
+    peakLabel: peak.label,
+  };
+}
+
 function summarizeSmokeMemorySnapshots(memorySnapshots) {
   const summary = {
     totalSnapshots: Array.isArray(memorySnapshots) ? memorySnapshots.length : 0,
@@ -516,6 +559,7 @@ function summarizeSmokeMemorySnapshots(memorySnapshots) {
   }
 
   summary.unsupportedReasons = [...unsupportedReasons].sort();
+  summary.footprint = summarizeSmokeFootprint(memorySnapshots);
   return summary;
 }
 
@@ -574,7 +618,74 @@ export async function collectDesktopSmokePerformance(
     ),
     totalSmokeWallTimeMs: numberOrNull(payload.totalSmokeWallTimeMs),
     firstRunTimings,
+    packaged: payload.packaged === true,
     memory: summarizeSmokeMemorySnapshots(payload.memorySnapshots),
+  };
+}
+
+function memoryViolation(actual, max, message) {
+  return {
+    target: 'desktop-smoke',
+    category: 'memory',
+    metric: 'peakFootprintWithoutGpu',
+    actual,
+    max,
+    message: `desktop-smoke.memory.peakFootprintWithoutGpu ${message}`,
+  };
+}
+
+/**
+ * Compare the packaged smoke's peak non-GPU footprint with its budget. Only
+ * the macOS packaged smoke measures footprint, so --memory requires that
+ * artifact and fails closed when the measurement or the budget is missing.
+ */
+export function compareWithMemoryBudget(runtime, baseline) {
+  if (!runtime?.available) {
+    return [memoryViolation(0, Number.NaN, `was not measured: ${runtime?.reason ?? 'missing desktop smoke artifact'}`)];
+  }
+  if (!runtime.packaged) {
+    return [memoryViolation(0, Number.NaN, 'was not measured: the smoke artifact is not from a packaged app')];
+  }
+  const footprint = runtime.memory?.footprint;
+  if (!footprint?.available) {
+    return [memoryViolation(0, Number.NaN, 'was not measured: no snapshot has a footprint for every process')];
+  }
+  const max = baseline?.memoryBudgets?.desktopSmoke?.peakFootprintWithoutGpu?.maxBytes;
+  if (!Number.isFinite(max) || max <= 0) {
+    return [
+      memoryViolation(
+        footprint.peakWithoutGpuBytes,
+        Number.NaN,
+        'has no budget in the baseline; set it with pnpm run performance:baseline --memory'
+      ),
+    ];
+  }
+  if (footprint.peakWithoutGpuBytes > max) {
+    return [
+      memoryViolation(
+        footprint.peakWithoutGpuBytes,
+        max,
+        `${footprint.peakWithoutGpuBytes} exceeds ${max} (peak at ${footprint.peakLabel ?? 'an unlabeled snapshot'})`
+      ),
+    ];
+  }
+  return [];
+}
+
+export function deriveMemoryBudget(runtime) {
+  const footprint = runtime?.available && runtime.packaged ? runtime.memory?.footprint : null;
+  if (!footprint?.available) {
+    throw new Error(
+      'Cannot set the memory budget without a packaged desktop smoke artifact that measured footprint. Run pnpm run smoke:desktop:packaged on macOS first.'
+    );
+  }
+  return {
+    desktopSmoke: {
+      peakFootprintWithoutGpu: {
+        baselineBytes: footprint.peakWithoutGpuBytes,
+        maxBytes: Math.ceil(footprint.peakWithoutGpuBytes * MEMORY_BUDGET_HEADROOM),
+      },
+    },
   };
 }
 
@@ -584,6 +695,7 @@ export async function buildPerformanceReport({
   targets = DEFAULT_TARGETS,
   check = false,
   requireAllTargets = false,
+  memory = false,
 } = {}) {
   const measurements = {
     schemaVersion: 1,
@@ -611,6 +723,9 @@ export async function buildPerformanceReport({
   const runtimeObservability = await collectDesktopSmokePerformance(
     desktopSmokePerformancePath
   );
+  if (memory && check) {
+    violations.push(...compareWithMemoryBudget(runtimeObservability, baseline));
+  }
 
   return {
     schemaVersion: measurements.schemaVersion,
@@ -678,6 +793,12 @@ export function renderConsoleTable(report) {
     }
     lines.push(
       `  memory snapshots: ${runtime.memory.supportedSnapshots}/${runtime.memory.totalSnapshots} supported, RSS delta ${formatBytes(runtime.memory.rssDeltaBytes)}`
+    );
+    const footprint = runtime.memory.footprint;
+    lines.push(
+      footprint?.available
+        ? `  peak footprint without GPU: ${formatBytes(footprint.peakWithoutGpuBytes)} at ${footprint.peakLabel}`
+        : '  footprint: not measured on this platform'
     );
   }
   lines.push('');
@@ -755,7 +876,25 @@ export function renderMarkdownReport(report) {
     lines.push(
       `| Heap used delta | ${formatBytes(runtime.memory.heapUsedDeltaBytes)} |`
     );
+    const footprint = runtime.memory.footprint;
+    lines.push(
+      `| Peak footprint without GPU | ${
+        footprint?.available
+          ? `${formatBytes(footprint.peakWithoutGpuBytes)} (${footprint.peakLabel})`
+          : 'not measured'
+      } |`
+    );
     lines.push('');
+    if (footprint?.available) {
+      lines.push('| Snapshot | Total | Without GPU | GPU |');
+      lines.push('|---|---:|---:|---:|');
+      for (const sample of footprint.samples) {
+        lines.push(
+          `| ${sample.label ?? 'n/a'} | ${formatBytes(sample.totalBytes)} | ${formatBytes(sample.withoutGpuBytes)} | ${formatBytes(sample.byType.GPU ?? 0)} |`
+        );
+      }
+      lines.push('');
+    }
     lines.push('| Runtime | Wall | Runner |');
     lines.push('|---|---:|---:|');
     for (const [language, timing] of Object.entries(runtime.firstRunTimings)) {
@@ -799,7 +938,7 @@ export function renderMarkdownReport(report) {
  * nobody re-baselined after the Monaco split and the initial gate sat at
  * twice the real size for a month. Merging makes the cheap refresh safe.
  */
-export function createBaseline(report, existingBaseline = null) {
+export function createBaseline(report, existingBaseline = null, { memory = false } = {}) {
   const sameOriginTargets = report.targets.filter(isSameOriginRuntimeShape);
   if (sameOriginTargets.length > 0) {
     throw new Error(
@@ -820,12 +959,17 @@ export function createBaseline(report, existingBaseline = null) {
   for (const targetId of Object.keys(refreshed)) {
     lastRefresh[targetId] = report.generatedAt;
   }
+  if (memory) lastRefresh.desktopMemory = report.generatedAt;
+  const memoryBudgets = memory
+    ? deriveMemoryBudget(report.runtimeObservability)
+    : existingBaseline?.memoryBudgets;
   return {
     schemaVersion: 1,
     generatedAt: report.generatedAt,
     note: 'Generated by pnpm run performance:baseline. Budgets use current measurements plus per-category headroom; targets without a build output keep their previous budgets.',
     lastRefresh,
     budgets: { ...(existingBaseline?.budgets ?? {}), ...refreshed },
+    ...(memoryBudgets ? { memoryBudgets } : {}),
   };
 }
 
@@ -845,6 +989,7 @@ function parseArgs(argv) {
     check: argv.includes('--check'),
     writeBaseline: argv.includes('--write-baseline'),
     requireAllTargets: argv.includes('--require-all-targets'),
+    memory: argv.includes('--memory'),
     failOnSlack: argv.includes('--fail-on-slack'),
     targetIds:
       argv
@@ -887,12 +1032,16 @@ async function main() {
   const report = await buildPerformanceReport({
     baselinePath,
     desktopSmokePerformancePath: path.resolve(options.desktopSmokePerformancePath),
-    targets: selectTargets(DEFAULT_TARGETS, options.targetIds, {
-      requireAllTargets: options.requireAllTargets,
-      requireSelectedTargets: options.check,
-    }),
+    // --memory checks the packaged desktop smoke alone; the bundle budgets run in their own jobs.
+    targets: options.memory
+      ? []
+      : selectTargets(DEFAULT_TARGETS, options.targetIds, {
+          requireAllTargets: options.requireAllTargets,
+          requireSelectedTargets: options.check,
+        }),
     check: options.check,
     requireAllTargets: options.requireAllTargets,
+    memory: options.memory,
   });
 
   if (options.writeBaseline) {
@@ -904,7 +1053,7 @@ async function main() {
       existingBaseline = JSON.parse(await readFile(baselinePath, 'utf8'));
       validateBaseline(existingBaseline);
     }
-    const baseline = createBaseline(report, existingBaseline);
+    const baseline = createBaseline(report, existingBaseline, { memory: options.memory });
     await mkdir(path.dirname(path.resolve(options.baselinePath)), { recursive: true });
     await writeFile(
       path.resolve(options.baselinePath),

@@ -65,8 +65,22 @@ Desktop smoke also writes
 - total smoke wall-clock duration;
 - memory snapshots before the smoke cases and after each case.
 
-Memory data is diagnostic. Platforms that cannot expose the metric
-return `unsupported` instead of failing the smoke.
+Each snapshot carries every process's footprint on macOS, the figure
+Activity Monitor shows as Memory, read with `/usr/bin/footprint`. Working
+set and main-process RSS leave out compressed pages and the renderer, so a
+regression of 100 MB could pass unseen. Other platforms report the
+footprint as `null` and keep the working set.
+
+Footprint is budgeted. On pull requests the macOS leg of `desktop-bundles`
+runs `pnpm run check:performance --memory` right after the packaged smoke.
+That step fails when the peak footprint of every process except GPU exceeds
+`memoryBudgets.desktopSmoke.peakFootprintWithoutGpu.maxBytes` in
+`docs/performance/baseline.json`. The GPU process follows the frames being
+painted, from 100 to 650 MB within seconds, so it is left out. The check also
+fails closed when the artifact is missing, not from a packaged app, or has no
+footprint. Refresh the budget from a packaged smoke on macOS with
+`pnpm run performance:baseline --memory`, which keeps the bundle budgets and
+adds 15% headroom. Wall-clock timings stay diagnostic.
 
 `performance:activation` adds the missing repeated web measurement and
 aggregates repeated desktop smoke artifacts. The default is three samples

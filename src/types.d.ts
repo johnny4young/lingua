@@ -386,6 +386,8 @@ type DesktopSmokeMemorySnapshot =
         workingSetSizeBytes: number;
         peakWorkingSetSizeBytes: number;
         privateBytes: number;
+        /** macOS footprint; null where the platform has no equivalent. */
+        footprintBytes: number | null;
       }>;
     }
   | {
