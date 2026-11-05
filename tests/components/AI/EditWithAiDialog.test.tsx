@@ -63,8 +63,8 @@ const request = {
 
 const ran: EditPreview = {
   kind: 'ran',
-  before: { error: 'a is not defined', stdout: '', executionTime: 4 },
-  after: { error: null, stdout: '3', executionTime: 5 },
+  before: { error: 'a is not defined', stdout: '', executionTime: 4, values: new Map() },
+  after: { error: null, stdout: '3', executionTime: 5, values: new Map([[1, '3']]) },
 };
 
 function configureAi(): void {
@@ -150,6 +150,26 @@ describe('EditWithAiDialog', () => {
     expect(actions).toContain(i18next.t('ai.edit.fixed', { count: 1 }));
     expect(actions).toContain(i18next.t('ai.edit.newErrors', { count: 0 }));
     expect(actions).toContain(i18next.t('ai.edit.stdoutChanged'));
+    expect(screen.getAllByTestId('ai-edit-value').map(row => row.textContent)).toEqual(['L1— → 3']);
+  });
+
+  it('caps the values by line and counts the rest', async () => {
+    configureAi();
+    const values = new Map(Array.from({ length: 8 }, (_, index) => [index + 1, String(index)] as [number, string]));
+    renderDialog({ preview: { kind: 'ran', before: { ...ran.before, values: new Map() }, after: { ...ran.after, values } } });
+    await askFor();
+    await runPreview();
+    expect(screen.getAllByTestId('ai-edit-value')).toHaveLength(6);
+    expect(screen.getByTestId('ai-edit-values').textContent).toContain(i18next.t('ai.edit.moreValues', { count: 2 }));
+  });
+
+  it('lists no values when none changed', async () => {
+    configureAi();
+    const same = new Map([[1, '3']]);
+    renderDialog({ preview: { kind: 'ran', before: { ...ran.before, values: same }, after: { ...ran.after, values: same } } });
+    await askFor();
+    await runPreview();
+    expect(screen.queryByTestId('ai-edit-values')).toBeNull();
   });
 
   it('offers no run for a language without a sandbox', async () => {

@@ -1,6 +1,8 @@
+diff --git a/esm/vs/base/browser/ui/tree/abstractTree.js b/esm/vs/base/browser/ui/tree/abstractTree.js
+index d0e779fe9ea13d9297a8aa20aa7dafde5e118092..6d8a297ee366206d2433eaaac46acb64ebc4ea8f 100644
 --- a/esm/vs/base/browser/ui/tree/abstractTree.js
 +++ b/esm/vs/base/browser/ui/tree/abstractTree.js
-@@ -25,6 +25,7 @@
+@@ -25,6 +25,7 @@ import '../toggle/toggle.js';
  import { isFilterResult, getVisibleState } from './indexTreeModel.js';
  import { TreeMouseEventTarget } from './tree.js';
  import { Delayer, disposableTimeout } from '../../../common/async.js';
@@ -8,7 +10,7 @@
  import { Codicon } from '../../../common/codicons.js';
  import { ThemeIcon } from '../../../common/themables.js';
  import { SetMap } from '../../../common/map.js';
-@@ -2008,7 +2009,7 @@
+@@ -2008,7 +2009,7 @@ class AbstractTree {
                      set.add(node);
                  }
                  activeNodesEmitter.fire([...set.values()]);
@@ -17,9 +19,11 @@
          }));
          this.onDidChangeActiveNodesRelay.input = activeNodesEmitter.event;
          this.onDidChangeModelRelay.input = Event.signal(model.onDidSpliceModel);
+diff --git a/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.js b/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.js
+index 9687c56e44f9dac9525009b8639f45d02fdb2e93..eb61edd9b7b015696a4bb0f7a4590a6bc187b36f 100644
 --- a/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.js
 +++ b/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.js
-@@ -171,7 +171,7 @@
+@@ -171,7 +171,7 @@ let WordHighlighter = class WordHighlighter {
                  // Leave some form of early exit check here if you wish to continue being a cursor position change listener ;)
                  return;
              }
@@ -28,7 +32,7 @@
          }));
          this.toUnhook.add(editor.onDidFocusEditorText((e) => {
              if (this.occurrencesHighlightEnablement === 'off') {
-@@ -179,7 +179,7 @@
+@@ -179,7 +179,7 @@ let WordHighlighter = class WordHighlighter {
                  return;
              }
              if (!this.workerRequest) {
@@ -37,7 +41,7 @@
              }
          }));
          this.toUnhook.add(editor.onDidChangeModelContent((e) => {
-@@ -257,7 +257,7 @@
+@@ -257,7 +257,7 @@ let WordHighlighter = class WordHighlighter {
              return;
          }
          this.runDelayer.cancel();
@@ -46,3 +50,179 @@
      }
      stop() {
          if (this.occurrencesHighlightEnablement === 'off') {
+diff --git a/esm/vs/language/typescript/tsMode.js b/esm/vs/language/typescript/tsMode.js
+index 6ff0b8e91ea58ab5346413cdd22ccb2ae7ea0f4f..00c9701692772ad49d344bce0c25b204cf65a8e0 100644
+--- a/esm/vs/language/typescript/tsMode.js
++++ b/esm/vs/language/typescript/tsMode.js
+@@ -99,9 +99,11 @@ function getTypeScriptWorker() {
+     resolve(typeScriptWorker);
+   });
+ }
++// Lingua: JavaScript and TypeScript share one language service instead of a worker each.
++let sharedClient;
+ function setupMode(defaults, modeId) {
+   const providers = [];
+-  const client = new WorkerManager(modeId, defaults);
++  const client = sharedClient ? sharedClient.addDefaults(defaults) : sharedClient = new WorkerManager(modeId, defaults);
+   const worker = (...uris) => {
+     return client.getLanguageServiceWorker(...uris);
+   };
+diff --git a/esm/vs/language/typescript/tsWorker.js b/esm/vs/language/typescript/tsWorker.js
+index d875e075fea0eb8da7159f2168660231ad017663..4241d59c16d542d16ff85b1df86fa45ee4579a03 100644
+--- a/esm/vs/language/typescript/tsWorker.js
++++ b/esm/vs/language/typescript/tsWorker.js
+@@ -17,6 +17,7 @@ function fileNameIsLib(resource) {
+ class TypeScriptWorker {
+   constructor(ctx, createData) {
+     this._extraLibs = /* @__PURE__ */ Object.create(null);
++    this._scriptLanguages = /* @__PURE__ */ Object.create(null);
+     this._languageService = createLanguageService(this);
+     this._ctx = ctx;
+     this._compilerOptions = createData.compilerOptions;
+@@ -48,10 +49,14 @@ class TypeScriptWorker {
+     }
+     return null;
+   }
++  // Lingua: language ids of extensionless models, sent by the shared WorkerManager.
++  setScriptLanguages(languages) {
++    Object.assign(this._scriptLanguages, languages);
++  }
+   getScriptVersion(fileName) {
+     let model = this._getModel(fileName);
+     if (model) {
+-      return model.version.toString();
++      return `${model.version}:${this._scriptLanguages[fileName] ?? ""}`;
+     } else if (this.isDefaultLibFileName(fileName)) {
+       return "1";
+     } else if (fileName in this._extraLibs) {
+@@ -102,6 +107,8 @@ class TypeScriptWorker {
+       case "jsx":
+         return ScriptKind.JSX;
+       default:
++        if (this._scriptLanguages[fileName] === "typescript") return ScriptKind.TS;
++        if (this._scriptLanguages[fileName] === "javascript") return ScriptKind.JS;
+         return this.getCompilationSettings().allowJs ? ScriptKind.JS : ScriptKind.TS;
+     }
+   }
+diff --git a/esm/vs/language/typescript/workerManager.js b/esm/vs/language/typescript/workerManager.js
+index dada3a631fffa11e9c79917e648510fc1d97b71e..dba95261998fe8d50a6b792a6a49928b4dc54b36 100644
+--- a/esm/vs/language/typescript/workerManager.js
++++ b/esm/vs/language/typescript/workerManager.js
+@@ -79,15 +79,38 @@ class WorkerManager {
+     this._defaults = _defaults;
+     this._worker = null;
+     this._client = null;
+-    this._configChangeListener = this._defaults.onDidChange(() => this._stopWorker());
++    this._allDefaults = [];
++    this._listeners = [];
++    this._workerCompilerOptions = null;
++    // Lingua: models carry no file extension, so the worker learns JS or TS from their language.
++    this._scriptLanguages = /* @__PURE__ */ new Map();
+     this._updateExtraLibsToken = 0;
+-    this._extraLibsChangeListener = this._defaults.onDidExtraLibsChange(
+-      () => this._updateExtraLibs()
++    this.addDefaults(_defaults);
++  }
++  addDefaults(defaults) {
++    this._allDefaults.push(defaults);
++    this._listeners.push(
++      defaults.onDidChange(() => this._stopWorker()),
++      defaults.onDidExtraLibsChange(() => this._updateExtraLibs())
+     );
++    if (this._worker && JSON.stringify(this._getCompilerOptions()) !== this._workerCompilerOptions) {
++      this._stopWorker();
++    } else {
++      this._updateExtraLibs();
++    }
++    return this;
++  }
++  // JavaScript models need allowJs; the rest of both modes' options is merged.
++  _getCompilerOptions() {
++    return Object.assign({}, ...this._allDefaults.map((defaults) => defaults.getCompilerOptions()), { allowJs: true });
++  }
++  _getExtraLibs() {
++    return Object.assign({}, ...this._allDefaults.map((defaults) => defaults.getExtraLibs()));
+   }
+   dispose() {
+-    this._configChangeListener.dispose();
+-    this._extraLibsChangeListener.dispose();
++    while (this._listeners.length) {
++      this._listeners.pop().dispose();
++    }
+     this._stopWorker();
+   }
+   _stopWorker() {
+@@ -96,6 +119,7 @@ class WorkerManager {
+       this._worker = null;
+     }
+     this._client = null;
++    this._scriptLanguages.clear();
+   }
+   async _updateExtraLibs() {
+     if (!this._worker) {
+@@ -106,11 +130,32 @@ class WorkerManager {
+     if (this._updateExtraLibsToken !== myToken) {
+       return;
+     }
+-    proxy.updateExtraLibs(this._defaults.getExtraLibs());
++    proxy.updateExtraLibs(this._getExtraLibs());
++  }
++  _syncScriptLanguages(proxy, resources) {
++    const changed = {};
++    let hasChanges = false;
++    for (const resource of resources) {
++      const language = editor.getModel(resource)?.getLanguageId();
++      const key = resource.toString();
++      if (language && this._scriptLanguages.get(key) !== language) {
++        this._scriptLanguages.set(key, language);
++        changed[key] = language;
++        hasChanges = true;
++      }
++    }
++    return hasChanges ? proxy.setScriptLanguages(changed) : void 0;
+   }
+   _getClient() {
+     if (!this._client) {
+-      this._client = (async () => {
++      const client = this._client = (async () => {
++        // Lingua: the app holds this until someone uses an editor; a language service costs 100 MB or more.
++        await globalThis.__linguaTypeScriptWorkerGate;
++        if (this._client !== client) {
++          return this._getClient();
++        }
++        const compilerOptions = this._getCompilerOptions();
++        this._workerCompilerOptions = JSON.stringify(compilerOptions);
+         this._worker = createWebWorker({
+           // module that exports the create() method and returns a `TypeScriptWorker` instance
+           moduleId: "vs/language/typescript/tsWorker",
+@@ -119,16 +164,17 @@ class WorkerManager {
+           keepIdleModels: true,
+           // passed in to the create() method
+           createData: {
+-            compilerOptions: this._defaults.getCompilerOptions(),
+-            extraLibs: this._defaults.getExtraLibs(),
++            compilerOptions,
++            extraLibs: this._getExtraLibs(),
+             customWorkerPath: this._defaults.workerOptions.customWorkerPath,
+             inlayHintsOptions: this._defaults.inlayHintsOptions
+           }
+         });
+         if (this._defaults.getEagerModelSync()) {
+-          return await this._worker.withSyncedResources(
+-            editor.getModels().filter((model) => model.getLanguageId() === this._modeId).map((model) => model.uri)
+-          );
++          const uris = editor.getModels().filter((model) => ["javascript", "typescript"].includes(model.getLanguageId())).map((model) => model.uri);
++          const proxy = await this._worker.withSyncedResources(uris);
++          await this._syncScriptLanguages(proxy, uris);
++          return proxy;
+         }
+         return await this._worker.getProxy();
+       })();
+@@ -139,6 +185,7 @@ class WorkerManager {
+     const client = await this._getClient();
+     if (this._worker) {
+       await this._worker.withSyncedResources(resources);
++      await this._syncScriptLanguages(client, resources);
+     }
+     return client;
+   }

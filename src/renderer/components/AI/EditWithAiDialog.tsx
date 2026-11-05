@@ -8,7 +8,7 @@ import { applyEdit, buildEditSelectionRequest, MAX_EDIT_INSTRUCTION_CHARS, readE
 import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { getActiveEditor, getActiveMonaco } from '../../runtime/editorAccess';
-import { canPreviewLanguage, comparePreview, runEditPreview, type EditPreview } from '../../runtime/aiEditPreview';
+import { canPreviewLanguage, comparePreview, runEditPreview, valueChanges, type EditPreview, type ValueChange } from '../../runtime/aiEditPreview';
 import { runChatCompletion, type AiChatResult } from '../../runtime/aiClient';
 import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { isAiConfigured, useAiConfigStore } from '../../stores/aiConfigStore';
@@ -20,6 +20,7 @@ import { formatRunDuration } from '../../utils/timeLabels';
 import { cn } from '../../utils/cn';
 
 const NOTICE_KEY = 'lingua-ai-edit-preview-notice';
+const MAX_VALUE_ROWS = 6;
 const ACCEPT_KEYS = formatShortcutCombo({ tokens: ['Mod', 'Enter'] }, currentShortcutDisplayPlatform());
 
 export interface EditWithAiDialogProps {
@@ -50,6 +51,25 @@ function RunLine({ error, stdout }: { error: string | null; stdout: string }) {
   if (error) return <p className="truncate font-mono text-caption text-error-fg" title={error} data-testid="ai-edit-run-line">{error}</p>;
   const first = stdout.split('\n')[0] ?? '';
   return <p className="truncate font-mono text-caption text-fg-muted" title={stdout} data-testid="ai-edit-run-line">{first || t('ai.edit.noOutput')}</p>;
+}
+
+function ValueChanges({ rows }: { rows: ValueChange[] }) {
+  const { t } = useTranslation();
+  const hidden = rows.length - MAX_VALUE_ROWS;
+  return (
+    <ul aria-label={t('ai.edit.values')} className="mt-1.5 space-y-0.5 px-4 font-mono text-caption" data-testid="ai-edit-values">
+      {rows.slice(0, MAX_VALUE_ROWS).map(row => {
+        const text = `${row.before ?? '—'} → ${row.after ?? '—'}`;
+        return (
+          <li key={row.line} className="flex gap-2" data-testid="ai-edit-value">
+            <span className="shrink-0 text-fg-subtle">{t('ai.edit.valueLine', { line: row.line })}</span>
+            <span className="min-w-0 truncate text-fg-base" title={text}>{text}</span>
+          </li>
+        );
+      })}
+      {hidden > 0 ? <li className="font-sans text-fg-muted">{t('ai.edit.moreValues', { count: hidden })}</li> : null}
+    </ul>
+  );
 }
 
 /** Detaches and disposes the models itself: the wrapper disposes them while still attached on unmount, which Monaco throws on. */
@@ -201,6 +221,7 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
   const ready = phase.kind === 'ready' ? phase : null;
   const ran = ready && typeof ready.preview === 'object' && ready.preview?.kind === 'ran' ? ready.preview : null;
   const verdict = ran ? comparePreview(ran.before, ran.after) : null;
+  const changes = ran && ready ? valueChanges(ran.before, ran.after, { before: span.before, selected: span.selected, proposal: ready.proposal }) : [];
   const masked = ready?.proposal.includes(REDACTED_MARK) === true;
   const provider = t(isLocalAiEndpoint(endpoint) ? 'ai.edit.provider.local' : 'ai.edit.provider.remote', { model: model || '—' });
 
@@ -285,6 +306,7 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
                     </p>
                     <pre className="mt-1.5 max-h-72 overflow-auto px-4 font-mono text-caption text-fg-base">{ready?.proposal}</pre>
                     {ran ? <div className="px-4 pt-1.5"><RunLine {...ran.after} /></div> : null}
+                    {changes.length > 0 ? <ValueChanges rows={changes} /> : null}
                   </section>
                 </div>
               )}
