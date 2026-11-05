@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
   const result = (stdout: string, error: string | null = null) => ({
-    stdout: stdout ? [{ args: [stdout] }] : [],
+    stdout: stdout ? [{ type: 'log', args: [stdout] }] : [],
+    stderr: [],
     error: error ? { message: error } : undefined,
     executionTime: 12,
   });
@@ -39,7 +40,7 @@ vi.mock('../../src/renderer/runners/python', () => ({
   },
 }));
 
-import { comparePreview, runEditPreview } from '../../src/renderer/runtime/aiEditPreview';
+import { comparePreview, runEditPreview, valueChanges, type PreviewRun } from '../../src/renderer/runtime/aiEditPreview';
 
 
 describe('runEditPreview', () => {
@@ -51,8 +52,8 @@ describe('runEditPreview', () => {
     const preview = await runEditPreview('javascript', 'a', 'b');
     expect(preview).toEqual({
       kind: 'ran',
-      before: { error: null, stdout: 'js:a', executionTime: 12 },
-      after: { error: null, stdout: 'js:b', executionTime: 12 },
+      before: { error: null, stdout: 'js:a', executionTime: 12, values: new Map([[1, 'js:a']]) },
+      after: { error: null, stdout: 'js:b', executionTime: 12, values: new Map([[1, 'js:b']]) },
     });
     expect(mocks.runners).toHaveLength(1);
     const [runner] = mocks.runners;
@@ -90,6 +91,13 @@ describe('runEditPreview', () => {
     expect(mocks.runners[0]!.stop).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the last value of a line that runs more than once', async () => {
+    const pending = runEditPreview('javascript', 'a', 'b');
+    const loop = { stdout: [{ type: 'log', args: ['1'], line: 2 }, { type: 'log', args: ['2'], line: 2 }], stderr: [], executionTime: 1 };
+    mocks.runners[0]!.execute.mockResolvedValueOnce(loop);
+    expect(await pending).toMatchObject({ kind: 'ran', before: { values: new Map([[2, '2']]) } });
+  });
+
   it('skips languages without a sandboxed runner', async () => {
     expect(await runEditPreview('go', 'a', 'b')).toEqual({ kind: 'skipped' });
     expect(mocks.runners).toHaveLength(0);
@@ -97,7 +105,7 @@ describe('runEditPreview', () => {
 });
 
 describe('comparePreview', () => {
-  const run = (error: string | null, stdout = '') => ({ error, stdout, executionTime: 1 });
+  const run = (error: string | null, stdout = '') => ({ error, stdout, executionTime: 1, values: new Map() });
 
   it('counts a fixed error', () => {
     expect(comparePreview(run('boom'), run(null))).toEqual({ fixed: 1, introduced: 0, stdoutChanged: false });
@@ -113,5 +121,31 @@ describe('comparePreview', () => {
   it('notices changed output', () => {
     expect(comparePreview(run(null, '1'), run(null, '2')).stdoutChanged).toBe(true);
     expect(comparePreview(run(null, '1'), run(null, '1')).stdoutChanged).toBe(false);
+  });
+});
+
+describe('valueChanges', () => {
+  const run = (values: Record<number, string>): PreviewRun => ({ error: null, stdout: '', executionTime: 1, values: new Map(Object.entries(values).map(([line, value]) => [Number(line), value])) });
+
+  it('lists only the lines whose value changed', () => {
+    const edit = { before: 'a\n', selected: 'b', proposal: 'c' };
+    expect(valueChanges(run({ 1: '1', 2: '2', 3: '3' }), run({ 1: '1', 2: '20', 3: '3' }), edit)).toEqual([{ line: 2, before: '2', after: '20' }]);
+    expect(valueChanges(run({ 1: '1' }), run({ 1: '1' }), edit)).toEqual([]);
+  });
+
+  it('shifts the lines below the selection by the lines the change adds or removes', () => {
+    const grow = { before: 'a\n', selected: 'b', proposal: 'b1\nb2' };
+    expect(valueChanges(run({ 3: 'x' }), run({ 4: 'x' }), grow)).toEqual([]);
+    expect(valueChanges(run({ 3: 'x' }), run({ 4: 'y' }), grow)).toEqual([{ line: 4, before: 'x', after: 'y' }]);
+    const shrink = { before: '', selected: 'a\nb\nc', proposal: 'a' };
+    expect(valueChanges(run({ 5: 'x' }), run({ 3: 'x' }), shrink)).toEqual([]);
+  });
+
+  it('shows new lines, and values that went away, with no counterpart', () => {
+    const edit = { before: '', selected: 'a', proposal: 'a\nb' };
+    expect(valueChanges(run({}), run({ 2: '10' }), edit)).toEqual([{ line: 2, before: null, after: '10' }]);
+    expect(valueChanges(run({ 1: '1' }), run({}), edit)).toEqual([{ line: 1, before: '1', after: null }]);
+    const removed = { before: '', selected: 'a\nb', proposal: 'a' };
+    expect(valueChanges(run({ 2: '2' }), run({}), removed)).toEqual([{ line: 1, before: '2', after: null }]);
   });
 });
