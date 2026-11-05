@@ -269,6 +269,15 @@ describe('CI workflow', () => {
     expect(String(upload?.with?.name)).toContain('${{ matrix.shard }}');
   });
 
+  it('installs Chromium fresh instead of caching it per pull request', () => {
+    const steps = stepsOf(workflow, 'web-e2e');
+    // Entries saved on a PR ref only serve that PR, and they crowded the repo's 10 GB cache.
+    expect(steps.some(step => step.uses?.startsWith('actions/cache@'))).toBe(false);
+    const install = steps.find(step => step.name === 'Install Chromium');
+    expect(install?.run).toBe('pnpm exec playwright install --with-deps chromium');
+    expect(install?.if).toBeUndefined();
+  });
+
   it('keeps the end-to-end and Windows jobs on pull requests only', () => {
     expect(workflow.jobs?.['web-e2e']?.if).toBe("github.event_name == 'pull_request'");
     expect(workflow.jobs?.['windows-path-hardening']?.if).toBe(
