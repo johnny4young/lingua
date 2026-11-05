@@ -17,10 +17,10 @@
       },
       "runtime": {
         "files": 13,
-        "baselineBytes": 36371533,
-        "baselineGzipBytes": 12279804,
-        "maxBytes": 36371533,
-        "maxGzipBytes": 12279804
+        "baselineBytes": 36705196,
+        "baselineGzipBytes": 12369727,
+        "maxBytes": 36705196,
+        "maxGzipBytes": 12369727
       },
       "worker": {
         "files": 14,
@@ -61,10 +61,10 @@
       },
       "runtime": {
         "files": 15,
-        "baselineBytes": 106369681,
-        "baselineGzipBytes": 30165069,
-        "maxBytes": 106369681,
-        "maxGzipBytes": 30165069
+        "baselineBytes": 101583279,
+        "baselineGzipBytes": 29187805,
+        "maxBytes": 101583279,
+        "maxGzipBytes": 29187805
       },
       "worker": {
         "files": 12,

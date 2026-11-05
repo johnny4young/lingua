@@ -24,7 +24,7 @@
  * Runtime URL policy lives in the Vite configs, not here. Desktop/dev
  * generally serve these files from the copied local tree. The web build keeps
  * Pyodide same-origin but may inject public R2 URLs for oversized WASM files
- * (currently Ruby; DuckDB's MVP WASM is handled by its package import path)
+ * (currently Ruby; DuckDB's WASM is handled by its package import path)
  * because Cloudflare Pages rejects single assets above 25 MiB. `sourceUrl`
  * remains upstream provenance for docs, lock drift review, and version checks.
  */
@@ -109,10 +109,10 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
   duckdbExtensions: {
     version: '1.32.0',
     sourceVersion: 'v1.4.3',
-    sourceUrl: 'https://extensions.duckdb.org/v1.4.3/wasm_mvp/',
-    nodeModulesPath: 'vendor/duckdb-extensions/v1.4.3/wasm_mvp',
+    sourceUrl: 'https://extensions.duckdb.org/v1.4.3/wasm_eh/',
+    nodeModulesPath: 'vendor/duckdb-extensions/v1.4.3/wasm_eh',
     packageDir: 'node_modules/@duckdb/duckdb-wasm',
-    servedPath: 'duckdb-extensions/v1.4.3/wasm_mvp',
+    servedPath: 'duckdb-extensions/v1.4.3/wasm_eh',
     criticalFiles: [
       'json.duckdb_extension.wasm',
       'icu.duckdb_extension.wasm',

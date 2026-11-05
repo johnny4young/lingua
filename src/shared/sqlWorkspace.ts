@@ -143,7 +143,7 @@ export const SQL_STORAGE_MODES: readonly SqlStorageMode[] = ['opfs', 'memory'];
  *   - `'parquet'` → `read_parquet`   (binary columnar buffer)
  *
  * Parquet's reader is a vendored extension that loads on first use (see
- * `duckdbClient.ts`); the other two are in the bundled MVP WASM.
+ * `duckdbClient.ts`); the other two are in the bundled WASM.
  *
  * INVARIANT: the renderer must never advertise, accept, or run a format
  * outside this list — adding one requires verifying its reader ships

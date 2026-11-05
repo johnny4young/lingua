@@ -183,7 +183,7 @@ describe('createExtensionLoader', () => {
 });
 
 const closedRepositoryError = (name: string) =>
-  new Error(`Failed to execute 'send' on 'XMLHttpRequest': Failed to load 'data:/v1.4.3/wasm_mvp/${name}.duckdb_extension.wasm'.`);
+  new Error(`Failed to execute 'send' on 'XMLHttpRequest': Failed to load 'data:/v1.4.3/wasm_eh/${name}.duckdb_extension.wasm'.`);
 
 describe('runWithExtensions', () => {
   const setup = (loaded = true) => {
@@ -237,10 +237,15 @@ describe('runWithExtensions', () => {
 });
 
 describe('a missing extension', () => {
+  it('is named from the catalog error when autoloading is off', () => {
+    const catalogError = new Error('Catalog Error: Type with name "INET" is not in the catalog, but it exists in the inet extension.');
+    expect(missingExtensionName(catalogError)).toBe('inet');
+  });
+
   it('is named from the closed repository error only', () => {
     expect(missingExtensionName(closedRepositoryError('sqlite_scanner'))).toBe('sqlite_scanner');
     expect(missingExtensionName(new Error("Failed to load 'https://x.dev/inet.duckdb_extension.wasm'"))).toBeUndefined();
-    expect(missingExtensionName(new Error('_setThrew is not defined'))).toBeUndefined();
+    expect(missingExtensionName(new Error('Binder Error: Referenced column "inet" not found'))).toBeUndefined();
   });
 
   it('reads as a sentence that says whether Lingua ships it', async () => {
@@ -462,23 +467,26 @@ describe('executeQuery', () => {
     expect(outcome.errorMessage).toContain('syntax error');
   });
 
-  it('normalizes DuckDB-WASM internal rejection messages', async () => {
-    __setDuckDbEngineFactoryForTests(() =>
-      Promise.resolve({
-        connect: async () => ({
-          query: async () => {
-            throw new ReferenceError('_setThrew is not defined');
-          },
-          close: async () => undefined,
-        }),
-        terminate: async () => undefined,
-      })
-    );
-    const outcome = await executeQuery('SELEC 1;');
-    expect(outcome.status).toBe('sql-error');
-    expect(outcome.errorMessage).toBe(
-      'DuckDB could not return the detailed SQL error. Check the query syntax, table names, and column names.'
-    );
+  it('reads a parser error as text on both query paths', async () => {
+    const failWith = (message: string) =>
+      __setDuckDbEngineFactoryForTests(() =>
+        Promise.resolve({
+          connect: async () => ({
+            query: async () => {
+              throw new Error(message);
+            },
+            close: async () => undefined,
+          }),
+          terminate: async () => undefined,
+        })
+      );
+    const reason = 'Parser Error: syntax error at or near "SELEC"\n\nLINE 1: SELEC 1\n        ^';
+
+    failWith(JSON.stringify({ exception_type: 'Parser', exception_message: reason.replace('Parser Error: ', ''), position: '0' }));
+    expect((await executeQuery('SELEC 1')).errorMessage).toBe(reason);
+
+    failWith(`${reason}\n\nLINE 1: SELEC 1\n        ^`);
+    expect((await executeQuery('SELEC 1')).errorMessage).toBe(reason);
   });
 
   it('returns timeout when the query exceeds the soft timeout', async () => {

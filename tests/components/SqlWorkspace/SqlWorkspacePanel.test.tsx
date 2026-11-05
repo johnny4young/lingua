@@ -1048,7 +1048,7 @@ describe('SqlWorkspacePanel — file import', () => {
       return {
         ...connection,
         query: async (sql: string) => {
-          if (/^INSERT INTO/i.test(sql)) throw new ReferenceError('_setThrew is not defined');
+          if (/^INSERT INTO/i.test(sql)) throw new Error('');
           return connection.query(sql);
         },
       };

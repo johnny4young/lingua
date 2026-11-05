@@ -353,7 +353,7 @@ describe('performance-report', () => {
   it('flags a same-origin runtime build once instead of reporting its byte overages', async () => {
     const root = await createFixtureBuild();
     try {
-      await writeFile(path.join(root, 'assets', 'duckdb-mvp-abc123.wasm'), 'wasm', 'utf8');
+      await writeFile(path.join(root, 'assets', 'duckdb-eh-abc123.wasm'), 'wasm', 'utf8');
       await mkdir(path.join(root, 'ruby'), { recursive: true });
       await writeFile(path.join(root, 'ruby', 'ruby+stdlib.wasm'), 'wasm', 'utf8');
 
@@ -365,7 +365,7 @@ describe('performance-report', () => {
         rejectSameOriginRuntime: true,
       });
       expect(web.sameOriginRuntimeAssets).toEqual([
-        'assets/duckdb-mvp-abc123.wasm',
+        'assets/duckdb-eh-abc123.wasm',
         'ruby/ruby+stdlib.wasm',
       ]);
 
@@ -487,7 +487,7 @@ describe('performance-report', () => {
           id: 'web',
           available: true,
           rejectSameOriginRuntime: true,
-          sameOriginRuntimeAssets: ['assets/duckdb-mvp-abc.wasm'],
+          sameOriginRuntimeAssets: ['assets/duckdb-eh-abc.wasm'],
           categories: {},
         },
       ],

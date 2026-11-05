@@ -109,6 +109,6 @@ describe('copyRuntimeAssetsPlugin helpers', () => {
   it('can exclude runtime assets that are hosted outside the Pages bundle', () => {
     const entries = selectRuntimeAssetEntries(['ruby']);
 
-    expect(entries.map((entry) => entry.servedPath)).toEqual(['pyodide', 'duckdb-extensions/v1.4.3/wasm_mvp']);
+    expect(entries.map((entry) => entry.servedPath)).toEqual(['pyodide', 'duckdb-extensions/v1.4.3/wasm_eh']);
   });
 });

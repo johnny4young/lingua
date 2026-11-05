@@ -88,7 +88,7 @@ test.describe('Instant SQL', () => {
   });
 
   test('previews on the first edit when the engine starts slowly', async ({ page }) => {
-    await page.context().route(/duckdb-mvp.*\.wasm/, async (route) => {
+    await page.context().route(/duckdb-eh.*\.wasm/, async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 4_000));
       await route.continue();
     });
