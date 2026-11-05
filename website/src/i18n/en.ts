@@ -552,7 +552,7 @@ export const en = {
         },
         cli: {
           title: 'Terminal tool (CLI)',
-          description: 'For terminal commands, without a graphical editor. Running code needs its language runtime, including Node.js 24.x for JavaScript and TypeScript.',
+          description: 'For terminal commands, without a graphical editor. Running code needs its language runtime, including Node.js 26 for JavaScript and TypeScript.',
         },
         other: { title: 'Other downloads', description: 'Check the filename and release notes before choosing.' },
       },

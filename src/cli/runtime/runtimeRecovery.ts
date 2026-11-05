@@ -55,7 +55,7 @@ const RUNTIMES: Readonly<Record<string, RuntimeDescriptor>> = {
   node: {
     name: 'Node.js',
     verifyExecutable: 'node',
-    homebrewFormula: 'node@24',
+    homebrewFormula: 'node@26',
     installGuide: 'https://nodejs.org/en/download',
   },
 };

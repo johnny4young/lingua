@@ -24,21 +24,21 @@ Choose one installation channel and confirm that `lingua` is on `PATH`:
 # macOS
 brew install johnny4young/tap/lingua-cli
 
-# Windows, Linux, or macOS with Node.js 24 and npm
+# Windows, Linux, or macOS with Node.js 26 and npm
 npm install -g @linguacode/cli
 
 lingua --version
 ```
 
-The Homebrew formula requires Homebrew and installs `node@24` automatically.
-The npm channel requires Node.js 24.x, npm, network access to the registry, and
+The Homebrew formula requires Homebrew and installs `node@26` automatically.
+The npm channel requires Node.js 26, npm, network access to the registry, and
 a user-writable global npm prefix whose bin directory is on `PATH`. Do not work
 around a permissions error with an unreviewed `sudo npm install`; fix the npm
 prefix or use a user-scoped Node installation instead.
 
 Stable releases also include standalone Windows x64 and Linux x64 archives.
 They need no separate Node installation for utilities or Capsule validation,
-but JavaScript and TypeScript execution still resolves Node.js 24 from `PATH`.
+but JavaScript and TypeScript execution still resolves Node.js 26 from `PATH`.
 Other operating systems and architectures should use npm.
 
 The skill requires Lingua CLI 1.3.0 or later. It never installs the CLI on the
@@ -63,7 +63,7 @@ or replaying code does:
 
 | Target                  | Runtime on `PATH`                                       |
 | ----------------------- | ------------------------------------------------------- |
-| JavaScript / TypeScript | Node.js 24.x                                            |
+| JavaScript / TypeScript | Node.js 26                                              |
 | Python                  | Project `.venv`, `PYTHON`, `python3`, `python`, or `py` |
 | Go                      | `go`                                                    |
 | Rust file / project     | `rustc` / `cargo`                                       |

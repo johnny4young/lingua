@@ -17,9 +17,9 @@ contracts over prose, preserve the user's arguments exactly, and report failures
 
 - Run `lingua --version` before the first Lingua command. If it is unavailable, explain how to
   install the CLI, but never install software without the user's approval.
-- The npm CLI requires Node.js 24.x. Standalone Windows/Linux x64 builds can validate Capsules and
+- The npm CLI requires Node.js 26. Standalone Windows/Linux x64 builds can validate Capsules and
   run utilities without a separate Node installation, but JavaScript and TypeScript execution
-  still requires Node.js 24 on `PATH`.
+  still requires Node.js 26 on `PATH`.
 - Python uses a project `.venv` first, then `PYTHON`, followed by the platform's normal launchers
   (`python3`/`python` on POSIX and `python`/`py`/`python3` on Windows). Go, Rust, Ruby, and Lua need
   their matching command-line toolchains.

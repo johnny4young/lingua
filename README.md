@@ -8,7 +8,7 @@ Open it, write code and see the result next to each line. Lingua also brings a d
 
 [![Latest release](https://img.shields.io/github/v/release/johnny4young/lingua)](https://github.com/johnny4young/lingua/releases/latest)
 [![CI](https://github.com/johnny4young/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/lingua/actions/workflows/ci.yml)
-[![Node 24.x](https://img.shields.io/badge/node-24.x-brightgreen)](https://nodejs.org)
+[![Node 26](https://img.shields.io/badge/node-26-brightgreen)](https://nodejs.org)
 [![License: Source-available (commercial)](https://img.shields.io/badge/license-source--available%20(commercial)-6f42c1)](./LICENSE)
 
 ![Lingua running Python with inline results next to each line and the console docked below](website/public/screenshots/tour/workspace-python.png)
@@ -44,7 +44,7 @@ lingua --help
 ```
 
 The formula downloads the checksum-pinned CLI artifact directly from the
-GitHub Release, configures Node 24, and installs Bash, Zsh, and Fish
+GitHub Release, configures Node 26, and installs Bash, Zsh, and Fish
 completions automatically. It does not invoke npm. Other install channels can
 run `lingua completion` for a detected-shell setup assistant. Check
 `brew info johnny4young/tap/lingua-cli` before assuming the tap matches the
@@ -172,7 +172,7 @@ lingua run ./scripts/check.ts --timeout 60000 -- --verbose
 lingua capsule validate ./run.capsule.json --json
 ```
 
-Install it with Homebrew on macOS; this also installs and wires Node 24:
+Install it with Homebrew on macOS; this also installs and wires Node 26:
 
 ```bash
 brew install johnny4young/tap/lingua-cli
@@ -180,7 +180,7 @@ lingua --help
 ```
 
 Or install it from npm on any Node-supported platform — the package is
-dependency-free and needs Node 24.x:
+dependency-free and needs Node 26:
 
 ```bash
 npm install -g @linguacode/cli
@@ -198,7 +198,7 @@ Every stable release also attaches standalone
 the [GitHub Release](https://github.com/johnny4young/lingua/releases/latest).
 Those x64 binaries run utilities and validate Capsules without a separate Node
 installation; executing or replaying JavaScript or TypeScript still requires
-Node.js 24 on `PATH`. Contributors can build and link from this repository
+Node.js 26 on `PATH`. Contributors can build and link from this repository
 instead:
 
 ```bash
@@ -243,7 +243,7 @@ Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two s
 
 | Dependency     | Version | Notes                                                          |
 | -------------- | ------- | -------------------------------------------------------------- |
-| Node.js        | 24.x    | Required for local development, tests, and builds              |
+| Node.js        | 26      | Required for local development, tests, and builds (`.nvmrc`)   |
 | pnpm           | >= 11   | Package manager (`corepack enable` picks the pinned version)   |
 | Go             | >= 1.21 | Required only for desktop Go execution                         |
 | Rust (`rustc`) | stable  | Required only for desktop Rust execution                       |

@@ -33,27 +33,27 @@ The skill contains instructions, not the CLI or language runtimes. You need:
 
 ## Install the CLI first
 
-On macOS, Homebrew installs the CLI and Node.js 24:
+On macOS, Homebrew installs the CLI and Node.js 26:
 
 ```bash
 brew install johnny4young/tap/lingua-cli
 lingua --version
 ```
 
-On Windows, Linux, or macOS with Node.js 24 and npm:
+On Windows, Linux, or macOS with Node.js 26 and npm:
 
 ```bash
 npm install -g @linguacode/cli
 lingua --version
 ```
 
-The Homebrew formula installs Node.js 24. The npm option requires Node.js 24.x, npm, and a
+The Homebrew formula installs Node.js 26. The npm option requires Node.js 26, npm, and a
 user-writable global package location whose bin directory is on `PATH`. Do not use an unreviewed
 `sudo npm install` to hide a permissions problem; fix the npm prefix or use a user-scoped Node
 installation.
 
 Standalone Windows x64 and Linux x64 archives can run utilities and validate Capsules without a
-separate Node installation. Running or replaying JavaScript or TypeScript still requires Node.js 24
+separate Node installation. Running or replaying JavaScript or TypeScript still requires Node.js 26
 on `PATH`. The skill requires Lingua CLI 1.3.0 or later, checks the version, and never installs
 software on your behalf.
 
@@ -61,7 +61,7 @@ Execution also needs the target runtime:
 
 | Target                  | Runtime on `PATH`                                       |
 | ----------------------- | ------------------------------------------------------- |
-| JavaScript / TypeScript | Node.js 24.x                                            |
+| JavaScript / TypeScript | Node.js 26                                              |
 | Python                  | Project `.venv`, `PYTHON`, `python3`, `python`, or `py` |
 | Go                      | `go`                                                    |
 | Rust file / project     | `rustc` / `cargo`                                       |

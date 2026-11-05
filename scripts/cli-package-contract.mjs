@@ -53,7 +53,7 @@ export function buildCliPackageManifest(rootPackage) {
     },
     files: ['bin', 'README.md', 'LICENSE'],
     engines: {
-      node: '24.x',
+      node: '>=26.13.0',
     },
     publishConfig: {
       access: 'public',

@@ -9,7 +9,7 @@ Este recorrido usa un scratchpad de JavaScript: no necesita solicitudes de red
 ni crear un proyecto. Editar, ejecutar, revisar errores, recuperarte y
 **exportar la última cápsula** funciona en Free, tanto en el navegador como en
 la app de escritorio. El navegador necesita una primera carga con conexión.
-Para los pasos de la CLI, instala la CLI por separado y usa Node.js 24;
+Para los pasos de la CLI, instala la CLI por separado y usa Node.js 26;
 [consulta la guía de la CLI](/es/cli). Go, Rust y el MCP local son específicos
 de escritorio, no de esta demo. Donde está disponible, el navegador accede a
 archivos mediante permisos de File System Access; escritorio usa su puente
@@ -87,7 +87,7 @@ lingua capsule validate docs/examples/deterministic-run.capsule.json --json
 lingua capsule replay docs/examples/deterministic-run.capsule.json --json
 ```
 
-El ejemplo registra `3\n`; con Node.js 24, la comparación de replay debe
+El ejemplo registra `3\n`; con Node.js 26, la comparación de replay debe
 indicar `matches: true`. El hash detecta inconsistencias, no ataques: un
 archivo alterado puede incluir un hash recalculado. Nunca reproduzcas una
 cápsula de origen desconocido.

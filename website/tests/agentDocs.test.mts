@@ -97,7 +97,7 @@ test('agent guides expose prerequisites and native Claude plugin lifecycle', asy
 
   for (const guide of [english, spanish]) {
     for (const prerequisite of [
-      'Node.js 24',
+      'Node.js 26',
       'chat.plugins.enabled',
       '$skill-installer',
       'claude plugin',
