@@ -167,9 +167,13 @@ test.describe('Debugger ', () => {
       expect(hudBox).not.toBeNull();
       expect(hudBox!.y).toBeGreaterThanOrEqual(pausedLineBox!.y + pausedLineBox!.height - 1);
     }).toPass({ timeout: 15_000 });
+    const pill = (line: number) => page.locator(`[data-testid="lingua-inline-result"][data-line="${line}"]`);
+    await expect(pill(3)).toBeVisible();
+    await expect(pill(3)).toContainText('doubled:42');
     await page.getByTestId('debugger-hud-step-over').click();
     await expect(hud).toContainText('Paused · line 4');
-    await expect(page.locator('.monaco-editor .lingua-debugger-inline-value')).toHaveText('label → value:42');
+    await expect(pill(4)).toContainText('label:value:42');
+    await expect(pill(3)).toContainText('label:value:42');
     await expect(page.getByTestId('debugger-locals').locator('li[data-change="new"]')).toContainText('label: value:42');
     await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);

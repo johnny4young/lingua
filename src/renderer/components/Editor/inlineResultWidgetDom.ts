@@ -91,6 +91,13 @@ export function renderInlineResultNode(
     arrow.textContent = '⟸';
     part.appendChild(arrow);
 
+    if (result.name) {
+      const name = document.createElement('span');
+      name.className = 'lingua-inline-result-name';
+      name.textContent = `${result.name}:`;
+      part.appendChild(name);
+    }
+
     const value = document.createElement('span');
     value.className = 'lingua-inline-result-value';
     // Prerequisite fix (overflow): cap the rendered string so

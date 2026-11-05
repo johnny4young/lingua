@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- While paused, the debugger shows the values of the paused line's variables in the Scratchpad's inline pills, and the values a step changed now use the same pills.
 - Edit with AI's Run preview lists the lines whose inline value changes, as the value before and after the edit.
 - `@linguacode/cli` and the Homebrew formula move to Node.js 26, the current LTS line. On Node 24, npm warns and the CLI keeps running. A `lingua repro` envelope still needs the Node major it was packed on, so one packed on Node 24 refuses to run on Node 26 until you pack it again. Contributors and CI read the line from `.nvmrc`.
 - Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code, Pro in context, Clipboard-aware utilities (reads stay off until you turn on Apply from clipboard on panel focus, on Pro), Database connections (Free keeps 3 saved connections; a query saved against a connection now runs on it) Instant SQL (on for everyone on Local, with a switch in Settings › Editor) and Edit table rows (on every plan; a table without a primary key keeps its rowid out of the grid, copies and exports). With nothing experimental left, Settings no longer has a Labs tab.
