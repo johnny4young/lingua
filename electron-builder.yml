@@ -30,6 +30,9 @@ files:
   - package.json
   # The SQL Server driver's Azure SDK carries a browser build that Node never loads.
   - '!**/node_modules/@azure/msal-browser{,/**}'
+  # Source maps, TypeScript sources and declarations, and nested readmes never load at runtime.
+  - '!**/node_modules/**/*.{map,ts,mts,cts}'
+  - '!**/node_modules/**/{README,Readme,readme}.md'
 # ripgrep is an executable, so keep it outside app.asar. The build script copies
 # every release target into an architecture-specific source path; electron-
 # builder's macros select the matching executable for each packaged app.
