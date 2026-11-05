@@ -92,6 +92,20 @@ test.describe('Staged row edits', () => {
     await expect(page.getByTestId('sql-result-preview-row').first()).toContainText('mine');
   });
 
+  test('says why a commit failed, keeps the change staged and saves nothing', async ({ page }) => {
+    await open(page, 'en');
+    await runAll(page, "CREATE TABLE nums (id INT PRIMARY KEY, n INT, v VARCHAR); INSERT INTO nums VALUES (1, 5, 'a');");
+    await openTable(page, 'nums');
+    await edit(page, 'v', 'mine');
+    await edit(page, 'n', 'abc');
+    await page.getByTestId('sql-edit-commit').click();
+    await expect(page.getByTestId('sql-edit-notice')).toContainText('abc');
+    await expect(page.getByTestId('sql-edit-count')).toBeVisible();
+    page.once('dialog', (dialog) => dialog.accept());
+    await runAll(page, 'SELECT n, v FROM nums');
+    await expect.poll(() => rows(page)).toEqual(['5 a']);
+  });
+
   test('duplicates a row without its binary, and a keyless table finds its row by rowid and values', async ({ page }) => {
     await open(page, 'en');
     await runAll(page, "CREATE TABLE files (id INT PRIMARY KEY, body BLOB, v VARCHAR); INSERT INTO files VALUES (1, 'abc'::BLOB, 'orig'); CREATE TABLE timed (ts TIMESTAMP PRIMARY KEY, v VARCHAR); INSERT INTO timed VALUES (TIMESTAMP '2026-01-02 03:04:05.123456', 'a');");
