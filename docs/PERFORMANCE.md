@@ -412,7 +412,7 @@ node ./scripts/performance-report.mjs --check --require-all-targets
 
 The check also reports two conditions that are not byte overages:
 
-- **Build shape.** A `dist/web` that contains `duckdb-mvp-*.wasm` or
+- **Build shape.** A `dist/web` that contains `duckdb-eh-*.wasm` or
   `ruby+stdlib.wasm` was built with `LINGUA_WEB_RUNTIME_SAME_ORIGIN=1` (the
   hermetic e2e shape); production points those runtimes at R2. The check
   fails with a single `shape` violation naming the files instead of a wall

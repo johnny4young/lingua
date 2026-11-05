@@ -1058,7 +1058,7 @@ declare const __LINGUA_BUILD_DATE__: string | undefined;
 declare const __LINGUA_WEBSITE_URL__: string | undefined;
 declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;
 declare const __LINGUA_LICENSE_SERVER_URL__: string | undefined;
-declare const __LINGUA_DUCKDB_MVP_WASM_URL__: string | null | undefined;
+declare const __LINGUA_DUCKDB_WASM_URL__: string | null | undefined;
 declare const __LINGUA_RUBY_WASM_URL__: string | null | undefined;
 /**
  * Expected sha256 (hex) of the R2-mirrored WASM payloads, computed at
@@ -1066,7 +1066,7 @@ declare const __LINGUA_RUBY_WASM_URL__: string | null | undefined;
  * only in the standalone web build; the workers verify fetched bytes
  * against these before instantiation.
  */
-declare const __LINGUA_DUCKDB_MVP_WASM_SHA256__: string | null | undefined;
+declare const __LINGUA_DUCKDB_WASM_SHA256__: string | null | undefined;
 declare const __LINGUA_RUBY_WASM_SHA256__: string | null | undefined;
 declare const __LINGUA_PYODIDE_INDEX_URL__: string | null | undefined;
 declare const __LINGUA_E2E_HOOKS__: boolean | undefined;

@@ -94,12 +94,12 @@ describe('runtime-assets.lock.json integrity', () => {
 
     expect(rendererConfig).toContain('__LINGUA_PYODIDE_INDEX_URL__');
     expect(rendererConfig).toContain('JSON.stringify(null)');
-    expect(rendererConfig).toContain('__LINGUA_DUCKDB_MVP_WASM_URL__');
+    expect(rendererConfig).toContain('__LINGUA_DUCKDB_WASM_URL__');
     expect(rendererConfig).toContain('__LINGUA_RUBY_WASM_URL__');
     expect(webConfig).toContain('__LINGUA_PYODIDE_INDEX_URL__');
     expect(webConfig).toContain('JSON.stringify(null)');
     expect(webConfig).toContain('VITE_LINGUA_WEB_RUNTIME_BASE');
-    expect(webConfig).toContain('__LINGUA_DUCKDB_MVP_WASM_URL__');
+    expect(webConfig).toContain('__LINGUA_DUCKDB_WASM_URL__');
     expect(webConfig).toContain('__LINGUA_RUBY_WASM_URL__');
     expect(webConfig).toContain("copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] })");
   });
@@ -112,16 +112,16 @@ describe('runtime-assets.lock.json integrity', () => {
 
   it('pins the vendored extensions to the DuckDB build that loads them', async () => {
     const { servedPath, sourceVersion, nodeModulesPath, criticalFiles } = RUNTIME_ASSETS.duckdbExtensions;
-    expect(servedPath).toBe(`duckdb-extensions/${sourceVersion}/wasm_mvp`);
+    expect(servedPath).toBe(`duckdb-extensions/${sourceVersion}/wasm_eh`);
     expect(criticalFiles).toEqual(VENDORED_DUCKDB_EXTENSIONS.map((name) => `${name}.duckdb_extension.wasm`));
     for (const file of criticalFiles) {
       const footer = (await readFile(path.join(repoRoot, nodeModulesPath, file))).subarray(-512).toString('latin1');
       expect(footer).toContain(`${sourceVersion}`);
-      expect(footer).toContain('wasm_mvp');
+      expect(footer).toContain('wasm_eh');
     }
     const client = await readFile(path.join(repoRoot, 'src/renderer/runtime/duckdbClient.ts'), 'utf8');
     expect(client).toContain(`'../${servedPath}'`);
-    const engine = await readFile(path.join(repoRoot, 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm'));
+    const engine = await readFile(path.join(repoRoot, 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm'));
     expect(engine.includes(`${sourceVersion}\0`, 0, 'latin1')).toBe(true);
   });
 

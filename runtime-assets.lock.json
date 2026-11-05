@@ -19,11 +19,11 @@
   },
   "duckdbExtensions": {
     "version": "1.32.0",
-    "sourceUrl": "https://extensions.duckdb.org/v1.4.3/wasm_mvp/",
+    "sourceUrl": "https://extensions.duckdb.org/v1.4.3/wasm_eh/",
     "integrity": {
-      "json.duckdb_extension.wasm": "sha256-5771b6d57335eca8e2ba4fdaacb491a53b49577bd7f1b0c39e2cd7a39b4e9313",
-      "icu.duckdb_extension.wasm": "sha256-584a02fe3d1b008ea1517c49497e84b8b736c6195094da7badee97688e8847fd",
-      "parquet.duckdb_extension.wasm": "sha256-0785c6c95d003eff4faa7b3b4b660f02c9c92f6d68d135ddf330d42e3a650600"
+      "json.duckdb_extension.wasm": "sha256-b997276c8e15cc3ebdeda340d73d15dc1c4f4755ad281280451cb0a2f79302e9",
+      "icu.duckdb_extension.wasm": "sha256-c152a87bf98d792ad64ef0b7bf2df89ab06ace37f49edd00b378da6163e8b38c",
+      "parquet.duckdb_extension.wasm": "sha256-22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55"
     }
   }
 }
