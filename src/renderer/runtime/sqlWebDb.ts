@@ -354,7 +354,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       if (blocked) return blocked;
       try {
         const detail = await (await sessionFor(entry, '#catalog')).introspect({ level: 'detail', schema: target.schema, name: target.name, kind: 'table' });
-        const table = rowEditTableFrom(entry.engine, target.schema, target.name, detail.detail?.columns ?? []);
+        const table = rowEditTableFrom(entry.engine, target.schema, target.name, detail.detail?.columns ?? [], detail.detail?.transactional);
         if (!table) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
         if (rowEditProblem(table, changes)) return { ok: false, reason: 'invalid' };
         const statements = rowEditStatements(table, changes, false);

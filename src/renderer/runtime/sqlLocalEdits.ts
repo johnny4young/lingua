@@ -1,6 +1,6 @@
 /** Staged edits on a Local DuckDB table: which rows it can find, and applying them in one transaction. */
 
-import { rowEditStatements, type RowEditChanges, type RowEditFailure, type RowEditTable } from '../../shared/sqlRowEdits';
+import { cellTextIsExact, rowEditStatements, type RowEditChanges, type RowEditFailure, type RowEditTable } from '../../shared/sqlRowEdits';
 import { sqlDialect } from '../../shared/sqlDialect';
 import { executeQuery, runEditTransaction } from './duckdbClient';
 import { stringList } from './sqlForeignKeys';
@@ -9,14 +9,14 @@ const sqlText = sqlDialect('duckdb').stringLiteral;
 
 /**
  * The edit target for a Local table: its whole primary key, or DuckDB's
- * rowid when it has none (tables made by an import have none). 'view' for a
+ * rowid when it has none or when the grid's text of its key is not exact (tables made by an import have none). 'view' for a
  * view, null for anything else that is not a base table or could not be read.
  */
 export async function loadLocalEditTable(name: string, schema = 'main'): Promise<RowEditTable | 'view' | null> {
   const where = `table_schema = ${sqlText(schema)} AND table_name = ${sqlText(name)}`;
   const [kind, columns, keys] = await Promise.all([
     executeQuery(`SELECT table_type FROM information_schema.tables WHERE ${where}`),
-    executeQuery(`SELECT column_name FROM information_schema.columns WHERE ${where} ORDER BY ordinal_position`),
+    executeQuery(`SELECT column_name, data_type FROM information_schema.columns WHERE ${where} ORDER BY ordinal_position`),
     executeQuery(
       `SELECT constraint_column_names FROM duckdb_constraints() WHERE constraint_type = 'PRIMARY KEY' AND schema_name = ${sqlText(schema)} AND table_name = ${sqlText(name)}`
     ),
@@ -27,12 +27,15 @@ export async function loadLocalEditTable(name: string, schema = 'main'): Promise
   const names = columns.rows.map((row) => String(row['column_name']));
   const primary = keys.status === 'success' ? keys.rows[0]?.['constraint_column_names'] : undefined;
   const keyColumns = primary === undefined || primary === null ? [] : stringList(primary);
+  const types = Object.fromEntries(columns.rows.map((row) => [String(row['column_name']), String(row['data_type'])]));
+  const exactKey = keyColumns.length > 0 && keyColumns.every((column) => cellTextIsExact({ engine: 'duckdb', types }, column));
   return {
     engine: 'duckdb',
     ...(schema === 'main' ? {} : { schema }),
     name,
     columns: names,
-    key: keyColumns.length > 0 ? { kind: 'pk', columns: keyColumns } : { kind: 'rowid' },
+    types,
+    key: exactKey ? { kind: 'pk', columns: keyColumns } : { kind: 'rowid' },
   };
 }
 

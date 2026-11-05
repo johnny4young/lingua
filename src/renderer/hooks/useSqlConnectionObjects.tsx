@@ -49,6 +49,8 @@ interface Options {
   insertAtCursor: (text: string) => void;
   /** Takes SQL into the editor, as Edit in editor does. */
   insertSql: (sql: string) => void;
+  /** False keeps the table on screen, with its staged edits. */
+  canLeave: () => boolean;
 }
 
 export function useSqlConnectionObjects({
@@ -63,6 +65,7 @@ export function useSqlConnectionObjects({
   selectQuery,
   insertAtCursor,
   insertSql,
+  canLeave,
 }: Options) {
   const { t } = useTranslation();
   const catalog = useSqlConnectionsStore((state) => state.catalog);
@@ -79,6 +82,7 @@ export function useSqlConnectionObjects({
   const activeConnection = listed(activeQuery?.connectionId);
   const selectConnection = useCallback(
     (connectionId: string | undefined) => {
+      if (!canLeave()) return;
       let id = useWorkspaceSqlStore.getState().activeQueryId;
       if (!id) {
         createQuery();
@@ -86,7 +90,7 @@ export function useSqlConnectionObjects({
       }
       if (id) useWorkspaceSqlStore.getState().updateQuery(id, { connectionId });
     },
-    [createQuery]
+    [canLeave, createQuery]
   );
   const [catalogPassword, setCatalogPassword] = useState<{ connectionId: string; kind: SqlDbSecretKind; refused: boolean } | null>(null);
   const setCatalogPasswordFor = (connectionId: string, kind: SqlDbSecretKind) => setCatalogPassword({ connectionId, kind, refused: false });
@@ -108,16 +112,17 @@ export function useSqlConnectionObjects({
 
   const showObject = useCallback(
     (connectionId: string, object: SqlObjectRef, tab: SqlObjectTab) => {
+      if (!canLeave()) return;
       setObjectView({ connectionId, object, tab });
       const connection = findConnection(connectionId);
       if (tab === 'data' && connection && QUERYABLE_KINDS.has(object.kind)) {
         const table = { name: `${object.schema}.${object.name}`, sqlName: object.name, schemaName: object.schema, kind: object.kind === 'table' ? ('table' as const) : ('view' as const) };
-        void tables.open(table, undefined, undefined, { connectionId, engine: connection.engine });
+        void tables.read(table, undefined, undefined, { connectionId, engine: connection.engine });
       } else {
         showTablePreview(null);
       }
     },
-    [tables, showTablePreview, setObjectView]
+    [canLeave, tables, showTablePreview, setObjectView]
   );
 
   /** A password typed for a run also unblocks a catalog that was waiting for it. */
@@ -145,8 +150,9 @@ export function useSqlConnectionObjects({
         showObject(connectionId, object, tab);
       },
       openLocal: (table) => {
+        if (!canLeave()) return;
         setObjectView(null);
-        void tables.open(table);
+        void tables.read(table);
       },
       openQuery: selectQuery,
       insert: insertAtCursor,

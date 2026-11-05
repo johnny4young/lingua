@@ -521,10 +521,17 @@ schema, the table and keyed values, at most 1,000 changes, 1,048,576 characters 
 Main refuses a read-only or production connection and, with Confirm every
 write, a commit without the typed name; it reads the table's columns and
 primary key through the host's own introspection, rejects a key or column the
-table does not have, and builds the statements itself with bound parameters.
+table does not have, a key whose type does not reach the grid exactly
+(`rowEditRefusal`), a MySQL table whose engine has no transactions, text for a
+binary column and an empty value for a number or date, and builds the
+statements itself with bound parameters. Each update and delete also carries
+the values it read (`original`), and main compares the types whose text finds
+them exactly; the rest fall back to the key.
 The host runs them in one transaction on a session of its own
 (`<connectionId>#edits`, dropped with the connection), and every statement must
-report exactly one affected row or the whole transaction rolls back. The
+report exactly one affected row or the whole transaction rolls back. SQL Server
+reads `@@ROWCOUNT`, since the request's total also holds what triggers wrote,
+and MySQL adds `STRICT_ALL_TABLES` to the session. The
 server bounds lock waits to 10 s and each statement, and the host the whole
 transaction, below the 120 s main waits, so an edit another session blocks
 rolls back instead of committing after main reported a failure. Local

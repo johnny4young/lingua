@@ -190,6 +190,8 @@ function recordRun(queryId: string, sql: string, response: SqlResponseV1, connec
 interface UseSqlRunnerOptions {
   timeoutMs: number;
   onBeforeRun: () => void;
+  /** False keeps the current view and runs nothing. */
+  canStartRun?: () => boolean;
   /** A run created, altered or dropped something; `connectionId` is unset for Local. */
   onSchemaChanged: (connectionId?: string) => void;
 }
@@ -199,7 +201,7 @@ interface UseSqlRunnerOptions {
  * or Explain. Holds the cooperative Cancel and, when DuckDB ignores it,
  * the offer to restart the engine.
  */
-export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSqlRunnerOptions) {
+export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChanged }: UseSqlRunnerOptions) {
   const { t } = useTranslation();
   const announce = useAnnounce();
   const { runningQueryId, more, runSet, plan, view, stuck, isRestarting, confirm, passwordPrompt } = useSqlRunState();
@@ -326,6 +328,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     async (request: SqlRunRequest) => {
       const { query, mode, statements } = request;
       if (activeController !== null || statements.length === 0 || confirmResolve !== null) return;
+      if (canStartRun && !canStartRun()) return;
       const enabled = sqlDbBridge() !== null;
       // Right after launch the catalog may not have arrived yet; a missing connection needs it.
       if (enabled && query.connectionId && useSqlConnectionsStore.getState().catalog === null) {
@@ -376,7 +379,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
         setRunState({ runningQueryId: null });
       }
     },
-    [onBeforeRun, runExplain, runStatements]
+    [canStartRun, onBeforeRun, runExplain, runStatements]
   );
 
   const cancel = useCallback(() => activeController?.abort(), []);
