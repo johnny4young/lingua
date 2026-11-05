@@ -34,7 +34,7 @@ import { filterRows, nextSortState, sortRows, type SqlSortState } from './sqlRes
 import { applyConditions, buildGridSql, visibleColumns, type SqlColumnLayout, type SqlFilterCondition } from './sqlResultFilters';
 import { SqlVirtualGrid, type SqlCellAction, type SqlGridCell, type SqlGridEditing } from './SqlVirtualGrid';
 import { SqlRowEditBar } from './SqlRowEditBar';
-import { addRow, canEditCell, overlayRows, stageCell, stagedCount, toggleDelete } from './sqlRowEditModel';
+import { addRow, canEditCell, canSetCellNull, overlayRows, stageCell, stagedCount, toggleDelete } from './sqlRowEditModel';
 import type { SqlRowEdits } from '../../hooks/useSqlRowEdits';
 import { renderCell } from './sqlResultFormatters';
 import { SqlResultToolbar } from './SqlResultToolbar';
@@ -285,6 +285,7 @@ export function SqlResultPreview({
       editTarget && rowEdits
         ? {
             canEdit: (row, column) => canEditCell(editTarget, row, column),
+            canSetNull: (row, column) => canSetCellNull(editTarget, row, column),
             onEditCell: (row, column, value) => rowEdits.update((current) => stageCell(current, editTarget, row, column, value)),
           }
         : undefined,

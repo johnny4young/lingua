@@ -673,7 +673,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           { type: 'introspect', config, request: { level: 'detail', schema: target.schema, name: target.name, kind: 'table' } },
           30_000
         );
-        const table = rowEditTableFrom(entry.engine, target.schema, target.name, detail.detail?.columns ?? []);
+        const table = rowEditTableFrom(entry.engine, target.schema, target.name, detail.detail?.columns ?? [], detail.detail?.transactional);
         if (!table) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
         if (rowEditProblem(table, changes)) return { ok: false, reason: 'invalid' };
         const result = await deps.host.request<{ applied: number }>({ type: 'apply-edits', config, statements: rowEditStatements(table, changes, false) }, ROW_EDIT_BUDGET_MS * 2);

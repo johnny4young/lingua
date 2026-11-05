@@ -14,13 +14,13 @@ import {
   type SqlTableForeignKeys,
 } from '../runtime/sqlForeignKeys';
 import { toSqlResponse } from './useSqlRunner';
-import { ROW_EDIT_ENGINES, type RowEditTable } from '../../shared/sqlRowEdits';
+import { ROW_EDIT_ENGINES, rowEditRefusal, rowEditTableFrom, type RowEditRefusal, type RowEditTable } from '../../shared/sqlRowEdits';
 import { loadLocalEditTable } from '../runtime/sqlLocalEdits';
 import { findConnection } from '../stores/sqlConnectionsStore';
 import { useSettingsStore } from '../stores/settingsStore';
 
 /** Whether the opened table's rows can be edited: its target, or why not. */
-export type SqlTableEdit = { table: RowEditTable } | { reason: 'view' | 'no-key' | 'read-only' | 'production' | 'engine' };
+export type SqlTableEdit = { table: RowEditTable } | { reason: 'view' | 'read-only' | 'production' | 'engine' | RowEditRefusal };
 
 /** A table opened from the Explorer or a foreign-key link: its rows on screen, never a saved run. */
 export interface SqlTablePreview {
@@ -46,10 +46,11 @@ async function remoteEdit(table: SqlSchemaTable, remote: SqlRemoteTableTarget): 
   const schema = table.schemaName ?? '';
   const read = await sqlDbBridge()?.introspect(remote.connectionId, { level: 'detail', schema, name, kind: 'table' });
   if (!read?.detail) return undefined;
-  const columns = read.detail.columns;
-  const primaryKey = columns.filter((column) => column.primaryKey).map((column) => column.name);
-  if (primaryKey.length === 0) return { reason: 'no-key' };
-  return { table: { engine: remote.engine, schema, name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } } };
+  const { columns, transactional } = read.detail;
+  const refusal = rowEditRefusal(remote.engine, columns, transactional);
+  if (refusal) return { reason: refusal };
+  const editable = rowEditTableFrom(remote.engine, schema, name, columns, transactional);
+  return editable ? { table: editable } : undefined;
 }
 
 /** A keyless Local table is edited by rowid, so the rows on screen must carry it. */
@@ -66,7 +67,7 @@ const keyCache = new Map<string, Promise<SqlTableForeignKeys>>();
  * Table previews: open one from the Explorer, follow its foreign keys to the
  * referenced row and back, and open the rows that point at a row.
  */
-export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlSchemaTable>) {
+export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlSchemaTable>, canLeave: () => boolean = () => true) {
   const [preview, setPreview] = useState<SqlTablePreview | null>(null);
   const [keys, setKeys] = useState<{ table: string; keys: SqlTableForeignKeys } | null>(null);
   // Bumped by every open, run and query switch so a late table result never lands over a newer view.
@@ -77,7 +78,8 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
     setPreview(next);
   }, []);
 
-  const open = useCallback(
+  // Reads a table without asking; `open` is what navigation goes through.
+  const read = useCallback(
     async (table: SqlSchemaTable, sql?: string, back?: SqlTablePreview, remote?: SqlRemoteTableTarget) => {
       let statement = sql ?? buildSelectStarter(table.sqlName ?? table.name, table.schemaName, remote?.engine);
       tokenRef.current += 1;
@@ -112,6 +114,13 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
       });
     },
     [timeoutMs]
+  );
+
+  const open = useCallback(
+    async (table: SqlSchemaTable, sql?: string, back?: SqlTablePreview, remote?: SqlRemoteTableTarget) => {
+      if (canLeave()) await read(table, sql, back, remote);
+    },
+    [canLeave, read]
   );
 
   // Foreign keys are read from Local's catalog; a connection's keys show in its object detail.
@@ -158,5 +167,5 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
   /** Forgets cached keys after the schema may have changed. */
   const invalidate = useCallback(() => keyCache.clear(), []);
 
-  return { preview, show, open, foreignKeys, invalidate };
+  return { preview, show, open, read, foreignKeys, invalidate };
 }

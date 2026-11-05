@@ -22,11 +22,11 @@ function engine(answer: (sql: string) => Array<Record<string, unknown>>, seen: s
 
 afterEach(() => __setDuckDbEngineFactoryForTests(null));
 
-const catalog = (tableType: string, key: unknown) => (sql: string) =>
+const catalog = (tableType: string, key: unknown, idType = 'INTEGER') => (sql: string) =>
   sql.includes('information_schema.tables')
     ? [{ table_type: tableType }]
     : sql.includes('information_schema.columns')
-      ? [{ column_name: 'id' }, { column_name: 'city' }]
+      ? [{ column_name: 'id', data_type: idType }, { column_name: 'city', data_type: 'VARCHAR' }]
       : sql.includes('PRIMARY KEY') && key !== undefined
         ? [{ constraint_column_names: key }]
         : [];
@@ -34,9 +34,14 @@ const catalog = (tableType: string, key: unknown) => (sql: string) =>
 describe('Local edit targets', () => {
   it('finds rows by the primary key when the table has one, and by rowid when it does not', async () => {
     engine(catalog('BASE TABLE', ['id']));
-    expect(await loadLocalEditTable('orders')).toEqual({ engine: 'duckdb', name: 'orders', columns: ['id', 'city'], key: { kind: 'pk', columns: ['id'] } });
+    expect(await loadLocalEditTable('orders')).toEqual({ engine: 'duckdb', name: 'orders', columns: ['id', 'city'], types: { id: 'INTEGER', city: 'VARCHAR' }, key: { kind: 'pk', columns: ['id'] } });
     engine(catalog('BASE TABLE', undefined));
-    expect(await loadLocalEditTable('sales', 'staging')).toEqual({ engine: 'duckdb', schema: 'staging', name: 'sales', columns: ['id', 'city'], key: { kind: 'rowid' } });
+    expect(await loadLocalEditTable('sales', 'staging')).toEqual({ engine: 'duckdb', schema: 'staging', name: 'sales', columns: ['id', 'city'], types: { id: 'INTEGER', city: 'VARCHAR' }, key: { kind: 'rowid' } });
+  });
+
+  it('finds rows by rowid when the grid would cut the primary key', async () => {
+    engine(catalog('BASE TABLE', ['id'], 'TIMESTAMP'));
+    expect((await loadLocalEditTable('events')) as { key: unknown }).toMatchObject({ key: { kind: 'rowid' } });
   });
 
   it('names a view, and offers nothing for a temporary table or a table it cannot read', async () => {

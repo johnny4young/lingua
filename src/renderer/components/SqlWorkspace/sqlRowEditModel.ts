@@ -3,14 +3,14 @@
  * the rows look with those changes on top, and the change set they become.
  */
 
-import { keyColumns, type RowEditChanges, type RowEditTable, type RowEditValue } from '../../../shared/sqlRowEdits';
+import { cellTextIsExact, isBinaryColumn, keyColumns, rowEditOriginal, takesEmptyText, type RowEditChanges, type RowEditTable, type RowEditValue } from '../../../shared/sqlRowEdits';
 
 type Values = Record<string, RowEditValue>;
 
 export interface StagedEdits {
   /** By row id: the key that finds the row and its changed values. */
-  updates: Record<string, { key: Values; values: Values }>;
-  deletes: Record<string, { key: Values }>;
+  updates: Record<string, { key: Values; values: Values; original?: Values }>;
+  deletes: Record<string, { key: Values; original?: Values }>;
   /** New rows, in the order they were added. */
   inserts: Array<{ id: number; values: Values }>;
   nextInsert: number;
@@ -76,27 +76,41 @@ export function overlayRows(rows: ReadonlyArray<Record<string, unknown>>, table:
   return [...shown, ...edits.inserts.map(({ id, values }) => ({ ...values, [INSERTED]: id }) as ShownRow)];
 }
 
-/** Whether a column of this row can be edited: a table column, not rowid, and not on a row staged for delete. */
-export function canEditCell(table: RowEditTable, row: Record<string, unknown>, column: string): boolean {
+/** Whether this column of this row can take a value: a table column, not rowid, and not on a row staged for delete. */
+function canStageCell(table: RowEditTable, row: Record<string, unknown>, column: string): boolean {
   const shown = row as ShownRow;
   return !shown[DELETED] && table.columns.includes(column) && (shown[INSERTED] !== undefined || rowIdentity(table, row) !== null);
+}
+
+/** Whether a cell can be typed into; a binary's text is its base64, so it only takes Set to NULL. */
+export const canEditCell = (table: RowEditTable, row: Record<string, unknown>, column: string) => canStageCell(table, row, column) && !isBinaryColumn(table, column);
+
+export const canSetCellNull = canStageCell;
+
+/** What a commit checks on this row: the columns changed, or every column when only rowid finds it, since a rowid can come to mean another row. */
+function originalOf(table: RowEditTable, row: Record<string, unknown>, changed: readonly string[]): { original?: Values } {
+  const source = (row as ShownRow)[ORIGINAL] ?? row;
+  const original = rowEditOriginal(table, table.key.kind === 'rowid' ? table.columns : changed, (column) => cellText(source[column]));
+  return Object.keys(original).length > 0 ? { original } : {};
 }
 
 /** Stages one cell; setting it back to what was read drops the change. */
 export function stageCell(edits: StagedEdits, table: RowEditTable, row: Record<string, unknown>, column: string, value: RowEditValue): StagedEdits {
   const shown = row as ShownRow;
+  // A cleared number or date is NULL, shown as such before the commit.
+  const next = value === '' && !takesEmptyText(table, column) ? null : value;
   if (shown[INSERTED] !== undefined) {
-    return { ...edits, inserts: edits.inserts.map((insert) => (insert.id === shown[INSERTED] ? { ...insert, values: { ...insert.values, [column]: value } } : insert)) };
+    return { ...edits, inserts: edits.inserts.map((insert) => (insert.id === shown[INSERTED] ? { ...insert, values: { ...insert.values, [column]: next } } : insert)) };
   }
   const identity = rowIdentity(table, row);
   if (!identity) return edits;
   const original = cellText((shown[ORIGINAL] ?? row)[column]);
   const values = { ...edits.updates[identity.id]?.values };
-  if (value === original) delete values[column];
-  else values[column] = value;
+  if (next === original) delete values[column];
+  else values[column] = next;
   const updates = { ...edits.updates };
   if (Object.keys(values).length === 0) delete updates[identity.id];
-  else updates[identity.id] = { key: identity.key, values };
+  else updates[identity.id] = { key: identity.key, values, ...originalOf(table, row, Object.keys(values)) };
   return { ...edits, updates };
 }
 
@@ -110,18 +124,18 @@ export function toggleDelete(edits: StagedEdits, table: RowEditTable, row: Recor
   const updates = { ...edits.updates };
   if (identity.id in deletes) delete deletes[identity.id];
   else {
-    deletes[identity.id] = { key: identity.key };
+    deletes[identity.id] = { key: identity.key, ...originalOf(table, row, table.columns) };
     // A deleted row's pending changes would never run.
     delete updates[identity.id];
   }
   return { ...edits, deletes, updates };
 }
 
-/** A new row; a duplicate copies every table column but the key, which the table fills or the user types. */
+/** A new row; a duplicate copies the table's columns but the key, which the table fills or the user types, and any whose text is not the stored value. */
 export function addRow(edits: StagedEdits, table: RowEditTable, from?: Record<string, unknown>): StagedEdits {
   const keys = new Set(keyColumns(table));
   const values: Values = {};
-  if (from) for (const column of table.columns) if (!keys.has(column)) values[column] = cellText(from[column]);
+  if (from) for (const column of table.columns) if (!keys.has(column) && cellTextIsExact(table, column)) values[column] = cellText(from[column]);
   return { ...edits, inserts: [...edits.inserts, { id: edits.nextInsert, values }], nextInsert: edits.nextInsert + 1 };
 }
 

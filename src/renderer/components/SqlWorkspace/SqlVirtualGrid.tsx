@@ -34,6 +34,7 @@ export type SqlCellAction = 'filter' | 'exclude' | 'copy-value' | 'copy-row' | '
 /** Staged editing of an Explorer table's rows. */
 export interface SqlGridEditing {
   canEdit: (row: Record<string, unknown>, column: string) => boolean;
+  canSetNull: (row: Record<string, unknown>, column: string) => boolean;
   /** The row as it was when the editor opened, so a reorder underneath cannot move the value. */
   onEditCell: (row: Record<string, unknown>, column: string, value: string) => void;
 }
@@ -318,7 +319,7 @@ const GridHeader = memo(function GridHeader({
 /** The edit items a cell's menu starts with: edit and NULL for an editable cell, then duplicate and delete or restore. */
 function editActionsFor(editing: SqlGridEditing, row: Record<string, unknown>, column: string) {
   const deleted = (row as ShownRow)[DELETED] === true;
-  return EDIT_ACTIONS.filter(({ id }) => (id === 'edit-cell' || id === 'set-null' ? editing.canEdit(row, column) : !(deleted && id === 'duplicate-row'))).map((action) =>
+  return EDIT_ACTIONS.filter(({ id }) => (id === 'edit-cell' ? editing.canEdit(row, column) : id === 'set-null' ? editing.canSetNull(row, column) : !(deleted && id === 'duplicate-row'))).map((action) =>
     action.id === 'delete-row' && deleted ? { ...action, labelKey: 'sqlWorkspace.edits.menu.restore' } : action
   );
 }

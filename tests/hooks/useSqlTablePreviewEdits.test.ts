@@ -64,7 +64,7 @@ describe('opening a table for editing', () => {
       await act(() => result.current.open({ ...table, kind }, undefined, undefined, remote));
       return result.current.preview?.edit;
     };
-    expect(await openWith({})).toEqual({ table: { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city'], key: { kind: 'pk', columns: ['id'] } } });
+    expect(await openWith({})).toEqual({ table: { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city'], types: expect.any(Object), key: { kind: 'pk', columns: ['id'] } } });
     expect(introspect).toHaveBeenCalledWith('c_1', { level: 'detail', schema: 'public', name: 'orders', kind: 'table' });
     expect(await openWith({ readOnly: true })).toEqual({ reason: 'read-only' });
     expect(await openWith({ env: 'prod' })).toEqual({ reason: 'production' });

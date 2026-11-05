@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addRow,
   canEditCell,
+  canSetCellNull,
   cellTone,
   changeSet,
   NO_EDITS,
@@ -62,5 +63,53 @@ describe('staged edits in the grid', () => {
     expect(canEditCell(local, { region: 'x' }, 'region')).toBe(false);
     expect(canEditCell(table, rows[0]!, 'computed')).toBe(false);
     expect(changeSet(stageCell(NO_EDITS, local, row, 'region', null))).toEqual({ updates: [{ key: { rowid: '3' }, values: { region: null } }], deletes: [], inserts: [] });
+  });
+});
+
+describe('staged edits with column types', () => {
+  const typed: RowEditTable = {
+    engine: 'postgres',
+    name: 'files',
+    columns: ['id', 'city', 'n', 'body', 'at'],
+    types: { id: 'integer', city: 'varchar(40)', n: 'bigint', body: 'bytea', at: 'timestamp' },
+    key: { kind: 'pk', columns: ['id'] },
+  };
+  const row = { id: 1, city: 'Cali', n: '9007199254740993', body: 'AP8Q', at: '2026-01-01T00:00:00.000Z' };
+
+  it('checks the columns an update changes, and every comparable column on a delete', () => {
+    const edited = stageCell(NO_EDITS, typed, row, 'city', 'Bogota');
+    expect(changeSet(edited).updates).toEqual([{ key: { id: '1' }, values: { city: 'Bogota' }, original: { city: 'Cali' } }]);
+    const shown = overlayRows([row], typed, edited)[0]!;
+    expect(changeSet(stageCell(edited, typed, shown, 'n', '7')).updates[0]?.original).toEqual({ city: 'Cali', n: '9007199254740993' });
+    expect(changeSet(toggleDelete(NO_EDITS, typed, row)).deletes).toEqual([{ key: { id: '1' }, original: { id: '1', city: 'Cali', n: '9007199254740993' } }]);
+  });
+
+  it('checks every comparable column when only rowid finds the row', () => {
+    const local: RowEditTable = { engine: 'duckdb', name: 't', columns: ['a', 'b'], types: { a: 'VARCHAR', b: 'INTEGER' }, key: { kind: 'rowid' } };
+    expect(changeSet(stageCell(NO_EDITS, local, { rowid: 3, a: 'x', b: 1 }, 'a', 'y')).updates[0]?.original).toEqual({ a: 'x', b: '1' });
+  });
+
+  it('does not compare a value too long to carry', () => {
+    const long = 'x'.repeat(5000);
+    expect(changeSet(toggleDelete(NO_EDITS, typed, { ...row, city: long })).deletes[0]?.original).not.toHaveProperty('city');
+  });
+
+  it('never types into a binary cell, but lets it become NULL', () => {
+    expect(canEditCell(typed, row, 'body')).toBe(false);
+    expect(canSetCellNull(typed, row, 'body')).toBe(true);
+    expect(canEditCell(typed, row, 'city')).toBe(true);
+    expect(changeSet(stageCell(NO_EDITS, typed, row, 'body', null)).updates[0]?.values).toEqual({ body: null });
+  });
+
+  it('leaves binaries and values the grid cannot read exactly out of a duplicate', () => {
+    expect(changeSet(addRow(NO_EDITS, typed, row)).inserts).toEqual([{ values: { city: 'Cali', n: '9007199254740993' } }]);
+  });
+
+  it('turns a cleared number or date into NULL, and keeps an empty text', () => {
+    expect(changeSet(stageCell(NO_EDITS, typed, row, 'n', '')).updates[0]?.values).toEqual({ n: null });
+    expect(changeSet(stageCell(NO_EDITS, typed, row, 'city', '')).updates[0]?.values).toEqual({ city: '' });
+    const added = addRow(NO_EDITS, typed);
+    const shown = overlayRows([], typed, added)[0]!;
+    expect(changeSet(stageCell(added, typed, shown, 'at', '')).inserts[0]?.values).toEqual({ at: null });
   });
 });
