@@ -303,7 +303,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
       - run: npm ci
       - run: npx --no-install lingua run ./scripts/check.ts --json
