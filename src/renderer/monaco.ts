@@ -462,7 +462,7 @@ let releaseTypeScriptWorker: (() => void) | null = null;
   });
 let typeScriptWorkerGateWatched = false;
 
-export function startTypeScriptWorker(): void {
+function startTypeScriptWorker(): void {
   releaseTypeScriptWorker?.();
   releaseTypeScriptWorker = null;
 }
