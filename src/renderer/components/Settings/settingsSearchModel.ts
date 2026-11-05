@@ -363,14 +363,6 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords: ['plugin', 'extension', 'package', 'complemento', 'extension'],
   },
   {
-    id: 'labs',
-    tab: 'labs',
-    labelKey: 'settings.labs.title',
-    descriptionKey: 'settings.labs.description',
-    targetId: 'section-labs',
-    keywords: ['labs', 'experimental', 'flag', 'beta', 'laboratorio'],
-  },
-  {
     id: 'recovery',
     tab: 'recovery',
     labelKey: 'recovery.title',

@@ -543,7 +543,7 @@ describe('debugger stepping', () => {
 
   it('sends the network policy and holds the deadline while the user answers a host', async () => {
     vi.useFakeTimers();
-    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'ask' });
+    useSettingsStore.setState({ networkFromRunningCode: 'ask' });
     try {
       const { promise, worker } = startRun({ timeout: 1_000, context: { tabId: 'tab-net' } });
       expect(worker.posted[0]?.['network']).toEqual({ policy: 'ask', allowedHosts: [], blockedHosts: [] });
@@ -561,23 +561,23 @@ describe('debugger stepping', () => {
       expect(worker.terminated).toBe(true);
       expect((await promise).timeoutMs).toBe(1_000);
     } finally {
-      useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+      useSettingsStore.setState({ networkFromRunningCode: 'allow' });
       useNetworkAskStore.setState({ answers: {}, queue: [] });
     }
   });
 
   it('lets the run context block every host whatever the Labs policy says', () => {
-    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+    useSettingsStore.setState({ networkFromRunningCode: 'allow' });
     try {
       const { worker } = startRun({ context: { tabId: 'tab-preview', blockNetwork: true } });
       expect(worker.posted[0]?.['network']).toEqual({ policy: 'block', allowedHosts: [], blockedHosts: [] });
     } finally {
-      useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+      useSettingsStore.setState({ networkFromRunningCode: 'allow' });
     }
   });
 
   it('drops an unanswered network question when the run ends', async () => {
-    useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'ask' });
+    useSettingsStore.setState({ networkFromRunningCode: 'ask' });
     try {
       const { shell, promise, worker } = startRun({ context: { tabId: 'tab-stop' } });
       worker.emitForRun({ type: 'network-request', requestId: 'net-1', host: 'api.example' });
@@ -586,7 +586,7 @@ describe('debugger stepping', () => {
       await promise;
       expect(useNetworkAskStore.getState().queue).toHaveLength(0);
     } finally {
-      useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+      useSettingsStore.setState({ networkFromRunningCode: 'allow' });
     }
   });
 });

@@ -77,7 +77,6 @@ describe('useLayoutAvailability', () => {
     expect(result.current.tabs.timeline).toBe(false);
     act(() => {
       useTimelineStore.setState({ recording: null });
-      useSettingsStore.setState({ featureFlags: {} });
     });
   });
 

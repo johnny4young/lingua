@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { initI18n } from '@/i18n';
 import { RunPolicySection } from '@/components/Settings/RunPolicySection';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { sanitizeLabsSettings } from '@/stores/settingsLabsSanitizer';
+import { sanitizePolicySettings } from '@/stores/settingsPolicySanitizer';
 
 const initialSettings = useSettingsStore.getState();
 
@@ -35,7 +35,7 @@ describe('run policy settings', () => {
   });
 
   it('restores the defaults for a tampered persisted policy', () => {
-    expect(sanitizeLabsSettings({ runPolicyByGroup: { jsTs: 'always' } as never }).runPolicyByGroup).toEqual({
+    expect(sanitizePolicySettings({ runPolicyByGroup: { jsTs: 'always' } as never }).runPolicyByGroup).toEqual({
       jsTs: 'keystroke', pythonRuby: 'pause', goRust: 'manual',
     });
   });

@@ -42,7 +42,6 @@ afterEach(() => useSettingsStore.setState(initialSettings, true));
 
 describe('SQL grid magics', () => {
   it('draws links, 0–1 bars, checks and thumbnails with Rich display on', () => {
-    useSettingsStore.setState({ featureFlags: {} });
     render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
     const links = screen.getAllByTestId('sql-cell-link');
     expect(links).toHaveLength(1);
@@ -55,7 +54,6 @@ describe('SQL grid magics', () => {
   });
 
   it('opens a link only with Cmd or Ctrl and keeps a plain click for selection', () => {
-    useSettingsStore.setState({ featureFlags: {} });
     render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
     const link = screen.getByTestId('sql-cell-link');
     // The app never navigates its own window to the cell's URL.

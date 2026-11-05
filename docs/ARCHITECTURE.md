@@ -515,7 +515,7 @@ queue, and the move stores only the value that signed in and only while the
 catalog still points the connection at that target, so a concurrent edit cannot
 bind it to another host.
 
-Staged row edits (Labs flag `editRows`, `src/shared/sqlRowEdits.ts`) cross IPC
+Staged row edits (`src/shared/sqlRowEdits.ts`) cross IPC
 as a structured change set, never as SQL: `sql-db:apply-edits` takes the
 schema, the table and keyed values, at most 1,000 changes, 1,048,576 characters per value and 16 Mi characters in all.
 Main refuses a read-only or production connection and, with Confirm every
@@ -1167,7 +1167,7 @@ pure predicate, `isPermissionAllowed`, so the policy has a single decision point
   links, capsule export, SQL results, "Copy JSON" — call
   `navigator.clipboard.writeText` / `.write`) and **`clipboard-read`** (capsule
   import from the clipboard, the Utility Pipeline paste action, clipboard-on-focus
-  paste detection after the Pro `DEV_UTILITIES` + user-consent gates, and Labs
+  paste detection after the Pro `DEV_UTILITIES` + user-consent gates, and
   clipboard suggestions behind the same gates call `navigator.clipboard.readText`).
   Denying either breaks real app-shell features with `NotAllowedError`.
 - Subframes are denied even for those clipboard permissions, so sandboxed rich

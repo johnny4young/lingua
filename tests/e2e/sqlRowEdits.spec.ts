@@ -9,11 +9,6 @@ const STAGED = { en: '1 staged change', es: '1 cambio pendiente' };
 
 async function open(page: Page, language: 'en' | 'es') {
   await seedSession(page, { language });
-  await page.addInitScript(() => {
-    const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-    raw.state.featureFlags = { editRows: true };
-    localStorage.setItem('lingua-settings', JSON.stringify(raw));
-  });
   await gotoApp(page);
   await page.keyboard.press('ControlOrMeta+Alt+S');
   await page.getByTestId('sql-query-list-create').click();
@@ -121,6 +116,7 @@ test.describe('Staged row edits', () => {
     await page.getByTestId('sql-edit-discard').click();
     await openTable(page, 'timed');
     await expect(page.getByTestId('sql-edit-bar')).toContainText('rows by rowid');
+    await expect(page.getByTestId('sql-result-preview-row').first().locator('td[data-column="rowid"]')).toHaveCount(0);
     await edit(page, 'v', 'mine');
     await page.getByTestId('sql-edit-commit').click();
     await expect(page.getByTestId('sql-edit-notice')).toContainText('Committed 1 change');

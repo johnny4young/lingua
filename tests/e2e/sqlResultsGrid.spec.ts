@@ -86,7 +86,8 @@ test.describe('SQL result grid', () => {
     await orders.click();
 
     await expect(page.getByTestId('sql-result-fk-link').first()).toBeVisible();
-    await page.locator('td[data-column="meta"]').first().dblclick();
+    await page.locator('td[data-column="meta"]').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Open in value viewer' }).click();
     await expect(page.getByTestId('sql-value-json')).toContainText('"channel": "web"');
     await page.locator('td[data-column="receipt"]').first().click();
     await expect(page.getByTestId('sql-value-blob')).toContainText('PNG');
@@ -95,7 +96,8 @@ test.describe('SQL result grid', () => {
     await expect(page.getByTestId('sql-result-strip-sql')).toHaveText(
       'SELECT * FROM "customers" WHERE "id" = 7781 LIMIT 100;'
     );
-    await page.locator('td[data-column="name"]').first().dblclick();
+    await page.locator('td[data-column="name"]').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Open in value viewer' }).click();
     await expect(page.getByTestId('sql-value-referenced-by-chip')).toHaveText('Referenced by: orders (20)');
     await page.getByTestId('sql-result-strip-back').click();
     await expect(page.getByTestId('sql-result-strip-sql')).toHaveText('SELECT * FROM "orders" LIMIT 100;');
@@ -106,11 +108,6 @@ test.describe('SQL result grid', () => {
     test(`windows a wide result: scroll, sticky header, arrow keys and the editor (${language})`, async ({ page }) => {
       const errors = collectConsoleErrors(page);
       await seedSession(page, { language });
-      await page.addInitScript(() => {
-        const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-        raw.state.featureFlags = { editRows: true };
-        localStorage.setItem('lingua-settings', JSON.stringify(raw));
-      });
       await gotoApp(page);
       await openSqlScratch(page);
       const names = Array.from({ length: 99 }, (_, c) => `c${c + 1}`);
@@ -249,11 +246,6 @@ test.describe('SQL result grid', () => {
       const errors = collectConsoleErrors(page);
       await page.setViewportSize({ width: 1100, height: 620 });
       await seedSession(page, { language });
-      await page.addInitScript(() => {
-        const raw = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-        raw.state.featureFlags = { editRows: true };
-        localStorage.setItem('lingua-settings', JSON.stringify(raw));
-      });
       await gotoApp(page);
       await openSqlScratch(page);
       await runAll(page, "CREATE TABLE places (id INTEGER PRIMARY KEY, name VARCHAR, city VARCHAR); INSERT INTO places SELECT i, 'n' || i, 'c' || i FROM range(40) t(i);");

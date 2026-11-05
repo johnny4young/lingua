@@ -442,7 +442,6 @@ describe('settingsStore', () => {
       }
     ).persist.rehydrate();
     expect(useSettingsStore.getState().sqlWorkspaceInstantPreview).toBe(expected);
-    expect(useSettingsStore.getState().featureFlags).toEqual({});
   });
 
   it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (OPFS)', async () => {

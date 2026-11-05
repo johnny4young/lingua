@@ -389,7 +389,6 @@ describe('HttpRequestEditor', () => {
   describe('Open as JS tab', () => {
     const initialEditor = useEditorStore.getState();
     afterEach(() => {
-      useSettingsStore.setState({ featureFlags: {} });
       useEditorStore.setState(initialEditor, true);
     });
     const open = (patch: object = {}) => {

@@ -54,7 +54,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  useSettingsStore.setState({ featureFlags: {}, utilitiesClipboardOnFocusConsent: 'declined' });
+  useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'declined' });
   setPro(false);
 });
 

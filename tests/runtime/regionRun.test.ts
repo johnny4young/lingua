@@ -20,7 +20,6 @@ afterEach(() => {
 
 describe('region run at the cursor', () => {
   it('runs the region at the cursor of a focused editor, with the masked answers of its tab', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: CODE }] as never, 't1');
     useRunRegionStore.setState({ masked: { t1: { input: '', content: CODE, answers: [{ index: 0, value: 's' }] } } });
     focusEditor(3);

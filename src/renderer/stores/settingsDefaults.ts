@@ -231,7 +231,6 @@ export function createInitialSettingsState() {
     sensitiveHttpHeaders: [],
     httpAllowPrivateHosts: false,
     networkFromRunningCode: DEFAULT_NETWORK_POLICY,
-    featureFlags: {},
     // SQL grid page size and default timeout; `MAX_QUERY_TIMEOUT_MS` (5 min) still bounds the timeout.
     sqlWorkspaceRowDisplayLimit: 1000,
     sqlWorkspaceQueryTimeoutMs: 30_000,

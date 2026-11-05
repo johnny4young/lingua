@@ -146,7 +146,7 @@ beforeEach(() => {
   resetWorkspaceSqlStoreForTests();
   resetSqlRunStateForTests();
   useUIStore.setState({ statusNotice: null });
-  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, sqlWorkspaceInstantPreview: false, featureFlags: {} });
+  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, sqlWorkspaceInstantPreview: false });
   useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
   useSqlConnectionsStore.setState({ catalog: null });
   duckRan = [];
@@ -167,7 +167,6 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (window as { lingua?: unknown }).lingua;
-  useSettingsStore.setState({ featureFlags: {} });
   __setDuckDbEngineFactoryForTests(() => Promise.resolve(localEngine()));
 });
 

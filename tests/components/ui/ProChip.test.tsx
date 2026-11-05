@@ -4,7 +4,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../../src/renderer/i18n';
 import { ProChip } from '../../../src/renderer/components/ui/ProChip';
 import { _resetCommandBusForTesting, subscribeCommand } from '../../../src/renderer/stores/commandBus';
-import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 
 describe('ProChip', () => {
   beforeAll(async () => {
@@ -12,7 +11,6 @@ describe('ProChip', () => {
     await i18next.changeLanguage('en');
   });
   afterEach(() => {
-    useSettingsStore.setState({ featureFlags: {} });
     _resetCommandBusForTesting();
   });
 

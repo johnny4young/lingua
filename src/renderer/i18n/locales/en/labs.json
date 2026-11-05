@@ -1,4 +1,0 @@
-{
-  "settings.labs.flag.editRows.label": "Edit table rows",
-  "settings.labs.flag.editRows.description": "Edit cells, add, duplicate and delete rows of a table opened from the SQL Explorer, review the SQL, and commit it in one transaction. Never on read-only or production connections, nor on ClickHouse."
-}

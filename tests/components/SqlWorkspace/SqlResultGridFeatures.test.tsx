@@ -4,7 +4,6 @@ import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
 import type { SqlForeignKey } from '../../../src/renderer/runtime/sqlForeignKeys';
-import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useSnippetsStore } from '../../../src/renderer/stores/snippetsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
@@ -127,7 +126,6 @@ describe('cell menu and filters', () => {
       return user;
     };
     afterEach(() => {
-      useSettingsStore.setState({ featureFlags: {} });
       useSnippetsStore.setState({ snippets: [] });
     });
 

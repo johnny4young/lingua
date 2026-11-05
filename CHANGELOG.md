@@ -7,7 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
-- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code, Pro in context, Clipboard-aware utilities (reads stay off until you turn on Apply from clipboard on panel focus, on Pro), Database connections (Free keeps 3 saved connections; a query saved against a connection now runs on it) and Instant SQL (on for everyone on Local, with a switch in Settings › Editor). Settings › Labs no longer lists them.
+- Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code, Pro in context, Clipboard-aware utilities (reads stay off until you turn on Apply from clipboard on panel focus, on Pro), Database connections (Free keeps 3 saved connections; a query saved against a connection now runs on it) Instant SQL (on for everyone on Local, with a switch in Settings › Editor) and Edit table rows (on every plan; a table without a primary key keeps its rowid out of the grid, copies and exports). With nothing experimental left, Settings no longer has a Labs tab.
 - Scratchpad now follows Settings › Editor › Run policy: 500 ms after typing for JavaScript and TypeScript, 1 s for Python, and Manual for Go and Rust, where it used to wait 1.2 s for every language.
 - On Free, Recent runs, Utility pipelines and Run capsules open as slices of your own data instead of locks, and the first upgrade notice in a session opens Compare plans.
 - Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.
@@ -16,10 +16,10 @@ The format follows Keep a Changelog and groups changes by release.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
 
 ### Fixed
-- Edit table rows (Labs): duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
-- Edit table rows (Labs): Commit now fails when a row changed since it was read, not only when its key did, for text, whole numbers, decimals and booleans.
-- Edit table rows (Labs): running a query or opening another table with changes staged asks before discarding them, and Commit cannot run twice while the table is read again.
-- Edit table rows (Labs): SQL Server and Postgres tables whose key a driver cuts or rounds, and MySQL tables without transactions, are read-only; SQL Server no longer counts what triggers write, MySQL rejects a value it would have changed, and clearing a number or date sets NULL.
+- Edit table rows: duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
+- Edit table rows: Commit now fails when a row changed since it was read, not only when its key did, for text, whole numbers, decimals and booleans.
+- Edit table rows: running a query or opening another table with changes staged asks before discarding them, and Commit cannot run twice while the table is read again.
+- Edit table rows: SQL Server and Postgres tables whose key a driver cuts or rounds, and MySQL tables without transactions, are read-only; SQL Server no longer counts what triggers write, MySQL rejects a value it would have changed, and clearing a number or date sets NULL.
 - Local SQL accepts `CREATE MACRO` with untyped parameters, such as `CREATE MACRO add_one(a) AS a + 1`, and SQL errors now show DuckDB's own reason, with the line and position, instead of one generic sentence.
 - Instant SQL keeps a few rows in sight on a short results pane, and the results below it are one scroll away. It used to show only its column names.
 - Database connections: results, driver errors and secret literals of a query on a connection no longer reach disk or a run capsule. After a reload the query shows ••• in place of the value, and it will not run until you type it again.

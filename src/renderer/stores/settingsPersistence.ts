@@ -103,7 +103,6 @@ export function settingsPartialize(state: SettingsState) {
     sensitiveHttpHeaders: state.sensitiveHttpHeaders,
     httpAllowPrivateHosts: state.httpAllowPrivateHosts,
     networkFromRunningCode: state.networkFromRunningCode,
-    featureFlags: state.featureFlags,
     // Persist SQL workspace preferences.
     sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,

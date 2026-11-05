@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { LicenseBadge } from '../../src/renderer/components/Toolbar/LicenseBadge';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
-import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { _resetCommandBusForTesting, subscribeCommand } from '../../src/renderer/stores/commandBus';
 import type { LicenseTier } from '../../src/shared/license';
 
@@ -156,7 +155,6 @@ describe('LicenseBadge', () => {
 
   describe('with Pro in context', () => {
     afterEach(() => {
-      useSettingsStore.setState({ featureFlags: {} });
       _resetCommandBusForTesting();
     });
 

@@ -13,7 +13,6 @@ export type SettingsTabId =
   | 'shortcuts'
   | 'integrations'
   | 'plugins'
-  | 'labs'
   | 'recovery';
 
 export interface OpenFileCommand {

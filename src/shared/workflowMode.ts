@@ -51,7 +51,7 @@ const WORKFLOW_MODE_SET: ReadonlySet<string> = new Set(WORKFLOW_MODES);
  *
  * Picking a slightly wider set than the language defaults preserves
  * existing user behavior: anybody who was using auto-run on a Go or
- * Rust tab keeps that experience. With Run state on in Labs, the run
+ * Rust tab keeps that experience. The run
  * policy (`runPolicy.ts`) decides when each group's Scratchpad runs.
  */
 const SCRATCHPAD_CAPABLE_LANGUAGES: ReadonlySet<string> = new Set([

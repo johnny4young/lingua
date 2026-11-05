@@ -1,6 +1,6 @@
 import type { SettingsState } from '../types/settings';
 import { currentEffectiveTier } from './licenseSelectors';
-import { sanitizeLabsSettings } from './settingsLabsSanitizer';
+import { sanitizePolicySettings } from './settingsPolicySanitizer';
 import { systemEditorTheme } from '../utils/appTheme';
 import {
   DEFAULT_KEYMAP_PRESET_ID,
@@ -287,7 +287,7 @@ export function settingsMerge(
     firstWorkflowModeSwitchAcknowledged,
     sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
     httpAllowPrivateHosts: merged.httpAllowPrivateHosts === true,
-    ...sanitizeLabsSettings(merged),
+    ...sanitizePolicySettings(merged),
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
     sqlWorkspaceInstantPreview: merged.sqlWorkspaceInstantPreview !== false,
