@@ -39,6 +39,33 @@ const rows = (page: Page) => page.getByTestId('sql-result-preview-row').evaluate
 
 test.describe('Staged row edits', () => {
   for (const language of ['en', 'es'] as const) {
+    test(`keeps them through a tab switch, and the page asks before closing (${language})`, async ({ page }) => {
+      await open(page, language);
+      await runAll(page, "CREATE TABLE kept (id INT PRIMARY KEY, v VARCHAR); INSERT INTO kept VALUES (1, 'a');");
+      await openTable(page, 'kept');
+      await edit(page, 'v', 'mine');
+      await expect(page.getByTestId('sql-edit-count')).toHaveText(STAGED[language]);
+
+      await page.keyboard.press('ControlOrMeta+Shift+K');
+      await expect(page.getByTestId('http-workspace-panel')).toBeVisible();
+      await expect(page.getByTestId('sql-edit-bar')).toHaveCount(0);
+      await page.keyboard.press('ControlOrMeta+Alt+S');
+      await expect(page.getByTestId('sql-edit-count')).toHaveText(STAGED[language]);
+      await expect(page.getByTestId('sql-result-preview-row').first().locator('td[data-column="v"]')).toContainText('mine');
+
+      const asked = page.waitForEvent('dialog');
+      await page.close({ runBeforeUnload: true });
+      const dialog = await asked;
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.dismiss();
+      await expect(page.getByTestId('sql-edit-count')).toHaveText(STAGED[language]);
+
+      await page.getByTestId('sql-edit-commit').click();
+      await expect(page.getByTestId('sql-edit-notice')).toBeVisible();
+      await runAll(page, 'SELECT v FROM kept');
+      await expect.poll(() => rows(page)).toEqual(['mine']);
+    });
+
     test(`asks before a Run, another table or a new query drops them (${language})`, async ({ page }) => {
       await open(page, language);
       await runAll(page, "CREATE TABLE t1 (id INT PRIMARY KEY, v VARCHAR); INSERT INTO t1 VALUES (1, 'a'); CREATE TABLE t2 (id INT PRIMARY KEY, v VARCHAR);");
@@ -114,6 +141,10 @@ test.describe('Staged row edits', () => {
     await expect(page.getByTestId('sql-edit-review-panel')).toContainText('INSERT INTO "files" ("v") VALUES (\'orig\')');
 
     await page.getByTestId('sql-edit-discard').click();
+    await page.getByTestId('sql-result-preview-row').first().locator('td[data-column="v"]').click();
+    await page.keyboard.press('Shift+Enter');
+    await expect(page.getByTestId('sql-cell-editor')).toHaveCount(0);
+    await expect(page.getByTestId('sql-value-viewer')).toBeVisible();
     await openTable(page, 'timed');
     await expect(page.getByTestId('sql-edit-bar')).toContainText('rows by rowid');
     await expect(page.getByTestId('sql-result-preview-row').first().locator('td[data-column="rowid"]')).toHaveCount(0);

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setStagedRowEdits } from '../../../src/renderer/runtime/sqlStagedEdits';
 
 const { applyLocalEdits } = vi.hoisted(() => ({ applyLocalEdits: vi.fn() }));
 vi.mock('../../../src/renderer/runtime/sqlLocalEdits', () => ({ applyLocalEdits, loadLocalEditTable: vi.fn() }));
@@ -59,6 +60,7 @@ const cell = (row: number, column: string) => within(screen.getAllByTestId('sql-
 
 beforeEach(() => applyLocalEdits.mockReset());
 afterEach(() => {
+  setStagedRowEdits(null);
   delete (window as { lingua?: unknown }).lingua;
   useSqlConnectionsStore.setState({ catalog: null });
 });

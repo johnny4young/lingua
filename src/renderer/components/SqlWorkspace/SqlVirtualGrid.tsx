@@ -486,7 +486,10 @@ export function SqlVirtualGrid({
     else if (event.key === 'ArrowUp') move(current.row < 0 ? 0 : current.row - 1, colIndex);
     else if (event.key === 'ArrowRight' && selected) move(current.row, colIndex + 1);
     else if (event.key === 'ArrowLeft' && selected) move(current.row, colIndex - 1);
-    else if (event.key === 'Enter' && selected) openCell(selected);
+    else if (event.key === 'Enter' && selected) {
+      if (event.shiftKey) onCellAction('open-value', selected);
+      else openCell(selected);
+    }
     else if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && selected) {
       const rect = scrollRef.current?.getBoundingClientRect();
       setMenu({ cell: selected, x: (rect?.left ?? 0) + 40, y: (rect?.top ?? 0) + 40 });

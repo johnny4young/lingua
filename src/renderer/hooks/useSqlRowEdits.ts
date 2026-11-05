@@ -4,13 +4,14 @@
  * a connection. A new read of the table starts a new change set.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SqlDbApplyResult } from '../../shared/sqlDb';
 import { rowEditReview, rowEditStatements, type RowEditFailure } from '../../shared/sqlRowEdits';
 import { changeSet, NO_EDITS, stagedCount, type StagedEdits } from '../components/SqlWorkspace/sqlRowEditModel';
 import { applyLocalEdits } from '../runtime/sqlLocalEdits';
 import { sqlDbBridge } from '../runtime/sqlRemote';
+import { setStagedRowEdits, stagedRowEdits } from '../runtime/sqlStagedEdits';
 import { findConnection } from '../stores/sqlConnectionsStore';
 import type { SqlTablePreview } from './useSqlTablePreview';
 import type { SqlWriteConfirm } from './useSqlRunner';
@@ -21,13 +22,22 @@ export interface SqlRowEditNotice {
   text: string;
 }
 
+const readKeyOf = (preview: SqlTablePreview | null) => (preview ? `${preview.connectionId ?? 'local'}|${preview.sql}|${preview.response.recordedAt}` : '');
+
 export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview: SqlTablePreview) => Promise<void>) {
   const { t } = useTranslation();
   const target = preview?.edit && 'table' in preview.edit ? preview.edit.table : null;
   // Staged edits belong to one read of one table.
-  const readKey = preview ? `${preview.connectionId ?? 'local'}|${preview.sql}|${preview.response.recordedAt}` : '';
-  const [state, setState] = useState<{ key: string; edits: StagedEdits }>({ key: '', edits: NO_EDITS });
+  const readKey = readKeyOf(preview);
+  const [state, setState] = useState<{ key: string; edits: StagedEdits }>(() => {
+    const kept = stagedRowEdits();
+    return kept ? { key: readKeyOf(kept.preview), edits: kept.edits } : { key: '', edits: NO_EDITS };
+  });
   const edits = state.key === readKey ? state.edits : NO_EDITS;
+  useEffect(() => {
+    const count = stagedCount(edits);
+    setStagedRowEdits(preview && count > 0 ? { preview, edits, count } : null);
+  }, [preview, edits]);
   // A notice outlives the read a commit replaces, but not the table.
   const tableKey = preview ? `${preview.connectionId ?? 'local'}|${preview.table.name}` : '';
   const [shownNotice, setShownNotice] = useState<{ key: string; notice: SqlRowEditNotice | null }>({ key: '', notice: null });

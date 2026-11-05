@@ -16,6 +16,7 @@ import {
 import { toSqlResponse } from './useSqlRunner';
 import { ROW_EDIT_ENGINES, rowEditRefusal, rowEditTableFrom, type RowEditRefusal, type RowEditTable } from '../../shared/sqlRowEdits';
 import { loadLocalEditTable } from '../runtime/sqlLocalEdits';
+import { stagedRowEdits } from '../runtime/sqlStagedEdits';
 import { findConnection } from '../stores/sqlConnectionsStore';
 
 /** Whether the opened table's rows can be edited: its target, or why not. */
@@ -73,7 +74,7 @@ const keyCache = new Map<string, Promise<SqlTableForeignKeys>>();
  * referenced row and back, and open the rows that point at a row.
  */
 export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlSchemaTable>, canLeave: () => boolean = () => true) {
-  const [preview, setPreview] = useState<SqlTablePreview | null>(null);
+  const [preview, setPreview] = useState<SqlTablePreview | null>(() => stagedRowEdits()?.preview ?? null);
   const [keys, setKeys] = useState<{ table: string; keys: SqlTableForeignKeys } | null>(null);
   // Bumped by every open, run and query switch so a late table result never lands over a newer view.
   const tokenRef = useRef(0);
