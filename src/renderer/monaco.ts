@@ -31,6 +31,7 @@ import { getLanguageSupportDescriptor } from './languageSupport/registry';
 import type { NavigationTreeItem } from './utils/symbolNavigation';
 import { loadNodeTypeDefinitions } from './nodeTypeDefinitionsLoader';
 import { NODE_BUILTINS } from '../shared/dependencies/nodeBuiltins';
+import { useSettingsStore } from './stores/settingsStore';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -245,6 +246,7 @@ type MonacoTypeScriptDefaultsWithExtraLib = {
 type MonacoDiagnosticsOptions = {
   noSemanticValidation?: boolean;
   noSyntaxValidation?: boolean;
+  noSuggestionDiagnostics?: boolean;
   onlyVisible?: boolean;
 };
 
@@ -505,63 +507,86 @@ function startTypeScriptWorkerOnFirstUse(m: Monaco): void {
   );
 }
 
-/** Set the JS/TS compiler options and register the typings; call from beforeMount, it never waits on them. */
+/** Register the Lingua and Node typings; call from beforeMount, it never waits on them. */
 export function applyTypeScriptDefaults(m: Monaco): void {
   startTypeScriptWorkerOnFirstUse(m);
-  applyCompilerOptionsOnce();
   scheduleNodeTypeDefinitions(m, typeScriptDefaults);
 }
 
-let compilerOptionsApplied = false;
+type InlineLintDiagnostics = Required<
+  Pick<
+    MonacoDiagnosticsOptions,
+    'noSemanticValidation' | 'noSyntaxValidation' | 'noSuggestionDiagnostics'
+  >
+>;
 
-// Lingua runs JS/TS as an async function body or an ES module, so every tab is a module
-// that may use top-level await, and its names never clash with the DOM's globals.
-function applyCompilerOptionsOnce(): void {
-  if (compilerOptionsApplied) return;
-  compilerOptionsApplied = true;
-  const { ModuleKind, ModuleResolutionKind, ScriptTarget } = typeScriptDefaults;
-  const compilerOptions = {
-    allowNonTsExtensions: true,
-    allowSyntheticDefaultImports: true,
-    module: ModuleKind.ESNext,
-    // ModuleDetectionKind.Force, which Monaco does not export.
-    moduleDetection: 3,
-    moduleResolution: ModuleResolutionKind.NodeJs,
-    noEmit: true,
-    target: ScriptTarget.ESNext,
+function inlineLintDiagnostics(options: MonacoDiagnosticsOptions): InlineLintDiagnostics {
+  return {
+    noSemanticValidation: options.noSemanticValidation ?? false,
+    noSyntaxValidation: options.noSyntaxValidation ?? false,
+    noSuggestionDiagnostics: options.noSuggestionDiagnostics ?? false,
   };
-  // Without Lingua's Monaco patch, allowJs would read an extensionless TypeScript model as JavaScript.
-  typeScriptDefaults.javascriptDefaults.setCompilerOptions({ ...compilerOptions, allowJs: true });
-  typeScriptDefaults.typescriptDefaults.setCompilerOptions(compilerOptions);
 }
 
-// Without checkJs, JavaScript's semantic pass reports only code that always fails.
+// Monaco's own defaults, read before anything changes them, plus JavaScript's semantic pass:
+// without checkJs it reports only code that always fails.
 const INLINE_LINT_DIAGNOSTICS = {
-  javascript: { noSemanticValidation: false, noSyntaxValidation: false },
-  typescript: { noSemanticValidation: false, noSyntaxValidation: false },
-} as const;
-const SILENT_DIAGNOSTICS = { noSemanticValidation: true, noSyntaxValidation: true } as const;
+  javascript: {
+    ...inlineLintDiagnostics(typeScriptDefaults.javascriptDefaults.getDiagnosticsOptions()),
+    noSemanticValidation: false,
+  },
+  typescript: inlineLintDiagnostics(typeScriptDefaults.typescriptDefaults.getDiagnosticsOptions()),
+};
+const SILENT_DIAGNOSTICS: InlineLintDiagnostics = {
+  noSemanticValidation: true,
+  noSyntaxValidation: true,
+  noSuggestionDiagnostics: true,
+};
 
-/**
- * Silence or restore Monaco's built-in JS/TS diagnostics for one language, for
- * the Settings "Inline lint" toggle. The defaults are global, so this covers
- * every model of that language.
- */
-export function setMonacoInlineLintEnabled(
-  language: 'javascript' | 'typescript',
-  enabled: boolean
-): void {
+function setMonacoInlineLintEnabled(language: 'javascript' | 'typescript', enabled: boolean): void {
   const defaults = typeScriptDefaults[`${language}Defaults`];
   const next = enabled ? INLINE_LINT_DIAGNOSTICS[language] : SILENT_DIAGNOSTICS;
   const current = defaults.getDiagnosticsOptions();
-  // Every change restarts the TypeScript worker, and editors call this on each mount.
+  const applied = inlineLintDiagnostics(current);
+  // Every change restarts the TypeScript worker.
   if (
-    current.noSemanticValidation === next.noSemanticValidation &&
-    current.noSyntaxValidation === next.noSyntaxValidation
+    applied.noSemanticValidation === next.noSemanticValidation &&
+    applied.noSyntaxValidation === next.noSyntaxValidation &&
+    applied.noSuggestionDiagnostics === next.noSuggestionDiagnostics
   )
     return;
   defaults.setDiagnosticsOptions({ ...current, ...next });
 }
+
+function applyInlineLintSetting(enabledByLanguage: Record<string, boolean>): void {
+  setMonacoInlineLintEnabled('javascript', enabledByLanguage.javascript !== false);
+  setMonacoInlineLintEnabled('typescript', enabledByLanguage.typescript !== false);
+}
+
+// Lingua runs JS/TS as an async function body or an ES module, so every tab is a module
+// that may use top-level await, and its names never clash with the DOM's globals.
+const COMPILER_OPTIONS = {
+  allowNonTsExtensions: true,
+  allowSyntheticDefaultImports: true,
+  module: typeScriptDefaults.ModuleKind.ESNext,
+  // ModuleDetectionKind.Force, which Monaco does not export.
+  moduleDetection: 3,
+  moduleResolution: typeScriptDefaults.ModuleResolutionKind.NodeJs,
+  noEmit: true,
+  target: typeScriptDefaults.ScriptTarget.ESNext,
+};
+// Without Lingua's Monaco patch, allowJs would read an extensionless TypeScript model as JavaScript.
+typeScriptDefaults.javascriptDefaults.setCompilerOptions({ ...COMPILER_OPTIONS, allowJs: true });
+typeScriptDefaults.typescriptDefaults.setCompilerOptions(COMPILER_OPTIONS);
+
+// Monaco's diagnostics defaults are global, so one subscription covers every model,
+// whether or not an editor is mounted.
+applyInlineLintSetting(useSettingsStore.getState().inlineLintEnabledByLanguage);
+useSettingsStore.subscribe((state, previous) => {
+  if (state.inlineLintEnabledByLanguage !== previous.inlineLintEnabledByLanguage) {
+    applyInlineLintSetting(state.inlineLintEnabledByLanguage);
+  }
+});
 
 // Monaco's direct TypeScript contribution declaration is currently an empty
 // stub even though the ESM module exports the worker accessors at runtime.

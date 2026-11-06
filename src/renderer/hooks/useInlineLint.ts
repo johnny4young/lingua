@@ -7,7 +7,6 @@ import {
   LINGUA_LINT_MARKER_OWNER,
   type LintQuickFixMessages,
 } from '../lint/lintQuickFixProvider';
-import { setMonacoInlineLintEnabled } from '../monaco';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
 
@@ -42,17 +41,15 @@ interface ActiveLintTab {
 }
 
 /**
- * Wire inline lint over Monaco's existing JS/TS analysis. Three
- * concerns, all gated by the per-language `inlineLintEnabledByLanguage` setting:
+ * Wire Lingua's inline lint rules into an editor, gated by the per-language
+ * `inlineLintEnabledByLanguage` setting. Monaco's own diagnostics follow the
+ * same setting through `monaco.ts`.
  *
- *  1. Native toggle — flip Monaco's built-in TS/JS diagnostics on/off per
- *     language via `setMonacoInlineLintEnabled` (the squiggles that already
- *     ship). Re-applied whenever the setting changes.
- *  2. Custom rules — run the pure `findLintIssues` (debounced 500 ms) over the
+ *  1. Custom rules — run the pure `findLintIssues` (debounced 500 ms) over the
  *     active JS/TS buffer and publish `'lingua-lint'` markers (the rules Monaco
  *     does not provide, e.g. `==` -> `===`). Paused on hidden tab; cleared when
  *     disabled or on a non-JS/TS tab.
- *  3. Quick-fixes — register the CodeActionProvider once per Monaco instance.
+ *  2. Quick-fixes — register the CodeActionProvider once per Monaco instance.
  *
  * Adoption telemetry (`editor.lint_diagnostic_emitted`) fires at most once per
  * session per (language, severity, ruleId), separating Monaco's `ts-native`
@@ -102,13 +99,7 @@ export function useInlineLint(
     };
   }, []);
 
-  // 1) Native Monaco diagnostics toggle, per language.
-  useEffect(() => {
-    setMonacoInlineLintEnabled('javascript', inlineLintEnabledByLanguage.javascript !== false);
-    setMonacoInlineLintEnabled('typescript', inlineLintEnabledByLanguage.typescript !== false);
-  }, [inlineLintEnabledByLanguage]);
-
-  // 3) Register the quick-fix provider once per Monaco instance for JS + TS.
+  // 2) Register the quick-fix provider once per Monaco instance for JS + TS.
   useEffect(() => {
     if (!monaco) return undefined;
     const provider = createLintQuickFixProvider(
@@ -124,7 +115,7 @@ export function useInlineLint(
     };
   }, [monaco]);
 
-  // 2) Custom-rule markers (debounced) + adoption telemetry.
+  // 1) Custom-rule markers (debounced) + adoption telemetry.
   useEffect(() => {
     const model = editor?.getModel();
     if (!model || !monaco || !activeTab) return undefined;

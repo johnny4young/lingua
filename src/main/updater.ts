@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import { typedHandle } from './ipc/typedHandle';
-import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
+import type { AppUpdater, ProgressInfo, UpdateInfo } from 'electron-updater';
 
 // electron-updater auto-installs from the platform's updater-native format:
 // macOS (zip / Squirrel.Mac), Windows (NSIS), and Linux (AppImage). The feed
@@ -17,6 +17,7 @@ let updateState: UpdateState = {
 };
 
 let registered = false;
+let wiredUpdater: Promise<AppUpdater> | null = null;
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -80,6 +81,26 @@ function resolveReleaseNotes(info: UpdateInfo): string | undefined {
   return undefined;
 }
 
+/**
+ * electron-updater loads with the first check, ten seconds after launch, not with main.
+ * A native import() of this CommonJS package from CommonJS main puts its exports on `default`.
+ */
+function loadWiredUpdater(): Promise<AppUpdater> {
+  wiredUpdater ??= import('electron-updater').then(
+    mod => {
+      const { autoUpdater } = 'autoUpdater' in mod ? mod : (mod as { default: typeof mod }).default;
+      wireAutoUpdater(autoUpdater);
+      return autoUpdater;
+    },
+    (error: unknown) => {
+      // Let the next check try again instead of failing every check this session.
+      wiredUpdater = null;
+      throw error;
+    }
+  );
+  return wiredUpdater;
+}
+
 function startUpdater(): void {
   if (!app.isPackaged) {
     setUpdateState({
@@ -108,6 +129,30 @@ function startUpdater(): void {
     message: 'Automatic updates are enabled for this packaged build.',
   });
 
+  // Initial check shortly after launch, then every hour. checkForUpdates()
+  // rejects on a transient network/feed error — funnel that into the error
+  // state instead of an unhandled rejection.
+  const runCheck = () => {
+    void loadWiredUpdater()
+      .then(autoUpdater => autoUpdater.checkForUpdates())
+      .catch((error: unknown) => {
+        markUpdateError(error instanceof Error ? error.message : String(error));
+      });
+  };
+  // Neither timer should keep the event loop alive or start a check during
+  // shutdown, including a quit before the first ten seconds have elapsed.
+  const initialCheck = setTimeout(runCheck, 10_000);
+  initialCheck.unref?.();
+  const poll = setInterval(runCheck, UPDATE_INTERVAL_MS);
+  poll.unref?.();
+  // Not before-quit: the dirty-tab prompt can still cancel the quit there.
+  app.once('will-quit', () => {
+    clearTimeout(initialCheck);
+    clearInterval(poll);
+  });
+}
+
+function wireAutoUpdater(autoUpdater: AppUpdater): void {
   // Download in the background and stage the install for the next quit; the
   // user still gets an explicit "Restart to update" affordance.
   autoUpdater.autoDownload = true;
@@ -163,26 +208,6 @@ function startUpdater(): void {
   autoUpdater.on('error', (error: Error) => {
     markUpdateError(error?.message || 'Automatic update failed.');
   });
-
-  // Initial check shortly after launch, then every hour. checkForUpdates()
-  // rejects on a transient network/feed error — funnel that into the error
-  // state instead of an unhandled rejection.
-  const runCheck = () => {
-    void autoUpdater.checkForUpdates()?.catch((error: unknown) => {
-      markUpdateError(error instanceof Error ? error.message : String(error));
-    });
-  };
-  // Neither timer should keep the event loop alive or start a check during
-  // shutdown, including a quit before the first ten seconds have elapsed.
-  const initialCheck = setTimeout(runCheck, 10_000);
-  initialCheck.unref?.();
-  const poll = setInterval(runCheck, UPDATE_INTERVAL_MS);
-  poll.unref?.();
-  // Not before-quit: the dirty-tab prompt can still cancel the quit there.
-  app.once('will-quit', () => {
-    clearTimeout(initialCheck);
-    clearInterval(poll);
-  });
 }
 
 export function registerUpdater(): void {
@@ -193,7 +218,7 @@ export function registerUpdater(): void {
 
       try {
         markCheckingForUpdates();
-        await autoUpdater.checkForUpdates();
+        await (await loadWiredUpdater()).checkForUpdates();
       } catch (error) {
         markUpdateError(error instanceof Error ? error.message : String(error));
       }
@@ -207,7 +232,7 @@ export function registerUpdater(): void {
       // install exists. Only short-circuit when updates are disabled outright.
       if (!updateState.enabled) return false;
       try {
-        autoUpdater.quitAndInstall();
+        (await loadWiredUpdater()).quitAndInstall();
         return true;
       } catch {
         return false;
