@@ -82,19 +82,19 @@ describe('website download browser qualification controls', () => {
         }
       >;
     };
-    const steps = workflow.jobs['desktop-bundles']!.steps;
-    const macPullRequest = "matrix.os == 'macos-latest' && github.event_name == 'pull_request'";
+    // The macOS job runs on every push to main and on pull requests that touch a risky path.
+    const steps = workflow.jobs['desktop-bundles-macos']!.steps;
     const dependencies = steps.find(step => step.name === 'Install website smoke dependencies');
     expect(dependencies?.run).toBe('npm ci --no-audit --no-fund');
     expect(dependencies?.['working-directory']).toBe('website');
-    expect(dependencies?.if).toBe(macPullRequest);
+    expect(dependencies?.if).toBeUndefined();
     const chromium = steps.find(step => step.name === 'Install website smoke Chromium');
     expect(chromium?.run).toBe('pnpm exec playwright install chromium');
     expect(chromium?.env?.PLAYWRIGHT_BROWSERS_PATH).toBe('0');
-    expect(chromium?.if).toBe(macPullRequest);
+    expect(chromium?.if).toBeUndefined();
     const smoke = steps.find(step => step.name === 'Website download browser smoke');
     expect(smoke?.run).toBe('node scripts/run-website-download-smoke.mjs');
-    expect(smoke?.if).toBe(macPullRequest);
+    expect(smoke?.if).toBeUndefined();
     const subprojects = workflow.jobs.subprojects!.steps;
     expect(subprojects.find(step => step.name === 'Website download smoke types')?.run).toBe(
       'pnpm exec tsc --noEmit -p tsconfig.website-downloads.json'
@@ -102,9 +102,7 @@ describe('website download browser qualification controls', () => {
     expect(subprojects.some(step => step.name === 'Website download browser smoke')).toBe(false);
     expect(subprojects.some(step => step.name === 'Install website smoke Chromium')).toBe(false);
     const upload = steps.find(step => step.name === 'Upload website download evidence');
-    expect(upload?.if).toBe(
-      `always() && ${macPullRequest} && steps.website-download-smoke.outcome != 'skipped'`
-    );
+    expect(upload?.if).toBe("always() && steps.website-download-smoke.outcome != 'skipped'");
     expect(upload?.with?.name).toBe('website-download-matrix');
     expect(upload?.with?.['retention-days']).toBe(7);
     expect(upload?.with?.['if-no-files-found']).toBe('error');
@@ -116,7 +114,7 @@ describe('website download browser qualification controls', () => {
     ]);
     const native = steps.find(step => step.name === 'Native Unicode capture and Stop smoke');
     expect(native?.run).toBe('node scripts/smoke-native-output.mjs');
-    expect(native?.if).toBe(macPullRequest);
+    expect(native?.if).toBeUndefined();
     expect(steps.indexOf(native!)).toBeLessThan(steps.indexOf(dependencies!));
   });
 
