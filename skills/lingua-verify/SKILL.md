@@ -5,7 +5,7 @@ compatibility: Requires the Lingua CLI 1.3.0 or later on PATH, an agent that can
 license: SEE LICENSE IN https://github.com/johnny4young/lingua/blob/main/LICENSE
 metadata:
   author: johnny4young
-  version: '2.0.0'
+  version: '2.1.0'
 ---
 
 # Verify with the Lingua CLI

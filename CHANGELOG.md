@@ -6,6 +6,8 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-11-06
+
 ### Changed
 - A chain tag in the HTTP URL reads as its source and path inside the field, `response(List repos) · [0].owner.login`, while the caret is elsewhere, and opens on click.
 - While paused, the debugger shows the values of the paused line's variables in the Scratchpad's inline pills, and the values a step changed now use the same pills.
