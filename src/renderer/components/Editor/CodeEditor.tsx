@@ -6,6 +6,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
+import { useDebuggerStore } from '../../stores/debuggerStore';
+import { pausedLineResults } from '../../utils/debuggerLocals';
 import { PRESENTER_EDITOR_FONT_LIFT, usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
@@ -103,6 +105,8 @@ export function CodeEditor() {
   const [editorInstance, setEditorInstance] = useState<Parameters<OnMount>[0] | null>(null);
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const { applyDiagnostics, clearMarkers } = useExecutionMarkers();
+  const pausedFrame = useDebuggerStore(state => state.pausedFrame);
+  const previousPause = useDebuggerStore(state => state.previousPause);
   const visibleLineResults = useMemo(
     () => lineResults.filter(result => !isHiddenUndefinedLineResult(result)),
     [lineResults]
@@ -127,6 +131,14 @@ export function CodeEditor() {
   );
 
   const activeTab = useActiveTab();
+  // While paused here, the frame's values join what the run has logged so far.
+  const inlineLineResults = useMemo(
+    () =>
+      activeTab && pausedFrame?.tabId === activeTab.id
+        ? [...visibleLineResults, ...pausedLineResults(pausedFrame, previousPause, activeTab.content, activeTab.language)]
+        : visibleLineResults,
+    [activeTab, pausedFrame, previousPause, visibleLineResults]
+  );
 
   // "Explain with AI" over a selection (or the whole buffer) is
   // the first main-editor AI affordance. Registered as a Monaco context-menu
@@ -522,7 +534,7 @@ export function CodeEditor() {
         <InlineResultWidgetsHost
           editor={editorInstance}
           monaco={monacoInstance}
-          lineResults={visibleLineResults}
+          lineResults={inlineLineResults}
           tabId={activeTabId}
           lineTimings={lineTimings}
           lineEndReserve={errorActionsReserve}
