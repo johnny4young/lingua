@@ -6,8 +6,6 @@ import {
   type HttpDesktopRequestOptions,
   type HttpStreamProgress,
 } from '../../shared/httpWorkspaceSchema';
-import { executeHttpProxyRequest } from '../httpProxy';
-import { executeWebSocketProxyRequest } from '../httpWebSocket';
 import { typedHandle } from './typedHandle';
 import { onOwnerReset } from '../runners/ownerReset';
 
@@ -107,13 +105,16 @@ export function registerHttpHandlers(): void {
         }, PROGRESS_INTERVAL_MS);
       };
       try {
+        // undici and ws load with the first request, not with every launch.
         if (request.transport === 'websocket') {
+          const { executeWebSocketProxyRequest } = await import('../httpWebSocket');
           return await executeWebSocketProxyRequest(request, {
             allowPrivateHosts: options.allowPrivateHosts,
             signal: controller.signal,
             onProgress,
           });
         }
+        const { executeHttpProxyRequest } = await import('../httpProxy');
         return await executeHttpProxyRequest(request, {
           allowPrivateHosts: options.allowPrivateHosts,
           userSensitiveHeaders: options.userSensitiveHeaders,

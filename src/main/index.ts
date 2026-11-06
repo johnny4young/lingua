@@ -46,7 +46,7 @@ import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerGitHandlers } from './ipc/git';
 import { registerProjectTestHandlers } from './ipc/projectTests';
 import { registerProjectTerminalHandlers } from './ipc/projectTerminal';
-import { registerLocalMcpHandlers } from './ipc/localMcp';
+import { disposeLocalMcpServerIfLoaded, registerLocalMcpHandlers } from './ipc/localMcp';
 import { disposeHttpRuns, registerHttpHandlers } from './ipc/http';
 import {
   disposePythonDebuggerSessions,
@@ -58,7 +58,6 @@ import { disposeNativeRuns } from './runners/nativeRunLifecycle';
 import { disposeNativeRunTempDirs } from './runners/nativeRunTempDirs';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
-import { disposeLocalMcpServer } from './localMcp';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -138,7 +137,7 @@ function disposeMainResources() {
     disposeLspBridge,
     disposeProjectTestRuns,
     disposeProjectTerminalSessions,
-    disposeLocalMcpServer,
+    disposeLocalMcpServerIfLoaded,
     disposeHttpRuns,
     disposePythonDebuggerSessions,
     disposeGoDebuggerSessions,

@@ -20,6 +20,7 @@ type Handler = (...args: unknown[]) => void;
 type IpcHandler = (...args: unknown[]) => Promise<unknown> | unknown;
 
 interface UpdaterHarness {
+  loads: ReturnType<typeof vi.fn>;
   autoUpdaterHandlers: Map<string, Handler>;
   ipcHandlers: Map<string, IpcHandler>;
   checkForUpdates: ReturnType<typeof vi.fn>;
@@ -44,9 +45,15 @@ function restoreProcessPlatform(): void {
 async function loadUpdaterHarness({
   packaged = true,
   platform = 'darwin' as NodeJS.Platform,
+  wired = true,
+  commonJsNamespace = false,
 }: {
   packaged?: boolean;
   platform?: NodeJS.Platform;
+  /** Run the startup check so electron-updater is loaded and its listeners exist. */
+  wired?: boolean;
+  /** Shape Node gives a native import() of a CommonJS package: exports only on `default`. */
+  commonJsNamespace?: boolean;
 } = {}): Promise<UpdaterHarness> {
   vi.resetModules();
   vi.doUnmock('electron');
@@ -78,8 +85,10 @@ async function loadUpdaterHarness({
     },
   }));
 
-  vi.doMock('electron-updater', () => ({
-    autoUpdater: {
+  const loads = vi.fn();
+  vi.doMock('electron-updater', () => {
+    loads();
+    const autoUpdater = {
       autoDownload: false,
       autoInstallOnAppQuit: false,
       on: (event: string, handler: Handler) => {
@@ -87,16 +96,27 @@ async function loadUpdaterHarness({
       },
       checkForUpdates,
       quitAndInstall,
-    },
-  }));
+    };
+    return commonJsNamespace ? { default: { autoUpdater } } : { autoUpdater };
+  });
 
   const { registerUpdater } = await import('../../src/main/updater');
-  registerUpdater();
+  if (wired && packaged) {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] });
+    registerUpdater();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.waitFor(() => expect(autoUpdaterHandlers.size).toBeGreaterThan(0));
+    vi.useRealTimers();
+    checkForUpdates.mockClear();
+  } else {
+    registerUpdater();
+  }
 
   const getStateHandler = ipcHandlers.get('updates:get-state');
   expect(getStateHandler).toBeTypeOf('function');
 
   return {
+    loads,
     autoUpdaterHandlers,
     ipcHandlers,
     checkForUpdates,
@@ -118,7 +138,7 @@ describe('updater state-machine guards', () => {
   it('stops the hourly poll on will-quit instead of leaving the interval running', async () => {
     vi.useFakeTimers();
     try {
-      const harness = await loadUpdaterHarness();
+      const harness = await loadUpdaterHarness({ wired: false });
       // before-quit can still be cancelled by the dirty-tab prompt.
       expect(harness.appOnce.mock.calls.some(([event]) => event === 'before-quit')).toBe(false);
       const willQuit = harness.appOnce.mock.calls.find(([event]) => event === 'will-quit');
@@ -141,7 +161,7 @@ describe('updater state-machine guards', () => {
   it('clears both timers when quitting before the startup check', async () => {
     vi.useFakeTimers();
     try {
-      const harness = await loadUpdaterHarness();
+      const harness = await loadUpdaterHarness({ wired: false });
       const willQuit = harness.appOnce.mock.calls.find(([event]) => event === 'will-quit');
       expect(willQuit).toBeDefined();
       expect(vi.getTimerCount()).toBe(2);
@@ -155,6 +175,45 @@ describe('updater state-machine guards', () => {
       vi.clearAllTimers();
       vi.useRealTimers();
     }
+  });
+
+  it('loads electron-updater with the first check instead of with main', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = await loadUpdaterHarness({ wired: false });
+      await vi.advanceTimersByTimeAsync(9_000);
+      expect(harness.loads).not.toHaveBeenCalled();
+      expect(harness.autoUpdaterHandlers.size).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(() => expect(harness.checkForUpdates).toHaveBeenCalledOnce());
+      expect(harness.loads).toHaveBeenCalledOnce();
+      expect(harness.autoUpdaterHandlers.get('update-downloaded')).toBeTypeOf('function');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reads autoUpdater from the default export a native import of CommonJS returns', async () => {
+    const harness = await loadUpdaterHarness({ commonJsNamespace: true });
+    await harness.ipcHandlers.get('updates:check')!();
+    expect(harness.checkForUpdates).toHaveBeenCalledOnce();
+    expect(await harness.getState()).not.toMatchObject({ status: 'error' });
+  });
+
+  it('tries to load electron-updater again after a failed load', async () => {
+    const harness = await loadUpdaterHarness({ wired: false });
+    vi.doMock('electron-updater', () => {
+      throw new Error('updater failed to load');
+    });
+    await harness.ipcHandlers.get('updates:check')!();
+    expect(await harness.getState()).toMatchObject({ status: 'error' });
+
+    vi.doMock('electron-updater', () => ({
+      autoUpdater: { on: vi.fn(), checkForUpdates: harness.checkForUpdates, quitAndInstall: vi.fn() },
+    }));
+    await harness.ipcHandlers.get('updates:check')!();
+    expect(harness.checkForUpdates).toHaveBeenCalledOnce();
   });
 
   it('captures every handler registerUpdater is expected to wire up', async () => {

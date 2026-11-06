@@ -44,6 +44,9 @@ vi.mock('electron', () => ({
   },
 }));
 
+const mockReadProcessFootprints = vi.fn(async () => new Map([[123, 75 * 1024 * 1024]]));
+vi.mock('#src/main/processFootprint', () => ({ readProcessFootprints: mockReadProcessFootprints }));
+
 vi.mock('node:fs/promises', () => ({
   mkdir: mockMkdir,
   writeFile: mockWriteFile,
@@ -245,8 +248,22 @@ describe('desktop smoke IPC handlers', () => {
           workingSetSizeBytes: 2048 * 1024,
           peakWorkingSetSizeBytes: 4096 * 1024,
           privateBytes: 1024,
+          footprintBytes: 75 * 1024 * 1024,
         },
       ],
+    });
+    expect(mockReadProcessFootprints).toHaveBeenCalledWith([123]);
+  });
+
+  it('keeps the working set when the platform has no footprint', async () => {
+    mockReadProcessFootprints.mockResolvedValueOnce(null);
+    const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+    registerDesktopSmokeHandlers();
+
+    const snapshot = await handlers.get('desktop-smoke:get-memory-snapshot')?.();
+    expect(snapshot).toMatchObject({
+      ok: true,
+      chromium: [{ pid: 123, workingSetSizeBytes: 2048 * 1024, footprintBytes: null }],
     });
   });
 

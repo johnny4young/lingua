@@ -411,6 +411,11 @@ jobs:
         env:
           LINGUA_SMOKE_TIMEOUT_MS: '240000'
         run: pnpm run smoke:desktop:packaged
+      # Footprint, not working set: it counts compressed pages, so a regression
+      # of 100 MB cannot hide in it. Reads the packaged smoke's artifact.
+      - name: Desktop memory budget
+        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
+        run: pnpm run check:performance --memory
       - name: Upload packaged smoke artifacts
         if: always() && matrix.os == 'macos-latest' && github.event_name == 'pull_request' && steps.packaged-smoke.outcome != 'skipped'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

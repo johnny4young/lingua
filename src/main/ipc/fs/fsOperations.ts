@@ -15,9 +15,9 @@ import {
 import path from 'node:path';
 import { OPEN_FILE_FILTERS } from '../../../shared/filePickerTypes';
 import { asRelativePath } from '../../../shared/fs/brandedIds';
-import { translateCommon } from '../../../shared/i18n/runtime';
+import { loadDialogTranslator } from '../../dialogTranslator';
 import { disposeProjectTerminalSessionsForRoot } from '../../projectTerminal';
-import { disposeLocalMcpServerForRoot } from '../../localMcp';
+import { disposeLocalMcpServerForRootIfLoaded } from '../localMcp';
 import { blockedPathFamily, isPathBlocked, isSafeEntryName } from '../permissions';
 import {
   mintFileCapability,
@@ -62,12 +62,6 @@ async function isDifferentEntry(source: string, target: string): Promise<boolean
 }
 
 export function registerFileOperationHandlers(): void {
-  const t = (
-    language: string | undefined,
-    key: string,
-    options?: Record<string, unknown>
-  ) => translateCommon(language ?? 'en', key, options);
-
   const assertSafeEntryName = (name: string, operation: string) => {
     if (!isSafeEntryName(name)) {
       throw new Error(`Invalid ${operation}: "${name}"`);
@@ -244,7 +238,7 @@ export function registerFileOperationHandlers(): void {
 
   validatedHandle('fs:revoke-root', (args) => fsArgs.rootOnly('fs:revoke-root', args), (_event, rootId: RootId) => {
     disposeProjectTerminalSessionsForRoot(rootId);
-    void disposeLocalMcpServerForRoot(rootId);
+    void disposeLocalMcpServerForRootIfLoaded(rootId);
     return revokeRoot(rootId);
   });
 
@@ -253,6 +247,7 @@ export function registerFileOperationHandlers(): void {
   typedHandle(
     'app:confirm-close',
     async (event, dirtyFileNames: string[], language?: string) => {
+      const t = await loadDialogTranslator();
       const win = BrowserWindow.fromWebContents(event.sender);
       const { response } = await dialog.showMessageBox(win!, {
         type: 'question',
@@ -274,6 +269,7 @@ export function registerFileOperationHandlers(): void {
   typedHandle(
     'app:confirm-close-tab',
     async (event, fileName: string, language?: string) => {
+      const t = await loadDialogTranslator();
       const win = BrowserWindow.fromWebContents(event.sender);
       const { response } = await dialog.showMessageBox(win!, {
         type: 'question',
@@ -461,6 +457,7 @@ export function registerFileOperationHandlers(): void {
       // confirmation inside main. The IPC bridge is the trust boundary for
       // host-file mutations; a compromised or buggy renderer must not be
       // able to invoke fs:delete without a main-owned user prompt.
+      const t = await loadDialogTranslator();
       const win = BrowserWindow.fromWebContents(event.sender);
       const dialogOptions = {
         type: 'warning' as const,

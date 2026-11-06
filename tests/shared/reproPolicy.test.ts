@@ -321,7 +321,7 @@ describe('resolveReproEffectivePolicy', () => {
       evidence: { denials: 'required' },
     });
 
-    expect(resolveReproEffectivePolicy(strict, SEATBELT_LIKE_PROBE)).toEqual({
+    expect(resolveReproEffectivePolicy(strict, SEATBELT_LIKE_PROBE)).toMatchObject({
       ok: false,
       reason: 'unenforceable',
       missing: ['memory-limit', 'denial-evidence'],
@@ -329,9 +329,22 @@ describe('resolveReproEffectivePolicy', () => {
   });
 
   it('refuses when a mandatory control is missing even with no optional limits', () => {
-    expect(
-      resolveReproEffectivePolicy(DEFAULT_REPRO_REQUEST, probe({ 'network-deny': 'unsupported' }))
-    ).toEqual({ ok: false, reason: 'unenforceable', missing: ['network-deny'] });
+    const resolved = resolveReproEffectivePolicy(
+      DEFAULT_REPRO_REQUEST,
+      probe({ 'network-deny': 'unsupported', 'disk-limit': 'sampled' })
+    );
+
+    expect(resolved).toMatchObject({
+      ok: false,
+      reason: 'unenforceable',
+      missing: ['network-deny'],
+    });
+    expect(resolved.ok ? [] : resolved.controls).toEqual(
+      expect.arrayContaining([
+        { control: 'network-deny', support: 'unsupported', required: true },
+        { control: 'disk-limit', support: 'sampled', required: false },
+      ])
+    );
   });
 });
 
