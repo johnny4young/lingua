@@ -82,16 +82,18 @@ const eventCount = (page: Page) =>
 // The reader gets the writer's last change as an event some time after the writer's own
 // storage holds it. Once it has, neither tab answers the other's event with a write of its own.
 async function expectTabsSettled(writer: Page, reader: Page, key: string): Promise<void> {
+  let converged: string | null = null;
   await expect
-    .poll(
-      async () =>
-        (await reader.evaluate(() => (window as unknown as StoreEvents).lastStoreValue)) ===
-        (await storedRaw(writer, key))
-    )
+    .poll(async () => {
+      converged = await storedRaw(writer, key);
+      return (await reader.evaluate(() => (window as unknown as StoreEvents).lastStoreValue)) === converged;
+    })
     .toBe(true);
   const settled = [await eventCount(writer), await eventCount(reader)];
   await writer.waitForTimeout(1000);
   expect([await eventCount(writer), await eventCount(reader)]).toEqual(settled);
+  // An answer written before the snapshot is not counted, but it changes what is stored.
+  expect([await storedRaw(writer, key), await storedRaw(reader, key)]).toEqual([converged, converged]);
 }
 
 for (const language of ['en', 'es'] as const) {
