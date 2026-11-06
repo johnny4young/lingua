@@ -253,6 +253,7 @@ type MonacoDiagnosticsOptions = {
 type MonacoLanguageDefaults = MonacoLanguageDefaultsWithExtraLib & {
   getDiagnosticsOptions: () => MonacoDiagnosticsOptions;
   setDiagnosticsOptions: (options: MonacoDiagnosticsOptions) => void;
+  setCompilerOptions: (options: Record<string, unknown>) => void;
 };
 
 // Monaco 0.55 keeps the JS/TS defaults on its contribution module; `languages.typescript`
@@ -260,6 +261,9 @@ type MonacoLanguageDefaults = MonacoLanguageDefaultsWithExtraLib & {
 const typeScriptDefaults = typeScriptContribution as unknown as {
   javascriptDefaults: MonacoLanguageDefaults;
   typescriptDefaults: MonacoLanguageDefaults;
+  ModuleKind: { ESNext: number };
+  ModuleResolutionKind: { NodeJs: number };
+  ScriptTarget: { ESNext: number };
 };
 
 function typeDefinitionUri(modulePath: string): string | null {
@@ -524,9 +528,13 @@ function inlineLintDiagnostics(options: MonacoDiagnosticsOptions): InlineLintDia
   };
 }
 
-// Monaco's own defaults, read before anything changes them: JavaScript reports syntax errors only.
+// Monaco's own defaults, read before anything changes them, plus JavaScript's semantic pass:
+// without checkJs it reports only code that always fails.
 const INLINE_LINT_DIAGNOSTICS = {
-  javascript: inlineLintDiagnostics(typeScriptDefaults.javascriptDefaults.getDiagnosticsOptions()),
+  javascript: {
+    ...inlineLintDiagnostics(typeScriptDefaults.javascriptDefaults.getDiagnosticsOptions()),
+    noSemanticValidation: false,
+  },
   typescript: inlineLintDiagnostics(typeScriptDefaults.typescriptDefaults.getDiagnosticsOptions()),
 };
 const SILENT_DIAGNOSTICS: InlineLintDiagnostics = {
@@ -554,6 +562,22 @@ function applyInlineLintSetting(enabledByLanguage: Record<string, boolean>): voi
   setMonacoInlineLintEnabled('javascript', enabledByLanguage.javascript !== false);
   setMonacoInlineLintEnabled('typescript', enabledByLanguage.typescript !== false);
 }
+
+// Lingua runs JS/TS as an async function body or an ES module, so every tab is a module
+// that may use top-level await, and its names never clash with the DOM's globals.
+const COMPILER_OPTIONS = {
+  allowNonTsExtensions: true,
+  allowSyntheticDefaultImports: true,
+  module: typeScriptDefaults.ModuleKind.ESNext,
+  // ModuleDetectionKind.Force, which Monaco does not export.
+  moduleDetection: 3,
+  moduleResolution: typeScriptDefaults.ModuleResolutionKind.NodeJs,
+  noEmit: true,
+  target: typeScriptDefaults.ScriptTarget.ESNext,
+};
+// Without Lingua's Monaco patch, allowJs would read an extensionless TypeScript model as JavaScript.
+typeScriptDefaults.javascriptDefaults.setCompilerOptions({ ...COMPILER_OPTIONS, allowJs: true });
+typeScriptDefaults.typescriptDefaults.setCompilerOptions(COMPILER_OPTIONS);
 
 // Monaco's diagnostics defaults are global, so one subscription covers every model,
 // whether or not an editor is mounted.

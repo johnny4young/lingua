@@ -17,7 +17,9 @@ The format follows Keep a Changelog and groups changes by release.
 - On Free, Recent runs, Utility pipelines and Run capsules open as slices of your own data instead of locks, and the first upgrade notice in a session opens Compare plans.
 - Turning off Capture code for replay also stops Compare runs from copying code and output; capsules of recent runs still hold their code in memory.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
-- TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
+- TypeScript tabs no longer underline `lingua.display`.
+- JavaScript and TypeScript tabs are checked as modules, the way Lingua runs them. TypeScript no longer underlines a top-level `await`, names the browser also defines such as `name` or `status`, or `import fs from 'node:fs'`. A top-level `const lingua` is no longer underlined either, and it still fails when run.
+- JavaScript tabs now underline code that always fails, such as a second `let` with the same name or `await` outside an async function. They still do not type-check JavaScript.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
 - The desktop app no longer ships its dependencies' source maps and TypeScript files, about 30 MB less inside the app.
 - JavaScript and TypeScript tabs share one language service, which starts when you first type or move the pointer in an editor. Lingua uses less memory, most of all while it sits open untouched.
@@ -26,6 +28,7 @@ The format follows Keep a Changelog and groups changes by release.
 - `lingua repro review` now shows each control's status and the backend's ambient host grants before approval, in human and JSON output, even when a required control cannot be enforced.
 - Turning off Settings › Editor › Inline lint for JavaScript or TypeScript now also removes the editor's own syntax and type errors for that language. It used to clear only Lingua's rules, such as the `==` warning.
 - A TypeScript tab opened after a JavaScript tab no longer underlines its type annotations as errors.
+- A TypeScript tab opened before you first type in an editor no longer counts its errors twice.
 - Edit table rows: duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
 - Edit table rows: Commit now fails when a row changed since it was read, not only when its key did, for text, whole numbers, decimals and booleans.
 - Edit table rows: running a query or opening another table with changes staged asks before discarding them, and Commit cannot run twice while the table is read again.

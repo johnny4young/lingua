@@ -50,6 +50,58 @@ index 9687c56e44f9dac9525009b8639f45d02fdb2e93..eb61edd9b7b015696a4bb0f7a4590a6b
      }
      stop() {
          if (this.occurrencesHighlightEnablement === 'off') {
+diff --git a/esm/vs/language/typescript/languageFeatures.js b/esm/vs/language/typescript/languageFeatures.js
+index 485cbd9239469d5168907e2250d5bf1615116c2b..c3c7eac33822558da2d1da8c16928098547f0528 100644
+--- a/esm/vs/language/typescript/languageFeatures.js
++++ b/esm/vs/language/typescript/languageFeatures.js
+@@ -183,6 +183,8 @@ class DiagnosticsAdapter extends Adapter {
+     this._selector = _selector;
+     this._disposables = [];
+     this._listener = /* @__PURE__ */ Object.create(null);
++    // Lingua: bumped whenever a model leaves this adapter, so a validation still in flight drops its result.
++    this._generations = /* @__PURE__ */ Object.create(null);
+     const onModelAdd = (model) => {
+       if (model.getLanguageId() !== _selector) {
+         return;
+@@ -224,6 +226,7 @@ class DiagnosticsAdapter extends Adapter {
+     const onModelRemoved = (model) => {
+       editor.setModelMarkers(model, this._selector, []);
+       const key = model.uri.toString();
++      this._generations[key] = (this._generations[key] ?? 0) + 1;
+       if (this._listener[key]) {
+         this._listener[key].dispose();
+         delete this._listener[key];
+@@ -261,8 +264,11 @@ class DiagnosticsAdapter extends Adapter {
+     this._disposables = [];
+   }
+   async _doValidate(model) {
++    const key = model.uri.toString();
++    const generation = this._generations[key];
++    const stale = () => model.isDisposed() || this._generations[key] !== generation;
+     const worker = await this._worker(model.uri);
+-    if (model.isDisposed()) {
++    if (stale()) {
+       return;
+     }
+     const promises = [];
+@@ -277,7 +283,7 @@ class DiagnosticsAdapter extends Adapter {
+       promises.push(worker.getSuggestionDiagnostics(model.uri.toString()));
+     }
+     const allDiagnostics = await Promise.all(promises);
+-    if (!allDiagnostics || model.isDisposed()) {
++    if (!allDiagnostics || stale()) {
+       return;
+     }
+     const diagnostics = allDiagnostics.reduce((p, c) => c.concat(p), []).filter(
+@@ -287,7 +293,7 @@ class DiagnosticsAdapter extends Adapter {
+       (relatedInformation) => relatedInformation.file ? Uri.parse(relatedInformation.file.fileName) : null
+     );
+     await this._libFiles.fetchLibFilesIfNecessary(relatedUris);
+-    if (model.isDisposed()) {
++    if (stale()) {
+       return;
+     }
+     editor.setModelMarkers(
 diff --git a/esm/vs/language/typescript/tsMode.js b/esm/vs/language/typescript/tsMode.js
 index 6ff0b8e91ea58ab5346413cdd22ccb2ae7ea0f4f..00c9701692772ad49d344bce0c25b204cf65a8e0 100644
 --- a/esm/vs/language/typescript/tsMode.js

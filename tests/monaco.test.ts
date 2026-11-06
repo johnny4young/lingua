@@ -52,6 +52,10 @@ const typeScriptContribution = {
     setDiagnosticsOptions: tsSetDiagnosticsOptions,
     setEagerModelSync: tsSetEagerModelSync,
   },
+  // Monaco 0.55.1's enum values.
+  ModuleKind: { ESNext: 99 },
+  ModuleResolutionKind: { NodeJs: 2 },
+  ScriptTarget: { ESNext: 99 },
   getJavaScriptWorker,
   getTypeScriptWorker,
 };
@@ -146,12 +150,13 @@ describe('configureMonaco', () => {
 
   it('configures loader and worker environment without applying TS defaults', async () => {
     const { configureMonaco } = await import('@/monaco');
+    // The module sets the compiler options once when it loads.
+    jsSetCompilerOptions.mockClear();
+    tsSetCompilerOptions.mockClear();
 
     configureMonaco();
 
     expect(loaderConfig).toHaveBeenCalledOnce();
-    // TS defaults are NOT applied by configureMonaco — they require a fully-initialized
-    // monaco instance and are applied via applyTypeScriptDefaults(m) in beforeMount.
     expect(jsSetEagerModelSync).not.toHaveBeenCalled();
     expect(tsSetEagerModelSync).not.toHaveBeenCalled();
     expect(jsSetCompilerOptions).not.toHaveBeenCalled();
@@ -190,8 +195,37 @@ describe('applyTypeScriptDefaults', () => {
     vi.resetModules();
   });
 
-  it('loads the Node typings on idle on desktop and keeps Monaco compiler defaults', async () => {
+  it('sets module compiler options once, when the module loads', async () => {
+    const compilerOptions = {
+      allowNonTsExtensions: true,
+      allowSyntheticDefaultImports: true,
+      module: 99,
+      moduleDetection: 3,
+      moduleResolution: 2,
+      noEmit: true,
+      target: 99,
+    };
     const { applyTypeScriptDefaults } = await import('@/monaco');
+    expect(jsSetCompilerOptions).toHaveBeenCalledOnce();
+    expect(jsSetCompilerOptions).toHaveBeenCalledWith({ ...compilerOptions, allowJs: true });
+    expect(tsSetCompilerOptions).toHaveBeenCalledOnce();
+    expect(tsSetCompilerOptions).toHaveBeenCalledWith(compilerOptions);
+
+    // Each write restarts the TypeScript worker, so editor mounts must not repeat it.
+    applyTypeScriptDefaults(monacoMock as never);
+    expect(jsSetCompilerOptions).toHaveBeenCalledOnce();
+    expect(tsSetCompilerOptions).toHaveBeenCalledOnce();
+  });
+
+  it('loads the Node typings on idle on desktop without touching the language defaults', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    for (const setter of [
+      jsSetCompilerOptions,
+      tsSetCompilerOptions,
+      jsSetDiagnosticsOptions,
+      tsSetDiagnosticsOptions,
+    ])
+      setter.mockClear();
 
     // Desktop shape: the Node runtime bridge is present, so the typings load
     // on idle right after the first editor mount.
@@ -540,6 +574,7 @@ describe('Inline lint setting', () => {
     'silences and restores %s diagnostics without a mounted editor',
     async (language, setDiagnosticsOptions) => {
       const setInlineLintEnabled = await loadMonacoWithSettings();
+      setDiagnosticsOptions.mockClear();
 
       setInlineLintEnabled(language, false);
       expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
@@ -550,8 +585,10 @@ describe('Inline lint setting', () => {
       });
 
       setInlineLintEnabled(language, true);
+      // JavaScript also gets the semantic pass, which TypeScript has by default.
       expect(setDiagnosticsOptions).toHaveBeenLastCalledWith({
         ...MONACO_DIAGNOSTICS[language],
+        noSemanticValidation: false,
         noSuggestionDiagnostics: false,
       });
       expect(setDiagnosticsOptions).toHaveBeenCalledTimes(2);
@@ -559,24 +596,25 @@ describe('Inline lint setting', () => {
   );
 
   it('restores the diagnostics Monaco had when the module loaded', async () => {
-    diagnostics.javascript = { ...MONACO_DIAGNOSTICS.javascript, noSemanticValidation: false };
+    diagnostics.typescript = { ...MONACO_DIAGNOSTICS.typescript, noSuggestionDiagnostics: true };
     const setInlineLintEnabled = await loadMonacoWithSettings();
 
-    setInlineLintEnabled('javascript', false);
-    setInlineLintEnabled('javascript', true);
-    expect(jsSetDiagnosticsOptions).toHaveBeenLastCalledWith(
-      expect.objectContaining({ noSemanticValidation: false, noSyntaxValidation: false })
+    setInlineLintEnabled('typescript', false);
+    setInlineLintEnabled('typescript', true);
+    expect(tsSetDiagnosticsOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ noSemanticValidation: false, noSuggestionDiagnostics: true })
     );
   });
 
   it('writes only the language that changed, since each change restarts the TypeScript worker', async () => {
     const setInlineLintEnabled = await loadMonacoWithSettings();
-    expect(jsSetDiagnosticsOptions).not.toHaveBeenCalled();
+    // Loading turns on JavaScript's semantic pass; TypeScript already matches.
+    expect(jsSetDiagnosticsOptions).toHaveBeenCalledOnce();
     expect(tsSetDiagnosticsOptions).not.toHaveBeenCalled();
 
     setInlineLintEnabled('typescript', false);
     expect(tsSetDiagnosticsOptions).toHaveBeenCalledOnce();
-    expect(jsSetDiagnosticsOptions).not.toHaveBeenCalled();
+    expect(jsSetDiagnosticsOptions).toHaveBeenCalledOnce();
   });
 });
 
