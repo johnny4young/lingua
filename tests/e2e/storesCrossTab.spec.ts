@@ -59,24 +59,41 @@ async function clearStoreFromPrivacy(page: Page, key: string): Promise<void> {
   await page.getByTestId('privacy-clear-confirm-confirm').click();
 }
 
+interface StoreEvents {
+  storeEvents: number;
+  lastStoreValue?: string | null;
+}
+
 async function countEvents(page: Page, key: string): Promise<void> {
   await page.evaluate((storeKey) => {
-    const target = window as unknown as { storeEvents: number };
+    const target = window as unknown as StoreEvents;
     target.storeEvents = 0;
     window.addEventListener('storage', (event) => {
-      if (event.key === storeKey) target.storeEvents += 1;
+      if (event.key !== storeKey) return;
+      target.storeEvents += 1;
+      target.lastStoreValue = event.newValue;
     });
   }, key);
 }
 
 const eventCount = (page: Page) =>
-  page.evaluate(() => (window as unknown as { storeEvents: number }).storeEvents);
+  page.evaluate(() => (window as unknown as StoreEvents).storeEvents);
 
-// Neither tab answers the other's event with a write of its own.
-async function expectTabsSettled(page: Page, other: Page): Promise<void> {
-  const settled = [await eventCount(page), await eventCount(other)];
-  await page.waitForTimeout(1000);
-  expect([await eventCount(page), await eventCount(other)]).toEqual(settled);
+// The reader gets the writer's last change as an event some time after the writer's own
+// storage holds it. Once it has, neither tab answers the other's event with a write of its own.
+async function expectTabsSettled(writer: Page, reader: Page, key: string): Promise<void> {
+  let converged: string | null = null;
+  await expect
+    .poll(async () => {
+      converged = await storedRaw(writer, key);
+      return (await reader.evaluate(() => (window as unknown as StoreEvents).lastStoreValue)) === converged;
+    })
+    .toBe(true);
+  const settled = [await eventCount(writer), await eventCount(reader)];
+  await writer.waitForTimeout(1000);
+  expect([await eventCount(writer), await eventCount(reader)]).toEqual(settled);
+  // An answer written before the snapshot is not counted, but it changes what is stored.
+  expect([await storedRaw(writer, key), await storedRaw(reader, key)]).toEqual([converged, converged]);
 }
 
 for (const language of ['en', 'es'] as const) {
@@ -104,7 +121,7 @@ for (const language of ['en', 'es'] as const) {
       await other.getByTestId('ai-settings-model').fill('model-b');
       await expect.poll(() => storedRaw(other, KEY)).toContain('model-b');
       expect(await storedRaw(other, KEY)).not.toContain(SECRET);
-      await expectTabsSettled(page, other);
+      await expectTabsSettled(other, page, KEY);
       expect(otherErrors).toEqual([]);
     });
 
@@ -130,7 +147,7 @@ for (const language of ['en', 'es'] as const) {
         .poll(async () => ((await storedState(other, KEY)) as { snippets: unknown[] } | null)?.snippets.length)
         .toBe(1);
       expect(await storedRaw(other, KEY)).not.toContain(firstName);
-      await expectTabsSettled(page, other);
+      await expectTabsSettled(other, page, KEY);
       expect(otherErrors).toEqual([]);
     });
 
@@ -189,7 +206,7 @@ for (const language of ['en', 'es'] as const) {
         .poll(() => storedState(other, KEY))
         .toMatchObject({ global: { REGION: 'eu' } });
       expect(await storedRaw(other, KEY)).not.toContain('secret-value');
-      await expectTabsSettled(page, other);
+      await expectTabsSettled(other, page, KEY);
       expect(otherErrors).toEqual([]);
     });
 
@@ -214,7 +231,7 @@ for (const language of ['en', 'es'] as const) {
       await clearStoreFromPrivacy(page, KEY);
       await expect(other.getByTestId('utility-favorite-base64')).toHaveCount(0);
       await expect(other.getByTestId('utility-history-empty')).toBeVisible();
-      await expectTabsSettled(page, other);
+      await expectTabsSettled(page, other, KEY);
       expect(otherErrors).toEqual([]);
     });
 
@@ -250,7 +267,7 @@ for (const language of ['en', 'es'] as const) {
       await expect
         .poll(async () => ((await storedState(other, KEY)) as { queries: unknown[] } | null)?.queries.length)
         .toBe(1);
-      await expectTabsSettled(page, other);
+      await expectTabsSettled(other, page, KEY);
       expect(otherErrors).toEqual([]);
     });
 
@@ -317,7 +334,7 @@ for (const language of ['en', 'es'] as const) {
       await other.getByTestId('http-request-list-create').click();
       await expect.poll(async () => (await requestIds(other)).length).toBe(2);
       expect(await requestIds(other)).not.toContain(doomed);
-      await expectTabsSettled(page, other);
+      await expectTabsSettled(other, page, KEY);
       expect(otherErrors).toEqual([]);
     });
   });
