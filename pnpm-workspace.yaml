@@ -75,18 +75,21 @@ overrides:
   "nanoid": "^3.3.18"
   "brace-expansion@2.1.1": "^2.1.7"
   "brace-expansion@5.0.6": "^5.0.12"
-  # 3.1.6 fixes host normalization advisories and 3.1.8 GHSA-hrr3-gc8f-f4qj;
-  # widening an old pin alone still permits a vulnerable frozen lockfile.
-  "fast-uri": "^3.1.8"
+  # 3.1.6 fixes host normalization advisories, 3.1.8 GHSA-hrr3-gc8f-f4qj and
+  # 3.1.9 GHSA-w74x-v6f9-j3xg; widening an old pin alone still permits a
+  # vulnerable frozen lockfile.
+  "fast-uri": "^3.1.9"
   # js-yaml 4.3.2 counts empty merge sources against maxTotalMergeKeys
   # (GHSA-2883-xcg3-v3hh). electron-updater ships this parser to users;
   # keep the patched floor here and in the independently locked website.
   "js-yaml": "^4.3.2"
   # hono ships to users: @modelcontextprotocol/node (a production
-  # dependency behind the desktop local MCP server) pins @hono/node-server
-  # 1.x, which resolves hono itself. Keep it on the patched 4.x line; the
-  # MCP package peer-accepts ^4.11.4, so this stays inside its range.
+  # dependency behind the desktop local MCP server) resolves
+  # @hono/node-server, which resolves hono itself. Keep hono on the patched
+  # 4.x line (the MCP package peer-accepts ^4.11.4). The node server has no
+  # 1.x fix for GHSA-rmxm-3fg6-px4f; MCP node 2.1.2 accepts ^2.1.3.
   "hono": "^4.13.11"
+  "@hono/node-server": "^2.1.3"
   # postcss reaches the tree only through Vite / Tailwind / autoprefixer
   # build tooling, never the packaged artifact. Patch-line pin so the
   # advisory audit stays quiet.
