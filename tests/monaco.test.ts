@@ -150,12 +150,13 @@ describe('configureMonaco', () => {
 
   it('configures loader and worker environment without applying TS defaults', async () => {
     const { configureMonaco } = await import('@/monaco');
+    // The module sets the compiler options once when it loads.
+    jsSetCompilerOptions.mockClear();
+    tsSetCompilerOptions.mockClear();
 
     configureMonaco();
 
     expect(loaderConfig).toHaveBeenCalledOnce();
-    // TS defaults are NOT applied by configureMonaco — they require a fully-initialized
-    // monaco instance and are applied via applyTypeScriptDefaults(m) in beforeMount.
     expect(jsSetEagerModelSync).not.toHaveBeenCalled();
     expect(tsSetEagerModelSync).not.toHaveBeenCalled();
     expect(jsSetCompilerOptions).not.toHaveBeenCalled();
