@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { HttpChainSection } from '@/components/HttpWorkspace/HttpChainSection';
 import { HttpEnvironmentPreview } from '@/components/HttpWorkspace/HttpEnvironmentPreview';
-import { HttpUrlHint } from '@/components/HttpWorkspace/HttpUrlField';
+import { HttpUrlField, HttpUrlHint } from '@/components/HttpWorkspace/HttpUrlField';
 import { resetWorkspaceToolStoreForTests, useWorkspaceToolStore } from '@/stores/workspaceToolStore';
 import { chainTags } from '@/../shared/httpChain';
 import { createBlankHttpRequest, type HttpRequestV1, type HttpResponseV1 } from '@/../shared/httpWorkspace';
@@ -107,5 +107,45 @@ describe('derived chain view', () => {
     expect(screen.getByTestId('http-request-editor-url-hint').textContent).toBe(
       'owner comes from List repos, which has no 2xx response yet: send it, or set the tag to Send source first.'
     );
+  });
+});
+
+describe('chain tags inside the URL field', () => {
+  const field = (openTag: string | null = null, capture = source.captures![0]!) => {
+    const onOpenTag = vi.fn();
+    const tags = chainTags(target, [target, { ...source, captures: [capture] }]);
+    render(<HttpUrlField value={target.url} sources={new Map()} placeholder="" ariaLabel="URL" onChange={vi.fn()} onPaste={vi.fn()} chain={{ tags, openTag, onOpenTag }} />);
+    return onOpenTag;
+  };
+
+  it('reads as the source and path away from the field, and opens or closes the tag', async () => {
+    const onOpenTag = field();
+    const tag = screen.getByTestId('http-request-editor-url-tag');
+    expect(tag.textContent).toBe('response(List repos) · [0].owner.login');
+    expect(tag.getAttribute('aria-pressed')).toBe('false');
+    await userEvent.click(tag);
+    expect(onOpenTag).toHaveBeenCalledWith('owner');
+  });
+
+  it('closes an open tag and names a status capture', async () => {
+    const onOpenTag = field('owner', { ...source.captures![0]!, source: 'status' });
+    expect(screen.getByTestId('http-request-editor-url-tag').textContent).toBe('response(List repos) · status');
+    await userEvent.click(screen.getByTestId('http-request-editor-url-tag'));
+    expect(onOpenTag).toHaveBeenCalledWith(null);
+  });
+
+  it('goes back to the token while the caret is in the field', () => {
+    field();
+    fireEvent.focus(screen.getByTestId('http-request-editor-url'));
+    expect(screen.queryByTestId('http-request-editor-url-tag')).toBeNull();
+    expect(screen.getByTestId('http-request-editor-url-token').textContent).toBe('{{owner}}');
+    fireEvent.blur(screen.getByTestId('http-request-editor-url'));
+    expect(screen.getByTestId('http-request-editor-url-tag')).toBeTruthy();
+  });
+
+  it('keeps plain tokens without chain tags', () => {
+    render(<HttpUrlField value={target.url} sources={new Map()} placeholder="" ariaLabel="URL" onChange={vi.fn()} onPaste={vi.fn()} />);
+    expect(screen.queryByTestId('http-request-editor-url-tag')).toBeNull();
+    expect(screen.getByTestId('http-request-editor-url-token').textContent).toBe('{{owner}}');
   });
 });
