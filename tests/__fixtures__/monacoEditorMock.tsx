@@ -107,8 +107,6 @@ export function makeMonacoEditorMock() {
         },
         languages: {
           registerCodeActionProvider: () => ({ dispose: () => {} }),
-          // `typescript` intentionally absent so setMonacoInlineLintEnabled
-          // no-ops in tests (it guards on `m.languages.typescript`).
         },
       };
       cellMockHarness.mountCount += 1;
