@@ -366,13 +366,15 @@ describe('lingua repro review', () => {
     );
 
     expect(code).toBe(CLI_EXIT_CODES.ok);
-    expect(state.stdout).toContain('entry    main.mjs\n');
-    expect(state.stdout).toContain('runtime  node 24.21.0\n');
-    expect(state.stdout).toContain('network  deny');
-    expect(state.stdout).toMatch(/backend {2}none on \S+ \S+; run refuses before launch/u);
-    expect(state.stdout).toContain('effective unavailable; run refuses before launch\n');
-    expect(state.stdout).toContain('ambient  unavailable (no backend)\n');
-    expect(state.stdout).toContain(`approve  lingua repro run /work/repro.json --approve ${token}`);
+    expect(state.stdout).toContain('entry     main.mjs\n');
+    expect(state.stdout).toContain('runtime   node 24.21.0\n');
+    expect(state.stdout).toContain('network   deny');
+    expect(state.stdout).toMatch(/backend {3}none on \S+ \S+; run refuses before launch/u);
+    expect(state.stdout).toContain('effective unavailable\n');
+    expect(state.stdout).toContain('ambient   unavailable (no backend)\n');
+    expect(state.stdout).toContain(
+      `approve   lingua repro run /work/repro.json --approve ${token}`
+    );
   });
 
   it('reports effective controls and exact ambient grants as JSON without changing approval', async () => {
@@ -450,15 +452,20 @@ describe('lingua repro review', () => {
     expect(code).toBe(CLI_EXIT_CODES.ok);
     expect(state.stderr).toBe('');
     expect(state.stdout).toContain('effective available\n');
-    expect(state.stdout).toContain('control  filesystem-isolation: enforced (required)\n');
-    expect(state.stdout).toContain('control  denial-evidence: unsupported (optional)\n');
-    expect(state.stdout).toContain('control  memory-limit: unsupported (optional)\n');
-    expect(state.stdout).toContain('control  disk-limit: unsupported (optional)\n');
-    expect(state.stdout).toContain('ambient  read /synthetic/runtime\n');
-    expect(state.stdout).toContain('ambient  read synthetic\\x1b[2K\\x0dmetadata\n');
+    expect(state.stdout).toContain('control   filesystem-isolation: enforced (required)\n');
+    expect(state.stdout).toContain('control   denial-evidence: unsupported (optional)\n');
+    expect(state.stdout).toContain('control   memory-limit: unsupported (optional)\n');
+    expect(state.stdout).toContain('control   disk-limit: unsupported (optional)\n');
+    expect(state.stdout).toContain('ambient   read /synthetic/runtime\n');
+    expect(state.stdout).toContain('ambient   read synthetic\\x1b[2K\\x0dmetadata\n');
     expect(state.stdout).not.toContain('\u001b');
     expect(state.stdout).not.toContain('\r');
-    expect(state.stdout.indexOf('ambient  ')).toBeLessThan(state.stdout.indexOf('approve  '));
+    expect(state.stdout.indexOf('ambient   ')).toBeLessThan(state.stdout.indexOf('approve   '));
+    const valueColumns = state.stdout
+      .trimEnd()
+      .split('\n')
+      .map(line => /^\S+ +/u.exec(line)?.[0].length);
+    expect(new Set(valueColumns)).toEqual(new Set([10]));
     expect(fake.launches).toEqual([]);
   });
 
@@ -489,8 +496,8 @@ describe('lingua repro review', () => {
           missingControls: ['network-deny'],
         });
       } else {
-        expect(state.stdout).toContain('effective unavailable; run refuses before launch\n');
-        expect(state.stdout).toContain('ambient  read /synthetic/runtime\n');
+        expect(state.stdout).toContain('effective unavailable\n');
+        expect(state.stdout).toContain('ambient   read /synthetic/runtime\n');
         expect(state.stdout).toContain('cannot enforce network-deny; run refuses before launch');
       }
       expect(fake.launches).toEqual([]);
@@ -513,7 +520,7 @@ describe('lingua repro review', () => {
         io
       );
       if (quiet) expect(state.stdout).toBe('');
-      else expect(state.stdout).toContain('ambient  none\n');
+      else expect(state.stdout).toContain('ambient   none\n');
       expect(state.stderr).toBe('');
     }
     expect(fake.launches).toEqual([]);
@@ -527,7 +534,7 @@ describe('lingua repro review', () => {
     await runReproReviewCommand({ ...OUTPUT, envelopePath: "/work/bug repro's.json" }, io);
 
     expect(state.stdout).toContain(
-      `approve  lingua repro run '/work/bug repro'\\''s.json' --approve ${token}`
+      `approve   lingua repro run '/work/bug repro'\\''s.json' --approve ${token}`
     );
   });
 
@@ -535,12 +542,12 @@ describe('lingua repro review', () => {
     [
       'another Node major',
       { path: '/opt/node22/bin/node', version: '22.11.0' },
-      'runtime  node 24 requested; found 22.11.0; run refuses before launch',
+      'runtime   node 24 requested; found 22.11.0; run refuses before launch',
     ],
     [
       'no Node.js at all',
       null,
-      'runtime  node 24 requested; Node.js not found; run refuses before launch',
+      'runtime   node 24 requested; Node.js not found; run refuses before launch',
     ],
   ])('warns before approval when the host has %s', async (_name, node, line) => {
     const json = await envelopeJson();
@@ -568,7 +575,7 @@ describe('lingua repro review', () => {
     );
 
     expect(state.stdout).toContain(
-      'backend  fake-backend 1 cannot enforce network-deny; run refuses before launch'
+      'backend   fake-backend 1 cannot enforce network-deny; run refuses before launch'
     );
   });
 

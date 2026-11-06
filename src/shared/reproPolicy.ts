@@ -297,7 +297,10 @@ export interface ReproBackendIdentity {
 export interface ReproBackendProbe {
   readonly backend: ReproBackendIdentity;
   readonly controls: Readonly<Record<ReproControl, ReproControlSupport>>;
-  /** Host access the backend needs beyond the policy. Host-specific; never exported. */
+  /**
+   * Host access the backend needs beyond the policy. Host-specific: shown in local review
+   * output, never written to the envelope or receipt.
+   */
   readonly ambientGrants: readonly string[];
 }
 

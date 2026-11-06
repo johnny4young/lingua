@@ -305,6 +305,13 @@ function describeRuntime(review: PreparedReview): string {
     : `${wanted} requested; found ${review.node.version}; run refuses before launch`;
 }
 
+function describeAmbient(review: PreparedReview): Array<[string, string]> {
+  const grants = review.backend?.probe.ambientGrants ?? [];
+  if (grants.length === 0)
+    return [['ambient', review.backend ? 'none' : 'unavailable (no backend)']];
+  return grants.map(grant => ['ambient', neutralizeControlCharacters(grant)]);
+}
+
 export async function runReproReviewCommand(
   args: ReproReviewArgs,
   io: CliIo
@@ -362,23 +369,18 @@ export async function runReproReviewCommand(
     ['limits', describeLimits(review.approved)],
     ['evidence', `denials ${review.approved.evidence.denials}`],
     ['backend', describeBackend(review)],
-    ['effective', review.effective ? 'available' : 'unavailable; run refuses before launch'],
+    ['effective', review.effective ? 'available' : 'unavailable'],
     ...(review.effective?.controls ?? []).map(
       ({ control, support, required }): [string, string] => [
         'control',
         `${control}: ${support} (${required ? 'required' : 'optional'})`,
       ]
     ),
-    ...(ambientGrants.length > 0
-      ? ambientGrants
-      : [review.backend ? 'none' : 'unavailable (no backend)']
-    ).map((grant): [string, string] => ['ambient', neutralizeControlCharacters(grant)]),
+    ...describeAmbient(review),
     ['approve', `lingua repro run ${shellQuote(args.envelopePath)} --approve ${review.token}`],
   ];
-  io.writeStdout(
-    rows.map(([key, value]) => `${key.padEnd(Math.max(9, key.length + 1))}${value}`).join('\n') +
-      '\n'
-  );
+  const width = Math.max(...rows.map(([key]) => key.length)) + 1;
+  io.writeStdout(rows.map(([key, value]) => `${key.padEnd(width)}${value}`).join('\n') + '\n');
   return CLI_EXIT_CODES.ok;
 }
 
