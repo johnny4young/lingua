@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- While paused, the debugger shows the values of the paused line's variables in the Scratchpad's inline pills, and the values a step changed now use the same pills.
 - The desktop app starts with less work: its HTTP client, local MCP server, dialog translations and updater load the first time they are used.
 - Edit with AI's Run preview lists the lines whose inline value changes, as the value before and after the edit.
 - `@linguacode/cli` and the Homebrew formula move to Node.js 26, the current LTS line. On Node 24, npm warns and the CLI keeps running. A `lingua repro` envelope still needs the Node major it was packed on, so one packed on Node 24 refuses to run on Node 26 until you pack it again. Contributors and CI read the line from `.nvmrc`.

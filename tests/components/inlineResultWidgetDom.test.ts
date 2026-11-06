@@ -31,6 +31,13 @@ describe('inline result widget DOM', () => {
     expect(isHiddenUndefinedLineResult({ line: 4, value: 'undefined', type: 'magic' })).toBe(false);
   });
 
+  it('names the variable of a paused value before it', () => {
+    const node = renderInlineResultNode([{ line: 2, name: 'count', value: '1', type: 'log' }]);
+    expect(node.querySelector('.lingua-inline-result-name')?.textContent).toBe('count:');
+    expect(node.querySelector('.lingua-inline-result-value')?.textContent).toBe('1');
+    expect(renderInlineResultNode([{ line: 2, value: '1', type: 'log' }]).querySelector('.lingua-inline-result-name')).toBeNull();
+  });
+
   it('renders execution errors with the dedicated semantic kind', () => {
     const node = renderInlineResultNode([
       { line: 4, value: 'Error: invalid device id', type: 'error' },

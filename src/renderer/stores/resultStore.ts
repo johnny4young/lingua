@@ -22,6 +22,8 @@ interface RunTerminationSummary {
 export interface LineResult {
   line: number;
   value: string;
+  /** The variable the value belongs to, for values read from a paused frame. */
+  name?: string;
   /**
    * Adds `'watch'` to the closed union. Watches
    * come from the `// @watch <expr>` magic-comment syntax and are
