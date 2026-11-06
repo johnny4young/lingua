@@ -78,9 +78,12 @@ That step fails when the peak footprint of every process except GPU exceeds
 `docs/performance/baseline.json`. The GPU process follows the frames being
 painted, from 100 to 650 MB within seconds, so it is left out. The check also
 fails closed when the artifact is missing, not from a packaged app, or has no
-footprint. Refresh the budget from a packaged smoke on macOS with
-`pnpm run performance:baseline --memory`, which keeps the bundle budgets and
-adds 15% headroom. Wall-clock timings stay diagnostic.
+footprint. The budget follows the CI runner, which measures 10 to 20% below a
+fast laptop. Refresh it from a pull request's `macos-packaged-smoke-pr`
+artifact with `pnpm run performance:baseline --memory
+--desktop-smoke-performance=<artifact>/desktop-smoke-performance.json`, which
+keeps the bundle budgets and adds 15% headroom. Wall-clock timings stay
+diagnostic.
 
 `performance:activation` adds the missing repeated web measurement and
 aggregates repeated desktop smoke artifacts. The default is three samples
