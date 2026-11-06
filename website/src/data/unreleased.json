@@ -1,7 +1,116 @@
 {
-  "generatedAt": "2026-11-04T00:06:41.558Z",
+  "generatedAt": "2026-11-06T18:22:03.268Z",
   "baseRef": "v2.0.0",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "commitCount": 12,
+  "totalSinceBase": 138,
+  "commits": [
+    {
+      "hash": "91697d4",
+      "date": "2026-11-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "deps",
+      "message": "patch the hono, undici, vite, vitest and fast-uri advisories",
+      "breaking": false
+    },
+    {
+      "hash": "a21b456",
+      "date": "2026-11-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "drop TS diagnostics that finish after their model changed language",
+      "breaking": false
+    },
+    {
+      "hash": "b6a0128",
+      "date": "2026-11-05",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "http",
+      "message": "show chain tags inside the URL field",
+      "breaking": false
+    },
+    {
+      "hash": "be174d8",
+      "date": "2026-11-05",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "budget",
+      "message": "take the footprint budget from the CI macOS runner",
+      "breaking": false
+    },
+    {
+      "hash": "52eb8e3",
+      "date": "2026-11-05",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "budget",
+      "message": "refresh the desktop footprint budget after the TypeScript worker and lazy main changes",
+      "breaking": false
+    },
+    {
+      "hash": "3d8e2e7",
+      "date": "2026-11-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "cli",
+      "message": "show every probed control when repro review cannot enforce the request",
+      "breaking": false
+    },
+    {
+      "hash": "45dcb31",
+      "date": "2026-11-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "cli",
+      "message": "align repro review rows and list the fix under Unreleased",
+      "breaking": false
+    },
+    {
+      "hash": "67bd3e2",
+      "date": "2026-11-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "silence suggestion diagnostics when Inline lint is off",
+      "breaking": false
+    },
+    {
+      "hash": "fad85d8",
+      "date": "2026-11-05",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "debugger",
+      "message": "show the paused line's values in the inline pills",
+      "breaking": false
+    },
+    {
+      "hash": "0050a38",
+      "date": "2026-11-05",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "editor",
+      "message": "check JavaScript and TypeScript tabs as modules",
+      "breaking": false
+    },
+    {
+      "hash": "c30ac0d",
+      "date": "2026-11-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "make Inline lint silence Monaco's JS and TS diagnostics",
+      "breaking": false
+    },
+    {
+      "hash": "d3ff47a",
+      "date": "2026-11-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "retry loading the updater after a failed load",
+      "breaking": false
+    }
+  ]
 }
