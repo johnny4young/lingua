@@ -46,35 +46,35 @@ La skill contiene instrucciones, no el CLI ni los runtimes de cada lenguaje. Nec
 
 ## Instala primero el CLI
 
-En macOS, Homebrew instala el CLI y Node.js 24:
+En macOS, Homebrew instala el CLI y Node.js 26:
 
 ```bash
 brew install johnny4young/tap/lingua-cli
 lingua --version
 ```
 
-En Windows, Linux o macOS con Node.js 24 y npm:
+En Windows, Linux o macOS con Node.js 26 y npm:
 
 ```bash
 npm install -g @linguacode/cli
 lingua --version
 ```
 
-La fórmula de Homebrew instala Node.js 24. La opción npm requiere Node.js 24.x, npm y una ubicación
+La fórmula de Homebrew instala Node.js 26. La opción npm requiere Node.js 26, npm y una ubicación
 global escribible cuyo directorio de binarios esté en `PATH`. No uses un `sudo npm install` sin
 revisar para ocultar un problema de permisos; corrige el prefijo de npm o usa una instalación de
 Node limitada a tu usuario.
 
 Los archivos independientes para Windows x64 y Linux x64 pueden ejecutar utilidades y validar
 Capsules sin una instalación separada de Node. Ejecutar o reproducir JavaScript o TypeScript todavía
-requiere Node.js 24 en `PATH`. La skill requiere Lingua CLI 1.3.0 o posterior, comprueba la versión y
+requiere Node.js 26 en `PATH`. La skill requiere Lingua CLI 1.3.0 o posterior, comprueba la versión y
 nunca instala software por ti.
 
 La ejecución también necesita el runtime del objetivo:
 
 | Objetivo                | Runtime en `PATH`                                          |
 | ----------------------- | ---------------------------------------------------------- |
-| JavaScript / TypeScript | Node.js 24.x                                               |
+| JavaScript / TypeScript | Node.js 26                                                 |
 | Python                  | `.venv` del proyecto, `PYTHON`, `python3`, `python` o `py` |
 | Go                      | `go`                                                       |
 | Archivo/proyecto Rust   | `rustc` / `cargo`                                          |

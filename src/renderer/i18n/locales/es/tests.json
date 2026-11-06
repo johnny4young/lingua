@@ -60,5 +60,11 @@
   "projectTests.runFailure": "El ejecutor informó un error de archivo o compilación.",
   "projectTests.previousResult": "Sin ejecutar · resultado anterior",
   "projectTests.notRun_one": "{{count}} sin ejecutar",
-  "projectTests.notRun_other": "{{count}} sin ejecutar"
+  "projectTests.notRun_other": "{{count}} sin ejecutar",
+  "projectTests.card.label": "Prueba fallida {{name}}",
+  "projectTests.card.title": "Esta prueba falló",
+  "projectTests.card.expected": "se esperaba",
+  "projectTests.card.received": "pero llegó",
+  "projectTests.card.runAgain": "Ejecutar esta prueba de nuevo",
+  "projectTests.card.close": "Cerrar"
 }

@@ -18,6 +18,7 @@
  */
 
 import { looksSecret } from '../httpEnvironment';
+import { redactSqlSecrets } from '../sqlStatements';
 
 /** Max characters of code context included in the prompt. */
 export const MAX_EXPLAIN_CODE_CHARS = 4000;
@@ -87,6 +88,13 @@ export function redactSecretsFromCode(code: string): RedactionResult {
   return { code: out, redactedCount };
 }
 
+/** `redactSecretsFromCode`, after SQL's own mask, which reads literals the line-based one cannot. */
+export function redactSecretsFromExcerpt(code: string, language: string): RedactionResult {
+  const masked = language === 'sql' ? redactSqlSecrets(code) : code;
+  const result = redactSecretsFromCode(masked);
+  return { code: result.code, redactedCount: result.redactedCount + (masked === code ? 0 : 1) };
+}
+
 function clip(value: string, max: number): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max)}\n… [truncated]`;
@@ -137,6 +145,32 @@ const RUNTIME_SECRET_NAME = /^(?:authorization|cookie|set-cookie|credentials?|au
 function looksSecretName(name: string): boolean {
   const split = name.replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2').replace(/-/g, '_');
   return looksSecret(split) || RUNTIME_SECRET_NAME.test(name);
+}
+
+/**
+ * Program output (Console rows, an error): on top of `redactSecretsFromCode`,
+ * secret-named `key: value` / `key=value` pairs anywhere on a line and URL
+ * passwords are masked, as printed env vars and connection strings show them.
+ */
+export function redactSecretsFromOutput(text: string): RedactionResult {
+  const base = redactSecretsFromCode(text);
+  let redactedCount = base.redactedCount;
+  const code = base.code
+    .split('\n')
+    .map(line =>
+      line
+        .replace(NESTED_PAIR, (pair, quote: string, key: string, separator: string, value: string) => {
+          if (!looksSecretName(key) || value.includes(REDACTED)) return pair;
+          redactedCount += 1;
+          return `${quote}${key}${quote}${separator}${REDACTED}`;
+        })
+        .replace(URL_CREDENTIALS, (_match, head: string) => {
+          redactedCount += 1;
+          return `${head}${REDACTED}@`;
+        })
+    )
+    .join('\n');
+  return { code, redactedCount };
 }
 
 /** Most names, characters per value and characters overall sent as runtime values. */
@@ -239,7 +273,7 @@ export function buildExplainErrorRequest(
 ): ExplainErrorRequest {
   const redact = input.redact !== false;
   const redaction = redact
-    ? redactSecretsFromCode(input.code)
+    ? redactSecretsFromExcerpt(input.code, input.language)
     : { code: input.code, redactedCount: 0 };
 
   const code = clip(redaction.code, MAX_EXPLAIN_CODE_CHARS);

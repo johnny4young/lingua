@@ -89,16 +89,86 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/ProjectTests/TestsPanel.tsx'), 'utf8')).toContain("import '../../i18n/testsCatalog'");
   });
 
-  it('keeps the newer Labs flag copy out of the English boot catalog', () => {
+  it('keeps the timeline copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
     ) as Record<string, string>;
-    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.labs.flag.httpScopes.'))).toEqual([]);
-    expect(rendererI18n).toContain("import('./locales/es/labs.json')");
-    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/labsCatalog.ts'), 'utf8');
-    expect(registration).toContain("import en from './locales/en/labs.json'");
-    const labs = readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/LabsSection.tsx'), 'utf8');
-    expect(labs).toContain("import '../../i18n/labsCatalog'");
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('timeline.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/timeline.json');
+    expect(rendererI18n).toContain("import('./locales/es/timeline.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/timelineCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/timeline.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Timeline/TimelinePanel.tsx'), 'utf8')).toContain("import '../../i18n/timelineCatalog'");
+  });
+
+  it('keeps the run regions copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('runRegions.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/runRegions.json');
+    expect(rendererI18n).toContain("import('./locales/es/runRegions.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/runRegionsCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/runRegions.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/RunRegions/RunRegions.tsx'), 'utf8')).toContain("import '../../i18n/runRegionsCatalog'");
+  });
+
+  it('keeps the Instant SQL copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('sqlWorkspace.instant.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/sqlInstant.json');
+    expect(rendererI18n).toContain("import('./locales/es/sqlInstant.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/sqlInstantCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/sqlInstant.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/SqlWorkspace/SqlInstantPreview.tsx'), 'utf8')).toContain("import '../../i18n/sqlInstantCatalog'");
+  });
+
+  it('keeps the clipboard copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('utilities.clipboard.'))).toEqual([]);
+    expect(bootCatalog['utilities.settings.clipboardOnFocus.hint']).toBeUndefined();
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/UtilitiesSection.tsx'), 'utf8')).toContain("import '../../i18n/clipboardChainsCatalog'");
+    expect(rendererI18n).not.toContain('locales/en/clipboardChains.json');
+    expect(rendererI18n).toContain("import('./locales/es/clipboardChains.json')");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/DeveloperUtilities/ClipboardBanner.tsx'), 'utf8')).toContain("import '../../i18n/clipboardChainsCatalog'");
+  });
+
+  it('keeps the pipeline export copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('utilityPipeline.eject.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/pipelineJs.json');
+    expect(rendererI18n).toContain("import('./locales/es/pipelineJs.json')");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/DeveloperUtilities/UtilityPipelinePanel.tsx'), 'utf8')).toContain("import '../../i18n/pipelineJsCatalog'");
+  });
+
+  it('keeps the Compare runs copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('runCompare.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/runCompare.json');
+    expect(rendererI18n).toContain("import('./locales/es/runCompare.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/runCompareCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/runCompare.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/RunCompare/RunComparePanel.tsx'), 'utf8')).toContain("import '../../i18n/runCompareCatalog'");
+  });
+
+  it('keeps the Local MCP copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('settings.localMcp.'))).toEqual([]);
+    expect(rendererI18n).toContain("import('./locales/es/localMcp.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/localMcpCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/localMcp.json'");
+    const section = readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/LocalMcpSection.tsx'), 'utf8');
+    expect(section).toContain("import '../../i18n/localMcpCatalog'");
   });
 
   it('keeps language selection metadata free of catalog imports', () => {

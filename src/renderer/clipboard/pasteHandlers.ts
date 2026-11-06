@@ -321,6 +321,17 @@ function decodesToReadableText(value: string): boolean {
   return true;
 }
 
+/** Three dotted segments also describe a hostname or a version; a JWT's first one declares `alg`. */
+function hasJwtHeader(value: string): boolean {
+  try {
+    const segment = (value.split('.', 1)[0] ?? '').replace(/-/gu, '+').replace(/_/gu, '/');
+    const header: unknown = JSON.parse(decodeBase64ForDetection(segment) ?? '');
+    return typeof header === 'object' && header !== null && 'alg' in header;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Map a paste to the Developer Utility that handles it, or null.
  * Runs LAST in the chain, so every code-like artifact (share-link,
@@ -335,7 +346,7 @@ function detectUtilitySuggestion(text: string): UtilityIntent | null {
   const singleLine = !/[\r\n]/u.test(trimmed);
 
   const utilityId = ((): UtilitySuggestionId | null => {
-    if (singleToken && detectsAsJwt(trimmed)) return 'jwt';
+    if (singleToken && detectsAsJwt(trimmed) && hasJwtHeader(trimmed)) return 'jwt';
     if (singleToken && detectsAsUuid(trimmed)) return 'uuid';
     if (
       (STRICT_HEX_COLOR.test(trimmed) || COLOR_FUNCTION.test(trimmed)) &&
@@ -360,6 +371,17 @@ function detectUtilitySuggestion(text: string): UtilityIntent | null {
   })();
 
   return utilityId ? { kind: 'utility', utilityId, source: trimmed } : null;
+}
+
+const CLIPBOARD_CLASSIFY_MAX_CHARS = 1_000_000;
+
+/**
+ * The kind of value on the clipboard; a read on focus keeps this and drops the
+ * text. A hint costs nothing, so JSON of any size counts, unlike on paste.
+ */
+export function classifyClipboard(text: string): UtilitySuggestionId | null {
+  if (text.length > CLIPBOARD_CLASSIFY_MAX_CHARS) return null;
+  return detectUtilitySuggestion(text)?.utilityId ?? (detectsAsJson(text) ? 'json' : null);
 }
 
 /**

@@ -2,6 +2,7 @@ import i18next from 'i18next';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types/language';
+import { attachCrossTabSync } from './persistence/crossTabSync';
 import { createMigrate } from './persistence/migrationRegistry';
 import { currentEffectiveTier } from './licenseSelectors';
 import { withinSnippetBudget } from '../../shared/entitlements';
@@ -112,3 +113,5 @@ export const useSnippetsStore = create<SnippetsState>()(
     }
   )
 );
+
+attachCrossTabSync(useSnippetsStore, { defaults: () => ({ snippets: [] }) });

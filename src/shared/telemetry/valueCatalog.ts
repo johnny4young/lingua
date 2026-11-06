@@ -116,7 +116,7 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // adoption of the in-context surface vs the audit (Settings) and
   // power-user (palette) entries.
   'result-panel-export',
-  // per-row export from the Pro-gated capsule browse
+  // Share-menu export from the Pro-gated capsule browse
   // overlay. Distinct so the dashboard can attribute exports that
   // originate from browsing history vs the latest-run surfaces.
   'list-export',

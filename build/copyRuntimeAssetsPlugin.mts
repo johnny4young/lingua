@@ -12,6 +12,12 @@ type RuntimeAssetRequestResolution =
   | { status: 'bad-request' }
   | { status: 'serve'; absolutePath: string };
 
+/** Dev URL prefixes for a runtime tree: the web config's root is `src/web`, so its modules load through `/@fs`. */
+export function runtimeAssetUrlPrefixes(cwd: string, servedPath: string): string[] {
+  const fsRoot = encodeURI(cwd.replaceAll('\\', '/').replace(/^\/+/u, ''));
+  return [`/src/renderer/${servedPath}/`, `/@fs/${fsRoot}/src/renderer/${servedPath}/`];
+}
+
 export function resolveRuntimeAssetRequestPath(
   sourceDir: string,
   urlPrefix: string,
@@ -85,8 +91,8 @@ export async function copyRuntimeAssetFiles(
  * implementation (extended in implementation) — copy runtime assets
  * into the renderer build output and serve them from the dev server.
  *
- * The plugin walks every entry in `RUNTIME_ASSETS` (Pyodide and Ruby
- * today) and:
+ * The plugin walks every entry in `RUNTIME_ASSETS` (Pyodide, Ruby and
+ * DuckDB's JSON extension today) and:
  *
  * Build mode: after Rollup writes the bundle, copies each file in the
  * entry's `copyFiles` list (or `criticalFiles` when omitted) from
@@ -126,10 +132,12 @@ export function copyRuntimeAssetsPlugin(
       // renderer config uses the repo root, while the standalone web
       // config uses `src/web`; both still share the top-level
       // `node_modules/` install.
-      const middlewareConfigs = assetEntries.map((asset) => ({
-        sourceDir: path.resolve(process.cwd(), asset.nodeModulesPath),
-        urlPrefix: `/src/renderer/${asset.servedPath}/`,
-      }));
+      const middlewareConfigs = assetEntries.flatMap((asset) =>
+        runtimeAssetUrlPrefixes(process.cwd(), asset.servedPath).map((urlPrefix) => ({
+          sourceDir: path.resolve(process.cwd(), asset.nodeModulesPath),
+          urlPrefix,
+        }))
+      );
 
       server.middlewares.use(async (req, res, next) => {
         for (const { sourceDir, urlPrefix } of middlewareConfigs) {

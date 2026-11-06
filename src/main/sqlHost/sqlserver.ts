@@ -337,7 +337,8 @@ export async function openSqlServer(config: HostSessionConfig, socket?: () => Du
       try {
         for (const [index, statement] of statements.entries()) {
           inTime();
-          expectOneRow(index, (await parameterised(lib, connection, statement.sql, statement.params, ROW_EDIT_BUDGET_MS / 2)).count);
+          // @@ROWCOUNT is this statement's own count; the request's total also holds what triggers wrote.
+          expectOneRow(index, Number((await parameterised(lib, connection, `${statement.sql}; SELECT @@ROWCOUNT AS touched`, statement.params, ROW_EDIT_BUDGET_MS / 2)).rows[0]?.touched ?? -1));
         }
         inTime();
         await run('COMMIT');

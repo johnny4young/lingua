@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { LicenseBadge } from '../../src/renderer/components/Toolbar/LicenseBadge';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import { _resetCommandBusForTesting, subscribeCommand } from '../../src/renderer/stores/commandBus';
 import type { LicenseTier } from '../../src/shared/license';
 
 function seedActiveTier(tier: Exclude<LicenseTier, 'free'>) {
@@ -98,7 +99,7 @@ describe('LicenseBadge', () => {
   it('has tooltip labels for server-minted trial and education tiers', () => {
     seedActiveTier('trial');
     const { unmount } = render(<LicenseBadge />);
-    expect(screen.getByTestId('license-badge').textContent).toBe('PRO');
+    expect(screen.getByTestId('license-badge').textContent).toMatch(/^TRIAL · /);
     expect(screen.getByTestId('license-badge').getAttribute('title') ?? '').toContain('Trial');
     unmount();
 
@@ -129,6 +130,7 @@ describe('LicenseBadge', () => {
   });
 
   it('renders a button when onClick is supplied and invokes it on click', async () => {
+    seedActiveTier('pro');
     const onClick = vi.fn();
     const user = userEvent.setup();
     render(<LicenseBadge onClick={onClick} />);
@@ -149,5 +151,103 @@ describe('LicenseBadge', () => {
     expect(badge.textContent).toBe('PRO');
     expect(badge.getAttribute('title') ?? '').toMatch(/Nivel de licencia actual/);
     expect(badge.getAttribute('title') ?? '').toContain('Mensual');
+  });
+
+  describe('with Pro in context', () => {
+    afterEach(() => {
+      _resetCommandBusForTesting();
+    });
+
+    it('shows the days a trial has left and opens Compare plans', async () => {
+      seedActiveTier('trial');
+      const compare = vi.fn();
+      const openLicense = vi.fn();
+      subscribeCommand('plans.compare', compare);
+      render(<LicenseBadge onClick={openLicense} />);
+      const badge = screen.getByTestId('license-badge');
+      expect(badge.textContent).toBe('TRIAL · 1 DAY');
+      expect(badge.getAttribute('title')).toBe('Pro trial, 1 day left. Compare plans.');
+      await userEvent.setup().click(badge);
+      expect(compare).toHaveBeenCalled();
+      expect(openLicense).not.toHaveBeenCalled();
+    });
+
+    it('says the trial ended in grace, and stays a plain label without onClick', () => {
+      act(() => {
+        useLicenseStore.setState({
+          token: 'dev-trial.token',
+          status: {
+            kind: 'grace',
+            verification: {
+              ok: true,
+              state: 'grace',
+              supportWindowEndsAt: Date.now() - 24 * 60 * 60 * 1000,
+              payload: {
+                productId: 'lingua',
+                tier: 'trial',
+                issuedTo: 'dev@localhost',
+                issuedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+                supportWindowEndsAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+                entitlements: [],
+              },
+            },
+          },
+          lastVerifiedAt: Date.now(),
+        } as never);
+      });
+      render(<LicenseBadge />);
+      const badge = screen.getByTestId('license-badge');
+      expect(badge.textContent).toBe('TRIAL ENDED');
+      expect(badge.tagName.toLowerCase()).toBe('span');
+    });
+
+    it('updates the days left while the window stays open', () => {
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          useLicenseStore.setState({
+            token: 'dev-trial.token',
+            status: {
+              kind: 'active',
+              verification: {
+                ok: true,
+                state: 'active',
+                supportWindowEndsAt: Date.now() + 25 * 60 * 60 * 1000,
+                payload: {
+                  productId: 'lingua',
+                  tier: 'trial',
+                  issuedTo: 'dev@localhost',
+                  issuedAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
+                  supportWindowEndsAt: new Date(Date.now() + 24.5 * 60 * 60 * 1000).toISOString(),
+                  entitlements: [],
+                },
+              },
+            },
+            lastVerifiedAt: Date.now(),
+          } as never);
+        });
+        render(<LicenseBadge onClick={vi.fn()} />);
+        expect(screen.getByTestId('license-badge').textContent).toBe('TRIAL · 2 DAYS');
+        act(() => vi.advanceTimersByTime(60 * 60 * 1000));
+        expect(screen.getByTestId('license-badge').textContent).toBe('TRIAL · 1 DAY');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('opens Compare plans from Free and License settings from a paid plan', async () => {
+      const compare = vi.fn();
+      const openLicense = vi.fn();
+      subscribeCommand('plans.compare', compare);
+      const { unmount } = render(<LicenseBadge onClick={openLicense} />);
+      await userEvent.setup().click(screen.getByTestId('license-badge'));
+      expect(compare).toHaveBeenCalledTimes(1);
+      unmount();
+      seedActiveTier('pro');
+      render(<LicenseBadge onClick={openLicense} />);
+      await userEvent.setup().click(screen.getByTestId('license-badge'));
+      expect(openLicense).toHaveBeenCalledTimes(1);
+      expect(compare).toHaveBeenCalledTimes(1);
+    });
   });
 });

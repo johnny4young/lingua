@@ -48,7 +48,8 @@ The MVP ships exactly:
 
 Out of scope for the MVP:
 
-- Time-travel debugging.
+- Time-travel debugging. (Since then, Record run replays a recorded
+  JS / TS run step by step; see the Execution timeline in USAGE.md.)
 - Remote / distributed tracing hooks.
 - Edit-and-continue.
 
@@ -76,7 +77,7 @@ existing editable shortcut mapper.
   paused execution). Gate via a store flag the debugger sets on
   attach.
 - **Telemetry** — emit `debugger.attached`, `debugger.paused`, and
-  `debugger.detached` as new events. All three are `P1` additions to
+  `debugger.detached` as new events. All three are additions to
   `TELEMETRY_EVENTS`; payload stays to `language` + a coarse
   `reasonBucket` (`attach` for attached; `user-breakpoint` / `step` /
   `exception` for paused; `user-detach` / `run-complete` / `crash` /

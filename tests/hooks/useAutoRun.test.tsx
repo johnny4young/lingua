@@ -1,4 +1,6 @@
+import { DEFAULT_RUN_POLICY_BY_GROUP } from '../../src/shared/runPolicy';
 import { act, renderHook } from '@testing-library/react';
+import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/stores/nativeToolchainStore';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAutoRun, AUTO_RUN_DEBOUNCE_MS, bucketAutoLogCount } from '@/hooks/useAutoRun';
 import { runnerManager } from '@/runners';
@@ -8,6 +10,8 @@ import { useResultStore } from '@/stores/resultStore';
 import { useConsoleStore } from '@/stores/consoleStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
+import { useTimelineStore } from '@/stores/timelineStore';
+import { useRunRegionStore } from '@/stores/runRegionStore';
 import { loadAutoRunExecution } from '@/hooks/autoRunExecutionLoader';
 import {
   claimNotebookRunner,
@@ -141,6 +145,72 @@ describe('useAutoRun', () => {
     });
     expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
     expect(runnerManager.stop).not.toHaveBeenCalled();
+  });
+
+  it('follows the run policy with Run state on: 500 ms for JS, never for Go', async () => {
+    const execute = mockSuccessfulRunner();
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'console.log(1)', isDirty: false, workflowMode: 'scratchpad' }],
+      activeTabId: 'tab-js',
+    });
+    const { unmount } = renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(499);
+    });
+    expect(execute).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().ranCode).toMatchObject({ tabId: 'tab-js', code: 'console.log(1)' });
+    unmount();
+
+    useSettingsStore.setState({ runPolicyByGroup: { jsTs: 'manual', pythonRuby: 'pause', goRust: 'manual' } });
+    renderHook(() => useAutoRun());
+    act(() => useEditorStore.getState().updateContent('tab-js', 'console.log(2)'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops an auto-run in flight when the policy turns Manual', async () => {
+    const execute = vi.fn(() => new Promise(() => {}));
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({ runner: { execute }, initialized: false } as never);
+    useSettingsStore.setState({ nativeExecutionAcknowledged: true });
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'while (true) ;', isDirty: false, workflowMode: 'scratchpad' }],
+      activeTabId: 'tab-js',
+    });
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().isAutoRunning).toBe(true);
+    act(() => useSettingsStore.setState({ runPolicyByGroup: { jsTs: 'manual', pythonRuby: 'pause', goRust: 'manual' } }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(runnerManager.stop).toHaveBeenCalledWith('javascript', undefined);
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+  });
+
+  it('drops the tab recording when Scratchpad runs again', async () => {
+    mockSuccessfulRunner();
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'console.log(1)', isDirty: false, workflowMode: 'scratchpad' }],
+      activeTabId: 'tab-js',
+    });
+    useTimelineStore.setState({ recording: { tabId: 'tab-js', steps: [], total: 0, truncated: false, limited: false }, current: 0 });
+    const region = { index: 0, name: 'a', markerLine: 1, startLine: 1, endLine: 1 };
+    useRunRegionStore.setState({ last: { tabId: 'tab-js', region, ranAt: 0, executionTime: 1, ok: true, message: '', rows: [] } });
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS);
+    });
+    expect(useTimelineStore.getState().recording).toBeNull();
+    expect(useRunRegionStore.getState().last).toBeNull();
   });
 
   it('buckets auto-log counts into the telemetry allowlist', () => {
@@ -375,6 +445,8 @@ describe('useAutoRun', () => {
       ],
       activeTabId: 'tab-go',
     });
+    // Go and Rust default to Manual; this covers a run policy that opts in.
+    useSettingsStore.setState({ runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP, goRust: 'keystroke' }, nativeExecutionAcknowledged: true });
 
     renderHook(() => useAutoRun());
 
@@ -1150,6 +1222,32 @@ describe('useAutoRun', () => {
 
     expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
     expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
+  it('does NOT auto-run a Go tab whose binary was reported missing', async () => {
+    // Run is disabled there; Scratchpad must not spawn a detect on every edit.
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'darwin', go: { detect: vi.fn() } },
+    });
+    useNativeToolchainStore.getState().report('go', { installed: false, reason: 'missing' });
+    useEditorStore.setState({
+      tabs: [
+        { id: 'tab-go-missing', name: 'main.go', language: 'go', content: 'package main\nfunc main() {}\n', isDirty: false },
+      ],
+      activeTabId: 'tab-go-missing',
+    });
+
+    try {
+      renderHook(() => useAutoRun());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    } finally {
+      resetNativeToolchainStoreForTests();
+    }
   });
 
   describe('in-flight run ownership', () => {

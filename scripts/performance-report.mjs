@@ -69,7 +69,7 @@ const UTILITY_CHUNK_PATTERNS = [
 ];
 
 /** Runtime assets that only exist in a same-origin (e2e) web build. */
-const SAME_ORIGIN_RUNTIME_PATTERNS = [/duckdb-mvp[^/]*\.wasm$/iu, /ruby\+stdlib[^/]*\.wasm$/iu];
+const SAME_ORIGIN_RUNTIME_PATTERNS = [/duckdb-eh[^/]*\.wasm$/iu, /ruby\+stdlib[^/]*\.wasm$/iu];
 
 /**
  * A category that measures far below its committed baseline is a budget

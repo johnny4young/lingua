@@ -121,6 +121,12 @@ describe('executeTabManually — console delivery', () => {
     ]);
   });
 
+  it('remembers the code the run started from, for Run state', async () => {
+    execute.mockResolvedValue(result);
+    await executeTabManually(tab, { recordHistory: false });
+    expect(useResultStore.getState().ranCode).toMatchObject({ tabId: 'batch-run', code: tab.content });
+  });
+
   it('names the running tab in the execution context', async () => {
     execute.mockResolvedValue(result);
 

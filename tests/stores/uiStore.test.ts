@@ -98,7 +98,7 @@ describe('uiStore', () => {
   });
 
   it('pushes status notices with incrementing ids and clears on dismiss', () => {
-    useUIStore.setState({ statusNotice: null });
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
 
     useUIStore.getState().pushStatusNotice({
       tone: 'error',
@@ -109,10 +109,14 @@ describe('uiStore', () => {
     expect(first?.tone).toBe('error');
     expect(first?.id).toBeGreaterThan(0);
 
+    // An error stays on screen; the next notice waits for it.
     useUIStore.getState().pushStatusNotice({
       tone: 'info',
       messageKey: 'editor.formatOnSave.webUnavailable',
     });
+    expect(useUIStore.getState().statusNotice).toBe(first);
+
+    useUIStore.getState().dismissStatusNotice();
     const second = useUIStore.getState().statusNotice;
     expect(second?.tone).toBe('info');
     expect(second?.id).toBeGreaterThan(first!.id);
@@ -121,10 +125,10 @@ describe('uiStore', () => {
     expect(useUIStore.getState().statusNotice).toBeNull();
   });
 
-  it('keeps a high-priority notice visible when a normal notice arrives', () => {
+  it('queues a normal notice behind a high-priority one', () => {
     const incomingDismiss = vi.fn();
     const highSurvived = vi.fn();
-    useUIStore.setState({ statusNotice: null });
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
 
     useUIStore.getState().pushStatusNotice({
       tone: 'success',
@@ -141,14 +145,15 @@ describe('uiStore', () => {
     });
 
     expect(useUIStore.getState().statusNotice).toBe(highNotice);
-    expect(incomingDismiss).toHaveBeenCalledOnce();
-    expect(incomingDismiss).toHaveBeenCalledWith('auto');
     expect(highSurvived).toHaveBeenCalledOnce();
+    expect(incomingDismiss).not.toHaveBeenCalled();
+    useUIStore.getState().dismissStatusNotice();
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('editor.formatOnSave.webUnavailable');
   });
 
   it('lets an error notice override a high-priority notice', () => {
     const highDismiss = vi.fn();
-    useUIStore.setState({ statusNotice: null });
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
 
     useUIStore.getState().pushStatusNotice({
       tone: 'success',
@@ -173,7 +178,7 @@ describe('uiStore', () => {
   });
 
   it('lets a warning notice override a high-priority notice', () => {
-    useUIStore.setState({ statusNotice: null });
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
     useUIStore.getState().pushStatusNotice({
       tone: 'success',
       messageKey: 'onboarding.firstRun.message',

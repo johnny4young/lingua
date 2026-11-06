@@ -27,6 +27,7 @@ describe('native toolchain guidance', () => {
     expect(useUIStore.getState().statusNotice).toMatchObject({
       tone: 'warning',
       priority: 'high',
+      sticky: true,
       messageKey: 'nativeToolchain.missing.message',
       values: { toolchain: 'Go' },
       actions: [

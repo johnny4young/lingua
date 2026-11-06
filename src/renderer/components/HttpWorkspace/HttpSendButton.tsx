@@ -13,7 +13,7 @@ export interface HttpSendQueue {
 }
 
 const PRIMARY =
-  'focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40';
+  'focus-ring inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40';
 
 /**
  * The request row's primary action: Send, Stop while a request is in flight,
@@ -95,7 +95,7 @@ export function HttpSendButton({
       {...(tint ? { 'data-tinted': true, style: tintedSend(tint) } : {})}
     >
       {queue?.willQueue && queue.state === null ? <Clock size={14} aria-hidden="true" /> : <SendHorizontal size={14} aria-hidden="true" />}
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }

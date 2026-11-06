@@ -47,6 +47,9 @@ export const FREE_TIER_LIMITS = {
   // binary, no proprietary toolchain. Go / Rust stay Pro because they
   // need a desktop subprocess (or a research-tier WASM compile).
   allowedLanguages: ['javascript', 'typescript', 'python', 'ruby'] as readonly string[],
+  // Slices of Pro features Free sees in context.
+  recentRuns: 3,
+  pipelineSteps: 3,
 } as const;
 
 /** Convenience: ceiling for a concrete tier. Paid tiers collapse to Infinity. */

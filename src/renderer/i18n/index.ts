@@ -20,18 +20,24 @@ let spanishCatalogPromise: Promise<CommonCatalog> | null = null;
 async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> {
   if (language === 'en') return en;
   if (loadedCatalogs.es) return loadedCatalogs.es;
-  // Database connection, HTTP builder, Labs, debugger, explain panel and Tests tab copy are separate files so English can leave them out of the boot catalog.
+  // Database connection, HTTP builder, debugger, explain panel, Tests tab, Compare runs, timeline, run regions, Instant SQL, pipeline export, clipboard and Local MCP copy are separate files so English can leave them out of the boot catalog.
   spanishCatalogPromise ??= Promise.all([
     import('./locales/es/common.json'),
     import('./locales/es/sqlConnections.json'),
     import('./locales/es/httpBuilder.json'),
-    import('./locales/es/labs.json'),
     import('./locales/es/debugger.json'),
     import('./locales/es/explain.json'),
     import('./locales/es/tests.json'),
+    import('./locales/es/runCompare.json'),
+    import('./locales/es/timeline.json'),
+    import('./locales/es/runRegions.json'),
+    import('./locales/es/sqlInstant.json'),
+    import('./locales/es/pipelineJs.json'),
+    import('./locales/es/clipboardChains.json'),
+    import('./locales/es/localMcp.json'),
   ]).then(
-    ([common, connections, httpBuilder, labs, debuggerCopy, explain, tests]) =>
-      ({ ...common.default, ...connections.default, ...httpBuilder.default, ...labs.default, ...debuggerCopy.default, ...explain.default, ...tests.default }) as CommonCatalog
+    ([common, connections, httpBuilder, debuggerCopy, explain, tests, runCompare, timeline, runRegions, sqlInstant, pipelineJs, clipboardChains, localMcp]) =>
+      ({ ...common.default, ...connections.default, ...httpBuilder.default, ...debuggerCopy.default, ...explain.default, ...tests.default, ...runCompare.default, ...timeline.default, ...runRegions.default, ...sqlInstant.default, ...pipelineJs.default, ...clipboardChains.default, ...localMcp.default }) as CommonCatalog
   );
   const catalog = await spanishCatalogPromise;
   loadedCatalogs.es = catalog;

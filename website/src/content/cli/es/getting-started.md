@@ -12,7 +12,7 @@ Es local, automatizable y deliberadamente pequeño. Úsalo para formatear un pay
 
 ## Instálalo
 
-En macOS, Homebrew descarga el artefacto oficial del CLI y configura Node 24 automáticamente. No ejecuta npm:
+En macOS, Homebrew descarga el artefacto oficial del CLI y configura Node 26 automáticamente. No ejecuta npm:
 
 ```bash
 brew install johnny4young/tap/lingua-cli
@@ -21,7 +21,7 @@ lingua --help
 
 Esta fórmula es independiente de `brew install --cask johnny4young/tap/lingua`, que instala en `/Applications/lingua.app` la misma aplicación Desktop distribuida en el `.dmg`.
 
-`@linguacode/cli` también continúa disponible en npm para cualquier plataforma compatible con Node. No tiene dependencias de paquete y necesita Node 24.x:
+`@linguacode/cli` también continúa disponible en npm para cualquier plataforma compatible con Node. No tiene dependencias de paquete y necesita Node 26:
 
 ```bash
 npm install -g @linguacode/cli
@@ -34,7 +34,7 @@ lingua --help
 npx @linguacode/cli --help
 ```
 
-En Windows x64 y Linux x64 puedes usar los archivos independientes `lingua-cli-*-linux-x64.tar.gz` y `-windows-x64.tar.gz` incluidos en cada [GitHub Release](https://github.com/johnny4young/lingua/releases/latest) estable. Las utilidades y la validación de Capsules no requieren una instalación separada de Node; ejecutar o reproducir JavaScript y TypeScript todavía requiere Node.js 24 en `PATH`.
+En Windows x64 y Linux x64 puedes usar los archivos independientes `lingua-cli-*-linux-x64.tar.gz` y `-windows-x64.tar.gz` incluidos en cada [GitHub Release](https://github.com/johnny4young/lingua/releases/latest) estable. Las utilidades y la validación de Capsules no requieren una instalación separada de Node; ejecutar o reproducir JavaScript y TypeScript todavía requiere Node.js 26 en `PATH`.
 
 ## Compílalo desde el código fuente
 

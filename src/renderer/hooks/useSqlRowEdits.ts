@@ -4,13 +4,14 @@
  * a connection. A new read of the table starts a new change set.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SqlDbApplyResult } from '../../shared/sqlDb';
 import { rowEditReview, rowEditStatements, type RowEditFailure } from '../../shared/sqlRowEdits';
 import { changeSet, NO_EDITS, stagedCount, type StagedEdits } from '../components/SqlWorkspace/sqlRowEditModel';
 import { applyLocalEdits } from '../runtime/sqlLocalEdits';
 import { sqlDbBridge } from '../runtime/sqlRemote';
+import { setStagedRowEdits, stagedRowEdits } from '../runtime/sqlStagedEdits';
 import { findConnection } from '../stores/sqlConnectionsStore';
 import type { SqlTablePreview } from './useSqlTablePreview';
 import type { SqlWriteConfirm } from './useSqlRunner';
@@ -21,13 +22,22 @@ export interface SqlRowEditNotice {
   text: string;
 }
 
-export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview: SqlTablePreview) => void) {
+const readKeyOf = (preview: SqlTablePreview | null) => (preview ? `${preview.connectionId ?? 'local'}|${preview.sql}|${preview.response.recordedAt}` : '');
+
+export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview: SqlTablePreview) => Promise<void>) {
   const { t } = useTranslation();
   const target = preview?.edit && 'table' in preview.edit ? preview.edit.table : null;
   // Staged edits belong to one read of one table.
-  const readKey = preview ? `${preview.connectionId ?? 'local'}|${preview.sql}|${preview.response.recordedAt}` : '';
-  const [state, setState] = useState<{ key: string; edits: StagedEdits }>({ key: '', edits: NO_EDITS });
+  const readKey = readKeyOf(preview);
+  const [state, setState] = useState<{ key: string; edits: StagedEdits }>(() => {
+    const kept = stagedRowEdits();
+    return kept ? { key: readKeyOf(kept.preview), edits: kept.edits } : { key: '', edits: NO_EDITS };
+  });
   const edits = state.key === readKey ? state.edits : NO_EDITS;
+  useEffect(() => {
+    const count = stagedCount(edits);
+    setStagedRowEdits(preview && count > 0 ? { preview, edits, count } : null);
+  }, [preview, edits]);
   // A notice outlives the read a commit replaces, but not the table.
   const tableKey = preview ? `${preview.connectionId ?? 'local'}|${preview.table.name}` : '';
   const [shownNotice, setShownNotice] = useState<{ key: string; notice: SqlRowEditNotice | null }>({ key: '', notice: null });
@@ -86,13 +96,20 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
           : await applyLocalEdits(target, changes);
     } catch {
       result = { errorMessage: t('sqlWorkspace.edits.failed') };
-    } finally {
-      setBusy(false);
     }
     if ('applied' in result) {
       setNotice({ tone: 'ok', text: t('sqlWorkspace.edits.committed', { count: result.applied }) });
-      reload(preview);
-    } else if ('errorMessage' in result) {
+      // The changes are in the table now, so a click while it is read again has nothing to send.
+      setState({ key: readKey, edits: NO_EDITS });
+      try {
+        await reload(preview);
+      } catch {
+        // The commit stands; the rows on screen stay until the next read.
+      }
+    }
+    setBusy(false);
+    if ('applied' in result) return;
+    if ('errorMessage' in result) {
       setNotice({ tone: 'error', text: result.errorMessage });
     } else if (!('ok' in result)) {
       setNotice({ tone: 'error', text: editFailure(result.edit) });
@@ -111,6 +128,8 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
     edits,
     update,
     discard: () => update(() => NO_EDITS),
+    /** Whether the view may change: nothing is staged, or the user chose to drop it. */
+    confirmLeave: () => stagedCount(edits) === 0 || window.confirm(t('sqlWorkspace.edits.leaveConfirm', { count: stagedCount(edits) })),
     review: target ? rowEditReview(target, changeSet(edits)) : '',
     commit: () => void commit(),
     busy,

@@ -36,7 +36,7 @@ function remote(overrides: Partial<SqlConnectionPickerRemote> = {}): SqlConnecti
 describe('SqlConnectionBar', () => {
   it('names Local DuckDB on the pill and lists it first in the picker', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar actions={<button type="button">Import data</button>} />);
+    render(<SqlConnectionBar remote={remote({ catalog: null })} actions={<button type="button">Import data</button>} />);
     const pill = screen.getByTestId('sql-connection-pill');
     expect(pill.getAttribute('aria-label')).toBe('Connection: Local DuckDB');
     expect(pill.getAttribute('aria-haspopup')).toBe('listbox');
@@ -49,7 +49,7 @@ describe('SqlConnectionBar', () => {
 
   it('filters the picker and closes on Escape, back on the pill', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar />);
+    render(<SqlConnectionBar remote={remote({ catalog: null })} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     await user.type(screen.getByTestId('sql-connection-search'), 'postgres');
     expect(screen.queryByTestId('sql-connection-option-local')).toBeNull();
@@ -61,7 +61,7 @@ describe('SqlConnectionBar', () => {
 
   it('moves from the search into the option with ArrowDown and returns to the pill on pick', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar />);
+    render(<SqlConnectionBar remote={remote({ catalog: null })} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     await user.keyboard('{ArrowDown}');
     expect(document.activeElement).toBe(screen.getByTestId('sql-connection-option-local'));

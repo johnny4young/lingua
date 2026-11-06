@@ -27,7 +27,7 @@ export const APP_ORIGIN = 'https://app.linguacode.dev';
  * @type {ReadonlyArray<{ lib: string, pkg: string, file: string }>}
  */
 export const WEB_RUNTIME_ASSETS = [
-  { lib: 'duckdb', pkg: '@duckdb/duckdb-wasm', file: 'duckdb-mvp.wasm' },
+  { lib: 'duckdb', pkg: '@duckdb/duckdb-wasm', file: 'duckdb-eh.wasm' },
   { lib: 'ruby', pkg: '@ruby/3.4-wasm-wasi', file: 'ruby+stdlib.wasm' },
 ];
 

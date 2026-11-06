@@ -28,9 +28,7 @@ let nextId = 0;
 
 /** The policy a run should carry, or undefined when running code is unrestricted. */
 export function networkRunPolicyFor(tabKey: string): NetworkRunPolicy | undefined {
-  const settings = useSettingsStore.getState();
-  if (settings.featureFlags.networkPolicy !== true) return undefined;
-  const policy = settings.networkFromRunningCode;
+  const policy = useSettingsStore.getState().networkFromRunningCode;
   if (policy === 'allow') return undefined;
   const answers = Object.entries(useNetworkAskStore.getState().answers[tabKey] ?? {});
   return {

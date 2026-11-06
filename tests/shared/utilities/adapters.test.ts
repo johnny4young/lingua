@@ -526,6 +526,11 @@ describe('stringCaseAdapter', () => {
 });
 
 describe('html entity adapters', () => {
+  it('leaves names on Object.prototype alone', async () => {
+    const outcome = await htmlEntityDecodeAdapter.run('&constructor; &toString; &amp;', {});
+    expect(outcome).toEqual({ ok: true, value: '&constructor; &toString; &' });
+  });
+
   it('encodes the five HTML special characters', async () => {
     const r = await htmlEntityEncodeAdapter.run(`<a href="x">'&'</a>`, {});
     expect(r.ok).toBe(true);

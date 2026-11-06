@@ -1,4 +1,4 @@
-import { PanelLeft, Search } from 'lucide-react';
+import { Lightbulb, PanelLeft, Search } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,6 +17,8 @@ import {
 import { ModalShell } from '../ui/ModalShell';
 import { Tooltip } from '../ui/chrome';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { ClipboardBanner } from './ClipboardBanner';
+import { SendOutputSelect } from './SendOutputSelect';
 import { UtilityRail } from './UtilityRail';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -26,9 +28,13 @@ import { DeveloperUtilityPanel } from './UtilityPanels';
 import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { UtilityCopyShortcutHint } from './UtilityHeaderPills';
-import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { CLIPBOARD_TOOLS } from '../../data/clipboardTools';
+import { useClipboardSuggestion } from '../../hooks/useClipboardSuggestion';
+import { useUIStore } from '../../stores/uiStore';
+import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
+import { sendOutputToNewPipeline } from '../../stores/utilityPipelineSend';
+import type { UtilityAdapterId } from '../../../shared/utilities/types';
 import { useTelemetry } from '../../hooks/useTelemetry';
-import { pushUpsellNotice } from '../../utils/upsellNotice';
 
 /**
  * Developer utilities migrated onto the Signal-Slate
@@ -72,7 +78,8 @@ function useFavoriteTelemetry(): void {
     let lastSize = useUtilityHistoryStore.getState().favorites.length;
     return useUtilityHistoryStore.subscribe(state => {
       const nextSize = state.favorites.length;
-      if (nextSize > lastSize) {
+      // During a rehydrate the pin came from another tab, which already reported it.
+      if (nextSize > lastSize && useUtilityHistoryStore.persist?.hasHydrated() !== false) {
         const last = state.favorites[state.favorites.length - 1];
         if (last) {
           track('utility.favorite.pinned', {
@@ -112,7 +119,6 @@ function DeveloperUtilitiesWorkspaceBody({
   toolList,
 }: DeveloperUtilitiesWorkspaceBodyProps) {
   const { t } = useTranslation();
-  const { track } = useTelemetry();
   const [searchQuery, setSearchQuery] = useState('');
   const [visitedUtilityIds, setVisitedUtilityIds] = useState<DeveloperUtilityId[]>(() => [
     selectedUtilityId,
@@ -137,8 +143,10 @@ function DeveloperUtilitiesWorkspaceBody({
     setVisitedUtilityIds([...visitedUtilityIds, selectedUtilityId]);
   }
   const searchRef = useRef<HTMLInputElement>(null);
-  const effectiveTier = useEffectiveTier();
-  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
+  const clipboardKind = useClipboardSuggestion(active);
+  // Tool panels load lazily and register their output once mounted.
+  const outputReady = useUtilityOutputStore(state => state.provider !== null);
+  const suggestedTools = clipboardKind ? CLIPBOARD_TOOLS[clipboardKind] : [];
   // Button refs let keyboard navigation move actual focus into the list
   // after a search-box arrow key, matching a roving-tabindex pattern
   // without storing focus state separately.
@@ -210,20 +218,6 @@ function DeveloperUtilitiesWorkspaceBody({
     });
   };
 
-  const isUtilityLocked = (utility: DeveloperUtilityDefinition): boolean =>
-    utility.requiresEntitlement === 'DEV_UTILITIES' && !canUseUtilityWorkflows;
-
-  const notifyLockedUtility = () => {
-    pushUpsellNotice({
-      messageKey: 'upsell.freeCeilingReached',
-      featureLabel: t('upsell.feature.utilityWorkflows'),
-    });
-    track('feature.blocked', {
-      entitlement: 'utility-workflows',
-      tier: effectiveTier,
-    });
-  };
-
   const rememberUtility = (utilityId: DeveloperUtilityId) => {
     setVisitedUtilityIds(current =>
       current.includes(utilityId) ? current : [...current, utilityId]
@@ -252,28 +246,10 @@ function DeveloperUtilitiesWorkspaceBody({
   const selectUtilityAt = (index: number, shouldFocusButton: boolean) => {
     const utility = filteredUtilities[index];
     if (!utility) return;
-    if (isUtilityLocked(utility)) {
-      selectUtility(utility.id);
-      notifyLockedUtility();
-      if (shouldFocusButton) {
-        focusUtilityButton(utility.id);
-      }
-      return;
-    }
     selectUtility(utility.id);
     if (shouldFocusButton) {
       focusUtilityButton(utility.id);
     }
-  };
-
-  const handleSelectUtility = (utilityId: DeveloperUtilityId) => {
-    const utility = findDeveloperUtility(utilityId);
-    if (isUtilityLocked(utility)) {
-      selectUtility(utilityId);
-      notifyLockedUtility();
-      return;
-    }
-    selectUtility(utilityId);
   };
 
   const selectRelativeUtility = (delta: number, shouldFocusButton: boolean) => {
@@ -337,6 +313,18 @@ function DeveloperUtilitiesWorkspaceBody({
     }
   };
 
+  const handleSendOutput = (utilityId: UtilityAdapterId) => {
+    const output = useUtilityOutputStore.getState().getProvider()?.() ?? '';
+    const notice = (messageKey: string) => useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey });
+    if (output.length === 0) {
+      notice('utilityPipeline.send.empty');
+    } else if (!sendOutputToNewPipeline(output, utilityId, t(selectedUtility.titleKey))) {
+      notice('utilityPipeline.send.capReached');
+    } else {
+      selectUtility('utility-pipelines');
+    }
+  };
+
   const panel = (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg-panel-alt/40">
       {/* The selected sidebar row already shows this utility's title and
@@ -345,6 +333,11 @@ function DeveloperUtilitiesWorkspaceBody({
           The heading stays as a visually hidden landmark for screen readers
           and heading-based tests. */}
       <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
+      {activeSelectedUtilityId !== 'utility-pipelines' ? (
+        <div className="flex justify-end px-7 pt-3">
+          <SendOutputSelect testId="utility-send-output" ready={outputReady} onSend={handleSendOutput} />
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
         <DeveloperUtilityPanel
           toolId={activeSelectedUtilityId}
@@ -361,10 +354,11 @@ function DeveloperUtilitiesWorkspaceBody({
         <UtilityRail
           activeCategory={UTILITY_CATEGORY[activeSelectedUtilityId]}
           pipelinesActive={activeSelectedUtilityId === 'utility-pipelines'}
+          suggestedCategories={new Set(suggestedTools.map(toolId => UTILITY_CATEGORY[toolId]))}
           onSearch={() => openListAt('search')}
           onFavorites={() => openListAt('favorites')}
           onCategory={category => openListAt(category)}
-          onPipelines={() => handleSelectUtility('utility-pipelines')}
+          onPipelines={() => selectUtility('utility-pipelines')}
           onExpand={() => toolList.setOpen(true)}
         />
         {panel}
@@ -412,7 +406,8 @@ function DeveloperUtilitiesWorkspaceBody({
             ) : null}
           </div>
         </div>
-        <FavoritesRow selectedUtilityId={activeSelectedUtilityId} onSelect={handleSelectUtility} />
+        <ClipboardBanner kind={clipboardKind} />
+        <FavoritesRow selectedUtilityId={activeSelectedUtilityId} onSelect={selectUtility} />
         <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredUtilities.length === 0 ? (
             <div className="px-3 py-6 text-center">
@@ -423,7 +418,6 @@ function DeveloperUtilitiesWorkspaceBody({
           ) : (
             filteredUtilities.map((utility, index) => {
               const isSelected = utility.id === activeSelectedUtilityId;
-              const isLocked = isUtilityLocked(utility);
               // In the no-query browse view, emit a category
               // heading before the first utility of each category. The
               // heading is skipped while searching (the list is ranked,
@@ -449,13 +443,11 @@ function DeveloperUtilitiesWorkspaceBody({
                     </p>
                   ) : null}
                 <div
-                  data-locked={isLocked || undefined}
                   className={cn(
                     'group mb-1 flex w-full items-start gap-1 rounded-xl pr-2 transition-colors',
                     isSelected
                       ? 'bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)]'
-                      : 'hover:bg-bg-panel-alt/70',
-                    isLocked && 'opacity-75'
+                      : 'hover:bg-bg-panel-alt/70'
                   )}
                 >
                   <button
@@ -467,28 +459,16 @@ function DeveloperUtilitiesWorkspaceBody({
                         utilityButtonRefs.current.delete(utility.id);
                       }
                     }}
-                    onClick={() => {
-                      if (isLocked) {
-                        selectUtility(utility.id);
-                        notifyLockedUtility();
-                        return;
-                      }
-                      selectUtility(utility.id);
-                    }}
+                    onClick={() => selectUtility(utility.id)}
                     onKeyDown={handleUtilityKeyDown}
-                    onMouseEnter={() => {
-                      if (!isLocked) prefetchUtilityPanel(utility.id);
-                    }}
-                    onFocus={() => {
-                      if (!isLocked) prefetchUtilityPanel(utility.id);
-                    }}
+                    onMouseEnter={() => prefetchUtilityPanel(utility.id)}
+                    onFocus={() => prefetchUtilityPanel(utility.id)}
                     aria-pressed={isSelected}
                     data-testid={`utility-item-${utility.id}`}
                     title={compact ? t(utility.descriptionKey) : undefined}
                     className={cn(
                       'flex flex-1 items-start gap-2.5 px-3 text-left',
-                      compact ? 'py-1.5' : 'py-3',
-                      isLocked && 'cursor-pointer'
+                      compact ? 'py-1.5' : 'py-3'
                     )}
                   >
                     <span
@@ -508,13 +488,14 @@ function DeveloperUtilitiesWorkspaceBody({
                         >
                           {t(utility.titleKey)}
                         </span>
-                        {isLocked ? (
-                          <span
-                            data-testid={`utility-lock-${utility.id}`}
-                            className="rounded-full border border-warning/45 bg-warning/10 px-1.5 py-0.5 font-mono text-micro font-bold uppercase tracking-[0.16em] text-warning"
-                          >
-                            {t('utilities.locked.proBadge')}
-                          </span>
+                        {suggestedTools.includes(utility.id) ? (
+                          <Lightbulb
+                            size={12}
+                            role="img"
+                            aria-label={t('utilities.clipboard.suggested')}
+                            data-testid={`utility-suggested-${utility.id}`}
+                            className="shrink-0 text-warning-fg"
+                          />
                         ) : null}
                       </span>
                       {compact ? null : (
@@ -529,7 +510,7 @@ function DeveloperUtilitiesWorkspaceBody({
                       )}
                     </span>
                   </button>
-                  {isLocked ? null : <FavoriteToggleButton utilityId={utility.id} />}
+                  <FavoriteToggleButton utilityId={utility.id} />
                 </div>
                 </Fragment>
               );

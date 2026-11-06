@@ -49,7 +49,8 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.x'
+          node-version-file: .nvmrc
+          check-latest: true
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -134,7 +135,7 @@ jobs:
 
           duckdb_version="$(read_pkg_version node_modules/@duckdb/duckdb-wasm/package.json)"
           ruby_version="$(read_pkg_version node_modules/@ruby/3.4-wasm-wasi/package.json)"
-          duckdb_src="node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm"
+          duckdb_src="node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm"
           ruby_src="node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm"
 
           upload_runtime_asset() {
@@ -156,8 +157,8 @@ jobs:
 
           upload_runtime_asset \
             "${duckdb_src}" \
-            "web-runtime/duckdb/${duckdb_version}/duckdb-mvp.wasm" \
-            "${runtime_base}/duckdb/${duckdb_version}/duckdb-mvp.wasm"
+            "web-runtime/duckdb/${duckdb_version}/duckdb-eh.wasm" \
+            "${runtime_base}/duckdb/${duckdb_version}/duckdb-eh.wasm"
           upload_runtime_asset \
             "${ruby_src}" \
             "web-runtime/ruby/${ruby_version}/ruby+stdlib.wasm" \
@@ -166,7 +167,7 @@ jobs:
           # Verify public bytes, not just CORS headers. A missing or tampered
           # object can answer with a valid ACAO header but must never be
           # promoted behind a Pages build that references it.
-          node scripts/verify-web-runtime-mirror.mjs "${duckdb_src}" "${runtime_base}/duckdb/${duckdb_version}/duckdb-mvp.wasm"
+          node scripts/verify-web-runtime-mirror.mjs "${duckdb_src}" "${runtime_base}/duckdb/${duckdb_version}/duckdb-eh.wasm"
           node scripts/verify-web-runtime-mirror.mjs "${ruby_src}" "${runtime_base}/ruby/${ruby_version}/ruby+stdlib.wasm"
 
           find dist/web -type f -size +25M -print > output/cloudflare-deploy-validation/oversized-pages-assets.txt
@@ -178,7 +179,7 @@ jobs:
 
           {
             echo
-            echo "- DuckDB WASM: ${runtime_base}/duckdb/${duckdb_version}/duckdb-mvp.wasm"
+            echo "- DuckDB WASM: ${runtime_base}/duckdb/${duckdb_version}/duckdb-eh.wasm"
             echo "- Ruby WASM: ${runtime_base}/ruby/${ruby_version}/ruby+stdlib.wasm"
           } >> output/cloudflare-deploy-validation/README.md
 

@@ -12,16 +12,17 @@
  *     for Local, or `sql-<engine>` (`sql-postgres`, `sql-sqlserver`…) for a
  *     saved connection. The connection itself (host, user, database,
  *     file) is never recorded.
- *   - `source.content` carries the user-authored query text verbatim.
+ *   - `source.content` carries the query text with secret literals masked.
  *     The content-hash on that string lets the consumer dedup
  *     repeated runs.
  *   - `result.status` maps SQL outcome to capsule outcome:
  *     `success` → `'success'`, `timeout` → `'timeout'`,
  *     everything else → `'error'`.
- *   - `result.stdout` carries the result row preview as JSON.
- *   - `result.stderr` carries the error message (when present); a
- *     connection failure keeps only the engine, since the server's
- *     message names the host and the user.
+ *   - `result.stdout` carries Local's row preview as JSON; a saved
+ *     connection's rows stay out.
+ *   - `result.stderr` carries Local's error message (when present); a
+ *     connection keeps only the engine, since a server's message can
+ *     name the host and the user or echo the statement.
  *   - `result.durationMs` mirrors the SQL response's duration.
  *
  * The existing capsule sanitiser (`sanitizeRunCapsule`) handles
@@ -35,7 +36,8 @@ import {
   type RunCapsuleStatus,
   type RunCapsuleV1,
 } from '../../shared/runCapsule';
-import type { SqlQueryV1, SqlResponseV1 } from '../../shared/sqlWorkspace';
+import { redactSqlSecrets } from '../../shared/sqlStatements';
+import { isRemoteSqlResponse, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 
 /**
  * Map the SQL response status to the capsule status enum.
@@ -86,11 +88,19 @@ export async function buildSqlResponseCapsule(
   input: BuildSqlResponseCapsuleInput
 ): Promise<RunCapsuleV1> {
   const status = mapSqlStatusToCapsule(input.response.status);
-  const stdout = serializeRowsForStdout(input.response);
   const engine = input.response.engine;
+  const remote = isRemoteSqlResponse(input.response);
+  // A capsule leaves the app, so a connection's rows and its driver's words stay behind.
+  const stdout = remote ? '' : serializeRowsForStdout(input.response);
   const runner = engine ? `sql-${engine}` : 'duckdb-wasm';
   const unreachable = input.response.status === 'connection-failed' || input.response.status === 'blocked-target';
-  const stderr = unreachable && engine ? `Could not connect to the ${engine} connection.` : input.response.errorMessage;
+  const stderr = !remote
+    ? input.response.errorMessage
+    : unreachable
+      ? `Could not connect to the ${engine} connection.`
+      : input.response.errorMessage !== undefined
+        ? `The ${engine} connection returned an error.`
+        : undefined;
   return buildRunCapsule({
     appVersion: input.appVersion,
     tab: {
@@ -99,7 +109,7 @@ export async function buildSqlResponseCapsule(
       runtimeMode: runner,
       workflowMode: 'run',
     },
-    source: { content: input.query.query },
+    source: { content: redactSqlSecrets(input.query.query, engine) },
     result: {
       status,
       durationMs: Math.max(0, input.response.durationMs),

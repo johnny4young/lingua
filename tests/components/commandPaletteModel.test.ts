@@ -1331,6 +1331,8 @@ describe('buildCommandPaletteModel — compare actions ', () => {
     onToggleCompareWithSnapshot?: () => void;
     activeCompareEnabled?: boolean;
     compareSnapshotAvailable?: boolean;
+    compareShowsRuns?: boolean;
+    onRecordRun?: () => void;
     onClose?: () => void;
   }) {
     return buildCommandPaletteModel({
@@ -1339,6 +1341,8 @@ describe('buildCommandPaletteModel — compare actions ', () => {
       onToggleCompareWithSnapshot: args.onToggleCompareWithSnapshot,
       activeCompareEnabled: args.activeCompareEnabled,
       compareSnapshotAvailable: args.compareSnapshotAvailable,
+      compareShowsRuns: args.compareShowsRuns,
+      onRecordRun: args.onRecordRun,
       updateStatus: 'idle',
       createTab: vi.fn(),
       createDefaultTab: (language) => ({
@@ -1371,6 +1375,27 @@ describe('buildCommandPaletteModel — compare actions ', () => {
         (command) => command.id === 'action-toggle-compare-with-snapshot'
       )
     ).toBeUndefined();
+  });
+
+  it('offers Record run only when the palette is handed it', () => {
+    expect(buildCompareCommands({}).find((command) => command.id === 'action-record-run')).toBeUndefined();
+    const onRecordRun = vi.fn();
+    const onClose = vi.fn();
+    const action = buildCompareCommands({ onRecordRun, onClose }).find((command) => command.id === 'action-record-run');
+    expect(action?.label).toBe('Record run');
+    action?.action();
+    expect(onRecordRun).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('offers the session runs with Compare runs on even without a snapshot', () => {
+    const action = buildCompareCommands({
+      onToggleCompareWithSnapshot: vi.fn(),
+      compareSnapshotAvailable: false,
+      compareShowsRuns: true,
+    }).find((command) => command.id === 'action-toggle-compare-with-snapshot');
+    expect(action?.label).toBe('Toggle session runs');
+    expect(action?.description).toBe("Show this session's runs and compare any two.");
   });
 
   it('shows the compare action and calls the toggle handler when available', () => {

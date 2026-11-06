@@ -46,6 +46,7 @@ const MODULE_BUDGETS = {
   'commandPaletteRegistries/artifacts.ts': 500,
   'commandPaletteRegistries/editor.ts': 520,
   'commandPaletteRegistries/selectionTransferCommands.ts': 100,
+  'commandPaletteRegistries/aiCodeCommands.ts': 60,
   'commandPaletteRegistries/application.ts': 220,
   'commandPaletteRegistries/utilities.ts': 130,
 } as const;
@@ -59,6 +60,7 @@ const HISTORICAL_STATIC_ACTION_ORDER = [
   'action-rerun-last',
   'action-new-project-from-template',
   'action-restore-session',
+  'action-record-run',
   'action-export-capsule',
   'action-import-capsule',
   'action-browse-capsules',
@@ -95,6 +97,7 @@ const HISTORICAL_STATIC_ACTION_ORDER = [
   'action-install-native-deps',
   'action-explain-last-error',
   'action-explain-selected-code',
+  'action-edit-selected-code',
   'action-focus-status-bar',
   'action-toggle-presenter-mode',
   'action-layout-horizontal',
@@ -147,7 +150,14 @@ function staticActionIds(domain: (typeof COMMAND_PALETTE_DOMAIN_ORDER)[number]):
         'utf8'
       )
     : '';
-  return [...`${editorPrefix}\n${source}`.matchAll(/buildActionCommand\(\s*'([^']+)'/gu)]
+  // Helper modules a registry spreads in count where the registry calls them.
+  const inlined = domain === 'editor'
+    ? source.replace(
+        '...buildAiCodeCommands(',
+        `${readFileSync(path.join(commandPaletteRoot, 'commandPaletteRegistries/aiCodeCommands.ts'), 'utf8')}\n...buildAiCodeCommands(`
+      )
+    : source;
+  return [...`${editorPrefix}\n${inlined}`.matchAll(/buildActionCommand\(\s*'([^']+)'/gu)]
     .map(match => match[1]!);
 }
 

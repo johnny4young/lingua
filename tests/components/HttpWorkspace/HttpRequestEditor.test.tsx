@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpRequestEditor } from '../../../src/renderer/components/HttpWorkspace/HttpRequestEditor';
 import type { HttpCaptureTarget } from '../../../src/renderer/components/HttpWorkspace/useHttpTreeCapture';
+import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { HttpEnvironmentV1 } from '../../../src/shared/httpEnvironment';
 import { createBlankHttpRequest } from '../../../src/shared/httpWorkspace';
@@ -384,6 +386,87 @@ describe('HttpRequestEditor', () => {
     });
   });
 
+  describe('Open as JS tab', () => {
+    const initialEditor = useEditorStore.getState();
+    afterEach(() => {
+      useEditorStore.setState(initialEditor, true);
+    });
+    const open = (patch: object = {}) => {
+      const request = { ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }), name: 'Users', url: 'https://x.dev/users', ...patch };
+      render(<HttpRequestEditor request={request} onPatch={vi.fn()} onSend={vi.fn()} isExecuting={false} />);
+      fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
+    };
+
+    it('opens a tab that waits for Run, with a literal credential withheld', () => {
+      open({ auth: { kind: 'bearer', token: 'tok-SECRET' } });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      const tab = tabs.find((candidate) => candidate.id === activeTabId)!;
+      expect(tab).toMatchObject({ name: 'Users.js', language: 'javascript', workflowMode: 'run', runtimeMode: 'worker' });
+      expect(tab.content).not.toContain('tok-SECRET');
+      expect(tab.content).toContain('"auth_token": "{{auth_token}}"');
+      expect(screen.queryByTestId('http-request-editor-copy-menu-list')).toBeNull();
+    });
+
+    it('keeps an environment secret out of the tab and resolves the rest', () => {
+      const environment: HttpEnvironmentV1 = {
+        version: 1,
+        id: 'env-1',
+        name: 'prod',
+        variables: [
+          { id: 'v1', key: 'base', value: 'https://api.example.com', secret: false },
+          { id: 'v2', key: 'apiToken', value: 'tok-SECRET', secret: true },
+        ],
+        createdAt: '2026-10-24T00:00:00.000Z',
+        updatedAt: '2026-10-24T00:00:00.000Z',
+      };
+      const request = { ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }), name: 'Users', url: '{{base}}/users', auth: { kind: 'bearer' as const, token: '{{apiToken}}' } };
+      render(<HttpRequestEditor request={request} onPatch={vi.fn()} onSend={vi.fn()} isExecuting={false} environments={[environment]} activeEnvironmentId="env-1" />);
+      fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      const { content } = tabs.find((candidate) => candidate.id === activeTabId)!;
+      expect(content).not.toContain('tok-SECRET');
+      expect(content).toContain('"apiToken": "{{apiToken}}"');
+      expect(content).toContain('"https://api.example.com/users"');
+    });
+
+    it('runs in the Worker whatever the default runtime is', () => {
+      const { defaultRuntimeMode } = useSettingsStore.getState();
+      useSettingsStore.setState({ defaultRuntimeMode: 'browser-preview' });
+      open();
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.runtimeMode).toBe('worker');
+      useSettingsStore.setState({ defaultRuntimeMode });
+    });
+
+    it('strips path separators and hidden characters from the tab name', () => {
+      open({ name: '../..\\x\u202Ey' });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.name).toBe('.._.._x_y.js');
+    });
+
+    it('keeps the default tab name for an unnamed request', () => {
+      open({ name: '  ' });
+      const before = useEditorStore.getState().tabs.length;
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs).toHaveLength(before + 1);
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.name).not.toMatch(/^\s*\.js$/);
+    });
+
+    it('treats the headers the user marked sensitive as secrets', () => {
+      useSettingsStore.setState({ sensitiveHttpHeaders: ['x-internal'] });
+      open({ headers: [{ id: 'h', name: 'X-Internal', value: 'hdr-SECRET', enabled: true }] });
+      fireEvent.click(screen.getByTestId('http-request-editor-open-tab'));
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs.find((candidate) => candidate.id === activeTabId)!.content).not.toContain('hdr-SECRET');
+      useSettingsStore.setState({ sensitiveHttpHeaders: [] });
+    });
+  });
+
   it('keeps bespoke editor actions on the shared focus-ring contract', () => {
     const request = {
       ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }),
@@ -644,7 +727,7 @@ describe('HttpRequestEditor', () => {
     it('judges a URL after the active environment fills it, and names a missing variable', () => {
       editor('{{base}}/users', { environments: [environment], activeEnvironmentId: 'env-1' });
       expect(send().disabled).toBe(false);
-      expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('defined');
+      expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('environment');
       fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: '{{host}}/users' } });
       expect(hint()).toBe('Give host a value in the active environment to send.');
       expect(screen.getByTestId('http-request-editor-url-token').getAttribute('data-state')).toBe('missing');

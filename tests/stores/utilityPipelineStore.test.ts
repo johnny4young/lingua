@@ -10,9 +10,11 @@ import {
   resetUtilityPipelineStoreForTests,
   useUtilityPipelineStore,
 } from '../../src/renderer/stores/utilityPipelineStore';
-import { createBlankPipeline } from '../../src/shared/utilityPipeline';
+import { sendOutputToNewPipeline } from '../../src/renderer/stores/utilityPipelineSend';
+import { PIPELINE_CAP, createBlankPipeline, createBlankStep } from '../../src/shared/utilityPipeline';
 
 beforeEach(() => {
+  localStorage.clear();
   resetUtilityPipelineStoreForTests();
 });
 
@@ -21,6 +23,16 @@ describe('useUtilityPipelineStore', () => {
     const state = useUtilityPipelineStore.getState();
     expect(state.pipelines).toEqual([]);
     expect(state.activePipelineId).toBeNull();
+  });
+
+  it('drops the input of a pipeline evicted at the cap', () => {
+    const store = useUtilityPipelineStore.getState();
+    const seed = (id: string) => createBlankPipeline({ id, name: id });
+    for (let index = 0; index < PIPELINE_CAP; index += 1) store.createPipeline(seed(`p${index}`));
+    store.setPipelineInput('p0', 'token');
+    store.setPipelineInput('p1', 'token');
+    store.createPipeline(seed('new'));
+    expect(useUtilityPipelineStore.getState().inputsByPipelineId).toEqual({ p1: 'token' });
   });
 
   it('createPipeline prepends and sets active', () => {
@@ -145,5 +157,41 @@ describe('useUtilityPipelineStore', () => {
     useUtilityPipelineStore.getState().setIsExecutingActive(true);
     useUtilityPipelineStore.getState().setActivePipeline('a');
     expect(useUtilityPipelineStore.getState().isExecutingActive).toBe(false);
+  });
+});
+
+describe('step controls and sends', () => {
+  it('keeps the controls and auto-bake through a duplicate', () => {
+    const source = createBlankPipeline({ id: 'p1', name: 'one' });
+    source.autoBake = true;
+    source.steps.push({ ...createBlankStep({ id: 's', utilityId: 'url-encode' }), disabled: true, breakpoint: true });
+    useUtilityPipelineStore.getState().createPipeline(source);
+    const id = useUtilityPipelineStore.getState().duplicatePipeline('p1', 'p2', 'copy')!;
+    const clone = useUtilityPipelineStore.getState().pipelines.find((pipeline) => pipeline.id === id)!;
+    expect(clone.autoBake).toBe(true);
+    expect(clone.steps[0]).toMatchObject({ disabled: true, breakpoint: true });
+  });
+
+  it('sends an output to a new pipeline without persisting the output', () => {
+    expect(sendOutputToNewPipeline('tok-SECRET', 'jwt-decode', 'JWT Debugger')).toBe(true);
+    const state = useUtilityPipelineStore.getState();
+    const pipeline = state.pipelines[0]!;
+    expect(pipeline).toMatchObject({ name: 'JWT Debugger', steps: [{ utilityId: 'jwt-decode' }] });
+    expect(state.activePipelineId).toBe(pipeline.id);
+    expect(state.inputsByPipelineId[pipeline.id]).toBe('tok-SECRET');
+    expect(state.pendingRunPipelineId).toBe(pipeline.id);
+    const stored = localStorage.getItem('lingua-utility-pipeline-state') ?? '';
+    expect(stored).toContain('jwt-decode');
+    expect(stored).not.toContain('tok-SECRET');
+    expect(stored).not.toContain('pendingRunPipelineId');
+  });
+
+  it('refuses a send at the library cap instead of evicting a pipeline', () => {
+    for (let index = 0; index < PIPELINE_CAP; index += 1) {
+      useUtilityPipelineStore.getState().createPipeline(createBlankPipeline({ id: `p${index}` }));
+    }
+    expect(sendOutputToNewPipeline('x', 'hash', 'Hash')).toBe(false);
+    expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(PIPELINE_CAP);
+    expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBeNull();
   });
 });

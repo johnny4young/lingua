@@ -27,6 +27,7 @@ export function createSessionActions(
   | 'setSuppressTourAutoStart'
   | 'setSqlWorkspaceRowDisplayLimit'
   | 'setSqlWorkspaceQueryTimeoutMs'
+  | 'setSqlWorkspaceInstantPreview'
   | 'setSqlWorkspacePersistTables'
   | 'setRunLedgerEnabled'
 > {
@@ -90,6 +91,7 @@ export function createSessionActions(
       }),
     // Coerce to boolean so a stray
     // localStorage value can't smuggle a non-boolean into the setting.
+    setSqlWorkspaceInstantPreview: (value) => set({ sqlWorkspaceInstantPreview: value === true }),
     setSqlWorkspacePersistTables: (value) =>
       set((state) => {
         const next = value === true;

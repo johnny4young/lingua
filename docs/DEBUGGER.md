@@ -255,6 +255,13 @@ Every payload is closed-enum. The redactor in
 `src/shared/telemetry/redaction.ts` drops any key that isn't on the per-event
 allowlist. No source, no breakpoint coordinates, no expression content.
 
+## Execution timeline
+
+The execution timeline records a JavaScript or TypeScript run in the Worker
+and replays it step by step. It is a separate path from a debug session: nothing
+pauses, and stepping moves through the recording. See
+[Execution timeline](./USAGE.md#execution-timeline) in USAGE.
+
 ## Current limitations
 
 - **Rust Debug is desktop-only** and requires local Rust plus `lldb-dap`. It

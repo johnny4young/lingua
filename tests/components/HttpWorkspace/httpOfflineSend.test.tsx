@@ -230,7 +230,7 @@ describe('HttpSendButton', () => {
   it('labels each queue state', () => {
     const onRemove = vi.fn();
     const { rerender } = render(<HttpSendButton {...base} queue={{ willQueue: true, state: null, onRemove }} />);
-    expect(screen.getByTestId('http-request-editor-send').textContent).toBe('Send when online');
+    expect(screen.getByTestId('http-request-editor-send').textContent).toBe('Queue and send when online');
     rerender(<HttpSendButton {...base} queue={{ willQueue: false, state: 'ready', onRemove }} />);
     expect(screen.getByTestId('http-request-editor-send').textContent).toBe('Send now');
     rerender(<HttpSendButton {...base} queue={{ willQueue: true, state: 'queued', onRemove }} />);

@@ -1023,6 +1023,15 @@ describe('runNotebookCell — SQL cells ', () => {
     expect(result.outcome.stdout).toEqual(['Query OK — 0 row(s).']);
   });
 
+  it('emits non-finite values as text the rich table reads, and NULL as null', async () => {
+    const rows = [{ x: 'Infinity' }, { x: 'NaN' }, { x: null }];
+    mockExecuteQuery.mockResolvedValue(sqlOutcome({ rows, rowCount: 3 }));
+    const result = await runNotebookCell({ tabId: 'tab-non-finite', language: 'sql', source: 'SELECT x FROM t;' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(JSON.parse(result.outcome.stdout[0]!)).toEqual(rows);
+  });
+
   it('adds a truncation note when the result set is capped', async () => {
     const rows = [{ n: 1 }];
     mockExecuteQuery.mockResolvedValue(

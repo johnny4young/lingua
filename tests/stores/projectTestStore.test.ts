@@ -275,6 +275,40 @@ describe('projectTestStore', () => {
   });
 });
 
+describe('projectTestStore focused failure', () => {
+  const test = { file: 'cart/total.test.ts', path: ['cartTotal', 'rounds cents'] };
+  const runResult = (status: 'passed' | 'failed') => ({
+    kind: status === 'passed' ? ('success' as const) : ('failed' as const),
+    framework: 'vitest' as const,
+    command: 'vitest run',
+    stdout: '',
+    stderr: '',
+    exitCode: status === 'passed' ? 0 : 1,
+    executionTime: 1,
+    timeoutMs: 300_000,
+    cases: [{ ...test, status }],
+  });
+
+  it('keeps the card while the test still fails and closes it once it passes', async () => {
+    const run = vi.fn().mockResolvedValueOnce(runResult('failed')).mockResolvedValueOnce(runResult('passed'));
+    installBridge({ run });
+    useProjectTestStore.setState({ rootId: rootA, projectName: 'a', status: 'ready', selectedFramework: 'vitest', cases: null, focusedFailure: test });
+    await useProjectTestStore.getState().run({ rootId: rootA, projectName: 'a' }, { kind: 'test', ...test });
+    expect(useProjectTestStore.getState().focusedFailure).toEqual(test);
+    await useProjectTestStore.getState().run({ rootId: rootA, projectName: 'a' }, { kind: 'test', ...test });
+    expect(useProjectTestStore.getState().focusedFailure).toBeNull();
+  });
+
+  it('forgets the card when the project or runner changes', async () => {
+    useProjectTestStore.setState({ focusedFailure: test });
+    useProjectTestStore.getState().selectFramework('jest');
+    expect(useProjectTestStore.getState().focusedFailure).toBeNull();
+    useProjectTestStore.setState({ focusedFailure: test });
+    await useProjectTestStore.getState().detect({ rootId: rootB, projectName: 'b' });
+    expect(useProjectTestStore.getState().focusedFailure).toBeNull();
+  });
+});
+
 describe('mergeProjectTestCases', () => {
   const tc = (file: string, name: string, status: 'passed' | 'failed' | 'skipped' = 'passed') => ({ file, path: [name], status });
   const list = [tc('a.test.ts', 'one'), tc('a.test.ts', 'two', 'failed'), tc('b.test.ts', 'three')];

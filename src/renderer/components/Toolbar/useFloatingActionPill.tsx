@@ -43,10 +43,12 @@ import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { useDebuggerStore } from '../../stores/debuggerStore';
+import { useMissingActiveToolchain } from '../../hooks/useMissingActiveToolchain';
 import {
   executionDisabledTooltipKey,
   resolveExecutionControlPolicy,
 } from './executionControlPolicy';
+import { isStorageEphemeral } from '../../utils/ephemeralStorage';
 
 export type ActionPillMenu = 'lang' | 'workflow' | 'runtime' | 'run' | 'actions';
 export type ActionPillMenuSetter = Dispatch<SetStateAction<ActionPillMenu | null>>;
@@ -95,8 +97,8 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   // Lingua doesn't currently surface an "autosave" setting; the
   // pill shows a static green status dot per the design intent (the
-  // editor saves locally on every keystroke today).
-  const autoSaveEnabled = true;
+  // editor saves locally on every keystroke), unless storage is blocked.
+  const autoSaveEnabled = !isStorageEphemeral();
   const effectiveTier = useEffectiveTier();
   const actionPillPosition = useUIStore((s) => s.actionPillPosition);
   const setActionPillPosition = useUIStore((s) => s.setActionPillPosition);
@@ -122,6 +124,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const workspaceTab = activeTab ? isWorkspaceTab(activeTab) : false;
+  const toolchainMissing = useMissingActiveToolchain(language) !== null;
   const executionPolicy = resolveExecutionControlPolicy({
     language,
     runtimeMode: activeTab?.runtimeMode,
@@ -131,6 +134,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     isWorkspaceTab: workspaceTab,
     emptyWorkspace,
     enabledBreakpointCount,
+    toolchainMissing,
   });
   const estimatedPillWidth =
     typeof window !== 'undefined' && window.innerWidth >= 1500

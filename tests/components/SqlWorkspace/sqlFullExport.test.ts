@@ -35,6 +35,24 @@ describe('exportFullResult', () => {
     expect(streamQueryRows).not.toHaveBeenCalled();
   });
 
+  it('quotes what DuckDB leaves bare in JSON and NDJSON, and leaves other formats as written', async () => {
+    const written = (text: string) => ({ bytes: new TextEncoder().encode(text), rowCount: 2 });
+    const text = (data: string | Uint8Array) => new TextDecoder().decode(data as Uint8Array);
+    copyQueryToBytes.mockResolvedValueOnce(written('[\n\t{"x":Infinity},\n\t{"x":NaN}\n]\n'));
+    const json = await exportFullResult('SELECT x', 'json', DEFAULT_EXPORT_OPTIONS);
+    expect(JSON.parse(text(json.data))).toEqual([{ x: 'Infinity' }, { x: 'NaN' }]);
+    copyQueryToBytes.mockResolvedValueOnce(written('{"x":-Infinity}\n{"x":1}\n'));
+    const ndjson = await exportFullResult('SELECT x', 'ndjson', DEFAULT_EXPORT_OPTIONS);
+    expect(text(ndjson.data)).toBe('{"x":"-Infinity"}\n{"x":1}\n');
+    // Only JSON gets the scan: a capital N or I here is a column name or binary data.
+    copyQueryToBytes.mockResolvedValueOnce(written('Name,Id\ninf,nan\n'));
+    const csv = await exportFullResult('SELECT x', 'csv', DEFAULT_EXPORT_OPTIONS);
+    expect(text(csv.data)).toBe('Name,Id\ninf,nan\n');
+    copyQueryToBytes.mockResolvedValueOnce(written('PAR1NaN Infinity'));
+    const parquet = await exportFullResult('SELECT x', 'parquet', DEFAULT_EXPORT_OPTIONS);
+    expect(text(parquet.data)).toBe('PAR1NaN Infinity');
+  });
+
   it('streams Markdown, SQL INSERT and XLSX rows through the app writers', async () => {
     const insert = await exportFullResult('SELECT a FROM t', 'sql-insert', DEFAULT_EXPORT_OPTIONS);
     expect(insert).toEqual({ data: 'INSERT INTO "result" ("a") VALUES\n  (1),\n  (2);', rowCount: 2, truncated: true });

@@ -92,6 +92,8 @@ type RustDetectResult = import('./shared/nativeRuntimeTypes').RustDetectResult;
 
 type RustRunResult = import('./shared/nativeRuntimeTypes').RustRunResult;
 
+type ToolchainChooseResult = import('./shared/toolchainBinary').ToolchainChooseResult;
+
 // -------------------------------------------------------------- Node types
 // Desktop Node child-spawn IPC. Detection + run.
 
@@ -570,6 +572,8 @@ interface LinguaAPI {
       runId?: string
     ) => Promise<GoCompileResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    /** Main opens the picker, validates the binary and keeps its path. */
+    chooseBinary: () => Promise<ToolchainChooseResult>;
   };
 
   rust: {
@@ -581,6 +585,8 @@ interface LinguaAPI {
       runId?: string
     ) => Promise<RustRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    /** Main opens the picker, validates the binary and keeps its path. */
+    chooseBinary: () => Promise<ToolchainChooseResult>;
   };
 
   // Desktop Node child-spawn IPC. Worker-mode JS
@@ -1052,7 +1058,7 @@ declare const __LINGUA_BUILD_DATE__: string | undefined;
 declare const __LINGUA_WEBSITE_URL__: string | undefined;
 declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;
 declare const __LINGUA_LICENSE_SERVER_URL__: string | undefined;
-declare const __LINGUA_DUCKDB_MVP_WASM_URL__: string | null | undefined;
+declare const __LINGUA_DUCKDB_WASM_URL__: string | null | undefined;
 declare const __LINGUA_RUBY_WASM_URL__: string | null | undefined;
 /**
  * Expected sha256 (hex) of the R2-mirrored WASM payloads, computed at
@@ -1060,7 +1066,7 @@ declare const __LINGUA_RUBY_WASM_URL__: string | null | undefined;
  * only in the standalone web build; the workers verify fetched bytes
  * against these before instantiation.
  */
-declare const __LINGUA_DUCKDB_MVP_WASM_SHA256__: string | null | undefined;
+declare const __LINGUA_DUCKDB_WASM_SHA256__: string | null | undefined;
 declare const __LINGUA_RUBY_WASM_SHA256__: string | null | undefined;
 declare const __LINGUA_PYODIDE_INDEX_URL__: string | null | undefined;
 declare const __LINGUA_E2E_HOOKS__: boolean | undefined;

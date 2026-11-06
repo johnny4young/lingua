@@ -11,7 +11,8 @@ import { openPostgres } from '../../src/main/sqlHost/postgres';
 import type { HostRequest, HostSessionConfig } from '../../src/main/sqlHost/protocol';
 import { openSqlite } from '../../src/main/sqlHost/sqlite';
 import type { SqlDbIntrospectResult } from '../../src/shared/sqlDb';
-import { rowEditStatements, type RowEditTable } from '../../src/shared/sqlRowEdits';
+import { cellText } from '../../src/renderer/components/SqlWorkspace/sqlRowEditModel';
+import { rowEditOriginal, rowEditRefusal, rowEditStatements, rowEditTableFrom, type RowEditTable } from '../../src/shared/sqlRowEdits';
 import { startBastion, type Bastion } from './sshBastion';
 
 const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite });
@@ -244,6 +245,81 @@ for (const [engine, url] of [
       const kept = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'e-kept', sql: `SELECT city FROM ${edits} WHERE id = 1`, readWrite: false, window });
       expect(kept.rows[0]?.city).toBe('Envigado');
       await run(`DROP TABLE ${edits}`);
+    });
+
+    it('refuses a commit when a compared column changed, and treats NULL as a value', async () => {
+      const name = `lingua_it_${engine}_stale`;
+      const run = (sql: string) => ok({ type: 'execute', config, runId: `s-${sql.length}`, sql, readWrite: false, window });
+      await run(`DROP TABLE IF EXISTS ${name}`);
+      await run(`CREATE TABLE ${name} (id INTEGER PRIMARY KEY, city VARCHAR(40), code CHAR(4), total NUMERIC(12,2), flag BOOLEAN, n BIGINT, big BIGINT)`);
+      await run(`INSERT INTO ${name} (id, city, code, total, flag, n, big) VALUES (1, 'O''Brien', 'ab', 10.50, TRUE, NULL, 9007199254740993)`);
+      const table = rowEditTableFrom(engine, '', name, [
+        { name: 'id', primaryKey: true, type: 'integer' },
+        { name: 'city', type: 'varchar(40)' },
+        { name: 'code', type: 'char(4)' },
+        { name: 'total', type: 'numeric(12,2)' },
+        { name: 'flag', type: engine === 'mysql' ? 'tinyint(1)' : 'boolean' },
+        { name: 'n', type: 'bigint' },
+        { name: 'big', type: 'bigint' },
+      ])!;
+      // What the driver hands the grid has to find the row again.
+      const { rows } = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 's-first', sql: `SELECT * FROM ${name}`, readWrite: false, window });
+      const asRead = rowEditOriginal(table, table.columns, (column) => cellText(rows[0]![column]));
+      const update = (original: Record<string, string | null>) =>
+        rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { city: 'mine' }, original }], deletes: [], inserts: [] }, false);
+      expect(await send({ type: 'apply-edits', config, statements: update({ ...asRead, city: 'Someone else' }) })).toMatchObject({ ok: false, error: { edit: { kind: 'conflict', change: 1, touched: 0 } } });
+      expect(await send({ type: 'apply-edits', config, statements: update({ ...asRead, n: '7' }) })).toMatchObject({ ok: false, error: { edit: { kind: 'conflict', change: 1, touched: 0 } } });
+      expect(await ok({ type: 'apply-edits', config, statements: update(asRead) })).toEqual({ applied: 1 });
+      const read = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 's-read', sql: `SELECT city FROM ${name}`, readWrite: false, window });
+      expect(read.rows[0]?.city).toBe('mine');
+      await run(`DROP TABLE ${name}`);
+    });
+
+    it('finds a BIGINT key above 2^53 exactly, next to its neighbour', async () => {
+      const name = `lingua_it_${engine}_big`;
+      const run = (sql: string) => ok({ type: 'execute', config, runId: `b-${sql.length}`, sql, readWrite: false, window });
+      await run(`DROP TABLE IF EXISTS ${name}`);
+      await run(`CREATE TABLE ${name} (id BIGINT PRIMARY KEY, v VARCHAR(10))`);
+      await run(`INSERT INTO ${name} (id, v) VALUES (9007199254740992, 'even'), (9007199254740993, 'odd')`);
+      const table: RowEditTable = { engine, name, columns: ['id', 'v'], types: { id: 'bigint', v: 'varchar(10)' }, key: { kind: 'pk', columns: ['id'] } };
+      const statements = rowEditStatements(table, { updates: [{ key: { id: '9007199254740993' }, values: { v: 'mine' } }], deletes: [], inserts: [] }, false);
+      expect(await ok({ type: 'apply-edits', config, statements })).toEqual({ applied: 1 });
+      const read = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'b-read', sql: `SELECT id, v FROM ${name} ORDER BY id`, readWrite: false, window });
+      expect(read.rows.map((row) => row.v)).toEqual(['even', 'mine']);
+      await run(`DROP TABLE ${name}`);
+    });
+
+    it.runIf(engine === 'mysql')('refuses a value strict mode would refuse, on a server that is not strict, and says when a table has no transactions', async () => {
+      const name = 'lingua_it_mysql_loose';
+      const run = (sql: string) => ok({ type: 'execute', config, runId: `m-${sql.length}`, sql, readWrite: false, window });
+      await run(`DROP TABLE IF EXISTS ${name}`);
+      await run(`CREATE TABLE ${name} (id INT PRIMARY KEY, n INT, v VARCHAR(3))`);
+      await run(`INSERT INTO ${name} VALUES (1, 5, 'abc')`);
+      const table: RowEditTable = { engine, name, columns: ['id', 'n', 'v'], key: { kind: 'pk', columns: ['id'] } };
+      const modes = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'm-mode', sql: 'SELECT @@GLOBAL.sql_mode AS mode', readWrite: false, window });
+      // A new session takes the global mode, so this is what a loose server hands the edit session.
+      await run("SET GLOBAL sql_mode = ''");
+      try {
+        const loose = configFrom(url, engine, 'mysql-loose')!;
+        for (const values of [{ n: '12abc' }, { v: 'too long' }]) {
+          const statements = rowEditStatements(table, { updates: [{ key: { id: '1' }, values }], deletes: [], inserts: [] }, false);
+          expect(await send({ type: 'apply-edits', config: loose, statements })).toMatchObject({ ok: false });
+        }
+      } finally {
+        await run(`SET GLOBAL sql_mode = '${String(modes.rows[0]?.mode)}'`);
+      }
+      const read = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'm-read', sql: `SELECT n, v FROM ${name}`, readWrite: false, window });
+      expect(read.rows[0]).toEqual({ n: 5, v: 'abc' });
+      const detail = (object: string) => ok<SqlDbIntrospectResult>({ type: 'introspect', config, request: { level: 'detail', schema: config.database!, name: object, kind: 'table' } });
+      expect((await detail(name)).detail?.transactional).toBeUndefined();
+      const myisam = 'lingua_it_mysql_myisam';
+      await run(`DROP TABLE IF EXISTS ${myisam}`);
+      await run(`CREATE TABLE ${myisam} (id INT PRIMARY KEY, v VARCHAR(3)) ENGINE=MyISAM`);
+      const read2 = await detail(myisam);
+      expect(read2.detail?.transactional).toBe(false);
+      expect(rowEditRefusal(engine, read2.detail!.columns, read2.detail!.transactional)).toBe('no-transactions');
+      await run(`DROP TABLE ${myisam}`);
+      await run(`DROP TABLE ${name}`);
     });
 
     it('rolls an edit back when another session holds its row, well before main stops waiting', async () => {

@@ -3,7 +3,6 @@ import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { AiSourceRow, NetworkFromRunningCodeRow } from '@/components/Settings/NetworkPolicyRows';
-import { LabsSection } from '@/components/Settings/LabsSection';
 import { NetworkAskDialog } from '@/components/NetworkAsk/NetworkAskDialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAiConfigStore } from '@/stores/aiConfigStore';
@@ -28,13 +27,7 @@ afterEach(() => {
 });
 
 describe('Network from running code row', () => {
-  it('stays hidden until the Labs flag is on', () => {
-    render(<NetworkFromRunningCodeRow />);
-    expect(screen.queryByTestId('privacy-network-policy')).toBeNull();
-  });
-
   it('switches the policy with the segmented control', () => {
-    useSettingsStore.setState({ featureFlags: { networkPolicy: true } });
     render(<NetworkFromRunningCodeRow />);
     expect(screen.getByRole('button', { name: 'Allow' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Block' }));
@@ -67,17 +60,6 @@ describe('AI assistance source row', () => {
   });
 });
 
-describe('Labs', () => {
-  it('turns the network policy flag on and off', () => {
-    render(<LabsSection />);
-    const toggle = screen.getByTestId('labs-flag-networkPolicy');
-    fireEvent.click(toggle);
-    expect(useSettingsStore.getState().featureFlags).toEqual({ networkPolicy: true });
-    fireEvent.click(toggle);
-    expect(useSettingsStore.getState().featureFlags).toEqual({});
-  });
-});
-
 describe('Network ask dialog', () => {
   it('names the host and runtime and resolves the waiting run', async () => {
     render(<NetworkAskDialog />);
@@ -100,13 +82,12 @@ describe('Network ask dialog', () => {
 });
 
 describe('settings persistence', () => {
-  it('drops an unknown policy and unknown flags on rehydrate', () => {
+  it('drops an unknown policy on rehydrate', () => {
     const merged = settingsMerge(
-      { networkFromRunningCode: 'deny', featureFlags: { networkPolicy: true, other: true } },
+      { networkFromRunningCode: 'deny' },
       useSettingsStore.getState()
     );
     expect(merged.networkFromRunningCode).toBe('allow');
-    expect(merged.featureFlags).toEqual({ networkPolicy: true });
   });
 
   it('keeps Run Ledger and running-code events in the trust feed', () => {

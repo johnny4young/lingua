@@ -2,7 +2,7 @@
  * Right column: response preview.
  *
  * The shared `<ResultHeader>` carries status, `245 ms · 83 B` and the
- * Body / Headers / Raw / Timing tabs (Snapshot with its Labs flag); the no-response and loading states use
+ * Body / Headers / Raw / Timing and Snapshot tabs; the no-response and loading states use
  * `<EmptyState>`. Search, Wrap and Pretty sit in a row under the header.
  *
  * The Body view picks the renderer based on content-type:
@@ -22,7 +22,7 @@
  */
 
 import { Loader2, SendHorizontal, X } from 'lucide-react';
-import { Fragment, useDeferredValue, useMemo, useState } from 'react';
+import { Fragment, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
 import type {
@@ -34,6 +34,7 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
 import { cn } from '../../utils/cn';
+import { formatBinarySize } from '../../utils/formatSize';
 import '../../i18n/httpBuilderCatalog';
 import { HttpStatusPill } from './HttpStatusPill';
 import { HttpJsonTree } from './HttpJsonTree';
@@ -46,18 +47,11 @@ import { splitForHighlight } from './httpTextHighlight';
 
 type PreviewTab = 'body' | 'headers' | 'raw' | 'timing' | 'snapshot';
 
-/** With snapshot assertions on: the request's snapshot and the ways to change it. */
+/** The request's snapshot and the ways to change it. */
 interface HttpResponseSnapshots {
   snapshot: HttpResponseSnapshot | undefined;
   onChange: (snapshot: HttpResponseSnapshot | undefined) => void;
   onAddAssertion: (assertion: Omit<HttpAssertion, 'id'>) => void;
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 }
 
 function isJsonContentType(contentType: string): boolean {
@@ -115,6 +109,8 @@ export interface HttpResponsePreviewProps {
   /** Adds a body capture rule for a value hovered in the tree. */
   onCaptureValue?: (path: string, segments: readonly JsonSegment[]) => void;
   snapshots?: HttpResponseSnapshots;
+  /** Shown under the empty state, for a request with no URL yet. */
+  starters?: ReactNode;
 }
 
 export function HttpResponsePreview({
@@ -126,6 +122,7 @@ export function HttpResponsePreview({
   captures,
   onCaptureValue,
   snapshots,
+  starters,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
   // Evaluate assertions against the settled response. Enabled
@@ -208,6 +205,7 @@ export function HttpResponsePreview({
         <EmptyState
           icon={<SendHorizontal size={18} aria-hidden="true" />}
           title={t('httpWorkspace.response.empty.title')}
+          {...(starters ? { action: starters } : {})}
         />
       </div>
     );
@@ -215,7 +213,7 @@ export function HttpResponsePreview({
 
   // Mono meta line: `245 ms · 83 B`, matching the proto's shared
   // result header (timing first, then size).
-  const meta = `${response.durationMs} ms · ${formatBytes(response.sizeBytes)}${
+  const meta = `${response.durationMs} ms · ${formatBinarySize(response.sizeBytes)}${
     response.messageCount !== undefined
       ? ` · ${t('httpWorkspace.response.messages', { count: response.messageCount })}`
       : ''

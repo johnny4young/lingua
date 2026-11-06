@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { replaceProgressOutput as replaceProgress, sanitizeProgressOutput } from '../../src/renderer/runners/limits';
 
 import { utf8ByteLength } from '../../src/shared/utf8';
 
@@ -239,5 +240,26 @@ describe('runnerStoppedResult', () => {
     expect(result.cancelled).toBe(true);
     expect(result.error?.message).toBe('runner.stopped.message');
     expect(result.executionTime).toBe(0);
+  });
+});
+
+describe('progress outputs', () => {
+  it('replaces the earlier output of the same bar and keeps its capture order', () => {
+    const bar = (value: number, captureOrder: number) => ({ type: 'log' as const, args: [`${value}`], captureOrder, payload: [{ kind: 'progress' as const, id: 'r:1', label: '', value }] });
+    const entries = [{ type: 'log' as const, args: ['a'], captureOrder: 0 }, bar(0, 1)];
+    expect(replaceProgress(entries, bar(0.5, 7))).toMatchObject({ captureOrder: 1, args: ['0.5'] });
+    expect(entries).toHaveLength(2);
+    expect(entries[1]).toMatchObject({ captureOrder: 1, args: ['0.5'] });
+    expect(replaceProgress(entries, { type: 'log', args: ['plain'] })).toBeNull();
+    expect(replaceProgress(entries, { ...bar(0, 9), payload: [{ kind: 'progress', id: 'r:2', label: '', value: 0 }] })).toBeNull();
+  });
+
+  it('rebuilds progress payloads and strips ones from another run', () => {
+    const forged = { type: 'log' as const, args: ['x'], line: 2, payload: [{ kind: 'progress', id: 'other:1', label: 'x', value: 1 }] } as never;
+    expect(sanitizeProgressOutput(forged, 'run')).toEqual({ type: 'log', args: ['x'], line: 2 });
+    const odd = { type: 'log' as const, args: ['x'], payload: [{ kind: 'progress', id: 'run:1', label: { a: 1 }, value: 9, text: 3 }] } as never;
+    expect(sanitizeProgressOutput(odd, 'run').payload).toEqual([{ kind: 'progress', id: 'run:1', label: '[object Object]', value: 1, text: '3' }]);
+    const plain = { type: 'log' as const, args: ['p'] };
+    expect(sanitizeProgressOutput(plain, 'run')).toBe(plain);
   });
 });

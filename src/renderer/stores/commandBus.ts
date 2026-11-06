@@ -13,7 +13,6 @@ export type SettingsTabId =
   | 'shortcuts'
   | 'integrations'
   | 'plugins'
-  | 'labs'
   | 'recovery';
 
 export interface OpenFileCommand {
@@ -32,6 +31,8 @@ interface RendererCommandPayloadMap {
   'share.trigger': { readonly trigger: ShareCreateTrigger };
   'share.succeeded': undefined;
   'settings.openLicense': undefined;
+  /** Opens the one Free against Pro table. */
+  'plans.compare': undefined;
   'settings.navigate': {
     readonly tab: SettingsTabId;
     readonly targetId?: string;

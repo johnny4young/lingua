@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   Diff,
+  Rewind,
   Eye,
   FlaskConical,
   GitBranch,
@@ -27,6 +28,8 @@ import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBri
 import { Tooltip } from '../ui/chrome';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
+import { useRunCompareActive } from '../../hooks/useRunCompareActive';
+import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
@@ -44,6 +47,8 @@ import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { availableDockTabs, resolveDockTab, type DockTabId } from './dockTabs';
 import { DockHeaderControls } from './DockHeaderControls';
 import { DockOutputReport } from './DockOutputReport';
+import { MissingToolchainPanel } from './MissingToolchainPanel';
+import { useMissingActiveToolchain } from '../../hooks/useMissingActiveToolchain';
 import { RunHistoryStrip } from './RunHistoryStrip';
 
 // Lazy so the `DiffEditor` import inside GitDiffPanel does not drag the
@@ -60,6 +65,16 @@ const GitDiffPanel = lazy(async () => {
 const RecipeRunPanel = lazy(async () => {
   const module = await import('../Recipes/RecipeRunPanel');
   return { default: module.RecipeRunPanel };
+});
+
+const TimelinePanel = lazy(async () => {
+  const module = await import('../Timeline/TimelinePanel');
+  return { default: module.TimelinePanel };
+});
+
+const RunComparePanel = lazy(async () => {
+  const module = await import('../RunCompare/RunComparePanel');
+  return { default: module.RunComparePanel };
 });
 
 const TestsPanel = lazy(async () => {
@@ -82,6 +97,7 @@ const DOCK_TAB_META: Record<DockTabId, DockTabMeta> = {
   console: { icon: Terminal, labelKey: 'bottomPanel.tabs.console', hintKey: 'bottomPanel.tabs.consoleHint' },
   stdin: { icon: RectangleEllipsis, labelKey: 'stdin.tab.label', hintKey: 'stdin.tab.hint' },
   compare: { icon: Diff, labelKey: 'bottomPanel.tabs.compare', hintKey: 'bottomPanel.tabs.compareHint' },
+  timeline: { icon: Rewind, labelKey: 'bottomPanel.tabs.timeline', hintKey: 'bottomPanel.tabs.timelineHint' },
   variables: { icon: Eye, labelKey: 'bottomPanel.tabs.variables', hintKey: 'bottomPanel.tabs.variablesHint' },
   'project-terminal': {
     icon: SquareTerminal,
@@ -114,6 +130,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const { tabs: availability, debuggerLive } = useLayoutAvailability();
   const activeTabId = useEditorStore(s => s.activeTabId);
   const activeLanguage = useEditorStore(s => getActiveTab(s)?.language);
+  const missingToolchain = useMissingActiveToolchain(activeLanguage ?? '');
   const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
   const consoleVisible = useUIStore(state => state.consoleVisible);
   const activeBottomPanel = useUIStore(state => state.activeBottomPanel);
@@ -128,7 +145,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const stdinLines = useEditorStore(
     s => (getActiveTab(s)?.stdinBuffer ?? '').split('\n').filter(line => line !== '').length
   );
-  const compareCount = useResultStore(state => comparableSnapshotCountFor(state, activeLanguage));
+  const snapshotCount = useResultStore(state => comparableSnapshotCountFor(state, activeLanguage));
+  const runCompareActive = useRunCompareActive();
+  const runCount = useExecutionHistoryStore(state => state.entries.length);
+  const compareCount = runCompareActive ? runCount : snapshotCount;
   const variableCount = useResultStore(state =>
     scopeSnapshotVariableCountFor(state, activeLanguage)
   );
@@ -273,6 +293,14 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             <BrowserPreviewPanel />
           ) : effectiveTab === 'stdin' ? (
             <StdinInputPanel />
+          ) : effectiveTab === 'timeline' ? (
+            <Suspense fallback={null}>
+              <TimelinePanel />
+            </Suspense>
+          ) : effectiveTab === 'compare' && runCompareActive ? (
+            <Suspense fallback={null}>
+              <RunComparePanel activeTabId={activeTabId ?? null} />
+            </Suspense>
           ) : effectiveTab === 'compare' ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <CompareResultsPanelHost
@@ -316,9 +344,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             </Suspense>
           ) : (
             <>
+              {missingToolchain ? <MissingToolchainPanel toolchain={missingToolchain} /> : null}
               <DockOutputReport />
               <div className="min-h-0 flex-1">
-                <ConsolePanel />
+                <ConsolePanel quietEmpty={missingToolchain !== null} />
               </div>
               <RunHistoryStrip
                 onCompare={availability.compare ? () => openBottomPanel('compare') : undefined}

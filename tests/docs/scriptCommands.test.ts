@@ -1,17 +1,20 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+
+import { buildCliPackageManifest } from '../../scripts/cli-package-contract.mjs';
 
 const README_PATH = resolve(__dirname, '../../README.md');
 const AGENTS_PATH = resolve(__dirname, '../../AGENTS.md');
 const RELEASE_PATH = resolve(__dirname, '../../RELEASE.md');
 const PACKAGE_PATH = resolve(__dirname, '../../package.json');
+const NVMRC_PATH = resolve(__dirname, '../../.nvmrc');
+const WEBSITE_PACKAGE_PATH = resolve(__dirname, '../../website/package.json');
 const FIRST_PARTY_PACKAGE_PATHS = [
   'package.json',
   'license-server/package.json',
   'update-server/package.json',
 ];
-const CHANGELOG_PATH = resolve(__dirname, '../../CHANGELOG.md');
 const GITIGNORE_PATH = resolve(__dirname, '../../.gitignore');
 const DEVELOPMENT_PATH = resolve(__dirname, '../../docs/DEVELOPMENT.md');
 const CURRENT_OPERATOR_DOC_PATHS = [
@@ -31,23 +34,14 @@ const CURRENT_OPERATOR_DOC_PATHS = [
   'license-server/test/emails/templates.test.ts',
   'update-server/wrangler.toml',
 ];
-const WORKFLOW_PATHS = [
-  resolve(__dirname, '../../.github/workflows/ci.yml'),
-  resolve(__dirname, '../../.github/workflows/deploy-update-server.yml'),
-  resolve(__dirname, '../../.github/workflows/deploy-web.yml'),
-  resolve(__dirname, '../../.github/workflows/release.yml'),
-];
+const WORKFLOWS_DIR = resolve(__dirname, '../../.github/workflows');
 
 describe('Script naming docs guard', () => {
   const readme = existsSync(README_PATH) ? readFileSync(README_PATH, 'utf-8') : '';
   const agents = existsSync(AGENTS_PATH) ? readFileSync(AGENTS_PATH, 'utf-8') : '';
   const release = existsSync(RELEASE_PATH) ? readFileSync(RELEASE_PATH, 'utf-8') : '';
-  const changelog = existsSync(CHANGELOG_PATH) ? readFileSync(CHANGELOG_PATH, 'utf-8') : '';
   const gitignore = existsSync(GITIGNORE_PATH) ? readFileSync(GITIGNORE_PATH, 'utf-8') : '';
   const development = existsSync(DEVELOPMENT_PATH) ? readFileSync(DEVELOPMENT_PATH, 'utf-8') : '';
-  const workflows = WORKFLOW_PATHS.map(path =>
-    existsSync(path) ? readFileSync(path, 'utf-8') : ''
-  );
   const packageJson = existsSync(PACKAGE_PATH)
     ? (JSON.parse(readFileSync(PACKAGE_PATH, 'utf-8')) as {
         engines?: Record<string, string>;
@@ -201,22 +195,27 @@ describe('Script naming docs guard', () => {
     expect(scripts).not.toHaveProperty('check:r2-mirror');
   });
 
-  it('keeps the first-party Node policy on the 24.x family, not a fixed patch', () => {
-    expect(packageJson.engines?.node).toBe('24.x');
-    expect(readme).toContain('Node 24.x');
-    expect(readme).not.toContain('Node 24+');
-    expect(readme).not.toContain('| Node.js        | >= 24');
+  it('keeps every Node pin on the LTS line named in .nvmrc', () => {
+    const line = readFileSync(NVMRC_PATH, 'utf-8').trim();
+    expect(line).toMatch(/^\d+$/u);
 
-    for (const workflow of workflows) {
-      expect(workflow).toMatch(/node-version:\s*['"]24\.x['"]/u);
-      expect(workflow).not.toMatch(/node-version:\s*['"]24(?:\.\d+\.\d+)?['"]/u);
+    const floor = packageJson.engines?.node ?? '';
+    expect(floor).toMatch(new RegExp(`^>=${line}\\.\\d+\\.\\d+$`, 'u'));
+    const websitePackage = JSON.parse(readFileSync(WEBSITE_PACKAGE_PATH, 'utf-8')) as {
+      engines?: Record<string, string>;
+    };
+    expect(websitePackage.engines?.node).toBe(floor);
+    expect(buildCliPackageManifest({ version: '0.0.0' }).engines.node).toBe(floor);
+    expect(readme).toContain(`Node ${line}`);
+
+    for (const file of readdirSync(WORKFLOWS_DIR)) {
+      const workflow = readFileSync(resolve(WORKFLOWS_DIR, file), 'utf-8');
+      const setups = workflow.match(/actions\/setup-node@/gu)?.length ?? 0;
+      const fromVersionFile =
+        workflow.match(/node-version-file: \.nvmrc\r?\n\s+check-latest: true/gu)?.length ?? 0;
+      expect(fromVersionFile, file).toBe(setups);
+      expect(workflow, file).not.toMatch(/node-version:/u);
     }
-
-    const policyDocs = `${readme}\n${changelog}`;
-    expect(policyDocs).toContain('24.x');
-    expect(policyDocs).toContain('24.X.Y');
-    expect(policyDocs).not.toMatch(/\b24\.\d+\.\d+\b/u);
-    expect(policyDocs).not.toMatch(/(?:^|[\s`])>=\s*24\.\d+\.\d+\b/u);
   });
 
   it('keeps every first-party package manager policy pnpm-only', () => {

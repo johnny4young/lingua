@@ -6,10 +6,10 @@
  * apply the same "open the SOURCE, never auto-replay" contract.
  *
  * Runtime + workflow mode are deliberately NOT threaded from the
- * capsule — the new tab starts in `createDefaultTab` defaults so the
- * user has to explicitly Run / Cmd+Enter to re-execute. "No silent
- * execution" is the core promise; opening a capsule must never
- * run code on its own. It restores the inert stdin/argv snapshot and
+ * capsule. The tab always starts in Run mode, never Scratchpad (which
+ * auto-runs), so the user has to explicitly Run / Cmd+Enter to
+ * re-execute. "No silent execution" is the core promise; opening a
+ * capsule must never run code on its own. It restores the inert stdin/argv snapshot and
  * optional set name so an explicitly-triggered replay receives the same input.
  *
  * non-code capsules. `capsule.tab.language`
@@ -28,6 +28,7 @@
 
 import { useEditorStore, createDefaultTab } from '../stores/editorStore';
 import { getLanguagePackById } from '../../shared/languagePacks';
+import { workflowModeForNewTab } from '../stores/editorModeHelpers';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
 import type { CapsuleWorkspaceFileV1 } from '../../shared/capsuleWorkspace';
 import type { Language } from '../types/language';
@@ -66,6 +67,7 @@ export function openCapsuleSourceInNewTab(capsule: RunCapsuleV1): void {
     : null;
   editor.addTab({
     ...defaults,
+    workflowMode: workflowModeForNewTab(defaults.language, 'run'),
     content: capsule.source.content,
     name: capsule.tab.name?.trim().length
       ? capsule.tab.name.trim()
@@ -93,7 +95,28 @@ export function openCapsuleWorkspaceFileInNewTab(
   const name = file.path.split('/').at(-1)?.trim() || defaults.name;
   editor.addTab({
     ...defaults,
+    workflowMode: workflowModeForNewTab(defaults.language, 'run'),
     name,
     content: file.content,
   });
+}
+
+/**
+ * Open a compared run's code as a branch tab in Run mode, never running
+ * it. Returns false when the run is not editor code (SQL, HTTP, pipelines).
+ */
+export function openComparedRunInNewTab(run: { name: string; language: string; code: string }): boolean {
+  const language = resolveEditorLanguage(run.language);
+  if (language === undefined) return false;
+  useEditorStore.getState().addTab({
+    ...createDefaultTab(language),
+    workflowMode: workflowModeForNewTab(language, 'run'),
+    content: run.code,
+    name: run.name,
+  });
+  return true;
+}
+
+export function canOpenComparedRun(language: string): boolean {
+  return resolveEditorLanguage(language) !== undefined;
 }

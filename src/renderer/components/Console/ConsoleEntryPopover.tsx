@@ -20,6 +20,7 @@ import { RichValueError } from './RichValueError';
 import { RichValueHtml } from './RichValueHtml';
 import { RichValueImage } from './RichValueImage';
 import { RichValueChart } from './RichValueChart';
+import { RichValueProgress } from './RichValueProgress';
 
 type Tab = 'preview' | 'rawJson';
 
@@ -231,6 +232,8 @@ function PreviewBody({ payload }: { payload: RichOutputPayload }) {
       return <RichValueHtml payload={payload} />;
     case 'chart':
       return <RichValueChart payload={payload} />;
+    case 'progress':
+      return <RichValueProgress payload={payload} />;
   }
 }
 

@@ -68,6 +68,8 @@ const MODULE_BUDGETS = {
   'python-worker-dependencies.ts': 250,
   'python-worker-env.ts': 80,
   'python-worker-stdin.ts': 80,
+  'python-worker-stdin-request.ts': 60,
+  'python-worker-display.ts': 90,
 } as const;
 
 function workerSource(filename: string): string {

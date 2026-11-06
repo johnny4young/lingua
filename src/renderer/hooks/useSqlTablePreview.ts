@@ -14,13 +14,13 @@ import {
   type SqlTableForeignKeys,
 } from '../runtime/sqlForeignKeys';
 import { toSqlResponse } from './useSqlRunner';
-import { ROW_EDIT_ENGINES, type RowEditTable } from '../../shared/sqlRowEdits';
+import { ROW_EDIT_ENGINES, rowEditRefusal, rowEditTableFrom, type RowEditRefusal, type RowEditTable } from '../../shared/sqlRowEdits';
 import { loadLocalEditTable } from '../runtime/sqlLocalEdits';
+import { stagedRowEdits } from '../runtime/sqlStagedEdits';
 import { findConnection } from '../stores/sqlConnectionsStore';
-import { useSettingsStore } from '../stores/settingsStore';
 
 /** Whether the opened table's rows can be edited: its target, or why not. */
-export type SqlTableEdit = { table: RowEditTable } | { reason: 'view' | 'no-key' | 'read-only' | 'production' | 'engine' };
+export type SqlTableEdit = { table: RowEditTable } | { reason: 'view' | 'read-only' | 'production' | 'engine' | RowEditRefusal };
 
 /** A table opened from the Explorer or a foreign-key link: its rows on screen, never a saved run. */
 export interface SqlTablePreview {
@@ -31,7 +31,6 @@ export interface SqlTablePreview {
   back?: SqlTablePreview;
   /** Set when the rows come from a database connection rather than Local. */
   connectionId?: string;
-  /** Set when Edit table rows is on. */
   edit?: SqlTableEdit;
 }
 
@@ -46,14 +45,22 @@ async function remoteEdit(table: SqlSchemaTable, remote: SqlRemoteTableTarget): 
   const schema = table.schemaName ?? '';
   const read = await sqlDbBridge()?.introspect(remote.connectionId, { level: 'detail', schema, name, kind: 'table' });
   if (!read?.detail) return undefined;
-  const columns = read.detail.columns;
-  const primaryKey = columns.filter((column) => column.primaryKey).map((column) => column.name);
-  if (primaryKey.length === 0) return { reason: 'no-key' };
-  return { table: { engine: remote.engine, schema, name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } } };
+  const { columns, transactional } = read.detail;
+  const refusal = rowEditRefusal(remote.engine, columns, transactional);
+  if (refusal) return { reason: refusal };
+  const editable = rowEditTableFrom(remote.engine, schema, name, columns, transactional);
+  return editable ? { table: editable } : undefined;
 }
 
-/** A keyless Local table is edited by rowid, so the rows on screen must carry it. */
+/** A keyless Local table is edited by rowid, so the rows read must carry it. */
 const withRowid = (statement: string) => statement.replace(/^SELECT \* FROM/i, 'SELECT rowid, * FROM');
+
+/** Non-enumerable, so edits can read a row's rowid while the grid, copies and exports never see it. */
+const hideRowid = (response: SqlResponseV1): SqlResponseV1 => ({
+  ...response,
+  columns: response.columns.filter((column) => column.name !== 'rowid'),
+  rows: response.rows.map(({ rowid, ...row }) => Object.defineProperty(row, 'rowid', { value: rowid })),
+});
 
 export interface SqlRemoteTableTarget {
   connectionId: string;
@@ -66,8 +73,8 @@ const keyCache = new Map<string, Promise<SqlTableForeignKeys>>();
  * Table previews: open one from the Explorer, follow its foreign keys to the
  * referenced row and back, and open the rows that point at a row.
  */
-export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlSchemaTable>) {
-  const [preview, setPreview] = useState<SqlTablePreview | null>(null);
+export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlSchemaTable>, canLeave: () => boolean = () => true) {
+  const [preview, setPreview] = useState<SqlTablePreview | null>(() => stagedRowEdits()?.preview ?? null);
   const [keys, setKeys] = useState<{ table: string; keys: SqlTableForeignKeys } | null>(null);
   // Bumped by every open, run and query switch so a late table result never lands over a newer view.
   const tokenRef = useRef(0);
@@ -77,9 +84,10 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
     setPreview(next);
   }, []);
 
-  const open = useCallback(
+  // Reads a table without asking; `open` is what navigation goes through.
+  const read = useCallback(
     async (table: SqlSchemaTable, sql?: string, back?: SqlTablePreview, remote?: SqlRemoteTableTarget) => {
-      let statement = sql ?? buildSelectStarter(table.sqlName ?? table.name, table.schemaName, remote?.engine);
+      const statement = sql ?? buildSelectStarter(table.sqlName ?? table.name, table.schemaName, remote?.engine);
       tokenRef.current += 1;
       const token = tokenRef.current;
       const db = remote ? sqlDbBridge() : null;
@@ -87,31 +95,40 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
       if (remote && !db) return;
       let edit: SqlTableEdit | undefined;
       let remoteTarget: Promise<SqlTableEdit | undefined> | undefined;
-      if (useSettingsStore.getState().featureFlags.editRows === true) {
-        // A connection's key read runs beside its data read; a Local one decides the SELECT, so it goes first.
-        if (remote) remoteTarget = remoteEdit(table, remote).catch(() => undefined);
-        else {
-          const local = await loadLocalEditTable(table.sqlName ?? table.name, table.schemaName ?? 'main');
-          if (local === 'view') edit = { reason: 'view' };
-          else if (local) {
-            edit = { table: local };
-            if (local.key.kind === 'rowid') statement = withRowid(statement);
-          }
+      let carriesRowid = false;
+      // A connection's key read runs beside its data read; a Local one decides the SELECT, so it goes first.
+      if (remote) remoteTarget = remoteEdit(table, remote).catch(() => undefined);
+      else {
+        const local = await loadLocalEditTable(table.sqlName ?? table.name, table.schemaName ?? 'main').catch(() => null);
+        if (local === 'view') edit = { reason: 'view' };
+        else if (local) {
+          edit = { table: local };
+          carriesRowid = local.key.kind === 'rowid' && !local.columns.includes('rowid');
         }
       }
-      const outcome = remote && db ? (await executeRemoteScript(db, remote.connectionId, [statement], { timeoutMs }))[0] : await executeQuery(statement, { timeoutMs });
+      const outcome =
+        remote && db
+          ? (await executeRemoteScript(db, remote.connectionId, [statement], { timeoutMs }))[0]
+          : await executeQuery(carriesRowid ? withRowid(statement) : statement, { timeoutMs });
       if (remoteTarget) edit = await remoteTarget;
       if (tokenRef.current !== token || !outcome) return;
       setPreview({
         table,
         sql: statement,
-        response: toSqlResponse(outcome),
+        response: carriesRowid ? hideRowid(toSqlResponse(outcome)) : toSqlResponse(outcome),
         ...(back ? { back } : {}),
         ...(remote ? { connectionId: remote.connectionId } : {}),
         ...(edit ? { edit } : {}),
       });
     },
     [timeoutMs]
+  );
+
+  const open = useCallback(
+    async (table: SqlSchemaTable, sql?: string, back?: SqlTablePreview, remote?: SqlRemoteTableTarget) => {
+      if (canLeave()) await read(table, sql, back, remote);
+    },
+    [canLeave, read]
   );
 
   // Foreign keys are read from Local's catalog; a connection's keys show in its object detail.
@@ -158,5 +175,5 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
   /** Forgets cached keys after the schema may have changed. */
   const invalidate = useCallback(() => keyCache.clear(), []);
 
-  return { preview, show, open, foreignKeys, invalidate };
+  return { preview, show, open, read, foreignKeys, invalidate };
 }

@@ -100,7 +100,7 @@ export function localCopyLines(rows: ReadonlyArray<Record<string, unknown>>, sou
     const record: Record<string, string | null> = {};
     sourceNames.forEach((name, index) => {
       const text = cellText(row[name]);
-      // DuckDB-WASM cannot report a failed decode, so bytes are checked here.
+      // DuckDB's decode error would not say which column, so bytes are checked here.
       if (text !== null && columns[index]?.type === 'BLOB' && !BASE64.test(text)) throw new LocalCopyValueError(columns[index]!.name, 'BLOB');
       record[`c${index}`] = text;
     });
@@ -121,9 +121,8 @@ const reader = (columns: ReadonlyArray<LocalCopyColumn>, file: string) =>
 const cast = (column: LocalCopyColumn) => column.type !== 'VARCHAR' && column.type !== 'BLOB';
 
 /**
- * Counts, per typed column, the values its type cannot hold. DuckDB-WASM
- * cannot report a failed cast, so the copy checks with TRY_CAST first and
- * names the column itself. Null when every column is text or bytes.
+ * Counts, per typed column, the values its type cannot hold, so the copy can
+ * name the column before anything is written. Null when every column is text or bytes.
  */
 export function localCopyCheck(columns: ReadonlyArray<LocalCopyColumn>, file: string): string | null {
   const checks = columns.flatMap((column, index) => (cast(column) ? [`count(*) FILTER (WHERE c${index} IS NOT NULL AND TRY_CAST(c${index} AS ${column.type}) IS NULL) AS "${index}"`] : []));

@@ -99,6 +99,7 @@ interface IpcInvokeContract {
     result: GoCompileResult;
   };
   'go:stop': { args: [runId: string]; result: { stopped: boolean } };
+  'go:choose-binary': { args: []; result: ToolchainChooseResult };
 
   // ----------------------------------------------------------- rust runner
   'rust:detect': {
@@ -115,6 +116,7 @@ interface IpcInvokeContract {
     result: RustRunResult;
   };
   'rust:stop': { args: [runId: string]; result: { stopped: boolean } };
+  'rust:choose-binary': { args: []; result: ToolchainChooseResult };
 
   // ----------------------------------------------------------- ruby runner
   'ruby:detect': {
@@ -676,9 +678,11 @@ export const IPC_INVOKE_CHANNELS = [
   'go:detect',
   'go:compile',
   'go:stop',
+  'go:choose-binary',
   'rust:detect',
   'rust:run',
   'rust:stop',
+  'rust:choose-binary',
   'ruby:detect',
   'ruby:run',
   'ruby:stop',

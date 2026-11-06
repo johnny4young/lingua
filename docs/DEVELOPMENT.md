@@ -132,7 +132,7 @@ reference for what each command owns.
 | `check:deadcode`             | Complete Knip gate across the root app, standalone website, license Worker, and update Worker (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, unexpected binaries, and configuration hints. Narrow dynamic-runtime and host-command allowlists are documented in place. |
 | `check:deadcode:config`      | Negative configuration proof: creates one temporary unused source file inside each of the four package boundaries, requires Knip to report all four, and removes every probe in a `finally` block. |
 | `typecheck:tests`            | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only).                                                                         |
-| `test:e2e:web`               | Runs the Playwright web validation wrapper.                                                                                                                                                                                          |
+| `test:e2e:web`               | Runs the Playwright web validation wrapper on a port private to the checkout.                                                                                                                                                        |
 | `test:visual:web`            | Compares Playwright screenshots of shared surfaces (workspace, palette, Quick Open, stdin panel, Settings) in light and dark against the per-platform baselines in `tests/visual/__screenshots__`. Opt-in, not part of CI.             |
 | `test:smoke:web:license`     | Runs the web license smoke test.                                                                                                                                                                                                     |
 | `test:watch`                 | Starts Vitest watch mode.                                                                                                                                                                                                            |
@@ -156,7 +156,7 @@ reference for what each command owns.
 ## i18n contributor workflow
 
 - Locale files live in `src/renderer/i18n/locales/<language>/`. The current source locale is `src/renderer/i18n/locales/en/common.json`.
-- English `common.json` ships in the initial bundle and counts toward the web performance budget. Copy that only a lazy surface uses can live in its own file under each locale, merged into the `common` namespace when that surface loads: `sqlConnections.json` is registered by `src/renderer/i18n/sqlConnectionsCatalog.ts` with the SQL workspace, `httpBuilder.json` (HTTP builder, response tree and test copy) by `src/renderer/i18n/httpBuilderCatalog.ts` with the HTTP workspace, `debugger.json` (the Debugger tab and step HUD; the gutter label, the Console paused row and the panel load error stay in `common.json`) by `src/renderer/i18n/debuggerCatalog.ts` with the debugger panel and HUD, `explain.json` (the anchored explain panel and the failing-line actions) by `src/renderer/i18n/explainCatalog.ts` with those surfaces, and `labs.json` (newer Labs flags) by `src/renderer/i18n/labsCatalog.ts` with Settings › Labs (a new flag adds its id to `FEATURE_FLAG_IDS` and its `settings.labs.flag.<id>.label` and `.description` there); all load with the lazy Spanish catalog. Every file needs the same keys in each locale (`pnpm run check:i18n`).
+- English `common.json` ships in the initial bundle and counts toward the web performance budget. Copy that only a lazy surface uses can live in its own file under each locale, merged into the `common` namespace when that surface loads: `sqlConnections.json` is registered by `src/renderer/i18n/sqlConnectionsCatalog.ts` with the SQL workspace, `httpBuilder.json` (HTTP builder, response tree and test copy) by `src/renderer/i18n/httpBuilderCatalog.ts` with the HTTP workspace, `debugger.json` (the Debugger tab and step HUD; the gutter label, the Console paused row and the panel load error stay in `common.json`) by `src/renderer/i18n/debuggerCatalog.ts` with the debugger panel and HUD, `explain.json` (the anchored explain panel and the failing-line actions) by `src/renderer/i18n/explainCatalog.ts` with those surfaces, `tests.json` by `src/renderer/i18n/testsCatalog.ts` with the Tests tab, `runCompare.json` by `src/renderer/i18n/runCompareCatalog.ts` with Compare runs, `timeline.json` by `src/renderer/i18n/timelineCatalog.ts` with the Timeline tab, `runRegions.json` by `src/renderer/i18n/runRegionsCatalog.ts` with the Run regions bar; all load with the lazy Spanish catalog. Every file needs the same keys in each locale (`pnpm run check:i18n`).
 - Add new user-facing copy with stable semantic keys such as `settings.title`; do not use raw English sentences as keys.
 - Resolve translated text at render/use sites with `t(...)` or shared i18n helpers instead of storing translated labels in config/state objects.
 - Keep these values non-localized in the current MVP: code samples, generated file names, language ids, plugin ids, and similar internal identifiers.
@@ -594,12 +594,16 @@ dialog. This does not replace normal rendering or release-package acceptance.
 
 ### Project-test observed-output smoke
 
-After building desktop bundles, run
+After building desktop bundles (`pnpm run build:desktop-bundles`), run
 `node scripts/smoke-project-test-output.mjs [path-to-electron-executable]`.
 It launches the real main/preload with a local Vite renderer, an isolated profile,
 and a disposable project whose host Node process emits interleaved stdout/stderr.
-It checks live and final order, failure then recovery, EN/light and ES/dark,
-1024/1280/1440 widths and native 100/125/200% zoom, with zero renderer errors.
+It opens the Tests dock tab from the Explorer header, runs all tests with the
+output expanded, and checks that the live output reads `first`, `warning`, `last`
+while the run is still going, that the run ends failed with the same final
+order, and that a later passing run recovers. It covers EN/light and ES/dark,
+1024/1280/1440 widths and native 100/125/200% zoom, requiring the output to stay
+inside the window and uncovered, with zero renderer errors.
 Screenshots and results are in `output/playwright/project-test-output-ui/`.
 The picker is stubbed to the explicit fixture; execution and IPC are not stubbed.
 This complements the packaged Vitest/Jest and release-fuse smoke, not replaces it.

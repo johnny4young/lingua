@@ -1,0 +1,8 @@
+{
+  "utilityPipeline.editor.eject": "Guardar como snippet JS",
+  "utilityPipeline.eject.description": "Exportado de un pipeline de utilidades",
+  "utilityPipeline.eject.input": "Pon aquí tu entrada; no se incluyó en esta exportación.",
+  "utilityPipeline.eject.skipped": "{{title}} no tiene una forma corta en JS: agrégalo aquí, porque los pasos siguientes leen su salida.",
+  "utilityPipeline.eject.saved": "Guardaste este pipeline en tus snippets.",
+  "utilityPipeline.eject.savedFirst": "Guardaste los primeros {{steps}} pasos, los que Free ejecuta."
+}

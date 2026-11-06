@@ -25,6 +25,7 @@ import { IconButton } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
+import { FileTreeHeaderMenu } from './FileTreeHeaderMenu';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import { FileTreeNode } from './FileTreeNode';
 import { FileTreeOpenTabs } from './FileTreeOpenTabs';
@@ -343,13 +344,6 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         </div>
         <div className="flex items-center gap-0.5">
           <IconButton
-            onClick={collapseAllDirectories}
-            tooltip={t('fileTree.actions.collapseAll')}
-            aria-label={t('fileTree.actions.collapseAll')}
-          >
-            <ChevronsDownUp size={ICON_GLYPH.md} />
-          </IconButton>
-          <IconButton
             onClick={() => handleNewFile()}
             tooltip={t('fileTree.actions.newFile')}
           >
@@ -361,39 +355,19 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           >
             <FolderPlus size={ICON_GLYPH.md} />
           </IconButton>
-          {window.lingua?.projectTests ? (
-            <IconButton
-              onClick={() => useUIStore.getState().openBottomPanel('tests')}
-              tooltip={t('fileTree.actions.projectTests')}
-              aria-label={t('fileTree.actions.projectTests')}
-              data-testid="file-tree-project-tests"
-            >
-              <FlaskConical size={ICON_GLYPH.md} />
-            </IconButton>
-          ) : null}
-          {window.lingua?.projectTerminal ? (
-            <IconButton
-              onClick={() => useUIStore.getState().openBottomPanel('project-terminal')}
-              tooltip={t('fileTree.actions.projectTerminal')}
-              aria-label={t('fileTree.actions.projectTerminal')}
-              data-testid="file-tree-project-terminal"
-            >
-              <SquareTerminal size={ICON_GLYPH.md} />
-            </IconButton>
-          ) : null}
-          <IconButton
-            onClick={refreshTree}
-            tooltip={t('fileTree.actions.refresh')}
-          >
-            <RefreshCw size={ICON_GLYPH.md} />
-          </IconButton>
-          <IconButton
-            onClick={() => void exportProjectBundle()}
-            tooltip={t('fileTree.actions.exportProject')}
-            aria-label={t('fileTree.actions.exportProject')}
-          >
-            <FileArchive size={ICON_GLYPH.md} />
-          </IconButton>
+          <FileTreeHeaderMenu
+            actions={[
+              { id: 'collapse-all', label: t('fileTree.actions.collapseAll'), icon: <ChevronsDownUp size={ICON_GLYPH.md} />, run: collapseAllDirectories },
+              ...(window.lingua?.projectTests
+                ? [{ id: 'project-tests', label: t('fileTree.actions.projectTests'), icon: <FlaskConical size={ICON_GLYPH.md} />, run: () => useUIStore.getState().openBottomPanel('tests') }]
+                : []),
+              ...(window.lingua?.projectTerminal
+                ? [{ id: 'project-terminal', label: t('fileTree.actions.projectTerminal'), icon: <SquareTerminal size={ICON_GLYPH.md} />, run: () => useUIStore.getState().openBottomPanel('project-terminal') }]
+                : []),
+              { id: 'refresh', label: t('fileTree.actions.refresh'), icon: <RefreshCw size={ICON_GLYPH.md} />, run: refreshTree },
+              { id: 'export-project', label: t('fileTree.actions.exportProject'), icon: <FileArchive size={ICON_GLYPH.md} />, run: () => void exportProjectBundle() },
+            ]}
+          />
         </div>
       </div>
 

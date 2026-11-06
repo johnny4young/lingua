@@ -6,11 +6,26 @@ import {
   isWriteSqlStatementOn,
   provesReadsOnly,
   redactSqlSecrets,
+  redactSqlSecretsOnAnyEngine,
   splitSqlStatements,
   statementAtOffset,
 } from '../../src/shared/sqlStatements';
 
 const texts = (sql: string) => splitSqlStatements(sql).map((statement) => statement.text);
+
+describe('redactSqlSecretsOnAnyEngine', () => {
+  it.each([
+    ['CREATE USER app IDENTIFIED BY "hunter2"', "CREATE USER app IDENTIFIED BY '•••'"],
+    ["ALTER USER app IDENTIFIED BY 'hun\\'ter2'", "ALTER USER app IDENTIFIED BY '•••'"],
+    ["ALTER ROLE app PASSWORD 'hunter2'", "ALTER ROLE app PASSWORD '•••'"],
+  ])('masks %s', (sql, masked) => {
+    expect(redactSqlSecretsOnAnyEngine(sql)).toBe(masked);
+  });
+
+  it('leaves an ordinary query alone', () => {
+    expect(redactSqlSecretsOnAnyEngine("SELECT 'a', \"b\" FROM t")).toBe("SELECT 'a', \"b\" FROM t");
+  });
+});
 
 describe('splitSqlStatements', () => {
   it.each([
@@ -100,6 +115,11 @@ describe('redactSqlSecrets', () => {
     ["SELECT * FROM read_csv('https://user:pw@host/x.csv')", "SELECT * FROM read_csv('•••')"],
     ["SELECT * FROM read_parquet('https://b.s3.amazonaws.com/x?X-Amz-Signature=abc')", "SELECT * FROM read_parquet('•••')"],
     ["CREATE LOGIN app WITH PASSWORD = 'S3cret!'", "CREATE LOGIN app WITH PASSWORD = '•••'"],
+    ["ALTER USER app PASSWORD 'S3cret'", "ALTER USER app PASSWORD '•••'"],
+    ["CREATE ROLE app WITH LOGIN PASSWORD 'S3cret'", "CREATE ROLE app WITH LOGIN PASSWORD '•••'"],
+    ["SELECT 1; alter role app password 'S3cret'", "SELECT 1; alter role app password '•••'"],
+    ["CREATE USER MAPPING FOR app SERVER s OPTIONS (password 'S3cret')", "CREATE USER MAPPING FOR app SERVER s OPTIONS (password '•••')"],
+    ["ALTER SERVER s OPTIONS (SET password 'S3cret')", "ALTER SERVER s OPTIONS (SET password '•••')"],
     ["CREATE USER app IDENTIFIED WITH sha256_password BY 'S3cret'", "CREATE USER app IDENTIFIED WITH sha256_password BY '•••'"],
     ["SELECT * FROM remote('db:9000', 'logs', 'events', 'reader', 'S3cret')", "SELECT * FROM remote('•••', '•••', '•••', '•••', '•••')"],
     ["SELECT * FROM s3('https://b/x.csv', 'AKIA1', 'shh')", "SELECT * FROM s3('•••', '•••', '•••')"],
@@ -110,6 +130,53 @@ describe('redactSqlSecrets', () => {
   it('keeps ordinary SQL, including strings that only look nearby', () => {
     const sql = "SELECT 'secret garden' AS title, 'https://example.com/a' AS url -- key=1";
     expect(redactSqlSecrets(sql)).toBe(sql);
+  });
+
+  it.each([
+    ["SELECT * FROM read_csv('https://h/x?api_key=abc')", "SELECT * FROM read_csv('•••')"],
+    ["SELECT * FROM read_csv('https://h/x?secret=abc')", "SELECT * FROM read_csv('•••')"],
+    ["SELECT * FROM read_csv('https://h/x?client_secret=abc')", "SELECT * FROM read_csv('•••')"],
+    ["SELECT * FROM postgres_scan('host=h password=x', 'public', 't')", "SELECT * FROM postgres_scan('•••', 'public', 't')"],
+    ["SELECT * FROM conn_scan('Server=h;Pwd=x', 't')", "SELECT * FROM conn_scan('•••', 't')"],
+    ['SELECT * FROM "https://u:x@h/f.csv"', 'SELECT * FROM "https://•••@h/f.csv"'],
+    ['SELECT * FROM "https://h/f.csv?token=abc"', 'SELECT * FROM "https://h/f.csv?token=•••"'],
+    ['SELECT 1 /* token=abc */', 'SELECT 1 /* token=••• */'],
+    ['SELECT 1 -- password=abc', 'SELECT 1 -- password=•••'],
+    [`SELECT * FROM t WHERE "password" = 'hunter2' AND "name" = 'ada'`, `SELECT * FROM t WHERE "password" = '•••' AND "name" = 'ada'`],
+    [`SELECT * FROM t WHERE "api_key" = 'abc123'`, `SELECT * FROM t WHERE "api_key" = '•••'`],
+    [`SELECT * FROM t WHERE t."authToken" LIKE 'abc%'`, `SELECT * FROM t WHERE t."authToken" LIKE '•••'`],
+    [`SELECT * FROM t WHERE t.password = 'x'`, `SELECT * FROM t WHERE t.password = '•••'`],
+    [`SELECT * FROM t WHERE "user.password" = 'x'`, `SELECT * FROM t WHERE "user.password" = '•••'`],
+    [`SELECT * FROM t WHERE "api key" = 'x'`, `SELECT * FROM t WHERE "api key" = '•••'`],
+    [`SELECT * FROM t WHERE session_id IN ('a', 'b')`, `SELECT * FROM t WHERE session_id IN ('•••', '•••')`],
+    [`SELECT * FROM t WHERE note = 'Bearer eyJabc'`, `SELECT * FROM t WHERE note = '•••'`],
+    [`SELECT * FROM t WHERE note = 'eyJhbGci.eyJzdWIi.sig'`, `SELECT * FROM t WHERE note = '•••'`],
+  ])('closes %j', (sql, expected) => {
+    expect(redactSqlSecrets(sql)).toBe(expected);
+  });
+
+  it('keeps values on columns that only look nearby', () => {
+    for (const sql of [
+      `SELECT * FROM t WHERE "author" = 'ada'`,
+      `SELECT * FROM t WHERE "tokens_used" = '5'`,
+      `SELECT * FROM t WHERE "keyword" = 'x'`,
+      `SELECT * FROM t WHERE "name" IN ('a', 'b')`,
+      `SELECT password FROM t WHERE name = 'ada'`,
+    ]) {
+      expect(redactSqlSecrets(sql)).toBe(sql);
+    }
+  });
+
+  it.each([
+    ['sqlserver', "SELECT [it's], 'https://a:x@h/x'", "SELECT [it's], '•••'"],
+    ['sqlite', "SELECT [it's], 'https://a:x@h/x'", "SELECT [it's], '•••'"],
+    ['sqlserver', "SELECT [a]]'b], 'https://h/x?api_key=abc'", "SELECT [a]]'b], '•••'"],
+    ['sqlserver', "SELECT * FROM #tmp WHERE [password] = 'x'", "SELECT * FROM #tmp WHERE [password] = '•••'"],
+    ['sqlite', "SELECT `it's`, 'https://a:x@h/x'", "SELECT `it's`, '•••'"],
+    ['mysql', "SELECT 1 /* token=abc */", "SELECT 1 /* token=••• */"],
+    ['clickhouse', "SELECT \"https://u:x@h\" -- password=abc", "SELECT \"https://•••@h\" -- password=•••"],
+  ] as const)('reads %s quoting: %j', (engine, sql, expected) => {
+    expect(redactSqlSecrets(sql, engine)).toBe(expected);
   });
 });
 

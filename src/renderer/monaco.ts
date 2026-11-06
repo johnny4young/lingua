@@ -26,6 +26,7 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import typeScriptWorkerUrl from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker&url';
 import { getLanguageSupportDescriptor } from './languageSupport/registry';
 import type { NavigationTreeItem } from './utils/symbolNavigation';
 import { loadNodeTypeDefinitions } from './nodeTypeDefinitionsLoader';
@@ -338,6 +339,27 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
   return false;
 }
 
+const LINGUA_GLOBAL_TYPES = `
+interface LinguaProgressBar { update(fraction: number, text?: string): void }
+interface LinguaDisplay {
+  (value: unknown, options?: { as?: 'table' | 'json' | 'image' | 'html' | 'text' | 'chart' }): void;
+  progress(label?: string): LinguaProgressBar;
+}
+declare const lingua: {
+  display: LinguaDisplay;
+  chart(spec: unknown): void;
+  image(source: unknown): void;
+  html(markup: unknown): void;
+};
+`;
+const LINGUA_GLOBAL_TYPES_URI = 'file:///node_modules/@types/lingua-worker/index.d.ts';
+
+/** The Worker's `lingua` bridge, so TypeScript tabs stop underlining it. */
+function registerLinguaGlobalTypes(ts: MonacoTypeScriptDefaultsWithExtraLib): void {
+  ts.javascriptDefaults.addExtraLib?.(LINGUA_GLOBAL_TYPES, LINGUA_GLOBAL_TYPES_URI);
+  ts.typescriptDefaults.addExtraLib?.(LINGUA_GLOBAL_TYPES, LINGUA_GLOBAL_TYPES_URI);
+}
+
 /**
  * Decide when the Node typings load.
  *
@@ -348,6 +370,7 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
  * the models and load on the first match, then stop watching.
  */
 function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWithExtraLib): void {
+  registerLinguaGlobalTypes(ts);
   if (nodeTypeDefinitionsRegistered || nodeTypeDefinitionsScheduled) return;
   const desktop = hasNodeRuntime();
   const editorNamespace = m.editor as unknown as MonacoEditorNamespaceLike;
@@ -430,6 +453,37 @@ function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWith
     });
 }
 
+// The patched Monaco WorkerManager awaits this before creating the shared TS worker, which costs
+// 100 MB or more; a model on screen is not a reason to start it, an editor interaction is.
+let releaseTypeScriptWorker: (() => void) | null = null;
+(globalThis as { __linguaTypeScriptWorkerGate?: Promise<void> }).__linguaTypeScriptWorkerGate =
+  new Promise<void>(resolve => {
+    releaseTypeScriptWorker = resolve;
+  });
+let typeScriptWorkerGateWatched = false;
+
+function startTypeScriptWorker(): void {
+  releaseTypeScriptWorker?.();
+  releaseTypeScriptWorker = null;
+}
+
+function startTypeScriptWorkerOnFirstUse(m: Monaco): void {
+  if (typeScriptWorkerGateWatched || typeof m.editor.onDidCreateEditor !== 'function') return;
+  typeScriptWorkerGateWatched = true;
+  // The web service worker caches each chunk as it loads; fetch the script so the worker can start offline.
+  if (!hasNodeRuntime()) runWhenIdle(() => void fetch(typeScriptWorkerUrl).catch(() => {}));
+  const subscriptions: Array<{ dispose: () => void }> = [];
+  const start = (): void => {
+    startTypeScriptWorker();
+    for (const subscription of subscriptions.splice(0)) subscription.dispose();
+  };
+  subscriptions.push(
+    m.editor.onDidCreateEditor((editor: monaco.editor.ICodeEditor) => {
+      if (releaseTypeScriptWorker) subscriptions.push(editor.onKeyDown(start), editor.onMouseMove(start));
+    })
+  );
+}
+
 /**
  * Configure TypeScript/JavaScript language defaults. Must be called inside a
  * MonacoEditor beforeMount callback where the monaco instance is fully
@@ -437,6 +491,7 @@ function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWith
  * module rather than the legacy core namespace.
  */
 export function applyTypeScriptDefaults(m: Monaco): void {
+  startTypeScriptWorkerOnFirstUse(m);
   const ts = m.languages.typescript;
   if (!ts) {
     // Monaco 0.55's core API omits the legacy namespace. Typing registration
@@ -547,6 +602,8 @@ export async function loadNavigationTree(model: {
         : null;
 
   if (!getWorker) return null;
+  // Asking for symbols is a use of the language service, even without an editor keystroke.
+  startTypeScriptWorker();
 
   try {
     const workerFactory = await getWorker();

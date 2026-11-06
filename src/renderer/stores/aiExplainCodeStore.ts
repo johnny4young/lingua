@@ -11,6 +11,8 @@ interface ExplainCodeOpenRequest {
   readonly code: string;
   readonly language: string;
   readonly filename?: string;
+  readonly question?: string;
+  readonly lastRun?: string;
 }
 
 interface AiExplainCodeState {
@@ -37,7 +39,8 @@ export function openExplainCodeForEditor(
   // (getActiveEditor) and the instance the Monaco action's `run` receives.
   editor: monacoTypes.editor.ICodeEditor,
   language: string,
-  filename?: string
+  filename?: string,
+  ask: { question?: string; lastRun?: string } = {}
 ): void {
   const model = editor.getModel();
   if (!model) return;
@@ -47,7 +50,11 @@ export function openExplainCodeForEditor(
       ? model.getValueInRange(selection)
       : model.getValue();
   if (code.trim().length === 0) return;
-  useAiExplainCodeStore.getState().open(
-    filename ? { code, language, filename } : { code, language }
-  );
+  useAiExplainCodeStore.getState().open({
+    code,
+    language,
+    ...(filename ? { filename } : {}),
+    ...(ask.question ? { question: ask.question } : {}),
+    ...(ask.lastRun ? { lastRun: ask.lastRun } : {}),
+  });
 }

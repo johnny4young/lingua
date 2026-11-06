@@ -74,6 +74,7 @@ import type {
   NodeRunKind,
   NodeRunResult,
 } from '../shared/nativeRuntimeTypes';
+import { withBinaryDirOnPath } from './runners/toolchainBinary';
 export type {
   NodeDetectResult,
 } from '../shared/nativeRuntimeTypes';
@@ -439,18 +440,6 @@ async function probeNodeBinary(
   return { installed: true, binary, version: probe.version };
 }
 
-function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.ProcessEnv {
-  if (!path.isAbsolute(binary)) return env;
-  const nodeDir = path.dirname(binary);
-  const currentPath = env.PATH ?? '';
-  const pathParts = currentPath.split(path.delimiter).filter(Boolean);
-  if (pathParts.includes(nodeDir)) return env;
-  return {
-    ...env,
-    PATH: [nodeDir, ...pathParts].join(path.delimiter),
-  };
-}
-
 /**
  * Probe the local `node` binary. Result cached per main-process
  * lifetime so each Run does not re-spawn the detector. Cache
@@ -649,7 +638,7 @@ async function spawnNode(
   if (signal.aborted) return stoppedNodeRunResult(options);
   const inputType = await pickInputType(cwd, source, options.filePath);
   if (signal.aborted) return stoppedNodeRunResult(options);
-  const env = envWithNodeBinary(resolveNodeRunEnv(options.userEnv), nodeBinary);
+  const env = withBinaryDirOnPath(resolveNodeRunEnv(options.userEnv), nodeBinary);
   const markers = truncationMarkers(options.messages);
   // Windows searches the spawn cwd (the user's project) before PATH for a bare name.
   const nodeCommand =

@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react';
+import type { RunOptions } from '../hooks/useRunner';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
 import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
@@ -35,6 +36,9 @@ const ProjectSearch = lazy(async () => ({
 }));
 const ProjectReplace = lazy(async () => ({
   default: (await import('./ProjectReplace/ProjectReplace')).ProjectReplace,
+}));
+const ComparePlansDialog = lazy(async () => ({
+  default: (await import('./Plans/ComparePlansDialog')).ComparePlansDialog,
 }));
 const QuickOpen = lazy(async () => ({
   default: (await import('./QuickOpen/QuickOpen')).QuickOpen,
@@ -112,7 +116,7 @@ export interface AppOverlaysProps {
   closeOverlay: () => void;
   onStartGuidedTour: () => void;
   onOpenDeveloperUtility: (utilityId?: DeveloperUtilityId) => void;
-  run: () => void | Promise<void>;
+  run: (options?: RunOptions) => void | Promise<void>;
   isRunning: boolean;
   exportProjectBundle: () => void | Promise<void>;
 }
@@ -141,9 +145,12 @@ export function AppOverlays({
       void import('./QuickOpen/QuickOpen').catch(() => {});
     });
   }, []);
+  // A query the palette hands to Quick Open lasts until Quick Open closes.
+  const [quickOpen, setQuickOpen] = useState({ query: '', overlay });
+  if (quickOpen.overlay !== overlay) setQuickOpen({ query: overlay === 'quick-open' ? quickOpen.query : '', overlay });
   return (
     <Suspense fallback={null}>
-      {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
+      {overlay === 'quick-open' && <QuickOpen initialQuery={quickOpen.query} onClose={closeOverlay} />}
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
       {overlay === 'replace' && <ProjectReplace onClose={closeOverlay} />}
       {overlay === 'go-to-symbol' && <GoToSymbol onClose={closeOverlay} />}
@@ -158,6 +165,10 @@ export function AppOverlays({
           onOpenWhatsNew={() => openOverlay('whats-new')}
           onStartGuidedTour={onStartGuidedTour}
           onOpenSnippets={() => openOverlay('snippets')}
+          onOpenQuickOpen={query => {
+            setQuickOpen({ query, overlay });
+            openOverlay('quick-open');
+          }}
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenProjectReplace={() => openOverlay('replace')}
           onOpenHttpWorkspace={() => {
@@ -176,6 +187,7 @@ export function AppOverlays({
           onOpenDeveloperUtility={utilityId => onOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRunActiveTab={() => void run()}
+          onRecordRun={() => void run({ record: true })}
           onOpenProject={() => useProjectStore.getState().openProject()}
           onOpenProjectTests={
             window.lingua?.projectTests ? () => useUIStore.getState().openBottomPanel('tests') : undefined
@@ -236,6 +248,7 @@ export function AppOverlays({
       {overlay === 'whats-new' && <WhatsNewOverlay onClose={closeOverlay} />}
       {overlay === 'snippets' && <SnippetsModal onClose={closeOverlay} />}
       {overlay === 'keyboard-shortcuts' && <KeyboardShortcutsModal onClose={closeOverlay} />}
+      {overlay === 'compare-plans' && <ComparePlansDialog onClose={closeOverlay} />}
     </Suspense>
   );
 }

@@ -344,7 +344,7 @@
   --app-gradient-a: radial-gradient(circle at 12% 0%, oklch(0.52 0.18 210 / 0.1), transparent 34%);
   --app-gradient-b: radial-gradient(circle at 88% 12%, oklch(0.5 0.15 285 / 0.07), transparent 28%);
   --app-grid: oklch(0.16 0.012 210 / 0.06);
-  --tour-overlay: color-mix(in srgb, var(--app-background) 42%, transparent);
+  --tour-overlay: color-mix(in srgb, var(--app-background) 55%, transparent);
 }
 
 .dark,
@@ -458,7 +458,7 @@
   --app-gradient-a: radial-gradient(circle at 16% 0%, oklch(0.72 0.17 210 / 0.16), transparent 38%);
   --app-gradient-b: radial-gradient(circle at 84% 10%, oklch(0.78 0.14 285 / 0.1), transparent 30%);
   --app-grid: oklch(0.72 0.018 210 / 0.1);
-  --tour-overlay: color-mix(in srgb, var(--color-bg-base) 58%, transparent);
+  --tour-overlay: color-mix(in srgb, var(--color-bg-base) 72%, transparent);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -803,7 +803,7 @@
    className on bespoke JSX controls — Tailwind v4 only resolves @apply
    against registered utilities, not against sibling component classes. */
 @utility focus-ring {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
 @layer components {
@@ -829,6 +829,8 @@
   /* Overlays */
   .overlay-backdrop {
     @apply fixed inset-0 z-50 flex bg-black/52 backdrop-blur-xl;
+    /* Ends above the docked notice row so a notice never covers a dialog. */
+    bottom: var(--notice-row-offset, 0px);
     /* Prevent Electron's -webkit-app-region:drag from intercepting clicks over modals */
     -webkit-app-region: no-drag;
   }
@@ -847,7 +849,7 @@
      both the box and the glyph and `tests/build/iconButtonDensity.test.ts`
      keeps call sites on them. */
   .icon-button {
-    @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground active:bg-surface-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
     transition:
       background-color var(--duration-fast) var(--curve-ease-out),
       border-color var(--duration-fast) var(--curve-ease-out),
@@ -1036,109 +1038,113 @@
   }
 
   .guided-tour-step {
-    --tour-surface: color-mix(in srgb, var(--app-surface) 90%, transparent);
-    --tour-surface-strong: color-mix(in srgb, var(--app-surface-strong) 86%, transparent);
-    --tour-border: color-mix(in srgb, var(--app-border-strong) 92%, transparent);
-    --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 52%, black);
-    @apply pointer-events-auto fixed max-w-[25rem] overflow-hidden rounded-3xl border text-foreground;
-    width: min(25rem, calc(100vw - 2rem));
+    @apply pointer-events-auto fixed rounded-xl border text-foreground;
+    width: min(23.75rem, calc(100vw - 2rem));
     overflow: auto;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--tour-surface-strong) 82%, white 4%),
-      var(--tour-surface)
-    );
-    border-color: var(--tour-border);
+    padding: 14px 16px;
+    background: var(--app-surface);
+    border-color: var(--app-primary);
     color: var(--app-foreground) !important;
     box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--app-ring) 36%, transparent),
-      var(--tour-shadow);
-    backdrop-filter: blur(24px);
+      inset 0 1px 0 color-mix(in srgb, var(--app-border-strong) 60%, transparent),
+      0 18px 36px color-mix(in srgb, var(--app-background) 40%, black);
   }
 
-  .guided-tour-header {
-    @apply items-start gap-3 border-b px-5 py-4;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--app-primary-soft) 56%, transparent),
-        color-mix(in srgb, var(--tour-surface-strong) 84%, transparent)
-      );
+  .guided-tour-arrow {
+    @apply pointer-events-none fixed;
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+    background: var(--app-surface);
+    border: 0 solid var(--app-primary);
+  }
+
+  .guided-tour-arrow[data-side='top'] {
+    border-left-width: 1px;
+    border-top-width: 1px;
+  }
+
+  .guided-tour-arrow[data-side='bottom'] {
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+  }
+
+  .guided-tour-arrow[data-side='left'] {
+    border-left-width: 1px;
+    border-bottom-width: 1px;
+  }
+
+  .guided-tour-arrow[data-side='right'] {
+    border-right-width: 1px;
+    border-top-width: 1px;
+  }
+
+  .guided-tour-meta {
+    @apply flex items-center gap-2;
+  }
+
+  .guided-tour-eyebrow {
+    @apply flex-1 text-eyebrow font-semibold uppercase tracking-[0.16em];
+    color: var(--app-muted);
+  }
+
+  .guided-tour-dots {
+    @apply flex items-center gap-1;
+  }
+
+  .guided-tour-dots > span {
+    @apply h-1.5 w-1.5 rounded-full;
+    background: var(--app-border-strong);
+  }
+
+  .guided-tour-dots > span[data-state='done'] {
+    background: var(--app-primary);
+  }
+
+  .guided-tour-dots > span[data-state='current'] {
+    @apply w-[18px];
+    background: var(--app-primary);
   }
 
   .guided-tour-title {
-    @apply font-display text-h2 font-semibold;
+    @apply mt-2 text-body font-semibold;
     color: var(--app-foreground);
     letter-spacing: 0;
   }
 
   .guided-tour-text {
-    @apply px-5 py-4 text-body-md leading-6;
-    color: var(--app-muted);
-  }
-
-  .guided-tour-footer {
-    @apply flex flex-wrap items-center justify-between gap-2 border-t px-5 py-4;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
-    background: color-mix(in srgb, var(--tour-surface-strong) 78%, transparent);
-  }
-
-  .guided-tour-close {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-strong hover:text-foreground;
+    @apply mt-1 text-body-sm leading-relaxed;
     color: var(--app-muted);
   }
 
   .guided-tour-actions {
-    @apply ml-auto flex flex-wrap items-center justify-end gap-2;
+    @apply mt-3 flex flex-wrap items-center gap-2;
   }
 
   .guided-tour-button {
-    @apply inline-flex min-h-10 items-center justify-center rounded-xl border px-3.5 py-2 text-control font-semibold transition-all duration-200;
+    @apply inline-flex h-[26px] items-center justify-center gap-1.5 rounded-md border px-2.5 text-caption font-medium transition-colors;
     letter-spacing: 0;
   }
 
   .guided-tour-button-primary {
-    @apply border-primary/20 bg-primary text-primary-foreground hover:bg-primary/92;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--app-primary) 28%, transparent);
+    @apply border-accent bg-accent font-semibold text-fg-on-accent hover:bg-accent-hover;
   }
 
   .guided-tour-button-secondary {
-    @apply border-border/80 bg-surface-strong/88 text-foreground hover:border-border-strong/90 hover:bg-surface;
+    @apply border-border-subtle bg-bg-panel text-fg-base hover:bg-bg-inset;
   }
 
   .guided-tour-button-ghost {
-    @apply border-transparent bg-transparent text-muted hover:border-border/70 hover:bg-surface-strong/72 hover:text-foreground;
+    @apply ml-auto border-transparent bg-transparent text-fg-muted hover:text-fg-base;
   }
 
   .guided-tour-dont-show-again {
-    @apply inline-flex cursor-pointer select-none items-center gap-2 text-control text-muted;
-    margin-right: auto;
+    @apply mt-2.5 inline-flex cursor-pointer select-none items-center gap-1.5 text-caption;
+    color: var(--app-muted);
   }
 
   .guided-tour-dont-show-again-input {
-    @apply h-4 w-4 cursor-pointer rounded border bg-transparent accent-primary;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
-  }
-
-  .guided-tour-target {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--app-primary) 82%, transparent),
-      0 0 0 10px color-mix(in srgb, var(--app-primary) 18%, transparent),
-      0 24px 70px color-mix(in srgb, var(--app-primary) 20%, transparent);
-    border-radius: 1rem;
-  }
-
-  .light .guided-tour-step,
-  :root .guided-tour-step {
-    --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 24%, black);
-  }
-
-  .dark .guided-tour-step {
-    --tour-surface: color-mix(in srgb, var(--app-surface) 94%, transparent);
-    --tour-surface-strong: color-mix(in srgb, var(--app-surface-strong) 92%, transparent);
+    @apply h-3.5 w-3.5 cursor-pointer accent-primary;
   }
 
   /* Editor/result copy helpers */
@@ -1401,6 +1407,11 @@
     opacity: 1;
   }
 
+  /* Instant SQL: the lines of the CTE the preview shows. */
+  .monaco-editor .lingua-sql-instant-range {
+    background: color-mix(in oklch, var(--color-accent) 14%, transparent);
+  }
+
   /* Make the breakpoint gutter
      discoverable on hover. Without this, the glyph-margin column
      reads as inert black space until the user happens to click in
@@ -1458,6 +1469,49 @@
     background: color-mix(in srgb, var(--color-accent) 14%, transparent);
     color: var(--color-accent-fg);
     font-size: 0.85em;
+  }
+
+  /* The step selected in the Timeline tab. */
+  .monaco-editor .lingua-timeline-line {
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+    transition: background-color 120ms ease-out;
+  }
+
+  /* A move with nowhere to go tints the line red instead of opening anything. */
+  .monaco-editor .lingua-timeline-blocked {
+    background: color-mix(in srgb, var(--color-error) 30%, transparent) !important;
+  }
+
+  /* Monaco may stack the accent line over the tint, so drop it while the tint shows. */
+  .monaco-editor .lingua-timeline-blocked ~ .lingua-timeline-line,
+  .monaco-editor .lingua-timeline-line:has(~ .lingua-timeline-blocked) {
+    background: transparent !important;
+  }
+
+  /* The region at the cursor when a file has %% regions. */
+  .monaco-editor .lingua-region-active {
+    background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  }
+
+  .monaco-editor .lingua-timeline-unreached {
+    opacity: 0.45;
+  }
+
+  .monaco-editor .lingua-timeline-value,
+  .monaco-editor .lingua-timeline-echo {
+    margin-left: 12px;
+    padding: 0 6px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-bg-inset) 60%, transparent);
+    font-size: 11.5px;
+    color: var(--color-fg-base);
+  }
+
+  .monaco-editor .lingua-timeline-echo {
+    margin-left: 6px;
+    border-color: var(--color-warning-border);
+    color: var(--color-warning-fg);
   }
 
   /* The paused line takes the accent, not the breakpoint red, with an arrow beside the line numbers. */
@@ -1791,10 +1845,11 @@
     font-size: 13px;
     font-weight: 600;
     line-height: 1;
+    /* The spring plays on release; `:active` presses in without it. */
     transition:
       background-color var(--duration-fast) var(--curve-ease-out),
       box-shadow var(--duration-fast) var(--curve-ease-out),
-      transform var(--duration-fast) var(--curve-ease-out);
+      transform var(--duration-fast) var(--curve-spring);
     /* Run is the surface's one saturated control: the accent fill with ink
        chosen by contrast (`--color-fg-on-accent` is dark in dark, white in
        light). RuntimeSelector and SQL Run share the same pair. */
@@ -1882,8 +1937,36 @@
     animation: run-pulse 1.4s ease-in-out infinite;
   }
 
+  .action-pill-run[data-stale='true'] {
+    animation: run-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* Run state: results from older code than the editor holds. */
+  .run-stale {
+    position: relative;
+  }
+
+  .run-stale::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    border: 2px solid var(--color-warning-border);
+    pointer-events: none;
+  }
+
+  .run-stale .lingua-inline-result {
+    opacity: 0.55;
+  }
+
+  .run-stale .lingua-inline-result::after {
+    content: var(--run-stale-age, '');
+    color: var(--color-fg-subtle);
+  }
+
   .action-pill-run:not(:disabled):active {
     transform: scale(0.96);
+    transition-timing-function: var(--curve-ease-out);
   }
 
   .action-pill-run:disabled {
@@ -2077,8 +2160,9 @@
     @apply px-4 pb-1.5 pt-2 font-mono text-micro font-bold uppercase tracking-[0.16em] text-fg-subtle;
   }
 
+  /* Full-bleed rows have no room around them, so the ring draws inside. */
   .settings-rail-row {
-    @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    @apply focus-ring focus-visible:ring-inset focus-visible:ring-offset-0 grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
     width: 100%;
   }
 
@@ -2248,7 +2332,110 @@
 }
 
 .dock-tab-body {
-  animation: dock-tab-enter var(--duration-normal) var(--curve-ease-out);
+  animation: dock-tab-enter var(--duration-normal) var(--curve-spring);
+}
+
+/* Execution timeline: one tick per recorded step, the current one taller. */
+.timeline-tick {
+  position: absolute;
+  top: 6px;
+  width: 2px;
+  height: 18px;
+  border-radius: 1px;
+  background: var(--color-border-strong);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.timeline-tick[data-kind='log'],
+.timeline-swatch[data-kind='log'] {
+  background: var(--color-info);
+}
+
+.timeline-tick[data-kind='echo'],
+.timeline-swatch[data-kind='echo'] {
+  background: var(--color-warning);
+}
+
+.timeline-tick[data-kind='error'],
+.timeline-swatch[data-kind='error'] {
+  background: var(--color-error);
+}
+
+.timeline-tick[data-current='true'] {
+  top: 3px;
+  width: 3px;
+  height: 24px;
+  background: var(--color-accent-fg);
+}
+
+.timeline-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.timeline-swatch[data-kind='current'] {
+  background: var(--color-accent-fg);
+}
+
+.timeline-strip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.timeline-body {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 330px);
+}
+
+.timeline-body > section + section {
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+/* Compare runs: runs on the left, the diff on the right; stacked in a narrow window. */
+.run-compare {
+  container-type: inline-size;
+}
+
+.run-compare-body {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+}
+
+.run-compare-list {
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+@container (max-width: 760px) {
+  .run-compare-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .run-compare-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+}
+
+.run-compare-check {
+  appearance: none;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 3px;
+  background: transparent;
+}
+
+.run-compare-check:checked {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.run-compare-check:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /* Launcher sheets fade in with an 8 px rise. */
@@ -2270,9 +2457,11 @@
 @keyframes dock-tab-enter {
   from {
     opacity: 0;
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 
@@ -2331,6 +2520,10 @@
 
   .action-pill-run:not(:disabled):active {
     transform: none;
+  }
+
+  .action-pill-run[data-stale='true'] {
+    animation: none;
   }
 }
 

@@ -13,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { SqlQueryV1, SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { buildSampleTable } from '../../../shared/sqlSampleTable';
@@ -41,8 +40,12 @@ import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
 import { SqlEmptyState } from './SqlEmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
+import { SqlInstantPreview } from './SqlInstantPreview';
+import { saveSqlSnippet } from './sqlSnippet';
+import { useInstantSqlChannel } from './instantSqlChannel';
 import { SqlResultPreview, type SqlResultSource } from './SqlResultPreview';
 import { AskSqlButton } from './AskSqlButton';
+import { SqlStarterPrompts } from './SqlStarterPrompts';
 import { SqlExplorer } from './SqlExplorer';
 import { SqlExplorerRail } from './SqlExplorerRail';
 import { ResizeHandle } from '../ui/ResizeHandle';
@@ -51,6 +54,7 @@ import { SqlImportButton } from './SqlImportButton';
 import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlExplorerModel';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
 import { SqlQueryTabs } from './SqlQueryTabs';
+import { toneOf } from './sqlConnectionStyle';
 import { SqlSaveQueryPopover } from './SqlSaveQueryPopover';
 import { ENGINE_LABEL } from './sqlConnectionStyle';
 import { SqlHistorySection } from './SqlHistorySection';
@@ -141,13 +145,17 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [catalog.tables, tableSources]
   );
   const explorerCatalog = useMemo(() => ({ ...catalog, tables: schemaTables }), [catalog, schemaTables]);
-  const tables = useSqlTablePreview(queryTimeoutMs, schemaTables);
+  // Set below, once the staged edits exist; they depend on the table preview.
+  const confirmLeaveRef = useRef<() => boolean>(() => true);
+  const canLeaveTable = useCallback(() => confirmLeaveRef.current(), []);
+  const tables = useSqlTablePreview(queryTimeoutMs, schemaTables, canLeaveTable);
   const { preview: tablePreview, show: showTablePreview } = tables;
   // After a commit the table is read again, from the same SQL, so its rows show what the database holds.
   const rowEdits = useSqlRowEdits(tablePreview, (shown) => {
     const engine = shown.connectionId ? findConnection(shown.connectionId)?.engine : undefined;
-    void tables.open(shown.table, shown.sql, shown.back, shown.connectionId && engine ? { connectionId: shown.connectionId, engine } : undefined);
+    return tables.read(shown.table, shown.sql, shown.back, shown.connectionId && engine ? { connectionId: shown.connectionId, engine } : undefined);
   });
+  confirmLeaveRef.current = rowEdits.confirmLeave;
 
   const activeQuery: SqlQueryV1 | undefined = useMemo(
     () => queries.find((q) => q.id === activeQueryId),
@@ -198,11 +206,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     setObjectView(null);
     showTablePreview(null);
   }, [showTablePreview]);
-  const tabActions = useSqlQueryTabActions(resetView);
+  const tabActions = useSqlQueryTabActions(resetView, canLeaveTable);
   const { create: handleCreate, select: handleSelect, saveDialog } = tabActions;
 
   const handleEditInEditor = useCallback(
     (sql: string) => {
+      if (!canLeaveTable()) return;
       showTablePreview(null);
       if (useWorkspaceSqlStore.getState().activeQueryId === null) {
         handleCreate(sql);
@@ -210,7 +219,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       }
       setInsertSignal((prev) => ({ text: sql, nonce: (prev?.nonce ?? 0) + 1 }));
     },
-    [handleCreate, showTablePreview]
+    [canLeaveTable, handleCreate, showTablePreview]
   );
 
   const handleSelectResponse = useCallback((index: number) => {
@@ -234,6 +243,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const runner = useSqlRunner({
     timeoutMs: queryTimeoutMs,
     onBeforeRun: handleBeforeRun,
+    canStartRun: canLeaveTable,
     onSchemaChanged: handleSchemaChanged,
   });
   const runWhole = useCallback(
@@ -388,22 +398,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // Stash the query in the snippet library; `addSnippet` enforces the Free ceiling.
   const handleSaveSnippet = useCallback(
     (query: SqlQueryV1) => {
-      const label =
-        query.name.trim().length > 0 ? query.name.trim() : t('sqlWorkspace.snippet.defaultLabel');
-      const id = useSnippetsStore.getState().addSnippet({
-        language: 'sql',
-        label,
-        description: t('sqlWorkspace.snippet.description'),
-        code: query.query,
-      });
-      if (id !== null) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'success',
-          messageKey: 'sqlWorkspace.snippet.saved',
-        });
-      }
+      saveSqlSnippet(query.query, query.name);
     },
-    [t]
+    []
   );
 
   // Load DuckDB in the background on first mount so the first Run is not a cold boot.
@@ -474,8 +471,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     selectQuery: handleSelect,
     insertAtCursor: (text) => setPredicateSignal((prev) => ({ text, raw: true, nonce: (prev?.nonce ?? 0) + 1 })),
     insertSql: handleEditInEditor,
+    canLeave: canLeaveTable,
   });
-  const { activeConnection, dbFlag } = remote;
+  const { activeConnection } = remote;
+  const instantSql = useInstantSqlChannel(!activeConnection);
 
   const explorer = (
     <SqlExplorer
@@ -506,12 +505,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onDelete={tabActions.remove}
         onDuplicate={tabActions.duplicate}
         filter={explorerFilter}
-        {...(remote.connectionLabel ? { connectionLabel: remote.connectionLabel } : {})}
+        connectionLabel={remote.connectionLabel}
       />
       <SqlHistorySection
         entries={history}
         {...(activeConnection ? { connectionId: activeConnection.id } : {})}
-        {...(dbFlag ? { connectionLabel: activeConnection?.name ?? t('sqlWorkspace.connection.localName') } : {})}
+        connectionLabel={activeConnection?.name ?? t('sqlWorkspace.connection.localName')}
         open={historyOpen}
         onToggle={() => setHistoryOpen((open) => !open)}
         onOpenEntry={tabActions.openHistoryEntry}
@@ -576,13 +575,14 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onSaveSnippet={activeQuery && !tablePreview ? () => handleSaveSnippet(activeQuery) : undefined}
         {...(resultSource !== undefined && !runSetResponse ? { source: resultSource } : {})}
         onEditInEditor={handleEditInEditor}
-        {...(tablePreview?.back ? { onBack: () => showTablePreview(tablePreview.back!) } : {})}
+        {...(tablePreview?.back ? { onBack: () => canLeaveTable() && showTablePreview(tablePreview.back!) } : {})}
         handoffs={handoffs}
         {...(more ? { more, onLoadMore: handleLoadMore } : {})}
         {...(tablePreview && tables.foreignKeys ? { foreignKeys: tables.foreignKeys } : {})}
         {...(activeQuery ? { onInsertPredicate: handleInsertPredicate } : {})}
         {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
         {...(tablePreview?.edit ? { rowEdits } : {})}
+        {...(activeQuery ? { snippetLabel: activeQuery.name } : {})}
       />
     );
 
@@ -602,6 +602,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...(activeConnection ? { engine: activeConnection.engine, functions: remote.functions } : {})}
         {...(insertSignal !== null ? { insertSignal } : {})}
         {...(predicateSignal !== null ? { predicateSignal } : {})}
+        {...(instantSql ? { instantSql } : {})}
         headerExtra={
           <AskSqlButton
             tables={remote.editorTables}
@@ -611,6 +612,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           />
         }
       />
+      {activeQuery.query.trim() === '' ? <SqlStarterPrompts tables={remote.editorTables} /> : null}
       {saveDialog !== null && saveDialog.queryId === activeQuery.id ? (
         <SqlSaveQueryPopover
           key={`${activeQuery.id}:${saveDialog.mode}`}
@@ -644,19 +646,21 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
       className="h-full min-h-0"
     >
-      <Panel id="sql-editor-pane" defaultSize="40%" minSize={140}>
+      <Panel id="sql-editor-pane" defaultSize="40%" minSize={96}>
         {editorPane}
       </Panel>
       <ResizeHandle orientation="horizontal" />
       <Panel id="sql-results-pane" defaultSize="60%" minSize={140}>
-        <div className="flex h-full min-h-0 flex-col">
+        {/* A short pane scrolls as a whole, so the preview keeps its rows and the results stay in reach. */}
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto">
           {runner.stuck ? (
             <SqlStuckQueryBand onRestart={() => void runner.restartEngine()} isRestarting={runner.isRestarting} />
           ) : null}
+          {instantSql && activeQuery && !tablePreview && !objectView ? <SqlInstantPreview key={activeQuery.id} channel={instantSql} queryId={activeQuery.id} busy={runner.runningQueryId !== null || importBusy} /> : null}
           {showResultTabs ? (
             <SqlResultTabs runSet={runSet} hasPlan={plan !== null} view={view} onSelect={runner.setView} />
           ) : null}
-          <div className="min-h-0 flex-1">{resultBody}</div>
+          <div className="min-h-[6.5rem] flex-1">{resultBody}</div>
         </div>
       </Panel>
     </Group>
@@ -673,6 +677,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           onClose={tabActions.close}
           onCreate={() => handleCreate()}
           freeHint={tier === 'free' ? t('sqlWorkspace.tabs.freeHint') : null}
+          tone={activeConnection ? toneOf(activeConnection.env) : 'local'}
         />
       ) : null}
       <div className="min-h-0 flex-1">{split}</div>
@@ -689,7 +694,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
       <SqlConnectionBar
-        {...(remote.barRemote ? { remote: remote.barRemote } : {})}
+        remote={remote.barRemote}
         actions={
           <SqlImportButton
             inputRef={importInputRef}

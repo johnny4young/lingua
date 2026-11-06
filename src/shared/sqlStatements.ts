@@ -24,7 +24,7 @@ const DOLLAR_TAG = /\$([A-Za-z_\u0080-\uFFFF][A-Za-z0-9_\u0080-\uFFFF]*)?\$/y;
 const IDENTIFIER_CHAR = /[A-Za-z0-9_$\u0080-\uFFFF]/;
 
 /** Offset where the token that starts at `index` ends, or -1 when it is not a quoted or comment token. */
-function skipToken(sql: string, index: number): number {
+export function skipSqlToken(sql: string, index: number): number {
   const ch = sql[index];
   const next = sql[index + 1];
   if (ch === '-' && next === '-') {
@@ -103,7 +103,7 @@ function hasCode(sql: string, from: number, to: number): boolean {
       continue;
     }
     if ((ch === '-' && sql[i + 1] === '-') || (ch === '/' && sql[i + 1] === '*')) {
-      i = Math.min(skipToken(sql, i), to);
+      i = Math.min(skipSqlToken(sql, i), to);
       continue;
     }
     return true;
@@ -128,7 +128,7 @@ export function splitSqlStatements(sql: string): SqlStatement[] {
   };
   let i = 0;
   while (i < sql.length) {
-    const skipped = skipToken(sql, i);
+    const skipped = skipSqlToken(sql, i);
     if (skipped !== -1) {
       i = skipped;
       continue;
@@ -167,11 +167,11 @@ const WRITE_WORD =
   /\b(insert|update|delete|merge|create|drop|alter|attach|detach|copy|truncate|rename|install|load|checkpoint|vacuum|set|reset|call|export|import|use|exec)\b/i;
 
 /** Blanks out strings, quoted identifiers and comments so keyword checks see only code. */
-function codeOnly(sql: string): string {
+export function sqlCodeOnly(sql: string): string {
   let out = '';
   let i = 0;
   while (i < sql.length) {
-    const skipped = skipToken(sql, i);
+    const skipped = skipSqlToken(sql, i);
     if (skipped !== -1) {
       out += ' ';
       i = skipped;
@@ -189,7 +189,7 @@ function codeOnly(sql: string): string {
  * runs ANALYZE (which executes the statement) only when this holds.
  */
 export function isReadOnlySqlStatement(statement: string): boolean {
-  const code = codeOnly(statement);
+  const code = sqlCodeOnly(statement);
   return READ_LEAD.test(code) && !WRITE_WORD.test(code);
 }
 
@@ -203,9 +203,9 @@ const REMOTE_READ_LEAD = /^(select|with|values|table|show|describe|desc|explain)
  * of a prepared statement, or EXPLAIN ANALYZE (or ANALYSE), which runs it.
  */
 export function isWriteSqlStatement(statement: string): boolean {
-  // MySQL runs the inside of /*! … */ as code, and codeOnly reads it as a comment.
+  // MySQL runs the inside of /*! … */ as code, and sqlCodeOnly reads it as a comment.
   if (statement.includes('/*!')) return true;
-  const code = codeOnly(statement);
+  const code = sqlCodeOnly(statement);
   if (!REMOTE_READ_LEAD.test(code)) return true;
   return (
     WRITE_WORD.test(code) ||
@@ -351,6 +351,8 @@ interface Dialect {
   dashNeedsSpace: boolean;
   /** ClickHouse nests block comments and has `$tag$` heredocs. */
   clickhouse: boolean;
+  /** SQL Server and SQLite read `[name]` as a name, and `#` starts no comment there. */
+  brackets?: boolean;
 }
 
 // MySQL's sql_mode decides how quotes end (ANSI_QUOTES, NO_BACKSLASH_ESCAPES), so every reading is checked.
@@ -359,6 +361,7 @@ const MYSQL_DIALECTS: readonly Dialect[] = [
   { escapes: "'", strings: `'"`, dashNeedsSpace: true, clickhouse: false },
   { escapes: '', strings: `'"`, dashNeedsSpace: true, clickhouse: false },
 ];
+const BRACKET_DIALECTS: readonly Dialect[] = [{ escapes: '', strings: "'", dashNeedsSpace: false, clickhouse: false, brackets: true }];
 const CLICKHOUSE_DIALECTS: readonly Dialect[] = [{ escapes: `'"\``, strings: "'", dashNeedsSpace: false, clickhouse: true }];
 
 const dialectsFor = (engine: SqlEngineKind | undefined) => (engine === 'mysql' ? MYSQL_DIALECTS : engine === 'clickhouse' ? CLICKHOUSE_DIALECTS : null);
@@ -387,7 +390,12 @@ function dialectScan(sql: string, dialect: Dialect): DialectScan {
     const ch = sql[i]!;
     const next = sql[i + 1];
     const after = sql[i + 2];
-    if (ch === '#' || (ch === '-' && next === '-' && (!dialect.dashNeedsSpace || after === undefined || after <= ' ' || after === '\x7f'))) {
+    if (dialect.brackets && ch === '[') {
+      let j = i + 1;
+      while (j < sql.length && (sql[j] !== ']' || sql[j + 1] === ']')) j += sql[j] === ']' ? 2 : 1;
+      if (j >= sql.length) unclosed = true;
+      skipTo(Math.min(j + 1, sql.length));
+    } else if ((ch === '#' && !dialect.brackets) || (ch === '-' && next === '-' && (!dialect.dashNeedsSpace || after === undefined || after <= ' ' || after === '\x7f'))) {
       let end = i + 1;
       while (end < sql.length && sql[end] !== '\n' && sql[end] !== '\r') end += 1;
       skipTo(end);
@@ -495,26 +503,53 @@ export function isEstimableSqlStatement(statement: string): boolean {
 }
 
 // Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.
-// So can logins (PASSWORD =, IDENTIFIED BY) and ClickHouse table functions that take a remote user and password.
+// So can logins (PASSWORD =, IDENTIFIED BY, CREATE or ALTER of a user, role, login or foreign server) and ClickHouse
+// table functions that take a remote user and password.
 const SECRET_STATEMENT =
-  /\b(secret|attach)\b|^\s*(set|reset|pragma)\b|\bpassword\s*=|\bidentified\b|\b(remote|remoteSecure|mysql|postgresql|s3|s3Cluster|gcs|azureBlobStorage|mongodb|redis|jdbc|odbc)\s*\(/i;
+  /\b(secret|attach)\b|^\s*(set|reset|pragma)\b|\bpassword\s*=|\bidentified\b|\b(create|alter)\s+(user|role|login|server)\b|\b(remote|remoteSecure|mysql|postgresql|s3|s3Cluster|gcs|azureBlobStorage|mongodb|redis|jdbc|odbc)\s*\(/i;
 const SECRET_LITERAL =
-  /:\/\/[^\s'/]*@|[?&;](token|key|sig|signature|password|access_token|accountkey|sharedaccesssignature|x-amz-[a-z-]+)=/i;
+  /:\/\/[^\s'"/]*@|[?&;](token|key|sig|signature|password|access_token|accountkey|sharedaccesssignature|x-amz-[a-z-]+)=|(?:^|[^a-z0-9])(password|passwd|pwd|secret|client_secret|api[_-]?key|apikey|auth[_-]?token|access[_-]?token)\s*=|\bbearer\s+\S|\beyJ[\w-]+\.[\w-]+\./i
+
+// A value on a column named like a credential, as a grid's filter writes it.
+const COMPARED_COLUMN = /(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([\w$-]+))\s*(?:=|<>|!=|\blike\s|\bilike\s|\bin\s*\((?:\s*'•••'\s*,)*)\s*$/i;
+const SECRET_COLUMN = /(?:^|_)(password|passwd|pwd|secret|token|apikey|api_key|jwt|bearer|credential|credentials|session|cookie|auth)(?:_|$)/;
+
+function followsSecretColumn(sqlBefore: string): boolean {
+  const match = COMPARED_COLUMN.exec(sqlBefore.slice(-200));
+  const name = match?.[1] ?? match?.[2] ?? match?.[3] ?? match?.[4];
+  if (!name) return false;
+  const column = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[\s.-]+/g, '_').toLowerCase();
+  return SECRET_COLUMN.test(column);
+}
+
+// Whatever the lexer made of the text, comments, quoted names and desynced strings included.
+const URL_CREDENTIALS = /:\/\/[^\s'"`/]*@/g;
+const SECRET_PAIR =
+  /((?:^|[^a-z0-9])(?:password|passwd|pwd|secret|client_secret|api[_-]?key|apikey|auth[_-]?token|access[_-]?token|token)\s*=\s*|[?&;](?:key|sig|signature|accountkey|sharedaccesssignature|x-amz-[a-z-]+)=)(?!\s*')[^\s;&'"`,)*]+/gi;
+
+function maskSecretFragments(text: string): string {
+  return text.replace(URL_CREDENTIALS, '://•••@').replace(SECRET_PAIR, '$1•••');
+}
 
 /**
- * Masks string literals that may hold credentials before SQL is kept in the
- * run History: every literal of a SECRET, ATTACH, SET, RESET or PRAGMA statement,
- * and any URL literal with user info or a token-like query parameter. On
- * MySQL and ClickHouse, literals are found by that server's quoting rules.
+ * Masks credentials before SQL is kept in the run History or a snippet: every
+ * literal of a SECRET, ATTACH, SET, RESET, PRAGMA or login statement, a literal with
+ * URL credentials, a token-like parameter or a token shape, a value compared to
+ * a column named like a credential, and those same patterns anywhere else in
+ * the text. On MySQL, ClickHouse, SQL Server and SQLite, literals are found by
+ * that server's quoting rules.
  */
+/** True when text still holds what `redactSqlSecrets` left in place of a value. */
+export const hasMaskedSqlSecret = (sql: string): boolean => sql.includes('•••');
+
 export function redactSqlSecrets(sql: string, engine?: SqlEngineKind): string {
-  const dialects = dialectsFor(engine);
-  if (dialects) return redactDialectSecrets(sql, dialects);
-  const secretStatement = SECRET_STATEMENT.test(codeOnly(sql));
+  const dialects = engine === 'sqlserver' || engine === 'sqlite' ? BRACKET_DIALECTS : dialectsFor(engine);
+  if (dialects) return maskSecretFragments(redactDialectSecrets(sql, dialects));
+  const secretStatement = SECRET_STATEMENT.test(sqlCodeOnly(sql));
   let out = '';
   let i = 0;
   while (i < sql.length) {
-    const end = skipToken(sql, i);
+    const end = skipSqlToken(sql, i);
     if (end === -1) {
       out += sql[i];
       i += 1;
@@ -523,10 +558,10 @@ export function redactSqlSecrets(sql: string, engine?: SqlEngineKind): string {
     const token = sql.slice(i, end);
     const ch = sql[i];
     const isLiteral = ch === "'" || ch === '$' || ((ch === 'E' || ch === 'e') && sql[i + 1] === "'");
-    out += isLiteral && (secretStatement || SECRET_LITERAL.test(token)) ? "'•••'" : token;
+    out += isLiteral && (secretStatement || SECRET_LITERAL.test(token) || followsSecretColumn(out)) ? "'•••'" : token;
     i = end;
   }
-  return out;
+  return maskSecretFragments(out);
 }
 
 /** Masks every span that is a string under any reading of the quotes; an unclosed one masks the rest of the text. */
@@ -546,13 +581,18 @@ function redactDialectSecrets(sql: string, dialects: readonly Dialect[]): string
     let end = i;
     while (end < sql.length && inLiteral[end]) end += 1;
     const token = sql.slice(i, end);
-    out += secretStatement || SECRET_LITERAL.test(token) ? "'•••'" : token;
+    out += secretStatement || SECRET_LITERAL.test(token) || followsSecretColumn(out) ? "'•••'" : token;
     i = end;
   }
   return out;
 }
 
+/** `redactSqlSecrets` under every server's quoting rules, for text whose connection is unknown. */
+export function redactSqlSecretsOnAnyEngine(sql: string): string {
+  return (['mysql', 'clickhouse', 'sqlserver', undefined] as const).reduce((text, engine) => redactSqlSecrets(text, engine), sql);
+}
+
 /** True when the code (outside strings and comments) already has a WHERE clause. */
 export function hasWhereClause(sql: string): boolean {
-  return /\bwhere\b/i.test(codeOnly(sql));
+  return /\bwhere\b/i.test(sqlCodeOnly(sql));
 }

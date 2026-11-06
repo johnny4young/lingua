@@ -18,6 +18,7 @@ import {
   expect,
   expectTier,
   gotoApp,
+  newMockedContext,
   openDeveloperUtilities,
   seedSession,
   test,
@@ -175,7 +176,7 @@ test.describe('Apply gesture smoke', () => {
   test('Spanish locale: the Apply label uses neutral LatAm tuteo', async ({ browser }) => {
     // The outer beforeEach seeded English; reuse the browser context but
     // re-seed in es so the panel renders the localized button.
-    const ctx = await browser.newContext();
+    const ctx = await newMockedContext(browser);
     const esPage = await ctx.newPage();
     try {
       await seedSession(esPage, { language: 'es', primeProLicense: true });

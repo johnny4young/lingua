@@ -25,6 +25,7 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
+import { instrumentForTimeline } from '../runtime/timelineInstrument';
 import {
   appendScopeCapture,
   collectTopLevelScopeNames,
@@ -136,6 +137,7 @@ export class TypeScriptRunner implements LanguageRunner {
       ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
       : [];
     const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
+    const record = context?.record === true && !debug;
 
     // Step 1: Apply loop protection unless debug mode is active.
     const { maxLoopIterations } = settings;
@@ -174,10 +176,11 @@ export class TypeScriptRunner implements LanguageRunner {
     // Timing markers BEFORE transpile, mirroring the
     // auto-log strategy: the line number is baked into the call
     // argument, so esbuild's line shifts downstream cannot corrupt the
-    // attribution. Debug runs never instrument.
+    // attribution. Debug and record runs never instrument.
     let codeWithTiming = codeForTranspile;
     if (
       !debug &&
+      !record &&
       (context?.lineTiming === true ||
         lineTimingRequestedByMagicComment(this.language, processedCode))
     ) {
@@ -227,7 +230,7 @@ export class TypeScriptRunner implements LanguageRunner {
     // on the user's TS line numbers (which is what the breakpoint store
     // already keeps).
     const jsWithScopeCapture =
-      context?.captureScope === true && !debug
+      context?.captureScope === true && !debug && !record
         ? appendScopeCapture(js, collectTopLevelScopeNames(js))
         : js;
 
@@ -243,6 +246,14 @@ export class TypeScriptRunner implements LanguageRunner {
       } catch {
         instrumented = js;
       }
+    } else if (record) {
+      try {
+        const result = instrumentForTimeline(js, { filename: context?.tabId ?? 'user-code.js', inputMap: tsMap });
+        instrumented = result.code;
+        recordMap(result.map);
+      } catch {
+        instrumented = js;
+      }
     }
 
     // Step 3: hand the transpiled JS to the shell shared with the JavaScript
@@ -253,6 +264,7 @@ export class TypeScriptRunner implements LanguageRunner {
       timeout,
       timeoutPreset,
       debug,
+      record,
       breakpoints: tabBreakpoints,
       watches: debug ? debugStore.watches.map(w => w.expression) : [],
       sourceMaps,

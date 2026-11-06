@@ -36,13 +36,15 @@ import {
   networkRunPolicyFor,
   networkTabKey,
 } from './networkPolicyBridge';
+import { BLOCK_ALL_NETWORK } from '../../shared/networkPolicy';
 import {
-  appendCappedConsole,
+  appendCappedConsole, replaceProgressOutput, sanitizeProgressOutput,
   capStderrIfOverflowing,
   runnerStoppedResult,
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
+import { sanitizeStdinRequest } from '../utils/stdinRequest';
 
 // The literal run-time DEFAULT_TIMEOUT is gone;
 // the runner resolves the deadline from the per-language Settings
@@ -62,6 +64,8 @@ function workerLoadErrorMessage(event: Event, fallback = 'Python worker failed t
     ? maybeMessage
     : fallback;
 }
+
+const NO_BOOT_PROGRESS = { report: () => {}, clear: () => {} };
 
 export class PythonRunner implements LanguageRunner {
   id = 'python';
@@ -94,6 +98,13 @@ export class PythonRunner implements LanguageRunner {
    * run's kill timer would later terminate the worker under the next run.
    */
   private latestExecuteSeq = 0;
+
+  /** Isolated runs (Edit with AI previews) get no user env vars and leave the shared boot progress alone. */
+  constructor(private readonly isolated = false) {}
+
+  private get bootProgress(): Pick<ReturnType<typeof useBootstrapProgressStore.getState>, 'report' | 'clear'> {
+    return this.isolated ? NO_BOOT_PROGRESS : useBootstrapProgressStore.getState();
+  }
 
   async init(): Promise<void> {
     this.ready = true;
@@ -149,7 +160,7 @@ export class PythonRunner implements LanguageRunner {
         let timeoutId: ReturnType<typeof globalThis.setTimeout> | null =
           globalThis.setTimeout(() => {
             cleanup();
-            useBootstrapProgressStore.getState().clear('python');
+            this.bootProgress.clear('python');
             worker.terminate();
             if (this.worker === worker) {
               this.worker = null;
@@ -173,7 +184,7 @@ export class PythonRunner implements LanguageRunner {
 
         const cancelLoading = () => {
           cleanup();
-          useBootstrapProgressStore.getState().clear('python');
+          this.bootProgress.clear('python');
           worker.terminate();
           if (this.worker === worker) {
             this.worker = null;
@@ -189,19 +200,19 @@ export class PythonRunner implements LanguageRunner {
             // The Pyodide download streams progress DURING the
             // init handshake (no run in flight yet, so no runId guard
             // here); the action pill reads this store live.
-            useBootstrapProgressStore.getState().report({
+            this.bootProgress.report({
               language: 'python',
               loadedBytes: msg.loadedBytes,
               totalBytes: msg.totalBytes,
             });
           } else if (msg.type === 'ready') {
-            useBootstrapProgressStore.getState().clear('python');
+            this.bootProgress.clear('python');
             this.pyodideLoaded = true;
             cleanup();
             resolve();
           } else if (msg.type === 'error') {
             cleanup();
-            useBootstrapProgressStore.getState().clear('python');
+            this.bootProgress.clear('python');
             worker.terminate();
             if (this.worker === worker) {
               this.worker = null;
@@ -214,7 +225,7 @@ export class PythonRunner implements LanguageRunner {
 
         const errorHandler = (event: Event) => {
           cleanup();
-          useBootstrapProgressStore.getState().clear('python');
+          this.bootProgress.clear('python');
           worker.terminate();
           if (this.worker === worker) {
             this.worker = null;
@@ -263,6 +274,7 @@ export class PythonRunner implements LanguageRunner {
     // Pyodide worker's stdin consumption
     // summary; mirror of the JS runner shape.
     let stdinConsumed: { count: number; total: number } | undefined;
+    let stdinRequest: ExecutionResult['stdinRequest'];
     // Scope snapshot relay (same shape as JS/TS).
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
@@ -328,7 +340,7 @@ export class PythonRunner implements LanguageRunner {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = networkRunPolicyFor(networkKey);
+    const network = context?.blockNetwork ? BLOCK_ALL_NETWORK : networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>((resolve) => {
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -366,7 +378,7 @@ export class PythonRunner implements LanguageRunner {
       // for the kill timer and report a timeout.
       const crashHandler = (event: Event) => {
         if (this.currentRunId !== runId) return;
-        useBootstrapProgressStore.getState().clear('python');
+        this.bootProgress.clear('python');
         worker.terminate();
         if (this.worker === worker) {
           this.worker = null;
@@ -412,7 +424,7 @@ export class PythonRunner implements LanguageRunner {
             // Live runtime download progress; the
             // initialization window in executeTabManually composes it
             // into the loading message.
-            useBootstrapProgressStore.getState().report({
+            this.bootProgress.report({
               language: 'python',
               loadedBytes: msg.loadedBytes,
               totalBytes: msg.totalBytes,
@@ -425,9 +437,12 @@ export class PythonRunner implements LanguageRunner {
             // disabled mode), so the renderer's text path stays the
             // canonical fallback.
             const originalLine = sourceLineFor(msg.line);
-            const output: ConsoleOutput = msg.payload
-              ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
-              : { type: msg.method, args: msg.args, line: originalLine };
+            const output: ConsoleOutput = sanitizeProgressOutput(
+              msg.payload
+                ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
+                : { type: msg.method, args: msg.args, line: originalLine },
+              runId
+            );
             if (msg.captureOrder !== undefined) output.captureOrder = msg.captureOrder;
             // Adoption signal per produced
             // payload kind. Intentionally fires once per payload
@@ -472,6 +487,9 @@ export class PythonRunner implements LanguageRunner {
                 kind,
                 reason,
               });
+            }
+            if (replaceProgressOutput(stdout, output)) {
+              break;
             }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
@@ -543,6 +561,12 @@ export class PythonRunner implements LanguageRunner {
             stdinConsumed = { count, total };
             break;
           }
+          case 'stdin-request': {
+            const request = sanitizeStdinRequest(msg);
+            const line = sourceLineFor(request.line);
+            stdinRequest = line === undefined ? { message: request.message } : { message: request.message, line };
+            break;
+          }
           case 'scope-snapshot': {
             // Relay scope capture; same defensive
             // coercion as the JS/TS runners.
@@ -567,7 +591,7 @@ export class PythonRunner implements LanguageRunner {
           case 'done':
             // Boot finished (or was already warm); drop the
             // progress line so the pill returns to its normal label.
-            useBootstrapProgressStore.getState().clear('python');
+            this.bootProgress.clear('python');
             finish({
               stdout,
               stderr,
@@ -576,6 +600,7 @@ export class PythonRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
               stdinConsumed,
+              ...(stdinRequest ? { stdinRequest } : {}),
               kind: executionKind({ error, magicResults }),
               timeoutPreset,
               timeoutMs: timeout,
@@ -614,7 +639,7 @@ export class PythonRunner implements LanguageRunner {
       // into the Pyodide worker so user code's `os.environ` reflects
       // the global / project / tab tiers. Empty record keeps the
       // worker's fast path untouched.
-      const userEnv = resolveUserEnvForRunner();
+      const userEnv = this.isolated ? {} : resolveUserEnvForRunner();
       worker.postMessage({
         type: 'execute',
         runId,
@@ -644,13 +669,14 @@ export class PythonRunner implements LanguageRunner {
         richConsoleEnabled: true,
         sourceMappingEnabled: true,
         autoLog: context?.autoLog === true,
+        askStdin: context?.askStdin === true,
         network,
       });
     });
   }
 
   stop(): void {
-    useBootstrapProgressStore.getState().clear('python');
+    this.bootProgress.clear('python');
     if (this.loadingCancel) {
       const cancelLoading = this.loadingCancel;
       this.loadingCancel = null;

@@ -36,6 +36,7 @@ import { WorkflowModeSegment } from './WorkflowModeSegment';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 import { useNativeLanguageToolchainAvailability } from '../../hooks/useNativeLanguageToolchainAvailability';
+import { useMissingActiveToolchain } from '../../hooks/useMissingActiveToolchain';
 import {
   isNativeLanguageToolchain,
   nativeLanguageToolchainHintKey,
@@ -97,6 +98,7 @@ export function Toolbar() {
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const nativeLanguageToolchains = useNativeLanguageToolchainAvailability(isNewFileMenuOpen && !isWebBuild);
+  const toolchainMissing = useMissingActiveToolchain(activeLanguage) !== null;
   const executionPolicy = resolveExecutionControlPolicy({
     language: activeLanguage,
     runtimeMode: activeTab?.runtimeMode,
@@ -106,6 +108,7 @@ export function Toolbar() {
     isWorkspaceTab: activeTab ? isWorkspaceTab(activeTab) : false,
     emptyWorkspace,
     enabledBreakpointCount,
+    toolchainMissing,
   });
   const {
     executionMode,

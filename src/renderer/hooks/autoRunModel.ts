@@ -58,14 +58,16 @@ export function isSameAutoRunInput(
 export function resolveAutoRunSchedule(
   runtimeMode: FileTab['runtimeMode'],
   code: string,
-  browserPreviewPreference: BrowserPreviewRefreshInterval
+  browserPreviewPreference: BrowserPreviewRefreshInterval,
+  /** The language's run policy delay; null is Manual, undefined keeps the default debounce. */
+  policyDelayMs?: number | null
 ): {
   debounceMs: number | null;
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval | null;
 } {
   if (runtimeMode !== 'browser-preview') {
     return {
-      debounceMs: AUTO_RUN_DEBOUNCE_MS,
+      debounceMs: policyDelayMs === undefined ? AUTO_RUN_DEBOUNCE_MS : policyDelayMs,
       browserPreviewRefreshIntervalMs: null,
     };
   }

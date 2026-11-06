@@ -28,12 +28,15 @@ import {
   type NativePackageLanguage,
 } from '../../../shared/dependencies/nativeDependencies';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import { useRunCompareActive } from '../../hooks/useRunCompareActive';
+import { canRecordTimeline } from '../../../shared/timeline';
 import {
   getActiveEditor,
   getActiveEditorCursorLine,
   getActiveEditorLineText,
 } from '../../runtime/editorAccess';
 import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
+import { openEditSelectionForEditor } from '../../stores/aiEditSelectionStore';
 import { appendWatchAtLine, isAppendWatchSupported } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
@@ -72,6 +75,7 @@ export function useCommandPaletteCommands({
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
   onRunActiveTab,
+  onRecordRun,
   onOpenProject,
   onOpenProjectTests,
   onOpenProjectTerminal,
@@ -139,6 +143,7 @@ export function useCommandPaletteCommands({
   // selector is cheap (returns null when no entry carries one).
   const latestCapsule = useExecutionHistoryStore(state => state.latestCapsule());
   const snapshotRing = useResultStore(state => state.snapshotRing);
+  const runCompareActive = useRunCompareActive();
   const compareDockOpen = useUIStore(state => isCompareDockOpen(state));
   const dependencyDetectionEnabled = useSettingsStore(state => state.dependencyDetectionEnabled);
   const dependencyDetectionEntry = useDependencyDetectionStore(state =>
@@ -196,6 +201,7 @@ export function useCommandPaletteCommands({
         executionModeForLanguage(activeTab.language) === 'run'
           ? onRunActiveTab
           : undefined,
+      onRecordRun: activeTab && canRecordTimeline(activeTab) ? onRecordRun : undefined,
       onOpenProject,
       onOpenProjectTests,
       onOpenProjectTerminal,
@@ -333,6 +339,13 @@ export function useCommandPaletteCommands({
               const editor = getActiveEditor();
               if (!editor) return;
               openExplainCodeForEditor(editor, activeTab.language, activeTab.name);
+            }
+          : undefined,
+      onEditSelectedCode:
+        canExplainError && activeTab
+          ? () => {
+              const editor = getActiveEditor();
+              if (editor) openEditSelectionForEditor(editor, activeTab.language, activeTab.name, activeTab.id);
             }
           : undefined,
       editorSelectionAvailable,
@@ -517,6 +530,7 @@ export function useCommandPaletteCommands({
             }
           : undefined,
       activeCompareEnabled: compareDockOpen,
+      compareShowsRuns: runCompareActive && executionHistory.length > 0,
       compareSnapshotAvailable: (() => {
         return (
           activeTab !== null && snapshotRing.some(entry => entry.language === activeTab.language)
@@ -701,6 +715,8 @@ export function useCommandPaletteCommands({
     canUseExecutionHistory,
     executionHistory,
     snapshotRing,
+    runCompareActive,
+    onRecordRun,
     compareDockOpen,
     onRunActiveTab,
     onOpenProject,

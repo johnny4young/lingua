@@ -27,7 +27,7 @@ read-only local MCP server.
 ## Install / build
 
 On macOS, install the dedicated Homebrew formula. It downloads the immutable
-release tarball directly, installs `node@24` as a dependency, and exposes
+release tarball directly, installs `node@26` as a dependency, and exposes
 `lingua` on `PATH` without invoking npm:
 
 ```bash
@@ -40,7 +40,7 @@ headless command, while `brew install --cask johnny4young/tap/lingua` installs
 the same Desktop application distributed in the `.dmg`.
 
 `@linguacode/cli` also remains published on npm. The package is dependency-free
-and declares `engines.node: 24.x`:
+and declares Node.js 26 in `engines.node`:
 
 ```bash
 npm install -g @linguacode/cli   # or: npx @linguacode/cli --help
@@ -81,13 +81,13 @@ When `release_cli` is enabled, the release workflow builds all three CLI
 delivery artifacts from the same bundled command surface:
 
 - `linguacode-cli-<version>.tgz` — dependency-free `@linguacode/cli` package
-  for Node.js 24.x on every Node-supported platform;
+  for Node.js 26 on every Node-supported platform;
 - `lingua-cli-v<version>-linux-x64.tar.gz` — standalone Linux executable;
 - `lingua-cli-v<version>-windows-x64.tar.gz` — standalone Windows executable.
 
 The standalone archives use Node's single-executable application format, so
 utilities and Capsule validation do not need a separate Node installation.
-JavaScript and TypeScript execution deliberately resolves a host Node.js 24
+JavaScript and TypeScript execution deliberately resolves a host Node.js 26
 binary from `PATH` rather than recursively launching the Lingua SEA; other
 languages need their matching host toolchains. Every standalone build runs
 `--version`, a real utility, and a JavaScript execution smoke before archiving.
@@ -253,7 +253,7 @@ lingua capsule replay docs/examples/deterministic-run.capsule.json --json
 ```
 
 The example's source prints `3`, its recorded stdout is `3\n`, and replay's
-comparison reports `matches: true` with Node.js 24 available. It is a
+comparison reports `matches: true` with Node.js 26 available. It is a
 single-source fixture, not a Capsule Workspace or a promise of identical
 results for arbitrary code, dependencies, or machines.
 
@@ -302,7 +302,7 @@ Replay is intentionally fail-closed:
 - Browser-preview Capsules are rejected because the headless CLI has no DOM.
 - JavaScript and TypeScript Capsules recorded in `worker` or `node` mode are
   replayable; `deno` and `bun` modes are rejected rather than silently
-  substituting Node. TypeScript uses Node type stripping (Node 24), so
+  substituting Node. TypeScript uses Node type stripping (Node 26), so
   annotated source runs as recorded; Node picks CommonJS or ESM for
   TypeScript `node` mode, and `worker` mode stays CommonJS.
 - A missing host runtime exits with code 3 instead of pretending the replay

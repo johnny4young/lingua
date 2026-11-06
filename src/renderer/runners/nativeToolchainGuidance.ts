@@ -29,7 +29,30 @@ function localizedDocsUrl(path: string): string {
   return `https://linguacode.dev${localePrefix}${path}`;
 }
 
-function pushRetrySuccess(toolchain: string): void {
+function pushInstallGuideFailure(): void {
+  useUIStore.getState().pushStatusNotice({ tone: 'error', messageKey: 'nativeToolchain.install.openFailed' });
+}
+
+function openNativeToolchainInstallGuide(spec: NativeToolchainSpec, shell: LinguaAPI): void {
+  void shell
+    .openExternal(localizedDocsUrl(spec.docsPath))
+    .then((opened) => {
+      if (!opened) pushInstallGuideFailure();
+    })
+    .catch(pushInstallGuideFailure);
+}
+
+/** The Installation guide action, shared by the notice and the Dock empty state. */
+export function openInstallGuideFor(toolchain: NativeToolchain): void {
+  const shell = desktopShell();
+  if (shell) openNativeToolchainInstallGuide(TOOLCHAIN_SPECS[toolchain], shell);
+}
+
+export function nativeToolchainLabel(toolchain: NativeToolchain): string {
+  return TOOLCHAIN_SPECS[toolchain].label;
+}
+
+export function pushRetrySuccess(toolchain: string): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'success',
     messageKey: 'nativeToolchain.retry.detected',
@@ -50,45 +73,28 @@ function pushRecoveryNotice(
   retryDetection: RetryDetection,
   messageKey: RecoveryMessageKey
 ): void {
-  const currentNotice = useUIStore.getState().statusNotice;
-  if (
-    (currentNotice?.messageKey === 'nativeToolchain.missing.message' ||
-      currentNotice?.messageKey === 'nativeToolchain.retry.stillMissing' ||
-      currentNotice?.messageKey === 'nativeToolchain.retry.checkFailed') &&
-    currentNotice.values?.toolchain === spec.label
-  ) {
-    return;
-  }
+  const { statusNotice, statusNoticeQueue } = useUIStore.getState();
+  const alreadyShown = [statusNotice, ...statusNoticeQueue].some(
+    notice =>
+      (notice?.messageKey === 'nativeToolchain.missing.message' ||
+        notice?.messageKey === 'nativeToolchain.retry.stillMissing' ||
+        notice?.messageKey === 'nativeToolchain.retry.checkFailed') &&
+      notice.values?.toolchain === spec.label
+  );
+  if (alreadyShown) return;
 
   useUIStore.getState().pushStatusNotice({
     tone: 'warning',
-    // Missing native execution is a blocking recovery surface. Match the
-    // onboarding priority so a first-run toast cannot silently discard the
-    // install/retry path; same-priority notices replace in arrival order.
+    // A blocking recovery surface: sticky, so later notices wait behind it,
+    // and high priority keeps it ahead of them in the queue.
     priority: 'high',
+    sticky: true,
     messageKey,
     values: { toolchain: spec.label },
     actions: [
       {
         labelKey: 'nativeToolchain.action.install',
-        onClick: () => {
-          void shell
-            .openExternal(localizedDocsUrl(spec.docsPath))
-            .then((opened) => {
-              if (!opened) {
-                useUIStore.getState().pushStatusNotice({
-                  tone: 'error',
-                  messageKey: 'nativeToolchain.install.openFailed',
-                });
-              }
-            })
-            .catch(() => {
-              useUIStore.getState().pushStatusNotice({
-                tone: 'error',
-                messageKey: 'nativeToolchain.install.openFailed',
-              });
-            });
-        },
+        onClick: () => openNativeToolchainInstallGuide(spec, shell),
       },
       {
         labelKey: 'nativeToolchain.action.retry',

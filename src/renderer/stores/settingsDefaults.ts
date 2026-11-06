@@ -5,7 +5,9 @@ import { DEFAULT_KEYMAP_PRESET_ID } from '../data/keymapPresets';
 import { DEFAULT_THEME_PACK_ID } from '../data/themePacks';
 import { defaultRuntimeTimeoutPresetSeed } from '../../shared/runtimeTimeoutPresets';
 import { DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL } from '../../shared/browserPreviewRefresh';
+import { DEFAULT_RUN_POLICY_BY_GROUP } from '../../shared/runPolicy';
 import { DEFAULT_NETWORK_POLICY } from '../../shared/networkPolicy';
+import { isStorageEphemeral } from '../utils/ephemeralStorage';
 
 /**
  * Settings seed constants + the initial-state factory, extracted
@@ -156,6 +158,7 @@ export function createInitialSettingsState() {
     // first-line magic comment overrides the value for one tab.
     browserPreviewRefreshIntervalMs:
       DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL,
+    runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP },
     inlineLintEnabledByLanguage: { ...INLINE_LINT_DEFAULT_SEED },
     // bottom-panel `stdin` tab is offered
     // by default. The user can hide it from Settings → Editor;
@@ -201,8 +204,9 @@ export function createInitialSettingsState() {
     // is also gated by `onboardingWelcomeSeedVersion` so a
     // version bump re-arms the seed even for existing users.
     hasCompletedOnboardingWelcome: false,
-    hasCompletedOnboardingFirstRun: false,
-    hasCompletedOnboardingFirstSnippet: false,
+    // Blocked storage forgets these on reload, so they would repeat on every load.
+    hasCompletedOnboardingFirstRun: isStorageEphemeral(),
+    hasCompletedOnboardingFirstSnippet: isStorageEphemeral(),
     // seed-version tracker. When the value persisted
     // here is strictly less than `SEEDED_SCRATCHPAD_VERSION` from
     // `src/renderer/onboarding/seedScratchpad.ts`, the choreography
@@ -215,7 +219,7 @@ export function createInitialSettingsState() {
     whatsNewNotificationsEnabled: true,
     contextualHintsEnabled: true,
     hasCompletedTour: false,
-    suppressTourAutoStart: false,
+    suppressTourAutoStart: isStorageEphemeral(),
     shortcutOverrides: {},
     keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
     themePack: DEFAULT_THEME_PACK_ID,
@@ -227,10 +231,10 @@ export function createInitialSettingsState() {
     sensitiveHttpHeaders: [],
     httpAllowPrivateHosts: false,
     networkFromRunningCode: DEFAULT_NETWORK_POLICY,
-    featureFlags: {},
     // SQL grid page size and default timeout; `MAX_QUERY_TIMEOUT_MS` (5 min) still bounds the timeout.
     sqlWorkspaceRowDisplayLimit: 1000,
     sqlWorkspaceQueryTimeoutMs: 30_000,
+    sqlWorkspaceInstantPreview: true,
     // Off by default; the SQL workspace is
     // an in-memory scratchpad unless the user opts into persistence.
     sqlWorkspacePersistTables: false,

@@ -32,6 +32,8 @@ export interface PipelineRunnerOptions {
   stepTimeoutMs?: number;
   /** Test seam; production creates the dedicated utility compute worker. */
   workerFactory?: UtilityComputeWorkerFactory;
+  /** Aborting stops the worker; the outcome then only holds what it had reported. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -64,6 +66,7 @@ export async function runUtilityPipeline(
         ? {}
         : { stepTimeoutMs: options.stepTimeoutMs }),
       ...(options.workerFactory ? { workerFactory: options.workerFactory } : {}),
+      ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch {
     // Worker crash or protocol error — the pipeline contract is that this

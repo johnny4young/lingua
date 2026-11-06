@@ -1,0 +1,20 @@
+{
+  "runRegions.title": "Regiones",
+  "runRegions.label": "Regiones de este archivo",
+  "runRegions.top": "Inicio",
+  "runRegions.unnamed": "Región {{number}}",
+  "runRegions.run": "Ejecutar región",
+  "runRegions.runAll": "Ejecutar todo",
+  "runRegions.runLabel": "Ejecutar el archivo hasta el final de la región {{name}}",
+  "runRegions.card.label": "Salida de la región {{name}}",
+  "runRegions.card.ran": "se ejecutó {{time}} · {{duration}}",
+  "runRegions.card.empty": "Sin salida",
+  "runRegions.card.insert": "Insertar resultado como comentario",
+  "runRegions.card.rerun": "Volver a ejecutar la región",
+  "runRegions.card.close": "Cerrar",
+  "runRegions.stdin.label": "stdin de la región {{name}}",
+  "runRegions.stdin.prompt": "prompt · {{message}}",
+  "runRegions.stdin.promptBare": "prompt",
+  "runRegions.stdin.placeholder": "Escribe y presiona Enter",
+  "runRegions.stdin.masked": "Oculto · se guarda hasta recargar"
+}

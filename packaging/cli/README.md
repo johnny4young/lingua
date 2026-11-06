@@ -6,7 +6,7 @@ execution contract without loading Electron, React, or renderer code.
 
 ## Install
 
-On macOS, Homebrew installs the release-owned CLI archive and its Node 24
+On macOS, Homebrew installs the release-owned CLI archive and its Node 26
 runtime without invoking npm:
 
 ```bash
@@ -17,7 +17,7 @@ lingua --version
 Homebrew also installs Bash, Zsh, and Fish completion files automatically.
 
 The npm package remains available on every Node-supported platform and
-requires Node.js 24.x:
+requires Node.js 26:
 
 ```bash
 pnpm add --global @linguacode/cli
@@ -27,7 +27,7 @@ lingua --version
 Release pages also carry standalone Windows and Linux x64 archives. Those
 archives embed the matching Node.js runtime for the CLI itself, so utilities
 and Capsule validation do not require a separate Node installation. Running or
-replaying JavaScript and TypeScript still requires Node.js 24 on `PATH`; other
+replaying JavaScript and TypeScript still requires Node.js 26 on `PATH`; other
 languages need their own command-line toolchains. Extract the archive, place
 `lingua` or `lingua.exe` on `PATH`, and verify it against the release
 `SHA256SUMS.txt` before use.

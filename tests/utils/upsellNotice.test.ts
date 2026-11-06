@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { pushUpsellNotice } from '../../src/renderer/utils/upsellNotice';
+import { pushUpsellNotice, resetUpsellNoticesForTests } from '../../src/renderer/utils/upsellNotice';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import {
   _resetCommandBusForTesting,
@@ -8,7 +8,8 @@ import {
 
 describe('pushUpsellNotice', () => {
   beforeEach(() => {
-    useUIStore.getState().dismissStatusNotice();
+    resetUpsellNoticesForTests();
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
   });
 
   afterEach(() => {
@@ -28,7 +29,7 @@ describe('pushUpsellNotice', () => {
       priority: 'high',
       values: { feature: 'additional open tabs' },
       detail: 'Visit linguacode.dev for pricing and downloads.',
-      actions: [expect.objectContaining({ labelKey: 'upsell.viewPro' })],
+      actions: [expect.objectContaining({ labelKey: 'plans.title' })],
     });
   });
 
@@ -50,9 +51,24 @@ describe('pushUpsellNotice', () => {
     });
   });
 
-  it('routes the shared CTA through the App license-settings command', () => {
+  it('makes one pitch a session across features, and still answers later blocks', () => {
+    const block = (featureLabel: string) => pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel });
+    block('additional open tabs');
+    expect(useUIStore.getState().statusNotice?.actions).toHaveLength(1);
+
+    // With the pitch still on screen, the next blocked action answers at once.
+    block('run capsules');
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'upsell.freeCeilingReached', values: { feature: 'run capsules' } });
+    expect(useUIStore.getState().statusNotice?.actions).toBeUndefined();
+
+    pushUpsellNotice({ messageKey: 'upsell.desktopLanguageOnWeb', featureLabel: 'additional open tabs' });
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'upsell.desktopLanguageOnWeb' });
+    expect(useUIStore.getState().statusNotice?.actions).toBeUndefined();
+  });
+
+  it('routes the shared CTA through the Compare plans command', () => {
     const listener = vi.fn();
-    const unsubscribe = subscribeCommand('settings.openLicense', listener);
+    const unsubscribe = subscribeCommand('plans.compare', listener);
     pushUpsellNotice({
       messageKey: 'upsell.freeCeilingReached',
       featureLabel: 'additional open tabs',
@@ -62,5 +78,20 @@ describe('pushUpsellNotice', () => {
 
     expect(listener).toHaveBeenCalledOnce();
     unsubscribe();
+  });
+
+  it('pitches once a session across features, opening Compare plans', () => {
+    const compare = vi.fn();
+    subscribeCommand('plans.compare', compare);
+    pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel: 'additional open tabs' });
+    const first = useUIStore.getState().statusNotice!;
+    expect(first.actions).toEqual([expect.objectContaining({ labelKey: 'plans.title' })]);
+    first.actions![0]!.onClick();
+    expect(compare).toHaveBeenCalled();
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
+    pushUpsellNotice({ messageKey: 'upsell.freeCeilingReached', featureLabel: 'more snippets' });
+    const second = useUIStore.getState().statusNotice!;
+    expect(second.actions).toBeUndefined();
+    expect(second.priority).toBe('high');
   });
 });

@@ -10,7 +10,7 @@
  * editor selection" command) can reuse it.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type PipelineRunOutcome,
   type PipelineStepResult,
@@ -43,17 +43,22 @@ export function useUtilityPipelineRun(): UseUtilityPipelineRunResult {
   // Run id guards against concurrent runs: a stale streaming result
   // from a previous run never overwrites the active state.
   const runIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const run = useCallback(
     async (pipeline: UtilityPipelineV1, input: string) => {
       runIdRef.current += 1;
       const runId = runIdRef.current;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       const streamed: PipelineStepResult[] = [];
       setState({ phase: 'running', stepResults: [], outcome: null });
       try {
         const outcome = await runUtilityPipeline({
           pipeline,
           input,
+          signal: controller.signal,
           onStepSettled: (result) => {
             if (runId !== runIdRef.current) return;
             streamed.push(result);
@@ -81,8 +86,18 @@ export function useUtilityPipelineRun(): UseUtilityPipelineRunResult {
 
   const reset = useCallback(() => {
     runIdRef.current += 1;
+    abortRef.current?.abort();
     setState({ phase: 'idle', stepResults: [], outcome: null });
   }, []);
+
+  // A worker left running would hold its input and a core after the panel closes.
+  useEffect(
+    () => () => {
+      runIdRef.current += 1;
+      abortRef.current?.abort();
+    },
+    []
+  );
 
   return { state, run, reset };
 }

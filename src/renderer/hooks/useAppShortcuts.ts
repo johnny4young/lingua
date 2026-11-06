@@ -1,3 +1,4 @@
+import type { RunOptions } from './useRunner';
 import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
@@ -5,7 +6,7 @@ import { cycleRuntimeMode, languageHasRuntimeModes } from '../../shared/runtimeM
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { cycleWorkflowMode, defaultWorkflowMode } from '../../shared/workflowMode';
 import { toggleRecentRunsPopover } from '../runtime/recentRunsPopoverBridge';
-import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
+import { runCompareCaptureOn, useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -34,7 +35,7 @@ import { loadCapsuleExporter } from '../components/Editor/runCapsuleExportLoader
  */
 export interface AppShortcutDeps {
   isRunning: boolean;
-  run: () => void | Promise<void>;
+  run: (options?: RunOptions) => void | Promise<void>;
   stop: () => void;
   saveActiveTab: () => void | Promise<void>;
   saveActiveTabAs: () => void | Promise<void>;
@@ -170,7 +171,8 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     toggleRecentRunsPopover: () => {
       // Toggle the per-tab Recent Runs
       // popover. The bridge returns `false` when no pill is mounted
-      // (Free tier, view-only tab, empty per-tab history); surface
+      // (view-only tab, empty
+      // per-tab history); surface
       // a passive notice so the keystroke is never silent.
       const dispatched = toggleRecentRunsPopover();
       if (!dispatched) {
@@ -178,21 +180,21 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       }
     },
     toggleCompareWithSnapshot: () => {
-      // Toggle the Compare panel. Gates on
-      // the comparator snapshot's language matching the active
-      // tab; mirrors the toggle-button gate so the shortcut never
-      // surfaces a stale diff. No-op + localized notice when the
-      // gate fails.
+      // Toggle the Compare panel with the dock's gate: a comparator
+      // snapshot for the active language, or any run while Compare runs
+      // is on. No-op + localized notice when the gate fails.
       const editorState = useEditorStore.getState();
       const tab = getActiveTab(editorState);
       const snapshotRing = useResultStore.getState().snapshotRing;
       const snapshotIsRelevant =
         tab !== null && snapshotRing.some(entry => entry.language === tab.language);
-      if (!tab || !snapshotIsRelevant) {
+      const comparableRuns = runCompareCaptureOn() && useExecutionHistoryStore.getState().entries.length > 0;
+      if (!snapshotIsRelevant && !comparableRuns) {
         pushInfoNotice('compare.toggle.shortcutUnavailable');
         return;
       }
       const next = toggleCompareDock();
+      if (!tab) return;
       void trackEvent('runtime.compare_view_toggled', {
         language: tab.language,
         enabled: next,

@@ -30,6 +30,7 @@ import { blockedPathFamily } from './ipc/permissions';
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
+import { configureToolchainBinaryStore } from './runners/toolchainBinary';
 import { registerRubyHandlers } from './ruby-runner';
 import { registerNodeJSHandlers } from './node-runner';
 import { registerAltJsRuntimeHandlers } from './altJsRuntimes';
@@ -194,10 +195,9 @@ const createWindow = async () => {
       nodeIntegration: false,
       sandbox: true,
       additionalArguments: desktopSmokeRendererArguments(),
-      // Pin the same-origin policy explicitly. This is the
-      // Electron default, but pinning it ensures a future edit cannot
-      // silently disable web security (which would let a compromised
-      // renderer bypass CORS and read cross-origin resources).
+      // Pin the Electron default so a future edit cannot silently disable it.
+      // It does not bring CORS to packaged builds: their file:// origin skips
+      // it (grantFileProtocolExtraPrivileges in electron-builder.yml).
       webSecurity: true,
     },
   });
@@ -270,6 +270,7 @@ const createWindow = async () => {
 };
 
 function registerPrimaryInstance() {
+  configureToolchainBinaryStore(app.getPath('userData'));
   registerGoHandlers();
   registerRustHandlers();
   registerRubyHandlers();

@@ -579,6 +579,21 @@ describe('AppLayout responsive shell', () => {
     expect(document.body.style.overflow).toBe('');
   });
 
+  it('keeps a notice reachable while the compact drawer hides the shell', async () => {
+    setCompactShell(true);
+    useUIStore.setState({ sidebarVisible: true, consoleVisible: false, statusNotice: null, statusNoticeQueue: [] });
+    useSettingsStore.setState({ showStatusBar: true });
+    await renderLayout();
+    await screen.findByRole('dialog', { name: 'Project explorer' });
+    act(() => {
+      useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'editor.restoreSession.prompt', values: { count: 1 }, sticky: true });
+    });
+    const notice = await screen.findByTestId('status-notice-banner');
+    expect(notice.closest('[inert]')).toBeNull();
+    expect(notice.closest('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByTestId('status-bar').closest('[inert]')).not.toBeNull();
+  });
+
   it('traps keyboard focus inside the compact drawer while it is open', async () => {
     const user = userEvent.setup();
     setCompactShell(true);

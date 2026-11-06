@@ -16,7 +16,7 @@ The `deploy-web.yml` workflow uses:
 Runtime objects use this versioned layout:
 
 ```text
-web-runtime/duckdb/<package-version>/duckdb-mvp.wasm
+web-runtime/duckdb/<package-version>/duckdb-eh.wasm
 web-runtime/ruby/<package-version>/ruby+stdlib.wasm
 ```
 

@@ -1,3 +1,4 @@
+import { createJsWorkerTimeline, watchJsWorkerConsoleForTimeline } from './js-worker-timeline';
 import type { ScopeVariable } from '../../shared/scopeSnapshot';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
@@ -23,10 +24,12 @@ import {
   serializeJsWorkerValues,
   truncateJsWorkerValue,
 } from './js-worker-serialization';
-import { buildLinguaWorkerBridge } from './js-worker-runtime';
+import { buildLinguaWorkerBridge, flushLinguaProgress } from './js-worker-runtime';
 import { createJsWorkerSourceMapper } from './js-worker-source';
-import { createJsWorkerStdinReader } from './js-worker-stdin';
+import { createJsWorkerStdinReader, JsWorkerStdinRequest } from './js-worker-stdin';
 import { createNetworkAsker, installNetworkGuard, type NetworkGuard } from './networkGuard';
+
+const noop = (): void => {};
 
 function evaluateWatchExpressions(
   watches: readonly string[],
@@ -131,6 +134,17 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
 
       const source = await createJsWorkerSourceMapper(exec.sourceMaps, exec.sourceLineCount);
       installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames);
+      const timeline = exec.record === true ? createJsWorkerTimeline() : null;
+      if (timeline) watchJsWorkerConsoleForTimeline(timeline);
+      // A timeline that cannot be posted is dropped, so `done` still follows.
+      const flushTimeline = () => {
+        if (!timeline) return;
+        try {
+          ctx.postMessage({ type: 'timeline', runId, timeline: timeline.snapshot() });
+        } catch {
+          // Nothing to recover; the run result does not depend on it.
+        }
+      };
 
       const session = createJsWorkerDebuggerSession(runId);
       applyJsWorkerExecutePayload(session, exec);
@@ -153,12 +167,18 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       }
 
       const stdinReader = createJsWorkerStdinReader(exec.stdin);
+      let lingua: ReturnType<typeof buildLinguaWorkerBridge> | undefined;
       const prevPrompt = (self as unknown as { prompt?: unknown }).prompt;
       const prevReadline = (self as unknown as { readline?: unknown }).readline;
-      if (exec.stdin && exec.stdin.length > 0) {
-        const consumer = () => stdinReader.consume();
+      const askStdin = exec.askStdin === true;
+      if ((exec.stdin && exec.stdin.length > 0) || askStdin) {
+        const consumer = (message?: unknown) => {
+          const line = stdinReader.consume();
+          if (line === null && askStdin) throw new JsWorkerStdinRequest(message, source.callingLine());
+          return line;
+        };
         (self as unknown as { prompt: (message?: string) => string | null }).prompt = consumer;
-        (self as unknown as { readline: () => string | null }).readline = consumer;
+        (self as unknown as { readline: () => string | null }).readline = () => consumer();
       }
 
       // per-statement wall-clock ticks. The runner's
@@ -304,7 +324,10 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           // payload via the shared whitelist. Rejects include a
           // `richMediaRejected` flag; the JS / TS / Python runners
           // forward that flag to `runtime.rich_media_payload_rejected`.
-          const lingua = buildLinguaWorkerBridge(ctx, runId);
+          lingua = buildLinguaWorkerBridge(ctx, runId, {
+            ...(exec.sourceMappingEnabled !== false ? { callingLine: source.callingLine } : {}),
+            truncate: text => truncateJsWorkerValue(text, marker),
+          });
 
           const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
           const fn = new AsyncFunction(
@@ -314,6 +337,9 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             '__lingua_dbg_frame',
             '__lingua_dbg_pop',
             '__lingua_capture_scope',
+            '__lingua_rec',
+            '__lingua_rec_enter',
+            '__lingua_rec_exit',
             'lingua',
             source.body(code)
           );
@@ -324,6 +350,9 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             __lingua_dbg_frame,
             __lingua_dbg_pop,
             __lingua_capture_scope,
+            timeline?.rec ?? noop,
+            timeline?.enter ?? noop,
+            timeline?.exit ?? noop,
             lingua
           );
         })();
@@ -332,6 +361,8 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         // Close the last statement's interval BEFORE scope capture /
         // result serialization so their cost never pollutes it.
         flushLineTimings();
+        flushTimeline();
+        if (lingua) flushLinguaProgress(lingua);
 
         if (result !== undefined) {
           const resultMessage: {
@@ -408,13 +439,14 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         // measurements and the failing statement reports the time it ran
         // before throwing — often the most interesting number of the run.
         flushLineTimings();
-        const parsed = source.parseError(err, code);
-
-        ctx.postMessage({
-          type: 'error',
-          runId,
-          error: parsed,
-        });
+        timeline?.noteError();
+        flushTimeline();
+        if (lingua) flushLinguaProgress(lingua);
+        if (err instanceof JsWorkerStdinRequest) {
+          ctx.postMessage({ type: 'stdin-request', runId, message: err.message, ...(err.line ? { line: err.line } : {}) });
+        } else {
+          ctx.postMessage({ type: 'error', runId, error: source.parseError(err, code) });
+        }
 
         if (stdinReader.getTotal() > 0) {
           ctx.postMessage({

@@ -16,5 +16,14 @@
     "integrity": {
       "ruby+stdlib.wasm": "sha256-4b814fc9d13505ea5b4c1f3bd3a7cc7ccca137f551196b9b21f0a7caf9cc5878"
     }
+  },
+  "duckdbExtensions": {
+    "version": "1.32.0",
+    "sourceUrl": "https://extensions.duckdb.org/v1.4.3/wasm_eh/",
+    "integrity": {
+      "json.duckdb_extension.wasm": "sha256-b997276c8e15cc3ebdeda340d73d15dc1c4f4755ad281280451cb0a2f79302e9",
+      "icu.duckdb_extension.wasm": "sha256-c152a87bf98d792ad64ef0b7bf2df89ab06ace37f49edd00b378da6163e8b38c",
+      "parquet.duckdb_extension.wasm": "sha256-22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55"
+    }
   }
 }

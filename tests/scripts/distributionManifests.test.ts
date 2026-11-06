@@ -125,10 +125,10 @@ describe('renderHomebrewCliFormula', () => {
     expect(formula).not.toMatch(/npm (?:install|add)/u);
   });
 
-  it('provides Node 24 and exposes the lingua command with that runtime on PATH', () => {
-    expect(formula).toContain('depends_on "node@24"');
+  it('provides Node 26 and exposes the lingua command with that runtime on PATH', () => {
+    expect(formula).toContain('depends_on "node@26"');
     expect(formula).toContain('(bin/"lingua").write_env_script');
-    expect(formula).toContain('formula_opt_bin("node@24")');
+    expect(formula).toContain('formula_opt_bin("node@26")');
   });
 
   it('installs native Bash, Zsh, and Fish completion files through Homebrew', () => {

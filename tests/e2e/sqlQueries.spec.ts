@@ -31,6 +31,43 @@ function collectConsoleErrors(page: Page): string[] {
 }
 
 test.describe('SQL queries', () => {
+  for (const language of ['en', 'es'] as const) {
+    test(`keeps macros with untyped parameters and says why a statement failed (${language})`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await seedSession(page, { language });
+      await gotoApp(page);
+      await openSqlScratch(page);
+      const pill = page.getByTestId('sql-status-pill');
+      const run = async (source: string) => {
+        await typeSql(page, source);
+        await page.getByTestId('sql-query-editor-run').click();
+      };
+
+      await run('CREATE MACRO add_one(a) AS a + 1');
+      await expect(pill).toHaveAttribute('data-status', 'success');
+      await run('SELECT add_one(41) AS v');
+      await expect(page.getByTestId('sql-result-preview-row').first()).toContainText('42');
+
+      await run('CREATE MACRO first_n(n) AS TABLE SELECT * FROM range(n)');
+      await expect(pill).toHaveAttribute('data-status', 'success');
+      await run('SELECT * FROM first_n(3)');
+      await expect(page.getByTestId('sql-result-preview-row')).toHaveCount(3);
+
+      const error = page.getByTestId('sql-result-preview-error-sql-error');
+      await run('SELEC 1');
+      await expect(error).toContainText('Parser Error: syntax error at or near "SELEC"');
+      await expect(error).not.toContainText('exception_type');
+      await run('SELECT * FROM nope');
+      await expect(error).toContainText('Table with name nope does not exist');
+      await run("SELECT CAST('x' AS DATE)");
+      await expect(error).toContainText('Conversion Error');
+
+      await run('SELECT add_one(1) AS still_there');
+      await expect(page.getByTestId('sql-result-preview-row').first()).toContainText('2');
+      expect(errors).toEqual([]);
+    });
+  }
+
   test('runs the statement under the cursor, then every statement with Messages (EN)', async ({ page }) => {
     const errors = collectConsoleErrors(page);
     await seedSession(page, { language: 'en' });
@@ -112,6 +149,7 @@ test.describe('SQL queries', () => {
     await page.getByTestId('sql-query-editor-run-menu').click();
     await expect(page.getByTestId('sql-run-menu-selection')).toBeDisabled();
     await expect(page.getByTestId('sql-run-menu-statement')).toContainText('Ejecutar sentencia');
+    await expect(page.getByTestId('sql-run-menu-all')).toContainText('Ejecutar todas las sentencias');
     await page.getByTestId('sql-run-menu-explain').click();
     await expect(page.getByTestId('sql-plan-view')).toBeVisible();
     await expect(page.getByTestId('sql-plan-view')).toContainText('Analizado');

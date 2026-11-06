@@ -55,9 +55,12 @@ de desktop usan la toolchain instalada en tu máquina:
 - **Bun:** instala desde la [guía oficial de Bun](https://bun.sh/docs/installation) y confirma que `bun --version` funciona.
 - **Ruby:** instala una versión compatible desde [ruby-lang.org](https://www.ruby-lang.org/es/documentation/installation/) y confirma que `ruby --version` funciona. El modo automático de Ruby puede seguir usando el runtime WASM incluido cuando Ruby no está disponible en el sistema.
 
-Después de instalar una toolchain, selecciona **Volver a comprobar** en Lingua.
-No necesitas reiniciar la aplicación. Si todavía no se detecta, revisa que el
-binario esté disponible en el `PATH` que reciben las aplicaciones de desktop.
+Después de instalar Go o Rust, usa **Detectar de nuevo** en la consola. Lingua
+también busca en las carpetas de instalación habituales y, si el binario está
+en otro lugar, **Elegir binario…** le indica dónde están `go` o `rustc`. Para
+Node.js, Deno, Bun y Ruby del sistema, selecciona **Volver a comprobar**; si
+todavía no se detecta, revisa que el binario esté disponible en el `PATH` que
+reciben las aplicaciones de desktop. No necesitas reiniciar la aplicación.
 
 ## Atajos útiles
 

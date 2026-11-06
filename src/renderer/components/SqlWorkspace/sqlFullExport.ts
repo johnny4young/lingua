@@ -1,5 +1,6 @@
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { copyQueryToBytes, streamQueryRows } from '../../runtime/duckdbExport';
+import { quoteNonFiniteJson } from './sqlNonFinite';
 import {
   exportExtension,
   isTextExportFormat,
@@ -58,7 +59,8 @@ export async function exportFullResult(
   const copyOptions = copyOptionsFor(format, options);
   if (copyOptions !== null) {
     const { bytes, rowCount } = await copyQueryToBytes(sql, copyOptions, exportExtension(format), query);
-    return { data: bytes, rowCount, truncated: false };
+    const data = format === 'json' || format === 'ndjson' ? quoteNonFiniteJson(bytes) : bytes;
+    return { data, rowCount, truncated: false };
   }
   if (format === 'xlsx') {
     const { XLSX_MAX_ROWS, rowsToXlsx } = await import('./sqlXlsx');

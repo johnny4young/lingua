@@ -12,7 +12,7 @@ describe('StatusNoticeBanner', () => {
   beforeEach(async () => {
     cleanup();
     await i18next.changeLanguage('en');
-    useUIStore.setState({ statusNotice: null });
+    useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
   });
 
   afterEach(() => {
@@ -79,22 +79,49 @@ describe('StatusNoticeBanner', () => {
     ).toBeTruthy();
   });
 
-  it('keeps notices with actions up past the auto-dismiss window', () => {
+  it('gives an offer 8 s, keeps a decision up, and then shows what waited', () => {
     vi.useFakeTimers();
     try {
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
+        messageKey: 'editor.restoreSession.prompt',
+        values: { count: 1 },
+        sticky: true,
+        actions: [{ labelKey: 'editor.restoreSession.promptCta', onClick: vi.fn() }],
+      });
+      useUIStore.getState().pushStatusNotice({
+        tone: 'success',
         messageKey: 'onboarding.firstRun.message',
         actions: [{ labelKey: 'onboarding.firstRun.cta', onClick: vi.fn() }],
       });
       render(<StatusNoticeBanner />);
       act(() => {
-        vi.advanceTimersByTime(10_000);
+        vi.advanceTimersByTime(30_000);
+      });
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('editor.restoreSession.prompt');
+      expect(screen.getAllByTestId('status-notice-banner')).toHaveLength(1);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss notice' }));
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('onboarding.firstRun.message');
+      act(() => {
+        vi.advanceTimersByTime(7_900);
       });
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('onboarding.firstRun.message');
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(useUIStore.getState().statusNotice).toBeNull();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('tells dialogs where the row starts and forgets it once the row goes', () => {
+    useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'onboarding.firstRun.message' });
+    render(<StatusNoticeBanner />);
+    expect(document.documentElement.style.getPropertyValue('--notice-row-offset')).toMatch(/^\d+px$/);
+    act(() => useUIStore.getState().dismissStatusNotice());
+    expect(document.documentElement.style.getPropertyValue('--notice-row-offset')).toBe('');
   });
 
   it('pauses auto-dismiss while hovered and resumes on leave', () => {
@@ -113,7 +140,7 @@ describe('StatusNoticeBanner', () => {
       expect(useUIStore.getState().statusNotice).not.toBeNull();
       fireEvent.mouseLeave(banner);
       act(() => {
-        vi.advanceTimersByTime(6_000);
+        vi.advanceTimersByTime(8_000);
       });
       expect(useUIStore.getState().statusNotice).toBeNull();
     } finally {

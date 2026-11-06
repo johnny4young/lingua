@@ -14,8 +14,7 @@ const users = {
 async function openBuilder(
   page: Page,
   language: 'en' | 'es',
-  scopes?: { environments?: unknown[]; activeEnvironmentId?: string; requests?: unknown[]; activeRequestId?: string },
-  flags: Record<string, boolean> = { httpScopes: true }
+  scopes?: { environments?: unknown[]; activeEnvironmentId?: string; requests?: unknown[]; activeRequestId?: string }
 ): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route(`${API}/**`, (route) =>
@@ -28,15 +27,12 @@ async function openBuilder(
   await seedSession(page, { language });
   if (scopes) {
     await page.addInitScript(
-      ({ tools, featureFlags }) => {
-        const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{},"version":0}');
-        settings.state.featureFlags = featureFlags;
-        localStorage.setItem('lingua-settings', JSON.stringify(settings));
+      ({ tools }) => {
         if (!localStorage.getItem('lingua-workspace-tool-state')) {
           localStorage.setItem('lingua-workspace-tool-state', JSON.stringify({ state: { requests: [], ...tools }, version: 1 }));
         }
       },
-      { tools: scopes, featureFlags: flags }
+      { tools: scopes }
     );
   }
   await gotoApp(page);
@@ -119,7 +115,12 @@ test('holds sends while offline, sends reads by themselves and leaves writes for
   const send = page.getByTestId('http-request-editor-send');
   await url.fill(`${API}/users`);
   await context.setOffline(true);
-  await expect(send).toHaveText('Send when online');
+  await expect(send).toHaveText('Queue and send when online');
+  // A narrow pane keeps the URL usable: the long label gives way first.
+  await page.setViewportSize({ width: 1024, height: 700 });
+  expect((await url.boundingBox())!.width).toBeGreaterThanOrEqual(100);
+  await expect(send).toBeInViewport({ ratio: 1 });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await send.click();
   await expect(page.getByTestId('http-request-editor-queued')).toContainText('Queued');
   await expect(page.getByTestId('http-response-preview-body-tree')).toHaveCount(0);
@@ -216,8 +217,7 @@ test('chains a request to the response of another through a tag, sending the sou
         },
       ],
       activeRequestId: 'get-repo',
-    },
-    { httpChainTags: true }
+    }
   );
   await page.route(`${API}/users/octocat/repos`, (route) =>
     route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify([{ owner: { login: 'octocat' } }]) })
@@ -261,8 +261,7 @@ test('asks before sending to a host a chain source just returned', async ({ page
         },
       ],
       activeRequestId: 'follow',
-    },
-    { httpChainTags: true }
+    }
   );
   await page.route(`${API}/discover`, (route) =>
     route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify({ next: `${API}/v2` }) })
@@ -281,7 +280,7 @@ test('asks before sending to a host a chain source just returned', async ({ page
 });
 
 test('snapshots a response, flags a change as a failed check and accepts it', async ({ page }) => {
-  await openBuilder(page, 'en', {}, { httpSnapshots: true });
+  await openBuilder(page, 'en');
   let stars = 12;
   await page.route(`${API}/repo`, (route) =>
     route.fulfill({

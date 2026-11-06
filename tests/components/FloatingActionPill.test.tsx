@@ -25,7 +25,7 @@ import { FloatingActionPill } from '@/components/Toolbar/FloatingActionPill';
 import { useEditorStore } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
-import { useResultStore } from '@/stores/resultStore';
+import { runInputKey, useResultStore } from '@/stores/resultStore';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 import { resetLessonProgressStoreForTests, useLessonProgressStore } from '@/stores/lessonProgressStore';
 
@@ -96,6 +96,23 @@ function renderPill(props: ComponentProps<typeof FloatingActionPill> = {}) {
 }
 
 describe('FloatingActionPill', () => {
+  it('says autosave while storage works', () => {
+    renderPill();
+    expect(screen.getByTestId('action-pill-autosave').textContent).toBe('autosave');
+  });
+
+  it('says not saved when storage is blocked', () => {
+    document.documentElement.dataset.storage = 'memory';
+    try {
+      renderPill();
+      const chip = screen.getByTestId('action-pill-autosave');
+      expect(chip.textContent).toBe('not saved');
+      expect(chip.querySelector('.bg-warning-fg')).not.toBeNull();
+    } finally {
+      delete document.documentElement.dataset.storage;
+    }
+  });
+
   it('renders language label and workflow-aware action button', () => {
     renderPill();
     expect(screen.getByTestId('floating-action-pill')).toBeTruthy();
@@ -105,6 +122,24 @@ describe('FloatingActionPill', () => {
     const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
     expect(run.disabled).toBe(false);
     expect(run.getAttribute('data-tour-id')).toBe('run-button');
+  });
+
+  it('pulses Run while the results are stale, but not while it runs', () => {
+    useEditorStore.setState(state => ({ tabs: state.tabs.map(tab => ({ ...tab, workflowMode: 'run' as const })) }));
+    useResultStore.setState({
+      ranCode: { tabId: 'tab-ts', code: 'console.log(0)', input: runInputKey(undefined, undefined), at: 1 },
+      lineResults: [{ line: 1, value: '0', type: 'log' }],
+    });
+    const { rerender } = renderPill();
+    expect(screen.getByTestId('action-pill-run').getAttribute('data-stale')).toBe('true');
+    isRunningRef.current = true;
+    rerender(
+      <I18nextProvider i18n={i18next}>
+        <FloatingActionPill />
+      </I18nextProvider>,
+    );
+    expect(screen.getByTestId('action-pill-run').getAttribute('data-stale')).toBeNull();
+    useResultStore.setState({ ranCode: null, lineResults: [] });
   });
 
   it('fires run() when the action button is clicked while idle', async () => {

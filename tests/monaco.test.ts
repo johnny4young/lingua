@@ -4,6 +4,13 @@ const loaderConfig = vi.fn();
 const jsSetCompilerOptions = vi.fn();
 const jsSetDiagnosticsOptions = vi.fn();
 const jsSetEagerModelSync = vi.fn();
+const linguaAddExtraLib = vi.fn();
+// Node typings load on demand, while the lingua global registers at once, so these track them apart.
+function routeExtraLib(nodeLib: ReturnType<typeof vi.fn>) {
+  return function (this: unknown, content: string, filePath?: string) {
+    return (filePath?.includes('lingua-worker') ? linguaAddExtraLib : nodeLib).call(this, content, filePath);
+  };
+}
 const jsAddExtraLib = vi.fn();
 const registerCompletionItemProvider = vi.fn();
 const registerHoverProvider = vi.fn();
@@ -53,13 +60,13 @@ const monacoMock = {
     registerReferenceProvider,
     typescript: {
       javascriptDefaults: {
-        addExtraLib: jsAddExtraLib,
+        addExtraLib: routeExtraLib(jsAddExtraLib),
         setCompilerOptions: jsSetCompilerOptions,
         setDiagnosticsOptions: jsSetDiagnosticsOptions,
         setEagerModelSync: jsSetEagerModelSync,
       },
       typescriptDefaults: {
-        addExtraLib: tsAddExtraLib,
+        addExtraLib: routeExtraLib(tsAddExtraLib),
         setCompilerOptions: tsSetCompilerOptions,
         setDiagnosticsOptions: tsSetDiagnosticsOptions,
         setEagerModelSync: tsSetEagerModelSync,
@@ -124,6 +131,9 @@ vi.mock('monaco-editor/esm/vs/language/html/html.worker?worker', () => ({
 }));
 vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({
   default: MockTsWorker,
+}));
+vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker&url', () => ({
+  default: '/assets/ts.worker-test.js',
 }));
 
 describe('configureMonaco', () => {
@@ -361,6 +371,17 @@ describe('Node typings on the web build', () => {
     const editor = fakeEditorNamespace([fakeModel('typescript', source)]);
     applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
     await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled(), { timeout: 2000 });
+  });
+
+  it('declares the lingua global for JavaScript and TypeScript without loading Node typings', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    linguaAddExtraLib.mockClear();
+    applyTypeScriptDefaults(monacoMock as never);
+    expect(linguaAddExtraLib).toHaveBeenCalledTimes(2);
+    expect(linguaAddExtraLib.mock.calls[0]![0]).toContain('display: LinguaDisplay');
+    // Mirrors DISPLAY_AS in shared/richDisplay.ts.
+    expect(linguaAddExtraLib.mock.calls[0]![0]).toContain("as?: 'table' | 'json' | 'image' | 'html' | 'text' | 'chart'");
+    expect(tsAddExtraLib).not.toHaveBeenCalled();
   });
 
   it('shares one observer set across repeated editor mounts', async () => {
@@ -713,5 +734,115 @@ describe('loadNavigationTree', () => {
 
     expect(getJavaScriptWorker).not.toHaveBeenCalled();
     expect(getTypeScriptWorker).not.toHaveBeenCalled();
+  });
+});
+
+describe('TypeScript worker gate', () => {
+  type Listener = () => void;
+  const gate = () =>
+    (globalThis as { __linguaTypeScriptWorkerGate?: Promise<void> }).__linguaTypeScriptWorkerGate!;
+  const settled = async (promise: Promise<void>) => {
+    let done = false;
+    void promise.then(() => {
+      done = true;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    return done;
+  };
+  function fakeCodeEditor() {
+    const keyDown = new Set<Listener>();
+    const mouseMove = new Set<Listener>();
+    const subscribe = (set: Set<Listener>) => (listener: Listener) => {
+      set.add(listener);
+      return { dispose: () => set.delete(listener) };
+    };
+    return {
+      keyDown,
+      mouseMove,
+      editor: { onKeyDown: subscribe(keyDown), onMouseMove: subscribe(mouseMove) },
+    };
+  }
+  function withEditorCreation() {
+    const created = new Set<(editor: unknown) => void>();
+    const namespace = {
+      onDidCreateEditor: (listener: (editor: unknown) => void) => {
+        created.add(listener);
+        return { dispose: () => created.delete(listener) };
+      },
+    };
+    return { created, monaco: { ...monacoMock, editor: namespace } };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it('holds the worker while editors only exist, and opens on the first key press', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const { created, monaco } = withEditorCreation();
+    applyTypeScriptDefaults(monaco as never);
+    const first = fakeCodeEditor();
+    const second = fakeCodeEditor();
+    for (const listener of created) listener(first.editor);
+    for (const listener of created) listener(second.editor);
+    expect(await settled(gate())).toBe(false);
+
+    for (const listener of second.keyDown) listener();
+    expect(await settled(gate())).toBe(true);
+    // Every subscription goes once the worker may start.
+    expect(created.size + first.keyDown.size + first.mouseMove.size + second.mouseMove.size).toBe(0);
+  });
+
+  it('opens on the first mouse move over an editor', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const { created, monaco } = withEditorCreation();
+    applyTypeScriptDefaults(monaco as never);
+    const editor = fakeCodeEditor();
+    for (const listener of created) listener(editor.editor);
+    for (const listener of editor.mouseMove) listener();
+    expect(await settled(gate())).toBe(true);
+  });
+
+  it('fetches the worker script on web so it is cached for offline use, without starting it', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(''));
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      const { applyTypeScriptDefaults } = await import('@/monaco');
+      applyTypeScriptDefaults(withEditorCreation().monaco as never);
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/assets/ts.worker-test.js'));
+      expect(await settled(gate())).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('leaves the worker script alone on desktop, where it is a local file', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(''));
+    vi.stubGlobal('fetch', fetchSpy);
+    (window as unknown as { lingua?: unknown }).lingua = { node: {} };
+    try {
+      const { applyTypeScriptDefaults } = await import('@/monaco');
+      applyTypeScriptDefaults(withEditorCreation().monaco as never);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(fetchSpy).not.toHaveBeenCalledWith('/assets/ts.worker-test.js');
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('opens when Go to symbol asks for the outline', async () => {
+    getJavaScriptWorker.mockResolvedValue(
+      vi.fn().mockResolvedValue({ getNavigationTree: vi.fn().mockResolvedValue(undefined) })
+    );
+    const { loadNavigationTree } = await import('@/monaco');
+    expect(await settled(gate())).toBe(false);
+    await loadNavigationTree({
+      uri: { toString: () => 'inmemory://model/1' } as never,
+      getLanguageId: () => 'javascript',
+    });
+    expect(await settled(gate())).toBe(true);
   });
 });

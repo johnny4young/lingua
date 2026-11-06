@@ -14,6 +14,8 @@ import {
   expect,
   expectNoticeContains,
   expectTier,
+  openSettings,
+  openSettingsTab,
   gotoApp,
   openConsole,
   openCommandPalette,
@@ -988,7 +990,9 @@ test.describe('Upsell notice banner', () => {
     await gotoApp(page);
     await expectTier(page, 'FREE');
 
-    await page.keyboard.press('ControlOrMeta+Shift+G');
+    await openSettings(page);
+    await openSettingsTab(page, 'editor');
+    await page.getByTestId('utilities-clipboard-on-focus-unlock').click();
     await expectNoticeContains(page, 'utility workflows');
 
     const dismiss = page.getByRole('button', { name: /dismiss notice/i });

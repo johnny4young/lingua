@@ -8,8 +8,10 @@ import {
   moveSqlCursor,
   pressSqlChord,
   resetSqlMonacoHarness,
+  sqlDecorationsWith,
   sqlMonacoHarness,
 } from '../../__fixtures__/sqlMonacoMock';
+import { createInstantSqlChannel } from '../../../src/renderer/components/SqlWorkspace/instantSqlChannel';
 
 vi.mock('@monaco-editor/react', async () => (await import('../../__fixtures__/sqlMonacoMock')).sqlMonacoModule);
 
@@ -491,4 +493,52 @@ describe('SqlQueryEditor', () => {
     });
   });
 
+  describe('Instant SQL', () => {
+    const CTE_SQL = 'WITH a AS (\n  SELECT 1 AS x\n)\nSELECT * FROM a';
+    const renderInstant = (sql: string) => {
+      const channel = createInstantSqlChannel();
+      const onRun = vi.fn();
+      const query = createBlankSqlQuery({ id: 'q1', query: sql, now: '2026-05-26T00:00:00.000Z' });
+      render(<SqlQueryEditor query={query} isExecuting={false} tables={[]} onRun={onRun} onPatch={vi.fn()} onCancel={vi.fn()} onSave={vi.fn()} instantSql={channel} />);
+      return { channel, onRun };
+    };
+
+    it('sends the draft and the CTE under the cursor, and highlights that CTE', () => {
+      const { channel } = renderInstant(CTE_SQL);
+      expect(channel.snapshot().draft).toMatchObject({ queryId: 'q1', text: CTE_SQL, plan: { targetKey: '0:' } });
+      expect(sqlDecorationsWith('lingua-sql-instant-range')).toEqual([]);
+      act(() => moveSqlCursor(CTE_SQL.indexOf('1 AS x')));
+      expect(channel.snapshot().draft?.plan?.cte).toBe('a');
+      expect(sqlDecorationsWith('lingua-sql-instant-range')).toEqual([
+        { range: { startLineNumber: 1, startColumn: 1, endLineNumber: 3, endColumn: 1 }, options: { isWholeLine: true, className: 'lingua-sql-instant-range' } },
+      ]);
+    });
+
+    it('records the draft a Run starts from', () => {
+      const { channel, onRun } = renderInstant('SELECT 1');
+      act(() => pressSqlChord('statement'));
+      expect(onRun).toHaveBeenCalledTimes(1);
+      expect(channel.snapshot().ran?.text).toBe('SELECT 1');
+    });
+
+    it('records the buffer the Run used when the model is ahead of React', () => {
+      const { channel } = renderInstant('SELECT 1');
+      sqlMonacoHarness.modelValue = 'SELECT 2';
+      act(() => pressSqlChord('statement'));
+      expect(channel.snapshot().ran).toMatchObject({ queryId: 'q1', text: 'SELECT 2', plan: { targetKey: '0:' } });
+    });
+
+    it('moves the cursor where a breadcrumb points', () => {
+      const { channel } = renderInstant(CTE_SQL);
+      act(() => channel.jumpTo(CTE_SQL.indexOf('SELECT * FROM a')));
+      expect(sqlMonacoHarness.movedTo).toBe(CTE_SQL.indexOf('SELECT * FROM a'));
+    });
+
+    it('sends nothing without the channel', () => {
+      renderEditor('SELECT 1');
+      act(() => moveSqlCursor(3));
+      expect(sqlDecorationsWith('lingua-sql-instant-range')).toEqual([]);
+    });
+  });
 });
+

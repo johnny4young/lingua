@@ -5,7 +5,7 @@
  * 188 unit tests missed because they couldn't observe runtime
  * notice replacement under real boot timing — this e2e spec walks
  * a fresh install through all three stages (welcome seed, first-run
- * toast, first-snippet toast), asserts the bottom-right banner is
+ * toast, first-snippet toast), asserts the docked notice row is
  * actually visible at each stage, and proves the priority-respecting
  * `pushStatusNotice` fix prevents the regression.
  *

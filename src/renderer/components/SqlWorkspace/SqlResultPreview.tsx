@@ -34,13 +34,14 @@ import { filterRows, nextSortState, sortRows, type SqlSortState } from './sqlRes
 import { applyConditions, buildGridSql, visibleColumns, type SqlColumnLayout, type SqlFilterCondition } from './sqlResultFilters';
 import { SqlVirtualGrid, type SqlCellAction, type SqlGridCell, type SqlGridEditing } from './SqlVirtualGrid';
 import { SqlRowEditBar } from './SqlRowEditBar';
-import { addRow, canEditCell, overlayRows, stageCell, toggleDelete } from './sqlRowEditModel';
+import { addRow, canEditCell, canSetCellNull, overlayRows, stageCell, stagedCount, toggleDelete } from './sqlRowEditModel';
 import type { SqlRowEdits } from '../../hooks/useSqlRowEdits';
 import { renderCell } from './sqlResultFormatters';
 import { SqlResultToolbar } from './SqlResultToolbar';
 import { SqlColumnRail } from './SqlColumnRail';
 import { SqlValueViewer } from './SqlValueViewer';
 import { DEFAULT_EXPORT_OPTIONS, serializeRows } from './sqlResultExport';
+import { useSqlResultPaneLayout } from './useSqlResultPaneLayout';
 
 /** Where the rows on screen came from: an editor run, or a table opened from the Explorer. */
 export type SqlResultSource =
@@ -79,6 +80,8 @@ export interface SqlResultPreviewProps {
   canRun?: boolean;
   onRun?: () => void;
   onSaveSnippet?: () => void;
+  /** The name a snippet of the grid's SQL takes. */
+  snippetLabel?: string;
   /** Runs the source as a DuckDB column profile for the Profile tab. */
   onProfileQuery?: (query: string) => Promise<SqlColumnProfileOutcome>;
   /**
@@ -124,6 +127,7 @@ export function SqlResultPreview({
   canRun = false,
   onRun,
   onSaveSnippet,
+  snippetLabel,
   onProfileQuery,
   profileQuerySource,
   responses,
@@ -281,6 +285,7 @@ export function SqlResultPreview({
       editTarget && rowEdits
         ? {
             canEdit: (row, column) => canEditCell(editTarget, row, column),
+            canSetNull: (row, column) => canSetCellNull(editTarget, row, column),
             onEditCell: (row, column, value) => rowEdits.update((current) => stageCell(current, editTarget, row, column, value)),
           }
         : undefined,
@@ -318,6 +323,13 @@ export function SqlResultPreview({
       setViewerOpen(true);
     }
   };
+
+  const { paneRef, headerRef, bodyRef, pinRef, layout: gridFirst, pinned } = useSqlResultPaneLayout(
+    (response?.status === 'success' || response?.status === 'too-large') && activeTab !== 'profile' && shownRows.length > 0,
+    // Staged writes stay in sight on a short pane.
+    rowEdits !== undefined && stagedCount(rowEdits.edits) > 0,
+    responseKey
+  );
 
   if (response === null) {
     return (
@@ -382,58 +394,62 @@ export function SqlResultPreview({
 
   return (
     <div
+      ref={paneRef}
       data-testid="sql-result-preview"
       data-state={response.status}
+      data-grid-first={gridFirst !== null ? 'true' : undefined}
       // A short pane scrolls as a whole rather than letting the bands cover the grid.
       className="relative flex h-full min-w-0 flex-col overflow-y-auto bg-bg-base"
     >
-      <ResultHeader
-        status={
-          <span data-testid="sql-status-pill" data-tone={tone} data-status={response.status}>
-            <StatusBadge tone={tone} dot>
-              {t(`sqlWorkspace.statusPill.${response.status}`)}
-            </StatusBadge>
-          </span>
-        }
-        meta={meta}
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={(id) => {
-          setBodyTab(id as ResultBodyTab);
-          if (id === 'profile' && visibleProfile === null) void handleProfile();
-        }}
-        trailing={
-          <>
-            {showStatementCount ? (
-              <span
-                data-testid="sql-result-preview-statement-count"
-                className="rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
-              >
-                {t('sqlWorkspace.response.statementCount', { count: response.statementCount })}
-              </span>
-            ) : null}
-            {showGridChrome && response.rows.length > 0 ? (
-              <button
-                type="button"
-                aria-pressed={showRail}
-                onClick={() => {
-                  railShown = !showRail;
-                  setShowRail(railShown);
-                }}
-                data-testid="sql-column-rail-toggle"
-                title={t('sqlWorkspace.rail.toggle')}
-                className={cn(
-                  'focus-ring inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-caption transition-colors',
-                  showRail ? 'bg-bg-panel-alt text-fg-base' : 'text-fg-muted hover:text-fg-base'
-                )}
-              >
-                <Columns3 size={12} aria-hidden="true" />
-                {t('sqlWorkspace.rail.label')}
-              </button>
-            ) : null}
-          </>
-        }
-      />
+      <div ref={headerRef} className="sticky top-0 z-20 shrink-0">
+        <ResultHeader
+          status={
+            <span data-testid="sql-status-pill" data-tone={tone} data-status={response.status}>
+              <StatusBadge tone={tone} dot>
+                {t(`sqlWorkspace.statusPill.${response.status}`)}
+              </StatusBadge>
+            </span>
+          }
+          meta={meta}
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(id) => {
+            setBodyTab(id as ResultBodyTab);
+            if (id === 'profile' && visibleProfile === null) void handleProfile();
+          }}
+          trailing={
+            <>
+              {showStatementCount ? (
+                <span
+                  data-testid="sql-result-preview-statement-count"
+                  className="rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
+                >
+                  {t('sqlWorkspace.response.statementCount', { count: response.statementCount })}
+                </span>
+              ) : null}
+              {showGridChrome && response.rows.length > 0 ? (
+                <button
+                  type="button"
+                  aria-pressed={showRail}
+                  onClick={() => {
+                    railShown = !showRail;
+                    setShowRail(railShown);
+                  }}
+                  data-testid="sql-column-rail-toggle"
+                  title={t('sqlWorkspace.rail.toggle')}
+                  className={cn(
+                    'focus-ring inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-caption transition-colors',
+                    showRail ? 'bg-bg-panel-alt text-fg-base' : 'text-fg-muted hover:text-fg-base'
+                  )}
+                >
+                  <Columns3 size={12} aria-hidden="true" />
+                  {t('sqlWorkspace.rail.label')}
+                </button>
+              ) : null}
+            </>
+          }
+        />
+      </div>
 
       {source !== undefined && selectedResponseIndex === 0 ? (
         <div
@@ -478,7 +494,15 @@ export function SqlResultPreview({
         </div>
       ) : null}
 
-      {rowEdits && source?.origin === 'table' && response.status === 'success' ? <SqlRowEditBar edits={rowEdits} /> : null}
+      {rowEdits && source?.origin === 'table' && response.status === 'success' ? (
+        <div
+          ref={pinRef}
+          className={cn('shrink-0', pinned && 'sticky z-[15] overflow-y-auto bg-bg-base')}
+          style={pinned && gridFirst ? { top: gridFirst.headerHeight, maxHeight: gridFirst.viewHeight } : undefined}
+        >
+          <SqlRowEditBar edits={rowEdits} />
+        </div>
+      ) : null}
 
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
@@ -548,6 +572,8 @@ export function SqlResultPreview({
           onLayoutChange={setLayout}
           gridSql={gridSql}
           {...(onApplySql ? { onApplySql } : {})}
+          {...(response?.engine ? { engine: response.engine } : {})}
+          {...(snippetLabel !== undefined ? { snippetLabel } : {})}
         />
       ) : null}
 
@@ -560,11 +586,15 @@ export function SqlResultPreview({
           />
         </div>
       ) : (
-        <div className="flex min-h-[9.5rem] flex-1">
+        <div
+          ref={bodyRef}
+          className="flex min-h-[4.5rem] flex-1"
+          style={gridFirst ? { flex: 'none', height: gridFirst.gridHeight } : undefined}
+        >
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {displayRows.length > 0 ? (
               activeTab === 'json' ? (
-                <div className="min-h-[6.5rem] flex-1 overflow-auto">
+                <div className="min-h-[4.5rem] flex-1 overflow-auto">
                   <JsonView rows={displayRows} />
                 </div>
               ) : (
@@ -587,12 +617,12 @@ export function SqlResultPreview({
             ) : hasResultBody && loadedRows.length > 0 && filteredCount === 0 ? (
               <div
                 data-testid="sql-result-preview-filter-empty"
-                className="grid min-h-[6.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
+                className="grid min-h-[4.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
               >
                 {t('sqlWorkspace.grid.filterEmpty')}
               </div>
             ) : response.status === 'success' ? (
-              <div className="grid min-h-[6.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
+              <div className="grid min-h-[4.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
                 {t('sqlWorkspace.response.noRows')}
               </div>
             ) : null}

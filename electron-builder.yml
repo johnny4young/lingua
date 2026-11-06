@@ -3,8 +3,9 @@ productName: Lingua
 executableName: lingua
 copyright: Copyright © Lingua contributors
 # package.json pins electron with a caret range; electron-builder needs the exact
-# release to fetch its platform binaries. Keep in sync with the electron devDep.
-electronVersion: 44.3.0
+# release to fetch its platform binaries. tests/build/electronVersionPin.test.ts
+# fails when this differs from the version pnpm-lock.yaml resolves.
+electronVersion: 44.9.1
 # Auto-update feed + installers both live on GitHub Releases. electron-builder
 # embeds this provider into the packaged app-update.yml, so electron-updater
 # fetches latest*.yml + the installer straight from the repo's Releases. No
@@ -29,6 +30,9 @@ files:
   - package.json
   # The SQL Server driver's Azure SDK carries a browser build that Node never loads.
   - '!**/node_modules/@azure/msal-browser{,/**}'
+  # Source maps, TypeScript sources and declarations, and nested readmes never load at runtime.
+  - '!**/node_modules/**/*.{map,ts,mts,cts}'
+  - '!**/node_modules/**/{README,Readme,readme}.md'
 # ripgrep is an executable, so keep it outside app.asar. The build script copies
 # every release target into an architecture-specific source path; electron-
 # builder's macros select the matching executable for each packaged app.
@@ -59,6 +63,8 @@ protocols:
 # ERR_FILE_NOT_FOUND and never rendered (the smoke gate then timed out and hung).
 # Keep it enabled to match the working Forge build. asar integrity validation
 # stays on; it was never the cause.
+# The cost: every file:// context, workers included, skips CORS and can read any
+# local file. Turning it off needs a custom protocol for the renderer.
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true

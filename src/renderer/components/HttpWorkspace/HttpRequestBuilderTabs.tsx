@@ -59,7 +59,7 @@ interface HttpRequestBuilderTabsProps {
   readonly onAddAssertion: () => void;
   readonly onUpdateAssertion: (index: number, patch: Partial<HttpAssertion>) => void;
   readonly onRemoveAssertion: (index: number) => void;
-  /** With variable scopes on: this request's own variables, shown in a Vars tab. */
+  /** This request's own variables, shown in a Vars tab. */
   readonly variables?: {
     readonly rows: readonly HttpEnvVariableV1[];
     readonly onUpdate: (updater: (rows: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]) => void;

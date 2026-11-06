@@ -34,6 +34,10 @@ export const sqlMonacoHarness: {
   /** Types like Monaco: a native model event, outside React's event system, so React may render it later. */
   type: (text: string) => void;
   onCursor: Listener | null;
+  /** Every decorations collection the host created, with what it last set. */
+  decorations: Array<Array<{ range: unknown; options: Record<string, unknown> }>>;
+  /** Offset the host last moved the cursor to. */
+  movedTo: number | null;
   completionProvider:
     | {
         provideCompletionItems: (
@@ -50,6 +54,8 @@ export const sqlMonacoHarness: {
   modelValue: null,
   type: () => {},
   onCursor: null,
+  decorations: [],
+  movedTo: null,
   completionProvider: null,
 };
 
@@ -60,7 +66,14 @@ export function resetSqlMonacoHarness(): void {
   sqlMonacoHarness.edits = [];
   sqlMonacoHarness.modelValue = null;
   sqlMonacoHarness.onCursor = null;
+  sqlMonacoHarness.decorations = [];
+  sqlMonacoHarness.movedTo = null;
   sqlMonacoHarness.completionProvider = null;
+}
+
+/** Decorations currently set with `className`. */
+export function sqlDecorationsWith(className: string): Array<{ range: unknown; options: Record<string, unknown> }> {
+  return sqlMonacoHarness.decorations.flat().filter((decoration) => decoration.options['className'] === className);
 }
 
 /** Fires a registered chord, as Monaco would on the key press. */
@@ -122,11 +135,26 @@ function MonacoEditor({
         setText(next);
       },
       getOffsetAt: (position: { offset?: number }) => position.offset ?? sqlMonacoHarness.cursorOffset,
+      getPositionAt: (offset: number) => {
+        const before = textRef.current.slice(0, offset).split('\n');
+        return { offset, lineNumber: before.length, column: before.at(-1)!.length + 1 };
+      },
     }),
+    setPosition: (position: { offset: number }) => {
+      sqlMonacoHarness.movedTo = position.offset;
+    },
+    revealPositionInCenterIfOutsideViewport: () => {},
     addCommand: (chord: number, callback: () => void) => {
       sqlMonacoHarness.commands.set(chord, callback);
     },
-    createDecorationsCollection: () => ({ set: () => {} }),
+    createDecorationsCollection: () => {
+      const index = sqlMonacoHarness.decorations.push([]) - 1;
+      return {
+        set: (items: Array<{ range: unknown; options: Record<string, unknown> }>) => {
+          sqlMonacoHarness.decorations[index] = items;
+        },
+      };
+    },
     setScrollLeft: () => {},
     saveViewState: () => null,
     restoreViewState: () => {},

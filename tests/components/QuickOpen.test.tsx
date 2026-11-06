@@ -116,6 +116,11 @@ describe('QuickOpen', () => {
     expect(screen.queryByText('src/tree-only.ts')).toBeNull();
   });
 
+  it('opens with the query the palette typed in', () => {
+    render(<QuickOpen onClose={vi.fn()} initialQuery="main.py" />);
+    expect((screen.getByRole('combobox') as HTMLInputElement).value).toBe('main.py');
+  });
+
   it('falls back to the project tree walk when the index is empty', () => {
     render(<QuickOpen onClose={vi.fn()} />);
     expect(screen.getByText('src/tree-only.ts')).toBeTruthy();

@@ -126,11 +126,11 @@ comes from this flow rather than a web spec.
    `<userData>/filesystem-approvals.json` and launch with
    `LINGUA_SMOKE_USER_DATA_DIR=<userData>`. Use `http://localhost:5174/` as the
    renderer URL; the dev server listens on `::1` only.
-3. Set the TypeScript workflow default to Run in Settings, so opening a source
-   file does not auto-run it in the worker.
-4. Open the project, run all tests, open the source under test, select the
-   failing case and capture at 1440 px wide in English and Spanish.
-5. Scale each capture to 1440 × 879, save it to
+3. Open the project and run all tests. Selecting the failing case opens its
+   assertion with the failure card; for the gallery shot, close the card and
+   open the source under test instead. Capture at 1440 px wide in English and
+   Spanish.
+4. Scale each capture to 1440 × 879, save it to
    `output/stagewright/project-tests/project-tests-{en,es}.png`, copy it over
    `website/public/screenshots/v1.0/`, and run
    `npm --prefix website run record:showcase-evidence`.

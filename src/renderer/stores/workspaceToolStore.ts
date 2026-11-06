@@ -25,6 +25,8 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { attachCrossTabSync } from './persistence/crossTabSync';
+import { keepLatestTransient } from './persistence/keepLatestTransient';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
   parseHttpRequest,
@@ -49,6 +51,7 @@ import {
   type HttpPipelineV1,
 } from '../../shared/httpPipeline';
 import { httpEnvSecretId, HTTP_ENV_SECRET_PREFIX } from '../../shared/secretVault';
+import { maskPersistedHttpData } from '../../shared/httpPersistedSecrets';
 import {
   getSecretVault,
   writeSecret,
@@ -253,6 +256,14 @@ function createInitialState(): Pick<
 
 /** True once the vault holds the secret values, so the localStorage blob must not. */
 let vaultOwnsEnvSecrets = false;
+
+function isTransientHttpResponse(response: HttpResponseV1): boolean {
+  return (
+    response.kind === 'network-error' ||
+    response.kind === 'timeout' ||
+    response.kind === 'cors-error'
+  );
+}
 
 export const useWorkspaceToolStore = create<WorkspaceToolState>()(
   persist(
@@ -595,17 +606,18 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
         for (const [reqId, list] of Object.entries(
           state.responsesByRequestId
         )) {
-          const surviving = list.filter(
-            (entry) =>
-              entry.kind !== 'network-error' &&
-              entry.kind !== 'timeout' &&
-              entry.kind !== 'cors-error'
-          );
+          const surviving = list.filter((entry) => !isTransientHttpResponse(entry));
           if (surviving.length > 0) persistedResponses[reqId] = surviving;
         }
-        return {
-          requests: vaultOwnsEnvSecrets ? blankRequestSecrets(state.requests) : state.requests,
+        const masked = maskPersistedHttpData({
+          requests: state.requests,
           responsesByRequestId: persistedResponses,
+          environments: state.environments,
+          collectionVariables: state.collectionVariables,
+        });
+        return {
+          requests: vaultOwnsEnvSecrets ? blankRequestSecrets(masked.requests) : masked.requests,
+          responsesByRequestId: masked.responsesByRequestId,
           activeRequestId: state.activeRequestId,
           // Additive fields. No persist `version` bump:
           // a v1 blob predating this field has no `environments` key, and
@@ -727,6 +739,31 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
     }
   )
 );
+
+attachCrossTabSync(useWorkspaceToolStore, {
+  defaults: createInitialState,
+  keepLocal: (next, live) => {
+    const requestExists = (id: string) => next.requests.some((request) => request.id === id);
+    const stillThere = (id: string | null, exists: (id: string) => boolean) =>
+      id !== null && exists(id) ? id : null;
+    return {
+      activeRequestId: stillThere(live.activeRequestId, requestExists),
+      activeEnvironmentId: stillThere(live.activeEnvironmentId, (id) =>
+        next.environments.some((environment) => environment.id === id)
+      ),
+      activeHttpPipelineId: stillThere(live.activeHttpPipelineId, (id) =>
+        next.httpPipelines.some((pipeline) => pipeline.id === id)
+      ),
+      executingRequestId: live.executingRequestId,
+      responsesByRequestId: keepLatestTransient(
+        live.responsesByRequestId,
+        next.responsesByRequestId,
+        requestExists,
+        isTransientHttpResponse
+      ),
+    };
+  },
+});
 
 /** A scope's rows under the id its vault entries use. */
 interface VariableSet {

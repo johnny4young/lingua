@@ -15,6 +15,9 @@ import { isBundledRecipeId } from '../data/recipes/recipeIds';
 import { useDependenciesPanelAvailable } from '../components/Dependencies/useDependenciesPanelAvailable';
 import { useGitDiffTabAvailable } from '../components/Editor/useGitDiffTabAvailable';
 import type { DockTabAvailability } from '../components/Layout/dockTabs';
+import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
+import { useRunCompareActive } from './useRunCompareActive';
+import { useTimelineStore } from '../stores/timelineStore';
 
 export interface DockShell {
   /** False in the editor-only layout and on full-screen Utilities tabs. */
@@ -65,6 +68,9 @@ export function useLayoutAvailability(): LayoutAvailability {
     activeTabId ? Object.values(s.breakpoints).some(bp => bp.tabId === activeTabId) : false
   );
   const comparableCount = useResultStore(s => comparableSnapshotCountFor(s, language));
+  const runCompareActive = useRunCompareActive();
+  const hasRuns = useExecutionHistoryStore(s => s.entries.length > 0);
+  const hasRecording = useTimelineStore(s => s.recording !== null && s.recording.tabId === activeTabId);
   const hasScope = useResultStore(s => hasScopeSnapshotFor(s, language, runtimeMode));
   const hasProject = useProjectStore(s => s.currentProject !== null);
   const dependencies = useDependenciesPanelAvailable();
@@ -74,7 +80,8 @@ export function useLayoutAvailability(): LayoutAvailability {
   const runMode = language !== undefined && executionModeForLanguage(language) === 'run';
   const tabs: DockTabAvailability = {
     stdin: showStdinPanel && runtimeMode !== 'browser-preview' && workerLanguage,
-    compare: runMode && comparableCount > 0,
+    compare: (runMode && comparableCount > 0) || (runCompareActive && hasRuns),
+    timeline: hasRecording,
     variables:
       variableInspectorSurface === 'bottom' &&
       runMode &&

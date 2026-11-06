@@ -55,9 +55,12 @@ the toolchain installed on your machine:
 - **Bun:** install from the [official Bun guide](https://bun.sh/docs/installation), then confirm `bun --version` works.
 - **Ruby:** install a supported Ruby from [ruby-lang.org](https://www.ruby-lang.org/en/documentation/installation/), then confirm `ruby --version` works. Lingua's automatic Ruby mode can keep using its bundled WASM runtime when system Ruby is unavailable.
 
-After installing a missing toolchain, use **Retry detection** in Lingua. You do
-not need to restart the app. If detection still fails, make sure the binary is
-available on the `PATH` inherited by desktop applications.
+After installing Go or Rust, use **Detect again** in the Console. Lingua also
+looks in the usual install folders, and if the binary lives somewhere else,
+**Choose binary…** points it at `go` or `rustc`. For Node.js, Deno, Bun and
+system Ruby, use **Retry detection**; if detection still fails, make sure the
+binary is available on the `PATH` inherited by desktop applications. You do not
+need to restart the app.
 
 ## Keep it fast
 

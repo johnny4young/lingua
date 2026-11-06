@@ -7,6 +7,7 @@
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { quoteSqlIdentifier } from '../../../shared/sqlQuote';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
+import { nonFiniteNumber } from './sqlNonFinite';
 
 const BIN_COUNT = 8;
 const TOP_COUNT = 5;
@@ -30,7 +31,7 @@ export interface SqlColumnStats {
   distinct: number;
   /** More distinct values than {@link DISTINCT_CAP}; `distinct` is the cap. */
   distinctCapped: boolean;
-  /** Smallest and largest value as shown; null when every value is null. */
+  /** Smallest and largest value as shown, non-finite ones too; null when every value is null. */
   range: { low: string; high: string } | null;
   bins: SqlHistogramBin[];
   top: Array<{ value: string; count: number }>;
@@ -79,7 +80,13 @@ export function columnStats(
 ): SqlColumnStats[] {
   const limit = statsRowLimit(columns.length);
   const rows = allRows.length > limit ? allRows.slice(0, limit) : allRows;
-  return columns.map((column) => {
+  // Row by row: rows are hash tables scattered over the heap, so a column at a time misses the cache on every cell.
+  const cells = columns.map(() => new Array<unknown>(rows.length));
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r]!;
+    for (let c = 0; c < columns.length; c++) cells[c]![r] = row[columns[c]!.name];
+  }
+  return columns.map((column, columnIndex) => {
     const duckType = arrowTypeToDuckDb(column.type);
     const kind: SqlColumnStats['kind'] = isNumericSqlType(duckType) ? 'number' : isTemporal(duckType) ? 'date' : 'text';
     let nulls = 0;
@@ -90,8 +97,8 @@ export function columnStats(
     let high: string | null = null;
     let lowNumber = Number.POSITIVE_INFINITY;
     let highNumber = Number.NEGATIVE_INFINITY;
-    for (const row of rows) {
-      const value = row[column.name];
+    const nonFinite = new Set<string>();
+    for (const value of cells[columnIndex]!) {
       if (value === null || value === undefined) {
         nulls += 1;
         continue;
@@ -103,7 +110,10 @@ export function columnStats(
       else capped = true;
       if (kind === 'number') {
         const n = numberOf(value);
-        if (n === null) continue;
+        if (n === null) {
+          if (nonFiniteNumber(text) !== null) nonFinite.add(text);
+          continue;
+        }
         scale.push(n);
         if (n < lowNumber) {
           lowNumber = n;
@@ -121,6 +131,11 @@ export function columnStats(
       }
       if (low === null || text < low) low = text;
       if (high === null || text > high) high = text;
+    }
+    // Bins need finite bounds; the range still names these, in DuckDB's order.
+    if (nonFinite.size > 0) {
+      low = nonFinite.has('-Infinity') ? '-Infinity' : (low ?? (nonFinite.has('Infinity') ? 'Infinity' : 'NaN'));
+      high = nonFinite.has('NaN') ? 'NaN' : nonFinite.has('Infinity') ? 'Infinity' : (high ?? '-Infinity');
     }
     const top =
       kind === 'text'

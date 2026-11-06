@@ -87,7 +87,7 @@ for (const locale of locales) {
         ).toBeVisible();
         await expect(group.locator('.product-description')).toContainText(locale[`${product}Hint`]);
         if (product === 'cli') {
-          await expect(group.locator('.product-description')).toContainText('Node.js 24.x');
+          await expect(group.locator('.product-description')).toContainText('Node.js 26');
         }
         await expect(group.locator('.asset-name')).toHaveText(platform[product]);
         for (const filename of platform[product]) {

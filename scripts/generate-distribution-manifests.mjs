@@ -90,7 +90,7 @@ export function releaseAssetNames(version) {
  *
  * The source archive is the exact dependency-free npm-format tarball attached
  * to the immutable GitHub Release. Homebrew downloads and installs it directly;
- * npm is not invoked. `node@24` remains an explicit runtime dependency because
+ * npm is not invoked. `node@26` remains an explicit runtime dependency because
  * macOS does not yet ship a separately notarized standalone CLI binary.
  */
 export function renderHomebrewCliFormula({ version, digests, repo = GITHUB_REPO }) {
@@ -104,13 +104,13 @@ export function renderHomebrewCliFormula({ version, digests, repo = GITHUB_REPO 
   sha256 "${sha}"
   license :cannot_represent
 
-  depends_on "node@24"
+  depends_on "node@26"
 
   def install
     package_root = (buildpath/"package").directory? ? buildpath/"package" : buildpath
     libexec.install package_root/"LICENSE", package_root/"README.md", package_root/"package.json"
     (libexec/"bin").install package_root/"bin/lingua.cjs"
-    (bin/"lingua").write_env_script libexec/"bin/lingua.cjs", PATH: "#{formula_opt_bin("node@24")}:$PATH"
+    (bin/"lingua").write_env_script libexec/"bin/lingua.cjs", PATH: "#{formula_opt_bin("node@26")}:$PATH"
     generate_completions_from_executable(bin/"lingua", "completion")
   end
 

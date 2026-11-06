@@ -16,7 +16,27 @@ export interface UpsellNoticeInput {
   detail?: string;
 }
 
+// One pitch with its CTA a session, whatever the feature.
+let pitched = false;
+
+/** Test hook: a fresh session. */
+export function resetUpsellNoticesForTests(): void {
+  pitched = false;
+}
+
 export function pushUpsellNotice(input: UpsellNoticeInput): void {
+  // A blocked action always answers, but only the first one a session makes the pitch.
+  if (pitched) {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: input.messageKey,
+      // Replaces the pitch still on screen: this action needs its own answer now.
+      priority: 'high',
+      values: { feature: input.featureLabel },
+    });
+    return;
+  }
+  pitched = true;
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: input.messageKey,
@@ -26,11 +46,6 @@ export function pushUpsellNotice(input: UpsellNoticeInput): void {
     priority: 'high',
     values: { feature: input.featureLabel },
     detail: input.detail,
-    actions: [
-      {
-        labelKey: 'upsell.viewPro',
-        onClick: () => emitCommand('settings.openLicense'),
-      },
-    ],
+    actions: [{ labelKey: 'plans.title', onClick: () => emitCommand('plans.compare') }],
   });
 }

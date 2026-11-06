@@ -2,6 +2,11 @@ import { ChevronDown, Copy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HTTP_CODEGEN_LABELS, HTTP_CODEGEN_TARGETS, type HttpCodegenTarget } from '../../../shared/httpCodegen';
+import { buildHttpJsTab } from '../../../shared/httpJsTab';
+import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
+import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import '../../i18n/httpBuilderCatalog';
 
 export type HttpCopyFormat = 'curl' | HttpCodegenTarget;
 
@@ -19,9 +24,35 @@ const COPY_FORMATS: ReadonlyArray<{
   })),
 ];
 
-/** Copy-as menu — cURL + code snippets (fetch / axios / Python). */
-export function HttpCopyAsMenu({ disabled, onCopy }: { disabled: boolean; onCopy: (format: HttpCopyFormat) => void }) {
+/** Copy-as menu — cURL + code snippets (fetch / axios / Python), and Open as JS tab. */
+export function HttpCopyAsMenu({
+  disabled,
+  onCopy,
+  maskedRequest,
+}: {
+  disabled: boolean;
+  onCopy: (format: HttpCopyFormat) => void;
+  /** The draft with environment secrets left as `{{key}}`. */
+  maskedRequest: () => HttpRequestV1;
+}) {
   const { t } = useTranslation();
+  const openAsTab = () => {
+    const request = maskedRequest();
+    // The name also seeds the save dialog, and bidi controls can disguise it.
+    const name = request.name.replace(/[\\/\p{Cc}\p{Cf}]/gu, '_').trim();
+    const { addTab } = useEditorStore.getState();
+    addTab({
+      ...createDefaultTab('javascript'),
+      ...(name ? { name: `${name}.js` } : {}),
+      content: buildHttpJsTab(request, {
+        sensitiveHeaders: useSettingsStore.getState().sensitiveHttpHeaders,
+        fillInComment: t('httpWorkspace.editor.openAsTabFillIn'),
+      }),
+      // A scratchpad would send the request while it opens.
+      workflowMode: 'run',
+      runtimeMode: 'worker',
+    });
+  };
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
   // Close the copy menu on outside click / Escape.
@@ -80,6 +111,18 @@ export function HttpCopyAsMenu({ disabled, onCopy }: { disabled: boolean; onCopy
               {label}
             </button>
           ))}
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="http-request-editor-open-tab"
+            onClick={() => {
+              setCopyMenuOpen(false);
+              openAsTab();
+            }}
+            className="focus-ring block w-full border-t border-border-subtle px-3 py-1.5 text-left text-body-sm text-fg-base hover:bg-bg-inset focus-visible:bg-bg-inset"
+          >
+            {t('httpWorkspace.editor.openAsTab')}
+          </button>
         </div>
       ) : null}
     </div>

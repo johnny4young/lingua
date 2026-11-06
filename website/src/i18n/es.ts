@@ -146,7 +146,7 @@ export const es = {
       eyebrow: 'Ya disponible en Lingua',
       title: 'Seis flujos que definen Lingua hoy.',
       releaseTitle: 'Seis flujos que definen Lingua 1.0.',
-      lede: 'Capturados desde builds actuales, no desde mockups. Cada flujo indica dónde funciona y cuándo necesita Pro; el registro técnico completo vive en el changelog.',
+      lede: 'Capturados desde builds reales, no desde mockups. Cada flujo indica dónde funciona y cuándo necesita Pro; el registro técnico completo vive en el changelog.',
       cta: 'Lee el changelog completo',
       latest: {
         label: 'Nuevo en',
@@ -206,7 +206,7 @@ export const es = {
     tour: {
       eyebrow: 'Dentro de la app',
       title: 'El producto real, haciendo trabajo real.',
-      lede: 'Abajo no hay mockups — cada cuadro es la app tal como se distribuye, capturada a mitad de tarea sobre el build web de producción.',
+      lede: 'Abajo no hay mockups — cada cuadro es un build real capturado a mitad de tarea.',
       items: [
         {
           image: '/screenshots/tour/workspace-python-es.png',
@@ -252,9 +252,9 @@ export const es = {
       lede: 'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
       shot: {
         image: '/screenshots/tour/ai-explain-es.png',
-        alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la lectura de una propiedad sobre null, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
+        alt: 'Panel de explicar junto a un run de JavaScript fallido: la respuesta explica la lectura de una propiedad sobre null, propone un fix con guard en un bloque de código y ofrece Aplicar y re-ejecutar',
         caption:
-          'Una respuesta real de un modelo local — qwen3-coder en Ollama, sin viaje a la nube. El diálogo muestra el payload exacto antes de enviar nada, y Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas.',
+          'El panel se abre junto a tu código y muestra el payload exacto antes de enviar nada. Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas. La respuesta aquí es de ejemplo.',
       },
       cards: [
         {
@@ -275,7 +275,7 @@ export const es = {
         {
           icon: 'lock',
           title: 'Local-first y privado',
-          body: 'Un modelo local significa que el código nunca sale de tu dispositivo. Los secretos evidentes se ocultan antes de la vista previa, y la clave vive solo en Configuración — nunca en exportaciones, cápsulas, enlaces para compartir ni telemetría.',
+          body: 'Un modelo local significa que el código nunca sale de tu dispositivo. Los secretos evidentes se ocultan antes de la vista previa, y la clave se queda en tu dispositivo — nunca en exportaciones, cápsulas, enlaces para compartir ni telemetría.',
         },
       ],
     },
@@ -353,7 +353,7 @@ export const es = {
       bodyStart:
         'La telemetría excluye código y rutas de proyecto. Las solicitudes HTTP y la IA remota envían a sus endpoints los payloads que eliges; revísalos antes de enviarlos. Lee la',
       link: 'página de privacidad',
-      bodyEnd: 'para ver qué contiene cada evento.',
+      bodyEnd: 'para ver qué contiene la telemetría.',
     },
     finalCta: {
       title: 'Lánzale tu próximo script de 10 líneas.',
@@ -393,11 +393,12 @@ export const es = {
           features: [
             '3 pestañas abiertas a la vez',
             'Hasta 5 snippets guardados',
-            '3 conexiones de base de datos guardadas (escritorio, Labs)',
+            '3 conexiones de base de datos guardadas (escritorio)',
             'Runners de JavaScript, TypeScript, Python y Ruby',
             'Todas las utilidades de una sola acción',
             'Editor Monaco + resaltado de sintaxis',
             'Editor de atajos de teclado',
+            'Línea de tiempo de ejecución, últimos 20 pasos',
           ],
           cta: 'Descargar Lingua',
         },
@@ -411,9 +412,9 @@ export const es = {
             'Todo lo de Free',
             'Pestañas, snippets y conexiones de base de datos guardadas ilimitados',
             'Runners de Go y Rust',
-            'Notebooks de TypeScript, Python y SQL',
+            'Notebooks de JavaScript, TypeScript, Python y SQL',
             'IA local-first con tu propio endpoint y clave',
-            'Historial de ejecución persistente y workflows de utilidades',
+            'Comparar ejecuciones, línea de tiempo completa y workflows de utilidades',
             'Cada actualización mientras estés suscrito',
           ],
           cta: 'Comprar Mensual',
@@ -552,7 +553,7 @@ export const es = {
         },
         cli: {
           title: 'Herramienta de terminal (CLI)',
-          description: 'Para comandos de terminal, sin editor gráfico. Ejecutar código requiere el runtime del lenguaje, incluido Node.js 24.x para JavaScript y TypeScript.',
+          description: 'Para comandos de terminal, sin editor gráfico. Ejecutar código requiere el runtime del lenguaje, incluido Node.js 26 para JavaScript y TypeScript.',
         },
         other: { title: 'Otras descargas', description: 'Revisa el nombre del archivo y las notas de la versión antes de elegir.' },
       },

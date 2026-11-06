@@ -142,13 +142,12 @@ export const SQL_STORAGE_MODES: readonly SqlStorageMode[] = ['opfs', 'memory'];
  *   - `'json'`    → `read_json_auto` (JSON array OR newline-delimited)
  *   - `'parquet'` → `read_parquet`   (binary columnar buffer)
  *
- * Parquet is statically linked into the bundled `@duckdb/duckdb-wasm`
- * MVP WASM (verified: the `read_parquet` / `parquet_scan` symbols are
- * present in `duckdb-mvp.wasm`), so no runtime extension load is needed.
+ * Parquet's reader is a vendored extension that loads on first use (see
+ * `duckdbClient.ts`); the other two are in the bundled WASM.
  *
  * INVARIANT: the renderer must never advertise, accept, or run a format
- * outside this list — adding one requires verifying the reader exists in
- * the shipped WASM bundle first.
+ * outside this list — adding one requires verifying its reader ships
+ * with Lingua first.
  */
 export type SqlImportFormat = 'csv' | 'json' | 'parquet';
 
@@ -452,6 +451,11 @@ export interface SqlResponseV1 {
   errorMessage?: string;
   /** Engine that produced the response; absent means Local DuckDB. */
   engine?: SqlEngineKind;
+}
+
+/** A result that came from a database connection rather than the local engine. */
+export function isRemoteSqlResponse(response: Pick<SqlResponseV1, 'engine'>): boolean {
+  return response.engine !== undefined && response.engine !== 'duckdb';
 }
 
 // ---------------------------------------------------------------------------

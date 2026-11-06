@@ -86,15 +86,17 @@ and whenever the element or viewport changes; the width hint only guards the
 first render before a DOM measurement exists.
 
 All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
-full-width editor. Its tab row always lists Console; Input, Compare, Variables,
+full-width editor. Its tab row always lists Console; Input, Compare, Timeline
+(after a Record run), Variables,
 Terminal and Tests (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
 and carries the run controls: auto-log, run status, recent runs, time, capsule
 export and share. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
 output surface reopens from one place. Compare is a dock tab, not a per-tab flag:
 `utils/compareDock.ts` opens and closes it for the shortcut and the palette.
-Validation and view-only tabs show their report above the Console rows, and the
-Console tab ends with the last five runs (`Layout/RunHistoryStrip.tsx`).
+Validation and view-only tabs show their report above the Console rows, a
+desktop Go or Rust tab whose binary is missing shows
+`Layout/MissingToolchainPanel.tsx` there, and the Console tab ends with the last five runs (`Layout/RunHistoryStrip.tsx`).
 
 Console auto-follow is active only while the viewport remains at the bottom.
 `ConsolePanel` records its last pinned geometry so a manual upward scroll wins
@@ -113,10 +115,12 @@ the separate Desktop-only boundary without probing the host. Native picker
 previews use only the shared toolchain-discovery env keys (including retry),
 and do not emit the project-env-used event; explicit Run still receives the
 user's configured env and owns that adoption signal.
-Desktop language menus and the palette likewise probe Go and Rust only while
-open. They distinguish a confirmed missing executable from a failed check;
-creating an editor tab remains possible without the compiler, while Run owns
-the localized recovery/error path. These passive probes share the same env
+Desktop language menus, the palette and an active Go or Rust tab probe the
+toolchain through `stores/nativeToolchainStore.ts`. A confirmed missing
+binary disables Run and the Dock Console shows the missing-toolchain panel
+(Installation guide, Choose binary…, Detect again); a failed check leaves Run
+enabled and the next run detects again. Creating an editor tab stays possible
+without the compiler. These passive probes share the same env
 filter and telemetry boundary as the JS runtime picker; unrelated project
 secrets and code-loading flags never reach menu-opened binaries. Web never
 probes the host toolchains.
@@ -181,7 +185,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
 | [`components/ErrorBoundary.tsx`](components/ErrorBoundary.tsx) | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
-| [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx` | Owns the activation boundary, project explorer rendering, and inline tree interactions |
+| [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx`, `FileTreeHeaderMenu.tsx` | Owns the activation boundary, project explorer rendering, the header's ⋯ menu, and inline tree interactions |
 | [`components/ProjectTerminal/`](components/ProjectTerminal) | `ProjectTerminalPanel.tsx`                            | Desktop-only, lazily loaded xterm surface for the owner-bound project PTY; retains only a bounded session transcript |
 | [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | `FloatingActionPill` renders the run controls docked inside `CommandBar`, or floating after Undock; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
@@ -190,7 +194,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
 | [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
 | [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, `NotebookToolbar.tsx`, `NotebookCellList.tsx`, cell rows | Notebook orchestration, toolbar/export lifecycle, virtualized cells, keyboard command mode |
-| [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 31 utility panels plus panel-specific validation/output UX      |
+| [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 31 utility panels plus panel-specific validation/output UX. GUI actions to code add Save as JS snippet to a pipeline (`../shared/utilityPipelineJs.ts`), and Clipboard-aware utilities marks tools from `hooks/useClipboardSuggestion.ts` and adds Send output to… (`SendOutputSelect.tsx`) with step controls |
 | [`components/Dependencies/`](components/Dependencies)     | `DependenciesPanel.tsx`                               | JS/TS and Python dependency detection/install surfaces          |
 | [`components/BrowserPreview/`](components/BrowserPreview) | `BrowserPreviewPanel.tsx`                             | Iframe preview panel and active iframe bridge integration       |
 
@@ -207,12 +211,16 @@ a failed refresh cannot display another tab's preview.
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/NetworkAsk/`](components/NetworkAsk) | `NetworkAskDialog.tsx` | Asks whether running code may reach a host (Ask network policy) |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | SQL workspace (Local DuckDB and database connections): connection bar and picker, new-connection sheet, Connections manager with imports, and production dialogs (`SqlConnection*.tsx`, with the SSH tunnel and Safety sections, the shared `sqlConnectionForm.tsx` and `SqlConnectionChip.tsx`, and `sqlConnectionManagerModel.ts`), Explorer with a connection's tree and object detail (`SqlRemoteTree.tsx`, `SqlObjectDetail.tsx`), results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | SQL workspace (Local DuckDB and database connections): connection bar and picker, new-connection sheet, Connections manager with imports, and production dialogs (`SqlConnection*.tsx`, with the SSH tunnel and Safety sections, the shared `sqlConnectionForm.tsx` and `SqlConnectionChip.tsx`, and `sqlConnectionManagerModel.ts`), Explorer with a connection's tree and object detail (`SqlRemoteTree.tsx`, `SqlObjectDetail.tsx`), results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs, and the Instant SQL strip (`SqlInstantPreview.tsx`, fed by `instantSqlChannel.ts`, with `SqlInstantTable.tsx` and the `SqlExprBreakdown.tsx` tree) |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
-| [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab)                      | Desktop project-suite discovery, runner selection, live output, stop, and result UX |
+| [`components/Timeline/`](components/Timeline)           | `TimelinePanel.tsx` (lazy Timeline dock tab), `TimelineLineHost.tsx` | Execution timeline: replay of the latest Record run from `stores/timelineStore.ts` and `utils/timelineModel.ts`, with the editor showing the selected step, its echoes and unreached lines |
+| [`components/RunRegions/`](components/RunRegions)       | `RunRegionsHost.tsx`, `RunRegions.tsx` (lazy), `runtime/regionRun.ts` | Run regions: `%%` regions from `utils/runRegions.ts`, the region chips above the editor, Cmd/Ctrl+Shift+Enter (run all) in the editor and the latest region output from `stores/runRegionStore.ts` under its region, with an inline stdin row when the run stopped for input; the Run shortcut picks the region at the cursor through `runtime/regionRun.ts`, and masked stdin answers stay in memory in `runRegionStore` |
+| Run state                                                 | `hooks/useRunStale.ts`, `Editor/RunStalePill.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
+| [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs: runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
+| [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestFailureCardHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestFailureCard.tsx`), `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, and the failure card under the assertion line |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
 | [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
@@ -245,6 +253,19 @@ group jump. Keep shortcuts out of command descriptions; add the command id to
 that map instead, so the keycap follows the user's overrides. A combo outside
 the remappable catalog (paste as plain text) sets `CommandEntry.shortcut`.
 While filtering, groups follow their best-ranked match so Enter runs the top hit.
+`usePaletteAutodetect.ts` reads the query with
+`shared/paletteIntent.ts` and puts one Autodetected row above the groups (a
+question for Explain this code, or a file for Quick Open); that row is not a
+registry command, so it never enters the recent stack or the ranking.
+
+Upgrade surfaces go through the `plans.compare`
+command: `components/Plans/ComparePlansDialog.tsx` (lazy overlay
+`compare-plans`) renders `shared/plans.ts`, whose Free numbers come from
+`FREE_TIER_LIMITS` and the timeline caps, and `components/ui/ProChip.tsx` is
+the PRO mark limited features use to open it.
+`stores/proAccess.ts` (`currentProAccess`) and `hooks/useProAccess.ts` say whether a
+Pro feature is `full`, a Free `slice` under the same flag, or `locked`; the
+slice sizes live in `FREE_TIER_LIMITS`.
 
 The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
 persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes
@@ -470,7 +491,10 @@ Sharing separates its always-available triggers from both implementations:
 Result comparison has its own activation boundary:
 
 - [`hooks/useLayoutAvailability.ts`](hooks/useLayoutAvailability.ts) keeps the
-  stable-snapshot gate that decides when the dock offers Compare.
+  stable-snapshot gate that decides when the dock offers Compare. On a tier that
+  keeps run history, with code capture on ([`hooks/useRunCompareActive.ts`](hooks/useRunCompareActive.ts)), any
+  recorded run opens the tab, which then loads the lazy
+  [`components/RunCompare/RunComparePanel.tsx`](components/RunCompare/RunComparePanel.tsx).
 - [`components/Editor/CompareResultsPanelHost.tsx`](components/Editor/CompareResultsPanelHost.tsx)
   provides localized loading and reload states without importing the diff
   implementation.
@@ -510,7 +534,8 @@ Recent Runs keeps its discoverable shell separate from its paid implementation:
 
 - [`components/Editor/RecentRunsPill.tsx`](components/Editor/RecentRunsPill.tsx)
   owns the visible per-tab count, Free upsell, global opener registration, and
-  dismissal behavior. Primitive active-tab selectors keep ordinary buffer
+  dismissal behavior. It portals the popover to the body, fixed above the pill,
+  so the dock does not clip it. Primitive active-tab selectors keep ordinary buffer
   edits from re-rendering this boundary.
 - [`components/Editor/RecentRunsPopoverHost.tsx`](components/Editor/RecentRunsPopoverHost.tsx)
   and
@@ -519,8 +544,8 @@ Recent Runs keeps its discoverable shell separate from its paid implementation:
   document.
 - [`components/Editor/RecentRunsPopover.tsx`](components/Editor/RecentRunsPopover.tsx)
   owns the rows, relative-time interval, pin/replay controls, runner
-  integration, and related icons. It loads only after an eligible Pro user
-  opens Recent Runs.
+  integration, and related icons. It loads only after a user with access opens
+  Recent Runs: Pro, or Free's slice, which hides pin and replay.
 - A failed module URL remains cached for the current document because browsers
   do not reliably recover it through an inline retry; the host offers an
   explicit Lingua reload instead.
@@ -568,6 +593,10 @@ paid implementation:
   transport load only after an explicit explain-code request.
 - A failed dialog chunk closes the failed request, clears the loader cache, and
   lets the next explicit action retry without replacing the app shell.
+- [`components/AI/AiEditSelectionHost.tsx`](components/AI/AiEditSelectionHost.tsx)
+  does the same for Edit with AI: `EditWithAiDialog.tsx`, its static Monaco
+  `DiffEditor` and `runtime/aiEditPreview.ts`, with the preview runners, load
+  only after an explicit edit request.
 
 Dependency detection keeps its always-mounted observer separate from parser and
 platform work:
@@ -709,8 +738,7 @@ second modal from inside a tour step.
 
 ### Network policy for running code
 
-Behind the `networkPolicy` flag (`src/shared/featureFlags.ts`, toggled in
-Settings › Labs), Settings › Privacy chooses Allow, Ask or Block for code in the
+Settings › Privacy chooses Allow, Ask or Block for code in the
 JS/TS worker, Pyodide and ruby.wasm. Each run carries a `NetworkRunPolicy` built
 by `networkAskStore.networkRunPolicyFor`; inside the worker,
 `workers/networkGuard.ts` wraps fetch, XMLHttpRequest, WebSocket, EventSource
@@ -720,8 +748,9 @@ leaves scheduled is checked too. Under Ask, an unknown host on
 (`runners/networkPolicyBridge.ts`) while `NetworkAskDialog` waits for an answer,
 which then holds for that host in the tab. Synchronous APIs and Ruby cannot
 wait, so they only reach hosts the tab already allowed. Pyodide installs the
-guard at worker start, because `pyodide.http` captures `fetch` on import. It is
-a best-effort guard, not a sandbox, and native runtimes are not covered.
+guard at worker start, because `pyodide.http` captures `fetch` on import. Under
+Ask and Block it also refuses `file:` outside the renderer root. It is a
+best-effort guard, not a sandbox, and native runtimes are not covered.
 
 ### Settings discovery
 
@@ -730,8 +759,7 @@ Settings search uses the curated catalog in
 Settings tab is mounted at a time, so DOM search would silently miss controls
 in every other tab. Catalog entries map localized labels, descriptions, and
 cross-language aliases to a tab plus a stable focus target. Selecting a result
-switches tabs, scrolls to the target, and moves keyboard focus there. An
-entry with `requiresFlag` stays out of results until that Labs flag is on.
+switches tabs, scrolls to the target, and moves keyboard focus there.
 
 `SettingsSectionChips.tsx` reads the open tab's `SettingsSection`s from the
 panel (`data-settings-chip`, the eyebrow or a short `chip` label) and shows a
@@ -762,13 +790,14 @@ Use the closest store that already owns the product concept instead of adding cr
 | [consoleEntryBatcher.ts](stores/consoleEntryBatcher.ts) | per-frame coalescing of streamed console entries into one `addEntries` update |
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
-| [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, per-test cases merged across scoped runs, the Failed only filter, and active project-test run lifecycle |
+| [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, per-test cases merged across scoped runs, the Failed only filter, the failed test the editor card shows (`focusedFailure`), and active project-test run lifecycle |
 | [projectTerminalStore.ts](stores/projectTerminalStore.ts) | transient project binding, native-execution gate, PTY session id, bounded output chunks, and stop/restart lifecycle; never persisted |
 | [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, lazy stale state, persisted replay evidence, and active cell — thin assembly point that composes the focused notebook\* modules below |
 | notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookReactivity.ts](stores/notebookReactivity.ts) (execution evidence, conservative invalidation, and persisted-ledger validation), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/invalidation/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from leaves, never back from the assembled store |
 | [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) + [useDependencyDetection.ts](hooks/useDependencyDetection.ts) + [dependencyDetectionRuntime.ts](hooks/dependencyDetectionRuntime.ts) | per-tab dependency cache/install state plus a startup-safe eligibility/debounce hook; parser loading and platform classification activate only when source may reference a package (Scratchpad execution can load its shared Acorn chunk independently) |
 | [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
-| [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
+| [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors, Compare runs records |
+| [importedCapsuleStore.ts](stores/importedCapsuleStore.ts) | capsules opened from Import this session, listed by the capsule browser as not run; memory only |
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |
@@ -789,14 +818,16 @@ Use the closest store that already owns the product concept instead of adding cr
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments, collection variables and active request metadata; on desktop secret values of every scope persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
+| [nativeToolchainStore.ts](stores/nativeToolchainStore.ts) | session-only Go and Rust availability plus the folders searched; feeds the disabled Run reason and the Dock empty state, and asks main to pick a binary |
 | [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
 | [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot and restore translation          |
 | [settingsStore.ts](stores/settingsStore.ts) | sanitized persisted preferences, theme/keymap packs, consent and onboarding flags — thin `create(persist(...))` assembly point that composes the focused settings\* modules below |
-| settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsLabsSanitizer.ts](stores/settingsLabsSanitizer.ts) (Labs flags + network policy), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |
+| settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsPolicySanitizer.ts](stores/settingsPolicySanitizer.ts) (network and run policy), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |
 | settings split — action factories: [settingsAppearanceActions.ts](stores/settingsAppearanceActions.ts) (theme/font/layout/keymap/shortcuts), [settingsRuntimeActions.ts](stores/settingsRuntimeActions.ts) (execution/runtime-mode/workflow/auto-log/timeout/ruby), [settingsPrivacyActions.ts](stores/settingsPrivacyActions.ts) (telemetry/clipboard consents + sensitive headers), [settingsSessionActions.ts](stores/settingsSessionActions.ts) (onboarding/tour/language/SQL workspace) | `(set[, get]) => Pick<SettingsState, …>` slices spread into `useSettingsStore` |
 | [telemetryConsentSource.ts](utils/telemetryConsentSource.ts) + [telemetryPolicy.ts](utils/telemetryPolicy.ts) | dependency-neutral consent reader registered after settings-store construction; fails closed during bootstrap and keeps telemetry out of the eager settings graph |
 | [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, results dock, command-bar docking, floating positions |
+| [statusNoticeQueue.ts](stores/statusNoticeQueue.ts) | pure rules for which status notice shows and which waits (priority, sticky decisions, repeats, backlog cap) |
 | status notice API — [useStatusNotice.ts](hooks/useStatusNotice.ts) for React consumers and [statusNotice.ts](utils/statusNotice.ts) for imperative paths | tone-safe `info`/`success`/`warning`/`error` actions that preserve notice options while keeping direct store access out of producers |
 | [commandBus.ts](stores/commandBus.ts) + [useCommandListener.ts](hooks/useCommandListener.ts) | closed-map, synchronous renderer commands with no replay/state updates; priority + handled fallback semantics keep app coordination off the global DOM event target |
 | telemetry API — [useTelemetry.ts](hooks/useTelemetry.ts) for React consumers and [telemetry.ts](utils/telemetry.ts) for non-React layers | closed event names at call sites; a startup-safe facade checks consent and configuration before loading the full emitter |
@@ -805,9 +836,11 @@ Use the closest store that already owns the product concept instead of adding cr
 | [projectSearchStore.ts](stores/projectSearchStore.ts) / [projectReplaceStore.ts](stores/projectReplaceStore.ts) | project-wide search and replacement sessions |
 | [snippetsStore.ts](stores/snippetsStore.ts), [recipeStore.ts](stores/recipeStore.ts), [lessonProgressStore.ts](stores/lessonProgressStore.ts) | user-created snippets, built-in recipe state, guided lesson progress |
 | [trustEventStore.ts](stores/trustEventStore.ts) | Privacy + Trust event ledger surfaced in Settings                  |
-| [utilityWorkspaceStore.ts](stores/utilityWorkspaceStore.ts), [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities activation, history, output, and pipeline state |
+| [utilityWorkspaceStore.ts](stores/utilityWorkspaceStore.ts), [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts), [utilityPipelineSend.ts](stores/utilityPipelineSend.ts) | Developer Utilities activation, history, output, and pipeline state |
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | AI config on its own isolated `lingua-ai` persist boundary (v2): `mode` plus a Local and a My endpoint profile, with `endpoint`/`apiKey`/`model` derived from the active one; v1 migrates by host. Kept out of the settings blob/exports/capsules/telemetry; on desktop the My endpoint key lives in the encrypted secret vault and is omitted from the blob |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
+| [aiEditSelectionStore.ts](stores/aiEditSelectionStore.ts) | single open-request slot for Edit with AI (`AiEditSelectionHost`): the file, the span, and the model URI and version Accept must still match; session-only |
+| [askSqlStore.ts](stores/askSqlStore.ts) | open state of the SQL Ask AI dialog, so the header button and the empty-query starter prompts open the same dialog, a prompt with its question typed in; session-only |
 
 ### Console batch delivery
 
@@ -863,10 +896,10 @@ Primary task contracts:
 
 | Task | Canonical text entry | Contextual/direct entry | Keyboard entry | Interaction budget |
 | --- | --- | --- | --- | --- |
-| Run the active tab | `Run active tab` | floating Run action | `Mod+Enter` | 1 direct or 3 through the palette |
-| Change JS/TS runtime | `Switch runtime to …` | floating Runtime menu | `Mod+Alt+M` cycles modes | 2 direct or 3 through the palette |
+| Run the active tab | `Run active tab` | command bar Run action | `Mod+Enter` | 1 direct or 3 through the palette |
+| Change JS/TS runtime | `Switch runtime to …` | command bar Runtime menu | `Mod+Alt+M` cycles modes | 2 direct or 3 through the palette |
 | Open a project | `Open project folder…` | Explorer empty state / footer | Command Palette | 1 direct or 3 to the folder picker |
-| Run project tests | `Run project tests` | Explorer flask action | Command Palette | 2 direct: open panel, then Run |
+| Run project tests | `Run project tests` | Explorer ⋯ menu | Command Palette | 3 direct: open the menu, choose Detect and run project tests, then Run all tests |
 | Apply a license | `Apply license token` | license badge / Settings → Account | Command Palette | 5 through the palette, including paste + Apply |
 | Restore a session | `Restore last session` when a snapshot exists | boot recovery notice | Command Palette | 1 direct or 3 through the palette |
 
@@ -1002,6 +1035,23 @@ If you add a new global class, place it in the closest subsection instead of app
 - The primary action shows its shortcut as a keycap inside the button; menus
   print keys right-aligned; destructive actions never show a key. Toolbar icons
   are 28px targets and list rows 24px; toggles are 36×20 with a 16px knob.
+- Thesis: *signal, not chrome*. A control that does not serve the signal is chrome.
+- One command surface per window: one field takes search and commands, and its
+  results carry a group label so names never collide. That is the command
+  palette, on `⌘⇧P`.
+- Tab order follows reading order. The 44px target belongs to iOS and menu-bar
+  apps in this family, not to this desktop app.
+- Type and radius come from the tokens: Inter and JetBrains Mono, with radii
+  4, 6, 10 and 14.
+
+  | Role | Size / weight | Font |
+  | --- | --- | --- |
+  | Page title | 28 / 700 | Inter |
+  | Tool name | 17 / 600 | Inter |
+  | Body | 13 / 400 | Inter |
+  | Code | 13 / 400 | JetBrains Mono |
+  | Eyebrow | 10.5 / 700 | Inter, uppercase |
+
 - `tests/build/themeTokenContrast.test.ts` measures every text pair in both
   themes and `tests/shared/languagePackContrast.test.ts` every language chip;
   `pnpm run test:visual:web` compares the shared surfaces pixel by pixel.
