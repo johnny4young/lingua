@@ -394,7 +394,10 @@ models have no file extension, so the worker cannot tell JavaScript from
 TypeScript by name. The worker also waits for `__linguaTypeScriptWorkerGate`,
 which `src/renderer/monaco.ts` opens on the first key press or mouse move in
 any editor, or when Go to symbol asks for the outline. Opening the app or
-restoring tabs starts no worker.
+restoring tabs starts no worker. Because the gate can hold a model's first
+validation across a language switch, the patched diagnostics adapter drops any
+result that finishes after its model changed language or was revalidated
+(`tests/build/monacoDiagnosticsAdapterPatch.test.ts`).
 `tests/e2e/typeScriptLanguageService.spec.ts` counts the workers and checks
 diagnostics and completions with JavaScript, TypeScript and Node code mixed.
 

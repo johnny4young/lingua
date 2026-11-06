@@ -32,7 +32,7 @@ overrides:
   '@azure/msal-node': ^7.1.1
 
 patchedDependencies:
-  monaco-editor@0.55.1: 8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba
+  monaco-editor@0.55.1: 9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd
   sprintf-js@1.1.3: 3cf7459e9de6ef0250bccb09cb5e2c9080fb87465785863b0c8bd8f4382dbc20
 
 importers:
@@ -105,7 +105,7 @@ importers:
         version: 2.3.1
       '@monaco-editor/react':
         specifier: ^4.7.0
-        version: 4.7.0(monaco-editor@0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        version: 4.7.0(monaco-editor@0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -234,10 +234,10 @@ importers:
         version: 18.0.12
       monaco-editor:
         specifier: ^0.55.1
-        version: 0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba)
+        version: 0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd)
       monaco-vim:
         specifier: ^0.4.4
-        version: 0.4.4(monaco-editor@0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba))
+        version: 0.4.4(monaco-editor@0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd))
       oxc-parser:
         specifier: 0.149.0
         version: 0.149.0
@@ -5526,10 +5526,10 @@ snapshots:
     dependencies:
       state-local: 1.0.7
 
-  '@monaco-editor/react@4.7.0(monaco-editor@0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@monaco-editor/react@4.7.0(monaco-editor@0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@monaco-editor/loader': 1.7.0
-      monaco-editor: 0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba)
+      monaco-editor: 0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd)
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
@@ -7638,14 +7638,14 @@ snapshots:
     dependencies:
       minimist: 1.2.8
 
-  monaco-editor@0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba):
+  monaco-editor@0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd):
     dependencies:
       dompurify: 3.4.17
       marked: 14.0.0
 
-  monaco-vim@0.4.4(monaco-editor@0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba)):
+  monaco-vim@0.4.4(monaco-editor@0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd)):
     dependencies:
-      monaco-editor: 0.55.1(patch_hash=8a66e3ad4555a5f9832aa2470a6997772fdaa6d99f025552f778388a1ffc63ba)
+      monaco-editor: 0.55.1(patch_hash=9b147e2ab350f87333d2af55109b4c35fba6c718decbe0c356673e10c73ab1fd)
 
   moo@0.5.3: {}
 
