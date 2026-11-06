@@ -20,6 +20,7 @@ The format follows Keep a Changelog and groups changes by release.
 - JavaScript and TypeScript tabs share one language service, which starts when you first type or move the pointer in an editor. Lingua uses less memory, most of all while it sits open untouched.
 
 ### Fixed
+- `lingua repro review` now shows each control's status and the backend's ambient host grants before approval, in human and JSON output, even when a required control cannot be enforced.
 - Turning off Settings › Editor › Inline lint for JavaScript or TypeScript now also removes the editor's own syntax and type errors for that language. It used to clear only Lingua's rules, such as the `==` warning.
 - A TypeScript tab opened after a JavaScript tab no longer underlines its type annotations as errors.
 - Edit table rows: duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
