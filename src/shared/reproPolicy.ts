@@ -323,6 +323,7 @@ export type ResolveReproEffectivePolicyResult =
       readonly ok: false;
       readonly reason: 'unenforceable';
       readonly missing: readonly ReproControl[];
+      readonly controls: readonly ReproControlStatus[];
     };
 
 /** Refuses unless every required control is `enforced`; `sampled` does not count. */
@@ -339,7 +340,7 @@ export function resolveReproEffectivePolicy(
   const missing = controls
     .filter(status => status.required && status.support !== 'enforced')
     .map(status => status.control);
-  if (missing.length > 0) return { ok: false, reason: 'unenforceable', missing };
+  if (missing.length > 0) return { ok: false, reason: 'unenforceable', missing, controls };
   return {
     ok: true,
     value: {

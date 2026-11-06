@@ -560,10 +560,10 @@ lingua repro run ./repro.json --approve <token> --json
   local ceiling, lists the required controls, says whether a backend on this
   host can enforce them, and shows its effective control statuses and ambient
   host grants before the approval token for this exact content and policy.
-  JSON includes `effectivePolicy` (null when there is no enforceable policy)
-  and `ambientGrants` from the probed backend, even if a required control is
-  missing. Without a backend, `ambientGrants` is empty and human output marks
-  it unavailable. These host-specific details are for local review; do not
+  JSON includes `effectivePolicy` (null when there is no enforceable policy),
+  plus `probedControls` and `ambientGrants` from the probed backend, even if a
+  required control is missing. Without a backend, both are empty and human
+  output marks ambient grants unavailable. These host-specific details are for local review; do not
   share them without checking their contents.
 - `run` refuses before launch when the token does not match (exit 1), or when
   no backend is available, a required control is not enforced, or the host

@@ -126,8 +126,8 @@ major differs from the one the envelope requests, and `review` says so first.
 Review also shows the effective controls (support and required/optional status)
 and the backend's ambient host grants before its approval hint. JSON exposes
 `effectivePolicy`, or null when required controls are missing or no backend is
-available, plus `ambientGrants` from any probed backend. Ambient grants remain
-visible even when that backend cannot enforce the request. This output is
+available, plus `probedControls` and `ambientGrants` from any probed backend.
+Both remain visible even when that backend cannot enforce the request. This output is
 host-specific local review data, not part of the portable envelope or receipt.
 
 ### First backend: macOS Seatbelt

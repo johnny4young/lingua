@@ -25,6 +25,7 @@ import {
   requiredReproControls,
   resolveReproEffectivePolicy,
   type ReproControl,
+  type ReproControlStatus,
   type ReproEffectivePolicy,
   type ReproPolicyV1,
 } from '../../shared/reproPolicy';
@@ -210,6 +211,8 @@ interface PreparedReview {
   token: string;
   backend: ProbedBackend | null;
   effective: ReproEffectivePolicy | null;
+  /** Every control the probed backend reports, even when it cannot enforce the request. */
+  controls: readonly ReproControlStatus[];
   /** Required controls the probed backend cannot enforce; every required one when there is no backend. */
   missing: readonly ReproControl[];
   node: ReproNodeRuntime | null;
@@ -249,6 +252,7 @@ async function prepareReview(args: ReproReviewArgs, io: CliIo): Promise<PrepareR
       token: await computeReproApprovalToken(approval.approval),
       backend,
       effective: resolved?.ok ? resolved.value : null,
+      controls: resolved ? (resolved.ok ? resolved.value.controls : resolved.controls) : [],
       missing: resolved
         ? resolved.ok
           ? []
@@ -344,6 +348,7 @@ export async function runReproReviewCommand(
         backend: review.backend?.probe.backend ?? null,
         missingControls: review.missing,
         effectivePolicy: review.effective,
+        probedControls: review.controls,
         ambientGrants,
         approval: {
           contentDigest: review.contentDigest,
@@ -370,12 +375,10 @@ export async function runReproReviewCommand(
     ['evidence', `denials ${review.approved.evidence.denials}`],
     ['backend', describeBackend(review)],
     ['effective', review.effective ? 'available' : 'unavailable'],
-    ...(review.effective?.controls ?? []).map(
-      ({ control, support, required }): [string, string] => [
-        'control',
-        `${control}: ${support} (${required ? 'required' : 'optional'})`,
-      ]
-    ),
+    ...review.controls.map(({ control, support, required }): [string, string] => [
+      'control',
+      `${control}: ${support} (${required ? 'required' : 'optional'})`,
+    ]),
     ...describeAmbient(review),
     ['approve', `lingua repro run ${shellQuote(args.envelopePath)} --approve ${review.token}`],
   ];

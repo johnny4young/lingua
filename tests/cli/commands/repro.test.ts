@@ -337,6 +337,7 @@ describe('lingua repro review', () => {
       backend: unknown;
       effectivePolicy: unknown;
       ambientGrants: string[];
+      probedControls: unknown[];
       missingControls: string[];
       requiredControls: string[];
       files: Array<{ path: string }>;
@@ -345,6 +346,7 @@ describe('lingua repro review', () => {
     expect(body.backend).toBeNull();
     expect(body.effectivePolicy).toBeNull();
     expect(body.ambientGrants).toEqual([]);
+    expect(body.probedControls).toEqual([]);
     expect(body.requiredControls).toEqual(MANDATORY_CONTROLS);
     expect(body.missingControls).toEqual(MANDATORY_CONTROLS);
     expect(body.files.map(file => file.path)).toEqual(['lib/sum.mjs']);
@@ -470,12 +472,16 @@ describe('lingua repro review', () => {
   });
 
   it.each([false, true])(
-    'keeps ambient grants visible when a required control is missing (json: %s)',
+    'keeps controls and ambient grants visible when a required control is missing (json: %s)',
     async jsonOutput => {
       const json = await envelopeJson();
       const { io, state } = createFakeIo({ files: { '/work/repro.json': json } });
       const ambientGrants = ['read /synthetic/runtime'];
-      const fake = backend({ 'network-deny': 'unsupported' }, undefined, ambientGrants);
+      const fake = backend(
+        { 'network-deny': 'unsupported', 'disk-limit': 'sampled' },
+        undefined,
+        ambientGrants
+      );
 
       const code = await runReproReviewCommand(
         {
@@ -494,9 +500,15 @@ describe('lingua repro review', () => {
           effectivePolicy: null,
           ambientGrants,
           missingControls: ['network-deny'],
+          probedControls: expect.arrayContaining([
+            { control: 'network-deny', support: 'unsupported', required: true },
+            { control: 'disk-limit', support: 'sampled', required: false },
+          ]),
         });
       } else {
         expect(state.stdout).toContain('effective unavailable\n');
+        expect(state.stdout).toContain('control   network-deny: unsupported (required)\n');
+        expect(state.stdout).toContain('control   disk-limit: sampled (optional)\n');
         expect(state.stdout).toContain('ambient   read /synthetic/runtime\n');
         expect(state.stdout).toContain('cannot enforce network-deny; run refuses before launch');
       }
