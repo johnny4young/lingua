@@ -25,6 +25,7 @@ import {
   requiredReproControls,
   resolveReproEffectivePolicy,
   type ReproControl,
+  type ReproControlStatus,
   type ReproEffectivePolicy,
   type ReproPolicyV1,
 } from '../../shared/reproPolicy';
@@ -210,6 +211,8 @@ interface PreparedReview {
   token: string;
   backend: ProbedBackend | null;
   effective: ReproEffectivePolicy | null;
+  /** Every control the probed backend reports, even when it cannot enforce the request. */
+  controls: readonly ReproControlStatus[];
   /** Required controls the probed backend cannot enforce; every required one when there is no backend. */
   missing: readonly ReproControl[];
   node: ReproNodeRuntime | null;
@@ -249,6 +252,7 @@ async function prepareReview(args: ReproReviewArgs, io: CliIo): Promise<PrepareR
       token: await computeReproApprovalToken(approval.approval),
       backend,
       effective: resolved?.ok ? resolved.value : null,
+      controls: resolved ? (resolved.ok ? resolved.value.controls : resolved.controls) : [],
       missing: resolved
         ? resolved.ok
           ? []
@@ -305,6 +309,13 @@ function describeRuntime(review: PreparedReview): string {
     : `${wanted} requested; found ${review.node.version}; run refuses before launch`;
 }
 
+function describeAmbient(review: PreparedReview): Array<[string, string]> {
+  const grants = review.backend?.probe.ambientGrants ?? [];
+  if (grants.length === 0)
+    return [['ambient', review.backend ? 'none' : 'unavailable (no backend)']];
+  return grants.map(grant => ['ambient', neutralizeControlCharacters(grant)]);
+}
+
 export async function runReproReviewCommand(
   args: ReproReviewArgs,
   io: CliIo
@@ -317,6 +328,7 @@ export async function runReproReviewCommand(
   }
   const review = prepared.value;
   const { envelope } = review;
+  const ambientGrants = review.backend?.probe.ambientGrants ?? [];
 
   if (args.json) {
     io.writeStdout(
@@ -335,6 +347,9 @@ export async function runReproReviewCommand(
         requiredControls: requiredReproControls(review.approved),
         backend: review.backend?.probe.backend ?? null,
         missingControls: review.missing,
+        effectivePolicy: review.effective,
+        probedControls: review.controls,
+        ambientGrants,
         approval: {
           contentDigest: review.contentDigest,
           policyDigest: review.policyDigest,
@@ -359,9 +374,16 @@ export async function runReproReviewCommand(
     ['limits', describeLimits(review.approved)],
     ['evidence', `denials ${review.approved.evidence.denials}`],
     ['backend', describeBackend(review)],
+    ['effective', review.effective ? 'available' : 'unavailable'],
+    ...review.controls.map(({ control, support, required }): [string, string] => [
+      'control',
+      `${control}: ${support} (${required ? 'required' : 'optional'})`,
+    ]),
+    ...describeAmbient(review),
     ['approve', `lingua repro run ${shellQuote(args.envelopePath)} --approve ${review.token}`],
   ];
-  io.writeStdout(rows.map(([key, value]) => `${key.padEnd(9)}${value}`).join('\n') + '\n');
+  const width = Math.max(...rows.map(([key]) => key.length)) + 1;
+  io.writeStdout(rows.map(([key, value]) => `${key.padEnd(width)}${value}`).join('\n') + '\n');
   return CLI_EXIT_CODES.ok;
 }
 

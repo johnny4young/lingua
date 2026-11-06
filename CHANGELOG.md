@@ -7,6 +7,9 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- While paused, the debugger shows the values of the paused line's variables in the Scratchpad's inline pills, and the values a step changed now use the same pills.
+- The desktop app starts with less work: its HTTP client, local MCP server, dialog translations and updater load the first time they are used.
+- Edit with AI's Run preview lists the lines whose inline value changes, as the value before and after the edit.
 - `@linguacode/cli` and the Homebrew formula move to Node.js 26, the current LTS line. On Node 24, npm warns and the CLI keeps running. A `lingua repro` envelope still needs the Node major it was packed on, so one packed on Node 24 refuses to run on Node 26 until you pack it again. Contributors and CI read the line from `.nvmrc`.
 - Out of Labs: Execution timeline (Free keeps the last 20 steps), Run regions, Rich display and its SQL grid magics, HTTP variable scopes, chain tags and snapshot assertions, Compare runs (Pro), Run state, Palette autodetect, GUI actions to code, Pro in context, Clipboard-aware utilities (reads stay off until you turn on Apply from clipboard on panel focus, on Pro), Database connections (Free keeps 3 saved connections; a query saved against a connection now runs on it) Instant SQL (on for everyone on Local, with a switch in Settings › Editor) and Edit table rows (on every plan; a table without a primary key keeps its rowid out of the grid, copies and exports). With nothing experimental left, Settings no longer has a Labs tab.
 - Scratchpad now follows Settings › Editor › Run policy: 500 ms after typing for JavaScript and TypeScript, 1 s for Python, and Manual for Go and Rust, where it used to wait 1.2 s for every language.
@@ -15,8 +18,13 @@ The format follows Keep a Changelog and groups changes by release.
 - Network from running code is always in Settings › Privacy and stays on Allow; a saved Ask or Block now applies.
 - TypeScript tabs no longer underline `lingua.display`, and a top-level `const lingua` in a script-mode tab now gets a redeclare error.
 - SQL results with more than 30 columns mount only the columns on screen, so fast scrolling holds its frame rate. Their column widths no longer change as you scroll; a long value beyond the rows sampled for width shows an ellipsis, and opening it shows it in full.
+- The desktop app no longer ships its dependencies' source maps and TypeScript files, about 30 MB less inside the app.
+- JavaScript and TypeScript tabs share one language service, which starts when you first type or move the pointer in an editor. Lingua uses less memory, most of all while it sits open untouched.
 
 ### Fixed
+- `lingua repro review` now shows each control's status and the backend's ambient host grants before approval, in human and JSON output, even when a required control cannot be enforced.
+- Turning off Settings › Editor › Inline lint for JavaScript or TypeScript now also removes the editor's own syntax and type errors for that language. It used to clear only Lingua's rules, such as the `==` warning.
+- A TypeScript tab opened after a JavaScript tab no longer underlines its type annotations as errors.
 - Edit table rows: duplicating a row or typing into a cell no longer writes base64 text into a binary column, and a binary cell only takes Set to NULL.
 - Edit table rows: Commit now fails when a row changed since it was read, not only when its key did, for text, whole numbers, decimals and booleans.
 - Edit table rows: running a query or opening another table with changes staged asks before discarding them, and Commit cannot run twice while the table is read again.

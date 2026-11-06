@@ -11,18 +11,12 @@
 import { dialog, BrowserWindow } from 'electron';
 import type { Result } from '../../shared/result';
 import { typedHandle } from './typedHandle';
-import { translateCommon } from '../../shared/i18n/runtime';
+import { loadDialogTranslator } from '../dialogTranslator';
 
 interface ConfirmReplaceCounts {
   snippets: number;
   envVars: number;
 }
-
-const t = (
-  language: string | undefined,
-  key: string,
-  options?: Record<string, unknown>
-) => translateCommon(language ?? 'en', key, options);
 
 function sanitizeCount(raw: unknown): number {
   const value = Number(raw ?? 0);
@@ -56,6 +50,7 @@ export function registerProfileHandlers(): void {
       if (!win) return { ok: true, data: 1 };
 
       try {
+        const t = await loadDialogTranslator();
         const { response } = await dialog.showMessageBox(win, {
           type: 'warning',
           buttons: [

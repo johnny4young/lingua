@@ -19,7 +19,7 @@
 import { dialog, BrowserWindow, app, shell } from 'electron';
 import type { Result } from '../../shared/result';
 import { typedHandle } from './typedHandle';
-import { translateCommon } from '../../shared/i18n/runtime';
+import { loadDialogTranslator } from '../dialogTranslator';
 
 type ResetScope =
   | 'settings'
@@ -35,12 +35,6 @@ const VALID_SCOPES: ReadonlySet<string> = new Set([
   'session',
   'factory',
 ]);
-
-const t = (
-  language: string | undefined,
-  key: string,
-  options?: Record<string, unknown>
-) => translateCommon(language ?? 'en', key, options);
 
 export function registerRecoveryHandlers(): void {
   typedHandle(
@@ -58,6 +52,7 @@ export function registerRecoveryHandlers(): void {
       const win = BrowserWindow.fromWebContents(event.sender);
       if (!win) return { ok: true, data: 1 };
 
+      const t = await loadDialogTranslator();
       const scopeLabel = t(language, `recovery.scope.${scope}`);
       const hint = t(language, `recovery.action.${scope}.hint`);
 

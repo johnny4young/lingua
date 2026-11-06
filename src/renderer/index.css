@@ -1237,6 +1237,11 @@
     line-height: 1;
   }
 
+  .lingua-inline-result-name {
+    flex-shrink: 0;
+    opacity: 0.75;
+  }
+
   .lingua-inline-result-value {
     min-width: 0;
     color: var(--inline-result-value);
@@ -1459,16 +1464,6 @@
     .monaco-editor .lingua-error-line {
       animation: none;
     }
-  }
-
-  /* Values the last step changed, after the line it stepped from. */
-  .monaco-editor .lingua-debugger-inline-value {
-    margin-left: 1.25rem;
-    padding: 0 0.4rem;
-    border-radius: 4px;
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-    color: var(--color-accent-fg);
-    font-size: 0.85em;
   }
 
   /* The step selected in the Timeline tab. */

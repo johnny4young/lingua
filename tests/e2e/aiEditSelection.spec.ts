@@ -55,6 +55,7 @@ for (const language of ['en', 'es'] as const) {
 
     await expect(dialog.getByTestId('ai-edit-now').getByTestId('ai-edit-run-line')).toContainText('null', { timeout: 30_000 });
     await expect(dialog.getByTestId('ai-edit-preview').getByTestId('ai-edit-run-line')).toHaveText('Ada');
+    await expect(dialog.getByTestId('ai-edit-value')).toHaveText(['L2— → Ada']);
     const actions = dialog.getByTestId('ai-edit-actions');
     await expect(actions).toContainText(language === 'es' ? '1 error corregido' : '1 error fixed');
 
@@ -102,5 +103,6 @@ test('Edit with AI: previews Python on a Pyodide of its own with the network blo
 
   await expect(dialog.getByTestId('ai-edit-now').getByTestId('ai-edit-run-line')).toContainText('missing', { timeout: 90_000 });
   await expect(dialog.getByTestId('ai-edit-preview').getByTestId('ai-edit-run-line')).toHaveText('offline', { timeout: 90_000 });
+  await expect(dialog.getByTestId('ai-edit-value')).toHaveText(['L6— → offline']);
   await expect(dialog.getByTestId('ai-edit-actions')).toContainText('1 error fixed');
 });

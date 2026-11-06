@@ -55,10 +55,6 @@ import {
   MAX_STDIN_WRITE_BYTES,
 } from '../shared/runnerLimits';
 import {
-  sourceLooksCommonJs,
-  sourceRequiresModuleInput,
-} from '../shared/nodeSourceMode';
-import {
   NODE_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
   combinedAllowlist,
@@ -621,6 +617,8 @@ async function pickInputType(
 ): Promise<NodeInputType> {
   const extensionInputType = inputTypeFromFileExtension(filePath);
   if (extensionInputType) return extensionInputType;
+  // acorn loads with the first extensionless Node run, not with every launch.
+  const { sourceLooksCommonJs, sourceRequiresModuleInput } = await import('../shared/nodeSourceMode');
   if (sourceRequiresModuleInput(source)) return 'module';
   if (sourceLooksCommonJs(source)) return 'commonjs';
   const packageStartDir = filePath ? path.dirname(filePath) : cwd;

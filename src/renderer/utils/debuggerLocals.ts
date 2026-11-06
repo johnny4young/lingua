@@ -1,3 +1,5 @@
+import type { LineResult } from '../stores/resultStore';
+
 /** How one local differs from the pause before it. */
 export type LocalChange = { readonly kind: 'new' } | { readonly kind: 'changed'; readonly before: string };
 
@@ -35,4 +37,77 @@ export function changedValuesLabel(previous: Locals | null | undefined, current:
     return `${name} → ${value.length > LABEL_VALUE_LENGTH ? `${value.slice(0, LABEL_VALUE_LENGTH - 1)}…` : value}`;
   });
   return `${shown.join('  ·  ')}${names.length > LABEL_VALUES ? '  …' : ''}`;
+}
+
+/** A name not preceded by a word character or a dot, so neither part of a longer name nor a property. */
+const IDENTIFIER = /(?<![\w$.])[A-Za-z_$][\w$]*/g;
+
+/** The line with string contents and the trailing comment blanked out; `${…}` in a template literal stays code. */
+function codeOf(line: string, python: boolean): string {
+  let out = '';
+  let quote: string | null = null;
+  // Open braces inside each `${` we are in, innermost last.
+  const templates: number[] = [];
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i]!;
+    if (quote) {
+      if (ch === '\\') i += 1;
+      else if (quote === '`' && ch === '$' && line[i + 1] === '{') {
+        quote = null;
+        templates.push(0);
+        i += 1;
+      } else if (ch === quote) quote = null;
+      out += ' ';
+      continue;
+    }
+    if (templates.length > 0 && (ch === '{' || ch === '}')) {
+      const open = templates.pop()!;
+      if (ch === '{') templates.push(open + 1);
+      else if (open > 0) templates.push(open - 1);
+      else quote = '`';
+      out += ' ';
+      continue;
+    }
+    if (ch === '"' || ch === "'" || (!python && ch === '`')) {
+      quote = ch;
+      out += ' ';
+      continue;
+    }
+    if (python ? ch === '#' : ch === '/' && line[i + 1] === '/') break;
+    out += ch;
+  }
+  return out;
+}
+
+/** Locals the line's code names, in the order it names them. */
+export function localsOnLine(line: string, locals: Locals, language: string): string[] {
+  const names: string[] = [];
+  for (const [name] of codeOf(line, language === 'python').matchAll(IDENTIFIER)) {
+    if (Object.hasOwn(locals, name) && !names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
+interface Pause {
+  readonly tabId: string;
+  readonly line: number;
+  readonly locals: Locals;
+}
+
+/**
+ * Inline values for a pause: the locals the paused line names, and what the
+ * last step changed after the line it stepped from.
+ */
+export function pausedLineResults(frame: Pause, previous: Pause | null, code: string, language: string): LineResult[] {
+  const lines = code.split('\n');
+  const byLine = new Map<number, string[]>();
+  const add = (line: number, names: Iterable<string>) => {
+    if (!Number.isInteger(line) || line < 1 || line > lines.length) return;
+    const list = byLine.get(line) ?? [];
+    for (const name of names) if (!list.includes(name)) list.push(name);
+    if (list.length > 0) byLine.set(line, list);
+  };
+  add(frame.line, localsOnLine(lines[frame.line - 1] ?? '', frame.locals, language));
+  if (previous?.tabId === frame.tabId) add(previous.line, localsChanges(previous.locals, frame.locals).keys());
+  return [...byLine].flatMap(([line, names]) => names.map((name) => ({ line, name, value: frame.locals[name]!, type: 'log' as const })));
 }
