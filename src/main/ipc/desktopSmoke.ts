@@ -7,6 +7,7 @@ import {
   isOfflineSmokeRequested,
 } from '../offlineSmoke';
 import { DESKTOP_SMOKE_FLAG } from '../../shared/desktopSmoke';
+import { readProcessFootprints } from '../processFootprint';
 
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
 const SMOKE_LICENSE_TOKEN_PREFIX = '--lingua-smoke-license-token=';
@@ -138,6 +139,7 @@ export function registerDesktopSmokeHandlers(): void {
     const processMemory = process.memoryUsage();
     const appMetrics =
       typeof app.getAppMetrics === 'function' ? app.getAppMetrics() : [];
+    const footprints = await readProcessFootprints(appMetrics.map((metric) => metric.pid));
 
     return {
       ok: true as const,
@@ -158,6 +160,7 @@ export function registerDesktopSmokeHandlers(): void {
         // the snapshot contract promises a number, so coalesce a missing
         // reading to 0 rather than leaking `undefined` across the wire.
         privateBytes: metric.memory.privateBytes ?? 0,
+        footprintBytes: footprints?.get(metric.pid) ?? null,
       })),
     };
   });
