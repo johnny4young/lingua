@@ -294,7 +294,7 @@ describe('CI workflow', () => {
   });
 
   it('checks the desktop footprint budget right after the packaged smoke on macOS', () => {
-    const steps = stepsOf(workflow, 'desktop-bundles');
+    const steps = stepsOf(workflow, 'desktop-bundles-macos');
     const smoke = steps.findIndex(step => step.run === 'pnpm run smoke:desktop:packaged');
     const budget = steps.findIndex(step => step.name === 'Desktop memory budget');
     expect(budget).toBe(smoke + 1);

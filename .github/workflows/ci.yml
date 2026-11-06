@@ -460,7 +460,6 @@ jobs:
       # Footprint, not working set: it counts compressed pages, so a regression
       # of 100 MB cannot hide in it. Reads the packaged smoke's artifact.
       - name: Desktop memory budget
-        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
         run: pnpm run check:performance --memory
       - name: Upload packaged smoke artifacts
         if: always() && steps.packaged-smoke.outcome != 'skipped'
