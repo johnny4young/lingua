@@ -9,10 +9,12 @@
  * stays pinned too.
  */
 
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
+import { importChain, walkStaticImportGraph } from '../../scripts/lib/staticImportGraph.mjs';
 
 const CI_WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/ci.yml');
 const RENDERER_BUDGET_WORKFLOW_PATH = resolve(
@@ -201,18 +203,121 @@ describe('CI workflow', () => {
     expect(steps[config]?.if).toBe("${{ !cancelled() && steps.bundles.outcome == 'success' }}");
   });
 
-  it('runs macOS on a pull request only for risky paths, and whenever the path check fails', () => {
+  it('runs macOS on every push, and on a pull request whenever the path check fails', () => {
     const macos = workflow.jobs?.['desktop-bundles-macos'];
+    expect(workflow.jobs?.changes?.if).toBe("github.event_name == 'pull_request'");
     expect(macos?.needs).toBe('changes');
     // A job skipped by if reports success to a required check, so a broken path check must run macOS.
     expect(macos?.if).toContain('!cancelled()');
     expect(macos?.if).toContain("needs.changes.result != 'success'");
     expect(macos?.if).toContain("github.event_name != 'pull_request'");
+  });
+
+  it('keeps the macOS job setup identical to the other desktop OS jobs', () => {
+    const setup = (jobId: string) => {
+      const steps = stepsOf(workflow, jobId);
+      return steps.slice(0, steps.findIndex(step => step.id === 'bundles') + 1);
+    };
+    expect(setup('desktop-bundles-macos')).toEqual(setup('desktop-bundles'));
+    expect(setup('desktop-bundles-macos').length).toBeGreaterThan(1);
+  });
+
+  describe.skipIf(process.platform === 'win32')('macOS lane on a pull request', () => {
     const pick = stepsOf(workflow, 'changes').find(step => step.id === 'pick')?.run ?? '';
-    expect(pick).toMatch(/^\s*macos=true$/m);
-    for (const riskyPath of ['src/main/', 'src/preload/', 'src/shared/', 'patches/', 'pnpm-workspace', 'build-resources/', 'website/']) {
-      expect(pick).toContain(riskyPath);
+    // Runs the real step script once per diff in one shell, with git replaced by a function.
+    const driver = `git() { [ -z "$FAKE_GIT_FAIL" ] || return 128; printf '%s\\n' "$FAKE_DIFF"; }
+for FAKE_DIFF in "$@"; do (eval "$PICK"); done`;
+
+    function lanes(diffs: string[][], env: Record<string, string> = {}): string[] {
+      const result = spawnSync('bash', ['-e', '-c', driver, 'lane', ...diffs.map(files => files.join('\n'))], {
+        encoding: 'utf-8',
+        env: { PATH: process.env.PATH, PICK: pick, BASE_SHA: 'base', HEAD_SHA: 'head', GITHUB_OUTPUT: '/dev/null', ...env },
+      });
+      expect(result.status, result.stderr).toBe(0);
+      const picked = result.stdout.trim().split('\n');
+      expect(picked).toHaveLength(diffs.length);
+      return picked;
     }
+
+    const lane = (files: string[], env?: Record<string, string>) => lanes([files], env)[0];
+
+    it('skips macOS when no changed path reaches the packaged app', () => {
+      const diffs = [
+        ['docs/USAGE.md'],
+        ['README.md', 'CHANGELOG.md'],
+        ['src/renderer/App.tsx', 'src/renderer/i18n/locales/es/common.json'],
+        ['src/web/main.tsx', 'tests/e2e/blockedStorage.spec.ts'],
+        ['tests/components/FloatingActionPill.test.tsx', 'tests/docs/ciWorkflow.test.ts'],
+        ['license-server/src/index.ts', 'update-server/src/index.ts'],
+        ['.github/ISSUE_TEMPLATE/bug_report.yml', '.github/workflows/release.yml', '.github/dependabot.yml'],
+      ];
+      const picked = lanes(diffs);
+      expect(diffs.filter((_, index) => picked[index] !== 'macos=false')).toEqual([]);
+    });
+
+    it('runs macOS for any path the packaged app or a macOS-only step reads', () => {
+      const files = [
+        'src/main/index.ts',
+        'src/preload/index.ts',
+        'src/shared/networkPolicy.ts',
+        'src/cli/commands/repro.ts',
+        'src/types.d.ts',
+        'index.html',
+        'package.json',
+        'pnpm-lock.yaml',
+        'pnpm-workspace.yaml',
+        '.nvmrc',
+        'electron-builder.yml',
+        'vite.main.config.mts',
+        'patches/monaco-editor@0.55.1.patch',
+        'build-resources/entitlements.mac.plist',
+        'assets/icon.icns',
+        'scripts/run-desktop-smoke.mjs',
+        'scripts/lib/packagedMacArtifact.mjs',
+        'scripts/performance-report.mjs',
+        'docs/performance/baseline.json',
+        'website/src/pages/download.astro',
+        'playwright.website-downloads.config.mts',
+        'tests/website/downloadMatrix.spec.ts',
+        'tests/build/desktopBundleConfig.test.ts',
+        'tests/cli/io-fake.ts',
+        'tests/shared/runCapsule.fixtures.ts',
+        'src/renderer/hooks/desktopSmokeRunner.ts',
+        'src/renderer/hooks/useDesktopSmoke.ts',
+        '.github/workflows/ci.yml',
+        '.github/actions/setup/action.yml',
+      ];
+      const picked = lanes(files.map(file => [file]));
+      expect(files.filter((_, index) => picked[index] !== 'macos=true')).toEqual([]);
+      expect(lane(['docs/USAGE.md', 'src/main/updater.ts'])).toBe('macos=true');
+    });
+
+    it('runs macOS when the diff is empty, cannot be read or has no base', () => {
+      expect(lane([])).toBe('macos=true');
+      expect(lane(['docs/USAGE.md'], { FAKE_GIT_FAIL: '1' })).toBe('macos=true');
+      expect(lane(['docs/USAGE.md'], { BASE_SHA: '' })).toBe('macos=true');
+    });
+
+    it('runs macOS for every file the tests in the macOS job import', () => {
+      const repoRoot = resolve(__dirname, '../..');
+      const config = readFileSync(join(repoRoot, 'playwright.website-downloads.config.mts'), 'utf-8');
+      const testDir = /testDir:\s*'\.\/([^']+)'/.exec(config)?.[1];
+      const testMatch = /testMatch:\s*'([^']+)'/.exec(config)?.[1];
+      const entries = [
+        ...stepsOf(workflow, 'desktop-bundles-macos').flatMap(
+          step => /^pnpm exec vitest run (\S+)$/.exec(step.run ?? '')?.slice(1) ?? []
+        ),
+        `${testDir}/${testMatch}`,
+      ];
+      expect(entries).toHaveLength(3);
+      for (const entry of entries) {
+        const { parents } = walkStaticImportGraph({ repoRoot, entry });
+        const files = [...parents.keys()];
+        const picked = lanes(files.map(file => [file]));
+        const skipped = files.filter((_, index) => picked[index] !== 'macos=true');
+        expect(skipped.map(file => importChain(parents, file).join(' > '))).toEqual([]);
+      }
+    });
   });
 
   it('qualifies native output in the macOS PR app without replacing existing gates', () => {

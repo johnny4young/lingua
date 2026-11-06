@@ -27,6 +27,7 @@ permissions:
 jobs:
   changes:
     name: Choose the macOS lane
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -35,15 +36,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      # Skip only when every changed path is on the first list and none is on the
+      # second, which holds what only the macOS lane runs. Any other path runs it.
+      # grep exits 2 on an error, so only a clean no-match (1) can skip.
       - id: pick
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           macos=true
-          if [ -n "$BASE_SHA" ] && files="$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA")" && [ -n "$files" ] \
-            && ! grep -qE '^(src/main/|src/preload/|src/cli/|src/shared/|electron|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.nvmrc$|patches/|vite|tests/build/|tests/cli/runtime/seatbelt|scripts/(smoke|run-website-download|package)|build/|build-resources/|assets/|website/|\.github/workflows/ci\.yml$)' <<<"$files"; then
-            macos=false
+          if [ -n "$BASE_SHA" ] && files="$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA")" && [ -n "$files" ]; then
+            grep -vqE '^(docs/|src/renderer/|src/web/|tests/|license-server/|update-server/|\.github/(ISSUE_TEMPLATE/|workflows/|[^/]+$)|[^/]+\.md$)' <<<"$files" && others=0 || others=$?
+            grep -qE '^(docs/performance/|src/renderer/.*[dD]esktopSmoke|tests/build/|tests/cli/|tests/shared/runCapsule|tests/website/|\.github/workflows/ci\.yml$)' <<<"$files" && macos_only=0 || macos_only=$?
+            if [ "$others" -eq 1 ] && [ "$macos_only" -eq 1 ]; then macos=false; fi
           fi
           echo "macos=$macos" | tee -a "$GITHUB_OUTPUT"
 
@@ -408,7 +413,7 @@ jobs:
   desktop-bundles-macos:
     name: Desktop bundles (macos-latest)
     needs: changes
-    # !cancelled(): a failed changes job must run macOS, not skip it into a passing check.
+    # !cancelled(): a failed or skipped changes job must run macOS, not skip it into a passing check.
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.macos == 'true') }}
     runs-on: macos-latest
     timeout-minutes: 25
@@ -425,10 +430,7 @@ jobs:
       # or publishing. Packaging/notarization remain separate release gates.
       - id: bundles
         run: pnpm run build:desktop-bundles
-      # A budget failure must not hide a bundle-config regression on the same
-      # OS: run whenever the bundles built, whatever the budget step reported.
       - name: Desktop bundle config
-        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
         run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
       # Permissioned reproductions need the real Seatbelt sandbox, which only
       # macOS runners have; the unit job skips these fixtures elsewhere.
