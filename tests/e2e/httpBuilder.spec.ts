@@ -231,7 +231,11 @@ test('chains a request to the response of another through a tag, sending the sou
   await expect(page.getByTestId('http-request-editor-url-hint')).toContainText('owner comes from List repos');
   await expect(page.getByTestId('http-chain-node')).toHaveCount(2);
 
-  await page.getByTestId('http-chain-chip').click();
+  const inField = page.getByTestId('http-request-editor-url-tag');
+  await expect(inField).toHaveText('response(List repos) · [0].owner.login');
+  // The label is not cut short, even though the field cannot fit the whole URL with it.
+  expect(await inField.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await inField.click();
   await expect(page.getByTestId('http-chain-tag-source')).toContainText('List repos · GET');
   await expect(page.getByTestId('http-chain-tag-preview')).toHaveText('No value: the latest response is missing or not 2xx');
   await page.getByRole('radio', { name: 'Send source first' }).click();

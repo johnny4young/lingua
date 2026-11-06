@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   splitVariableTokens,
   type HttpUrlState,
   type HttpVariableSource,
 } from '../../../shared/httpEnvironment';
+import { requestLabel, type HttpChainTag } from '../../../shared/httpChain';
 import type { HttpTransportKind } from '../../../shared/httpWorkspaceSchema';
+import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { cn } from '../../utils/cn';
 import '../../i18n/httpBuilderCatalog';
 import { SCOPE_TINTS, tintPill, UNRESOLVED_TINT } from './httpScopeColors';
@@ -63,6 +65,15 @@ export interface HttpUrlFieldProps {
   describedBy?: string;
   onChange: (value: string) => void;
   onPaste: (event: React.ClipboardEvent<HTMLInputElement>) => void;
+  /** Chain tags the URL uses: away from the field each reads as its source and path, and opens on click. */
+  chain?: { tags: readonly HttpChainTag[]; openTag: string | null; onOpenTag: (key: string | null) => void };
+}
+
+/** `response(List repos) · $[0].owner.login`: where a chain tag's value comes from. */
+function tagLabel(tag: HttpChainTag): string {
+  const source = useWorkspaceToolStore.getState().getRequest(tag.sourceId);
+  const path = tag.capture.source === 'status' ? 'status' : tag.capture.path;
+  return `response(${source ? requestLabel(source) : tag.sourceId}) · ${path}`;
 }
 
 // Both layers share font, size and padding, and tokens only change colour, so every glyph lines up.
@@ -73,15 +84,20 @@ const TEXT = 'px-3 font-mono text-body-sm';
  * a transparent input, which keeps native editing and colours each token by
  * the scope that resolves it, red when none does.
  */
-export function HttpUrlField({ value, sources, placeholder, ariaLabel, describedBy, onChange, onPaste }: HttpUrlFieldProps) {
+export function HttpUrlField({ value, sources, placeholder, ariaLabel, describedBy, onChange, onPaste, chain }: HttpUrlFieldProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
+  const [focused, setFocused] = useState(false);
   const pieces = useMemo(() => splitVariableTokens(value), [value]);
   const mirrored = pieces.some((piece) => piece.key !== undefined);
+  const tags = useMemo(() => new Map(chain?.tags.map((tag) => [tag.key, tag])), [chain?.tags]);
+  // Labels are wider than their `{{token}}`, so they show only while the caret is elsewhere.
+  const labelled = !focused && pieces.some((piece) => piece.key !== undefined && tags.has(piece.key));
 
   const syncScroll = useCallback(() => {
-    if (inputRef.current && mirrorRef.current) mirrorRef.current.scrollLeft = inputRef.current.scrollLeft;
-  }, []);
+    if (inputRef.current && mirrorRef.current) mirrorRef.current.scrollLeft = labelled ? 0 : inputRef.current.scrollLeft;
+  }, [labelled]);
   useLayoutEffect(syncScroll, [syncScroll, value]);
   // Resizing the field can move the input's scroll position without a scroll event.
   useEffect(() => {
@@ -103,10 +119,32 @@ export function HttpUrlField({ value, sources, placeholder, ariaLabel, described
           ref={mirrorRef}
           aria-hidden="true"
           data-testid="http-request-editor-url-mirror"
-          className={cn(TEXT, 'pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-fg-base')}
+          className={cn(TEXT, 'pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-fg-base', labelled && 'z-10')}
         >
           {pieces.map((piece, index) => {
-            if (piece.key === undefined) return <span key={index}>{piece.text}</span>;
+            // Away from the field the tag keeps its width and the plain text gives way.
+            if (piece.key === undefined) return <span key={index} className={labelled ? 'min-w-0 truncate' : undefined}>{piece.text}</span>;
+            const tag = labelled ? tags.get(piece.key) : undefined;
+            if (tag && chain) {
+              const label = tagLabel(tag);
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  tabIndex={-1}
+                  data-testid="http-request-editor-url-tag"
+                  data-tag={tag.key}
+                  aria-pressed={chain.openTag === tag.key}
+                  aria-label={t('httpWorkspace.chain.tag.open', { name: tag.key })}
+                  title={label}
+                  onClick={() => chain.onOpenTag(chain.openTag === tag.key ? null : tag.key)}
+                  className="focus-ring pointer-events-auto max-w-[20rem] shrink-0 truncate rounded-sm border px-1 leading-5"
+                  style={{ ...tintPill(SCOPE_TINTS.chain), borderColor: SCOPE_TINTS.chain.line }}
+                >
+                  {label}
+                </button>
+              );
+            }
             const scope = sources.get(piece.key)?.scope;
             return (
               <span
@@ -138,6 +176,8 @@ export function HttpUrlField({ value, sources, placeholder, ariaLabel, described
         onScroll={syncScroll}
         onSelect={syncScroll}
         onKeyUp={syncScroll}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         className={cn(
           TEXT,
           'absolute inset-0 h-full w-full rounded-md bg-transparent placeholder:italic placeholder:text-fg-subtle focus:outline-none',

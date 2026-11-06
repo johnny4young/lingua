@@ -713,6 +713,7 @@ export function HttpRequestEditor({
           {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
           onChange={handleUrlChange}
           onPaste={handleUrlPaste}
+          {...(tags.length > 0 ? { chain: { tags, openTag, onOpenTag: setOpenTag } } : {})}
         />
         <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} maskedRequest={maskedDraft} />
         <HttpSendButton
