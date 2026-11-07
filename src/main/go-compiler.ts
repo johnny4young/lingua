@@ -79,15 +79,15 @@ export async function readWasmExecJs(
         continue;
       }
 
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to read Go WASM runtime at "${candidatePath}": ${message}`, {
+      // The message reaches the Console, so it names the file and the error code, never a local path.
+      throw new Error(`Failed to read wasm_exec.js from the Go installation (${errorCode ?? 'unknown error'}).`, {
         cause: error,
       });
     }
   }
 
   throw new Error(
-    `Go WASM runtime not found for GOROOT "${goRoot}". Checked: ${checkedPaths.join(', ')}`
+    `wasm_exec.js was not found in the Go installation (${checkedPaths.length} locations checked).`
   );
 }
 
