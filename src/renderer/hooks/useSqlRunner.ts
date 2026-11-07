@@ -473,6 +473,18 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChan
   };
 }
 
+/** Drops a query's results from this session, so another connection's rows never show under the new one. */
+export function forgetSqlQueryRun(queryId: string): void {
+  const state = useSqlRunState.getState();
+  if (activeCursor?.key.startsWith(`${queryId}:`)) dropCursor();
+  setRunState({
+    ...(state.runSet?.queryId === queryId ? { runSet: null, view: null } : {}),
+    ...(state.plan?.queryId === queryId ? { plan: null } : {}),
+    ...(state.more?.key.startsWith(`${queryId}:`) ? { more: null } : {}),
+  });
+  sessionRunSources.delete(queryId);
+}
+
 /** Clears the module-level run state between tests. */
 export function resetSqlRunStateForTests(): void {
   activeController = null;

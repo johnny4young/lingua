@@ -12,6 +12,7 @@ The format follows Keep a Changelog and groups changes by release.
 - An AI endpoint that answers with an HTML page, such as a proxy error or a sign-in wall, shows the page title in the error instead of raw markup.
 
 ### Fixed
+- Picking another connection for a SQL query clears that query's results, so a result from the previous connection no longer shows under the new pill.
 - The start page shows the Lingua initials, LG, as Settings › General does, instead of the old RL.
 - Dock tab hints open above the tabs, so the Input hint no longer covers the input set controls.
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
