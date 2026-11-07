@@ -35,6 +35,8 @@ import { spawnNativeRun, type SpawnNativeRunResult } from './runners/spawnNative
 import type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
 import {
   chooseToolchainBinary,
+  chosenToolchainDisplayPath,
+  clearChosenToolchainBinary,
   findToolchain,
   toolchainCandidates,
   toolchainSearchedPlaces,
@@ -244,6 +246,11 @@ export function registerRustHandlers(): void {
   });
   typedHandle('rust:choose-binary', async (event) => {
     try { return await chooseToolchainBinary('rust', event.sender, verifyChosenRust); }
+    finally { cachedRustDetect = null; detectGeneration += 1; }
+  });
+  typedHandle('rust:chosen-binary', async () => ({ path: await chosenToolchainDisplayPath('rust') }));
+  typedHandle('rust:clear-binary', async () => {
+    try { return { cleared: await clearChosenToolchainBinary('rust') }; }
     finally { cachedRustDetect = null; detectGeneration += 1; }
   });
   typedHandle('rust:run', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
