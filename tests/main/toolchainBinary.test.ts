@@ -14,6 +14,8 @@ vi.mock('../../src/main/ipc/permissions', () => ({ blockedPathFamily: mocks.bloc
 import {
   chooseToolchainBinary,
   chosenToolchainBinaries,
+  chosenToolchainDisplayPath,
+  clearChosenToolchainBinary,
   configureToolchainBinaryStore,
   displayToolchainPath,
   findToolchain,
@@ -203,6 +205,27 @@ describe('chosen toolchain binary', () => {
     mocks.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [await executable('ls')] });
     expect(await chooseToolchainBinary('go', sender, async () => 'go version')).toEqual({ status: 'invalid', reason: 'wrong-name' });
     expect(await chosenToolchainBinaries.get('go')).toBe(go);
+  });
+
+  it.skipIf(process.platform === 'win32')('shows the kept binary home-relative and forgets only that toolchain', async () => {
+    expect(await chosenToolchainDisplayPath('go')).toBeNull();
+    const home = path.join(os.homedir(), 'sdk', 'go', 'bin', 'go');
+    await chosenToolchainBinaries.set('go', home);
+    await chosenToolchainBinaries.set('rust', await executable('rustc'));
+    expect(await chosenToolchainDisplayPath('go')).toBe(path.join('~', 'sdk', 'go', 'bin', 'go'));
+    expect(await clearChosenToolchainBinary('go')).toBe(true);
+    expect(await chosenToolchainDisplayPath('go')).toBeNull();
+    const file = path.join(root, 'userData', 'toolchain-binaries.json');
+    expect(Object.keys(JSON.parse(await readFile(file, 'utf-8')))).toEqual(['version', 'rust']);
+    expect(await chosenToolchainBinaries.get('rust')).toBeDefined();
+  });
+
+  it('keeps overlapping saves for different toolchains', async () => {
+    const go = path.join(os.homedir(), 'sdk', 'go', 'bin', 'go');
+    await chosenToolchainBinaries.set('go', go);
+    await Promise.all([chosenToolchainBinaries.set('go', undefined), chosenToolchainBinaries.set('rust', '/usr/local/bin/rustc')]);
+    const file = path.join(root, 'userData', 'toolchain-binaries.json');
+    expect(JSON.parse(await readFile(file, 'utf-8'))).toEqual({ version: 1, rust: '/usr/local/bin/rustc' });
   });
 
   it.skipIf(process.platform === 'win32')('lists a chosen binary once even when it is also a fallback', async () => {

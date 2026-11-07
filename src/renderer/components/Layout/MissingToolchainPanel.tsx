@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, FolderOpen, RefreshCw, TriangleAlert } from 'lucide-react';
-import type { ToolchainChooseResult } from '../../../shared/toolchainBinary';
 import {
+  CHOOSE_BINARY_ERROR_KEYS,
+  NATIVE_TOOLCHAIN_COMMANDS,
   nativeToolchainLabel,
   openInstallGuideFor,
   pushRetrySuccess,
@@ -10,15 +11,6 @@ import {
 import { useNativeToolchainStore } from '../../stores/nativeToolchainStore';
 import type { NativeLanguageToolchain } from '../../utils/nativeLanguageToolchainStatus';
 
-const COMMANDS: Record<NativeLanguageToolchain, string> = { go: 'go', rust: 'rustc' };
-
-const CHOOSE_ERROR_KEYS: Record<Extract<ToolchainChooseResult, { status: 'invalid' }>['reason'], string> = {
-  'not-executable': 'nativeToolchain.choose.notExecutable',
-  'wrong-name': 'nativeToolchain.choose.wrongName',
-  blocked: 'nativeToolchain.choose.blocked',
-  'check-failed': 'nativeToolchain.choose.checkFailed',
-  'save-failed': 'nativeToolchain.choose.failed',
-};
 
 const BUTTON =
   'focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-caption font-medium disabled:opacity-50';
@@ -34,7 +26,7 @@ function MissingToolchainBody({ toolchain }: { toolchain: NativeLanguageToolchai
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const label = nativeToolchainLabel(toolchain);
-  const command = COMMANDS[toolchain];
+  const command = NATIVE_TOOLCHAIN_COMMANDS[toolchain];
 
   async function settle(work: () => Promise<string | null>) {
     setBusy(true);
@@ -51,7 +43,7 @@ function MissingToolchainBody({ toolchain }: { toolchain: NativeLanguageToolchai
       const result = await useNativeToolchainStore.getState().choose(toolchain);
       if (result.status === 'canceled') return null;
       if (result.status === 'failed') return t('nativeToolchain.choose.failed');
-      if (result.status === 'invalid') return t(CHOOSE_ERROR_KEYS[result.reason], { toolchain: label, command });
+      if (result.status === 'invalid') return t(CHOOSE_BINARY_ERROR_KEYS[result.reason], { toolchain: label, command });
       pushRetrySuccess(label);
       return null;
     });
