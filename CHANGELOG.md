@@ -15,6 +15,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Picking another connection for a SQL query clears that query's results, so a result from the previous connection no longer shows under the new pill.
 - The start page shows the Lingua initials, LG, as Settings › General does, instead of the old RL.
 - Dock tab hints open above the tabs, so the Input hint no longer covers the input set controls.
+- The Explorer header fits more of a long project name, and its tooltip shows the full name above the folder path.
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
 - In the light theme, the guided tour dims the rest of the page; it used to wash it almost white.
 - The italic name of a SQL scratch tab no longer has its last character clipped beside the unsaved dot.
