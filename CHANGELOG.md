@@ -17,6 +17,7 @@ The format follows Keep a Changelog and groups changes by release.
 - The italic name of a SQL scratch tab no longer has its last character clipped beside the unsaved dot.
 - SQL Save as keeps the text you typed just before it. A quick Save as used to copy the query without its last keystrokes.
 - Running with no file open says so in your language in the Console, and Spanish copy reads Saltar for stepping over in the timeline and herramientas locales instead of toolchain.
+- On desktop, a key that an older build kept in the system keychain for a local AI server, which takes none, is removed the next time the keychain is reachable.
 - Inline values in the editor, from a run or a paused debugger, show bidi, zero-width and control characters as spaces, so a value cannot reorder or hide the code around it.
 - On desktop, a Go run whose installation lacks wasm_exec.js or cannot read it says so in the Console without printing the Go installation path or the paths it checked.
 - Switches that are off read clearly in both themes: their track now has at least 3:1 contrast against the panel, up from 2:1 in light and 2.5:1 in dark.
