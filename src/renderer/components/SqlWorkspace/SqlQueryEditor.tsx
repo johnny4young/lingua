@@ -19,10 +19,12 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { useWorkspaceRunTarget } from '../../hooks/useWorkspaceRunTarget';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
+import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import {
   MAX_QUERY_BYTES,
   utf8ByteLength,
@@ -111,6 +113,7 @@ export function SqlQueryEditor({
   instantSql,
 }: SqlQueryEditorProps) {
   const { t, i18n } = useTranslation();
+  const queryIds = useWorkspaceSqlStore(useShallow((state) => state.queries.map((saved) => saved.id)));
   const [text, setText] = useState<string>(query.query);
   const lastInsertNonceRef = useRef<number>(insertSignal?.nonce ?? 0);
   const lastSavedRef = useRef<string>(query.query);
@@ -383,6 +386,7 @@ export function SqlQueryEditor({
       <SqlMonacoEditor
         value={text}
         documentKey={draftQueryId}
+        documentKeys={queryIds}
         onChange={updateText}
         onRunCommand={runMode}
         onCancelShortcut={onCancel}
