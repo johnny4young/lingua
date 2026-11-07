@@ -3218,7 +3218,7 @@
   "settings.perLanguage.description": "El flujo, el auto-log de expresiones sueltas y cuánto puede durar una ejecución antes de interrumpirse. Los ajustes de cada pestaña siempre mandan sobre estos valores; la primera carga de Pyodide tiene su propio margen de tiempo.",
   "settings.perLanguage.chip": "Por lenguaje",
   "settings.perLanguage.column.language": "Lenguaje",
-  "settings.perLanguage.column.workflow": "Flujo por defecto",
+  "settings.perLanguage.column.workflow": "Flujo en pestañas nuevas",
   "settings.perLanguage.column.autoLog": "Auto-log",
   "settings.perLanguage.column.timeout": "Tiempo límite",
   "settings.perLanguage.cell": "{{column}} · {{language}}",

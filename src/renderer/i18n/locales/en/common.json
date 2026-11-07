@@ -3194,7 +3194,7 @@
   "settings.perLanguage.description": "Workflow, auto-log of bare expressions and how long a run may take before it is interrupted. Per-tab toggles always override these defaults; Pyodide's first load has its own time budget.",
   "settings.perLanguage.chip": "Per-language",
   "settings.perLanguage.column.language": "Language",
-  "settings.perLanguage.column.workflow": "Default workflow",
+  "settings.perLanguage.column.workflow": "Workflow for new tabs",
   "settings.perLanguage.column.autoLog": "Auto-log",
   "settings.perLanguage.column.timeout": "Execution timeout",
   "settings.perLanguage.cell": "{{column}} · {{language}}",
