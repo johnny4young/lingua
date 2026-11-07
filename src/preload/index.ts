@@ -147,6 +147,8 @@ contextBridge.exposeInMainWorld('lingua', {
     ) => typedInvoke('go:compile', sourceCode, userEnv, messages, runId),
     stop: (runId: string) => typedInvoke('go:stop', runId),
     chooseBinary: () => typedInvoke('go:choose-binary'),
+    chosenBinary: () => typedInvoke('go:chosen-binary'),
+    clearBinary: () => typedInvoke('go:clear-binary'),
   },
 
   // Rust runner IPC
@@ -164,6 +166,8 @@ contextBridge.exposeInMainWorld('lingua', {
     ) => typedInvoke('rust:run', sourceCode, userEnv, messages, runId),
     stop: (runId: string) => typedInvoke('rust:stop', runId),
     chooseBinary: () => typedInvoke('rust:choose-binary'),
+    chosenBinary: () => typedInvoke('rust:chosen-binary'),
+    clearBinary: () => typedInvoke('rust:clear-binary'),
   },
 
   // Desktop Ruby child-spawn IPC. Distinct from the
