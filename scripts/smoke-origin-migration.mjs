@@ -45,17 +45,27 @@ await writeFile(
   path.join(legacyFixture, 'package.json'),
   JSON.stringify({ name: 'lingua', version: '0.0.0-legacy', main: 'main.cjs' })
 );
+await writeFile(path.join(legacyFixture, 'seed.html'), '<!doctype html><title></title>');
+// Spanish goes in before the app boots: boot effects save the whole in-memory
+// settings store, so an edit made while it runs can be overwritten.
 await writeFile(
   path.join(legacyFixture, 'main.cjs'),
   `const { BrowserWindow } = require('electron');
-BrowserWindow.prototype.loadURL = function () {
+const path = require('node:path');
+BrowserWindow.prototype.loadURL = async function () {
+  if (process.env.LINGUA_ORIGIN_SMOKE_SPANISH === '1') {
+    await this.loadFile(path.join(__dirname, 'seed.html'));
+    await this.webContents.executeJavaScript(
+      "localStorage.setItem('lingua-settings', JSON.stringify({ state: { language: 'es' } }))"
+    );
+  }
   return this.loadFile(${JSON.stringify(path.join(root, '.vite/renderer/main_window/index.html'))});
 };
 require(${JSON.stringify(path.join(root, '.vite/build/main.js'))});
 `
 );
 
-async function launch(appPath) {
+async function launch(appPath, extraEnv = {}) {
   const app = await _electron.launch({
     executablePath,
     args: [...isolatedCredentialStoreArgs(), appPath],
@@ -65,6 +75,7 @@ async function launch(appPath) {
       ELECTRON_RUN_AS_NODE: undefined,
       LINGUA_RENDERER_URL: undefined,
       LINGUA_SMOKE_USER_DATA_DIR: profile,
+      ...extraEnv,
     },
     timeout: 30_000,
   });
@@ -110,16 +121,8 @@ async function codeCacheEntries() {
 
 try {
   // 1. An older build writes its usual data plus Spanish and OPFS files.
-  let { app, page } = await launch(legacyFixture);
+  let { app, page } = await launch(legacyFixture, { LINGUA_ORIGIN_SMOKE_SPANISH: '1' });
   assert.equal(new URL(page.url()).protocol, 'file:');
-  // Reload so the running app holds Spanish too and cannot persist English over it.
-  await page.evaluate(() => {
-    const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{}}');
-    settings.state.language = 'es';
-    localStorage.setItem('lingua-settings', JSON.stringify(settings));
-  });
-  await page.reload();
-  await page.getByTestId('app-chrome').waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'es');
   await page.evaluate(
     async ({ sentinel, database, nested }) => {
