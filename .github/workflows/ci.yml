@@ -449,6 +449,19 @@ jobs:
             output/playwright/native-output/result.json
             output/playwright/native-output/app.png
           retention-days: 7
+      # Seeds a profile the way file:// builds stored data and proves the one-time
+      # copy to app://lingua, its single run, the kept file:// copy and the code cache.
+      - name: Renderer origin migration smoke
+        run: node scripts/smoke-origin-migration.mjs
+      - name: Upload origin migration smoke evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: origin-migration-smoke
+          path: |
+            output/playwright/origin-migration/result.json
+            output/playwright/origin-migration/migrated-es.png
+          retention-days: 7
       # The release runs this smoke only after signing and notarization, so a
       # renderer-gate regression otherwise surfaces at release time. An ad-hoc
       # signed --dir build exercises the same packaged app without secrets.

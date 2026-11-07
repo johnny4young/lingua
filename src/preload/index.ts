@@ -119,6 +119,7 @@ contextBridge.exposeInMainWorld('lingua', {
   getSystemLanguages: () => typedInvoke('app:get-system-languages'),
   getAppInfo: () => typedInvoke('app:get-info'),
   openExternal: (url: string) => typedInvoke('app:open-external', url),
+  consumeStorageMigrationNotice: () => typedInvoke('app:consume-storage-migration-notice'),
   http,
   pythonDebugger,
   goDebugger,

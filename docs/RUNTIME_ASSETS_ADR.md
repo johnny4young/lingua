@@ -51,7 +51,8 @@ directly through Cloudflare Pages.
 - `python-worker.ts` resolves the Pyodide entry via
   `new URL('../pyodide/', import.meta.url).href` and imports
   `${indexURL}pyodide.mjs` — this produces a `file://.../pyodide/`
-  URL inside the packaged renderer and a
+  URL inside the packaged renderer (`app://lingua/pyodide/` since the
+  renderer moved to the app scheme) and a
   `http://localhost:5173/src/renderer/pyodide/...` URL in dev. No
   desktop CDN fallback.
 - The desktop renderer's CSP loses `https://cdn.jsdelivr.net` from
@@ -205,7 +206,8 @@ fails if the engine rejects a file.
   the plain copy-into-renderer-output approach already works under
   Electron's existing `loadFile` flow and adds no new IPC surface.
   The custom-protocol option remains open for a later work if we want
-  per-asset SRI verification at request time.
+  per-asset SRI verification at request time. The whole renderer later
+  moved to `app://lingua`; see `ARCHITECTURE.md` § Desktop renderer origin.
 - **`asarUnpack: '**/pyodide/**'`** — would store the files outside
   asar and load them from disk. Not needed today because Electron's
   asar layer transparently handles `fetch()` reads inside asar for

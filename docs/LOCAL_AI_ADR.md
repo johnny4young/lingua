@@ -132,7 +132,7 @@ Local profile, any other host becomes My endpoint with its key.
 
 | Mode | Desktop | Web |
 | --- | --- | --- |
-| Local · Ollama (loopback, no key) | Direct `fetch`; the renderer CSP allows `http://localhost:*` and `http://127.0.0.1:*` | Direct `fetch`; the same two origins are the only plain-http entries in the web CSP. The server must allow the Lingua origin (`OLLAMA_ORIGINS`) |
+| Local · Ollama (loopback, no key) | Direct `fetch`; the renderer CSP allows `http://localhost:*` and `http://127.0.0.1:*`. The server must allow the `app://lingua` origin, which Ollama's defaults do | Direct `fetch`; the same two origins are the only plain-http entries in the web CSP. The server must allow the Lingua origin (`OLLAMA_ORIGINS`) |
 | My endpoint (HTTPS, key) | `http:execute` through the SSRF-guarded main proxy, private hosts blocked; no CORS and no renderer CSP room | Direct `fetch`, bound by the provider's CORS policy |
 
 - **Streaming through main.** The renderer adapter

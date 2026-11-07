@@ -115,20 +115,18 @@ last is answered, as for a debugger pause. Ruby's synchronous eval
 cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
 it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
 
-On packaged desktop builds the guard is the only limit on these workers. The
-renderer loads from `file://` with the `grantFileProtocolExtraPrivileges` fuse
-on, which lifts CORS and file limits for every `file://` context. A worker's CSP
-comes from its script response and a `file:` response has no headers, so the
-meta CSP in `index.html` binds the page and not the workers. Under Allow no guard
-runs: code reads any response, sends no preflight, and reads any local file whose
-path it knows. Send's protections in `httpProxy.ts` live in the main process and
-do not cover it. Under Ask and Block the guard refuses `file:` outside the
-renderer root, which it takes as the parent of the worker's own `assets/` folder.
-A dynamic `import()` still reaches a local `.js`, `.mjs` or `.json` file and any
-remote module, so Block is not a boundary for those. Closing this needs a custom
-protocol for the renderer, which gives workers a real origin, CORS and a
-per-response CSP; `webRequest` sees a worker's http(s) requests but not its
-`file:` reads or its script.
+On packaged desktop builds the renderer and its workers run on the
+`app://lingua` origin (see § Desktop renderer origin), so CORS applies to their
+requests and Chromium refuses `file:` URLs, as in the web build. A worker's CSP
+comes from its script response and the protocol handler sends none, so the meta
+CSP in `index.html` binds the page and not the workers. Under Allow no guard
+runs: code reaches any host and reads what CORS lets it read. Send's protections
+in `httpProxy.ts` live in the main process and do not cover it. Under Ask and
+Block the guard refuses local URLs outside the renderer root, which it takes as
+the parent of the worker's own `assets/` folder. A dynamic `import()` still
+reaches any remote module, so Block is not a boundary for those. A per-response
+CSP on worker scripts would close that; `webRequest` sees a worker's http(s)
+requests but not its script.
 
 `ExecutionContext.blockNetwork` blocks every host for one run whatever the
 policy says; it can only tighten the policy, never loosen it. Edit with AI
@@ -2140,6 +2138,54 @@ that trusts its signing key loads it. **Remove license** still deletes it. The
 renderer records each rejection in the Privacy & Trust log as
 `License rejected (<reason>)`.
 
+### Desktop renderer origin
+
+Built desktop renderers load from `app://lingua/index.html`, which
+`src/main/rendererProtocol.ts` serves from the renderer folder inside
+`app.asar`. The scheme is standard and secure, with `supportFetchAPI`,
+`corsEnabled` and `codeCache`. Chromium keeps no V8 code cache for `file://`, or
+for a custom scheme registered without `codeCache`, so `file://` builds compiled
+the whole bundle on every launch. The handler serves GET and HEAD for files
+under the renderer folder only, and answers anything else with 404. A missing
+file gets a network error, so a missing `index.html` fails startup with
+`renderer-load/ERR_FAILED` instead of rendering an error body. Development
+servers keep their loopback origin. The scheme is `app` because local model
+servers such as Ollama accept `app://*` by default; `lingua-app://` drew a 403.
+
+Chromium keys storage by origin, so `src/main/originMigration.ts` copies the
+renderer's `localStorage` and origin private file system (the persisted SQL
+database) from the `file://` origin of earlier builds before the first load.
+`createWindow` runs it after the hidden main window exists, so closing the
+migration pages cannot fire `window-all-closed`. A hidden page on a blank file in
+a private temp folder reads the old origin, and a hidden page on
+`app://lingua/.lingua/blank.html` writes the new one; main drives both with
+constant scripts from `originMigrationScripts.ts`. It runs once per profile:
+`renderer-origin-migration.json` in `userData` records the result and counts.
+`localStorage` goes first and never overwrites a key the new origin holds.
+Files are then staged under a `.lingua-migrating` name and moved in together
+once every one is staged, so the SQL database and its WAL land as a pair. Until
+they land, legacy wins: a retry (three launches at most) replaces a database
+the app created after a failed attempt. The marker records the attempt before
+any page opens, so a crash spends one, and then each finished step, so a retry
+neither repeats it nor restores what a factory reset or Recovery cleared since.
+The Dock or taskbar shows the copy's progress, and five minutes bound the
+whole attempt. A failure is logged by its error name, the app opens anyway, and
+the renderer shows a warning that says whether the next launch retries.
+
+The `file://` copy stays in place, so an older build still opens with it. It
+also means data cleared in the app afterwards still sits in that copy: env
+values, the SQL database, or an AI key an older build stored in plain text.
+Removing it, for example with `session.clearStorageData({ origin: 'file://' })`
+once a later version runs, is an open decision. There is no disk probe for a fresh
+profile, because Chromium creates `Local Storage` before any page loads; the
+first launch of a new profile opens the reading page once, about 100 ms.
+
+The renderer uses no IndexedDB, CacheStorage or cookies;
+`tests/build/rendererOriginStorage.test.ts` fails if that changes before the
+migration covers it. `scripts/smoke-origin-migration.mjs` seeds a profile the
+way earlier builds wrote it and proves the copy, the single run, the retained
+`file://` copy and the code cache on real Electron.
+
 ## How to extend this architecture
 
 ### If you add a new file-system operation
@@ -2292,16 +2338,17 @@ and [Git environment](https://git-scm.com/docs/git#_environment_variables).
 The main window may reload only its chosen renderer document. The navigation
 policy compares complete normalized URLs, ignoring fragments but preserving the
 path and query. A development server's origin does not authorize other files on
-that server; packaged file mode does not authorize arbitrary local files. The
-expected packaged URL is derived from the exact loadFile path with pathToFileURL,
-including escaped paths and Windows drive/UNC locations. The same policy handles
-page-initiated navigation and HTTP redirects. Resource loading and sandboxed
-preview documents remain separate from main-window navigation.
+that server; the built renderer's document is `app://lingua/index.html`, and
+other files on that origin are not navigation targets. A `file:` document gets
+no navigation authority at all. The same policy handles page-initiated
+navigation and HTTP redirects. Resource loading and sandboxed preview documents
+remain separate from main-window navigation.
 
-Electron main-process loadURL/loadFile calls do not emit will-navigate; those
-calls must continue to use the chosen target, not an untrusted renderer payload.
-The permanent real-Electron navigation smoke exercises both built file mode and
-a loopback server, including an actual redirect, reload, fragments and EN/ES.
+Electron main-process loadURL calls do not emit will-navigate; those calls must
+continue to use the chosen target, not an untrusted renderer payload. The
+permanent real-Electron navigation smoke exercises both the built renderer on
+`app://lingua` and a loopback server, including an actual redirect, reload,
+fragments and EN/ES.
 See [Electron navigation events](https://www.electronjs.org/docs/latest/api/web-contents#navigation-events).
 
 ### Terminal desktop startup failures

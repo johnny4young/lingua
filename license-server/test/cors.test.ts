@@ -8,6 +8,7 @@ const EXPECTED_CONFIGURED_ORIGINS = [
   'https://app.linguacode.dev',
   'http://localhost:5174',
   'http://localhost:4173',
+  'app://lingua',
 ];
 
 function configuredCorsOrigins(toml = wranglerToml): string[] {
@@ -71,6 +72,26 @@ describe('license-server CORS', () => {
     expect(response.status).toBe(400);
     expect(response.headers.get('access-control-allow-origin')).toBe(origin);
     expect(response.headers.get('vary')).toContain('Origin');
+  });
+
+  it('allows the built desktop renderer on the routes it posts to itself', async () => {
+    const origin = 'app://lingua';
+    for (const route of ['/trials/start', '/education/start', '/licenses/recover/start']) {
+      const response = await app.request(
+        `https://licenses.linguacode.dev${route}`,
+        {
+          method: 'OPTIONS',
+          headers: {
+            origin,
+            'access-control-request-method': 'POST',
+            'access-control-request-headers': 'content-type',
+          },
+        },
+        createMockEnv({ corsAllowedOrigins: configuredCorsOrigins().join(',') })
+      );
+      expect(response.status, route).toBe(204);
+      expect(response.headers.get('access-control-allow-origin'), route).toBe(origin);
+    }
   });
 
   it('trims configured origins before matching', async () => {

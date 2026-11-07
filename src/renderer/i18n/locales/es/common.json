@@ -1319,6 +1319,8 @@
   "updates.message.webUnavailable": "Las actualizaciones automáticas no están disponibles en la versión web.",
   "updates.notice.downloaded": "La actualización {{version}} está lista. Toca Reiniciar para instalarla.",
   "updates.notice.downloadedGeneric": "La actualización está lista. Toca Reiniciar para instalarla.",
+  "startup.storageMigration.retry": "Algunos datos de la versión anterior no se movieron. Lingua lo intentará de nuevo en el próximo inicio.",
+  "startup.storageMigration.final": "Algunos datos de la versión anterior no se pudieron mover. Siguen en el disco y Lingua no lo intentará de nuevo.",
   "updates.restart.disabledTooltip": "Disponible cuando una actualización descargada esté lista para instalar.",
   "updates.chip.ready": "Actualización lista",
   "plugins.title": "Plugins",
