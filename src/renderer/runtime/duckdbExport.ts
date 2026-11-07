@@ -37,7 +37,8 @@ export async function copyQueryToBytes(
   await engine.registerEmptyFile(name);
   try {
     // The newline keeps a trailing line comment from swallowing the closing parenthesis.
-    const outcome = await executeQuery(`COPY (\n${asSubquery(sql)}\n) TO '${name}' (${copyOptions})`, options);
+    const target = (engine.filePath?.(name) ?? name).replaceAll("'", "''");
+    const outcome = await executeQuery(`COPY (\n${asSubquery(sql)}\n) TO '${target}' (${copyOptions})`, options);
     if (outcome.status !== 'success') throw failure(outcome);
     const count = Number(outcome.rows[0]?.['Count'] ?? Number.NaN);
     const bytes = await engine.readFile(name);

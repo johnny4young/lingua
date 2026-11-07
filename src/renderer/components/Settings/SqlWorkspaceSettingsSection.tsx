@@ -15,6 +15,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 import { Select, Toggle } from './shared';
+import { SqlLocalEngineRow } from './SqlLocalEngineRow';
 
 /**
  * SQL query timeout presets (milliseconds). The
@@ -198,6 +199,8 @@ export function SqlWorkspaceSettingsSection() {
             />
           }
         />
+
+        <SqlLocalEngineRow />
 
         {/* Opt into persisting the DuckDB
             database to OPFS. Off by default; the runtime falls back to

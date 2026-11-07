@@ -4,7 +4,7 @@
  * of a host that exits fail instead of hanging.
  */
 
-import type { HostError, HostRequest, HostResponse } from './sqlHost/protocol';
+import type { HostError, HostRequest } from './sqlHost/protocol';
 
 /** The slice of Electron's UtilityProcess the supervisor uses. */
 export interface HostChild {
@@ -14,14 +14,14 @@ export interface HostChild {
   kill(): boolean;
 }
 
-export class SqlHostError extends Error {
-  constructor(readonly detail: HostError) {
+export class SqlHostError<Detail extends { message: string } = HostError> extends Error {
+  constructor(readonly detail: Detail) {
     super(detail.message);
     this.name = 'SqlHostError';
   }
 }
 
-type Body = HostRequest extends infer R ? (R extends HostRequest ? Omit<R, 'id'> : never) : never;
+type Body<Request> = Request extends infer R ? (R extends Request ? Omit<R, 'id'> : never) : never;
 
 interface Pending {
   resolve(value: unknown): void;
@@ -29,7 +29,11 @@ interface Pending {
   timer: NodeJS.Timeout | null;
 }
 
-export function createSqlHostSupervisor(fork: () => HostChild) {
+/** `stopped` shapes the failure of requests a host took down with it. */
+export function createSqlHostSupervisor<Request extends { id: number } = HostRequest, Failure extends { message: string } = HostError>(
+  fork: () => HostChild,
+  stopped: (message: string) => Failure = (message) => ({ message }) as Failure
+) {
   let child: HostChild | null = null;
   let nextId = 1;
   const pending = new Map<number, Pending>();
@@ -37,7 +41,7 @@ export function createSqlHostSupervisor(fork: () => HostChild) {
   const failAll = (message: string) => {
     for (const [id, entry] of pending) {
       if (entry.timer) clearTimeout(entry.timer);
-      entry.reject(new SqlHostError({ message }));
+      entry.reject(new SqlHostError(stopped(message)));
       pending.delete(id);
     }
   };
@@ -45,7 +49,7 @@ export function createSqlHostSupervisor(fork: () => HostChild) {
   function start(): HostChild {
     const started = fork();
     started.on('message', (message) => {
-      const response = message as HostResponse;
+      const response = message as { id: number; ok: true; result: unknown } | { id: number; ok: false; error: Failure };
       const entry = pending.get(response.id);
       if (!entry) return;
       pending.delete(response.id);
@@ -63,7 +67,7 @@ export function createSqlHostSupervisor(fork: () => HostChild) {
 
   return {
     /** Sends one request; `timeoutMs` fails it without stopping the host. */
-    request<T>(body: Body, timeoutMs?: number): Promise<T> {
+    request<T>(body: Body<Request>, timeoutMs?: number): Promise<T> {
       child ??= start();
       const id = nextId++;
       const target = child;
@@ -73,7 +77,7 @@ export function createSqlHostSupervisor(fork: () => HostChild) {
             ? null
             : setTimeout(() => {
                 pending.delete(id);
-                reject(new SqlHostError({ message: 'The SQL host did not answer in time.' }));
+                reject(new SqlHostError(stopped('The SQL host did not answer in time.')));
               }, timeoutMs);
         pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
         target.postMessage({ ...body, id });
@@ -96,4 +100,6 @@ export function createSqlHostSupervisor(fork: () => HostChild) {
   };
 }
 
-export type SqlHostSupervisor = ReturnType<typeof createSqlHostSupervisor>;
+export type SqlHostSupervisor<Request extends { id: number } = HostRequest, Failure extends { message: string } = HostError> = ReturnType<
+  typeof createSqlHostSupervisor<Request, Failure>
+>;
