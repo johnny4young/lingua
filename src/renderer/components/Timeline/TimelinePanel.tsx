@@ -55,7 +55,9 @@ export function TimelinePanel() {
     const pages: Record<string, number> = { PageUp: -10, PageDown: 10 };
     if (event.key === 'Home') select(0);
     else if (event.key === 'End') select(count - 1);
-    else if (pages[event.key] !== undefined) stepBy(pages[event.key]!);
+    else if (pages[event.key] !== undefined) {
+      if (!stepBy(pages[event.key]!)) announce(t('timeline.unreachable'));
+    }
     else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       move(event.altKey ? 'out' : event.shiftKey ? 'over' : 'into', event.key === 'ArrowLeft');
     } else return;

@@ -20,7 +20,8 @@ interface TimelineState {
   current: number;
   publish: (tabId: string, timeline: ExecutionTimeline) => void;
   select: (index: number) => void;
-  step: (delta: number) => void;
+  /** Moves by `delta` steps; at the first or last step it bumps `blocked` instead, as `go` does. */
+  step: (delta: number) => boolean;
   /** Moves by depth; a move with nowhere to go bumps `blocked` and keeps the step. */
   go: (move: TimelineMove, backward: boolean) => boolean;
   /** Counts moves that had nowhere to go, so the editor can flash the line. */
@@ -64,7 +65,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     const count = get().recording?.steps.length ?? 0;
     if (count > 0) set({ current: Math.min(count - 1, Math.max(0, index)) });
   },
-  step: delta => get().select(get().current + delta),
+  step: delta => {
+    const before = get().current;
+    get().select(before + delta);
+    if (delta === 0 || get().current !== before) return true;
+    set(state => ({ blocked: state.blocked + 1 }));
+    return false;
+  },
   go: (move, backward) => {
     const steps = get().recording?.steps ?? [];
     const target = findTimelineStep(steps, get().current, move, backward);
