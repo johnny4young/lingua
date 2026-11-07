@@ -94,6 +94,16 @@ describe('toolchain binary search', () => {
     expect(withBinaryDirOnPath(withDir, '/opt/go/bin/go')).toBe(withDir);
     expect(withBinaryDirOnPath(env, 'go')).toBe(env);
   });
+
+  it('extends the Path a Windows environment already has instead of adding a second PATH', () => {
+    const env = { Path: 'C:\\Windows\\System32;C:\\Windows', SystemRoot: 'C:\\Windows' };
+    const withDir = withBinaryDirOnPath(env, 'C:\\Go\\bin\\go.exe', 'win32');
+    expect(Object.keys(withDir).filter((name) => name.toUpperCase() === 'PATH')).toEqual(['Path']);
+    expect(withDir.Path).toBe('C:\\Go\\bin;C:\\Windows\\System32;C:\\Windows');
+    expect(withBinaryDirOnPath(withDir, 'C:\\Go\\bin\\go.exe', 'win32')).toBe(withDir);
+    // A POSIX environment keeps case: `Path` there is some other variable.
+    expect(withBinaryDirOnPath({ Path: 'x' }, '/opt/go/bin/go', 'linux')).toEqual({ Path: 'x', PATH: '/opt/go/bin' });
+  });
 });
 
 describe('chosen toolchain binary', () => {
