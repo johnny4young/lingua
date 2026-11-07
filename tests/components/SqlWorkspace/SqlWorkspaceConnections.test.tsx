@@ -326,6 +326,19 @@ describe('SQL workspace on a saved connection', () => {
     await waitFor(() => expect(db.execute).toHaveBeenCalledTimes(2));
   });
 
+  it("clears a query's results when the picker moves it to another connection", async () => {
+    db.execute.mockResolvedValue(result({ rows: [{ id: 1 }, { id: 2 }], rowCount: 2 }));
+    openQuery('SELECT id FROM orders', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-result-preview-export');
+    fireEvent.click(screen.getByTestId('sql-connection-pill'));
+    fireEvent.click(await screen.findByTestId('sql-connection-option-local'));
+    expect(useWorkspaceSqlStore.getState().getQuery('q1')?.connectionId).toBeUndefined();
+    await waitFor(() => expect(screen.queryByTestId('sql-result-preview-export')).toBeNull());
+    expect(useWorkspaceSqlStore.getState().responsesByQueryId.q1).toBeUndefined();
+  });
+
   it('opens the manager from the picker, edits a connection in the sheet, and comes back to the manager', async () => {
     openQuery('SELECT 1', 'c_dev');
     await renderPanel();
