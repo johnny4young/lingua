@@ -606,7 +606,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     handleSendRef.current = handleSend;
   }, [handleSend]);
 
-  const { sendFromEditor, queueFor } = useHttpOfflineSend(handleSend);
+  const { sendFromEditor, queueFor, stopDrain } = useHttpOfflineSend(handleSend);
 
   // Cancel the in-flight request (Stop button). Leaves the previous
   // response on screen; the aborted send skips recording.
@@ -615,8 +615,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     chainCancelledRef.current = true;
     if (confirmRef.current) useUIStore.getState().dismissStatusNotice('manual');
     abortRef.current?.abort('cancelled');
+    stopDrain();
     setLivePreview(null);
-  }, []);
+  }, [stopDrain]);
 
   const handleRunPipeline = useCallback(
     async (pipeline: HttpPipelineV1): Promise<void> => {
