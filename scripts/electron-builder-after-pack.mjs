@@ -5,9 +5,9 @@
  * before electron-builder signs the bundle.
  */
 
-const { execFileSync } = require('node:child_process');
-const fs = require('node:fs');
-const path = require('node:path');
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // electron-builder's Arch enum.
 const LIPO_ARCH = { 1: 'x86_64', 3: 'arm64' };
@@ -21,7 +21,7 @@ function findLibraries(dir, found = []) {
   return found;
 }
 
-exports.default = async function afterPack(context) {
+export default async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return;
   const arch = LIPO_ARCH[context.arch];
   if (!arch) throw new Error(`No lipo architecture for electron-builder arch ${context.arch}`);
@@ -31,4 +31,4 @@ exports.default = async function afterPack(context) {
     if (slices.length > 1) execFileSync('lipo', ['-thin', arch, library, '-output', library]);
     execFileSync('strip', ['-x', library]);
   }
-};
+}

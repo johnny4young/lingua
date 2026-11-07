@@ -56,7 +56,7 @@ asarUnpack:
   # duckdb.node loads libduckdb from its own folder, so the library leaves the asar too.
   - '**/node_modules/@duckdb/node-bindings-*/**'
 # Thins DuckDB's universal macOS library to the packaged architecture before signing.
-afterPack: scripts/electron-builder-after-pack.cjs
+afterPack: scripts/electron-builder-after-pack.mjs
 # Deep-link scheme (lingua://) — replaces the Forge packagerConfig.protocols.
 protocols:
   - name: Lingua
