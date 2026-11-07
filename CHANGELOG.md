@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
+- An AI endpoint that answers with an HTML page, such as a proxy error or a sign-in wall, shows the page title in the error instead of raw markup.
 
 ### Fixed
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.

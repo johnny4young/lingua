@@ -196,7 +196,7 @@ export async function runChatCompletion(
       // before it is appended so the "key never leaks" guarantee holds even on
       // the endpoint-error path. split/join avoids regex-escaping the key.
       if (detail) {
-        detail = redactKey(detail, normalizedConfig.apiKey).slice(0, 500);
+        detail = redactKey(summarizeErrorPage(detail, response.headers.get('content-type') ?? ''), normalizedConfig.apiKey).slice(0, 500);
       }
       return {
         ok: false,
@@ -283,4 +283,11 @@ function boundedTimeout(value: number | undefined, fallback: number): number {
   return value !== undefined && Number.isFinite(value) && value > 0
     ? Math.min(Math.floor(value) || 1, MAX_AI_TIMEOUT_MS)
     : fallback;
+}
+
+/** An HTML error page (a proxy or login wall) becomes its title, so the panel never shows raw markup. */
+function summarizeErrorPage(body: string, contentType: string): string {
+  if (!/html/i.test(contentType) && !/^\s*<(?:!doctype\s+html|html[\s>])/i.test(body)) return body;
+  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(body)?.[1]?.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  return title ? `HTML page "${title}"` : 'an HTML page';
 }
