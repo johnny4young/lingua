@@ -267,8 +267,16 @@ export function SqlQueryEditor({
     [runMode, selectedText]
   );
   useWorkspaceRunTarget('sql', () => runFromToolbar('statement'));
+  // Save As copies the stored text, so typing still inside the debounce must land first.
+  const save = useCallback(
+    (as: boolean) => {
+      flushPendingDraft();
+      onSave(as);
+    },
+    [flushPendingDraft, onSave]
+  );
   useCommandListener('workspace.save', (payload) => {
-    if (payload.kind === 'sql') onSave(payload.as);
+    if (payload.kind === 'sql') save(payload.as);
   });
 
   // A rail predicate joins the statement under the cursor: AND after its WHERE, else WHERE.
@@ -378,7 +386,7 @@ export function SqlQueryEditor({
         onChange={updateText}
         onRunCommand={runMode}
         onCancelShortcut={onCancel}
-        onSaveShortcut={onSave}
+        onSaveShortcut={save}
         onCursorChange={handleCursorChange}
         statements={statements}
         runGlyphLabel={t('sqlWorkspace.run.statement')}
