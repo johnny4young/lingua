@@ -64,6 +64,17 @@ describe.each([
   });
 });
 
+describe('guided tour scrim', () => {
+  it('dims with dark ink in both themes, never a light wash', () => {
+    for (const theme of [light, dark]) {
+      const value = theme.get('--tour-overlay') ?? '';
+      const base = /var\((--[\w-]+)\)/.exec(value)?.[1] ?? '';
+      const ink = parseColor(resolveToken(base, theme, theme === dark ? light : undefined));
+      expect(contrastRatio(ink, parseColor('#ffffff'))).toBeGreaterThan(10);
+    }
+  });
+});
+
 describe('accent as text', () => {
   it('reads on white in light, where it is used for links and selection only', () => {
     expect(ratio(light, '--color-accent', '--color-bg-panel')).toBeGreaterThanOrEqual(4.5);
