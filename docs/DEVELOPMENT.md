@@ -465,6 +465,7 @@ Smoke-only environment knobs:
 | `LINGUA_SMOKE_USER_DATA_DIR`           | Artifact-local userData directory set by the desktop and Stagewright smoke harnesses so they do not contend with an already-open installed Lingua.app for the single-instance lock. |
 | `LINGUA_DESKTOP_SMOKE_OFFLINE`         | Equivalent to the `--offline` flag; blocks non-loopback network requests in the desktop smoke run.                                                                                  |
 | `LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET` | Internal packaged-smoke subset flag set by `scripts/run-desktop-smoke.mjs`; do not set manually unless debugging that harness.                                                      |
+| `LINGUA_DESKTOP_SMOKE_SQL_LOCAL`       | `native` or `wasm`: after the language cases, run Local SQL timings on five million rows on that engine and write `desktop-smoke-sql-local.json` with per-process memory.        |
 
 ## Shell layout behavior
 
