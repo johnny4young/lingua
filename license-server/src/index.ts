@@ -122,9 +122,8 @@ app.use('*', requestObservabilityMiddleware());
  * CORS for trusted browser-side licensing calls. The
  * desktop main process bypasses CORS entirely (Node fetch ignores it),
  * while production browser calls originate from the marketing site at
- * `linguacode.dev`, the web app at `app.linguacode.dev`, and the built
- * desktop renderer at `app://lingua` (trial, education and recovery).
- * Each needs the server to acknowledge its origin. The allowed origins are read
+ * `linguacode.dev` and the web app at `app.linguacode.dev`. Both need
+ * the server to acknowledge their origin. The allowed origins are read
  * at request time from the `CORS_ALLOWED_ORIGINS` env var so a preview
  * deploy can extend the list without a code change.
  *
