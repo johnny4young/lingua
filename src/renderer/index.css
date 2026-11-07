@@ -127,6 +127,7 @@
   --color-border-subtle: oklch(0.935 0.006 210);
   --color-border-default: oklch(0.885 0.008 210);
   --color-border-strong: oklch(0.78 0.01 210);
+  --color-control-off: oklch(0.62 0.014 210);
 
   /* Accent */
   --color-accent: oklch(0.52 0.18 210);
@@ -389,6 +390,7 @@
   --color-border-subtle: oklch(0.24 0.014 210);
   --color-border-default: oklch(0.32 0.016 210);
   --color-border-strong: oklch(0.44 0.018 210);
+  --color-control-off: oklch(0.52 0.018 210);
 
   --color-accent: oklch(0.72 0.17 210);
   --color-accent-hover: oklch(0.8 0.16 210);
@@ -547,6 +549,8 @@
   --color-border-subtle: var(--color-border-subtle);
   --color-border-default: var(--color-border-default);
   --color-border-strong: var(--color-border-strong);
+  /* Off track of a switch; needs 3:1 on panels, unlike a border. */
+  --color-control-off: var(--color-control-off);
 
   /* Accent — `bg-accent`, `bg-accent-hover`, `text-accent-fg`,
      `bg-accent-tint` (DS parity, design-sync apply). */
