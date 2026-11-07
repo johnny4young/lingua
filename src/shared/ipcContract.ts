@@ -65,6 +65,16 @@ import type {
   SqlDbTarget,
   SqlDbTestResult,
 } from './sqlDb';
+import type {
+  EducationRenewInput,
+  EducationRenewResult,
+  EducationStartInput,
+  EducationStartResult,
+  LicenseRecoverInput,
+  LicenseRecoverResult,
+  TrialStartInput,
+  TrialStartResult,
+} from './licenseServerTypes';
 
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
@@ -543,6 +553,19 @@ interface IpcInvokeContract {
     args: [deviceIdToRemove: string];
     result: LicenseRemoveDeviceResult;
   };
+  'license:start-trial': { args: [input: TrialStartInput]; result: TrialStartResult };
+  'license:start-education': {
+    args: [input: EducationStartInput];
+    result: EducationStartResult;
+  };
+  'license:renew-education': {
+    args: [input: EducationRenewInput];
+    result: EducationRenewResult;
+  };
+  'license:start-recovery': {
+    args: [input: LicenseRecoverInput];
+    result: LicenseRecoverResult;
+  };
 
   // ----------------------------------------------------------- desktop smoke
   'desktop-smoke:get-config': { args: []; result: DesktopSmokeConfig | null };
@@ -802,6 +825,10 @@ export const IPC_INVOKE_CHANNELS = [
   'license:clear',
   'license:revalidate',
   'license:remove-device',
+  'license:start-trial',
+  'license:start-education',
+  'license:renew-education',
+  'license:start-recovery',
   'desktop-smoke:get-config',
   'desktop-smoke:capture',
   'desktop-smoke:write-json-artifact',

@@ -37,7 +37,13 @@ import type {
   ActivateInput,
   ActivateResult,
   ActivateSuccess,
+  EducationRenewInput,
+  EducationRenewResult,
+  EducationStartInput,
+  EducationStartResult,
   ExhaustedFailure,
+  LicenseRecoverInput,
+  LicenseRecoverResult,
   LicenseServerFailureReason,
   RemoveDeviceInput,
   RemoveDeviceResult,
@@ -45,11 +51,19 @@ import type {
   StatusInput,
   StatusResult,
   StatusSuccess,
+  TrialStartInput,
+  TrialStartResult,
 } from '../shared/licenseServerTypes';
 import {
   stripProtocolEnvelope,
   validateLicenseServerProtocol,
 } from '../shared/licenseServerProtocol';
+import {
+  requestEducationRenew,
+  requestEducationStart,
+  requestRecoveryStart,
+  requestTrialStart,
+} from '../shared/licenseFlowRequests';
 
 // Re-export so `src/main/license.ts` can import from one place
 // (the runtime + the wrappers stay siblings under src/main).
@@ -345,6 +359,26 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
     message: typeof body?.message === 'string' ? body.message : undefined,
     issues,
   };
+}
+
+// --------------------------------------------- trial, education, recovery
+// The desktop renderer reaches these through `license:*` IPC so they leave
+// from main, with the same base URL allowlist as activation and status.
+
+export function startTrial(input: TrialStartInput): Promise<TrialStartResult> {
+  return requestTrialStart(getBaseUrl(), input);
+}
+
+export function startEducation(input: EducationStartInput): Promise<EducationStartResult> {
+  return requestEducationStart(getBaseUrl(), input);
+}
+
+export function renewEducation(input: EducationRenewInput): Promise<EducationRenewResult> {
+  return requestEducationRenew(getBaseUrl(), input);
+}
+
+export function startRecovery(input: LicenseRecoverInput): Promise<LicenseRecoverResult> {
+  return requestRecoveryStart(getBaseUrl(), input);
 }
 
 /**

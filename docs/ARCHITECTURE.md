@@ -1502,7 +1502,10 @@ Expected operational failures at this boundary use the shared
 [`Result<T, E>`](../src/shared/result.ts) contract: success payloads live under
 `data`; failures carry a stable `reason` plus an optional user-safe `message`.
 Profile/recovery confirmations, every license mutation, and Rust/Go LSP
-requests follow this shape. Renderer surfaces unwrap the union once in their
+requests follow this shape. The trial, education and recovery channels instead
+return the flow unions from `src/shared/licenseServerTypes.ts`, the same shape
+the web `fetch` path returns, so the Settings forms read one result on both
+surfaces. Renderer surfaces unwrap the union once in their
 domain adapter and degrade or resync deliberately. Throws remain reserved for
 capability-sandbox violations and unexpected transport/runtime failures.
 
@@ -2151,6 +2154,14 @@ file gets a network error, so a missing `index.html` fails startup with
 `renderer-load/ERR_FAILED` instead of rendering an error body. Development
 servers keep their loopback origin. The scheme is `app` because local model
 servers such as Ollama accept `app://*` by default; `lingua-app://` drew a 403.
+
+CORS applies to the renderer's own requests on this origin, but no license-server
+request depends on it. Activation, status, device removal, trial, education and
+recovery all go through `window.lingua.license` to main
+(`src/main/ipc/license.ts`), which validates the input and posts to the
+allowlisted base URL in `src/main/licenseServer.ts`. The web build sends trial,
+education and recovery with `fetch`; both surfaces build and parse them with
+`src/shared/licenseFlowRequests.ts`.
 
 Chromium keys storage by origin, so `src/main/originMigration.ts` copies the
 renderer's `localStorage` and origin private file system (the persisted SQL

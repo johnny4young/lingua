@@ -934,6 +934,18 @@ interface LinguaAPI {
     clear: () => Promise<LicenseClearResult>;
     revalidate: () => Promise<LicenseApplyResult>;
     removeDevice: (deviceIdToRemove: string) => Promise<LicenseRemoveDeviceResult>;
+    startTrial: (
+      input: import('./shared/licenseServerTypes').TrialStartInput
+    ) => Promise<import('./shared/licenseServerTypes').TrialStartResult>;
+    startEducation: (
+      input: import('./shared/licenseServerTypes').EducationStartInput
+    ) => Promise<import('./shared/licenseServerTypes').EducationStartResult>;
+    renewEducation: (
+      input: import('./shared/licenseServerTypes').EducationRenewInput
+    ) => Promise<import('./shared/licenseServerTypes').EducationRenewResult>;
+    startRecovery: (
+      input: import('./shared/licenseServerTypes').LicenseRecoverInput
+    ) => Promise<import('./shared/licenseServerTypes').LicenseRecoverResult>;
   };
 
   deepLinks: {

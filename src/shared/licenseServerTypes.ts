@@ -10,7 +10,8 @@
  * main uses Node 22+ global fetch + a build-time `define` baked from
  * `loadEnv()` — but everything that crosses the wire (`ActivateInput`,
  * `StatusSuccess`, `LicenseServerFailureReason`, etc.) is canonical
- * here.
+ * here. Trial, education and recovery share one implementation,
+ * `licenseFlowRequests.ts`, which takes each surface's base URL.
  */
 
 export type LicenseServerSurface = 'desktop' | 'web';
