@@ -200,7 +200,8 @@ const DUCKDB_ACCESS_MODE_READ_WRITE = 3;
  */
 const OPFS_SQL_DB_FILE_NAMES: readonly string[] = (() => {
   const base = OPFS_SQL_DB_PATH.replace(/^opfs:\/\//, '');
-  return [base, `${base}.wal`];
+  // Staged copies an interrupted storage migration from an older build can leave behind.
+  return [base, `${base}.wal`, `${base}.lingua-migrating`, `${base}.wal.lingua-migrating`];
 })();
 
 /** Minimal `db.open` surface the persistence helper depends on. */

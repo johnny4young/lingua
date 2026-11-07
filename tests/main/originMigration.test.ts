@@ -7,6 +7,7 @@ import {
   ORIGIN_MIGRATION_CHUNK_BYTES,
   ORIGIN_MIGRATION_MARKER,
   ORIGIN_MIGRATION_MAX_ATTEMPTS,
+  storageMigrationNoticeFor,
   type OriginMigrationMarker,
 } from '../../src/main/originMigration';
 import {
@@ -17,6 +18,7 @@ import {
 import { FakeOrigin, fakeWindowClass, type FakePagesOptions } from '../__fixtures__/fakeOriginPages';
 
 const BLANK = 'app://lingua/.lingua/blank.html';
+const QUOTA_EXCEEDED = "throw Object.assign(new Error('disk'), { name: 'QuotaExceededError' });";
 
 let userDataDir: string;
 let legacy: FakeOrigin;
@@ -45,7 +47,11 @@ function sameBytes(actual: Uint8Array | undefined, expected: Uint8Array): boolea
 }
 
 function migrate(
-  options: Partial<FakePagesOptions> & { signal?: AbortSignal; flush?: () => void } = {}
+  options: Partial<FakePagesOptions> & {
+    signal?: AbortSignal;
+    flush?: () => void;
+    onProgress?: (done: number, total: number) => void;
+  } = {}
 ) {
   const pages = fakeWindowClass({ legacy, target, ...options });
   const flush = vi.fn(options.flush ?? (() => {}));
@@ -54,6 +60,7 @@ function migrate(
     openLegacy: () => openLegacyOriginPage(pages.Window, options.signal),
     openTarget: () => openTargetOriginPage(pages.Window, BLANK, options.signal),
     flush,
+    onProgress: options.onProgress,
     signal: options.signal,
   });
   return { run, pages, flush };
@@ -126,22 +133,22 @@ describe('renderer origin migration', () => {
     expect(target.localStorage.getItem('lingua-settings')).toBe('changed after migration');
   });
 
-  it('never overwrites a key or a non-empty file the new origin already holds', async () => {
+  it('keeps keys the new origin holds, while legacy files replace what is there', async () => {
     legacy.localStorage.setItem('kept', 'legacy');
     legacy.localStorage.setItem('copied', 'legacy');
     legacy.opfs.put('lingua-sql.db', bytes(64));
     legacy.opfs.put('lingua-sql.db.wal', bytes(8));
     target.localStorage.setItem('kept', 'new');
     target.opfs.put('lingua-sql.db', bytes(16, 5));
-    // An interrupted earlier copy leaves an empty file behind; it is filled in.
     target.opfs.put('lingua-sql.db.wal', new Uint8Array());
 
     await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
     expect(target.localStorage.getItem('kept')).toBe('new');
     expect(target.localStorage.getItem('copied')).toBe('legacy');
-    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(16, 5));
+    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(64));
     expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(8));
-    expect(await marker()).toMatchObject({ localStorageKeys: 1, files: 1, fileBytes: 8 });
+    expect([...target.opfs.children.keys()].sort()).toEqual(['lingua-sql.db', 'lingua-sql.db.wal']);
+    expect(await marker()).toMatchObject({ localStorageKeys: 1, files: 2, fileBytes: 72 });
   });
 
   it('records a failure by code, retries, and stops after the attempt budget', async () => {
@@ -180,28 +187,72 @@ describe('renderer origin migration', () => {
     legacy.opfs.put('b.db', bytes(48));
     const originalRun = target.run.bind(target);
     let writables = 0;
-    target.run = code => {
-      if (code.includes('createWritable') && ++writables === 2) {
-        return Promise.reject(Object.assign(new Error('disk'), { name: 'QuotaExceededError' }));
-      }
-      return originalRun(code);
-    };
+    target.run = code =>
+      originalRun(
+        code.includes('createWritable') && ++writables === 2
+          ? code.replace('globalThis.__linguaOriginMigration =', `${QUOTA_EXCEEDED} globalThis.__linguaOriginMigration =`)
+          : code
+      );
     await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
     expect(await marker()).toMatchObject({
       state: 'failed',
       error: 'QuotaExceededError',
       localStorageCopied: true,
+      copiedFiles: [],
     });
+    // Nothing lands until every file is staged, and the staged copies are removed.
+    expect(target.opfs.children.size).toBe(0);
     target.run = originalRun;
     // Factory reset or Recovery clears origin storage, not the userData marker.
     target.localStorage.map.clear();
-    target.opfs.children.clear();
 
     await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
     expect(target.localStorage.length).toBe(0);
-    expect(target.opfs.file('a.db')).toBeUndefined();
+    expect(sameBytes(target.opfs.file('a.db')?.data, bytes(32))).toBe(true);
     expect(sameBytes(target.opfs.file('b.db')?.data, bytes(48))).toBe(true);
     expect(await marker()).toMatchObject({ state: 'done', attempts: 2 });
+
+    // Once copied, a file the user deletes stays deleted.
+    target.opfs.children.clear();
+    await writeFile(
+      path.join(userDataDir, ORIGIN_MIGRATION_MARKER),
+      JSON.stringify({ ...(await marker()), state: 'failed' })
+    );
+    await expect(migrate().run).resolves.toMatchObject({ status: 'empty' });
+    expect(target.opfs.children.size).toBe(0);
+  });
+
+  it('replaces a database the app created after a failed attempt with the legacy pair', async () => {
+    legacy.opfs.put('lingua-sql.db', bytes(64));
+    legacy.opfs.put('lingua-sql.db.wal', bytes(8, 3));
+    const originalRun = target.run.bind(target);
+    target.run = code =>
+      originalRun(
+        code.includes('lingua-sql.db.wal.lingua-migrating') && code.includes('createWritable')
+          ? code.replace('globalThis.__linguaOriginMigration =', `${QUOTA_EXCEEDED} globalThis.__linguaOriginMigration =`)
+          : code
+      );
+    await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
+    // The database alone never lands without its WAL.
+    expect(target.opfs.children.size).toBe(0);
+    target.run = originalRun;
+    // The app booted on the new origin and DuckDB created an empty database.
+    target.opfs.put('lingua-sql.db', bytes(4, 9));
+
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(64));
+    expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(8, 3));
+  });
+
+  it('copies localStorage before the file listing, so a listing failure keeps settings', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    legacy.opfs.put('a.db', bytes(32));
+    const originalRun = legacy.run.bind(legacy);
+    legacy.run = code =>
+      originalRun(code.includes('dir.entries()') ? code.replace('const files = [];', QUOTA_EXCEEDED) : code);
+    await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
+    expect(target.localStorage.getItem('lingua-settings')).toBe('legacy');
+    expect(await marker()).toMatchObject({ localStorageCopied: true, error: 'QuotaExceededError' });
   });
 
   it('spends an attempt before opening any page, so a crash mid-copy is counted', async () => {
@@ -226,6 +277,55 @@ describe('renderer origin migration', () => {
       localStorageKeys: 0,
       files: 1,
     });
+  });
+
+  it('drops a WAL the new origin wrote when legacy moves in a database without one', async () => {
+    legacy.opfs.put('lingua-sql.db', bytes(64));
+    target.opfs.put('lingua-sql.db', bytes(4, 9));
+    target.opfs.put('lingua-sql.db.wal', bytes(6, 5));
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(64));
+    expect(target.opfs.file('lingua-sql.db.wal')).toBeUndefined();
+  });
+
+  it('finishes every move once they start, even when the attempt is aborted', async () => {
+    legacy.opfs.put('lingua-sql.db', bytes(64));
+    legacy.opfs.put('lingua-sql.db.wal', bytes(8, 3));
+    const controller = new AbortController();
+    const originalRun = target.run.bind(target);
+    target.run = code => {
+      if (code.includes('.move(')) controller.abort();
+      return originalRun(code);
+    };
+    await migrate({ signal: controller.signal }).run;
+    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(64));
+    expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(8, 3));
+    expect([...target.opfs.children.keys()].sort()).toEqual(['lingua-sql.db', 'lingua-sql.db.wal']);
+  });
+
+  it('reports staged bytes against the total as the copy runs', async () => {
+    legacy.opfs.put('lingua-sql.db', bytes(ORIGIN_MIGRATION_CHUNK_BYTES + 5));
+    legacy.opfs.put('lingua-sql.db.wal', bytes(7));
+    const total = ORIGIN_MIGRATION_CHUNK_BYTES + 12;
+    const onProgress = vi.fn();
+    await expect(migrate({ onProgress }).run).resolves.toMatchObject({ status: 'migrated' });
+    const done = onProgress.mock.calls.map(([value, of]) => (expect(of).toBe(total), value));
+    expect(done).toEqual([...done].sort((a, b) => a - b));
+    expect(done.at(-1)).toBe(total);
+  });
+
+  it('tells the user to expect a retry, then that the copy gave up', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    const failingLoad = async (kind: 'legacy' | 'target') => {
+      if (kind === 'target') throw Object.assign(new Error('load'), { code: 'ERR_FAILED' });
+    };
+    const notices: Array<ReturnType<typeof storageMigrationNoticeFor>> = [];
+    for (let attempt = 1; attempt <= ORIGIN_MIGRATION_MAX_ATTEMPTS + 1; attempt += 1) {
+      notices.push(storageMigrationNoticeFor(await migrate({ load: failingLoad }).run));
+    }
+    expect(notices).toEqual(['retry', 'retry', 'final', null]);
+    target.localStorage.map.clear();
+    expect(storageMigrationNoticeFor(await migrate().run)).toBeNull();
   });
 
   it('treats an unreadable marker as no marker', async () => {

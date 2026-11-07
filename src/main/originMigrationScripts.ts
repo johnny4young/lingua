@@ -4,6 +4,8 @@
  * Arguments are spliced in with `call`, always as JSON.
  */
 
+export const STAGING_SUFFIX = '.lingua-migrating';
+
 /** Every key and value of the page's localStorage, or null when the page may not read it. */
 export const READ_LOCAL_STORAGE = `(() => {
   try {
@@ -31,7 +33,7 @@ export const WRITE_LOCAL_STORAGE = `((entries) => {
   return written;
 })`;
 
-/** Every file in the origin private file system, with its size. Skips Chromium swap files. */
+/** Every file in the origin private file system, with its size. Skips swap and staging files. */
 export const LIST_FILES = `(async () => {
   const files = [];
   const pending = [{ dir: await navigator.storage.getDirectory(), path: [] }];
@@ -39,7 +41,7 @@ export const LIST_FILES = `(async () => {
     const { dir, path } = pending.pop();
     for await (const [name, handle] of dir.entries()) {
       if (handle.kind === 'directory') pending.push({ dir: handle, path: [...path, name] });
-      else if (!name.endsWith('.crswap')) files.push({ path: [...path, name], size: (await handle.getFile()).size });
+      else if (!name.endsWith('.crswap') && !name.endsWith(${JSON.stringify(STAGING_SUFFIX)})) files.push({ path: [...path, name], size: (await handle.getFile()).size });
     }
   }
   return files;
@@ -99,6 +101,22 @@ export const ABORT_FILE = `(async () => {
   globalThis.__linguaOriginMigration = undefined;
   if (writable) await writable.abort();
 })()`;
+
+export const COMMIT_FILE = `(async (path, name) => {
+  const create = false;
+  ${OPEN_PARENT}
+  await (await dir.getFileHandle(path[path.length - 1])).move(name);
+})`;
+
+export const REMOVE_FILE = `(async (path) => {
+  const create = false;
+  try {
+    ${OPEN_PARENT}
+    await dir.removeEntry(path[path.length - 1]);
+  } catch (error) {
+    if (!error || error.name !== 'NotFoundError') throw error;
+  }
+})`;
 
 /** A call of one of the function scripts above. */
 export function call(script: string, ...args: unknown[]): string {

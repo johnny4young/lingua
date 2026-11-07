@@ -70,7 +70,8 @@ import {
   RENDERER_BLANK_URL,
   RENDERER_ENTRY_URL,
 } from './rendererProtocol';
-import { migrateRendererOrigin } from './originMigration';
+import { migrateRendererOrigin, storageMigrationNoticeFor } from './originMigration';
+import type { StorageMigrationNotice } from '../shared/ipcContract';
 import { openLegacyOriginPage, openTargetOriginPage } from './originMigrationPages';
 import {
   readBuildChannel,
@@ -85,6 +86,9 @@ registerRendererScheme(protocol);
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
 let rendererStorageMigration: Promise<void> | null = null;
+let storageMigrationNotice: StorageMigrationNotice | null = null;
+// Generous for a large SQL database, but a launch never waits on the copy forever.
+const ORIGIN_MIGRATION_DEADLINE_MS = 5 * 60_000;
 let initialized = false;
 let mainWindowReady = false;
 const deepLinkState = createDeepLinkRuntimeState();
@@ -181,21 +185,36 @@ const startup = createStartupGuard(
 );
 
 /** Runs before the first built-renderer load; a failure is logged and the app still opens. */
-function migrateRendererStorageOnce(signal: AbortSignal): Promise<void> {
+function migrateRendererStorageOnce(
+  window: BrowserWindow,
+  startupSignal: AbortSignal
+): Promise<void> {
+  const signal = AbortSignal.any([
+    startupSignal,
+    AbortSignal.timeout(ORIGIN_MIGRATION_DEADLINE_MS),
+  ]);
+  // The window stays hidden until the renderer loads; the Dock or taskbar shows the copy.
+  const progress = (fraction: number) => {
+    if (!window.isDestroyed()) window.setProgressBar(fraction);
+  };
   rendererStorageMigration ??= migrateRendererOrigin({
     userDataDir: app.getPath('userData'),
     openLegacy: () => openLegacyOriginPage(BrowserWindow, signal),
     openTarget: () => openTargetOriginPage(BrowserWindow, RENDERER_BLANK_URL, signal),
     flush: () => session.defaultSession.flushStorageData(),
+    onProgress: (done, total) => progress(total > 0 ? done / total : -1),
     signal,
-  }).then(
-    result => {
-      if (result.status === 'failed') {
-        console.warn(`[lingua] renderer storage migration failed: ${result.marker.error}`);
-      }
-    },
-    () => console.warn('[lingua] renderer storage migration failed')
-  );
+  })
+    .then(
+      result => {
+        storageMigrationNotice = storageMigrationNoticeFor(result);
+        if (result.status === 'failed') {
+          console.warn(`[lingua] renderer storage migration failed: ${result.marker.error}`);
+        }
+      },
+      () => console.warn('[lingua] renderer storage migration failed')
+    )
+    .finally(() => progress(-1));
   return rendererStorageMigration;
 }
 
@@ -279,7 +298,7 @@ const createWindow = async () => {
   try {
     const loadSignal = AbortSignal.any([startup.signal, closed.signal]);
     // The window already exists, so closing the hidden migration pages cannot end the app.
-    if (!rendererUrl) await migrateRendererStorageOnce(loadSignal);
+    if (!rendererUrl) await migrateRendererStorageOnce(window, loadSignal);
     await loadStartupRenderer(
       () => window.loadURL(rendererDocumentUrl),
       loadSignal,
@@ -330,6 +349,11 @@ function registerPrimaryInstance() {
   });
 
   typedHandle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
+  typedHandle('app:consume-storage-migration-notice', () => {
+    const notice = storageMigrationNotice;
+    storageMigrationNotice = null;
+    return notice;
+  });
   ipcMain.on('app:deep-link-renderer-ready', () => {
     markDeepLinkRendererReady(deepLinkState, true);
   });

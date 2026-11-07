@@ -552,6 +552,9 @@ interface LinguaAPI {
   platform: string;
   getSystemLanguages: () => Promise<string[]>;
   getAppInfo: () => Promise<AppInfo>;
+  consumeStorageMigrationNotice: () => Promise<
+    import('./shared/ipcContract').StorageMigrationNotice | null
+  >;
   openExternal: (url: string) => Promise<boolean>;
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
   /** Desktop-only encrypted secret vault; absent on web. */

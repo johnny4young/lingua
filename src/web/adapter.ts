@@ -204,6 +204,7 @@ const webLingua: LinguaAPI = {
   fs: webFsAdapter,
   updates: updateStub,
   plugins: pluginStub,
+  consumeStorageMigrationNotice: async () => null,
   deepLinks: {
     consumePending: async () => null,
     markReady: () => {},

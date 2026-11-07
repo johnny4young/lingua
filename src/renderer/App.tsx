@@ -30,6 +30,7 @@ import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
+import { useStorageMigrationNotice } from './hooks/useStorageMigrationNotice';
 import { useWhatsNewNotice } from './hooks/useWhatsNewNotice';
 import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
@@ -147,6 +148,7 @@ function AppChrome({
   // the same App-mount scope and runs independently of whether the
   // user opens Settings → Updates.
   useDownloadedUpdateNotice();
+  useStorageMigrationNotice();
   useWhatsNewNotice({
     currentVersion: appInfo?.version,
     hasHandledDeepLink,

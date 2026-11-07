@@ -4,7 +4,16 @@ import type { BrowserWindow, BrowserWindowConstructorOptions } from 'electron';
 /** In-memory origin private file system with the subset of the API the migration uses. */
 export class FakeFileHandle {
   readonly kind = 'file';
+  parent: FakeDirectoryHandle | null = null;
+  name = '';
   constructor(public data: Uint8Array = new Uint8Array()) {}
+  /** Replaces a file already at `name`, as Chromium's origin private file system does. */
+  async move(name: string) {
+    if (!this.parent) throw notFound();
+    this.parent.children.delete(this.name);
+    this.parent.children.set(name, this);
+    this.name = name;
+  }
   async getFile() {
     return new Blob([this.data.slice()]);
   }
@@ -39,10 +48,18 @@ export class FakeDirectoryHandle {
   }
   async getFileHandle(name: string, options: { create?: boolean } = {}) {
     let child = this.children.get(name);
-    if (!child && options.create) this.children.set(name, (child = new FakeFileHandle()));
+    if (!child && options.create) this.adopt(name, (child = new FakeFileHandle()));
     if (!child) throw notFound();
     if (child.kind !== 'file') throw new DOMException('directory', 'TypeMismatchError');
     return child;
+  }
+  async removeEntry(name: string) {
+    if (!this.children.delete(name)) throw notFound();
+  }
+  private adopt(name: string, file: FakeFileHandle) {
+    file.parent = this;
+    file.name = name;
+    this.children.set(name, file);
   }
   file(path: string): FakeFileHandle | undefined {
     const [head = '', ...rest] = path.split('/');
@@ -53,7 +70,7 @@ export class FakeDirectoryHandle {
   put(path: string, data: Uint8Array): void {
     const [head = '', ...rest] = path.split('/');
     if (rest.length === 0) {
-      this.children.set(head, new FakeFileHandle(data));
+      this.adopt(head, new FakeFileHandle(data));
       return;
     }
     let child = this.children.get(head);
@@ -121,7 +138,8 @@ export function fakeWindowClass(options: FakePagesOptions) {
       },
       executeJavaScript: (code: string) => {
         if (this.destroyed || !this.origin) return Promise.reject(new Error('no page'));
-        return this.origin.run(code);
+        // Like Electron, a page-side rejection reaches main without its name.
+        return this.origin.run(code).catch(() => Promise.reject({}));
       },
     };
     constructor(readonly options: BrowserWindowConstructorOptions) {

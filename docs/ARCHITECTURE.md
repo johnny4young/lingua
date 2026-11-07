@@ -2161,11 +2161,16 @@ a private temp folder reads the old origin, and a hidden page on
 `app://lingua/.lingua/blank.html` writes the new one; main drives both with
 constant scripts from `originMigrationScripts.ts`. It runs once per profile:
 `renderer-origin-migration.json` in `userData` records the result and counts.
-It never overwrites a key or a non-empty file the new origin holds, so a retry
-after a failure (three launches at most) cannot roll data back. The marker
-records the attempt before any page opens, so a crash spends one, and then each
-finished step, so a retry neither repeats it nor restores what a factory reset
-or Recovery cleared since. A failure is logged by code and the app opens anyway.
+`localStorage` goes first and never overwrites a key the new origin holds.
+Files are then staged under a `.lingua-migrating` name and moved in together
+once every one is staged, so the SQL database and its WAL land as a pair. Until
+they land, legacy wins: a retry (three launches at most) replaces a database
+the app created after a failed attempt. The marker records the attempt before
+any page opens, so a crash spends one, and then each finished step, so a retry
+neither repeats it nor restores what a factory reset or Recovery cleared since.
+The Dock or taskbar shows the copy's progress, and five minutes bound the
+whole attempt. A failure is logged by its error name, the app opens anyway, and
+the renderer shows a warning that says whether the next launch retries.
 
 The `file://` copy stays in place, so an older build still opens with it. It
 also means data cleared in the app afterwards still sits in that copy: env

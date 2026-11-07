@@ -1319,6 +1319,8 @@
   "updates.message.webUnavailable": "Automatic updates are not available in the web version.",
   "updates.notice.downloaded": "Update {{version}} is ready. Click Restart to install.",
   "updates.notice.downloadedGeneric": "Update is ready. Click Restart to install.",
+  "startup.storageMigration.retry": "Some data from the previous version was not moved. Lingua will try again on the next launch.",
+  "startup.storageMigration.final": "Some data from the previous version could not be moved. It is still on disk, and Lingua will not try again.",
   "updates.restart.disabledTooltip": "Available once a downloaded update is ready to install.",
   "updates.chip.ready": "Update ready",
   "plugins.title": "Plugins",

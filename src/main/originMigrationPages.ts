@@ -7,11 +7,13 @@ import {
   ABORT_FILE,
   BEGIN_FILE,
   call,
+  COMMIT_FILE,
   END_FILE,
   FILE_SIZE,
   LIST_FILES,
   READ_CHUNK,
   READ_LOCAL_STORAGE,
+  REMOVE_FILE,
   WRITE_CHUNK,
   WRITE_LOCAL_STORAGE,
 } from './originMigrationScripts';
@@ -23,6 +25,8 @@ type WindowFactory = new (options: BrowserWindowConstructorOptions) => BrowserWi
 
 interface StoragePage {
   evaluate: <T>(script: string) => Promise<T>;
+  /** Bounded by the step timeout only: a move or cleanup already sent finishes even after an abort. */
+  evaluateToEnd: <T>(script: string) => Promise<T>;
   close: () => void;
 }
 
@@ -79,10 +83,26 @@ async function openStoragePage(
     throw error;
   }
   return {
-    evaluate: <T>(script: string) =>
-      withTimeout(window.webContents.executeJavaScript(script) as Promise<T>, signal),
+    evaluate: <T>(script: string) => runSettled<T>(window, script, signal),
+    evaluateToEnd: <T>(script: string) => runSettled<T>(window, script),
     close,
   };
+}
+
+type SettledStep<T> = { value: T } | { name: string };
+
+async function runSettled<T>(window: BrowserWindow, script: string, signal?: AbortSignal): Promise<T> {
+  const result = await withTimeout(
+    window.webContents.executeJavaScript(settled(script)) as Promise<SettledStep<T>>,
+    signal
+  );
+  if ('value' in result) return result.value;
+  throw Object.assign(new Error('Origin page step failed'), { name: result.name });
+}
+
+// executeJavaScript rejects with neither name nor message, so the page reports the error name itself.
+function settled(script: string): string {
+  return `(async () => { try { return { value: await (${script}) }; } catch (error) { return { name: String((error && error.name) || 'Error') }; } })()`;
 }
 
 /** Reads the file:// origin through an empty page written to a private temp folder. */
@@ -125,6 +145,8 @@ export async function openTargetOriginPage(
       ),
     endFile: () => page.evaluate(END_FILE),
     abortFile: () => page.evaluate(ABORT_FILE),
+    commitFile: (filePath, name) => page.evaluateToEnd(call(COMMIT_FILE, filePath, name)),
+    removeFile: filePath => page.evaluateToEnd(call(REMOVE_FILE, filePath)),
     close: page.close,
   };
 }
