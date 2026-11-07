@@ -162,7 +162,8 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
         mode: local ? 'local' : 'remote',
         local: local ? { endpoint, model } : { endpoint: 'http://localhost:11434/v1/chat/completions', model: '' },
         remote: local ? { endpoint: '', model: '' } : { endpoint, model },
-        ...(local ? {} : state.apiKeyInVault === true ? { apiKeyInVault: true } : { remoteApiKey: apiKey }),
+        // A loopback endpoint takes no key, so one it kept in the vault is dropped on the next vault sync.
+        ...(local ? (state.apiKeyInVault === true ? { staleVaultKey: true } : {}) : state.apiKeyInVault === true ? { apiKeyInVault: true } : { remoteApiKey: apiKey }),
       };
     },
   },

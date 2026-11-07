@@ -98,6 +98,36 @@ describe('lingua-ai v1 upgrade', () => {
   });
 });
 
+describe('lingua-ai v1 loopback key left in the vault', () => {
+  const loopback = JSON.stringify({ state: { endpoint: 'http://localhost:11434/v1/chat/completions', apiKeyInVault: true, model: 'qwen' }, version: 1 });
+
+  it('drops the key a loopback endpoint kept in the vault, since the Local profile takes none', async () => {
+    vault.values.set('ai.api-key', 'placeholder');
+    localStorage.setItem('lingua-ai', loopback);
+    const { syncAiKeyWithVault, useAiConfigStore } = await bootAiStore();
+    await syncAiKeyWithVault();
+    expect(vault.values.has('ai.api-key')).toBe(false);
+    expect(useAiConfigStore.getState()).toMatchObject({ mode: 'local', apiKey: '', remoteApiKey: '' });
+    expect(persisted('lingua-ai')).not.toHaveProperty('staleVaultKey');
+  });
+
+  it('keeps the cleanup for a later boot when the vault is not ready yet', async () => {
+    vault.mode = 'session';
+    vault.values.set('ai.api-key', 'placeholder');
+    localStorage.setItem('lingua-ai', loopback);
+    const first = await bootAiStore();
+    await first.syncAiKeyWithVault();
+    first.useAiConfigStore.getState().setModel('qwen2');
+    expect(persisted('lingua-ai')).toMatchObject({ staleVaultKey: true });
+
+    vault.mode = 'encrypted';
+    const next = await bootAiStore();
+    await next.syncAiKeyWithVault();
+    expect(vault.values.has('ai.api-key')).toBe(false);
+    expect(next.useAiConfigStore.getState().remoteApiKey).toBe('');
+  });
+});
+
 describe('AI key in the secret vault', () => {
   it('moves a legacy plaintext key into the vault and out of localStorage', async () => {
     localStorage.setItem(
