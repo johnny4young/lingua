@@ -52,6 +52,8 @@ export interface AiConfigState {
   model: string;
   /** Persisted marker: the vault holds the key, so boot may load it from there. */
   readonly apiKeyInVault?: boolean;
+  /** Persisted until the vault is reachable: the vault holds a key no profile uses. */
+  readonly staleVaultKey?: boolean;
   setMode: (mode: AiMode) => void;
   /** Edit the active profile. */
   setEndpoint: (endpoint: string) => void;
@@ -144,6 +146,7 @@ export const useAiConfigStore = create<AiConfigState>()(
         mode: state.mode,
         local: state.local,
         remote: state.remote,
+        ...(state.staleVaultKey ? { staleVaultKey: true } : {}),
         // Before the vault check runs (a migration writes at once), keep its marker unless a key was typed.
         ...(vaultOwnsApiKey
           ? { apiKeyInVault: vaultHasKey }
@@ -174,6 +177,9 @@ export async function syncAiKeyWithVault(): Promise<void> {
   const status = await vault.status().catch(() => null);
   if (status?.mode !== 'encrypted') return;
   vaultReady = true;
+  if (useAiConfigStore.getState().staleVaultKey) {
+    if (await writeSecret(vault, AI_API_KEY_SECRET_ID, '')) useAiConfigStore.setState({ staleVaultKey: false });
+  }
   const { remoteApiKey: legacyKey, apiKeyInVault } = useAiConfigStore.getState();
   if (legacyKey) {
     if (await writeSecretVerified(vault, AI_API_KEY_SECRET_ID, legacyKey)) {

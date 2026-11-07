@@ -27,6 +27,8 @@ async function enableDependencyDetection(page: Page): Promise<void> {
 }
 
 async function replaceEditorText(page: Page, source: string): Promise<void> {
+  // Nothing is detected before the import is typed.
+  await expect(page.getByTestId('bottom-panel-dependencies-tab')).toHaveCount(0);
   await page
     .locator('.monaco-editor')
     .first()
@@ -36,11 +38,10 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
   await page.keyboard.insertText(source);
 }
 
+// The tab appears by itself once detection finds an import; the shortcut then focuses it.
 async function openDependenciesFromShortcut(page: Page): Promise<void> {
-  await expect(page.getByTestId('bottom-panel-dependencies-tab')).toHaveCount(0);
-  await page.waitForTimeout(700);
-  await page.keyboard.press('ControlOrMeta+Shift+J');
   await expect(page.getByTestId('bottom-panel-dependencies-tab')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+Shift+J');
   await expect(page.getByTestId('dependencies-panel')).toBeVisible();
 }
 
