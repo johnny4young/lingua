@@ -12,6 +12,7 @@ The format follows Keep a Changelog and groups changes by release.
 ### Fixed
 - The start page shows the Lingua initials, LG, as Settings › General does, instead of the old RL.
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
+- In the light theme, the guided tour dims the rest of the page; it used to wash it almost white.
 - The italic name of a SQL scratch tab no longer has its last character clipped beside the unsaved dot.
 - SQL Save as keeps the text you typed just before it. A quick Save as used to copy the query without its last keystrokes.
 - Running with no file open says so in your language in the Console, and Spanish copy reads Saltar for stepping over in the timeline and herramientas locales instead of toolchain.

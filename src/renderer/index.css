@@ -345,7 +345,8 @@
   --app-gradient-a: radial-gradient(circle at 12% 0%, oklch(0.52 0.18 210 / 0.1), transparent 34%);
   --app-gradient-b: radial-gradient(circle at 88% 12%, oklch(0.5 0.15 285 / 0.07), transparent 28%);
   --app-grid: oklch(0.16 0.012 210 / 0.06);
-  --tour-overlay: color-mix(in srgb, var(--app-background) 55%, transparent);
+  /* A scrim of the light background would brighten the page; dim it with the ink instead. */
+  --tour-overlay: color-mix(in srgb, var(--color-fg-base) 38%, transparent);
 }
 
 .dark,
