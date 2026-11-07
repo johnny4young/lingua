@@ -18,6 +18,15 @@ function resolve(
 }
 
 describe('executionControlPolicy', () => {
+  it('disables every action when no tab is open, and says to open a file', () => {
+    const policy = resolve({ noActiveTab: true, enabledBreakpointCount: 2 });
+    expect(policy.actions.run).toEqual({ disabled: true, reason: 'no-active-tab' });
+    expect(policy.actions.debug.reason).toBe('no-active-tab');
+    expect(policy.actions.scratchpad.reason).toBe('no-active-tab');
+    expect(executionDisabledTooltipKey('run', 'no-active-tab')).toBe('toolbar.run.noActiveTabTooltip');
+    expect(resolve().actions.run.disabled).toBe(false);
+  });
+
   it('disables every action while a desktop toolchain is missing, behind the license gate', () => {
     const policy = resolve({ language: 'go', isWebBuild: false, toolchainMissing: true });
     expect(policy.actions.run).toEqual({ disabled: true, reason: 'toolchain-missing' });

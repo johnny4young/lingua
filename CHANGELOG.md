@@ -17,6 +17,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Running with no file open says so in your language in the Console, and Spanish copy reads Saltar for stepping over in the timeline and herramientas locales instead of toolchain.
 - Inline values in the editor, from a run or a paused debugger, show bidi, zero-width and control characters as spaces, so a value cannot reorder or hide the code around it.
 - Switches that are off read clearly in both themes: their track now has at least 3:1 contrast against the panel, up from 2:1 in light and 2.5:1 in dark.
+- Run, Debug and Scratchpad are off on the start page, where no tab is open, and the tooltip says to open a file. Run used to stay on and only print No active file to run.
 
 ## [2.1.0] — 2026-11-06
 

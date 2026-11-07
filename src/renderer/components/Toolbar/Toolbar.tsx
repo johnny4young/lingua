@@ -109,6 +109,7 @@ export function Toolbar() {
     emptyWorkspace,
     enabledBreakpointCount,
     toolchainMissing,
+    noActiveTab: !activeTab,
   });
   const {
     executionMode,

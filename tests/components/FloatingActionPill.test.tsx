@@ -124,6 +124,14 @@ describe('FloatingActionPill', () => {
     expect(run.getAttribute('data-tour-id')).toBe('run-button');
   });
 
+  it('disables Run on the start page, where no tab is open', () => {
+    useEditorStore.setState({ tabs: [], activeTabId: null });
+    renderPill();
+    const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
+    expect(run.disabled).toBe(true);
+    expect(run.closest('[title]')?.getAttribute('title') ?? run.getAttribute('aria-label') ?? '').toContain('Open a file to run it.');
+  });
+
   it('pulses Run while the results are stale, but not while it runs', () => {
     useEditorStore.setState(state => ({ tabs: state.tabs.map(tab => ({ ...tab, workflowMode: 'run' as const })) }));
     useResultStore.setState({
