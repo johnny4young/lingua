@@ -32,7 +32,7 @@ export async function runActiveTab(
   if (!activeTab) {
     useConsoleStore.getState().addEntry({
       type: 'error',
-      content: 'No active file to run.',
+      content: i18next.t('runner.noActiveFile'),
     });
     return;
   }
@@ -88,7 +88,7 @@ async function executeTabById(
   if (!activeTab) {
     useConsoleStore.getState().addEntry({
       type: 'error',
-      content: 'No active file to run.',
+      content: i18next.t('runner.noActiveFile'),
     });
     return;
   }
