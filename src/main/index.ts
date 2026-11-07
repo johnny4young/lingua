@@ -1,8 +1,7 @@
 import { createStartupGuard, loadStartupRenderer, startupFailureMessage } from './startup';
-import { app, BrowserWindow, ipcMain, session, dialog, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, net, protocol, session, dialog, safeStorage } from 'electron';
 import { typedHandle } from './ipc/typedHandle';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
 import {
   consumePendingDeepLink,
@@ -66,6 +65,14 @@ import { registerLicenseHandlers } from './ipc/license';
 import { installOfflineSmokeFilter, isOfflineSmokeRequested } from './offlineSmoke';
 import { installDirtyCloseGuard } from './windowCloseGuard';
 import {
+  installRendererProtocol,
+  registerRendererScheme,
+  RENDERER_BLANK_URL,
+  RENDERER_ENTRY_URL,
+} from './rendererProtocol';
+import { migrateRendererOrigin } from './originMigration';
+import { openLegacyOriginPage, openTargetOriginPage } from './originMigrationPages';
+import {
   readBuildChannel,
   resolveUserDataOverride,
   resolveUserDataProfile,
@@ -73,8 +80,11 @@ import {
   type UserDataProfile,
 } from './userDataProfile';
 
+registerRendererScheme(protocol);
+
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
+let rendererStorageMigration: Promise<void> | null = null;
 let initialized = false;
 let mainWindowReady = false;
 const deepLinkState = createDeepLinkRuntimeState();
@@ -170,13 +180,31 @@ const startup = createStartupGuard(
   () => app.exit(1)
 );
 
+/** Runs before the first built-renderer load; a failure is logged and the app still opens. */
+function migrateRendererStorageOnce(signal: AbortSignal): Promise<void> {
+  rendererStorageMigration ??= migrateRendererOrigin({
+    userDataDir: app.getPath('userData'),
+    openLegacy: () => openLegacyOriginPage(BrowserWindow, signal),
+    openTarget: () => openTargetOriginPage(BrowserWindow, RENDERER_BLANK_URL, signal),
+    flush: () => session.defaultSession.flushStorageData(),
+    signal,
+  }).then(
+    result => {
+      if (result.status === 'failed') {
+        console.warn(`[lingua] renderer storage migration failed: ${result.marker.error}`);
+      }
+    },
+    () => console.warn('[lingua] renderer storage migration failed')
+  );
+  return rendererStorageMigration;
+}
+
 const createWindow = async () => {
   if (startup.signal.aborted) return;
   const rendererUrl = getTrustedRendererUrl(
     process.env.LINGUA_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
   );
-  const rendererFile = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
-  const rendererDocumentUrl = rendererUrl ?? pathToFileURL(rendererFile).href;
+  const rendererDocumentUrl = rendererUrl ?? RENDERER_ENTRY_URL;
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -195,8 +223,6 @@ const createWindow = async () => {
       sandbox: true,
       additionalArguments: desktopSmokeRendererArguments(),
       // Pin the Electron default so a future edit cannot silently disable it.
-      // It does not bring CORS to packaged builds: their file:// origin skips
-      // it (grantFileProtocolExtraPrivileges in electron-builder.yml).
       webSecurity: true,
     },
   });
@@ -251,9 +277,12 @@ const createWindow = async () => {
   });
 
   try {
+    const loadSignal = AbortSignal.any([startup.signal, closed.signal]);
+    // The window already exists, so closing the hidden migration pages cannot end the app.
+    if (!rendererUrl) await migrateRendererStorageOnce(loadSignal);
     await loadStartupRenderer(
-      () => (rendererUrl ? window.loadURL(rendererUrl) : window.loadFile(rendererFile)),
-      AbortSignal.any([startup.signal, closed.signal]),
+      () => window.loadURL(rendererDocumentUrl),
+      loadSignal,
       Boolean(rendererUrl)
     );
     if (startup.signal.aborted || window.isDestroyed()) return;
@@ -341,6 +370,11 @@ function registerPrimaryInstance() {
       // main-frame clipboard read/write grants in `permissionHandlers` are allowed;
       // media / geolocation / notifications / subframe requests / etc. are refused.
       installPermissionHandlers(session.defaultSession);
+      installRendererProtocol({
+        protocol,
+        net,
+        rendererRoot: path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`),
+      });
 
       // Install the offline-smoke webRequest filter
       // before any window loads, so the very first renderer request is

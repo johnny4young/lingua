@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Run after build:desktop-bundles. Uses actual main/preload, isolated profiles,
-// a loopback renderer fixture and the built file renderer; never the user's app.
+// a loopback renderer fixture and the built app-scheme renderer; never the user's app.
 import { _electron, expect } from '@playwright/test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -123,7 +123,7 @@ async function checkSandbox(page, label) {
 }
 
 try {
-  for (const mode of ['file', 'loopback']) {
+  for (const mode of ['app', 'loopback']) {
     const profile = await mkdtemp(path.join(artifacts, `${mode}-profile-`));
     let app;
     try {
@@ -147,7 +147,7 @@ try {
       });
       await page.getByTestId('app-chrome').waitFor({ timeout: 60_000 });
       const originalUrl = page.url();
-      assert.equal(new URL(originalUrl).protocol, mode === 'file' ? 'file:' : 'http:');
+      assert.equal(new URL(originalUrl).protocol, mode === 'app' ? 'app:' : 'http:');
       await app.evaluate(({ BrowserWindow }) => {
         globalThis.__navigationSmokeEvents = [];
         const contents = BrowserWindow.getAllWindows()[0].webContents;
@@ -176,7 +176,7 @@ try {
         });
         assert.equal(new URL(page.url()).hash, '#navigation-smoke');
         const targets =
-          mode === 'file'
+          mode === 'app'
             ? [
                 'file:///tmp/lingua-untrusted.html',
                 originalUrl.replace('index.html', 'other.html'),
@@ -189,9 +189,9 @@ try {
               ];
         for (const target of targets) {
           console.log('Navigation probe:', mode, language, target);
-          // Cross-scheme file links from HTTP are blocked by Chromium itself;
-          // keep that policy covered by unit tests without expecting our event.
-          if (mode === 'loopback' && target.startsWith('file:')) continue;
+          // Chromium itself blocks file links from a non-file document; keep
+          // that policy covered by unit tests without expecting our event.
+          if (target.startsWith('file:')) continue;
           const before = await app.evaluate(() => globalThis.__navigationSmokeEvents.length);
           await page.evaluate(target => {
             const a = document.createElement('a');

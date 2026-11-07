@@ -1,3 +1,5 @@
+import { DESKTOP_RENDERER_SCHEME } from '../shared/desktopRendererOrigin';
+
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 function parseUrl(value: string): URL | null {
@@ -41,10 +43,10 @@ export function isAllowedNavigationTarget(
   const document = trustedRendererUrl ? parseUrl(trustedRendererUrl) : null;
   if (!target || !document || target.username || target.password) return false;
 
-  // A packaged shell owns one document, not every file on the host. Dev
+  // The built renderer owns one document, not every file under its origin. Dev
   // servers likewise serve arbitrary files: same-origin is not sufficient.
   if (
-    document.protocol !== 'file:' &&
+    document.protocol !== `${DESKTOP_RENDERER_SCHEME}:` &&
     (!isTrustedRendererUrl(document.href) || !isTrustedRendererUrl(target.href))
   ) {
     return false;

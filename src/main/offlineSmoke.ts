@@ -25,6 +25,7 @@ const ALLOWED_PROTOCOLS = new Set([
   'data:',
   'blob:',
   'lingua:',
+  'app:',
   'lingua-asset:',
 ]);
 

@@ -15,7 +15,7 @@
       implementation — desktop CSP no longer allowlists
       cdn.jsdelivr.net. Pyodide assets ship inside the renderer
       output via build/copyRuntimeAssetsPlugin.mts and load from the
-      same origin as the renderer (file:// when packaged,
+      same origin as the renderer (app://lingua when packaged,
       http://localhost:5173 in dev). The web build self-hosts Pyodide
       too; see docs/RUNTIME_ASSETS_ADR.md.
 
@@ -25,8 +25,8 @@
       need renderer CSP room: they go through the SSRF-guarded main
       proxy (see docs/LOCAL_AI_ADR.md), so this page stays loopback-only.
 
-      This CSP binds the page only: a worker script on file:// has no response
-      headers, so code running in a worker is outside it (docs/ARCHITECTURE.md).
+      This CSP binds the page only: the app scheme sends worker scripts without
+      a CSP header, so code running in a worker is outside it (docs/ARCHITECTURE.md).
     -->
     <meta
       http-equiv="Content-Security-Policy"
@@ -40,8 +40,8 @@
       Constraints the markup can't show:
       - URLs are document-relative (./fonts/...) because this entry is
         served from several roots: dev http://localhost:5173 and the
-        packaged desktop build via file:// (loadFile in
-        src/main/index.ts). Absolute /fonts/ breaks under file://.
+        packaged desktop build on app://lingua (file:// in older builds,
+        where absolute /fonts/ broke).
       - @font-face lives inline (not in index.css) for the same reason:
         bundled CSS resolves relative url() against assets/, not the
         document, and Vite leaves absolute public-dir url() untouched.

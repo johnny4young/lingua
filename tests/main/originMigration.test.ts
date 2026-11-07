@@ -1,0 +1,263 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  migrateRendererOrigin,
+  ORIGIN_MIGRATION_CHUNK_BYTES,
+  ORIGIN_MIGRATION_MARKER,
+  ORIGIN_MIGRATION_MAX_ATTEMPTS,
+  type OriginMigrationMarker,
+} from '../../src/main/originMigration';
+import {
+  openLegacyOriginPage,
+  openTargetOriginPage,
+  ORIGIN_PAGE_STEP_TIMEOUT_MS,
+} from '../../src/main/originMigrationPages';
+import { FakeOrigin, fakeWindowClass, type FakePagesOptions } from '../__fixtures__/fakeOriginPages';
+
+const BLANK = 'app://lingua/.lingua/blank.html';
+
+let userDataDir: string;
+let legacy: FakeOrigin;
+let target: FakeOrigin;
+
+beforeEach(async () => {
+  userDataDir = await mkdtemp(path.join(os.tmpdir(), 'lingua-origin-test-'));
+  legacy = new FakeOrigin();
+  target = new FakeOrigin();
+});
+
+afterEach(async () => {
+  vi.useRealTimers();
+  await rm(userDataDir, { recursive: true, force: true });
+});
+
+function bytes(length: number, seed = 7): Uint8Array {
+  const out = new Uint8Array(length);
+  for (let index = 0; index < length; index += 1) out[index] = (index * seed + 3) % 251;
+  return out;
+}
+
+/** Byte equality; toEqual walks a typed array element by element and takes seconds at megabytes. */
+function sameBytes(actual: Uint8Array | undefined, expected: Uint8Array): boolean {
+  return actual !== undefined && Buffer.from(actual).equals(Buffer.from(expected));
+}
+
+function migrate(
+  options: Partial<FakePagesOptions> & { signal?: AbortSignal; flush?: () => void } = {}
+) {
+  const pages = fakeWindowClass({ legacy, target, ...options });
+  const flush = vi.fn(options.flush ?? (() => {}));
+  const run = migrateRendererOrigin({
+    userDataDir,
+    openLegacy: () => openLegacyOriginPage(pages.Window, options.signal),
+    openTarget: () => openTargetOriginPage(pages.Window, BLANK, options.signal),
+    flush,
+    signal: options.signal,
+  });
+  return { run, pages, flush };
+}
+
+async function marker(): Promise<OriginMigrationMarker> {
+  return JSON.parse(await readFile(path.join(userDataDir, ORIGIN_MIGRATION_MARKER), 'utf8'));
+}
+
+describe('renderer origin migration', () => {
+  it('records an empty legacy origin as done without opening the new one', async () => {
+    const { run, pages } = migrate();
+    await expect(run).resolves.toMatchObject({ status: 'empty' });
+    expect(pages.created).toHaveLength(1);
+    expect(pages.created[0]?.destroyed).toBe(true);
+    expect(target.scripts).toBe(0);
+    expect(await marker()).toMatchObject({
+      version: 1,
+      state: 'done',
+      attempts: 1,
+      localStorageKeys: 0,
+      files: 0,
+    });
+  });
+
+  it('copies localStorage and every origin file byte for byte, then closes both pages', async () => {
+    legacy.localStorage.setItem('lingua-settings', '{"state":{"language":"es"},"version":4}');
+    legacy.localStorage.setItem('lingua-ui:command-bar-docked', 'true');
+    legacy.localStorage.setItem('clave-ñ ✓', 'valor "con" comillas\n ');
+    const database = bytes(ORIGIN_MIGRATION_CHUNK_BYTES * 2 + 123);
+    legacy.opfs.put('lingua-sql.db', database);
+    legacy.opfs.put('lingua-sql.db.wal', bytes(10, 3));
+    legacy.opfs.put('nested/deeper/empty.bin', new Uint8Array());
+    legacy.opfs.put('lingua-sql.db.crswap', bytes(5));
+
+    const { run, pages, flush } = migrate();
+    const result = await run;
+
+    expect(result).toMatchObject({ status: 'migrated' });
+    expect(Object.fromEntries(target.localStorage.map)).toEqual(
+      Object.fromEntries(legacy.localStorage.map)
+    );
+    expect(sameBytes(target.opfs.file('lingua-sql.db')?.data, database)).toBe(true);
+    expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(10, 3));
+    expect(target.opfs.file('nested/deeper/empty.bin')?.data).toEqual(new Uint8Array());
+    expect(target.opfs.file('lingua-sql.db.crswap')).toBeUndefined();
+    expect(flush).toHaveBeenCalledTimes(1);
+    expect(pages.created).toHaveLength(2);
+    expect(pages.created.every(window => window.destroyed)).toBe(true);
+    expect(await marker()).toMatchObject({
+      state: 'done',
+      attempts: 1,
+      localStorageKeys: 3,
+      files: 3,
+      fileBytes: database.byteLength + 10,
+    });
+    // The legacy origin is a backup the migration never edits.
+    expect(legacy.localStorage.length).toBe(3);
+    expect(sameBytes(legacy.opfs.file('lingua-sql.db')?.data, database)).toBe(true);
+  });
+
+  it('runs once: a later launch neither opens pages nor touches the new origin', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'old');
+    await migrate().run;
+    target.localStorage.setItem('lingua-settings', 'changed after migration');
+
+    const again = migrate();
+    await expect(again.run).resolves.toEqual({ status: 'skipped' });
+    expect(again.pages.created).toHaveLength(0);
+    expect(target.localStorage.getItem('lingua-settings')).toBe('changed after migration');
+  });
+
+  it('never overwrites a key or a non-empty file the new origin already holds', async () => {
+    legacy.localStorage.setItem('kept', 'legacy');
+    legacy.localStorage.setItem('copied', 'legacy');
+    legacy.opfs.put('lingua-sql.db', bytes(64));
+    legacy.opfs.put('lingua-sql.db.wal', bytes(8));
+    target.localStorage.setItem('kept', 'new');
+    target.opfs.put('lingua-sql.db', bytes(16, 5));
+    // An interrupted earlier copy leaves an empty file behind; it is filled in.
+    target.opfs.put('lingua-sql.db.wal', new Uint8Array());
+
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(target.localStorage.getItem('kept')).toBe('new');
+    expect(target.localStorage.getItem('copied')).toBe('legacy');
+    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(16, 5));
+    expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(8));
+    expect(await marker()).toMatchObject({ localStorageKeys: 1, files: 1, fileBytes: 8 });
+  });
+
+  it('records a failure by code, retries, and stops after the attempt budget', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    const failingLoad = async (kind: 'legacy' | 'target') => {
+      if (kind === 'target') {
+        throw Object.assign(new Error('/Users/someone/private/path'), { code: 'ERR_FAILED' });
+      }
+    };
+
+    for (let attempt = 1; attempt <= ORIGIN_MIGRATION_MAX_ATTEMPTS; attempt += 1) {
+      const { run, pages } = migrate({ load: failingLoad });
+      await expect(run).resolves.toMatchObject({ status: 'failed' });
+      expect(pages.created.every(window => window.destroyed)).toBe(true);
+      const recorded = await marker();
+      expect(recorded).toMatchObject({ state: 'failed', attempts: attempt, error: 'ERR_FAILED' });
+      expect(JSON.stringify(recorded)).not.toContain('/Users/');
+    }
+    await expect(migrate().run).resolves.toEqual({ status: 'skipped' });
+  });
+
+  it('succeeds on a retry after a failed attempt', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    await writeFile(
+      path.join(userDataDir, ORIGIN_MIGRATION_MARKER),
+      JSON.stringify({ version: 1, state: 'failed', attempts: 1, error: 'ETIMEDOUT' })
+    );
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(await marker()).toMatchObject({ state: 'done', attempts: 2 });
+    expect(target.localStorage.getItem('lingua-settings')).toBe('legacy');
+  });
+
+  it('does not restore on a retry what the user cleared after a partial attempt', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    legacy.opfs.put('a.db', bytes(32));
+    legacy.opfs.put('b.db', bytes(48));
+    const originalRun = target.run.bind(target);
+    let writables = 0;
+    target.run = code => {
+      if (code.includes('createWritable') && ++writables === 2) {
+        return Promise.reject(Object.assign(new Error('disk'), { name: 'QuotaExceededError' }));
+      }
+      return originalRun(code);
+    };
+    await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
+    expect(await marker()).toMatchObject({
+      state: 'failed',
+      error: 'QuotaExceededError',
+      localStorageCopied: true,
+    });
+    target.run = originalRun;
+    // Factory reset or Recovery clears origin storage, not the userData marker.
+    target.localStorage.map.clear();
+    target.opfs.children.clear();
+
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(target.localStorage.length).toBe(0);
+    expect(target.opfs.file('a.db')).toBeUndefined();
+    expect(sameBytes(target.opfs.file('b.db')?.data, bytes(48))).toBe(true);
+    expect(await marker()).toMatchObject({ state: 'done', attempts: 2 });
+  });
+
+  it('spends an attempt before opening any page, so a crash mid-copy is counted', async () => {
+    vi.useFakeTimers();
+    const { run, pages } = migrate({ load: () => new Promise(() => {}) });
+    await vi.waitFor(() => expect(pages.created).toHaveLength(1));
+    expect(await marker()).toMatchObject({ state: 'failed', error: 'interrupted', attempts: 1 });
+    await vi.advanceTimersByTimeAsync(ORIGIN_PAGE_STEP_TIMEOUT_MS + 1);
+    await expect(run).resolves.toMatchObject({ status: 'failed' });
+  });
+
+  it('treats an unreadable marker as no marker', async () => {
+    await writeFile(path.join(userDataDir, ORIGIN_MIGRATION_MARKER), '{not json');
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(await marker()).toMatchObject({ state: 'done', attempts: 1 });
+  });
+
+  it('fails the attempt when a copy is cancelled, without a partial file', async () => {
+    legacy.opfs.put('lingua-sql.db', bytes(ORIGIN_MIGRATION_CHUNK_BYTES * 3));
+    const controller = new AbortController();
+    const originalRun = target.run.bind(target);
+    target.run = code => {
+      if (code.includes('__linguaOriginMigration.write(')) controller.abort();
+      return originalRun(code);
+    };
+    const { run } = migrate({ signal: controller.signal });
+    await expect(run).resolves.toMatchObject({ status: 'failed', marker: { error: 'AbortError' } });
+    expect(target.opfs.file('lingua-sql.db')?.data.byteLength ?? 0).toBe(0);
+  });
+
+  it('fails a stalled page step after the step timeout', async () => {
+    vi.useFakeTimers();
+    const { run, pages } = migrate({ load: () => new Promise(() => {}) });
+    await vi.waitFor(() => expect(pages.created).toHaveLength(1));
+    await vi.advanceTimersByTimeAsync(ORIGIN_PAGE_STEP_TIMEOUT_MS + 1);
+    await expect(run).resolves.toMatchObject({ status: 'failed', marker: { error: 'ETIMEDOUT' } });
+    expect(pages.created[0]?.destroyed).toBe(true);
+  });
+
+  it('opens sandboxed, hidden pages that cannot navigate or open windows', async () => {
+    legacy.localStorage.setItem('a', 'b');
+    const { run, pages } = migrate();
+    await run;
+    for (const window of pages.created) {
+      expect(window.options).toMatchObject({
+        show: false,
+        webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+      });
+      expect(window.options.webPreferences?.preload).toBeUndefined();
+      expect(window.openHandler?.()).toEqual({ action: 'deny' });
+      for (const name of ['will-navigate', 'will-redirect']) {
+        const preventDefault = vi.fn();
+        window.handlers.get(name)?.({ preventDefault });
+        expect(preventDefault).toHaveBeenCalled();
+      }
+    }
+  });
+});
