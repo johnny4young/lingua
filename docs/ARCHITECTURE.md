@@ -113,20 +113,40 @@ worker posts `network-request` and awaits `network-decision`; the runner pauses
 its kill timer while any question is open and re-arms the full budget once the
 last is answered, as for a debugger pause. Ruby's synchronous eval
 cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
-it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
+it does not wrap, such as a dynamic `import()` of a URL, is not stopped by it;
+packaged desktop builds close that one with a worker CSP, below.
 
 On packaged desktop builds the renderer and its workers run on the
 `app://lingua` origin (see § Desktop renderer origin), so CORS applies to their
-requests and Chromium refuses `file:` URLs, as in the web build. A worker's CSP
-comes from its script response and the protocol handler sends none, so the meta
-CSP in `index.html` binds the page and not the workers. Under Allow no guard
-runs: code reaches any host and reads what CORS lets it read. Send's protections
-in `httpProxy.ts` live in the main process and do not cover it. Under Ask and
-Block the guard refuses local URLs outside the renderer root, which it takes as
-the parent of the worker's own `assets/` folder. A dynamic `import()` still
-reaches any remote module, so Block is not a boundary for those. A per-response
-CSP on worker scripts would close that; `webRequest` sees a worker's http(s)
-requests but not its script.
+requests and Chromium refuses `file:` URLs, as in the web build. The meta CSP in
+`index.html` binds the page only, since a worker takes its CSP from its script
+response, so the protocol handler sends one with every JavaScript file
+(`src/main/workerCsp.ts`, by the built file's name). The JS/TS, Pyodide, Ruby
+WASM and Go workers may evaluate code and compile WebAssembly but load scripts
+only from the app or a blob: a dynamic `import()` or `importScripts()` of a
+remote URL, and a remote `FontFace` source, are refused in every mode, Allow
+included. The header is fixed for a worker's life while the network policy is
+chosen per run, so `connect-src` stays as wide as Allow (`https:`, `wss:`,
+`http:`, `ws:`; Chromium does not count plain http from the app origin as mixed
+content) and, in the JS/TS, Pyodide and Ruby workers, the guard decides each
+request. The Go worker has no guard. Under Allow no guard runs: code reaches any
+host and reads what CORS lets it read, and it can still fetch a script's text
+and evaluate it, so the CSP is no boundary against remote code there. Send's
+protections in `httpProxy.ts` live in the main process and do not cover it.
+Under Ask and Block the guard refuses local URLs outside the renderer root,
+which it takes as the parent of the worker's own `assets/` folder, and the CSP
+stops a remote script arriving by import. A JSON module import
+(`import(url, { with: { type: 'json' } })`) is checked against `connect-src`,
+not `script-src`, so it still reaches any host past the guard in every mode;
+only a stricter header per run would close that. DuckDB's worker keeps the wide
+`connect-src` for remote files but evaluates no JavaScript, and Monaco's
+workers and the diff and pipeline worker reach only the app. Every JavaScript
+file the scheme serves carries a policy: one the table does not list gets the
+runtime policy, whatever spelling of its URL loaded it.
+`tests/main/workerCsp.test.ts` fails when the renderer starts a worker entry the
+policy table does not list, and `scripts/smoke-worker-csp.mjs` checks the
+headers and their enforcement inside real workers. Development servers and the
+web build send no worker CSP.
 
 `ExecutionContext.blockNetwork` blocks every host for one run whatever the
 policy says; it can only tighten the policy, never loosen it. Edit with AI
@@ -2151,6 +2171,8 @@ file gets a network error, so a missing `index.html` fails startup with
 `renderer-load/ERR_FAILED` instead of rendering an error body. Development
 servers keep their loopback origin. The scheme is `app` because local model
 servers such as Ollama accept `app://*` by default; `lingua-app://` drew a 403.
+JavaScript responses carry a worker CSP header; see § Browser execution-worker
+boundaries.
 
 Chromium keys storage by origin, so `src/main/originMigration.ts` copies the
 renderer's `localStorage` and origin private file system (the persisted SQL

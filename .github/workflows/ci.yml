@@ -462,6 +462,19 @@ jobs:
             output/playwright/origin-migration/result.json
             output/playwright/origin-migration/migrated-es.png
           retention-days: 7
+      # The page CSP does not bind workers; this proves each worker script's own
+      # header arrives, Chromium enforces it, and every runtime still runs.
+      - name: Worker CSP smoke
+        run: node scripts/smoke-worker-csp.mjs
+      - name: Upload worker CSP smoke evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: worker-csp-smoke
+          path: |
+            output/playwright/worker-csp/*
+            !output/playwright/worker-csp/profile-*
+          retention-days: 7
       # The release runs this smoke only after signing and notarization, so a
       # renderer-gate regression otherwise surfaces at release time. An ad-hoc
       # signed --dir build exercises the same packaged app without secrets.

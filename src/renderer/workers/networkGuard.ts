@@ -14,6 +14,7 @@ import { DESKTOP_RENDERER_SCHEME } from '../../shared/desktopRendererOrigin';
  *
  * Best effort, not a sandbox: user code that reaches an API the guard does not
  * wrap (a dynamic `import()` of a URL or a local file, for one) is not stopped.
+ * Packaged desktop workers also carry a CSP header that refuses remote scripts.
  * The guard holds its own references to the built-ins it uses, so code that
  * replaces them cannot make a request read as local. While a policy is in force,
  * local URLs are limited to the app's own files.

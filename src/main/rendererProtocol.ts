@@ -7,6 +7,7 @@ import {
   DESKTOP_RENDERER_ORIGIN,
   DESKTOP_RENDERER_SCHEME,
 } from '../shared/desktopRendererOrigin';
+import { workerScriptCsp } from './workerCsp';
 
 export const RENDERER_ENTRY_URL = `${DESKTOP_RENDERER_ORIGIN}/index.html`;
 
@@ -108,12 +109,28 @@ export function createRendererProtocolHandler(args: {
     // startup dialog names; a rejected handler surfaces as ERR_UNEXPECTED instead.
     // Directories never reach the file loader, which would list them.
     if (!(await isFile(assetPath))) return Response.error();
+    let response: Response;
     try {
-      return await args.net.fetch(pathToFileURL(assetPath).href);
+      response = await args.net.fetch(pathToFileURL(assetPath).href);
     } catch {
       return Response.error();
     }
+    // Keyed on the file served, so every spelling of its URL gets the same policy.
+    const relative = path.relative(path.resolve(args.rendererRoot), assetPath).split(path.sep).join('/');
+    const csp = workerScriptCsp(relative);
+    return csp ? withHeader(response, 'content-security-policy', csp) : response;
   };
+}
+
+// A fetched response's headers are immutable.
+function withHeader(response: Response, name: string, value: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set(name, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 export function installRendererProtocol(args: {
