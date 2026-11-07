@@ -12,7 +12,7 @@ export const ORIGIN_MIGRATION_MARKER = 'renderer-origin-migration.json';
 export const ORIGIN_MIGRATION_MAX_ATTEMPTS = 3;
 export const ORIGIN_MIGRATION_CHUNK_BYTES = 1 << 20;
 
-export interface OriginFile {
+interface OriginFile {
   path: string[];
   size: number;
 }
