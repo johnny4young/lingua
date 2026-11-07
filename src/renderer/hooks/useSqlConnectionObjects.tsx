@@ -21,6 +21,7 @@ import { SqlRemoteTree } from '../components/SqlWorkspace/SqlRemoteTree';
 import { QUERYABLE_KINDS } from '../components/SqlWorkspace/sqlRemoteTreeModel';
 import { resolveShortcutDisplayPlatform } from '../data/keyboardShortcuts';
 import { sqlDbBridge } from '../runtime/sqlRemote';
+import { forgetSqlQueryRun } from './useSqlRunner';
 import { appPlatform } from '../utils/appPlatform';
 import { useProjectStore } from '../stores/projectStore';
 import { findConnection, keepsAskedSecret, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
@@ -88,7 +89,14 @@ export function useSqlConnectionObjects({
         createQuery();
         id = useWorkspaceSqlStore.getState().activeQueryId;
       }
-      if (id) useWorkspaceSqlStore.getState().updateQuery(id, { connectionId });
+      if (!id) return;
+      const store = useWorkspaceSqlStore.getState();
+      const previous = store.getQuery(id)?.connectionId;
+      store.updateQuery(id, { connectionId });
+      if (previous !== connectionId) {
+        store.clearHistory(id);
+        forgetSqlQueryRun(id);
+      }
     },
     [canLeave, createQuery]
   );

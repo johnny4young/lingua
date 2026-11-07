@@ -100,6 +100,8 @@ interface IpcInvokeContract {
   };
   'go:stop': { args: [runId: string]; result: { stopped: boolean } };
   'go:choose-binary': { args: []; result: ToolchainChooseResult };
+  'go:chosen-binary': { args: []; result: { path: string | null } };
+  'go:clear-binary': { args: []; result: { cleared: boolean } };
 
   // ----------------------------------------------------------- rust runner
   'rust:detect': {
@@ -117,6 +119,8 @@ interface IpcInvokeContract {
   };
   'rust:stop': { args: [runId: string]; result: { stopped: boolean } };
   'rust:choose-binary': { args: []; result: ToolchainChooseResult };
+  'rust:chosen-binary': { args: []; result: { path: string | null } };
+  'rust:clear-binary': { args: []; result: { cleared: boolean } };
 
   // ----------------------------------------------------------- ruby runner
   'ruby:detect': {
@@ -679,10 +683,14 @@ export const IPC_INVOKE_CHANNELS = [
   'go:compile',
   'go:stop',
   'go:choose-binary',
+  'go:chosen-binary',
+  'go:clear-binary',
   'rust:detect',
   'rust:run',
   'rust:stop',
   'rust:choose-binary',
+  'rust:chosen-binary',
+  'rust:clear-binary',
   'ruby:detect',
   'ruby:run',
   'ruby:stop',

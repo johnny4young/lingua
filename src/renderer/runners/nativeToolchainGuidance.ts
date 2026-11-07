@@ -1,3 +1,4 @@
+import type { ToolchainChooseResult } from '../../shared/toolchainBinary';
 import i18next from 'i18next';
 import { useUIStore } from '../stores/uiStore';
 
@@ -148,3 +149,15 @@ export function pushMissingNativeToolchainNotice(
     'nativeToolchain.missing.message'
   );
 }
+
+/** The command a Go or Rust pick must be named after. */
+export const NATIVE_TOOLCHAIN_COMMANDS: Record<'go' | 'rust', string> = { go: 'go', rust: 'rustc' };
+
+/** Copy for a Choose binary pick the main process turned down. */
+export const CHOOSE_BINARY_ERROR_KEYS: Record<Extract<ToolchainChooseResult, { status: 'invalid' }>['reason'], string> = {
+  'not-executable': 'nativeToolchain.choose.notExecutable',
+  'wrong-name': 'nativeToolchain.choose.wrongName',
+  blocked: 'nativeToolchain.choose.blocked',
+  'check-failed': 'nativeToolchain.choose.checkFailed',
+  'save-failed': 'nativeToolchain.choose.failed',
+};
