@@ -8,23 +8,28 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { constants } from 'node:fs';
 import { mkdir, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { totalmem } from 'node:os';
 import path from 'node:path';
 import type { DuckDBConnection, DuckDBInstance, DuckDBResult, DuckDBType } from '@duckdb/node-api';
 import { createRowAccumulator } from '../../shared/sqlResultRows';
 import { SQL_LOCAL_MAX_CONNECTIONS, SQL_LOCAL_MAX_READ_BYTES, SQL_LOCAL_MAX_STREAMS, type SqlLocalError, type SqlLocalOpened, type SqlLocalQueryResult, type SqlLocalStreamOpened } from '../../shared/sqlLocal';
 import type { SqlColumnMetadata, SqlStorageMode } from '../../shared/sqlWorkspace';
 import { cellConverter, columnsOf, rowsOf } from './cells';
+import { withoutFolder } from './messages';
 import type { LocalPaths, LocalRequest, LocalResponse } from './protocol';
 
 type NodeApi = Pick<typeof import('@duckdb/node-api'), 'DuckDBInstance'>;
 
 interface Stream {
   id: string;
+  owner: number;
   result: DuckDBResult;
   names: string[];
   converters: Array<ReturnType<typeof cellConverter>>;
+  /** Converted rows of the last chunk that did not fit the previous batch. */
+  pending: Array<Record<string, unknown>>;
 }
 
 interface Connection {
@@ -43,6 +48,8 @@ interface Engine {
   persistent: boolean;
   paths: LocalPaths;
   connections: Map<string, Connection>;
+  /** Bytes of each registered file, against the engine's quota. */
+  files: Map<string, number>;
 }
 
 class LocalError extends Error {
@@ -58,14 +65,18 @@ const gone = () => new LocalError('The SQL engine stopped. Run the query again t
 
 const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
-const home = homedir();
+/** One stream batch stays near this many bytes of JSON; a single larger row still goes alone. */
+const BATCH_BYTES = 8 * 1024 * 1024;
+/** Registered files one engine may hold at once. */
+const ENGINE_FILE_BYTES = 1024 * 1024 * 1024;
+const NO_FOLLOW_WRITE = constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0);
 
-/** DuckDB's message without the binding's prefix, the files folder WASM never shows, or the home folder. */
-function messageOf(error: unknown, filesDir?: string): string {
+/** DuckDB's message without the binding's prefix or the files folder WASM never shows; main hides the home folder. */
+function messageOf(error: unknown, filesDirs: readonly string[] = []): string {
   let message = error instanceof Error ? error.message : String(error);
   message = message.replace(/^Failed to extract statements: /, '');
-  if (filesDir) message = message.replaceAll(`${filesDir}${path.sep}`, '').replaceAll(`${filesDir}/`, '');
-  return home ? message.replaceAll(home, '~') : message;
+  for (const folder of filesDirs) message = withoutFolder(message, folder, '', true);
+  return message;
 }
 
 async function freshFolder(folder: string): Promise<void> {
@@ -99,7 +110,18 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     return entry;
   };
 
-  const filesDirOf = (connection: Connection) => engines.get(connection.engineId)?.paths.files;
+  const filesDirsOf = (owner: number) => [...engines.values()].filter(engine => engine.owner === owner).map(engine => engine.paths.files);
+  const filesDirOf = (connection: Connection) => {
+    const folder = engines.get(connection.engineId)?.paths.files;
+    return folder ? [folder] : [];
+  };
+  // Opens, terminations and releases run one at a time, so two opens never both claim the database file.
+  let lifecycle: Promise<unknown> = Promise.resolve();
+  const serially = <T>(work: () => Promise<T>): Promise<T> => {
+    const next = lifecycle.then(work, work);
+    lifecycle = next.catch(() => undefined);
+    return next;
+  };
 
   async function run<T>(entry: Connection, work: () => Promise<T>): Promise<T> {
     const pending = work();
@@ -158,7 +180,12 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     const config = {
       autoinstall_known_extensions: 'false',
       autoload_known_extensions: 'false',
+      // Persistent secrets live in a folder shared with the user's own DuckDB, outside every check.
+      allow_persistent_secrets: 'false',
       temp_directory: paths.temp,
+      // SQL cannot change these once the configuration locks, so they are set to app-sized values here.
+      memory_limit: `${Math.max(512, Math.floor(totalmem() / 2 / 1024 / 1024))}MiB`,
+      max_temp_directory_size: '16GiB',
     };
     let instance: DuckDBInstance | null = null;
     let storageMode: SqlStorageMode = 'memory';
@@ -187,7 +214,7 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     } finally {
       setup.closeSync();
     }
-    const engine: Engine = { id: randomUUID(), owner, instance, persistent: storageMode === 'opfs', paths, connections: new Map() };
+    const engine: Engine = { id: randomUUID(), owner, instance, persistent: storageMode === 'opfs', paths, connections: new Map(), files: new Map() };
     engines.set(engine.id, engine);
     return { engineId: engine.id, storageMode, version, filesDir: paths.files };
   }
@@ -230,12 +257,12 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
   async function stream(owner: number, connectionId: string, sql: string): Promise<SqlLocalStreamOpened> {
     const entry = connectionFor(owner, connectionId);
     dropStream(entry);
-    if (streams.size >= SQL_LOCAL_MAX_STREAMS) throw new LocalError('Too many open SQL results.');
+    if ([...streams.values()].filter(found => found.owner === owner).length >= SQL_LOCAL_MAX_STREAMS) throw new LocalError('Too many open SQL results.');
     return run(entry, async () => {
       const result = await entry.connection.stream(sql);
       const names = result.columnNames();
       const types = result.columnTypes();
-      const opened: Stream = { id: randomUUID(), result, names, converters: types.map(cellConverter) };
+      const opened: Stream = { id: randomUUID(), owner, result, names, converters: types.map(cellConverter), pending: [] };
       entry.stream = opened;
       streams.set(opened.id, { owner, connection: entry });
       return { streamId: opened.id, columns: columnsOf(names, types) };
@@ -248,12 +275,22 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     const entry = found.connection;
     const current = entry.stream!;
     return run(entry, async () => {
-      const chunk = await current.result.fetchChunk();
-      if (!chunk || chunk.rowCount === 0) {
-        if (entry.stream === current) dropStream(entry);
-        return null;
+      if (current.pending.length === 0) {
+        const chunk = await current.result.fetchChunk();
+        if (!chunk || chunk.rowCount === 0) {
+          if (entry.stream === current) dropStream(entry);
+          return null;
+        }
+        current.pending = rowsOf(current.names, current.converters, chunk.getRows());
       }
-      return rowsOf(current.names, current.converters, chunk.getRows());
+      // A chunk of wide rows crosses in several batches instead of one message of any size.
+      let bytes = 0;
+      let take = 0;
+      while (take < current.pending.length && (take === 0 || bytes < BATCH_BYTES)) {
+        bytes += JSON.stringify(current.pending[take]).length;
+        take += 1;
+      }
+      return current.pending.splice(0, take);
     });
   }
 
@@ -269,6 +306,13 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     return path.join(engine.paths.files, name);
   }
 
+  async function writeEngineFile(engine: Engine, name: string, bytes: Uint8Array): Promise<void> {
+    const used = [...engine.files.entries()].reduce((total, [file, size]) => (file === name ? total : total + size), 0);
+    if (used + bytes.byteLength > ENGINE_FILE_BYTES) throw new LocalError('The SQL engine holds too many registered files.');
+    await writeFile(fileIn(engine, name), bytes, { flag: NO_FOLLOW_WRITE });
+    engine.files.set(name, bytes.byteLength);
+  }
+
   async function readEngineFile(engine: Engine, name: string): Promise<Uint8Array> {
     const file = fileIn(engine, name);
     if ((await stat(file)).size > SQL_LOCAL_MAX_READ_BYTES) throw new LocalError('The file DuckDB wrote is too large to read back.');
@@ -279,7 +323,7 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
   async function handle(request: LocalRequest): Promise<unknown> {
     switch (request.type) {
       case 'open':
-        return open(request.owner, request.persist, request.paths);
+        return serially(() => open(request.owner, request.persist, request.paths));
       case 'connect':
         return connect(request.owner, request.engineId);
       case 'query':
@@ -296,23 +340,26 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
         return null;
       }
       case 'register-file':
-        await writeFile(fileIn(engineFor(request.owner, request.engineId), request.name), request.bytes);
+        await writeEngineFile(engineFor(request.owner, request.engineId), request.name, request.bytes);
         return null;
       case 'register-empty-file':
-        await writeFile(fileIn(engineFor(request.owner, request.engineId), request.name), new Uint8Array());
+        await writeEngineFile(engineFor(request.owner, request.engineId), request.name, new Uint8Array());
         return null;
-      case 'drop-file':
-        await rm(fileIn(engineFor(request.owner, request.engineId), request.name), { force: true });
+      case 'drop-file': {
+        const engine = engineFor(request.owner, request.engineId);
+        await rm(fileIn(engine, request.name), { force: true });
+        engine.files.delete(request.name);
         return null;
+      }
       case 'read-file':
         return readEngineFile(engineFor(request.owner, request.engineId), request.name);
       case 'terminate': {
         const engine = engines.get(request.engineId);
-        if (engine && engine.owner === request.owner) await closeEngine(engine);
+        if (engine && engine.owner === request.owner) await serially(() => closeEngine(engine));
         return null;
       }
       case 'release-owner':
-        await releaseOwner(request.owner);
+        await serially(() => releaseOwner(request.owner));
         return null;
       case 'clear-database':
         if ([...engines.values()].some(engine => engine.persistent)) throw new LocalError('The SQL database is in use.');
@@ -333,7 +380,8 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
         return { id: request.id, ok: true, result: await handle(request) };
       } catch (error) {
         const code = error instanceof LocalError ? error.code : undefined;
-        return { id: request.id, ok: false, error: { message: messageOf(error), ...(code ? { code } : {}) } };
+        const folders = 'owner' in request ? filesDirsOf(request.owner) : [];
+        return { id: request.id, ok: false, error: { message: messageOf(error, folders), ...(code ? { code } : {}) } };
       }
     },
     async dispose(): Promise<void> {

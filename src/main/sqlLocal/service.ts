@@ -6,10 +6,12 @@
  */
 
 import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
 import { rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { SqlLocalError, SqlLocalOpened, SqlLocalQueryResult, SqlLocalReply, SqlLocalStatus, SqlLocalStreamOpened } from '../../shared/sqlLocal';
 import { SqlHostError, type SqlHostSupervisor } from '../sqlHostSupervisor';
+import { withoutFolder } from './messages';
 import type { LocalPaths, LocalRequest } from './protocol';
 
 type SqlLocalHost = SqlHostSupervisor<LocalRequest, SqlLocalError>;
@@ -33,6 +35,8 @@ export interface SqlLocalServiceDeps {
   available: () => boolean;
 }
 
+const home = homedir();
+
 const unavailable: SqlLocalReply<never> = {
   ok: false,
   error: { message: 'This build does not include the native SQL engine.', code: 'unavailable' },
@@ -50,6 +54,8 @@ async function sizeOf(file: string): Promise<number> {
 export function createSqlLocalService(deps: SqlLocalServiceDeps) {
   const database = path.join(deps.root, 'lingua-sql.duckdb');
   let version: string | undefined;
+  /** Which window opened each engine, so a forced restart answers only to that window. */
+  const owners = new Map<string, number>();
 
   const pathsFor = (owner: number): LocalPaths => ({
     database,
@@ -62,7 +68,8 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
     try {
       return { ok: true, value: await deps.host.request<T>(body) };
     } catch (error) {
-      return { ok: false, error: error instanceof SqlHostError ? (error.detail as SqlLocalError) : { message: String(error) } };
+      const detail: SqlLocalError = error instanceof SqlHostError ? (error.detail as SqlLocalError) : { message: String(error) };
+      return { ok: false, error: { ...detail, message: home ? withoutFolder(detail.message, home, '~') : detail.message } };
     }
   }
 
@@ -71,7 +78,11 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
 
     async open(owner: number, persist: boolean): Promise<SqlLocalReply<SqlLocalOpened>> {
       const reply = await call<SqlLocalOpened>({ type: 'open', owner, persist, paths: pathsFor(owner) });
-      if (reply.ok) version = reply.value.version;
+      if (reply.ok) {
+        version = reply.value.version;
+        for (const [engineId, holder] of owners) if (holder === owner) owners.delete(engineId);
+        owners.set(reply.value.engineId, owner);
+      }
       return reply;
     },
     connect: (owner: number, engineId: string) => call<string>({ type: 'connect', owner, engineId }),
@@ -87,6 +98,8 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
 
     async terminate(owner: number, engineId: string, force: boolean): Promise<SqlLocalReply<null>> {
       // A statement that ignored Cancel holds a DuckDB thread; only a new process frees it.
+      if (owners.get(engineId) !== owner) return { ok: true, value: null };
+      owners.delete(engineId);
       if (force) {
         deps.host.restart();
         return { ok: true, value: null };
@@ -96,6 +109,7 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
 
     /** The renderer reloaded, navigated or closed: its engine and files go with it. */
     releaseOwner(owner: number): void {
+      for (const [engineId, holder] of owners) if (holder === owner) owners.delete(engineId);
       if (deps.host.isRunning()) void call<null>({ type: 'release-owner', owner });
     },
 

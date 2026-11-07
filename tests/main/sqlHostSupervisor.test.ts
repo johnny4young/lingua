@@ -88,4 +88,16 @@ describe('SQL host supervisor', () => {
     expect(child.kill).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
+
+  it('shapes the failure of requests a stopped host took down with it', async () => {
+    const child = new FakeChild();
+    const supervisor = createSqlHostSupervisor<{ id: number; type: string }, { message: string; code?: string }>(
+      () => child,
+      () => ({ message: 'The SQL engine stopped.', code: 'engine-gone' })
+    );
+    const pending = supervisor.request({ type: 'query' });
+    child.emit('exit', 134);
+    await expect(pending).rejects.toMatchObject({ detail: { message: 'The SQL engine stopped.', code: 'engine-gone' } });
+    expect(supervisor.isRunning()).toBe(false);
+  });
 });

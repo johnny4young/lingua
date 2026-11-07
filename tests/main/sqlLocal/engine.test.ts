@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSqlLocalEngine, type SqlLocalEngine } from '../../../src/main/sqlLocal/engine';
@@ -129,6 +129,47 @@ describe('native Local SQL engine', () => {
     } finally {
       server.close();
     }
+  });
+
+  it('refuses persistent secrets, so nothing lands in the shared ~/.duckdb folder', async () => {
+    const { query } = await openEngine();
+    const planted = path.join(homedir(), '.duckdb', 'stored_secrets', 'lingua_probe_planted.duckdb_secret');
+    await expect(query("CREATE PERSISTENT SECRET lingua_probe_planted (TYPE http, BEARER_TOKEN 'x')")).rejects.toThrow(/persistent secrets|disabled/i);
+    expect(existsSync(planted)).toBe(false);
+    // Secrets the user stored for their own DuckDB are not read either.
+    expect((await query("SELECT count(*)::INTEGER AS n FROM duckdb_secrets() WHERE persistent")).rows).toEqual([{ n: 0 }]);
+  });
+
+  it('gives the database file to one of two windows that open at the same time', async () => {
+    const [a, b] = await Promise.all([
+      ok<SqlLocalOpened>({ type: 'open', owner: 1, persist: true, paths: pathsFor(1) }),
+      ok<SqlLocalOpened>({ type: 'open', owner: 2, persist: true, paths: pathsFor(2) }),
+    ]);
+    expect([a.storageMode, b.storageMode].sort()).toEqual(['memory', 'opfs']);
+  });
+
+  it('splits a chunk of wide rows into byte-sized batches', async () => {
+    const owner = 1;
+    const { connectionId } = await openEngine(owner);
+    const opened = await ok<SqlLocalStreamOpened>({ type: 'stream', owner, connectionId, sql: "SELECT range AS n, repeat('x', 1000000) AS wide FROM range(20)" });
+    const sizes: number[] = [];
+    for (let batch = await ok<unknown[] | null>({ type: 'next', owner, streamId: opened.streamId }); batch; batch = await ok<unknown[] | null>({ type: 'next', owner, streamId: opened.streamId })) {
+      sizes.push(batch.length);
+    }
+    expect(sizes.reduce((total, size) => total + size, 0)).toBe(20);
+    expect(Math.max(...sizes)).toBeLessThan(20);
+  });
+
+  it('caps the registered files one engine holds', async () => {
+    const owner = 1;
+    const { opened } = await openEngine(owner);
+    const chunk = new Uint8Array(200 * 1024 * 1024);
+    for (let index = 0; index < 5; index += 1) {
+      await ok({ type: 'register-file', owner, engineId: opened.engineId, name: `lingua_import_cap${index}.csv`, bytes: chunk });
+    }
+    expect((await failure({ type: 'register-file', owner, engineId: opened.engineId, name: 'lingua_import_cap5.csv', bytes: chunk })).message).toMatch(/too many registered files/);
+    await ok({ type: 'drop-file', owner, engineId: opened.engineId, name: 'lingua_import_cap0.csv' });
+    await ok({ type: 'register-file', owner, engineId: opened.engineId, name: 'lingua_import_cap5.csv', bytes: chunk });
   });
 
   it('reads and writes registered files by absolute path and drops them', async () => {
