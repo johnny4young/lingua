@@ -218,7 +218,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
               <Tooltip
                 key={id}
                 content={t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues)}
-                side="bottom"
+                side="top"
               >
                 <button
                   type="button"

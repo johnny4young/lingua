@@ -9,6 +9,7 @@ import type { SqlDbBridge, SqlDbFixHint, SqlDbRunResult } from '../../shared/sql
 import type { DuckDbExecuteOutcome, SqlResultCursor } from './duckdbClient';
 import { appPlatform } from '../utils/appPlatform';
 import { createWebSqlDb } from './sqlWebDb';
+import i18next from 'i18next';
 
 export type RemoteOutcome = DuckDbExecuteOutcome & { engine: SqlRemoteEngine; fix?: SqlDbFixHint; affectedRows?: number };
 
@@ -21,22 +22,25 @@ export const sqlDbBridge = (): SqlDbBridge | null =>
 const PAGE_BYTES = 64 * 1024 * 1024;
 
 function cursorFor(db: SqlDbBridge, runId: string): SqlResultCursor {
-  let closed = false;
+  // `done` read the whole result; `closed` stopped early, by close() or a failed read.
+  let state: 'open' | 'done' | 'closed' = 'open';
+  const closedError = () => new Error(i18next.t('sqlWorkspace.result.closed'));
   return {
     async next(limit, maxBytes = PAGE_BYTES) {
-      if (closed) return { rows: [], done: true, bytes: 0 };
+      if (state === 'done') return { rows: [], done: true, bytes: 0 };
+      // A read after an early stop throws too, so a partial result never passes for a whole one.
+      if (state === 'closed') throw closedError();
       const page = await db.fetch(runId, Math.max(1, Math.min(limit, 10_000)), Math.max(1, Math.min(maxBytes, PAGE_BYTES)));
-      // A failed read throws, so a partial result never passes for a whole one.
       if (page.errorMessage) {
-        closed = true;
-        throw new Error(page.errorMessage);
+        state = 'closed';
+        throw page.closed ? closedError() : new Error(page.errorMessage);
       }
-      if (page.done) closed = true;
+      if (page.done) state = 'done';
       return { rows: page.rows, done: page.done, bytes: page.bytes };
     },
     async close() {
-      if (closed) return;
-      closed = true;
+      if (state !== 'open') return;
+      state = 'closed';
       await db.closeRun(runId).catch(() => undefined);
     },
   };
