@@ -65,14 +65,14 @@ describe('main go compiler helpers', () => {
 
   // These errors reach the Console, so they must not carry the GOROOT or any checked path.
   it('says the runtime is missing without naming a local path', async () => {
-    const error = await readWasmExecJs(tempRoot).catch((caught: unknown) => caught as Error);
+    const error = (await readWasmExecJs(tempRoot).catch((caught: unknown) => caught)) as Error;
     expect(error.message).toBe('wasm_exec.js was not found in the Go installation (2 locations checked).');
     expect(error.message).not.toContain(tempRoot);
   });
 
   it('names only the error code when the runtime cannot be read', async () => {
     await mkdir(path.join(tempRoot, 'lib', 'wasm', 'wasm_exec.js'), { recursive: true });
-    const error = await readWasmExecJs(tempRoot).catch((caught: unknown) => caught as Error);
+    const error = (await readWasmExecJs(tempRoot).catch((caught: unknown) => caught)) as Error;
     expect(error.message).toBe('Failed to read wasm_exec.js from the Go installation (EISDIR).');
     expect(error.message).not.toContain(tempRoot);
   });
