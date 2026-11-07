@@ -41,6 +41,7 @@ planning is intentionally excluded from the published repository.
 - [`PYTHON_NOTEBOOK_KERNEL_ADR.md`](./PYTHON_NOTEBOOK_KERNEL_ADR.md) — per-notebook Python state and isolation.
 - [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) — vendored runtime integrity and remote oversized assets.
 - [`RUNTIME_MODES_ADR.md`](./RUNTIME_MODES_ADR.md) — worker, desktop Node, Deno, Bun, and browser-preview execution.
+- [`SQL_LOCAL_NATIVE_ADR.md`](./SQL_LOCAL_NATIVE_ADR.md) — native DuckDB for Local SQL on desktop, its sandbox and WASM fallback.
 - [`STATUS_NOTICE_PRIORITY_ADR.md`](./STATUS_NOTICE_PRIORITY_ADR.md) — deterministic status-notice priority.
 - [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md) — retained Electron versus Tauri feasibility findings.
 - [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md) — Vim-mode integration.
