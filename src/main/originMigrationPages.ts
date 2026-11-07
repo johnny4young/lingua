@@ -79,10 +79,23 @@ async function openStoragePage(
     throw error;
   }
   return {
-    evaluate: <T>(script: string) =>
-      withTimeout(window.webContents.executeJavaScript(script) as Promise<T>, signal),
+    evaluate: async <T>(script: string) => {
+      const result = (await withTimeout(
+        window.webContents.executeJavaScript(settled(script)) as Promise<SettledStep<T>>,
+        signal
+      )) as SettledStep<T>;
+      if ('value' in result) return result.value;
+      throw Object.assign(new Error('Origin page step failed'), { name: result.name });
+    },
     close,
   };
+}
+
+type SettledStep<T> = { value: T } | { name: string };
+
+// executeJavaScript rejects with neither name nor message, so the page reports the error name itself.
+function settled(script: string): string {
+  return `(async () => { try { return { value: await (${script}) }; } catch (error) { return { name: String((error && error.name) || 'Error') }; } })()`;
 }
 
 /** Reads the file:// origin through an empty page written to a private temp folder. */

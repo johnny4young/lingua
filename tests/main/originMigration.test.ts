@@ -17,6 +17,7 @@ import {
 import { FakeOrigin, fakeWindowClass, type FakePagesOptions } from '../__fixtures__/fakeOriginPages';
 
 const BLANK = 'app://lingua/.lingua/blank.html';
+const QUOTA_EXCEEDED = "throw Object.assign(new Error('disk'), { name: 'QuotaExceededError' });";
 
 let userDataDir: string;
 let legacy: FakeOrigin;
@@ -180,12 +181,12 @@ describe('renderer origin migration', () => {
     legacy.opfs.put('b.db', bytes(48));
     const originalRun = target.run.bind(target);
     let writables = 0;
-    target.run = code => {
-      if (code.includes('createWritable') && ++writables === 2) {
-        return Promise.reject(Object.assign(new Error('disk'), { name: 'QuotaExceededError' }));
-      }
-      return originalRun(code);
-    };
+    target.run = code =>
+      originalRun(
+        code.includes('createWritable') && ++writables === 2
+          ? code.replace('globalThis.__linguaOriginMigration =', `${QUOTA_EXCEEDED} globalThis.__linguaOriginMigration =`)
+          : code
+      );
     await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
     expect(await marker()).toMatchObject({
       state: 'failed',
@@ -202,6 +203,17 @@ describe('renderer origin migration', () => {
     expect(target.opfs.file('a.db')).toBeUndefined();
     expect(sameBytes(target.opfs.file('b.db')?.data, bytes(48))).toBe(true);
     expect(await marker()).toMatchObject({ state: 'done', attempts: 2 });
+  });
+
+  it('copies localStorage before the file listing, so a listing failure keeps settings', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    legacy.opfs.put('a.db', bytes(32));
+    const originalRun = legacy.run.bind(legacy);
+    legacy.run = code =>
+      originalRun(code.includes('dir.entries()') ? code.replace('const files = [];', QUOTA_EXCEEDED) : code);
+    await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
+    expect(target.localStorage.getItem('lingua-settings')).toBe('legacy');
+    expect(await marker()).toMatchObject({ localStorageCopied: true, error: 'QuotaExceededError' });
   });
 
   it('spends an attempt before opening any page, so a crash mid-copy is counted', async () => {

@@ -45,6 +45,7 @@ describe('resolveRendererAssetPath', () => {
     ['app://lingua/', 'index.html'],
     ['app://lingua/assets/main-abc.js?v=1#x', 'assets/main-abc.js'],
     ['app://lingua/pyodide/pyodide%20asm.wasm', 'pyodide/pyodide asm.wasm'],
+    ['app://lingua/..vendor.js', '..vendor.js'],
     // The URL parser removes dot segments, encoded ones included, before the handler sees them.
     ['app://lingua/../../etc/passwd', 'etc/passwd'],
     ['app://lingua/%2e%2e/%2e%2e/secret', 'secret'],

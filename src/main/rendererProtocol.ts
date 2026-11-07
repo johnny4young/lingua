@@ -76,7 +76,14 @@ export function resolveRendererAssetPath(
   const root = pathApi.resolve(rendererRoot);
   const candidate = pathApi.resolve(root, pathname === '/' ? 'index.html' : `.${pathname}`);
   const relative = pathApi.relative(root, candidate);
-  if (!relative || relative.startsWith('..') || pathApi.isAbsolute(relative)) return null;
+  if (
+    !relative ||
+    relative === '..' ||
+    relative.startsWith(`..${pathApi.sep}`) ||
+    pathApi.isAbsolute(relative)
+  ) {
+    return null;
+  }
   return candidate;
 }
 

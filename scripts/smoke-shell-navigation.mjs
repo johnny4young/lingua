@@ -189,9 +189,31 @@ try {
               ];
         for (const target of targets) {
           console.log('Navigation probe:', mode, language, target);
-          // Chromium itself blocks file links from a non-file document; keep
-          // that policy covered by unit tests without expecting our event.
-          if (target.startsWith('file:')) continue;
+          // Chromium blocks file links from a non-file document before our
+          // event fires, so assert the page stayed instead.
+          if (target.startsWith('file:')) {
+            const errorsBefore = errors.length;
+            await page.evaluate(target => {
+              const a = document.createElement('a');
+              a.href = target;
+              document.body.append(a);
+              a.click();
+              a.remove();
+            }, target);
+            await page.waitForTimeout(1_000);
+            assert.equal(page.url(), `${originalUrl}#navigation-smoke`);
+            assert(
+              await page.evaluate(() =>
+                Boolean(document.querySelector('[data-testid="app-chrome"]'))
+              )
+            );
+            // Chromium's refusal is the one console error this probe may add.
+            assert.deepEqual(errors.splice(errorsBefore), [
+              `Not allowed to load local resource: ${target}`,
+            ]);
+            results.push({ mode, language, target, event: 'blocked-by-chromium' });
+            continue;
+          }
           const before = await app.evaluate(() => globalThis.__navigationSmokeEvents.length);
           await page.evaluate(target => {
             const a = document.createElement('a');
@@ -255,7 +277,7 @@ try {
   }
   await writeFile(path.join(artifacts, 'result.json'), JSON.stringify(results, null, 2));
   console.log(
-    'Shell security smoke passed: file + loopback, EN/ES, hashed shell CSP, independent opaque sandbox execution, exact-document reload/hash, denied foreign document/query and server redirect, zero console errors.'
+    'Shell security smoke passed: app + loopback, EN/ES, hashed shell CSP, independent opaque sandbox execution, exact-document reload/hash, denied foreign document/query and server redirect, zero console errors.'
   );
 } finally {
   server.closeAllConnections();

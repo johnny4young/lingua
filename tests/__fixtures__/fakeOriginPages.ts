@@ -118,7 +118,8 @@ export function fakeWindowClass(options: FakePagesOptions) {
       },
       executeJavaScript: (code: string) => {
         if (this.destroyed || !this.origin) return Promise.reject(new Error('no page'));
-        return this.origin.run(code);
+        // Like Electron, a page-side rejection reaches main without its name.
+        return this.origin.run(code).catch(() => Promise.reject({}));
       },
     };
     constructor(readonly options: BrowserWindowConstructorOptions) {

@@ -158,18 +158,22 @@ export async function migrateRendererOrigin(
   try {
     await writeMarker(markerPath, marker);
     legacy = await deps.openLegacy();
-    const entries = marker.localStorageCopied ? [] : await legacy.readLocalStorage();
+    // Settings go first, so a failed file step cannot leave the app to boot on defaults.
+    if (!marker.localStorageCopied) {
+      const entries = await legacy.readLocalStorage();
+      if (entries.length > 0) {
+        target = await deps.openTarget();
+        marker.localStorageKeys = await target.writeLocalStorage(entries);
+        await deps.flush();
+      }
+      marker.localStorageCopied = true;
+      await writeMarker(markerPath, marker);
+    }
     const files = (await legacy.listFiles()).filter(
       file => !marker.copiedFiles.includes(file.path.join('/'))
     );
-    const empty = entries.length === 0 && files.length === 0;
-    if (!empty) target = await deps.openTarget();
-    if (target && !marker.localStorageCopied) {
-      marker.localStorageKeys = await target.writeLocalStorage(entries);
-      await deps.flush();
-    }
-    marker.localStorageCopied = true;
-    await writeMarker(markerPath, marker);
+    if (files.length > 0) target ??= await deps.openTarget();
+    const empty = !target;
     for (const file of files) {
       deps.signal?.throwIfAborted();
       if (target && ((await target.fileSize(file.path)) ?? 0) === 0) {
