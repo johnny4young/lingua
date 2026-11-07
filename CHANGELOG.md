@@ -21,6 +21,7 @@ The format follows Keep a Changelog and groups changes by release.
 - On desktop, a key that an older build kept in the system keychain for a local AI server, which takes none, is removed the next time the keychain is reachable.
 - Inline values in the editor, from a run or a paused debugger, show bidi, zero-width and control characters as spaces, so a value cannot reorder or hide the code around it.
 - On desktop, a Go run whose installation lacks wasm_exec.js or cannot read it says so in the Console without printing the Go installation path or the paths it checked.
+- Stop while held HTTP requests replay after the connection returns ends the replay; the requests not sent yet wait for Send now instead of going out one after another.
 - Switches that are off read clearly in both themes: their track now has at least 3:1 contrast against the panel, up from 2:1 in light and 2.5:1 in dark.
 - Run, Debug and Scratchpad are off on the start page, where no tab is open, and the tooltip says to open a file. Run used to stay on and only print No active file to run.
 

@@ -160,6 +160,28 @@ describe('useHttpOfflineSend', () => {
     expect(useHttpOfflineQueue.getState().queued).toEqual({});
   });
 
+  it('stops replaying on Stop and leaves the reads not sent yet for Send now', async () => {
+    const reads = ['a', 'b', 'c'].map((id) => request(id, `https://api.example.com/${id}`));
+    useWorkspaceToolStore.setState({ requests: reads });
+    for (const read of reads) useHttpOfflineQueue.getState().enqueue(read.id);
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const send = vi.fn(async (candidate: HttpRequestV1) => {
+      if (candidate.id === 'a') await pending;
+      return null;
+    });
+    let stop!: () => void;
+    await act(async () => {
+      const { result } = renderHook(() => useHttpOfflineSend(send));
+      stop = () => result.current.stopDrain();
+    });
+    stop();
+    await act(async () => release());
+    expect(send.mock.calls.map(([candidate]) => candidate.id)).toEqual(['a']);
+    expect(useHttpOfflineQueue.getState().queued).toEqual({ b: { ready: true }, c: { ready: true } });
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.offline.waiting', values: { count: 2 } });
+  });
+
   it('stops a drain whose panel unmounted before taking new entries', async () => {
     const first = request('first', 'https://api.example.com/a');
     const second = request('second', 'https://api.example.com/b');
