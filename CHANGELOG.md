@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Fixed
+- SQL Save as keeps the text you typed just before it. A quick Save as used to copy the query without its last keystrokes.
+
 ## [2.1.0] — 2026-11-06
 
 ### Changed
