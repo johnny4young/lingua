@@ -24,7 +24,8 @@ test.describe('compare with last stable run ', () => {
     page,
   }) => {
     test.setTimeout(45_000);
-    await seedSession(page, { language: 'en' });
+    // Scratchpad would run the welcome file on load, and that clean JavaScript run already enables Compare.
+    await seedSession(page, { language: 'en', workflowModeDefaultsByLanguage: { javascript: 'run' } });
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);

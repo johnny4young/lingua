@@ -156,6 +156,20 @@ describe('runChatCompletion', () => {
     }
   });
 
+  it('shows only the title of an HTML error page, never its markup', async () => {
+    const page = '<!DOCTYPE html><html><head><title> 502 Bad\n Gateway </title></head><body><h1>nginx</h1></body></html>';
+    const html = (body: string) =>
+      vi.fn(async () => new Response(body, { status: 502, headers: { 'content-type': 'text/html; charset=utf-8' } })) as unknown as typeof fetch;
+    const titled = await runChatCompletion(request, config, { fetchImpl: html(page) });
+    expect(titled.ok === false && titled.message).toBe('AI endpoint returned 502: HTML page "502 Bad Gateway"');
+    const untitled = await runChatCompletion(request, config, { fetchImpl: html('<html><body>down</body></html>') });
+    expect(untitled.ok === false && untitled.message).toBe('AI endpoint returned 502: an HTML page');
+    // A markup-looking body without an HTML content type is still caught by its doctype.
+    const sniffed = vi.fn(async () => new Response(page, { status: 502 })) as unknown as typeof fetch;
+    const sniffedResult = await runChatCompletion(request, config, { fetchImpl: sniffed });
+    expect(sniffedResult.ok === false && sniffedResult.message).not.toContain('<');
+  });
+
   it('classifies a 500 as http', async () => {
     const fetchImpl = vi.fn(async () =>
       new Response('boom', { status: 500 })
