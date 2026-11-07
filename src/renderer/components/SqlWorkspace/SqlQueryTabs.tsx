@@ -60,7 +60,8 @@ export function SqlQueryTabs({
                 {tab.id === runningId ? (
                   <Loader2 size={10} aria-hidden="true" className="shrink-0 animate-spin text-accent" />
                 ) : null}
-                <span className={cn('min-w-0 truncate', tab.kind === 'scratch' && 'italic')}>{name}</span>
+                {/* Truncation clips, so an italic name keeps room for its last glyph's slant. */}
+                <span className={cn('min-w-0 truncate', tab.kind === 'scratch' && 'pr-0.5 italic')}>{name}</span>
                 {unsaved ? (
                   <span
                     data-testid="sql-query-tab-unsaved"

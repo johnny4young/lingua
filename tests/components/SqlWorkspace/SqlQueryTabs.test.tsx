@@ -35,6 +35,24 @@ describe('SqlQueryTabs', () => {
     expect(other!.dataset.env).toBeUndefined();
   });
 
+  it('pads an italic scratch name so truncation does not clip its last glyph', () => {
+    render(
+      <SqlQueryTabs
+        tabs={[{ ...tab('Scratch 1'), kind: 'scratch' } as SqlQueryV1, tab('Report')]}
+        activeId="Scratch 1"
+        runningId={null}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onCreate={vi.fn()}
+        freeHint={null}
+      />
+    );
+    const scratch = screen.getByText('Scratch 1');
+    expect(scratch.className).toContain('italic');
+    expect(scratch.className).toContain('pr-0.5');
+    expect(screen.getByText('Report').className).not.toContain('italic');
+  });
+
   it('draws no environment colour on Local or a connection without an environment', () => {
     expect(renderTabs()[0]!.className).not.toContain('border-t-2');
     expect(renderTabs('none')[0]!.className).not.toContain('border-t-2');
