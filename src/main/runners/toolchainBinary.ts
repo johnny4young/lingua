@@ -80,11 +80,18 @@ async function isExecutableFile(candidate: string): Promise<boolean> {
 }
 
 /** A spawned toolchain finds its sibling tools (rustup proxies, cgo helpers). */
-export function withBinaryDirOnPath(env: NodeJS.ProcessEnv, binary: string): NodeJS.ProcessEnv {
-  if (!path.isAbsolute(binary)) return env;
-  const dir = path.dirname(binary);
-  const parts = (env.PATH ?? '').split(path.delimiter).filter(Boolean);
-  return parts.includes(dir) ? env : { ...env, PATH: [dir, ...parts].join(path.delimiter) };
+export function withBinaryDirOnPath(
+  env: NodeJS.ProcessEnv,
+  binary: string,
+  platform: NodeJS.Platform = process.platform
+): NodeJS.ProcessEnv {
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  if (!paths.isAbsolute(binary)) return env;
+  const dir = paths.dirname(binary);
+  // Windows names are case-insensitive and usually spelled `Path`; writing a second `PATH` leaves the child guessing.
+  const key = platform === 'win32' ? (Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ?? 'PATH') : 'PATH';
+  const parts = (env[key] ?? '').split(paths.delimiter).filter(Boolean);
+  return parts.includes(dir) ? env : { ...env, [key]: [dir, ...parts].join(paths.delimiter) };
 }
 
 export type ToolchainProbe<T> =
