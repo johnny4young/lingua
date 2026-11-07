@@ -163,6 +163,37 @@ export function entriesFromPnpmLicenses(data) {
 }
 
 /**
+ * A package that installs one prebuilt binary per platform through optional
+ * dependencies (`@duckdb/node-bindings` and its `-darwin-arm64`, `-linux-x64`
+ * siblings) shows only the current machine's binaries to `pnpm licenses list`.
+ * List every sibling the parent declares instead, so the report and SBOM are
+ * the same on every OS; each build ships one of them.
+ */
+export function expandPlatformBinaries(entries, { root = process.cwd() } = {}) {
+  const siblings = new Map();
+  for (const entry of entries) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(path.join(root, entry.path, 'package.json'), 'utf8'));
+      const optional = Object.entries(manifest.optionalDependencies ?? {});
+      // Binary families publish every platform package at the parent's exact version.
+      const family = optional.length > 1 && optional.every(([name, version]) => name.startsWith(`${entry.name}-`) && version === manifest.version);
+      if (family) {
+        for (const [name, version] of optional) siblings.set(name, { version: String(version), license: entry.license });
+      }
+    } catch {
+      // A package without readable metadata keeps its pnpm entry.
+    }
+  }
+  if (siblings.size === 0) return entries;
+  const expanded = entries.filter(entry => !siblings.has(entry.name));
+  for (const [name, { version, license }] of siblings) {
+    expanded.push({ name, version, license, path: `node_modules/${name}`, missingPackageJson: false });
+  }
+  expanded.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+  return expanded;
+}
+
+/**
  * Enumerate installed third-party packages + their licenses via pnpm.
  * Replaces the former package-lock.json walk after the pnpm migration —
  * `pnpm licenses list --json` resolves the prod/dev split and the
@@ -216,7 +247,7 @@ export function collectLicenseEntries({
     maxBuffer: 64 * 1024 * 1024,
   });
   const data = raw.trim().length > 0 ? JSON.parse(raw) : {};
-  const entries = entriesFromPnpmLicenses(data);
+  const entries = expandPlatformBinaries(entriesFromPnpmLicenses(data), { root });
   if (includePackagedExternal) {
     entries.push(...collectPackagedExternalRuntimeEntries({ root }));
     entries.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));

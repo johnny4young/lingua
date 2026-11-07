@@ -457,6 +457,6 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
   `SELECT language, count(*) AS runs, avg(duration_ms) AS avg_ms FROM lingua_ledger.runs GROUP BY 1 ORDER BY 2 DESC;`
 
   The `lingua_ledger.runs`, `lingua_ledger.capsules`, and `lingua_ledger.daily_activity` tables autocomplete in the SQL editor under their qualified names; the Explorer does not list the `lingua_ledger` schema. They are your data: querying, editing, or dropping them is fine — the ledger recreates its schema on the next recorded run.
-- Durability follows the SQL workspace's OPFS persistence opt-in (Settings → Editor → SQL workspace). Without it, the ledger lives for the current session only; with it, history survives reloads.
+- Durability follows the SQL workspace's persistence opt-in (Settings → Editor → SQL workspace). Without it, the ledger lives for the current session only; with it, history survives reloads.
 - Retention: the Free tier keeps 7 days of runs (pruned lazily); paid tiers keep everything. `daily_activity` keeps only per-day counters and is never pruned.
 - The Run Ledger section in Settings → Privacy also offers Export JSON (downloads every table) and Clear history (drops the whole schema). Settings → Privacy → Local data → Clear everything… also deletes the persisted SQL database, `lingua_ledger` included, along with the SQL queries, open query tabs and run History. Both actions, plus the toggle itself, are logged to the Privacy trust feed.

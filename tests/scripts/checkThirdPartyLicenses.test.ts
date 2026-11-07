@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import {
   collectPackagedExternalRuntimeEntries,
+  expandPlatformBinaries,
   PACKAGED_EXTERNAL_RUNTIME_COMPONENTS,
   renderMarkdownReport,
   reviewLicenseEntry,
@@ -153,4 +154,32 @@ describe('check-third-party-licenses', () => {
       }
     }
   );
+
+  it('lists every platform binary a binding family declares, whichever ones this OS installed', async () => {
+    const root = await mkdtemp(path.join(process.cwd(), '.tmp-license-platforms-'));
+    try {
+      const write = async (name: string, manifest: Record<string, unknown>) => {
+        await mkdir(path.join(root, 'node_modules', name), { recursive: true });
+        await writeFile(path.join(root, 'node_modules', name, 'package.json'), JSON.stringify(manifest));
+      };
+      await write('@scope/bindings', { version: '2.0.0', optionalDependencies: { '@scope/bindings-darwin-arm64': '2.0.0', '@scope/bindings-linux-x64': '2.0.0' } });
+      // An optional dependency on another release line is not a binary family.
+      await write('pg', { version: '8.0.0', optionalDependencies: { 'pg-cloudflare': '^1.4.1' } });
+      const installed = [
+        { ...baseEntry, name: '@scope/bindings', version: '2.0.0', license: 'MIT', path: 'node_modules/@scope/bindings' },
+        { ...baseEntry, name: '@scope/bindings-darwin-arm64', version: '2.0.0', license: 'MIT', path: 'node_modules/@scope/bindings-darwin-arm64' },
+        { ...baseEntry, name: 'pg', version: '8.0.0', license: 'MIT', path: 'node_modules/pg' },
+        { ...baseEntry, name: 'pg-cloudflare', version: '1.4.1', license: 'MIT', path: 'node_modules/pg-cloudflare' },
+      ];
+      expect(expandPlatformBinaries(installed, { root }).map(entry => `${entry.name}@${entry.version}`).sort()).toEqual([
+        '@scope/bindings-darwin-arm64@2.0.0',
+        '@scope/bindings-linux-x64@2.0.0',
+        '@scope/bindings@2.0.0',
+        'pg-cloudflare@1.4.1',
+        'pg@8.0.0',
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- On desktop, Local SQL runs on native DuckDB in its own process: the engine starts in under a tenth of a second and large queries finish several times faster with less memory. WebAssembly stays available under Settings › Editor › SQL workspace › Local engine, and takes over when the native engine cannot start. The native engine keeps DuckDB's settings fixed, so SET of an option asks you to switch engines.
 - A result from a database connection that is already closed says so in your language, and reading it again keeps failing instead of looking complete.
 - Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
 - An AI endpoint that answers with an HTML page, such as a proxy error or a sign-in wall, shows the page title in the error instead of raw markup.
