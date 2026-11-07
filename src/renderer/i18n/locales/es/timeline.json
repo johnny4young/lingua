@@ -20,7 +20,7 @@
   "timeline.empty": "La ejecución no tuvo pasos para grabar.",
   "timeline.backOut": "Salir atrás",
   "timeline.backOutLabel": "Volver a quien llamó, hacia atrás",
-  "timeline.over": "Sobre",
+  "timeline.over": "Saltar",
   "timeline.overLabel": "Pasar a la siguiente línea de esta llamada",
   "timeline.out": "Salir",
   "timeline.outLabel": "Salir a quien llamó",

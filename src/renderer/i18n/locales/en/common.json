@@ -869,6 +869,7 @@
   "runner.truncated.result": "[result truncated]",
   "runner.debuggingFile": "Debugging {{name}}...",
   "runner.compileOutput.truncated": "[Compile output truncated]",
+  "runner.noActiveFile": "No active file to run.",
   "nativeExecution.modal.title": "Run code with your local toolchain?",
   "nativeExecution.modal.body": "Lingua can run Go, Rust, system Ruby, and Python debugging through your local toolchain. This code runs as a regular process on your machine, not in a sandbox. Only run code you trust.",
   "nativeExecution.modal.confirm": "Acknowledge and run",
