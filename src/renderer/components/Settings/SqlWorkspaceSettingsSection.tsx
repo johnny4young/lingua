@@ -59,6 +59,8 @@ export function SqlWorkspaceSettingsSection() {
   const sqlWorkspacePersistTables = useSettingsStore(
     (state) => state.sqlWorkspacePersistTables
   );
+  // The native engine saves to a file in Lingua's data folder, not to the browser's OPFS.
+  const nativeEngine = useSettingsStore((state) => state.sqlWorkspaceLocalEngine === 'native') && Boolean(window.lingua?.sqlLocal);
   const setSqlWorkspacePersistTables = useSettingsStore(
     (state) => state.setSqlWorkspacePersistTables
   );
@@ -209,9 +211,11 @@ export function SqlWorkspaceSettingsSection() {
         <SpecRow
           label={t('settings.editor.sqlWorkspace.persistTables.label')}
           description={
-            opfsAvailable
-              ? t('settings.editor.sqlWorkspace.persistTables.hint')
-              : `${t('settings.editor.sqlWorkspace.persistTables.hint')} ${t('settings.editor.sqlWorkspace.persistTables.unavailable')}`
+            nativeEngine
+              ? t('settings.editor.sqlWorkspace.persistTables.hintNative')
+              : opfsAvailable
+                ? t('settings.editor.sqlWorkspace.persistTables.hint')
+                : `${t('settings.editor.sqlWorkspace.persistTables.hint')} ${t('settings.editor.sqlWorkspace.persistTables.unavailable')}`
           }
           last
           control={

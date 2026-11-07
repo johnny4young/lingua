@@ -3289,6 +3289,7 @@
   "settings.editor.sqlWorkspace.instantPreview.hint": "On Local, preview the statement under the cursor as you type. Writes and remote URLs never run on their own.",
   "settings.editor.sqlWorkspace.persistTables.label": "Persist tables across sessions",
   "settings.editor.sqlWorkspace.persistTables.hint": "Save the SQL workspace database to this browser's storage (OPFS) so tables and data survive a reload. Takes effect on the next reload or via Reconnect now. Off by default — otherwise the workspace is an in-memory scratchpad.",
+  "settings.editor.sqlWorkspace.persistTables.hintNative": "Save the SQL workspace database in Lingua's data folder so tables and data survive a restart. Takes effect on the next reload or via Reconnect now. Off by default — otherwise the workspace is an in-memory scratchpad.",
   "settings.editor.sqlWorkspace.persistTables.unavailable": "This browser does not support persistent storage, so the workspace will stay in-memory.",
   "settings.editor.sqlWorkspace.persistTables.reconnect": "Reconnect now",
   "settings.editor.sqlWorkspace.persistTables.reconnectConfirm": "Reconnect the SQL engine to apply the change? The current session's in-memory tables are reset.",

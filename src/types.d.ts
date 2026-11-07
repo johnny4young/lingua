@@ -367,6 +367,8 @@ interface DesktopSmokeConfig {
    */
   packagedSubset?: boolean;
   licenseToken?: string;
+  /** `LINGUA_DESKTOP_SMOKE_SQL_LOCAL`: run the Local SQL timings on this engine. */
+  sqlLocal?: 'native' | 'wasm';
 }
 
 type DesktopSmokeMemorySnapshot =
@@ -388,6 +390,8 @@ type DesktopSmokeMemorySnapshot =
         privateBytes: number;
         /** macOS footprint; null where the platform has no equivalent. */
         footprintBytes: number | null;
+        /** A utility process's service name, such as Lingua local SQL. */
+        name?: string;
       }>;
     }
   | {
