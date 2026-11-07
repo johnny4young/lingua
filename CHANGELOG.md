@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Fixed
+- The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
 - SQL Save as keeps the text you typed just before it. A quick Save as used to copy the query without its last keystrokes.
 
 ## [2.1.0] — 2026-11-06
