@@ -4,8 +4,13 @@
  * Arguments are spliced in with `call`, always as JSON.
  */
 
-/** Every key and value of the page's localStorage. */
+/** Every key and value of the page's localStorage, or null when the page may not read it. */
 export const READ_LOCAL_STORAGE = `(() => {
+  try {
+    void localStorage.length;
+  } catch {
+    return null;
+  }
   const entries = [];
   for (let index = 0; index < localStorage.length; index += 1) {
     const key = localStorage.key(index);

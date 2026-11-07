@@ -18,7 +18,8 @@ export interface OriginFile {
 }
 
 export interface LegacyOriginReader {
-  readLocalStorage: () => Promise<Array<[string, string]>>;
+  /** Null when Chromium denies the page its localStorage, as for file:// without the fuse. */
+  readLocalStorage: () => Promise<Array<[string, string]> | null>;
   listFiles: () => Promise<OriginFile[]>;
   readChunk: (path: readonly string[], offset: number, length: number) => Promise<Uint8Array>;
   close: () => void;
@@ -45,6 +46,7 @@ export interface OriginMigrationMarker {
   durationMs: number;
   error?: string;
   localStorageCopied: boolean;
+  localStorageUnreadable?: boolean;
   /** Paths joined with `/`. */
   copiedFiles: string[];
 }
@@ -158,7 +160,9 @@ export async function migrateRendererOrigin(
   try {
     await writeMarker(markerPath, marker);
     legacy = await deps.openLegacy();
-    const entries = marker.localStorageCopied ? [] : await legacy.readLocalStorage();
+    const read = marker.localStorageCopied ? [] : await legacy.readLocalStorage();
+    if (read === null) marker.localStorageUnreadable = true;
+    const entries = read ?? [];
     const files = (await legacy.listFiles()).filter(
       file => !marker.copiedFiles.includes(file.path.join('/'))
     );

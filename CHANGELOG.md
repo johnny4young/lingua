@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - On desktop, the app keeps the JavaScript it compiled and reuses it on later launches instead of compiling it again each time. The first launch after updating copies your settings, sessions and saved SQL tables to the app's new storage; the old copy stays, so an older version still opens with it.
+- On desktop, pages loaded from files get no extra privileges. Updating straight from a version older than the previous one keeps your saved SQL tables but resets settings, sessions and layouts.
 - On desktop, scripts follow the same network rules as in the browser: reading a response from another site needs that site's CORS permission, and `fetch` can no longer read files on your disk. A local AI server must allow requests from Lingua; Ollama does by default, and LM Studio needs its CORS option on.
 - A result from a database connection that is already closed says so in your language, and reading it again keeps failing instead of looking complete.
 - Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
