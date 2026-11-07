@@ -13,6 +13,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - The start page shows the Lingua initials, LG, as Settings › General does, instead of the old RL.
+- Dock tab hints open above the tabs, so the Input hint no longer covers the input set controls.
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
 - The italic name of a SQL scratch tab no longer has its last character clipped beside the unsaved dot.
 - SQL Save as keeps the text you typed just before it. A quick Save as used to copy the query without its last keystrokes.
