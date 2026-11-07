@@ -186,9 +186,9 @@ export async function migrateRendererOrigin(
       marker.localStorageCopied = true;
       await writeMarker(markerPath, marker);
     }
-    const files = (await legacy.listFiles()).filter(
-      file => !marker.copiedFiles.includes(file.path.join('/'))
-    );
+    const listed = await legacy.listFiles();
+    const legacyPaths = new Set(listed.map(file => file.path.join('/')));
+    const files = listed.filter(file => !marker.copiedFiles.includes(file.path.join('/')));
     if (files.length > 0) target ??= await deps.openTarget();
     const empty = !target;
     if (target) {
@@ -206,6 +206,13 @@ export async function migrateRendererOrigin(
       } catch (error) {
         await Promise.all(staged.map(file => writer.removeFile(stagingPath(file)).catch(() => {})));
         throw error;
+      }
+      // Past this point the moves run to the end, so an abort cannot split a database from its WAL.
+      deps.signal?.throwIfAborted();
+      for (const file of staged) {
+        // A WAL the new origin wrote must not replay onto the legacy database.
+        const wal = [...file.path.slice(0, -1), `${file.path.at(-1)}.wal`];
+        if (!legacyPaths.has(wal.join('/'))) await writer.removeFile(wal);
       }
       for (const file of staged) {
         await writer.commitFile(stagingPath(file), file.path.at(-1) as string);

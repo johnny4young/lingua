@@ -621,7 +621,13 @@ describe('OPFS persistence ', () => {
         removal.resolve();
         await clear;
       }
-      expect(removeEntry).toHaveBeenCalledTimes(2);
+      // Staged copies from an interrupted storage migration are SQL data too.
+      expect(removeEntry.mock.calls.map(([name]) => name)).toEqual([
+        'lingua-sql.db',
+        'lingua-sql.db.wal',
+        'lingua-sql.db.lingua-migrating',
+        'lingua-sql.db.wal.lingua-migrating',
+      ]);
       expect(await nextEngine).toBe(next);
     } finally {
       vi.unstubAllGlobals();
@@ -746,7 +752,11 @@ describe('OPFS persistence ', () => {
   });
 
   it('persistedSqlDatabaseBytes sums the database and WAL files, 0 without them, null when locked', async () => {
-    const files: Record<string, number> = { 'lingua-sql.db': 4096, 'lingua-sql.db.wal': 512 };
+    const files: Record<string, number> = {
+      'lingua-sql.db': 4096,
+      'lingua-sql.db.wal': 512,
+      'lingua-sql.db.lingua-migrating': 64,
+    };
     const notFound = Object.assign(new Error('missing'), { name: 'NotFoundError' });
     const directory = {
       getFileHandle: async (name: string) => {
@@ -756,9 +766,10 @@ describe('OPFS persistence ', () => {
     };
     vi.stubGlobal('navigator', { storage: { getDirectory: async () => directory } });
     try {
-      expect(await persistedSqlDatabaseBytes()).toBe(4608);
+      expect(await persistedSqlDatabaseBytes()).toBe(4672);
       delete files['lingua-sql.db'];
       delete files['lingua-sql.db.wal'];
+      delete files['lingua-sql.db.lingua-migrating'];
       expect(await persistedSqlDatabaseBytes()).toBe(0);
       directory.getFileHandle = async () => {
         throw Object.assign(new Error('locked'), { name: 'NoModificationAllowedError' });

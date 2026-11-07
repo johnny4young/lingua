@@ -25,6 +25,8 @@ type WindowFactory = new (options: BrowserWindowConstructorOptions) => BrowserWi
 
 interface StoragePage {
   evaluate: <T>(script: string) => Promise<T>;
+  /** Bounded by the step timeout only: a move or cleanup already sent finishes even after an abort. */
+  evaluateToEnd: <T>(script: string) => Promise<T>;
   close: () => void;
 }
 
@@ -81,19 +83,22 @@ async function openStoragePage(
     throw error;
   }
   return {
-    evaluate: async <T>(script: string) => {
-      const result = (await withTimeout(
-        window.webContents.executeJavaScript(settled(script)) as Promise<SettledStep<T>>,
-        signal
-      )) as SettledStep<T>;
-      if ('value' in result) return result.value;
-      throw Object.assign(new Error('Origin page step failed'), { name: result.name });
-    },
+    evaluate: <T>(script: string) => runSettled<T>(window, script, signal),
+    evaluateToEnd: <T>(script: string) => runSettled<T>(window, script),
     close,
   };
 }
 
 type SettledStep<T> = { value: T } | { name: string };
+
+async function runSettled<T>(window: BrowserWindow, script: string, signal?: AbortSignal): Promise<T> {
+  const result = await withTimeout(
+    window.webContents.executeJavaScript(settled(script)) as Promise<SettledStep<T>>,
+    signal
+  );
+  if ('value' in result) return result.value;
+  throw Object.assign(new Error('Origin page step failed'), { name: result.name });
+}
 
 // executeJavaScript rejects with neither name nor message, so the page reports the error name itself.
 function settled(script: string): string {
@@ -140,8 +145,8 @@ export async function openTargetOriginPage(
       ),
     endFile: () => page.evaluate(END_FILE),
     abortFile: () => page.evaluate(ABORT_FILE),
-    commitFile: (filePath, name) => page.evaluate(call(COMMIT_FILE, filePath, name)),
-    removeFile: filePath => page.evaluate(call(REMOVE_FILE, filePath)),
+    commitFile: (filePath, name) => page.evaluateToEnd(call(COMMIT_FILE, filePath, name)),
+    removeFile: filePath => page.evaluateToEnd(call(REMOVE_FILE, filePath)),
     close: page.close,
   };
 }

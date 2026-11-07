@@ -264,6 +264,30 @@ describe('renderer origin migration', () => {
     await expect(run).resolves.toMatchObject({ status: 'failed' });
   });
 
+  it('drops a WAL the new origin wrote when legacy moves in a database without one', async () => {
+    legacy.opfs.put('lingua-sql.db', bytes(64));
+    target.opfs.put('lingua-sql.db', bytes(4, 9));
+    target.opfs.put('lingua-sql.db.wal', bytes(6, 5));
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(64));
+    expect(target.opfs.file('lingua-sql.db.wal')).toBeUndefined();
+  });
+
+  it('finishes every move once they start, even when the attempt is aborted', async () => {
+    legacy.opfs.put('lingua-sql.db', bytes(64));
+    legacy.opfs.put('lingua-sql.db.wal', bytes(8, 3));
+    const controller = new AbortController();
+    const originalRun = target.run.bind(target);
+    target.run = code => {
+      if (code.includes('.move(')) controller.abort();
+      return originalRun(code);
+    };
+    await migrate({ signal: controller.signal }).run;
+    expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(64));
+    expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(8, 3));
+    expect([...target.opfs.children.keys()].sort()).toEqual(['lingua-sql.db', 'lingua-sql.db.wal']);
+  });
+
   it('reports staged bytes against the total as the copy runs', async () => {
     legacy.opfs.put('lingua-sql.db', bytes(ORIGIN_MIGRATION_CHUNK_BYTES + 5));
     legacy.opfs.put('lingua-sql.db.wal', bytes(7));
