@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
+
 ### Fixed
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
 - SQL Save as keeps the text you typed just before it. A quick Save as used to copy the query without its last keystrokes.

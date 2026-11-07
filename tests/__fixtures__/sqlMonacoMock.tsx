@@ -69,6 +69,7 @@ export function resetSqlMonacoHarness(): void {
   sqlMonacoHarness.decorations = [];
   sqlMonacoHarness.movedTo = null;
   sqlMonacoHarness.completionProvider = null;
+  sqlModels.clear();
 }
 
 /** Decorations currently set with `className`. */
@@ -93,6 +94,29 @@ export function moveSqlCursor(offset: number, selection?: { start: number; end: 
   });
 }
 
+type MockUri = { scheme: string; toString: () => string };
+
+/** A model the host can switch between, as Monaco keeps one per URI. */
+class MockModel {
+  constructor(
+    public text: string,
+    public uri: MockUri
+  ) {}
+  getValueInRange = () => sqlMonacoHarness.selectedRangeText ?? '';
+  getFullModelRange = () => ({});
+  getOffsetAt = (position: { offset?: number }) => position.offset ?? sqlMonacoHarness.cursorOffset;
+  getPositionAt = (offset: number) => {
+    const before = this.text.slice(0, offset).split('\n');
+    return { offset, lineNumber: before.length, column: before.at(-1)!.length + 1 };
+  };
+  dispose = () => {
+    sqlModels.delete(this.uri.toString());
+  };
+}
+
+const sqlModels = new Map<string, MockModel>();
+let unkeyedModels = 0;
+
 function MonacoEditor({
   defaultValue,
   onChange,
@@ -104,12 +128,19 @@ function MonacoEditor({
   onMount?: (editor: unknown, monaco: unknown) => void;
   options?: { ariaLabel?: string };
 }) {
-  // An uncontrolled model, like Monaco's: only typing and executeEdits change it.
-  const [text, setText] = useState(defaultValue ?? '');
-  const textRef = useRef(text);
-  textRef.current = text;
+  // Uncontrolled models, like Monaco's: only typing, executeEdits and setModel change the text.
+  const [, setTick] = useState(0);
+  const render = () => setTick((tick) => tick + 1);
+  const modelRef = useRef<MockModel | null>(null);
+  if (modelRef.current === null) {
+    const id = ++unkeyedModels;
+    modelRef.current = new MockModel(defaultValue ?? '', { scheme: 'inmemory', toString: () => `inmemory://model/${id}` });
+  }
+  const setText = (next: string) => {
+    modelRef.current!.text = next;
+    render();
+  };
   sqlMonacoHarness.type = (next) => {
-    textRef.current = next;
     setText(next);
     onChange?.(next);
   };
@@ -117,29 +148,28 @@ function MonacoEditor({
   const editor = {
     getSelection: () => ({ __selection: true }),
     executeEdits: (source: string, edits: Array<{ text: string }>) => {
-      if (source === 'sql-external') {
-        textRef.current = edits[0]?.text ?? '';
-        setText(textRef.current);
-      } else sqlMonacoHarness.edits.push(...edits.map((edit) => edit.text));
+      if (source === 'sql-external') setText(edits[0]?.text ?? '');
+      else sqlMonacoHarness.edits.push(...edits.map((edit) => edit.text));
       return true;
     },
     pushUndoStop: () => true,
     focus: () => {},
     getPosition: () => ({ lineNumber: 1, column: 1 }),
-    getModel: () => ({
-      getValueInRange: () => sqlMonacoHarness.selectedRangeText ?? '',
-      getValue: () => sqlMonacoHarness.modelValue ?? textRef.current,
-      getFullModelRange: () => ({}),
-      setValue: (next: string) => {
-        textRef.current = next;
-        setText(next);
-      },
-      getOffsetAt: (position: { offset?: number }) => position.offset ?? sqlMonacoHarness.cursorOffset,
-      getPositionAt: (offset: number) => {
-        const before = textRef.current.slice(0, offset).split('\n');
-        return { offset, lineNumber: before.length, column: before.at(-1)!.length + 1 };
-      },
-    }),
+    getModel: () => {
+      const model = modelRef.current!;
+      // Model text ahead of React, as right after a paste.
+      return Object.assign(model, {
+        getValue: () => sqlMonacoHarness.modelValue ?? model.text,
+        setValue: (next: string) => {
+          model.text = next;
+          render();
+        },
+      });
+    },
+    setModel: (model: MockModel) => {
+      modelRef.current = model;
+      render();
+    },
     setPosition: (position: { offset: number }) => {
       sqlMonacoHarness.movedTo = position.offset;
     },
@@ -169,7 +199,18 @@ function MonacoEditor({
     KeyMod: SQL_KEYMOD,
     KeyCode: SQL_KEYCODE,
     Range: class {},
-    editor: { defineTheme: vi.fn(), MouseTargetType: { GUTTER_GLYPH_MARGIN: 2 } },
+    Uri: { from: ({ scheme, path }: { scheme: string; path: string }) => ({ scheme, toString: () => `${scheme}:${path}` }) },
+    editor: {
+      defineTheme: vi.fn(),
+      MouseTargetType: { GUTTER_GLYPH_MARGIN: 2 },
+      getModel: (uri: MockUri) => sqlModels.get(uri.toString()) ?? null,
+      getModels: () => [...sqlModels.values()],
+      createModel: (text: string, _language: string, uri: MockUri) => {
+        const model = new MockModel(text, uri);
+        sqlModels.set(uri.toString(), model);
+        return model;
+      },
+    },
     languages: {
       CompletionItemKind: { Function: 1, Struct: 5, Field: 4, Keyword: 17 },
       registerCompletionItemProvider: (
@@ -187,13 +228,13 @@ function MonacoEditor({
     mountedRef.current = true;
     onMount?.(editor, monaco);
   }
+  const model = modelRef.current;
   return (
     <textarea
       data-testid="sql-query-editor-textarea"
       aria-label={options?.ariaLabel}
-      value={text}
+      value={model.text}
       onChange={(event) => {
-        textRef.current = event.target.value;
         setText(event.target.value);
         onChange?.(event.target.value);
       }}
