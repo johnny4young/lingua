@@ -55,7 +55,7 @@ export function Toggle({
       onClick={onChange}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-        value ? 'bg-accent' : 'bg-border-strong',
+        value ? 'bg-accent' : 'bg-control-off',
         disabled && 'cursor-not-allowed opacity-40'
       )}
       style={{ transition: 'background-color var(--duration-fast) var(--curve-ease-out)' }}
