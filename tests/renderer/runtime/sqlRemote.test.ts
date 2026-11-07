@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeRemoteScript, sqlDbBridge } from '../../../src/renderer/runtime/sqlRemote';
-import type { SqlDbBridge, SqlDbRunResult } from '../../../src/shared/sqlDb';
+import i18next from 'i18next';
+import { closedSqlResult, type SqlDbBridge, type SqlDbRunResult } from '../../../src/shared/sqlDb';
 
 const base: SqlDbRunResult = {
   status: 'success',
@@ -14,7 +15,7 @@ const base: SqlDbRunResult = {
   durationMs: 3,
 };
 
-function bridge(results: SqlDbRunResult[], pages: Array<{ rows: Array<Record<string, unknown>>; done: boolean; bytes: number; errorMessage?: string }> = []) {
+function bridge(results: SqlDbRunResult[], pages: Array<{ rows: Array<Record<string, unknown>>; done: boolean; bytes: number; errorMessage?: string; closed?: true }> = []) {
   const queue = [...results];
   const fetchQueue = [...pages];
   return {
@@ -68,9 +69,31 @@ describe('executeRemoteScript', () => {
     expect(db.closeRun).toHaveBeenCalledTimes(1);
     const cursor = outcomes[1]?.cursor;
     expect(await cursor?.next(100)).toMatchObject({ rows: [{ n: 2 }], done: false });
-    // A failed read throws, so a partial result never passes for a whole one.
+    // A failed read throws, and so does every read after it, so a partial result never passes for a whole one.
     await expect(cursor?.next(100)).rejects.toThrow('connection lost');
-    expect(await cursor?.next(100)).toEqual({ rows: [], done: true, bytes: 0 });
+    await expect(cursor?.next(100)).rejects.toThrow('This result is closed or no longer available.');
+  });
+
+  it('reads past the end as empty, but a read after close throws', async () => {
+    const open = async (pages: Parameters<typeof bridge>[1]) =>
+      (await executeRemoteScript(bridge([{ ...base, hasMore: true }], pages), 'c_1', ['SELECT 1'], { timeoutMs: 1_000, keepCursor: true }))[0]!.cursor!;
+    const finished = await open([{ rows: [{ n: 2 }], done: true, bytes: 8 }]);
+    expect(await finished.next(100)).toMatchObject({ rows: [{ n: 2 }], done: true });
+    expect(await finished.next(100)).toEqual({ rows: [], done: true, bytes: 0 });
+    const stopped = await open([{ rows: [{ n: 2 }], done: false, bytes: 8 }]);
+    await stopped.close();
+    await expect(stopped.next(100)).rejects.toThrow('This result is closed or no longer available.');
+  });
+
+  it('shows a run the host already closed in the app language', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const db = bridge([{ ...base, hasMore: true }], [closedSqlResult()]);
+      const [outcome] = await executeRemoteScript(db, 'c_1', ['SELECT 1'], { timeoutMs: 1_000, keepCursor: true });
+      await expect(outcome!.cursor!.next(100)).rejects.toThrow('Este resultado está cerrado o ya no está disponible.');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
   });
 
   it('cancels the running statement on abort and reports it as cancelled', async () => {
