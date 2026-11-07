@@ -51,6 +51,8 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
   // Watches held entries, not the offline edge: the connection may have returned while the panel was closed.
   const held = useHttpOfflineQueue((state) => Object.values(state.queued).some((entry) => !entry.ready));
   const flushing = useRef(false);
+  // Stop ends the replay: the reads not sent yet wait for Send now, like held writes.
+  const stopped = useRef(false);
   // A drain outliving its panel must not take entries queued after the unmount.
   const mounted = useRef(true);
   useEffect(() => {
@@ -62,10 +64,19 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
   useEffect(() => {
     if (!online || !held || flushing.current) return;
     flushing.current = true;
+    stopped.current = false;
     void (async () => {
       let waiting = 0;
       try {
         while (navigator.onLine && mounted.current) {
+          if (stopped.current) {
+            const queue = useHttpOfflineQueue.getState();
+            for (const id of Object.keys(queue.queued).filter((key) => !queue.queued[key]!.ready)) {
+              queue.markReady(id);
+              waiting += 1;
+            }
+            break;
+          }
           // Read the live queue each pass: entries can be queued or removed while a send is pending.
           const queue = useHttpOfflineQueue.getState();
           const requestId = Object.keys(queue.queued).find((id) => !queue.queued[id]!.ready);
@@ -108,5 +119,9 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1, options?: Http
     [queued, willQueue]
   );
 
-  return { sendFromEditor, queueFor };
+  const stopDrain = useCallback(() => {
+    if (flushing.current) stopped.current = true;
+  }, []);
+
+  return { sendFromEditor, queueFor, stopDrain };
 }
