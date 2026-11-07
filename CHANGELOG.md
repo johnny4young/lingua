@@ -10,6 +10,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
 
 ### Fixed
+- The start page shows the Lingua initials, LG, as Settings › General does, instead of the old RL.
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
 - SQL Save as keeps the text you typed just before it. A quick Save as used to copy the query without its last keystrokes.
 - Inline values in the editor, from a run or a paused debugger, show bidi, zero-width and control characters as spaces, so a value cannot reorder or hide the code around it.
