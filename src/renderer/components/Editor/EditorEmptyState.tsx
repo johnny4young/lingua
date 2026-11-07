@@ -80,7 +80,7 @@ export function EditorEmptyState() {
           <div className="inline-flex items-center gap-3">
             <div className="relative flex h-14 w-14 items-center justify-center rounded-3xl border border-border-strong/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]">
               <span className="font-display text-h2 font-semibold tracking-[0.14em] text-accent-fg">
-                RL
+                LG
               </span>
               <span className="absolute inset-1 rounded-2xl border border-border-subtle/60" />
             </div>
