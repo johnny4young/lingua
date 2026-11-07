@@ -89,6 +89,15 @@ describe('timeline panel', () => {
     expect(useAnnouncerStore.getState().message).toBe('No step to go to from here');
   });
 
+  it('announces Page Up or Page Down with nowhere to go, as the arrows do', () => {
+    useTimelineStore.setState({ current: 0 });
+    useAnnouncerStore.setState({ message: '' });
+    render(<TimelinePanel />);
+    fireEvent.keyDown(screen.getByTestId('timeline-strip'), { key: 'PageUp' });
+    expect(useTimelineStore.getState().current).toBe(0);
+    expect(useAnnouncerStore.getState().message).toBe('No step to go to from here');
+  });
+
   it('marks the other runs of the selected line as echoes', () => {
     const plain = (line: number): TimelineStep => ({ line, frames: [{ name: '<module>', line }], vars: [] });
     const repeated: TimelineStep[] = [plain(1), plain(2), plain(1), plain(2)];

@@ -56,6 +56,17 @@ describe('timeline store', () => {
     expect(useTimelineStore.getState()).toMatchObject({ current: 2, blocked: 1 });
   });
 
+  it('counts a page move from the first or last step as blocked, but not a partial one', () => {
+    useTimelineStore.getState().publish('t1', { steps: steps(3), truncated: false });
+    const before = useTimelineStore.getState().blocked;
+    expect(useTimelineStore.getState().step(10)).toBe(false);
+    expect(useTimelineStore.getState().blocked).toBe(before + 1);
+    expect(useTimelineStore.getState().step(-10)).toBe(true);
+    expect(useTimelineStore.getState().current).toBe(0);
+    expect(useTimelineStore.getState().step(-10)).toBe(false);
+    expect(useTimelineStore.getState().blocked).toBe(before + 2);
+  });
+
   it('keeps the selection inside the recording and clears only its own tab', () => {
     useTimelineStore.getState().publish('t1', { steps: steps(3), truncated: false });
     useTimelineStore.getState().step(5);
