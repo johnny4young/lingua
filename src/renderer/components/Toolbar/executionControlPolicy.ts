@@ -12,6 +12,7 @@ import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 export type ExecutionControlDisabledReason =
   | 'desktop-only'
   | 'desktop-and-pro'
+  | 'no-active-tab'
   | 'no-enabled-breakpoint'
   | 'notebook'
   | 'pro-only'
@@ -47,6 +48,8 @@ interface ExecutionControlPolicyInput {
   enabledBreakpointCount: number;
   /** Desktop Go or Rust tab whose binary was not found. */
   toolchainMissing?: boolean;
+  /** No tab is open, so there is nothing to run. */
+  noActiveTab?: boolean;
 }
 
 function availability(
@@ -73,8 +76,22 @@ export function resolveExecutionControlPolicy({
   emptyWorkspace = null,
   enabledBreakpointCount,
   toolchainMissing = false,
+  noActiveTab = false,
 }: ExecutionControlPolicyInput): ExecutionControlPolicy {
   const executionMode = executionModeForLanguage(language);
+  if (noActiveTab) {
+    return {
+      executionMode,
+      desktopOnlyGate: false,
+      proLanguageGate: false,
+      supportsDebug: false,
+      actions: {
+        run: availability('no-active-tab'),
+        debug: availability('no-active-tab'),
+        scratchpad: availability('no-active-tab'),
+      },
+    };
+  }
   if (isWorkspaceTab) {
     return {
       executionMode: 'run',
@@ -139,6 +156,7 @@ export function executionDisabledTooltipKey(
   reason: ExecutionControlDisabledReason | null,
 ): string | undefined {
   if (reason === null) return undefined;
+  if (reason === 'no-active-tab') return 'toolbar.run.noActiveTabTooltip';
   if (reason === 'pro-only') return 'toolbar.run.proOnlyTooltip';
   if (reason === 'desktop-and-pro') return 'toolbar.run.desktopAndProTooltip';
   if (reason === 'desktop-only') return 'toolbar.run.desktopOnlyTooltip';

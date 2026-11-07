@@ -135,6 +135,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     emptyWorkspace,
     enabledBreakpointCount,
     toolchainMissing,
+    noActiveTab: !activeTab,
   });
   const estimatedPillWidth =
     typeof window !== 'undefined' && window.innerWidth >= 1500
