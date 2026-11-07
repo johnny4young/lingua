@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- A result from a database connection that is already closed says so in your language, and reading it again keeps failing instead of looking complete.
 - Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
 - An AI endpoint that answers with an HTML page, such as a proxy error or a sign-in wall, shows the page title in the error instead of raw markup.
 
