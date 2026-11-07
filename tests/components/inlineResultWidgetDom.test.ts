@@ -31,6 +31,14 @@ describe('inline result widget DOM', () => {
     expect(isHiddenUndefinedLineResult({ line: 4, value: 'undefined', type: 'magic' })).toBe(false);
   });
 
+  it('shows bidi, zero-width and control characters in a value or name as spaces', () => {
+    const node = renderInlineResultNode([
+      { line: 2, name: 'a\u202eb', value: '"admin\u202e\u200bnimda\u0007"', type: 'log' },
+    ]);
+    expect(node.querySelector('.lingua-inline-result-name')?.textContent).toBe('a b:');
+    expect(node.querySelector('.lingua-inline-result-value')?.textContent).toBe('"admin  nimda "');
+  });
+
   it('names the variable of a paused value before it', () => {
     const node = renderInlineResultNode([{ line: 2, name: 'count', value: '1', type: 'log' }]);
     expect(node.querySelector('.lingua-inline-result-name')?.textContent).toBe('count:');

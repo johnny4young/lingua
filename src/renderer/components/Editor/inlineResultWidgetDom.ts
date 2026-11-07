@@ -1,5 +1,6 @@
 import type { LineResult } from '../../stores/resultStore';
 import { formatPayloadInlineSummary } from '../../../shared/richOutput';
+import { replaceUnsafeText } from '../../utils/unsafeText';
 
 const INLINE_VALUE_MAX_CHARS = 80;
 const INLINE_VALUE_ELLIPSIS = '…';
@@ -68,7 +69,8 @@ export function renderInlineResultNode(
     // inferred kind when there's no payload (every legacy
     // code path keeps its rendering).
     const richPreview = result.payload ? formatPayloadInlineSummary(result.payload) : null;
-    const valueStr = richPreview ? richPreview.display : String(result.value ?? '');
+    // Values come from program output, so bidi and control characters cannot reorder or hide the line.
+    const valueStr = replaceUnsafeText(richPreview ? richPreview.display : String(result.value ?? ''));
     const kind =
       result.type === 'error'
         ? 'error'
@@ -94,7 +96,7 @@ export function renderInlineResultNode(
     if (result.name) {
       const name = document.createElement('span');
       name.className = 'lingua-inline-result-name';
-      name.textContent = `${result.name}:`;
+      name.textContent = `${replaceUnsafeText(result.name)}:`;
       part.appendChild(name);
     }
 
