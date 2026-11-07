@@ -66,6 +66,9 @@ import type {
   SqlDbTestResult,
 } from './sqlDb';
 
+/** A failed storage copy from an older build: it retries next launch, or it gave up. */
+export type StorageMigrationNotice = 'retry' | 'final';
+
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
   'app:get-system-languages': { args: []; result: string[] };
@@ -74,6 +77,10 @@ interface IpcInvokeContract {
   'app:consume-pending-deep-link': {
     args: [];
     result: DeepLinkTarget | null;
+  };
+  'app:consume-storage-migration-notice': {
+    args: [];
+    result: StorageMigrationNotice | null;
   };
   'app:confirm-close': {
     args: [dirtyFileNames: string[], language?: string];
@@ -677,6 +684,7 @@ export const IPC_INVOKE_CHANNELS = [
   'app:get-info',
   'app:open-external',
   'app:consume-pending-deep-link',
+  'app:consume-storage-migration-notice',
   'app:confirm-close',
   'app:confirm-close-tab',
   'go:detect',

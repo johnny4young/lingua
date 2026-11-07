@@ -1,11 +1,15 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { StorageMigrationNotice } from '../shared/ipcContract';
+import { STAGING_SUFFIX } from './originMigrationScripts';
 
 /**
  * One-time copy of renderer storage from the file:// origin of older builds to
  * the custom-scheme origin; Chromium keys storage by origin. The legacy copy is
- * left on disk. Retries never overwrite what the new origin holds, and the
- * marker's progress keeps them from restoring what the user deleted since.
+ * left on disk. Keys the new origin holds are never overwritten. Files are staged,
+ * then moved in together, so a database and its WAL land as a pair; until they
+ * land, legacy wins over a file the app created after a failed attempt. The
+ * marker's progress keeps retries from restoring what the user deleted since.
  */
 
 export const ORIGIN_MIGRATION_MARKER = 'renderer-origin-migration.json';
@@ -32,6 +36,10 @@ export interface TargetOriginWriter {
   writeChunk: (bytes: Uint8Array) => Promise<void>;
   endFile: () => Promise<void>;
   abortFile: () => Promise<void>;
+  /** Moves a staged file over `name` in the same folder, replacing what is there. */
+  commitFile: (path: readonly string[], name: string) => Promise<void>;
+  /** Removes a file; a missing one is not an error. */
+  removeFile: (path: readonly string[]) => Promise<void>;
   close: () => void;
 }
 
@@ -59,6 +67,8 @@ export interface OriginMigrationDeps {
   openTarget: () => Promise<TargetOriginWriter>;
   /** Writes pending localStorage to disk before the marker records success. */
   flush: () => Promise<void> | void;
+  /** Bytes staged so far out of the bytes this attempt copies. */
+  onProgress?: (done: number, total: number) => void;
   signal?: AbortSignal;
   now?: () => number;
 }
@@ -96,13 +106,19 @@ function errorCode(error: unknown): string {
   return 'unknown';
 }
 
-async function copyFile(
+function stagingPath(file: OriginFile): string[] {
+  return [...file.path.slice(0, -1), `${file.path.at(-1)}${STAGING_SUFFIX}`];
+}
+
+async function stageFile(
   legacy: LegacyOriginReader,
   target: TargetOriginWriter,
   file: OriginFile,
+  onChunk: (length: number) => void,
   signal?: AbortSignal
 ): Promise<void> {
-  await target.beginFile(file.path);
+  const staging = stagingPath(file);
+  await target.beginFile(staging);
   try {
     for (let offset = 0; offset < file.size; ) {
       signal?.throwIfAborted();
@@ -113,13 +129,14 @@ async function copyFile(
       }
       await target.writeChunk(bytes);
       offset += length;
+      onChunk(length);
     }
     await target.endFile();
   } catch (error) {
     await target.abortFile().catch(() => {});
     throw error;
   }
-  if ((await target.fileSize(file.path)) !== file.size) {
+  if ((await target.fileSize(staging)) !== file.size) {
     throw Object.assign(new Error('Copied file size differs'), { code: 'ESIZE' });
   }
 }
@@ -149,7 +166,7 @@ export async function migrateRendererOrigin(
     fileBytes: previous?.fileBytes ?? 0,
     durationMs: 0,
     localStorageCopied: previous?.localStorageCopied ?? false,
-    copiedFiles: previous?.copiedFiles ?? [],
+    copiedFiles: [...(previous?.copiedFiles ?? [])],
   };
   // No disk probe: Chromium creates Local Storage before any page loads, so only
   // the legacy origin itself can say whether it holds data.
@@ -174,14 +191,28 @@ export async function migrateRendererOrigin(
     );
     if (files.length > 0) target ??= await deps.openTarget();
     const empty = !target;
-    for (const file of files) {
-      deps.signal?.throwIfAborted();
-      if (target && ((await target.fileSize(file.path)) ?? 0) === 0) {
-        await copyFile(legacy, target, file, deps.signal);
+    if (target) {
+      const writer = target;
+      const staged: OriginFile[] = [];
+      const total = files.reduce((sum, file) => sum + file.size, 0);
+      let done = 0;
+      const onChunk = (length: number) => deps.onProgress?.((done += length), total);
+      try {
+        for (const file of files) {
+          deps.signal?.throwIfAborted();
+          staged.push(file);
+          await stageFile(legacy, writer, file, onChunk, deps.signal);
+        }
+      } catch (error) {
+        await Promise.all(staged.map(file => writer.removeFile(stagingPath(file)).catch(() => {})));
+        throw error;
+      }
+      for (const file of staged) {
+        await writer.commitFile(stagingPath(file), file.path.at(-1) as string);
         marker.files += 1;
         marker.fileBytes += file.size;
+        marker.copiedFiles.push(file.path.join('/'));
       }
-      marker.copiedFiles = [...marker.copiedFiles, file.path.join('/')];
       await writeMarker(markerPath, marker);
     }
     marker.state = 'done';
@@ -199,4 +230,12 @@ export async function migrateRendererOrigin(
     legacy?.close();
     target?.close();
   }
+}
+
+/** What to tell the user after an attempt: nothing, a retry next launch, or that it gave up. */
+export function storageMigrationNoticeFor(
+  result: OriginMigrationResult
+): StorageMigrationNotice | null {
+  if (result.status !== 'failed') return null;
+  return result.marker.attempts >= ORIGIN_MIGRATION_MAX_ATTEMPTS ? 'final' : 'retry';
 }

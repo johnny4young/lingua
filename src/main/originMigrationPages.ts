@@ -7,11 +7,13 @@ import {
   ABORT_FILE,
   BEGIN_FILE,
   call,
+  COMMIT_FILE,
   END_FILE,
   FILE_SIZE,
   LIST_FILES,
   READ_CHUNK,
   READ_LOCAL_STORAGE,
+  REMOVE_FILE,
   WRITE_CHUNK,
   WRITE_LOCAL_STORAGE,
 } from './originMigrationScripts';
@@ -138,6 +140,8 @@ export async function openTargetOriginPage(
       ),
     endFile: () => page.evaluate(END_FILE),
     abortFile: () => page.evaluate(ABORT_FILE),
+    commitFile: (filePath, name) => page.evaluate(call(COMMIT_FILE, filePath, name)),
+    removeFile: filePath => page.evaluate(call(REMOVE_FILE, filePath)),
     close: page.close,
   };
 }
