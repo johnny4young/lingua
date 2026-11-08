@@ -146,7 +146,7 @@ export const en = {
       eyebrow: 'Shipped in Lingua',
       title: 'Six workflows that define Lingua today.',
       releaseTitle: 'Six workflows that define Lingua 1.0.',
-      lede: 'Captured from current builds, not mockups. Each workflow states where it runs and when it needs Pro; the complete technical record lives in the changelog.',
+      lede: 'Captured from real builds, not mockups. Each workflow states where it runs and when it needs Pro; the complete technical record lives in the changelog.',
       cta: 'Read the full changelog',
       latest: {
         label: 'New in',
@@ -206,7 +206,7 @@ export const en = {
     tour: {
       eyebrow: 'Inside the app',
       title: 'The actual product, doing actual work.',
-      lede: 'No mockups below — every frame is the shipping app captured mid-task on the production web build.',
+      lede: 'No mockups below — every frame is a real build captured mid-task.',
       items: [
         {
           image: '/screenshots/tour/workspace-python.png',
@@ -252,9 +252,9 @@ export const en = {
       lede: 'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
       shot: {
         image: '/screenshots/tour/ai-explain.png',
-        alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains reading a property of null, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
+        alt: 'Explain panel beside a failed JavaScript run: the answer explains reading a property of null, proposes a guarded fix in a code block, and offers Apply and re-run',
         caption:
-          'A real answer from a local model — qwen3-coder on Ollama, no cloud round trip. The dialog previews the exact payload before anything is sent, and Apply & re-run patches the fix behind a diff you approve.',
+          'The panel opens beside your code and previews the exact payload before anything is sent. Apply & re-run patches the fix behind a diff you approve. The answer here is a sample.',
       },
       cards: [
         {
@@ -275,7 +275,7 @@ export const en = {
         {
           icon: 'lock',
           title: 'Local-first & private',
-          body: 'A local model means code never leaves your device. Obvious secrets are redacted before the preview, and the key lives only in Settings — never in exports, capsules, share links, or telemetry.',
+          body: 'A local model means code never leaves your device. Obvious secrets are redacted before the preview, and the key stays on your device — never in exports, capsules, share links, or telemetry.',
         },
       ],
     },
@@ -353,7 +353,7 @@ export const en = {
       bodyStart:
         'Telemetry excludes source and project paths. HTTP requests and remote AI send the payloads you choose to their endpoints; review them before sending. Read the',
       link: 'privacy page',
-      bodyEnd: 'for what every event contains.',
+      bodyEnd: 'for what telemetry contains.',
     },
     finalCta: {
       title: 'Throw your next 10-line script at it.',
@@ -393,11 +393,12 @@ export const en = {
           features: [
             '3 open tabs at a time',
             'Up to 5 saved snippets',
-            '3 saved database connections (desktop, Labs)',
+            '3 saved database connections (desktop)',
             'JavaScript, TypeScript, Python, Ruby runners',
             'All single-shot developer utilities',
             'Monaco editor + syntax highlighting',
             'Keyboard shortcut editor',
+            'Execution timeline, last 20 steps',
           ],
           cta: 'Download Lingua',
         },
@@ -411,9 +412,9 @@ export const en = {
             'Everything in Free',
             'Unlimited tabs, snippets and saved database connections',
             'Go and Rust runners',
-            'TypeScript, Python, and SQL notebooks',
+            'JavaScript, TypeScript, Python, and SQL notebooks',
             'Local-first AI with your own endpoint and key',
-            'Persistent execution history and utility workflows',
+            'Compare runs, the full execution timeline and utility workflows',
             'Every update while subscribed',
           ],
           cta: 'Buy Monthly',
@@ -551,7 +552,7 @@ export const en = {
         },
         cli: {
           title: 'Terminal tool (CLI)',
-          description: 'For terminal commands, without a graphical editor. Running code needs its language runtime, including Node.js 24.x for JavaScript and TypeScript.',
+          description: 'For terminal commands, without a graphical editor. Running code needs its language runtime, including Node.js 26 for JavaScript and TypeScript.',
         },
         other: { title: 'Other downloads', description: 'Check the filename and release notes before choosing.' },
       },

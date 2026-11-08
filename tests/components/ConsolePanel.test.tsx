@@ -265,6 +265,12 @@ describe('ConsolePanel', () => {
     expect(screen.getByTestId('contextual-hint-console')).toBeTruthy();
   });
 
+  it('leaves the empty Console quiet while another Dock surface explains it', () => {
+    render(<ConsolePanel quietEmpty />);
+    expect(screen.queryByText('Output will appear here...')).toBeNull();
+    expect(screen.queryByTestId('contextual-hint-console')).toBeNull();
+  });
+
   it('removes empty-state guidance when the user disables tips', async () => {
     const user = userEvent.setup();
     render(<ConsolePanel />);

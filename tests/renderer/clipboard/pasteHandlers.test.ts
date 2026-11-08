@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectPasteIntent } from '@/clipboard/pasteHandlers';
+import { classifyClipboard, detectPasteIntent } from '@/clipboard/pasteHandlers';
 import { NON_SECRET_TEST_JWT } from '../../__fixtures__/jwt';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
 
@@ -187,5 +187,38 @@ describe('detectPasteIntent — must NOT fire (false-positive guards)', () => {
 
   it('ignores non-JS prose', () => {
     expect(detectPasteIntent('the quick brown fox jumps over the lazy dog')).toBeNull();
+  });
+});
+
+describe('classifyClipboard', () => {
+  it.each([
+    [NON_SECRET_TEST_JWT, 'jwt'],
+    [`  ${NON_SECRET_TEST_JWT}\n`, 'jwt'],
+    [`${Buffer.from('{"alg":"none","kid":"???>>>~~~"}').toString('base64url')}.bbb.ccc`, 'jwt'],
+    ['{"sub": "7", "exp": 1792296000, "name": "ada"}', 'json'],
+    ['{"a":1}', 'json'],
+    [`[${'1,'.repeat(6000)}1]`, 'json'],
+    ['0 9 * * 1-5', 'cron-parser'],
+    ['1700000000', 'timestamp'],
+    ['aGVsbG8gZnJvbSBsaW5ndWE=', 'base64'],
+    ['6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f', 'uuid'],
+    ['#ff8800', 'color'],
+  ])('reads %j as %s', (text, kind) => {
+    expect(classifyClipboard(text)).toBe(kind);
+  });
+
+  it.each([
+    ['nothing', ''],
+    ['spaces', '   '],
+    ['prose', 'call me when the build is done'],
+    ['a hostname', 'www.example.com'],
+    ['a version', '1.2.3'],
+    ['three segments with a header that is not a JWT one', 'eyJhIjoxfQ.bbb.ccc'],
+    ['code', 'const total = items.reduce((sum, item) => sum + item, 0);'],
+    ['a number outside a human date', '99999999999999999'],
+    ['a large block that is not JSON', 'x'.repeat(20_000)],
+    ['JSON too large to parse on focus', `[${'1,'.repeat(600_000)}1]`],
+  ])('has no suggestion for %s', (_name, text) => {
+    expect(classifyClipboard(text)).toBeNull();
   });
 });

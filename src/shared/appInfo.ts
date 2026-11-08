@@ -54,6 +54,10 @@ export function normalizeExternalUrl(value: unknown): string | null {
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return null;
     }
+    // Credentials in a URL can hide its real host behind a familiar-looking prefix.
+    if (parsed.username || parsed.password) {
+      return null;
+    }
     return parsed.toString();
   } catch {
     return null;

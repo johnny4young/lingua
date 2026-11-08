@@ -10,7 +10,6 @@ import { HttpSendButton } from '@/components/HttpWorkspace/HttpSendButton';
 import { HttpUrlField } from '@/components/HttpWorkspace/HttpUrlField';
 import { ENVIRONMENT_TINTS, SCOPE_TINTS, UNRESOLVED_TINT } from '@/components/HttpWorkspace/httpScopeColors';
 import { rowsFromOtherEnvironments, scopedEnvironmentFor } from '@/components/HttpWorkspace/httpScopes';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { resetWorkspaceToolStoreForTests, useWorkspaceToolStore } from '@/stores/workspaceToolStore';
 import {
   createBlankHttpEnvironment,
@@ -38,16 +37,14 @@ beforeEach(async () => {
   initI18n('en');
   await i18next.changeLanguage('en');
   resetWorkspaceToolStoreForTests();
-  useSettingsStore.setState({ featureFlags: { httpScopes: true } });
 });
 
 describe('scope colours in the URL', () => {
-  const field = (sources?: ReturnType<typeof variableSources>) =>
+  const field = (sources: ReturnType<typeof variableSources>) =>
     render(
       <HttpUrlField
         value="{{base}}/{{owner}}/{{repo}}/{{missing}}"
-        env={layeredEnvironment(layers)}
-        {...(sources ? { sources } : {})}
+        sources={sources}
         placeholder=""
         ariaLabel="URL"
         onChange={vi.fn()}
@@ -64,13 +61,6 @@ describe('scope colours in the URL', () => {
     expect(tokens[2]!.style.color).toBe(SCOPE_TINTS.request.fg);
     expect(tokens[3]!.style.color).toBe(UNRESOLVED_TINT.fg);
   });
-
-  it('keeps the defined and missing look without scopes', () => {
-    field();
-    const tokens = screen.getAllByTestId('http-request-editor-url-token');
-    expect(tokens.map((token) => token.dataset.state)).toEqual(['defined', 'defined', 'defined', 'missing']);
-    expect(tokens[0]!.getAttribute('style')).toBeNull();
-  });
 });
 
 describe('preview chips', () => {
@@ -79,10 +69,35 @@ describe('preview chips', () => {
     render(<HttpEnvironmentPreview request={request} env={layeredEnvironment(layers)} sources={variableSources(layers)} />);
     const base = screen.getAllByTestId('http-environment-preview-chip').find((chip) => chip.textContent?.startsWith('base'))!;
     expect(base.dataset.scope).toBe('environment');
-    expect(base.title).toBe('Scope: environment · overrides collection');
+    expect(base.title).toBe('https://staging.example · Scope: environment · overrides collection');
     const secret = screen.getByTestId('http-environment-preview-chip-secret');
     expect(secret.dataset.scope).toBe('collection');
+    expect(secret.title).toBe('•••••• · Scope: collection');
     expect(screen.getByTestId('http-environment-preview').textContent).not.toContain('coll-secret');
+  });
+});
+
+describe('preview chip values', () => {
+  it('adds nothing to a chip without scopes', () => {
+    const env = { id: 'e', name: 'e', variables: [v('a', 'base', 'https://x'), v('b', 'token', 'hidden', true)] } as unknown as Parameters<typeof HttpEnvironmentPreview>[0]['env'];
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), url: '{{base}}/{{token}}' };
+    render(<HttpEnvironmentPreview request={request} env={env} />);
+    expect(screen.getByTestId('http-environment-preview-chip').textContent).toBe('base');
+    expect(screen.getByTestId('http-environment-preview-chip-secret').textContent).not.toContain('undefined');
+  });
+
+  it('shows the last row of a duplicated key and shortens a long value', () => {
+    const long = 'x'.repeat(200);
+    const scoped = {
+      collection: [v('c1', 'dup', 'older'), v('c2', 'dup', 'newer'), v('c3', 'long', long)],
+      environment: null,
+      request: [],
+    };
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), url: '{{dup}}/{{long}}' };
+    render(<HttpEnvironmentPreview request={request} env={layeredEnvironment(scoped)} sources={variableSources(scoped)} />);
+    const [dup, shortened] = screen.getAllByTestId('http-environment-preview-chip');
+    expect(dup!.title).toBe('newer · Scope: collection');
+    expect(shortened!.title).toBe(`${'x'.repeat(80)}… · Scope: collection`);
   });
 });
 
@@ -228,11 +243,9 @@ describe('scope helpers', () => {
     expect(rows[0]!.id).not.toBe('s1');
   });
 
-  it('layers collection and request variables only with the flag on', () => {
+  it('layers collection and request variables', () => {
     useWorkspaceToolStore.setState({ collectionVariables: [v('c', 'owner', 'octocat')] });
-    const request = { variables: [v('r', 'repo', 'lingua')] };
+    const request = { ...createBlankHttpRequest({ id: 'r', now: NOW }), variables: [v('r', 'repo', 'lingua')] };
     expect(scopedEnvironmentFor(request, null)?.variables.map((row) => row.key)).toEqual(['owner', 'repo']);
-    useSettingsStore.setState({ featureFlags: {} });
-    expect(scopedEnvironmentFor(request, null)).toBeNull();
   });
 });

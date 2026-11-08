@@ -45,6 +45,12 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Enter'] }],
   },
   {
+    // Only while a run is in flight; otherwise the editor keeps it for Quick Fix.
+    id: 'run-stop',
+    group: 'run',
+    combos: [{ tokens: ['Mod', 'Period'] }],
+  },
+  {
     // Cycle through the implemented JS/TS
     // runtime modes on the active tab. Originally only `worker` existed, so
     // the cycle was a no-op; later modes light up the same
@@ -64,8 +70,7 @@ export const KEYBOARD_SHORTCUTS = [
   },
   {
     // Toggle the per-tab Recent Runs popover.
-    // No-op when no pill is mounted (Free tier, view-only tab, or
-    // empty per-tab history). Dispatcher in `App.tsx` consults the
+    // No-op when no pill is mounted (view-only tab or empty per-tab history). Dispatcher in `App.tsx` consults the
     // `recentRunsPopoverBridge` module.
     id: 'run-toggle-recent-runs',
     group: 'run',
@@ -77,7 +82,7 @@ export const KEYBOARD_SHORTCUTS = [
   },
   {
     // Opens or closes the Compare dock tab (`utils/compareDock.ts`);
-    // shows a notice when no comparable snapshot exists.
+    // shows a notice when there is nothing to compare.
     id: 'run-toggle-compare-snapshot',
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'D'] }],

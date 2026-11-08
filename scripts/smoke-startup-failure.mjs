@@ -40,9 +40,17 @@ try {
         language,
         showDialog: Boolean(showDialog),
         recordPath,
-        missing: path.join(fixture, 'missing.html'),
+        // Inside the renderer scheme, so the protocol handler's missing-file path is the one exercised.
+        missing: 'app://lingua/lingua-startup-smoke-missing.html',
         main: path.join(root, '.vite/build/main.js'),
       };
+      // A migrated profile: these scenarios count windows, and the one-time
+      // storage migration page belongs to smoke-origin-migration.mjs.
+      await mkdir(path.join(fixture, 'profile'));
+      await writeFile(
+        path.join(fixture, 'profile', 'renderer-origin-migration.json'),
+        JSON.stringify({ version: 1, state: 'done', attempts: 1 })
+      );
       await writeFile(
         path.join(fixture, 'package.json'),
         JSON.stringify({ name: 'lingua-startup-smoke', version: '1.5.1', main: 'main.cjs' })
@@ -67,14 +75,14 @@ ipcMain.handle = (...args) => { result.handlers++; save(); return handle(...args
 if (config.scenario === 'secondary-instance') app.requestSingleInstanceLock = () => false;
 if (config.scenario === 'initialization') app.getVersion = () => { throw Object.assign(new Error('SYNTHETIC_PRIVATE_PATH_AND_TOKEN'), { code: 'EACCES' }); };
 if (config.scenario === 'missing-renderer') {
-  const load = BrowserWindow.prototype.loadFile;
-  BrowserWindow.prototype.loadFile = function () { return load.call(this, config.missing); };
+  const load = BrowserWindow.prototype.loadURL;
+  BrowserWindow.prototype.loadURL = function () { return load.call(this, config.missing); };
 }
 if (config.scenario === 'hanging-renderer') {
   BrowserWindow.prototype.loadURL = function () { return new Promise(() => {}); };
 }
 if (config.scenario === 'quit-during-load') {
-  BrowserWindow.prototype.loadFile = function () {
+  BrowserWindow.prototype.loadURL = function () {
     setTimeout(() => app.quit(), 25);
     return new Promise(() => {});
   };
@@ -152,6 +160,8 @@ require(config.main);
       );
       if (result.scenario === 'hanging-renderer')
         assert.match(result.dialogs[0].content, /renderer-load\/ETIMEDOUT/);
+      if (result.scenario === 'missing-renderer')
+        assert.match(result.dialogs[0].content, /renderer-load\/ERR_FAILED/);
       assert.equal(
         result.windows,
         ['missing-renderer', 'hanging-renderer'].includes(result.scenario) ? 1 : 0

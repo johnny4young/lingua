@@ -1,5 +1,6 @@
 import type { LineResult } from '../../stores/resultStore';
 import { formatPayloadInlineSummary } from '../../../shared/richOutput';
+import { replaceUnsafeText } from '../../utils/unsafeText';
 
 const INLINE_VALUE_MAX_CHARS = 80;
 const INLINE_VALUE_ELLIPSIS = '…';
@@ -20,7 +21,7 @@ function truncateInlineValue(value: string): { display: string; truncated: boole
  * the runtime type without re-parsing the host language; this fallback
  * is good enough to colour the type pill consistently.
  */
-function inferKind(raw: string | undefined): string {
+export function inferKind(raw: string | undefined): string {
   if (raw === undefined || raw === '') return 'string';
   const s = raw.trim();
   if (s === 'true' || s === 'false') return 'boolean';
@@ -68,7 +69,8 @@ export function renderInlineResultNode(
     // inferred kind when there's no payload (every legacy
     // code path keeps its rendering).
     const richPreview = result.payload ? formatPayloadInlineSummary(result.payload) : null;
-    const valueStr = richPreview ? richPreview.display : String(result.value ?? '');
+    // Values come from program output, so bidi and control characters cannot reorder or hide the line.
+    const valueStr = replaceUnsafeText(richPreview ? richPreview.display : String(result.value ?? ''));
     const kind =
       result.type === 'error'
         ? 'error'
@@ -90,6 +92,13 @@ export function renderInlineResultNode(
     arrow.className = 'lingua-inline-result-arrow';
     arrow.textContent = '⟸';
     part.appendChild(arrow);
+
+    if (result.name) {
+      const name = document.createElement('span');
+      name.className = 'lingua-inline-result-name';
+      name.textContent = `${replaceUnsafeText(result.name)}:`;
+      part.appendChild(name);
+    }
 
     const value = document.createElement('span');
     value.className = 'lingua-inline-result-value';

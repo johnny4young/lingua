@@ -54,7 +54,7 @@ for (const language of ['en', 'es'] as const) {
     expect(errors).toEqual([]);
   });
 
-  test(`keeps undo separate for queries with identical text (${language.toUpperCase()})`, async ({ page }) => {
+  test(`keeps each query's own undo history for queries with identical text (${language.toUpperCase()})`, async ({ page }) => {
     const errors: string[] = [];
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
     await seedSession(page, { language });
@@ -79,15 +79,18 @@ for (const language of ['en', 'es'] as const) {
     const editor = page.getByTestId('sql-query-editor-monaco');
     await expect(page.getByTestId('sql-query-editor-run')).toContainText(language === 'es' ? 'Ejecutar' : 'Run');
     await expect(editor.locator('.lingua-sql-run-glyph')).toHaveCount(1);
+    const shown = async () => (await editor.locator('.view-lines').innerText()).replace(/\u00a0/g, ' ').trim();
     await editor.locator('.overflow-guard').click();
+    // Each query keeps its own history: Undo reverts this query's typing and never the other's.
     await page.keyboard.press('ControlOrMeta+z');
-    // A new edit makes the saved-state oracle wait for this document's actual post-Undo model,
-    // rather than accepting the unchanged saved text before the next auto-save.
-    await page.keyboard.press('End');
-    await page.keyboard.insertText(';');
-    await expect.poll(async () => (await editor.locator('.view-lines').innerText()).replace(/\u00a0/g, ' ').trim()).toBe(`${source};`);
-    await expect.poll(() => savedQuery(page, ids[0])).toBe(`${source};`);
-    await expect.poll(() => savedQuery(page, ids[1])).toBe(source);
+    await expect.poll(shown).not.toBe(source);
+    const undone = await shown();
+    expect(source.startsWith(undone)).toBe(true);
+    await expect.poll(() => savedQuery(page, ids[0])).toBe(undone);
+    await page.locator(`[data-testid="sql-query-list-row"][data-query-id="${ids[1]}"]`).click();
+    await expect(activeTab).toHaveAttribute('data-query-id', ids[1]);
+    await expect.poll(shown).toBe(source);
+    expect(await savedQuery(page, ids[1])).toBe(source);
     expect(errors).toEqual([]);
   });
 }

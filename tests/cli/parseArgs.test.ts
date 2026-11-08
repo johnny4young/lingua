@@ -36,6 +36,7 @@ describe('parseArgs', () => {
         color: 'auto',
         options: [],
         env: [],
+        files: [],
         programArgs: [],
         help: false,
         yes: false,
@@ -338,5 +339,73 @@ describe('regression target and suite parser', () => {
     expect(() =>
       parseArgs(['capsule', 'verify', 'b.json', '--target=a.js', '--target=b.js'])
     ).toThrow(CliUsageError);
+  });
+});
+
+describe('repro parser', () => {
+  it('collects pack flags, repeating --file in order', () => {
+    expect(
+      parseArgs([
+        'repro',
+        'pack',
+        'run.capsule.json',
+        '--entry',
+        'main.mjs',
+        '--file',
+        'lib/a.mjs',
+        '--file=lib/b.mjs',
+        '--root',
+        'fixtures',
+        '--node=24',
+      ])
+    ).toMatchObject({
+      command: 'repro-pack',
+      positionals: ['run.capsule.json'],
+      flags: {
+        entry: 'main.mjs',
+        files: ['lib/a.mjs', 'lib/b.mjs'],
+        root: 'fixtures',
+        nodeMajor: 24,
+      },
+    });
+  });
+
+  it('parses review and run with their own flags', () => {
+    expect(parseArgs(['repro', 'review', 'repro.json', '--json'])).toMatchObject({
+      command: 'repro-review',
+      positionals: ['repro.json'],
+      flags: { json: true },
+    });
+    expect(parseArgs(['repro', 'run', 'repro.json', '--approve', 'abc'])).toMatchObject({
+      command: 'repro-run',
+      flags: { approve: 'abc' },
+    });
+  });
+
+  it.each([
+    [['repro'], 'lingua repro requires a subcommand'],
+    [['repro', 'build', 'x.json'], 'Unknown repro subcommand "build"'],
+    [['repro', 'pack', 'run.capsule.json'], 'lingua repro pack requires --entry <path>.'],
+    [['repro', 'run', 'repro.json'], 'lingua repro run requires --approve <token>'],
+    [
+      ['repro', 'review', 'repro.json', '--approve', 'abc'],
+      'Unknown flag "--approve" for "lingua repro review"',
+    ],
+    [
+      ['repro', 'run', 'repro.json', '--approve', 'a', '--approve', 'b'],
+      '--approve may be supplied once.',
+    ],
+    [
+      ['repro', 'pack', 'c.json', '--entry', 'main.mjs', '--node', 'lts'],
+      '--node must be a Node.js major version',
+    ],
+    [['repro', 'review', 'a.json', 'b.json'], 'lingua repro review accepts one <envelope>'],
+    [
+      ['repro', 'run', 'repro.json', '--timeout', '100'],
+      'Unknown flag "--timeout" for "lingua repro run"',
+    ],
+  ])('rejects %j', (argv, message) => {
+    expect(() => parseArgs(argv)).toThrow(CliUsageError);
+    expect(() => parseArgs(argv)).toThrow(message);
   });
 });

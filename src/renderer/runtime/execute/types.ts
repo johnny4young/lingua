@@ -1,6 +1,7 @@
 import type { ManualRunSession } from '../manualRunSession';
 import type { TelemetryTrack } from '../../hooks/useTelemetry';
 import type { Language } from '../../types/language';
+import type { MaskedStdinAnswer, RunRegion } from '../../utils/runRegions';
 
 export interface ManualExecutionLifecycle {
   session?: ManualRunSession;
@@ -25,6 +26,12 @@ export interface ManualExecutionLifecycle {
    * breakpoints remain passive editor marks until the user presses Debug.
    */
   debug?: boolean;
+  /** Record run: the JS / TS runner keeps a step timeline. */
+  record?: boolean;
+  /** Run regions: run the file up to the end of this region and keep no history. */
+  region?: RunRegion;
+  /** Run regions: masked stdin answers kept in memory, merged into the tab's stdin. */
+  maskedStdin?: readonly MaskedStdinAnswer[];
   /** Telemetry entry point supplied by the React control that owns the run. */
   track?: TelemetryTrack;
 }

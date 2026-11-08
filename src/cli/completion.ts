@@ -10,6 +10,7 @@ import {
 } from './commandModel';
 
 const commandWords = CLI_TOP_LEVEL_COMMANDS.join(' ');
+const commandPattern = CLI_TOP_LEVEL_COMMANDS.join('|');
 const colorWords = CLI_COLOR_MODES.join(' ');
 const shellWords = CLI_COMPLETION_TARGETS.join(' ');
 const utilityWords = [...UTILITY_ADAPTER_IDS].sort().join(' ');
@@ -45,7 +46,7 @@ _lingua() {
         ;;
       --color=*)
         ;;
-      utility|run|capsule|list|completion)
+      ${commandPattern})
         command="$word"
         command_index=$index
         break
@@ -67,12 +68,12 @@ _lingua() {
       COMPREPLY=( $(compgen -W "${colorWords}" -- "$cur") )
       return
       ;;
-    --input|--stdin|--target|--root)
+    --input|--stdin|--target|--root|--file)
       compopt -o filenames 2>/dev/null || true
       COMPREPLY=( $(compgen -f -- "$cur") )
       return
       ;;
-    --timeout)
+    --timeout|--entry|--node|--approve)
       return
       ;;
     --env|--option)
@@ -118,6 +119,22 @@ _lingua() {
         COMPREPLY=( $(compgen -f -- "$cur") )
       fi
       ;;
+    repro)
+      relative=$(( COMP_CWORD - command_index ))
+      if (( relative == 1 )); then
+        COMPREPLY=( $(compgen -W "pack review run" -- "$cur") )
+      elif [[ "$cur" == -* ]]; then
+        local flags="--json --quiet --color --help"
+        case "\${COMP_WORDS[command_index+1]}" in
+          pack) flags="$flags --entry --file --root --node" ;;
+          run) flags="$flags --approve" ;;
+        esac
+        COMPREPLY=( $(compgen -W "$flags" -- "$cur") )
+      else
+        compopt -o filenames 2>/dev/null || true
+        COMPREPLY=( $(compgen -f -- "$cur") )
+      fi
+      ;;
     list)
       relative=$(( COMP_CWORD - command_index ))
       if (( relative == 1 )); then
@@ -146,12 +163,13 @@ function renderZshCompletion(): string {
 _lingua() {
   local context state state_descr line
   typeset -A opt_args
-  local -a commands utilities color_modes completion_targets capsule_flags
+  local -a commands utilities color_modes completion_targets capsule_flags repro_flags
   local command_index index
   commands=(
     'utility:Run a shared utility adapter'
     'run:Execute a source file or project root'
     'capsule:Validate or replay a Run Capsule'
+    'repro:Pack, review or run a permissioned reproduction'
     'list:List available capabilities'
     'completion:Generate a shell completion script'
   )
@@ -179,7 +197,7 @@ _lingua() {
             ;;
           --color=*)
             ;;
-          utility|run|capsule|list|completion)
+          ${commandPattern})
             command_index=$index
             break
           ;;
@@ -236,6 +254,29 @@ _lingua() {
               '(-h --help)'{-h,--help}'[Show help]'
           fi
           ;;
+        repro)
+          if (( CURRENT == 2 )); then
+            _values 'repro action' pack review run
+          else
+            repro_flags=()
+            case "\${words[2]}" in
+              pack) repro_flags=(
+                '--entry=[Relative .mjs or .cjs entry path]:path:'
+                '*--file=[Supplemental file relative to --root]:file:_files'
+                '--root=[Directory packed files are read from]:directory:_files -/'
+                '--node=[Requested Node.js major]:major:'
+              ) ;;
+              run) repro_flags=('--approve=[Approval token from lingua repro review]:token:') ;;
+            esac
+            _arguments \\
+              '2:file:_files' \\
+              "\${repro_flags[@]}" \\
+              '--json[Emit structured JSON]' \\
+              '--quiet[Suppress Lingua diagnostics]' \\
+              '--color=[Control diagnostic color]:mode:(auto always never)' \\
+              '(-h --help)'{-h,--help}'[Show help]'
+          fi
+          ;;
         list)
           _values 'list target' utilities
           ;;
@@ -282,7 +323,7 @@ function __fish_lingua_command_index
                 set skip_next 1
             case '--color=*' --json --quiet --help -h --version -v
                 continue
-            case utility run capsule list completion
+            case ${commandWords}
                 echo $index
                 return 0
         end
@@ -302,6 +343,14 @@ function __fish_lingua_using_capsule_action
     test -n "$command_index"; or return 1
     set -l action_index (math $command_index + 1)
     test "$tokens[$command_index]" = capsule; and test "$tokens[$action_index]" = "$argv[1]"
+end
+
+function __fish_lingua_using_repro_action
+    set -l tokens (commandline -opc)
+    set -l command_index (__fish_lingua_command_index)
+    test -n "$command_index"; or return 1
+    set -l action_index (math $command_index + 1)
+    test "$tokens[$command_index]" = repro; and test "$tokens[$action_index]" = "$argv[1]"
 end
 
 function __fish_lingua_needs_first_argument
@@ -332,6 +381,7 @@ end
 complete -c lingua -f -n __fish_lingua_needs_command -a 'utility' -d 'Run a shared utility adapter'
 complete -c lingua -f -n __fish_lingua_needs_command -a 'run' -d 'Execute a source file or project root'
 complete -c lingua -f -n __fish_lingua_needs_command -a 'capsule' -d 'Validate or replay a Run Capsule'
+complete -c lingua -f -n __fish_lingua_needs_command -a 'repro' -d 'Pack, review or run a permissioned reproduction'
 complete -c lingua -f -n __fish_lingua_needs_command -a 'list' -d 'List available capabilities'
 complete -c lingua -f -n __fish_lingua_needs_command -a 'completion' -d 'Generate a shell completion script'
 
@@ -354,6 +404,13 @@ complete -c lingua -n '__fish_lingua_using_capsule_action verify' -l target -r -
 complete -c lingua -n '__fish_lingua_using_capsule_action verify-suite' -l root -r -d 'Suite target root'
 complete -c lingua -n '__fish_lingua_using_command capsule' -l timeout -r -d 'Set per-case execution timeout in milliseconds'
 complete -c lingua -n '__fish_lingua_using_command capsule' -l env -r -d 'Add an explicit NAME=value environment entry'
+
+complete -c lingua -n '__fish_lingua_needs_first_argument repro' -a 'pack review run'
+complete -c lingua -n '__fish_lingua_using_repro_action pack' -l entry -r -d 'Relative .mjs or .cjs entry path'
+complete -c lingua -n '__fish_lingua_using_repro_action pack' -l file -r -F -d 'Supplemental file relative to --root'
+complete -c lingua -n '__fish_lingua_using_repro_action pack' -l root -r -d 'Directory packed files are read from'
+complete -c lingua -n '__fish_lingua_using_repro_action pack' -l node -r -d 'Requested Node.js major'
+complete -c lingua -n '__fish_lingua_using_repro_action run' -l approve -r -d 'Approval token from lingua repro review'
 
 complete -c lingua -n '__fish_lingua_needs_first_argument list' -a 'utilities'
 complete -c lingua -n '__fish_lingua_needs_first_argument completion' -a '${shellWords}'

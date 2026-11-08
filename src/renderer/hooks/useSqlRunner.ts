@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { capHistorySql } from '../../shared/sqlHistory';
-import { isWriteSqlStatementOn, provesReadsOnly, redactSqlSecrets } from '../../shared/sqlStatements';
+import { hasMaskedSqlSecret, isWriteSqlStatementOn, provesReadsOnly, redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
@@ -22,7 +22,7 @@ import {
 } from '../runtime/sqlExplainPlan';
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
 import { executeRemoteScript, sqlDbBridge } from '../runtime/sqlRemote';
-import { dbClientEnabled, findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
+import { findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
 import type { SqlDbConnectionView, SqlDbSecretKind } from '../../shared/sqlDb';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
@@ -190,6 +190,8 @@ function recordRun(queryId: string, sql: string, response: SqlResponseV1, connec
 interface UseSqlRunnerOptions {
   timeoutMs: number;
   onBeforeRun: () => void;
+  /** False keeps the current view and runs nothing. */
+  canStartRun?: () => boolean;
   /** A run created, altered or dropped something; `connectionId` is unset for Local. */
   onSchemaChanged: (connectionId?: string) => void;
 }
@@ -199,7 +201,7 @@ interface UseSqlRunnerOptions {
  * or Explain. Holds the cooperative Cancel and, when DuckDB ignores it,
  * the offer to restart the engine.
  */
-export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSqlRunnerOptions) {
+export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChanged }: UseSqlRunnerOptions) {
   const { t } = useTranslation();
   const announce = useAnnounce();
   const { runningQueryId, more, runSet, plan, view, stuck, isRestarting, confirm, passwordPrompt } = useSqlRunState();
@@ -314,6 +316,9 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
         status: last.response.status === 'success' ? 'ok' : 'error',
         durationMs: last.response.durationMs,
         ...(capsule !== undefined ? { lastCapsule: capsule } : {}),
+        ...(isResult(last.response.status)
+          ? { summary: { kind: 'rows' as const, count: last.response.rowCount, columns: last.response.columns.slice(0, 8).map((column) => column.name) } }
+          : {}),
       });
     },
     [timeoutMs, t, announce, onSchemaChanged]
@@ -323,7 +328,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     async (request: SqlRunRequest) => {
       const { query, mode, statements } = request;
       if (activeController !== null || statements.length === 0 || confirmResolve !== null) return;
-      const enabled = dbClientEnabled();
+      if (canStartRun && !canStartRun()) return;
+      const enabled = sqlDbBridge() !== null;
       // Right after launch the catalog may not have arrived yet; a missing connection needs it.
       if (enabled && query.connectionId && useSqlConnectionsStore.getState().catalog === null) {
         await useSqlConnectionsStore.getState().refresh();
@@ -331,6 +337,11 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const connection = enabled ? findConnection(query.connectionId) : undefined;
       if (enabled && query.connectionId && !connection) {
         useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey: 'sqlWorkspace.connection.missing' });
+        return;
+      }
+      // Text restored from disk has its secrets masked, and running it would store the mask as the value.
+      if (connection && statements.some(hasMaskedSqlSecret)) {
+        useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey: 'sqlWorkspace.connection.maskedSecret' });
         return;
       }
       // Remote engines explain through their own EXPLAIN, shown as rows.
@@ -368,7 +379,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
         setRunState({ runningQueryId: null });
       }
     },
-    [onBeforeRun, runExplain, runStatements]
+    [canStartRun, onBeforeRun, runExplain, runStatements]
   );
 
   const cancel = useCallback(() => activeController?.abort(), []);
@@ -460,6 +471,18 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     isRestarting,
     restartEngine,
   };
+}
+
+/** Drops a query's results from this session, so another connection's rows never show under the new one. */
+export function forgetSqlQueryRun(queryId: string): void {
+  const state = useSqlRunState.getState();
+  if (activeCursor?.key.startsWith(`${queryId}:`)) dropCursor();
+  setRunState({
+    ...(state.runSet?.queryId === queryId ? { runSet: null, view: null } : {}),
+    ...(state.plan?.queryId === queryId ? { plan: null } : {}),
+    ...(state.more?.key.startsWith(`${queryId}:`) ? { more: null } : {}),
+  });
+  sessionRunSources.delete(queryId);
 }
 
 /** Clears the module-level run state between tests. */

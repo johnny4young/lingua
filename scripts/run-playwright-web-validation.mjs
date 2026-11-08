@@ -12,6 +12,7 @@ import {
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { resolveE2ePreviewServer } from './lib/e2ePreviewServer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -208,6 +209,23 @@ if (needsRebuild) {
   mintedLicense = JSON.parse(readFileSync(licenseCachePath, 'utf8'));
 }
 
+// Probed after the build: a preview of this checkout serves dist/web from disk.
+let previewServer;
+try {
+  previewServer = await resolveE2ePreviewServer({
+    repoRoot,
+    indexHtml: readFileSync(distIndexPath, 'utf8'),
+  });
+} catch (error) {
+  console.error(`[run-playwright-web-validation] ${error.message}`);
+  process.exit(2);
+}
+console.log(
+  `[run-playwright-web-validation] preview server: http://localhost:${previewServer.port} (${
+    previewServer.reuse ? 'reusing this checkout\'s server' : 'starting a new one'
+  })`
+);
+
 const child = spawn(
   playwrightBin,
   ['test', '-c', playwrightConfig, ...passthroughArgs],
@@ -218,6 +236,8 @@ const child = spawn(
       ...process.env,
       LINGUA_DEV_LICENSE_PUBLIC_KEY_JWK: mintedLicense.publicKeyJwk,
       LINGUA_DEV_LICENSE_TOKEN: mintedLicense.token,
+      LINGUA_E2E_PORT: String(previewServer.port),
+      LINGUA_E2E_REUSE_SERVER: previewServer.reuse ? '1' : '0',
     },
   }
 );

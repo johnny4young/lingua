@@ -65,8 +65,25 @@ Desktop smoke also writes
 - total smoke wall-clock duration;
 - memory snapshots before the smoke cases and after each case.
 
-Memory data is diagnostic. Platforms that cannot expose the metric
-return `unsupported` instead of failing the smoke.
+Each snapshot carries every process's footprint on macOS, the figure
+Activity Monitor shows as Memory, read with `/usr/bin/footprint`. Working
+set and main-process RSS leave out compressed pages and the renderer, so a
+regression of 100 MB could pass unseen. Other platforms report the
+footprint as `null` and keep the working set.
+
+Footprint is budgeted. On pull requests the macOS leg of `desktop-bundles`
+runs `pnpm run check:performance --memory` right after the packaged smoke.
+That step fails when the peak footprint of every process except GPU exceeds
+`memoryBudgets.desktopSmoke.peakFootprintWithoutGpu.maxBytes` in
+`docs/performance/baseline.json`. The GPU process follows the frames being
+painted, from 100 to 650 MB within seconds, so it is left out. The check also
+fails closed when the artifact is missing, not from a packaged app, or has no
+footprint. The budget follows the CI runner, which measures 10 to 20% below a
+fast laptop. Refresh it from a pull request's `macos-packaged-smoke-pr`
+artifact with `pnpm run performance:baseline --memory
+--desktop-smoke-performance=<artifact>/desktop-smoke-performance.json`, which
+keeps the bundle budgets and adds 15% headroom. Wall-clock timings stay
+diagnostic.
 
 `performance:activation` adds the missing repeated web measurement and
 aggregates repeated desktop smoke artifacts. The default is three samples
@@ -121,6 +138,12 @@ Vite consume the same ordered alias maps from `build/viteAliases.mts`; add or
 change renderer-facing aliases there rather than duplicating them per config.
 The bundle budget remains the second line of defense because it catches costs
 that a source-graph allowlist cannot predict.
+
+Main has the same rule for `src/main/index.ts`, because Electron evaluates all
+of `main.js` before `app.ready`. The i18n catalogs for native dialogs, undici,
+ws, the MCP SDK, zod, acorn and electron-updater load on first use, which took
+`main.js` from 2.4 MB to 330 KB. `tests/build/mainInitialGraph.test.ts` fails
+with the import chain when any of them becomes statically reachable again.
 
 `scripts/lib/staticImportGraph.mjs` is the shared implementation behind that
 guard and the activation report. The report records every eager App-to-package
@@ -363,6 +386,24 @@ guards that contract. The web `initial` bundle dropped accordingly
 Refresh `docs/performance/baseline.json` to tighten the ceiling after a
 full `build:web` + desktop-renderer build per "Refreshing the baseline".
 
+## One TypeScript worker, started on first use
+
+Each TypeScript language service worker holds its own program and libraries,
+roughly 100 to 220 MB of footprint. `patches/monaco-editor@0.55.1.patch`
+makes JavaScript and TypeScript share one `WorkerManager`, so there is never
+more than one. It merges both modes' compiler options and extra libraries,
+forces `allowJs`, and sends each model's language to the worker: Lingua's
+models have no file extension, so the worker cannot tell JavaScript from
+TypeScript by name. The worker also waits for `__linguaTypeScriptWorkerGate`,
+which `src/renderer/monaco.ts` opens on the first key press or mouse move in
+any editor, or when Go to symbol asks for the outline. Opening the app or
+restoring tabs starts no worker. Because the gate can hold a model's first
+validation across a language switch, the patched diagnostics adapter drops any
+result that finishes after its model changed language or was revalidated
+(`tests/build/monacoDiagnosticsAdapterPatch.test.ts`).
+`tests/e2e/typeScriptLanguageService.spec.ts` counts the workers and checks
+diagnostics and completions with JavaScript, TypeScript and Node code mixed.
+
 ## Lazy Developer Utilities panels
 
 The Developer Utilities workspace shell is itself a lazy chunk, and `UtilityPanelRegistry`
@@ -412,7 +453,7 @@ node ./scripts/performance-report.mjs --check --require-all-targets
 
 The check also reports two conditions that are not byte overages:
 
-- **Build shape.** A `dist/web` that contains `duckdb-mvp-*.wasm` or
+- **Build shape.** A `dist/web` that contains `duckdb-eh-*.wasm` or
   `ruby+stdlib.wasm` was built with `LINGUA_WEB_RUNTIME_SAME_ORIGIN=1` (the
   hermetic e2e shape); production points those runtimes at R2. The check
   fails with a single `shape` violation naming the files instead of a wall

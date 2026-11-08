@@ -164,7 +164,7 @@ export function HttpRequestEditor({
     () => environments.find(e => e.id === activeEnvironmentId) ?? null,
     [environments, activeEnvironmentId]
   );
-  // Collection and request variables join the environment with the scopes flag on.
+  // Collection and request variables join the environment.
 
   // A LIVE request snapshot for the
   // resolution preview, rebuilt from the in-editor draft state on every
@@ -182,8 +182,8 @@ export function HttpRequestEditor({
     }),
     [request, transport, method, url, headers, params, auth, body]
   );
-  const { scopes, env: scopedEnv, sources, tags, check, deferred } = useScopedEnvironment(previewRequest, activeEnv);
-  const envColor = scopes ? environmentColor(activeEnv) : undefined;
+  const { env: scopedEnv, sources, tags, check, deferred } = useScopedEnvironment(previewRequest, activeEnv);
+  const envColor = environmentColor(activeEnv);
   const tint = envColor ? ENVIRONMENT_TINTS[envColor] : undefined;
   const [openTag, setOpenTag] = useState<string | null>(null);
 
@@ -352,7 +352,7 @@ export function HttpRequestEditor({
   const urlState = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.send), [url, transport, scopedEnv, deferred.send]);
   const missingTag = !urlState.ok && urlState.reason === 'unresolved' ? tags.find((tag) => tag.key === urlState.key) : undefined;
   const urlFix = useMemo(() => {
-    if (!scopes || !activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
+    if (!activeEnv || urlState.ok || urlState.reason !== 'unresolved') return undefined;
     const rows = rowsFromOtherEnvironments(findUnresolvedVariables(previewRequest, scopedEnv), environments, activeEnv.id);
     if (rows.length === 0) return undefined;
     return {
@@ -363,7 +363,7 @@ export function HttpRequestEditor({
         if (secret) onManageEnvironment?.({ environmentId: activeEnv.id, variableId: secret.id });
       },
     };
-  }, [scopes, activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
+  }, [activeEnv, urlState, previewRequest, scopedEnv, environments, t, onManageEnvironment]);
   const chainUrlOk = useMemo(() => httpUrlState(url, transport, scopedEnv, deferred.chain).ok, [url, transport, scopedEnv, deferred.chain]);
   const sendCurrentDraft = useCallback(
     (options?: HttpSendOptions) => {
@@ -392,10 +392,10 @@ export function HttpRequestEditor({
   // shell builder; the others go through the code generators. Secret env
   // vars are masked to `{{key}}` (never resolved into the clipboard) for
   // every format, identically to the cURL path.
+  const maskedDraft = useCallback(() => (scopedEnv ? maskSecretsForCapsule(buildDraftRequest(), scopedEnv) : buildDraftRequest()), [buildDraftRequest, scopedEnv]);
   const copyAs = useCallback(
     async (format: HttpCopyFormat) => {
-      const draft = buildDraftRequest();
-      const masked = scopedEnv ? maskSecretsForCapsule(draft, scopedEnv) : draft;
+      const masked = maskedDraft();
       const snippet =
         format === 'curl' ? buildCurlCommand(masked) : generateHttpCode(masked, format);
       const ok = await writeToClipboard(snippet);
@@ -406,7 +406,7 @@ export function HttpRequestEditor({
           : 'httpWorkspace.editor.copyCurl.failed',
       });
     },
-    [buildDraftRequest, scopedEnv]
+    [maskedDraft]
   );
 
   // Flush on unmount so an edit typed <500 ms before the editor
@@ -701,8 +701,7 @@ export function HttpRequestEditor({
         </select>
         <HttpUrlField
           value={url}
-          env={check.env}
-          {...(check.sources ? { sources: check.sources } : {})}
+          sources={check.sources}
           placeholder={t(
             transport === 'websocket'
               ? 'httpWorkspace.editor.url.websocketPlaceholder'
@@ -714,8 +713,9 @@ export function HttpRequestEditor({
           {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
           onChange={handleUrlChange}
           onPaste={handleUrlPaste}
+          {...(tags.length > 0 ? { chain: { tags, openTag, onOpenTag: setOpenTag } } : {})}
         />
-        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} />
+        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} maskedRequest={maskedDraft} />
         <HttpSendButton
           isExecuting={isExecuting}
           disabled={!urlState.ok}
@@ -743,7 +743,7 @@ export function HttpRequestEditor({
       <HttpEnvironmentPreview
         request={previewRequest}
         env={scopedEnv}
-        {...(sources ? { sources } : {})}
+        sources={sources}
         {...(tags.length > 0 ? { chainKeys: new Set(tags.map((tag) => tag.key)), openTag, onOpenTag: (key: string) => setOpenTag(key || null) } : {})}
       />
       {tags.length > 0 ? (
@@ -783,14 +783,10 @@ export function HttpRequestEditor({
         onAddAssertion={handleAddAssertion}
         onUpdateAssertion={handleUpdateAssertion}
         onRemoveAssertion={handleRemoveAssertion}
-        {...(scopes
-          ? {
-              variables: {
-                rows: request.variables ?? [],
-                onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
-              },
-            }
-          : {})}
+        variables={{
+          rows: request.variables ?? [],
+          onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
+        }}
         {...(tint ? { tint } : {})}
       />
     </div>

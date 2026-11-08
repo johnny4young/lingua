@@ -23,7 +23,8 @@ import type { Session } from 'electron';
  * - `clipboard-read` — clipboard READ features call `navigator.clipboard.readText`:
  *   capsule import from the clipboard (`useCapsuleImport`), the Utility Pipeline
  *   paste action, the clipboard-on-focus paste detection (`useClipboardOnFocus`),
- *   and the shared `readClipboard` helper. Denying it breaks all of those with
+ *   Utilities' clipboard suggestions (`useClipboardSuggestion`),
+ *   and the shared `readFromClipboard` helper. Denying it breaks all of those with
  *   `NotAllowedError`.
  *
  * Anything not listed here (`media`, `geolocation`, `notifications`, `midi`,

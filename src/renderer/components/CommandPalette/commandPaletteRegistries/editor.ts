@@ -3,6 +3,7 @@ import { buildActionCommand, plainPasteComboValues } from '../commandPaletteMode
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 import { nativeJsRuntimeHintKey, type NativeJsRuntimeMode } from '../../../utils/nativeJsRuntimeStatus';
 import { buildSelectionTransferCommands } from './selectionTransferCommands';
+import { buildAiCodeCommands } from './aiCodeCommands';
 
 export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate }) => {
   const {
@@ -19,6 +20,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     onToggleCompareWithSnapshot,
     activeCompareEnabled = false,
     compareSnapshotAvailable = false,
+    compareShowsRuns = false,
     onToggleVariableInspector,
     activeVariableInspectorEnabled = false,
     variableInspectorScopeAvailable = false,
@@ -32,6 +34,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     onInstallNativeDependencies,
     onExplainLastError,
     onExplainSelectedCode,
+    onEditSelectedCode,
     onFocusStatusBar,
     onTogglePresenterMode,
     setLayoutPreset,
@@ -163,22 +166,22 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // Toggle the Compare panel on the
-    // active tab. Hidden when there's no comparator snapshot for
-    // the active language (matches the toggle-button gate). The
-    // description flips between "Show" and "Hide" so the palette
-    // honestly previews the next state.
-    ...(onToggleCompareWithSnapshot && compareSnapshotAvailable
+    // Toggle the Compare panel on the active tab, with the dock's gate: a
+    // comparator snapshot for the active language, or any run while Compare
+    // runs is on. The description previews the next state.
+    ...(onToggleCompareWithSnapshot && (compareSnapshotAvailable || compareShowsRuns)
       ? [
           buildActionCommand(
             'action-toggle-compare-with-snapshot',
-            translate('commandPalette.action.toggleCompare.label'),
+            translate(compareShowsRuns ? 'commandPalette.action.toggleCompare.labelRuns' : 'commandPalette.action.toggleCompare.label'),
             translate(
               activeCompareEnabled
                 ? 'commandPalette.action.toggleCompare.descriptionHide'
-                : 'commandPalette.action.toggleCompare.descriptionShow'
+                : compareShowsRuns
+                  ? 'commandPalette.action.toggleCompare.descriptionShowRuns'
+                  : 'commandPalette.action.toggleCompare.descriptionShow'
             ),
-            ['compare', 'diff', 'snapshot', 'stable', 'previous', 'toggle'],
+            ['compare', 'diff', 'snapshot', 'stable', 'previous', 'toggle', 'history', 'runs'],
             () => {
               onToggleCompareWithSnapshot();
               onClose();
@@ -360,33 +363,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // Explain the current selection / buffer with the
-    // local AI model. Wired only when LOCAL_AI is held and an editor is
-    // active.
-    ...(onExplainSelectedCode
-      ? [
-          buildActionCommand(
-            'action-explain-selected-code',
-            translate('command.explainCode'),
-            translate('command.explainCodeDescription'),
-            [
-              'explain',
-              'code',
-              'ai',
-              'describe',
-              'selection',
-              'explicar',
-              'código',
-              'ia',
-              'selección',
-            ],
-            () => {
-              onExplainSelectedCode();
-              onClose();
-            }
-          ),
-        ]
-      : []),
+    ...buildAiCodeCommands({ onExplainSelectedCode, onEditSelectedCode, onClose }, translate),
     // Focus the status bar's first segment. Surfaced only
     // when wired AND the bar is visible (the caller gates on `showStatusBar`).
     ...(onFocusStatusBar

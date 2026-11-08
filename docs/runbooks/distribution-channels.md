@@ -193,7 +193,7 @@ brew install johnny4young/tap/lingua-cli
 ```
 
 `Formula/lingua-cli.rb` downloads the checksum-pinned `linguacode-cli-X.Y.Z.tgz`
-from the immutable GitHub Release and depends on Homebrew's keg-only `node@24`.
+from the immutable GitHub Release and depends on Homebrew's `node@26` (today an alias of `node`).
 Its wrapper puts that runtime on `PATH`, which also makes npm available when
 `lingua run` detects a Node project. The install never calls npm and does not
 install the Electron application. Keep the formula and Desktop cask as separate

@@ -119,6 +119,7 @@ contextBridge.exposeInMainWorld('lingua', {
   getSystemLanguages: () => typedInvoke('app:get-system-languages'),
   getAppInfo: () => typedInvoke('app:get-info'),
   openExternal: (url: string) => typedInvoke('app:open-external', url),
+  consumeStorageMigrationNotice: () => typedInvoke('app:consume-storage-migration-notice'),
   http,
   pythonDebugger,
   goDebugger,
@@ -146,6 +147,9 @@ contextBridge.exposeInMainWorld('lingua', {
       runId?: string
     ) => typedInvoke('go:compile', sourceCode, userEnv, messages, runId),
     stop: (runId: string) => typedInvoke('go:stop', runId),
+    chooseBinary: () => typedInvoke('go:choose-binary'),
+    chosenBinary: () => typedInvoke('go:chosen-binary'),
+    clearBinary: () => typedInvoke('go:clear-binary'),
   },
 
   // Rust runner IPC
@@ -162,6 +166,9 @@ contextBridge.exposeInMainWorld('lingua', {
       runId?: string
     ) => typedInvoke('rust:run', sourceCode, userEnv, messages, runId),
     stop: (runId: string) => typedInvoke('rust:stop', runId),
+    chooseBinary: () => typedInvoke('rust:choose-binary'),
+    chosenBinary: () => typedInvoke('rust:chosen-binary'),
+    clearBinary: () => typedInvoke('rust:clear-binary'),
   },
 
   // Desktop Ruby child-spawn IPC. Distinct from the

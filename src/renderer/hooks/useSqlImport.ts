@@ -39,7 +39,7 @@ import {
   type SqlImportTarget,
 } from '../../shared/sqlImportPlan';
 import type { SqlSchemaTable } from '../components/SqlWorkspace/sqlExplorerModel';
-import { duckDbErrorDetail, importFileAsTable, previewImportFile, type ImportPreview } from '../runtime/duckdbClient';
+import { duckDbErrorDetail, importFileAsTable, missingExtensionMessage, previewImportFile, type ImportPreview } from '../runtime/duckdbClient';
 import { trackSqlTableImported, type SqlImportSource } from './sqlWorkspaceTelemetry';
 import { pushErrorNotice, pushSuccessNotice } from '../utils/statusNotice';
 
@@ -187,12 +187,14 @@ export function useSqlImport({
           target: { mode: 'new' },
           mapping: defaultMapping(preview.columns, { mode: 'new', table: suggested }),
         });
-      } catch {
+      } catch (err) {
         // DuckDB threw parsing the file (malformed CSV/JSON, corrupt
         // Parquet). The runtime helper already dropped the registered
         // virtual file; surface a specific notice and create no table.
+        const missing = missingExtensionMessage(err);
         pushErrorNotice('sqlWorkspace.import.errorParse', {
           values: { format: FORMAT_LABEL[format] },
+          ...(missing ? { detail: missing } : {}),
         });
       } finally {
         setIsPreviewing(false);
@@ -305,10 +307,12 @@ export function useSqlImport({
         return;
       }
       const isCollision = /already exists/i.test(message);
+      const missing = missingExtensionMessage(err);
       pushErrorNotice(
         isCollision ? 'sqlWorkspace.import.nameTaken' : 'sqlWorkspace.import.errorParse',
         {
           ...(isCollision ? {} : { values: { format: FORMAT_LABEL[current.format] } }),
+          ...(missing ? { detail: missing } : {}),
         }
       );
     } finally {

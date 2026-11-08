@@ -13,7 +13,7 @@ const TELEMETRY_HOOK_PATH = 'src/renderer/hooks/useTelemetry.ts';
  */
 export const LEGACY_DIRECT_CALL_LIMITS = Object.freeze({
   'src/renderer/components/AppOverlays.tsx': 1,
-  'src/renderer/components/CapsuleList/CapsuleListOverlay.tsx': 3,
+  'src/renderer/components/CapsuleList/CapsuleListOverlay.tsx': 2,
   'src/renderer/components/CommandPalette/useCommandPaletteCommands.ts': 2,
   'src/renderer/components/Console/RichValueError.tsx': 1,
   'src/renderer/components/Console/RichValueHtml.tsx': 1,
@@ -63,7 +63,6 @@ export const LEGACY_DIRECT_CALL_LIMITS = Object.freeze({
   'src/renderer/stores/editorModeActions.ts': 3,
   'src/renderer/stores/editorDocumentOpen.ts': 2,
   'src/renderer/stores/editorTabActions.ts': 2,
-  'src/renderer/stores/editorWorkspaceActions.ts': 1,
   'src/renderer/stores/persistence/migrationRegistry.ts': 1,
   'src/renderer/stores/settingsRuntimeActions.ts': 5,
   'src/renderer/stores/snippetsStore.ts': 1,

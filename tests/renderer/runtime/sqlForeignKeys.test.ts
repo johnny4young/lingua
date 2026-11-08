@@ -58,6 +58,7 @@ describe('lookups', () => {
     expect(buildLookupSql('customers', 'main', 'id', 7781)).toBe('SELECT * FROM "customers" WHERE "id" = 7781 LIMIT 100;');
     expect(buildLookupSql('c', 'sales', 'code', "it's")).toBe(`SELECT * FROM "sales"."c" WHERE "code" = 'it''s' LIMIT 100;`);
     expect(sqlLiteralFor(true)).toBe('TRUE');
+    expect(buildLookupSql('readings', 'main', 'x', 'Infinity')).toBe(`SELECT * FROM "readings" WHERE "x" = 'Infinity' LIMIT 100;`);
   });
 
   it('counts referencing rows, or null when the count fails', async () => {

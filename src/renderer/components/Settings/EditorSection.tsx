@@ -15,6 +15,7 @@ import {
 import { Select, StepperButton, Toggle } from './shared';
 import { SpecCard, SpecRow, SettingsSection, UnlockProLink } from '../ui/SpecRow';
 import { languageLabel } from '../../utils/languageMeta';
+import { RunPolicySection } from './RunPolicySection';
 import { SqlWorkspaceSettingsSection } from './SqlWorkspaceSettingsSection';
 import { PerLanguageDefaultsSection } from './PerLanguageDefaultsSection';
 import {
@@ -597,6 +598,8 @@ export function EditorSection() {
 
       </SpecCard>
       </SettingsSection>
+
+      <RunPolicySection />
 
       <PerLanguageDefaultsSection />
 

@@ -11,7 +11,7 @@
  * into a usage error rather than hanging forever waiting on input.
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 
 export interface CliIo {
@@ -21,6 +21,10 @@ export interface CliIo {
   writeStderr(text: string): void;
   /** Read the full contents of a file as UTF-8. */
   readFile(path: string): Promise<string>;
+  /** Read a file's exact bytes, for callers that must reject invalid UTF-8. */
+  readFileBytes(path: string): Promise<Uint8Array>;
+  /** Canonical absolute path with every symlink resolved. */
+  realPath(path: string): Promise<string>;
   /**
    * Read stdin to completion. Returns `null` when stdin is a TTY
    * (i.e. no data is being piped) so the CLI can refuse to hang on
@@ -74,6 +78,12 @@ export function createDefaultIo(): CliIo {
     },
     async readFile(path) {
       return readFile(path, 'utf8');
+    },
+    async readFileBytes(path) {
+      return readFile(path);
+    },
+    async realPath(path) {
+      return realpath(path);
     },
     async readStdin(options) {
       // `process.stdin.isTTY` is `true` only when the stream is

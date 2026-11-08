@@ -31,7 +31,7 @@ async function transformRuntimeHint(config: ResolvedConfig): Promise<string> {
 }
 
 function runtimeUrls(config: ResolvedConfig): Array<string | null> {
-  return ['__LINGUA_DUCKDB_MVP_WASM_URL__', '__LINGUA_RUBY_WASM_URL__'].map(key =>
+  return ['__LINGUA_DUCKDB_WASM_URL__', '__LINGUA_RUBY_WASM_URL__'].map(key =>
     JSON.parse(config.define?.[key] as string) as string | null
   );
 }

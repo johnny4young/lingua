@@ -9,7 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -22,7 +22,7 @@ import {
   type GuidedTourButtonKind,
 } from './guidedTourSteps';
 
-import { calculatePanelStyle, type GuidedTourTargetRect } from './guidedTourLayout';
+import { calculateArrow, calculatePanelStyle, type GuidedTourTargetRect } from './guidedTourLayout';
 
 const TARGET_PADDING = 10;
 
@@ -75,6 +75,11 @@ function calculateSpotlightStyle(targetRect: GuidedTourTargetRect): CSSPropertie
     top: Math.max(0, targetRect.top - TARGET_PADDING),
     width: Math.max(0, targetRect.width + TARGET_PADDING * 2),
   };
+}
+
+/** Back and the step's action lead; Skip trails on the far side. */
+function orderedButtons(buttons: GuidedTourButtonKind[]): GuidedTourButtonKind[] {
+  return [...buttons.filter(button => button !== 'skip'), ...buttons.filter(button => button === 'skip')];
 }
 
 function getButtonClassName(kind: GuidedTourButtonKind) {
@@ -267,14 +272,13 @@ export function GuidedTourRuntime({
 
     // A step can run async setup (opening panels, palettes, snippets) before
     // its target exists. Keep a cancellation flag so a fast skip/next does not
-    // apply a stale rectangle or highlight class after the step has changed.
+    // apply a stale rectangle after the step has changed.
     let cancelled = false;
     let highlightedElement: HTMLElement | null = null;
     let targetObserver: ResizeObserver | null = null;
 
     const clearHighlight = () => {
       targetObserver?.disconnect();
-      highlightedElement?.classList.remove('guided-tour-target');
       highlightedElement = null;
     };
 
@@ -288,7 +292,6 @@ export function GuidedTourRuntime({
       }
 
       if (element !== highlightedElement) {
-        element.classList.add('guided-tour-target');
         highlightedElement = element;
         if (typeof ResizeObserver !== 'undefined') {
           targetObserver = new ResizeObserver(updateTarget);
@@ -412,6 +415,15 @@ export function GuidedTourRuntime({
     width: window.innerWidth,
     height: window.innerHeight,
   });
+  const arrow =
+    targetRect && typeof panelStyle.left === 'number' && typeof panelStyle.top === 'number'
+      ? calculateArrow(targetRect, {
+          left: panelStyle.left,
+          top: panelStyle.top,
+          width: panelSize.width,
+          height: Math.min(panelSize.height, Number(panelStyle.maxHeight)),
+        })
+      : null;
 
   useEffect(() => {
     onActiveChange(tourActive);
@@ -445,49 +457,61 @@ export function GuidedTourRuntime({
         style={panelStyle}
         tabIndex={-1}
       >
-        <header className="guided-tour-header">
-          <h2 id="guided-tour-title" className="guided-tour-title">
-            {activeStep.title}
-          </h2>
-          <button
-            type="button"
-            className="guided-tour-close"
-            aria-label={t('tour.buttons.skip')}
-            onClick={skipTour}
-          >
-            <X aria-hidden="true" size={18} strokeWidth={2} />
-          </button>
-        </header>
-        <div id="guided-tour-text" className="guided-tour-text">
-          {activeStep.text}
-        </div>
-        <footer className="guided-tour-footer">
-          <label className="guided-tour-dont-show-again" data-testid={DONT_SHOW_AGAIN_TESTID}>
-            <input
-              checked={suppressTourAutoStart}
-              className="guided-tour-dont-show-again-input"
-              onChange={event => {
-                autoStartChoiceTouchedRef.current = true;
-                setSuppressTourAutoStart(event.currentTarget.checked);
-              }}
-              type="checkbox"
-            />
-            <span>{t('tour.options.dontShowAgain')}</span>
-          </label>
-          <div className="guided-tour-actions">
-            {activeStep.buttons.map(button => (
-              <button
-                key={button}
-                type="button"
-                className={getButtonClassName(button)}
-                onClick={() => handleButtonClick(button)}
-              >
-                {t(BUTTON_LABEL_KEYS[button])}
-              </button>
+        <div className="guided-tour-meta">
+          <span className="guided-tour-eyebrow" data-testid="guided-tour-progress">
+            {t('tour.progress', { current: (activeStepIndex ?? 0) + 1, total: tourSteps.length })}
+          </span>
+          <span className="guided-tour-dots" aria-hidden="true">
+            {tourSteps.map((step, index) => (
+              <span
+                key={step.id}
+                data-state={
+                  index < (activeStepIndex ?? 0) ? 'done' : index === activeStepIndex ? 'current' : 'upcoming'
+                }
+              />
             ))}
-          </div>
-        </footer>
+          </span>
+        </div>
+        <h2 id="guided-tour-title" className="guided-tour-title">
+          {activeStep.title}
+        </h2>
+        <p id="guided-tour-text" className="guided-tour-text">
+          {activeStep.text}
+        </p>
+        <div className="guided-tour-actions">
+          {orderedButtons(activeStep.buttons).map(button => (
+            <button
+              key={button}
+              type="button"
+              className={getButtonClassName(button)}
+              onClick={() => handleButtonClick(button)}
+            >
+              {button === 'run' ? <Play aria-hidden="true" size={11} /> : null}
+              {t(BUTTON_LABEL_KEYS[button])}
+            </button>
+          ))}
+        </div>
+        <label className="guided-tour-dont-show-again" data-testid={DONT_SHOW_AGAIN_TESTID}>
+          <input
+            checked={suppressTourAutoStart}
+            className="guided-tour-dont-show-again-input"
+            onChange={event => {
+              autoStartChoiceTouchedRef.current = true;
+              setSuppressTourAutoStart(event.currentTarget.checked);
+            }}
+            type="checkbox"
+          />
+          <span>{t('tour.options.dontShowAgain')}</span>
+        </label>
       </section>
+      {arrow ? (
+        <span
+          aria-hidden="true"
+          className="guided-tour-arrow"
+          data-side={arrow.side}
+          style={{ left: arrow.left, top: arrow.top }}
+        />
+      ) : null}
     </div>
   ) : null;
 }

@@ -1,5 +1,6 @@
 export const GUIDED_TOUR_SELECTORS = {
   editor: '#guided-tour-editor',
+  editorCode: '[data-tour-id="editor-code"]',
   runButton: '[data-tour-id="run-button"]',
   console: '#guided-tour-console',
 } as const;

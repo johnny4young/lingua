@@ -86,7 +86,8 @@ test.describe('SQL result grid', () => {
     await orders.click();
 
     await expect(page.getByTestId('sql-result-fk-link').first()).toBeVisible();
-    await page.locator('td[data-column="meta"]').first().dblclick();
+    await page.locator('td[data-column="meta"]').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Open in value viewer' }).click();
     await expect(page.getByTestId('sql-value-json')).toContainText('"channel": "web"');
     await page.locator('td[data-column="receipt"]').first().click();
     await expect(page.getByTestId('sql-value-blob')).toContainText('PNG');
@@ -95,12 +96,221 @@ test.describe('SQL result grid', () => {
     await expect(page.getByTestId('sql-result-strip-sql')).toHaveText(
       'SELECT * FROM "customers" WHERE "id" = 7781 LIMIT 100;'
     );
-    await page.locator('td[data-column="name"]').first().dblclick();
+    await page.locator('td[data-column="name"]').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Open in value viewer' }).click();
     await expect(page.getByTestId('sql-value-referenced-by-chip')).toHaveText('Referenced by: orders (20)');
     await page.getByTestId('sql-result-strip-back').click();
     await expect(page.getByTestId('sql-result-strip-sql')).toHaveText('SELECT * FROM "orders" LIMIT 100;');
     expect(errors).toEqual([]);
   });
+
+  for (const language of ['en', 'es'] as const) {
+    test(`windows a wide result: scroll, sticky header, arrow keys and the editor (${language})`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await seedSession(page, { language });
+      await gotoApp(page);
+      await openSqlScratch(page);
+      const names = Array.from({ length: 99 }, (_, c) => `c${c + 1}`);
+      await runAll(
+        page,
+        [
+          `CREATE TABLE wide (id INTEGER PRIMARY KEY, ${names.map((name) => `${name} VARCHAR`).join(', ')});`,
+          `INSERT INTO wide SELECT i, ${names.map((name) => `'${name}-' || i`).join(', ')} FROM range(300) t(i);`,
+        ].join('\n')
+      );
+      const wide = page.locator('[data-testid="sql-explorer-table"][data-table-name="wide"]');
+      await expect(wide).toBeVisible();
+      await wide.click();
+
+      const grid = page.getByTestId('sql-result-preview-table-container');
+      const firstRow = page.getByTestId('sql-result-preview-row').first();
+      const header = (name: string) => page.locator(`th:has([data-testid="sql-result-preview-sort"][data-column="${name}"])`);
+      await expect(firstRow.locator('td[data-column="id"]')).toBeVisible();
+      await expect(page.locator('thead th')).toHaveCount(100);
+      await expect(header('c1').getByTestId('sql-result-preview-sort')).toHaveAttribute('title', language === 'es' ? 'Ordenar por c1' : 'Sort by c1');
+      const mountedCells = await firstRow.locator('td[role="gridcell"]').count();
+      expect(mountedCells).toBeLessThan(30);
+      await expect(firstRow.locator('td[data-column="c50"]')).toHaveCount(0);
+
+      // Sideways the window follows, with header and cells on one column grid.
+      await grid.evaluate((node) => {
+        node.scrollLeft = node.scrollWidth / 2;
+      });
+      await expect(firstRow.locator('td[data-column="c50"]')).toBeVisible();
+      await expect(firstRow.locator('td[data-column="id"]')).toHaveCount(0);
+      await expect(firstRow.locator('td[data-column="c50"]')).toHaveAttribute('aria-colindex', '51');
+      const cellBox = await firstRow.locator('td[data-column="c50"]').boundingBox();
+      const headerBox = await header('c50').boundingBox();
+      expect(cellBox!.x).toBeCloseTo(headerBox!.x, 0);
+      expect(cellBox!.width).toBeCloseTo(headerBox!.width, 0);
+
+      // Down, the header stays at the top of the grid and the columns keep their widths.
+      await grid.evaluate((node) => {
+        node.scrollTop = 26 * 60;
+      });
+      await expect(page.getByTestId('sql-result-preview-row').first()).toHaveAttribute('aria-rowindex', /^[4-9]\d$/);
+      const gridBox = await grid.boundingBox();
+      expect((await header('c50').boundingBox())!.y).toBeCloseTo(gridBox!.y, 0);
+      expect((await header('c50').boundingBox())!.width).toBeCloseTo(headerBox!.width, 0);
+
+      // The arrow keys walk off the mounted window and bring each cell into view.
+      await grid.evaluate((node) => {
+        node.scrollLeft = 0;
+        node.scrollTop = 0;
+      });
+      await firstRow.locator('td[data-column="c1"]').click();
+      await grid.focus();
+      for (let press = 0; press < 25; press++) await page.keyboard.press('ArrowRight');
+      const selected = firstRow.locator('td[data-column="c26"]');
+      await expect(selected).toHaveAttribute('aria-selected', 'true');
+      await expect(selected).toBeInViewport({ ratio: 1 });
+      await page.keyboard.press('Escape');
+
+      // An editor scrolled away stays mounted, keeps its draft and still saves.
+      await grid.evaluate((node) => {
+        node.scrollLeft = 0;
+      });
+      await firstRow.locator('td[data-column="c1"]').dblclick();
+      const editor = page.getByTestId('sql-cell-editor');
+      await expect(editor).toBeFocused();
+      await editor.fill('edited');
+      await grid.evaluate((node) => {
+        node.scrollLeft = node.scrollWidth / 2;
+      });
+      await expect(firstRow.locator('td[data-column="c50"]')).toBeVisible();
+      await expect(editor).toBeFocused();
+      await expect(editor).toHaveValue('edited');
+      await page.keyboard.press('Enter');
+      await expect(editor).toHaveCount(0);
+      await expect(page.getByTestId('sql-edit-count')).toBeVisible();
+      await grid.evaluate((node) => {
+        node.scrollLeft = 0;
+      });
+      await expect(firstRow.locator('td[data-column="c1"]')).toHaveText('edited');
+      expect(errors).toEqual([]);
+    });
+
+    test(`shows Infinity and NaN as numbers and only a real NULL as null (${language})`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await seedSession(page, { language });
+      await gotoApp(page);
+      await openSqlScratch(page);
+      await typeSql(page, 'SELECT 1.0::DOUBLE / 0 AS pos, -1.0::DOUBLE / 0 AS neg, 0.0::DOUBLE / 0 AS nan, NULL::DOUBLE AS missing');
+      await page.keyboard.press('ControlOrMeta+Enter');
+      const row = page.getByTestId('sql-result-preview-row').first();
+      for (const [column, text] of [['pos', 'Infinity'], ['neg', '-Infinity'], ['nan', 'NaN'], ['missing', 'null']] as const) {
+        const cell = row.locator(`td[data-column="${column}"]`);
+        await expect(cell).toHaveText(text);
+        await expect(cell).toHaveCSS('text-align', 'right');
+      }
+      await expect(row.locator('td[data-column="pos"]')).toHaveCSS('font-style', 'normal');
+      await expect(row.locator('td[data-column="missing"]')).toHaveCSS('font-style', 'italic');
+
+      await typeSql(page, "SELECT x FROM (VALUES (1.5::DOUBLE), ('NaN'::DOUBLE), (NULL), ('-Infinity'::DOUBLE), ('Infinity'::DOUBLE), (-5.0::DOUBLE)) t(x)");
+      await page.keyboard.press('ControlOrMeta+Enter');
+      const cells = page.getByTestId('sql-result-preview-row').locator('td[data-column="x"]');
+      await expect(cells).toHaveCount(6);
+      await page.locator('[data-testid="sql-result-preview-sort"][data-column="x"]').click();
+      await expect(cells).toHaveText(['-Infinity', '-5', '1.5', 'Infinity', 'NaN', 'null']);
+
+      if (!(await page.getByTestId('sql-column-rail').isVisible())) await page.getByTestId('sql-column-rail-toggle').click();
+      const rail = page.locator('[data-testid="sql-rail-column"][data-column="x"]');
+      await expect(rail).toContainText('-Infinity–NaN');
+      await expect(rail).toContainText('17%');
+      await expect(rail.getByTestId('sql-rail-bin').first()).toBeVisible();
+
+      const exportJson = async () => {
+        await page.getByTestId('sql-result-preview-export').click();
+        await page.getByTestId('sql-export-format-json').click();
+        const download = page.waitForEvent('download');
+        await page.getByTestId('sql-export-download').click();
+        const text = await readFile((await (await download).path())!, 'utf8');
+        return (JSON.parse(text) as Array<{ x: unknown }>).map((entry) => entry.x);
+      };
+      expect(await exportJson()).toEqual(['-Infinity', -5, 1.5, 'Infinity', 'NaN', null]);
+
+      // Past the loaded window the export is DuckDB's own COPY, with the grid's sort still on.
+      await typeSql(page, "SELECT CASE i WHEN 0 THEN 'Infinity'::DOUBLE WHEN 1 THEN '-Infinity'::DOUBLE WHEN 2 THEN 'NaN'::DOUBLE WHEN 3 THEN NULL ELSE i END AS x FROM range(25000) t(i) ORDER BY i");
+      await page.keyboard.press('ControlOrMeta+Enter');
+      await expect(page.getByTestId('sql-result-load-more')).toBeVisible();
+      const full = await exportJson();
+      expect(full).toHaveLength(25_000);
+      expect(full.slice(0, 2)).toEqual(['-Infinity', 4]);
+      expect(full.slice(-3)).toEqual(['Infinity', 'NaN', null]);
+      expect(errors).toEqual([]);
+    });
+  }
+
+  for (const language of ['en', 'es'] as const) {
+    test(`keeps the grid and its controls in reach on a short window with the dock open (${language})`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await page.setViewportSize({ width: 1100, height: 620 });
+      await seedSession(page, { language });
+      await gotoApp(page);
+      await openSqlScratch(page);
+      await runAll(page, "CREATE TABLE places (id INTEGER PRIMARY KEY, name VARCHAR, city VARCHAR); INSERT INTO places SELECT i, 'n' || i, 'c' || i FROM range(40) t(i);");
+      const table = page.locator('[data-testid="sql-explorer-table"][data-table-name="places"]');
+      await expect(page.getByTestId('sql-explorer-row-count')).toHaveText('40');
+      await table.click();
+
+      const pane = page.getByTestId('sql-result-preview');
+      const grid = page.getByTestId('sql-result-preview-table-container');
+      // One read of both boxes: the run tabs above the pane leave as the table opens.
+      const inPane = (testId: string) =>
+        page.evaluate((id) => {
+          const outer = document.querySelector('[data-testid="sql-result-preview"]')?.getBoundingClientRect();
+          const inner = document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect();
+          return outer !== undefined && inner !== undefined && inner.top >= outer.top - 1 && inner.bottom <= outer.bottom + 1;
+        }, testId);
+      const wheelOverGrid = async (deltaY: number) => {
+        const box = (await grid.boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y + 30);
+        await page.mouse.wheel(0, deltaY);
+      };
+
+      await expect(page.getByTestId('bottom-panel-hide')).toBeVisible();
+      await expect(page.getByTestId('sql-result-strip-sql')).toHaveText('SELECT * FROM "places" LIMIT 100;');
+      await expect(pane).toHaveAttribute('data-grid-first', 'true');
+      // Rows on open, with the status above them, and the pointer lands on the grid.
+      await expect.poll(() => inPane('sql-result-preview-row')).toBe(true);
+      expect(await inPane('sql-status-pill')).toBe(true);
+      const box = (await grid.boundingBox())!;
+      const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid="sql-result-preview-table-container"]') !== null, { x: box.x + 40, y: box.y + 40 });
+      expect(hit).toBe(true);
+
+      // Rows first, then the footer past the last one.
+      await expect.poll(async () => {
+        await wheelOverGrid(600);
+        return inPane('sql-result-preview-export');
+      }).toBe(true);
+      expect(await inPane('sql-status-pill')).toBe(true);
+      await expect.poll(async () => {
+        await wheelOverGrid(-600);
+        return inPane('sql-result-strip');
+      }).toBe(true);
+      await expect.poll(() => inPane('sql-edit-add')).toBe(true);
+      expect(await inPane('sql-status-pill')).toBe(true);
+
+      // Staged writes stay on screen wherever the pane is scrolled, and clear the grid.
+      await page.getByTestId('sql-edit-add').click();
+      await expect(page.getByTestId('sql-edit-commit')).toBeVisible();
+      await expect.poll(async () => {
+        await wheelOverGrid(600);
+        return inPane('sql-result-preview-export');
+      }).toBe(true);
+      expect(await inPane('sql-edit-commit')).toBe(true);
+      await page.getByTestId('sql-edit-discard').click();
+      await expect(page.getByTestId('sql-edit-commit')).toBeHidden();
+
+      // A tall pane keeps every band and the footer on screen with no scrolling.
+      await page.setViewportSize({ width: 1440, height: 960 });
+      await expect(pane).not.toHaveAttribute('data-grid-first', 'true');
+      for (const testId of ['sql-status-pill', 'sql-result-strip', 'sql-edit-add', 'sql-result-preview-table-container', 'sql-result-preview-export']) {
+        await expect.poll(() => inPane(testId)).toBe(true);
+      }
+      expect(errors).toEqual([]);
+    });
+  }
 
   test('inserts a predicate from the column rail at the editor cursor (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });

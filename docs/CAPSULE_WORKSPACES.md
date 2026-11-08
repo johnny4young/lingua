@@ -25,8 +25,8 @@ contract, existing share links, or stable-release migration chain.
 
 1. Run code so it appears in **Run capsules**.
 2. Keep the related text files open as editor tabs.
-3. Open **Run capsules**, choose **Create Capsule Workspace** on a row, and
-   select the supplemental tabs.
+3. Open **Run capsules**, select the run, choose **More → Create Capsule
+   Workspace**, and select the supplemental tabs.
 4. Inspect the exact source preview. Possible high-confidence secret patterns
    are flagged but never silently changed.
 5. Confirm that you reviewed the payload, then copy or download the JSON.

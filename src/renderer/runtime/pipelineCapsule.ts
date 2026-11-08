@@ -32,9 +32,8 @@
  *   - `result.stderr` carries a compact failed-step summary.
  *   - `result.durationMs` mirrors the run's total duration.
  *
- * The existing capsule sanitiser (`sanitizeRunCapsule`) handles
- * defense-in-depth redaction so the EXPORTED capsule never carries
- * secrets even if the renderer somehow recorded them.
+ * `sanitizeRunCapsule` truncates stdout and stderr and does not redact: a saved capsule
+ * holds the input and final output as they were, so saving one is always an explicit click.
  */
 
 import {

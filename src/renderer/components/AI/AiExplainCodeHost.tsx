@@ -97,6 +97,8 @@ export function AiExplainCodeHost() {
       code={request.code}
       language={request.language}
       filename={request.filename}
+      question={request.question}
+      lastRun={request.lastRun}
       onClose={close}
     />
   );

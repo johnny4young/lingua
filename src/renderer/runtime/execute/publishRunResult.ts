@@ -16,7 +16,7 @@ import { bucketDurationMs } from '../../../shared/telemetry';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { formatExecutionSummary, toConsoleEntries, toConsoleEntry } from '../../hooks/runnerOutput';
 import { useConsoleStore } from '../../stores/consoleStore';
-import { useResultStore } from '../../stores/resultStore';
+import { runInputKey, useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import { toResultDiagnostics } from '../../utils/executionDiagnostics';
@@ -156,6 +156,12 @@ export function publishRunStart(
     clearVisibleResults();
     setExecutionSource('manual');
     setDiagnostics([]);
+    useResultStore.getState().setRanCode({
+      tabId: activeTab.id,
+      code: activeTab.content,
+      input: runInputKey(activeTab.stdinBuffer, activeTab.inputArgs),
+      at: Date.now(),
+    });
   }
   setIsAutoRunning(false);
   setIsManualRunning(true);
@@ -290,7 +296,7 @@ export async function publishCompletedRun(
     // restoration target. Capture happens after the line results and full
     // output are set so the snapshot reflects what the user just saw.
     if (kind === 'success') {
-      useResultStore.getState().captureSuccessfulSnapshot(language, content);
+      if (!plan.region) useResultStore.getState().captureSuccessfulSnapshot(language, content);
       // Surface the variable inspector snapshot if the worker
       // emitted one. `null` clears a stale snapshot from the previous run.
       useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);

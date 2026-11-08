@@ -16,7 +16,9 @@ import {
   validateImageSrc,
   validateHtmlPayload,
   type RichOutputPayload,
+  type RichOutputProgress,
 } from '../../shared/richOutput';
+import { buildProgressPayload, progressText } from '../../shared/richDisplay';
 import type { PyodideRuntime } from './python-worker-runtime';
 
 const ctx = self as unknown as Worker;
@@ -420,6 +422,14 @@ export interface PythonPrintEntry {
  * Skips entries with empty text (e.g. `print(end='')`) to mirror the
  * legacy `postBufferedOutput` filter.
  */
+/** A buffered progress bar, re-checked here and made unique to this run like the JS ones. */
+function progressEntry(runId: string, entry: PythonPrintEntry): { payload: RichOutputProgress; text: string } | null {
+  const raw = entry.payloads[0] as { kind?: unknown; id?: unknown; label?: unknown; value?: unknown; text?: unknown } | undefined;
+  if (raw?.kind !== 'progress') return null;
+  const payload = buildProgressPayload(`${runId}:${String(raw.id)}`, raw.label, raw.value, raw.text);
+  return { payload, text: progressText(payload) };
+}
+
 export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[]): void {
   let captureOrder = 0;
   for (const entry of entries) {
@@ -428,7 +438,8 @@ export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[
     // surfaces three spaces in both rich and text-only paths. The
     // trailing newline produced by the default `end='\n'` yields a
     // single empty segment after split, which is what we want to skip.
-    const lines = entry.text.split('\n').filter(line => line !== '');
+    const progress = progressEntry(runId, entry);
+    const lines = (progress ? progress.text : entry.text).split('\n').filter(line => line !== '');
     if (lines.length === 0) continue;
     const first = lines[0]!;
     const rest = lines.slice(1);
@@ -446,7 +457,7 @@ export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[
       runId,
       method: entry.method,
       args: [first],
-      payload: entry.payloads,
+      payload: progress ? [progress.payload] : entry.payloads,
     };
     if (typeof entry.line === 'number') message.line = entry.line;
     ctx.postMessage(message);

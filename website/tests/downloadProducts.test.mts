@@ -43,7 +43,7 @@ describe('download product choice', () => {
     }
     for (const copy of [en.releases.downloadMatrix, es.releases.downloadMatrix]) {
       assert.notEqual(copy.products.desktop.title, copy.products.cli.title);
-      assert.match(copy.products.cli.description, /Node\.js 24\.x/);
+      assert.match(copy.products.cli.description, /Node\.js 26/);
       assert(copy.platformNotes.windows.length > 0);
       assert(copy.verifySummary.length > 0);
     }

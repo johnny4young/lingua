@@ -394,6 +394,11 @@ export interface ReproApprovalV1 {
   readonly policyDigest: string;
 }
 
+/** One value a reviewer can pass back to `run`; it changes when either digest does. */
+export function computeReproApprovalToken(approval: ReproApprovalV1): Promise<string> {
+  return computeContentHash(`${approval.contentDigest}:${approval.policyDigest}`);
+}
+
 export type ApproveReproEnvelopeResult =
   | { readonly ok: true; readonly policy: ReproPolicyV1; readonly approval: ReproApprovalV1 }
   | { readonly ok: false; readonly reason: 'hash-mismatch'; readonly path: string };

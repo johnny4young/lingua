@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
+import { useTrialStatus } from '../../hooks/useTrialStatus';
+import { emitCommand } from '../../stores/commandBus';
 import type { LicenseTier } from '../../../shared/license';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 
@@ -42,11 +44,19 @@ interface LicenseBadgeProps {
   onClick?: () => void;
 }
 
-export function LicenseBadge({ onClick }: LicenseBadgeProps) {
+export function LicenseBadge({ onClick: openLicense }: LicenseBadgeProps) {
   const { t } = useTranslation();
   const tier = useEffectiveTier();
-  const label = t(labelKeyForTier(tier));
-  const title = t('license.badge.tooltip', { tier: t(`license.tier.${tier}`) });
+  const trial = useTrialStatus();
+  // A trial shows its days left, and a clickable pill on Free or a trial opens Compare plans.
+  const comparePlans = openLicense !== undefined && (tier === 'free' || tier === 'trial');
+  const onClick = comparePlans ? () => emitCommand('plans.compare') : openLicense;
+  const label = trial ? (trial.ended ? t('license.badge.trialEnded') : t('license.badge.trial', { count: trial.daysLeft })) : t(labelKeyForTier(tier));
+  const title = comparePlans
+    ? trial
+      ? trial.ended ? t('license.badge.trialEndedTooltip') : t('license.badge.trialTooltip', { count: trial.daysLeft })
+      : t('license.badge.freeTooltip')
+    : t('license.badge.tooltip', { tier: t(`license.tier.${tier}`) });
   const tone = toneForTier(tier);
   const dataTestId = 'license-badge';
 

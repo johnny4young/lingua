@@ -7,7 +7,7 @@
  */
 
 import type { BrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
-import type { FeatureFlagId, FeatureFlagState } from '../../shared/featureFlags';
+import type { RunPolicy, RunPolicyByGroup, RunPolicyGroup } from '../../shared/runPolicy';
 import type { NetworkPolicy } from '../../shared/networkPolicy';
 import type { ScorecardPlatform } from '../../shared/languageSupport';
 import type { RuntimeMode } from '../../shared/runtimeModes';
@@ -92,7 +92,8 @@ export interface SettingsState {
    */
   telemetryConsent: 'unset' | 'granted' | 'declined';
   /**
-   * clipboard-on-focus apply consent. Default `unset`,
+   * consent for clipboard reads without a click: apply on panel focus, pipeline
+   * import and clipboard suggestions. Default `unset`,
    * promoted to `granted` or `declined` by the explicit Settings toggle.
    * The same three-state pattern as `telemetryConsent` so a decline
    * sticks across reloads and the feature never reads without opt-in.
@@ -154,6 +155,8 @@ export interface SettingsState {
    * this preference for one tab without mutating the persisted setting.
    */
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval;
+  /** When Scratchpad runs per language group. */
+  runPolicyByGroup: RunPolicyByGroup;
   /**
    * per-language inline-lint enablement. Keyed by language id;
    * The default ships `javascript`/`typescript` ON. When `false` for a language,
@@ -331,10 +334,8 @@ export interface SettingsState {
    * HTTP/SSE/WebSocket targets. The guarded proxy defaults this to false.
    */
   httpAllowPrivateHosts: boolean;
-  /** Network access for code in the sandboxed runtimes; enforced only with the networkPolicy flag on. */
+  /** Network access for code in the browser runtimes. */
   networkFromRunningCode: NetworkPolicy;
-  /** Experimental features turned on in Settings › Labs. */
-  featureFlags: FeatureFlagState;
   /** Rows the SQL grid shows first and each Load more adds; the session cap is `sessionRowCap` in useSqlRunner. */
   sqlWorkspaceRowDisplayLimit: 100 | 500 | 1000 | 5000;
   /**
@@ -344,6 +345,8 @@ export interface SettingsState {
    * by the runtime regardless of this value.
    */
   sqlWorkspaceQueryTimeoutMs: number;
+  /** Instant SQL samples the statement under the cursor as you type, on Local. */
+  sqlWorkspaceInstantPreview: boolean;
   /**
    * Opt into persisting the SQL workspace
    * DuckDB database to this browser's OPFS so tables + rows survive a
@@ -399,7 +402,6 @@ export interface SettingsState {
   toggleDependencyDetectionEnabled: () => void;
   setHttpAllowPrivateHosts: (enabled: boolean) => void;
   setNetworkFromRunningCode: (policy: NetworkPolicy) => void;
-  setFeatureFlag: (id: FeatureFlagId, enabled: boolean) => void;
   /**
    * Three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut
@@ -462,6 +464,7 @@ export interface SettingsState {
   setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
   /** Set the closed Browser preview refresh interval. */
   setBrowserPreviewRefreshInterval: (intervalMs: BrowserPreviewRefreshInterval) => void;
+  setRunPolicy: (group: RunPolicyGroup, policy: RunPolicy) => void;
   /**
    * Flip inline lint for one language. No-op for languages outside
    * the supported set ({@link SETTINGS_INLINE_LINT_LANGUAGE_SET}). Pure state
@@ -544,6 +547,7 @@ export interface SettingsState {
    * is not migrated mid-session.
    */
   setSqlWorkspacePersistTables: (value: boolean) => void;
+  setSqlWorkspaceInstantPreview: (value: boolean) => void;
   /** Toggle the local Run Ledger (see `runLedgerEnabled`). */
   setRunLedgerEnabled: (value: boolean) => void;
   /**

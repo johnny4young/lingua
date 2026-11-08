@@ -7,6 +7,9 @@
 
 import type { HttpCaptureRule, HttpResponseV1 } from './httpWorkspaceSchema';
 
+/** What a capture rule reads; a stored snapshot has no headers to offer. */
+type HttpCaptureSource = Pick<HttpResponseV1, 'status' | 'headers' | 'body'>;
+
 /** A fresh capture rule for the Capture tab. */
 export function createBlankCaptureRule(): HttpCaptureRule {
   return {
@@ -51,7 +54,7 @@ function extractJsonPath(body: string, rawPath: string): string | null {
 
 /** Resolve one capture rule against a response. */
 export function extractCaptureValue(
-  response: HttpResponseV1,
+  response: HttpCaptureSource,
   rule: HttpCaptureRule
 ): string | null {
   switch (rule.source) {
@@ -72,7 +75,7 @@ export function extractCaptureValue(
 
 /** Resolve every enabled, targeted capture that produced a value. */
 export function applyCaptureRules(
-  response: HttpResponseV1,
+  response: HttpCaptureSource,
   rules: ReadonlyArray<HttpCaptureRule>
 ): Array<{ targetVariable: string; value: string }> {
   const writes: Array<{ targetVariable: string; value: string }> = [];

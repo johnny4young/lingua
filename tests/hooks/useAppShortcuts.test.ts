@@ -4,6 +4,8 @@ import type { RunCapsuleV1 } from '@/../shared/runCapsule';
 import type { UseGlobalShortcutsOptions } from '@/hooks/useGlobalShortcuts';
 import { useAppShortcuts, type AppShortcutDeps } from '@/hooks/useAppShortcuts';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
+import { useEditorStore } from '@/stores/editorStore';
+import { useUIStore } from '@/stores/uiStore';
 
 const mocks = vi.hoisted(() => ({
   registeredOptions: null as UseGlobalShortcutsOptions | null,
@@ -12,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   pushInfoNotice: vi.fn(),
   pushSuccessNotice: vi.fn(),
   pushWarningNotice: vi.fn(),
+  runCompareOn: false,
+  runs: 0,
 }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({
@@ -21,9 +25,11 @@ vi.mock('@/hooks/useGlobalShortcuts', () => ({
 }));
 
 vi.mock('@/stores/executionHistoryStore', () => ({
+  runCompareCaptureOn: () => mocks.runCompareOn,
   useExecutionHistoryStore: {
     getState: () => ({
       latestCapsule: () => mocks.capsule.current,
+      entries: Array.from({ length: mocks.runs }),
     }),
   },
 }));
@@ -75,6 +81,22 @@ describe('useAppShortcuts', () => {
     mocks.pushInfoNotice.mockReset();
     mocks.pushSuccessNotice.mockReset();
     mocks.pushWarningNotice.mockReset();
+    mocks.runCompareOn = false;
+    mocks.runs = 0;
+    useEditorStore.getState().restoreTabs([], null);
+    useUIStore.getState().openBottomPanel('console');
+  });
+
+  it('opens Compare runs from the shortcut even with no tab open', () => {
+    renderHook(() => useAppShortcuts(makeDeps()));
+    registeredOptions().toggleCompareWithSnapshot();
+    expect(mocks.pushInfoNotice).toHaveBeenCalledWith('compare.toggle.shortcutUnavailable');
+
+    mocks.runCompareOn = true;
+    mocks.runs = 2;
+    registeredOptions().toggleCompareWithSnapshot();
+    expect(useUIStore.getState().activeBottomPanel).toBe('compare');
+    expect(mocks.pushInfoNotice).toHaveBeenCalledTimes(1);
   });
 
   it('mounts and registers the global shortcut payload', () => {

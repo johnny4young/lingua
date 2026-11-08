@@ -85,10 +85,12 @@ export interface SqlDbFetchResult {
   done: boolean;
   bytes: number;
   errorMessage?: string;
+  /** The run is no longer open; the renderer shows its own translated message. */
+  closed?: true;
 }
 
 /** A fetch on a run that is no longer open: an error, so a partial result never reads as complete. */
-export const closedSqlResult = (): SqlDbFetchResult => ({ rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.' });
+export const closedSqlResult = (): SqlDbFetchResult => ({ rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.', closed: true });
 
 export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key' | 'ssh-key';
 export type SqlDbPickResult = { canceled: true } | { canceled: false; path: string } | { canceled: true; blocked: true };
@@ -202,6 +204,8 @@ export interface SqlDbObjectDetail {
   rowEstimate?: number;
   sizeBytes?: number;
   ddl?: string;
+  /** False when a rollback would not undo a write to this table (MySQL's MyISAM and MEMORY). */
+  transactional?: boolean;
 }
 
 /** Exactly one field per level is set, or `errorMessage`. */

@@ -112,6 +112,24 @@ never from flags the receipt carries about itself. `checkReproReceipt` confirms
 a receipt names the approved content and policy digests. It does not
 authenticate its sender, attest a remote machine or prove code is safe.
 
+### CLI surface
+
+`lingua repro pack` builds an envelope from a capsule and chosen files,
+`lingua repro review` verifies it and prints an approval token (SHA-256 over
+the content and approved-policy digests), and `lingua repro run` needs that
+token. The local ceiling is the default request until it becomes configurable,
+so approval currently equals the request or something narrower. Backends plug
+in through `src/cli/runtime/containment.ts`; a probe that throws counts as no
+backend. On macOS the Seatbelt backend launches; elsewhere `run` refuses with
+a receipt. `run` also refuses (`runtime-unavailable`) when the host Node.js
+major differs from the one the envelope requests, and `review` says so first.
+Review also shows the effective controls (support and required/optional status)
+and the backend's ambient host grants before its approval hint. JSON exposes
+`effectivePolicy`, or null when required controls are missing or no backend is
+available, plus `probedControls` and `ambientGrants` from any probed backend.
+Both remain visible even when that backend cannot enforce the request. This output is
+host-specific local review data, not part of the portable envelope or receipt.
+
 ### First backend: macOS Seatbelt
 
 The issue proposed Windows with Microsoft Execution Containers first. The first
@@ -127,18 +145,43 @@ with `EPERM`; writes to the output directory succeeded. Cold start was about
 
 Known limits that the backend probe must report honestly:
 
-- **Denial evidence is unavailable.** Denials of a `sandbox-exec` process did
-  not appear in the unified log, and SBPL rejects `(with report)` on deny rules.
-  The backend reports `denial-evidence` as `unsupported`, so a policy with
-  `evidence.denials: required` is refused on macOS, and an `if-available` run
-  can reach `pass` with compliance `not-observed`, never `clean`.
-- **Memory and disk are sampled, not enforced.** Node exposes no `setrlimit`, so
-  the supervisor can only poll. A policy that sets either limit is refused.
+- **Denial evidence is not collected.** Denials are observable but lossy. On
+  macOS 26.6.2, with this backend's profile, the kernel logged `Sandbox:
+  node(<pid>) deny(1) <operation>` lines for a denied read, fork and outbound
+  TCP. `log stream` caught all three in 21 of 22 runs, and `log show` run
+  afterwards caught them in 7 of 8. An earlier sample under heavier load had 14
+  of 24 complete. SBPL rejects `(with report)` on deny rules but accepts `(with
+  message "<tag>")`, which makes a run's lines easy to filter. Not re-checked on
+  macOS 27. The backend does not collect them and reports `denial-evidence` as
+  `unsupported`, so a policy with `evidence.denials: required` is refused on
+  macOS, and an `if-available` run can reach `pass` with compliance
+  `not-observed`, never `clean`. A collector could prove `violated`, but an
+  empty capture would still be `not-observed`.
+- **Memory and disk are not enforced.** Node exposes no `setrlimit` and the
+  supervisor does not poll, so the backend reports both as `unsupported`. A
+  policy that sets either limit is refused.
 - **The process limit is structural.** The profile denies `process-fork` and
   `process-exec` beyond the runtime binary, which enforces a limit of one
   process.
 - **`sandbox-exec` is deprecated** but still shipped and used by browsers and
   build tools. Its removal would make the backend report itself unsupported.
+
+### Seatbelt profile and staging
+
+The supervisor stages the entry and files into a fresh 0700 directory under
+the OS temp directory, writing each file exclusively, reading it back,
+re-hashing it and making it read-only. Scratch and output start empty, and the
+whole root is removed after the run, also when the backend fails.
+
+`src/cli/runtime/seatbelt.ts` compiles one profile per run: deny by default;
+exec and read only the resolved Node binary; read the OS library paths Node
+loads, `/dev/null` and the random devices, the staged inputs, and scratch and
+output when approved; write only those approved areas and `/dev/null`; deny
+all network. Node aborts at startup unless it can list `/` and stat paths we
+cannot enumerate, so file metadata stays readable except under `/Users` and
+`/Volumes`, where only the ancestors of the Node binary and the staging root
+are re-allowed. These host grants are listed in the effective policy and its
+digest. The workload gets only `HOME` and `TMPDIR`, both pointing at scratch.
 
 ## Validation before any user-facing surface
 
@@ -157,6 +200,13 @@ Each fixture has a host-side assertion; in-program errors alone are not proof.
 10. Caught denials that still print the expected output, with evidence missing.
 
 Positive controls cover allowed reads and writes and a matching reproduction.
+
+The fixtures live in `tests/cli/runtime/seatbeltContainment.test.ts` and run
+under the real sandbox in the macOS CI job. Exhaustion is covered for output
+and wall clock; memory and disk are refused at review rather than tested.
+Receipts are built in the supervisor's memory, so fixture 9 checks that the
+workload cannot write beside its areas. Fixture 10 runs the full `repro run`
+path and expects compliance `not-observed`, never `clean`.
 The usability study from the proposal (five developers, benign and overbroad
 capsules) decides whether the workflow ships at all.
 

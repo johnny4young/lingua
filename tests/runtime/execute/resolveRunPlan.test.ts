@@ -34,8 +34,10 @@ const settings = {
 const runPlan = (overrides: Partial<RunPlan> = {}): RunPlan => ({
   mode: 'run',
   debugRequested: false,
+  recordRequested: false,
   usesNativeDebugger: false,
   recordHistory: true,
+  region: null,
   ...overrides,
 });
 
@@ -208,5 +210,33 @@ describe('resolveRunExecution — context', () => {
     });
     expect(context).toMatchObject({ captureScope: true });
     expect(context).not.toHaveProperty('scopeDepth');
+  });
+
+  it('runs a region only for JS, TS and Python, without Debug or Record, history off and auto-log on', () => {
+    const region = { index: 1, name: 'a', markerLine: 2, startLine: 2, endLine: 3 };
+    expect(resolveRunPlan(tab(), { region })).toMatchObject({ region, recordHistory: false });
+    expect(resolveRunPlan(tab({ language: 'python' }), { region }).region).toEqual(region);
+    expect(resolveRunPlan(tab({ language: 'go' }), { region })).toMatchObject({ region: null, recordHistory: true });
+    expect(resolveRunPlan(tab(), { region, debug: true }).region).toBeNull();
+    expect(resolveRunPlan(tab(), { region, record: true }).region).toBeNull();
+    expect(resolveRunExecution(tab(), runPlan({ region }), {}, settings).context).toMatchObject({ autoLog: true, askStdin: true });
+    expect(resolveRunExecution(tab(), runPlan(), {}, settings).context).not.toHaveProperty('autoLog');
+    expect(resolveRunExecution(tab(), runPlan(), {}, settings).context).not.toHaveProperty('askStdin');
+    const masked = [{ index: 1, value: 'secret' }];
+    expect(resolveRunExecution(tab({ stdinBuffer: 'a\nb' }), runPlan({ region }), { maskedStdin: masked }, settings).context.stdin).toBe('a\nsecret\nb');
+    expect(resolveRunExecution(tab({ stdinBuffer: 'a\nb' }), runPlan(), { maskedStdin: masked }, settings).context.stdin).toBe('a\nb');
+    expect(resolveRunExecution(tab(), runPlan({ region }), {}, settings).context).toMatchObject({ captureScope: true });
+    expect(resolveRunExecution(tab(), runPlan({ region }), { maskedStdin: masked }, settings).context).not.toHaveProperty('captureScope');
+  });
+
+  it('records only JS and TS Worker tabs, never alongside Debug, and drops scope capture', () => {
+    expect(resolveRunPlan(tab(), { record: true }).recordRequested).toBe(true);
+    expect(resolveRunPlan(tab({ language: 'typescript' }), { record: true }).recordRequested).toBe(true);
+    expect(resolveRunPlan(tab({ runtimeMode: 'node' }), { record: true }).recordRequested).toBe(false);
+    expect(resolveRunPlan(tab({ language: 'python' }), { record: true }).recordRequested).toBe(false);
+    expect(resolveRunPlan(tab(), { record: true, debug: true })).toMatchObject({ recordRequested: false, debugRequested: true });
+    const context = resolveRunExecution(tab(), runPlan({ recordRequested: true }), {}, settings).context;
+    expect(context).toMatchObject({ record: true });
+    expect(context).not.toHaveProperty('captureScope');
   });
 });

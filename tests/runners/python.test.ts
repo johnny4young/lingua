@@ -353,6 +353,88 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(result.stdout[0]?.line).toBe(3);
   });
 
+  it('keeps one output per progress bar', async () => {
+    class ProgressWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          for (const value of [0, 0.5, 1]) {
+            handler?.({ data: { type: 'console', runId: message.runId, method: 'log', args: [`${value}`], payload: [{ kind: 'progress', id: `${String(message.runId)}:1`, label: '', value }] } } as MessageEvent);
+          }
+          handler?.({ data: { type: 'done', runId: message.runId, executionTime: 1 } } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: ProgressWorker, writable: true, configurable: true });
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute('bar = display.progress("x")');
+    expect(result.stdout.map(output => output.args[0])).toEqual(['1']);
+  });
+
+  it('asks for stdin only when told and maps the request line back past loop protection', async () => {
+    class AskingWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          handler?.({ data: { type: 'stdin-request', runId: message.runId, message: 'Name: ', line: 6 } } as MessageEvent);
+          handler?.({ data: { type: 'done', runId: message.runId, executionTime: 1 } } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: AskingWorker, writable: true, configurable: true });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute(['for item in range(1):', '    pass', 'name = input("Name: ")'].join('\n'), { language: 'python', askStdin: true });
+    expect(postedMessages.find(m => m.type === 'execute')).toMatchObject({ askStdin: true });
+    expect(result.stdinRequest).toEqual({ message: 'Name: ', line: 3 });
+  });
+
+  it('blocks every host when the run context asks', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    await runner.execute('print("hi")', { language: 'python', blockNetwork: true });
+    expect(postedMessages.find(m => m.type === 'execute')?.network).toEqual({ policy: 'block', allowedHosts: [], blockedHosts: [] });
+  });
+
+  it('runs an isolated runner without the user env and leaves the shared boot progress alone', async () => {
+    useEnvVarsStore.setState({ global: { API_TOKEN: 'from-global' }, project: {}, tab: {} });
+    const booting = { language: 'python' as const, loadedBytes: 1, totalBytes: 2 };
+    useBootstrapProgressStore.getState().report(booting);
+    try {
+      const runner = new PythonRunner(true);
+      await runner.init();
+      await runner.execute('print("hi")');
+      expect(postedMessages.find(m => m.type === 'execute')?.userEnv).toEqual({});
+      runner.stop();
+      expect(useBootstrapProgressStore.getState().progress).toEqual(booting);
+    } finally {
+      useBootstrapProgressStore.getState().clear();
+    }
+  });
+
   it('forwards richConsoleEnabled = true by default to the Pyodide worker', async () => {
     const runner = new PythonRunner();
     await runner.init();

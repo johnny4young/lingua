@@ -2,6 +2,7 @@ import { rm } from 'node:fs/promises';
 import {
   capsuleStrictVerificationRefusal,
   compareCapsuleStreams,
+  type CapsuleComparison,
   type CapsuleVerdict,
 } from '../../shared/capsuleVerification';
 import { MAX_REGRESSION_SUITE_BYTES } from '../../shared/capsuleRegressionSuite';
@@ -12,6 +13,7 @@ import {
   DEFAULT_CLI_RUN_TIMEOUT_MS,
   MIN_CLI_RUN_TIMEOUT_MS,
   executeCliPlan,
+  type CliExecutionResult,
 } from '../runtime/execution';
 import { RegressionTargetError, readRegressionTarget } from '../runtime/regressionTargets';
 import { resolveCapsuleSource } from '../runtime/targets';
@@ -23,6 +25,29 @@ import {
   type ReplayCapsuleArgs,
 } from './capsule';
 import { renderCliNotice } from '../presentation';
+
+/** Clipped, interrupted or unlaunched runs are missing evidence, never a pass or a drift. */
+export function strictCapsuleVerdict(
+  capsule: RunCapsuleV1,
+  run: CliExecutionResult
+): { comparison: CapsuleComparison; incomplete: boolean; verdict: CapsuleVerdict } {
+  const comparison = compareCapsuleStreams(capsule, run);
+  const incomplete = Boolean(
+    run.truncated?.stdout ||
+    run.truncated?.stderr ||
+    run.status === 'timeout' ||
+    run.status === 'stopped' ||
+    run.reason === 'missing-runtime' ||
+    run.reason === 'spawn-failed' ||
+    run.reason === 'prepare-failed'
+  );
+  const verdict: CapsuleVerdict = incomplete
+    ? 'inconclusive'
+    : comparison.matches
+      ? 'pass'
+      : 'fail';
+  return { comparison, incomplete, verdict };
+}
 
 export interface VerifyCapsuleArgs extends ReplayCapsuleArgs {
   targetPath?: string;
@@ -144,21 +169,7 @@ export async function verifyCapsuleBaseline(
   });
   // A deadline the suite imposed is missing evidence, not a timeout in the program.
   const budgetExhausted = budgetCapped && run.status === 'timeout';
-  const comparison = compareCapsuleStreams(capsule, run);
-  const incomplete = Boolean(
-    run.truncated?.stdout ||
-    run.truncated?.stderr ||
-    run.status === 'timeout' ||
-    run.status === 'stopped' ||
-    run.reason === 'missing-runtime' ||
-    run.reason === 'spawn-failed' ||
-    run.reason === 'prepare-failed'
-  );
-  const verdict: CapsuleVerdict = incomplete
-    ? 'inconclusive'
-    : comparison.matches
-      ? 'pass'
-      : 'fail';
+  const { comparison, incomplete, verdict } = strictCapsuleVerdict(capsule, run);
   const result = {
     ok: verdict === 'pass',
     command: 'capsule-verify',

@@ -35,6 +35,26 @@ function fakeScope() {
   return { scope: scope as unknown as typeof globalThis, fetch, proto };
 }
 
+/** A packaged worker: loaded from the assets folder of the renderer on file://. */
+function desktopScope() {
+  const fake = fakeScope();
+  (fake.scope as unknown as { location: unknown }).location = {
+    href: 'file:///app/renderer/assets/js-worker.js',
+    protocol: 'file:',
+  };
+  return fake;
+}
+
+/** A built worker on the renderer's app scheme. */
+function appSchemeScope() {
+  const fake = fakeScope();
+  (fake.scope as unknown as { location: unknown }).location = {
+    href: 'app://lingua/assets/js-worker.js',
+    protocol: 'app:',
+  };
+  return fake;
+}
+
 const policy = (
   value: NetworkRunPolicy['policy'],
   allowed: string[] = [],
@@ -292,14 +312,83 @@ describe('network guard against code that patches the realm', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('lets the app’s own files through on desktop', async () => {
-    const { scope, fetch } = fakeScope();
-    (scope as unknown as { location: unknown }).location = {
-      href: 'file:///app/index.html',
-      protocol: 'file:',
-    };
+  it('limits file: to the app’s own files on desktop', async () => {
+    const { scope, fetch } = desktopScope();
+    const report = vi.fn();
+    const guard = installNetworkGuard(scope, { report });
+    guard.begin(policy('block'));
+
+    await scope.fetch('file:///app/renderer/pyodide/pyodide.asm.wasm');
+    await scope.fetch('../ruby/ruby.wasm');
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    for (const target of [
+      'file:///Users/me/.ssh/id_rsa',
+      'file:///app/rendererX/a',
+      'file:///app/renderer/%2e%2e/secret',
+      'file:///app/renderer/..%2F..%2Fsecret',
+      'file:///app/renderer/..%5c..%5csecret',
+      'file://remote/app/renderer/a',
+      '../../secret',
+    ]) {
+      await expect(scope.fetch(target)).rejects.toThrow('file:');
+    }
+    expect(fetch).toHaveBeenCalledTimes(2);
+    // The trust log gets the scheme, never the path.
+    expect(report.mock.calls.every(([host]) => host === 'file:')).toBe(true);
+
+    const xhr = new (scope as unknown as { XMLHttpRequest: new () => XMLHttpRequest }).XMLHttpRequest();
+    expect(() => xhr.open('GET', 'file:///Users/me/.ssh/id_rsa')).toThrow('file:');
+  });
+
+  it('limits the app scheme to the renderer root and refuses file:', async () => {
+    const { scope, fetch } = appSchemeScope();
+    const report = vi.fn();
+    installNetworkGuard(scope, { report }).begin(policy('block'));
+
+    await scope.fetch('app://lingua/pyodide/pyodide.asm.wasm');
+    await scope.fetch('../ruby/ruby.wasm');
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    for (const [target, label] of [
+      ['file:///app/renderer/assets/a.js', 'file:'],
+      ['file:///Users/me/.ssh/id_rsa', 'file:'],
+      ['app://other/a.js', 'app:'],
+      ['app://lingua/assets/..%2F..%2Fsecret', 'app:'],
+    ] as const) {
+      await expect(scope.fetch(target)).rejects.toThrow(label);
+    }
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses a local file under Ask without asking', async () => {
+    const { scope } = desktopScope();
+    const ask = vi.fn(async () => undefined);
+    const guard = installNetworkGuard(scope, { ask });
+    guard.begin(policy('ask'));
+    await expect(scope.fetch('file:///Users/me/.ssh/id_rsa')).rejects.toThrow('file:');
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it('leaves file: alone under Allow', async () => {
+    const { scope, fetch } = desktopScope();
+    installNetworkGuard(scope).begin(policy('allow'));
+    await scope.fetch('file:///Users/me/notes.txt');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses file: where the app does not run from it', async () => {
+    const { scope } = fakeScope();
     installNetworkGuard(scope).begin(policy('block'));
-    await scope.fetch('./assets/data.json');
+    await expect(scope.fetch('file:///app/renderer/a')).rejects.toThrow('file:');
+  });
+
+  it('does not let an escaped separator leave the runtime asset prefix', async () => {
+    const { scope, fetch } = desktopScope();
+    const guard = installNetworkGuard(scope, { runtimeAssetPrefix: 'file:///app/renderer/pyodide/' });
+    guard.begin(policy('block'));
+    await scope.fetch('file:///app/renderer/pyodide/pyodide.asm.wasm');
+    await expect(scope.fetch('file:///app/renderer/pyodide/..%2F..%2Fsecret')).rejects.toThrow('file:');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 

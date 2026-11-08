@@ -5,7 +5,7 @@
  * the SQL workspace persisted store. CRUD + LRU + active-id reset.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   resetWorkspaceSqlStoreForTests,
   useWorkspaceSqlStore,
@@ -25,6 +25,12 @@ function freshResponse(overrides: Partial<SqlResponseV1> = {}): SqlResponseV1 {
     recordedAt: '2026-05-26T00:00:00.000Z',
     ...overrides,
   };
+}
+
+// A fresh module hydrates inside `create()`, as a page load does.
+async function bootStore() {
+  vi.resetModules();
+  return (await import('../../src/renderer/stores/workspaceSqlStore')).useWorkspaceSqlStore;
 }
 
 beforeEach(() => {
@@ -198,7 +204,7 @@ describe('useWorkspaceSqlStore', () => {
     expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ events: 'parquet' });
   });
 
-  it('persists the Explorer state and sanitizes it on rehydrate', async () => {
+  it('persists the Explorer state and sanitizes it at boot', async () => {
     useWorkspaceSqlStore.getState().toggleExplorerFolded();
     useWorkspaceSqlStore.getState().setTableSource('sales', 'csv');
     const stored = JSON.parse(localStorage.getItem('lingua-workspace-sql-state') ?? '{}');
@@ -208,9 +214,93 @@ describe('useWorkspaceSqlStore', () => {
     stored.state.explorerFolded = 'yes';
     stored.state.tableSources = { sales: 'csv', evil: 'exe', list: ['csv'] };
     localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(stored));
-    await useWorkspaceSqlStore.persist.rehydrate();
-    expect(useWorkspaceSqlStore.getState().explorerFolded).toBe(false);
-    expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ sales: 'csv' });
+    const booted = await bootStore();
+    expect(booted.getState().explorerFolded).toBe(false);
+    expect(booted.getState().tableSources).toEqual({ sales: 'csv' });
+  });
+
+  describe('a query on a connection', () => {
+    const KEY = 'lingua-workspace-sql-state';
+    const response = (engine?: SqlResponseV1['engine']): SqlResponseV1 => ({
+      version: 1,
+      status: 'success',
+      rows: [{ email: 'a@b.example' }],
+      columns: [{ name: 'email', type: 'TEXT' }],
+      rowCount: 1,
+      durationMs: 1,
+      tooLarge: false,
+      statementCount: 1,
+      recordedAt: '2026-11-04T00:00:00.000Z',
+      ...(engine ? { engine } : {}),
+    });
+    const addRemoteQuery = () => {
+      const query = { ...createBlankSqlQuery({ id: 'remote' }), connectionId: 'conn-1', query: "ALTER USER app PASSWORD 'hunter2'" };
+      useWorkspaceSqlStore.setState({ queries: [query] });
+      useWorkspaceSqlStore.getState().recordResponse(query.id, response('mysql'));
+      return query;
+    };
+
+    it('reaches disk without its secrets, its rows or its errors, and keeps them on screen', () => {
+      const query = addRemoteQuery();
+      const raw = localStorage.getItem(KEY) ?? '';
+      expect(raw).not.toContain('hunter2');
+      expect(raw).not.toContain('a@b.example');
+      expect(useWorkspaceSqlStore.getState().getQuery(query.id)?.query).toContain('hunter2');
+      expect(useWorkspaceSqlStore.getState().getLatestResponse(query.id)?.rows).toHaveLength(1);
+    });
+
+    it('masks by every server\'s quoting while the engine is unknown', () => {
+      const query = { ...createBlankSqlQuery({ id: 'unknown' }), connectionId: 'conn-gone', query: 'CREATE USER app IDENTIFIED BY "hunter2"' };
+      useWorkspaceSqlStore.setState({ queries: [query] });
+      expect(localStorage.getItem(KEY)).not.toContain('hunter2');
+    });
+
+    it.each([
+      ['duplicateQuery', () => useWorkspaceSqlStore.getState().duplicateQuery('remote', { id: 'copy', name: 'copy' })],
+      ['saveQueryAs', () => useWorkspaceSqlStore.getState().saveQueryAs('remote', { id: 'copy', name: 'copy' })],
+    ])('stays on the connection and masked through %s', (_name, copy) => {
+      addRemoteQuery();
+      copy();
+      expect(useWorkspaceSqlStore.getState().getQuery('copy')?.connectionId).toBe('conn-1');
+      expect(localStorage.getItem(KEY)).not.toContain('hunter2');
+    });
+
+    it('leaves its secrets behind when it moves to Local', () => {
+      addRemoteQuery();
+      useWorkspaceSqlStore.getState().updateQuery('remote', { connectionId: undefined });
+      expect(useWorkspaceSqlStore.getState().getQuery('remote')?.query).not.toContain('hunter2');
+      expect(localStorage.getItem(KEY)).not.toContain('hunter2');
+    });
+
+    it('leaves a Local query and its rows as they were', () => {
+      const query = { ...createBlankSqlQuery({ id: 'local' }), query: "CREATE SECRET s (KEY_ID 'hunter2')" };
+      useWorkspaceSqlStore.setState({ queries: [query] });
+      useWorkspaceSqlStore.getState().recordResponse(query.id, response());
+      const raw = localStorage.getItem(KEY) ?? '';
+      expect(raw).toContain('hunter2');
+      expect(raw).toContain('a@b.example');
+    });
+
+    it('drops a connection result an older version stored', async () => {
+      const query = addRemoteQuery();
+      const stored = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+      stored.state.responsesByQueryId = { [query.id]: [response('mysql')] };
+      localStorage.setItem(KEY, JSON.stringify(stored));
+      const store = await bootStore();
+      expect(store.getState().getQuery(query.id)).toBeDefined();
+      expect(store.getState().responsesByQueryId[query.id]).toBeUndefined();
+    });
+
+    it('keeps its text and result when another tab writes', async () => {
+      const query = addRemoteQuery();
+      const stored = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+      stored.state.queries.push(createBlankSqlQuery({ id: 'other' }));
+      localStorage.setItem(KEY, JSON.stringify(stored));
+      window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+      await vi.waitFor(() => expect(useWorkspaceSqlStore.getState().queries).toHaveLength(2));
+      expect(useWorkspaceSqlStore.getState().getQuery(query.id)?.query).toContain('hunter2');
+      expect(useWorkspaceSqlStore.getState().getLatestResponse(query.id)?.rows).toHaveLength(1);
+    });
   });
 
   describe('query tabs, saving and history', () => {
@@ -308,7 +398,34 @@ describe('useWorkspaceSqlStore', () => {
       expect(useWorkspaceSqlStore.getState().history.map((entry) => entry.id)).toEqual(['prod']);
     });
 
-    it('opens only the active query as a tab when rehydrating a store from before tabs', async () => {
+    it('rehydrates non-finite text as written and leaves an older entry\'s null as it was saved', async () => {
+      const response = (x: unknown) => ({
+        version: 1,
+        status: 'success',
+        rows: [{ x }],
+        columns: [{ name: 'x', type: 'Float64' }],
+        rowCount: 1,
+        durationMs: 1,
+        tooLarge: false,
+        statementCount: 1,
+        recordedAt: '2026-10-20T00:00:00.000Z',
+      });
+      const stored = {
+        state: {
+          queries: [q('now'), q('older')],
+          responsesByQueryId: { now: [response('Infinity')], older: [response(null)] },
+          activeQueryId: 'now',
+        },
+        version: 1,
+      };
+      localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(stored));
+      await useWorkspaceSqlStore.persist.rehydrate();
+      const { responsesByQueryId } = useWorkspaceSqlStore.getState();
+      expect(responsesByQueryId['now']?.[0]?.rows).toEqual([{ x: 'Infinity' }]);
+      expect(responsesByQueryId['older']?.[0]?.rows).toEqual([{ x: null }]);
+    });
+
+    it('opens only the active query as a tab when booting a store from before tabs', async () => {
       const legacy = {
         state: {
           queries: [q('old1'), q('old2', { name: 'Named' })],
@@ -318,8 +435,7 @@ describe('useWorkspaceSqlStore', () => {
         version: 1,
       };
       localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(legacy));
-      await useWorkspaceSqlStore.persist.rehydrate();
-      const state = useWorkspaceSqlStore.getState();
+      const state = (await bootStore()).getState();
       expect(state.openQueryIds).toEqual(['old2']);
       expect(state.queries.every((query) => query.kind === undefined)).toBe(true);
       expect(state.history).toEqual([]);

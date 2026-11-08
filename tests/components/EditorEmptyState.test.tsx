@@ -79,6 +79,12 @@ describe('EditorEmptyState', () => {
     expect(screen.queryByText('Developer Workbench')).toBeNull();
   });
 
+  it('shows the Lingua initials, not the old product name', () => {
+    render(<EditorEmptyState />);
+    expect(screen.getByText('LG')).toBeTruthy();
+    expect(screen.queryByText('RL')).toBeNull();
+  });
+
   it('renders the pluralized template count from i18n', () => {
     render(<EditorEmptyState />);
     // With 2 mock templates → "2 templates" (plural form)

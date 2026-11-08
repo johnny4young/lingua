@@ -1,8 +1,7 @@
 import { createStartupGuard, loadStartupRenderer, startupFailureMessage } from './startup';
-import { app, BrowserWindow, ipcMain, session, dialog, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, net, protocol, session, dialog, safeStorage } from 'electron';
 import { typedHandle } from './ipc/typedHandle';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
 import {
   consumePendingDeepLink,
@@ -30,6 +29,7 @@ import { blockedPathFamily } from './ipc/permissions';
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
+import { configureToolchainBinaryStore } from './runners/toolchainBinary';
 import { registerRubyHandlers } from './ruby-runner';
 import { registerNodeJSHandlers } from './node-runner';
 import { registerAltJsRuntimeHandlers } from './altJsRuntimes';
@@ -45,7 +45,7 @@ import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerGitHandlers } from './ipc/git';
 import { registerProjectTestHandlers } from './ipc/projectTests';
 import { registerProjectTerminalHandlers } from './ipc/projectTerminal';
-import { registerLocalMcpHandlers } from './ipc/localMcp';
+import { disposeLocalMcpServerIfLoaded, registerLocalMcpHandlers } from './ipc/localMcp';
 import { disposeHttpRuns, registerHttpHandlers } from './ipc/http';
 import {
   disposePythonDebuggerSessions,
@@ -57,7 +57,6 @@ import { disposeNativeRuns } from './runners/nativeRunLifecycle';
 import { disposeNativeRunTempDirs } from './runners/nativeRunTempDirs';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
-import { disposeLocalMcpServer } from './localMcp';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -66,6 +65,15 @@ import { registerLicenseHandlers } from './ipc/license';
 import { installOfflineSmokeFilter, isOfflineSmokeRequested } from './offlineSmoke';
 import { installDirtyCloseGuard } from './windowCloseGuard';
 import {
+  installRendererProtocol,
+  registerRendererScheme,
+  RENDERER_BLANK_URL,
+  RENDERER_ENTRY_URL,
+} from './rendererProtocol';
+import { migrateRendererOrigin, storageMigrationNoticeFor } from './originMigration';
+import type { StorageMigrationNotice } from '../shared/ipcContract';
+import { openLegacyOriginPage, openTargetOriginPage } from './originMigrationPages';
+import {
   readBuildChannel,
   resolveUserDataOverride,
   resolveUserDataProfile,
@@ -73,8 +81,14 @@ import {
   type UserDataProfile,
 } from './userDataProfile';
 
+registerRendererScheme(protocol);
+
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
+let rendererStorageMigration: Promise<void> | null = null;
+let storageMigrationNotice: StorageMigrationNotice | null = null;
+// Generous for a large SQL database, but a launch never waits on the copy forever.
+const ORIGIN_MIGRATION_DEADLINE_MS = 5 * 60_000;
 let initialized = false;
 let mainWindowReady = false;
 const deepLinkState = createDeepLinkRuntimeState();
@@ -137,7 +151,7 @@ function disposeMainResources() {
     disposeLspBridge,
     disposeProjectTestRuns,
     disposeProjectTerminalSessions,
-    disposeLocalMcpServer,
+    disposeLocalMcpServerIfLoaded,
     disposeHttpRuns,
     disposePythonDebuggerSessions,
     disposeGoDebuggerSessions,
@@ -170,13 +184,46 @@ const startup = createStartupGuard(
   () => app.exit(1)
 );
 
+/** Runs before the first built-renderer load; a failure is logged and the app still opens. */
+function migrateRendererStorageOnce(
+  window: BrowserWindow,
+  startupSignal: AbortSignal
+): Promise<void> {
+  const signal = AbortSignal.any([
+    startupSignal,
+    AbortSignal.timeout(ORIGIN_MIGRATION_DEADLINE_MS),
+  ]);
+  // The window stays hidden until the renderer loads; the Dock or taskbar shows the copy.
+  const progress = (fraction: number) => {
+    if (!window.isDestroyed()) window.setProgressBar(fraction);
+  };
+  rendererStorageMigration ??= migrateRendererOrigin({
+    userDataDir: app.getPath('userData'),
+    openLegacy: () => openLegacyOriginPage(BrowserWindow, signal),
+    openTarget: () => openTargetOriginPage(BrowserWindow, RENDERER_BLANK_URL, signal),
+    flush: () => session.defaultSession.flushStorageData(),
+    onProgress: (done, total) => progress(total > 0 ? done / total : -1),
+    signal,
+  })
+    .then(
+      result => {
+        storageMigrationNotice = storageMigrationNoticeFor(result);
+        if (result.status === 'failed') {
+          console.warn(`[lingua] renderer storage migration failed: ${result.marker.error}`);
+        }
+      },
+      () => console.warn('[lingua] renderer storage migration failed')
+    )
+    .finally(() => progress(-1));
+  return rendererStorageMigration;
+}
+
 const createWindow = async () => {
   if (startup.signal.aborted) return;
   const rendererUrl = getTrustedRendererUrl(
     process.env.LINGUA_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
   );
-  const rendererFile = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
-  const rendererDocumentUrl = rendererUrl ?? pathToFileURL(rendererFile).href;
+  const rendererDocumentUrl = rendererUrl ?? RENDERER_ENTRY_URL;
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -194,10 +241,7 @@ const createWindow = async () => {
       nodeIntegration: false,
       sandbox: true,
       additionalArguments: desktopSmokeRendererArguments(),
-      // Pin the same-origin policy explicitly. This is the
-      // Electron default, but pinning it ensures a future edit cannot
-      // silently disable web security (which would let a compromised
-      // renderer bypass CORS and read cross-origin resources).
+      // Pin the Electron default so a future edit cannot silently disable it.
       webSecurity: true,
     },
   });
@@ -252,9 +296,12 @@ const createWindow = async () => {
   });
 
   try {
+    const loadSignal = AbortSignal.any([startup.signal, closed.signal]);
+    // The window already exists, so closing the hidden migration pages cannot end the app.
+    if (!rendererUrl) await migrateRendererStorageOnce(window, loadSignal);
     await loadStartupRenderer(
-      () => (rendererUrl ? window.loadURL(rendererUrl) : window.loadFile(rendererFile)),
-      AbortSignal.any([startup.signal, closed.signal]),
+      () => window.loadURL(rendererDocumentUrl),
+      loadSignal,
       Boolean(rendererUrl)
     );
     if (startup.signal.aborted || window.isDestroyed()) return;
@@ -270,6 +317,7 @@ const createWindow = async () => {
 };
 
 function registerPrimaryInstance() {
+  configureToolchainBinaryStore(app.getPath('userData'));
   registerGoHandlers();
   registerRustHandlers();
   registerRubyHandlers();
@@ -301,6 +349,11 @@ function registerPrimaryInstance() {
   });
 
   typedHandle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
+  typedHandle('app:consume-storage-migration-notice', () => {
+    const notice = storageMigrationNotice;
+    storageMigrationNotice = null;
+    return notice;
+  });
   ipcMain.on('app:deep-link-renderer-ready', () => {
     markDeepLinkRendererReady(deepLinkState, true);
   });
@@ -341,6 +394,11 @@ function registerPrimaryInstance() {
       // main-frame clipboard read/write grants in `permissionHandlers` are allowed;
       // media / geolocation / notifications / subframe requests / etc. are refused.
       installPermissionHandlers(session.defaultSession);
+      installRendererProtocol({
+        protocol,
+        net,
+        rendererRoot: path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`),
+      });
 
       // Install the offline-smoke webRequest filter
       // before any window loads, so the very first renderer request is

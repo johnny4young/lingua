@@ -25,8 +25,10 @@ The current implementation provides:
   and uses the same actions as the Debugger tab.
 - After a step or Continue, Locals mark the bindings that are new or changed
   since the previous pause with an accent tint and a tag (a changed one shows its
-  previous value on hover), and keep the order they had. The line the step
-  came from shows up to three of those values inline. The Console ends with
+  previous value on hover), and keep the order they had. The paused line
+  shows the current value of each local it names, and the line the step came
+  from shows the values that changed, both as Scratchpad inline pills (up to
+  three per line) beside what the run has logged so far. The Console ends with
   a row naming the paused line and those values, with Open Debugger.
 - A **Debugger** tab in the resizable results dock. It appears once
   the active tab has a breakpoint or a live session, and Debug opens
@@ -254,6 +256,13 @@ Three events join the allowlist per [ADR §4](./DEBUGGER_ADR.md):
 Every payload is closed-enum. The redactor in
 `src/shared/telemetry/redaction.ts` drops any key that isn't on the per-event
 allowlist. No source, no breakpoint coordinates, no expression content.
+
+## Execution timeline
+
+The execution timeline records a JavaScript or TypeScript run in the Worker
+and replays it step by step. It is a separate path from a debug session: nothing
+pauses, and stepping moves through the recording. See
+[Execution timeline](./USAGE.md#execution-timeline) in USAGE.
 
 ## Current limitations
 

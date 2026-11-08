@@ -6,29 +6,16 @@ import {
   type StatusNoticeAction,
   type StatusNoticeTone,
 } from '../../stores/uiStore';
+import { isStickyNotice } from '../../stores/statusNoticeQueue';
 import { cn } from '../../utils/cn';
 
-const AUTO_DISMISS_MS = 6000;
+const AUTO_DISMISS_MS = 8000;
 
 /**
- * Signal-Slate toast.
- *
- * Refresh of the bottom-right toast for transient notices (format-on-save
- * parse errors, missing formatter binaries, license activation outcomes,
- * web-update banner overflow). Now ships with four semantic tones
- * (success, info, warning, error) — each with its own icon, ramp, and
- * auto-dismiss behaviour.
- *
- * Auto-dismiss is suppressed for `error` notices and for notices with
- * actions so the user does not lose actionable copy by looking away.
- * Other notices expire after AUTO_DISMISS_MS, paused while hovered or focused.
- *
- * Visual contract:
- *
- *   - Subtle border-tone tint, never solid color blocks.
- *   - Leading icon column (16px) for instant tone recognition.
- *   - Body uses Eyebrow-less heading + small detail row when present.
- *   - Dismiss button stays muted until hover.
+ * The visible status notice, docked in its own row above the status bar so it
+ * never covers the editor, the dock or a dialog's content. Sticky notices stay
+ * until acted on; the rest leave after AUTO_DISMISS_MS, paused while hovered or
+ * focused. The next queued notice takes its place.
  */
 export function StatusNoticeBanner() {
   const { t } = useTranslation();
@@ -43,14 +30,32 @@ export function StatusNoticeBanner() {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const paused = notice !== null && (hoveredId === notice.id || focusedId === notice.id);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const hasNotice = notice !== null;
+
+  // Dialogs end where the row starts, so a notice never covers one.
+  useEffect(() => {
+    const root = document.documentElement;
+    const row = rowRef.current;
+    if (!hasNotice || !row) return;
+    const publish = () => root.style.setProperty('--notice-row-offset', `${Math.max(0, window.innerHeight - row.getBoundingClientRect().top)}px`);
+    publish();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish);
+    observer?.observe(row);
+    window.addEventListener('resize', publish);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', publish);
+      root.style.removeProperty('--notice-row-offset');
+    };
+  }, [hasNotice]);
   useEffect(() => {
     ctaFiredRef.current = false;
   }, [notice?.id]);
 
   useEffect(() => {
     if (!notice) return;
-    // Errors and actionable notices stick — the user has to dismiss them.
-    if (notice.tone === 'error' || (notice.actions?.length ?? 0) > 0) return undefined;
+    if (isStickyNotice(notice)) return undefined;
     if (paused) return undefined;
     const timeout = window.setTimeout(() => {
       // If the user clicked a CTA the dismiss already fired as
@@ -91,6 +96,7 @@ export function StatusNoticeBanner() {
 
   return (
     <div
+      ref={rowRef}
       role={notice.tone === 'error' ? 'alert' : 'status'}
       aria-live={notice.tone === 'error' ? 'assertive' : 'polite'}
       data-testid="status-notice-banner"
@@ -102,21 +108,22 @@ export function StatusNoticeBanner() {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusedId(null);
       }}
       className={cn(
-        'pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-3 rounded-2xl border px-4 py-3 shadow-e3 backdrop-blur',
+        'pointer-events-auto relative z-[60] flex shrink-0 items-start gap-3 border-t px-4 py-2',
         toneClasses(notice.tone)
       )}
     >
       <ToneIcon tone={notice.tone} />
-      <div className="grid min-w-0 flex-1 gap-1 text-body">
+      <div className="grid min-w-0 flex-1 gap-0.5 text-body">
         <p className="font-medium leading-5">{t(notice.messageKey, notice.values)}</p>
         {notice.detail ? (
-          <p className="max-h-32 overflow-auto text-caption leading-[1.45] text-muted">
+          <p className="max-h-12 overflow-auto text-caption leading-[1.45] text-muted">
             {notice.detail}
           </p>
         ) : null}
-        {actions.length > 0 ? (
+      </div>
+      {actions.length > 0 ? (
           <div
-            className="mt-1 flex flex-wrap items-center gap-2"
+            className="flex shrink-0 flex-wrap items-center gap-2"
             data-testid="status-notice-actions"
           >
             {actions.map((action) => (
@@ -132,12 +139,11 @@ export function StatusNoticeBanner() {
             ))}
           </div>
         ) : null}
-      </div>
       <button
         type="button"
         onClick={() => dismissStatusNotice('manual')}
         aria-label={t('statusNotice.dismiss')}
-        className="-mr-1 -mt-1 rounded-full p-1 text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
+        className="-mr-1 shrink-0 rounded-full p-1 text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
       >
         <X size={14} />
       </button>
@@ -148,14 +154,14 @@ export function StatusNoticeBanner() {
 function toneClasses(tone: StatusNoticeTone): string {
   switch (tone) {
     case 'success':
-      return 'border-success/45 bg-success/10 text-foreground';
+      return 'border-success/45 bg-success-bg text-foreground';
     case 'warning':
-      return 'border-warning/45 bg-warning/12 text-foreground';
+      return 'border-warning/45 bg-warning-bg text-foreground';
     case 'error':
-      return 'border-error/45 bg-error/12 text-foreground';
+      return 'border-error/45 bg-error-bg text-foreground';
     case 'info':
     default:
-      return 'border-info/35 bg-info/10 text-foreground';
+      return 'border-info/45 bg-info-bg text-foreground';
   }
 }
 

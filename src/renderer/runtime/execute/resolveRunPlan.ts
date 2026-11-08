@@ -7,6 +7,7 @@
  * outside the built-in packs.
  */
 
+import { canRecordTimeline } from '../../../shared/timeline';
 import {
   isRuntimeTimeoutSupportedLanguage,
   resolveTimeoutMs,
@@ -16,6 +17,7 @@ import type { ExecutionContext } from '../../types/execution';
 import type { SettingsState } from '../../types/settings';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { extractTimeoutMagicComment } from '../../utils/magicComments';
+import { mergeRegionStdin, supportsRunRegions, type RunRegion } from '../../utils/runRegions';
 import type { ManualExecutionLifecycle } from './types';
 
 /** Debug runs in these languages go through a native debugger session, not the runner. */
@@ -36,8 +38,12 @@ const VARIABLE_INSPECTOR_LANGUAGES: ReadonlySet<string> = new Set([
 export interface RunPlan {
   mode: 'run' | 'validate' | 'view';
   debugRequested: boolean;
+  /** Record run on a JS / TS Worker tab; Debug wins when both are asked. */
+  recordRequested: boolean;
   usesNativeDebugger: boolean;
   recordHistory: boolean;
+  /** The region a Run regions run stops after; null for a whole-file run. */
+  region: RunRegion | null;
 }
 
 export interface RunExecution {
@@ -50,22 +56,27 @@ export interface RunExecution {
 }
 
 export function resolveRunPlan(
-  tab: Pick<FileTab, 'language'>,
-  lifecycle: Pick<ManualExecutionLifecycle, 'debug' | 'recordHistory'>
+  tab: Pick<FileTab, 'language' | 'runtimeMode'>,
+  lifecycle: Pick<ManualExecutionLifecycle, 'debug' | 'recordHistory' | 'record' | 'region'>
 ): RunPlan {
   const debugRequested = lifecycle.debug === true;
+  const recordRequested = lifecycle.record === true && !debugRequested && canRecordTimeline(tab);
+  const region = lifecycle.region && !debugRequested && !recordRequested && supportsRunRegions(tab.language) ? lifecycle.region : null;
   return {
     mode: executionModeForLanguage(tab.language),
     debugRequested,
+    recordRequested,
     usesNativeDebugger: debugRequested && NATIVE_DEBUGGER_LANGUAGES.has(tab.language),
-    recordHistory: lifecycle.recordHistory !== false,
+    // A region run saw part of the file, so it is not a run to restore or compare.
+    recordHistory: lifecycle.recordHistory !== false && region === null,
+    region,
   };
 }
 
 export function resolveRunExecution(
   tab: FileTab,
   plan: RunPlan,
-  lifecycle: Pick<ManualExecutionLifecycle, 'executionTimeoutMs'>,
+  lifecycle: Pick<ManualExecutionLifecycle, 'executionTimeoutMs' | 'maskedStdin'>,
   settings: Pick<
     SettingsState,
     'showLineTiming' | 'variableInspectorScopeDepth' | 'runtimeTimeoutPresetByLanguage'
@@ -79,7 +90,10 @@ export function resolveRunExecution(
   const magicTimeoutMs = extractTimeoutMagicComment(language, tab.content);
   const resolvedTimeoutMs =
     lifecycle.executionTimeoutMs ?? tab.nextRunTimeoutOverrideMs ?? magicTimeoutMs ?? undefined;
-  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested;
+  const stdin = plan.region ? mergeRegionStdin(tab.stdinBuffer, lifecycle.maskedStdin) : tab.stdinBuffer;
+  // A run fed masked answers keeps them out of the Variables panel.
+  const hasMaskedStdin = plan.region !== null && (lifecycle.maskedStdin?.length ?? 0) > 0;
+  const wantsScopeCapture = VARIABLE_INSPECTOR_LANGUAGES.has(language) && !plan.debugRequested && !plan.recordRequested && !hasMaskedStdin;
   const scopeDepth = settings.variableInspectorScopeDepth;
   const settingsTimeoutMs =
     !plan.usesNativeDebugger && isRuntimeTimeoutSupportedLanguage(language)
@@ -93,9 +107,14 @@ export function resolveRunExecution(
       ...(resolvedTimeoutMs !== undefined ? { timeout: resolvedTimeoutMs } : {}),
       tabId: tab.id,
       ...(plan.debugRequested ? { debug: true } : {}),
+      ...(plan.recordRequested ? { record: true } : {}),
+      // A region shows the value of each bare expression, like Scratchpad's auto-log.
+      ...(plan.region ? { autoLog: true } : {}),
       // Manual Run feeds the same pre-set buffer that
       // auto-run uses. Runners that do not consume stdin ignore the field.
-      ...(tab.stdinBuffer ? { stdin: tab.stdinBuffer } : {}),
+      ...(stdin ? { stdin } : {}),
+      // A region asks for a missing stdin line inline instead of reading nothing.
+      ...(plan.region ? { askStdin: true } : {}),
       ...(tab.inputArgs && tab.inputArgs.length > 0 ? { args: tab.inputArgs } : {}),
       // per-line timing toggle; the runner also honors an
       // in-buffer // @time directive on its own.

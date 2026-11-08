@@ -17,6 +17,8 @@ export interface RowEditTable {
   name: string;
   /** The table's columns; only these can be set. */
   columns: string[];
+  /** Declared types by column, as the engine reports them. */
+  types?: Record<string, string>;
   key: RowEditKey;
 }
 
@@ -26,9 +28,9 @@ export type RowEditValue = string | null;
 type Values = Record<string, RowEditValue>;
 
 export interface RowEditChanges {
-  /** The key values that find each row, and its new values by column. */
-  updates: Array<{ key: Values; values: Values }>;
-  deletes: Array<{ key: Values }>;
+  /** The key values that find each row, and its new values by column. `original` holds what was read, so a row changed since then is a conflict. */
+  updates: Array<{ key: Values; values: Values; original?: Values }>;
+  deletes: Array<{ key: Values; original?: Values }>;
   /** New rows; a column left out takes its default. */
   inserts: Array<{ values: Values }>;
 }
@@ -55,11 +57,88 @@ const ROWID = 'rowid';
 /** Engines whose tables take staged edits: each statement runs in a transaction and reports the rows it touched. */
 export const ROW_EDIT_ENGINES: ReadonlySet<SqlEngineKind> = new Set(['duckdb', 'postgres', 'mysql', 'sqlite', 'sqlserver', 'libsql', 'neon']);
 
-/** The table staged edits apply to, from the columns and primary key the engine reported; null without a whole key. */
-export function rowEditTableFrom(engine: SqlEngineKind, schema: string, name: string, columns: ReadonlyArray<{ name: string; primaryKey?: boolean }>): RowEditTable | null {
+type ColumnKind = 'text' | 'integer' | 'decimal' | 'boolean' | 'float' | 'temporal' | 'binary' | 'other';
+
+const COLUMN_KINDS: Array<[ColumnKind, RegExp]> = [
+  ['text', /^(?:n?varchar|n?char|character|bpchar|n?text|tinytext|mediumtext|longtext|citext|string|clob|uuid|uniqueidentifier|enum|set)$/],
+  ['integer', /^(?:tinyint|smallint|mediumint|int\d?|integer|bigint|hugeint|uhugeint|utinyint|usmallint|uinteger|ubigint|(?:small|big)?serial)$/],
+  ['decimal', /^(?:numeric|decimal|dec)$/],
+  ['boolean', /^bool(?:ean)?$/],
+  ['float', /^(?:float\d?|double|real|money|smallmoney)$/],
+  ['temporal', /^(?:date|time|timetz|timestamp\w*|datetime\d?|datetimeoffset|smalldatetime|interval|year)$/],
+  ['binary', /^(?:bytea|blob|tinyblob|mediumblob|longblob|binary|varbinary|image)$/],
+];
+
+function columnKind(table: Pick<RowEditTable, 'engine' | 'types'>, column: string): ColumnKind {
+  const name = (table.types?.[column] ?? '').trim().toLowerCase().split(/[\s(]/)[0] ?? '';
+  if (name === 'bit' && table.engine === 'mysql') return 'binary';
+  return COLUMN_KINDS.find(([, pattern]) => pattern.test(name))?.[0] ?? 'other';
+}
+
+/** Whether the grid's text is the stored value: binaries arrive as base64, and some drivers round or cut decimals and times. */
+export function cellTextIsExact(table: Pick<RowEditTable, 'engine' | 'types'>, column: string): boolean {
+  const kind = columnKind(table, column);
+  if (kind === 'binary' || kind === 'float') return false;
+  if (kind === 'decimal') return table.engine !== 'sqlserver';
+  if (kind === 'temporal') return table.engine === 'mysql' || table.engine === 'sqlite' || table.engine === 'libsql';
+  return true;
+}
+
+export const isBinaryColumn = (table: Pick<RowEditTable, 'engine' | 'types'>, column: string) => columnKind(table, column) === 'binary';
+
+/** A number, date or boolean has no empty value, and some engines would store 0 or 1900-01-01 for one. */
+export function takesEmptyText(table: Pick<RowEditTable, 'engine' | 'types'>, column: string): boolean {
+  const kind = columnKind(table, column);
+  return kind === 'text' || kind === 'other';
+}
+
+/** Longer values are not compared, so a change set stays within its caps. */
+const MAX_COMPARED_LENGTH = 4096;
+
+/** Whether `column = text` finds this value on every engine; other types, such as dates and floats, are not compared. */
+function comparesExactly(table: Pick<RowEditTable, 'engine' | 'types'>, column: string): boolean {
+  const kind = columnKind(table, column);
+  if (kind !== 'text' && kind !== 'integer' && kind !== 'decimal' && kind !== 'boolean') return false;
+  // SQL Server has no = for its legacy large text types.
+  if (table.engine === 'sqlserver' && /^n?text\b/i.test(table.types?.[column] ?? '')) return false;
+  return cellTextIsExact(table, column);
+}
+
+/** What a commit checks is still there, from the row as read. */
+export function rowEditOriginal(table: RowEditTable, columns: readonly string[], cell: (column: string) => RowEditValue): Values {
+  const original: Values = {};
+  for (const column of columns) {
+    if (!comparesExactly(table, column)) continue;
+    const value = cell(column);
+    if (value === null || value.length <= MAX_COMPARED_LENGTH) original[column] = value;
+  }
+  return original;
+}
+
+/** Why a connection's table takes no staged edits, or null when it does. */
+export type RowEditRefusal = 'no-key' | 'key-type' | 'no-transactions';
+
+interface RowEditColumnInfo {
+  name: string;
+  primaryKey?: boolean;
+  type?: string;
+}
+
+const typesOf = (columns: ReadonlyArray<RowEditColumnInfo>) => Object.fromEntries(columns.flatMap((column) => (column.type ? [[column.name, column.type]] : [])));
+
+export function rowEditRefusal(engine: SqlEngineKind, columns: ReadonlyArray<RowEditColumnInfo>, transactional = true): RowEditRefusal | null {
+  const primaryKey = columns.filter((column) => column.primaryKey);
+  if (primaryKey.length === 0) return 'no-key';
+  if (!transactional) return 'no-transactions';
+  const types = typesOf(columns);
+  return primaryKey.every((column) => cellTextIsExact({ engine, types }, column.name)) ? null : 'key-type';
+}
+
+/** The table staged edits apply to, from the columns and primary key the engine reported; null when `rowEditRefusal` says no. */
+export function rowEditTableFrom(engine: SqlEngineKind, schema: string, name: string, columns: ReadonlyArray<RowEditColumnInfo>, transactional = true): RowEditTable | null {
+  if (rowEditRefusal(engine, columns, transactional)) return null;
   const primaryKey = columns.filter((column) => column.primaryKey).map((column) => column.name);
-  if (primaryKey.length === 0) return null;
-  return { engine, schema, name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } };
+  return { engine, schema, name, columns: columns.map((column) => column.name), types: typesOf(columns), key: { kind: 'pk', columns: primaryKey } };
 }
 
 export const keyColumns = (table: RowEditTable): string[] => (table.key.kind === 'pk' ? table.key.columns : [ROWID]);
@@ -74,13 +153,20 @@ export function rowEditProblem(table: RowEditTable, changes: RowEditChanges): 'e
   const columns = new Set(table.columns);
   const keys = keyColumns(table);
   const keyOk = (key: Values) => keys.every((column) => typeof key[column] === 'string') && Object.keys(key).length === keys.length;
+  const writable = (column: string, value: RowEditValue) =>
+    value === null || (!isBinaryColumn(table, column) && (value !== '' || takesEmptyText(table, column)));
   const valuesOk = (values: Values, needsOne: boolean) =>
-    (!needsOne || Object.keys(values).length > 0) && Object.entries(values).every(([column, value]) => columns.has(column) && isValue(value));
-  for (const { key, values } of changes.updates) {
+    (!needsOne || Object.keys(values).length > 0) && Object.entries(values).every(([column, value]) => columns.has(column) && isValue(value) && writable(column, value));
+  const originalOk = (original: Values | undefined) => Object.entries(original ?? {}).every(([column, value]) => columns.has(column) && isValue(value));
+  for (const { key, values, original } of changes.updates) {
     if (!keyOk(key)) return 'missing-key';
     if (!valuesOk(values, true)) return Object.keys(values).every((column) => columns.has(column)) ? 'invalid-value' : 'unknown-column';
+    if (!originalOk(original)) return 'unknown-column';
   }
-  for (const { key } of changes.deletes) if (!keyOk(key)) return 'missing-key';
+  for (const { key, original } of changes.deletes) {
+    if (!keyOk(key)) return 'missing-key';
+    if (!originalOk(original)) return 'unknown-column';
+  }
   for (const { values } of changes.inserts) {
     if (!valuesOk(values, false)) return Object.keys(values).every((column) => columns.has(column)) ? 'invalid-value' : 'unknown-column';
   }
@@ -100,8 +186,8 @@ export function rowEditStatements(table: RowEditTable, changes: RowEditChanges, 
   const keys = keyColumns(table);
 
   return [
-    ...changes.updates.map(({ key, values }) => statement((value) => `UPDATE ${target} SET ${Object.entries(values).map(([name, item]) => `${column(name)} = ${value(item)}`).join(', ')} WHERE ${where(key, value)}`)),
-    ...changes.deletes.map(({ key }) => statement((value) => `DELETE FROM ${target} WHERE ${where(key, value)}`)),
+    ...changes.updates.map(({ key, values, original }) => statement((value) => `UPDATE ${target} SET ${Object.entries(values).map(([name, item]) => `${column(name)} = ${value(item)}`).join(', ')} WHERE ${where(key, original, value)}`)),
+    ...changes.deletes.map(({ key, original }) => statement((value) => `DELETE FROM ${target} WHERE ${where(key, original, value)}`)),
     ...changes.inserts.map(({ values }) => {
       const names = Object.keys(values);
       return statement((value) =>
@@ -114,8 +200,13 @@ export function rowEditStatements(table: RowEditTable, changes: RowEditChanges, 
     }),
   ];
 
-  function where(key: Values, value: (item: RowEditValue) => string): string {
-    return keys.map((name) => `${column(name)} = ${value(key[name]!)}`).join(' AND ');
+  function where(key: Values, original: Values | undefined, value: (item: RowEditValue) => string): string {
+    // `value` binds in the order it is called, and MySQL's ? go by position, so this reads left to right.
+    const found = keys.map((name) => `${column(name)} = ${value(key[name]!)}`);
+    const unchanged = Object.entries(original ?? {})
+      .filter(([name]) => !keys.includes(name) && comparesExactly(table, name))
+      .map(([name, item]) => (item === null ? `${column(name)} IS NULL` : `${column(name)} = ${value(item)}`));
+    return [...found, ...unchanged].join(' AND ');
   }
 
   function statement(build: (value: (item: RowEditValue) => string) => string): RowEditStatement {
@@ -164,13 +255,15 @@ export function parseRowEditChanges(value: unknown): RowEditChanges | null {
   for (const item of updates) {
     const key = parseValues((item as { key?: unknown })?.key, budget);
     const values = parseValues((item as { values?: unknown })?.values, budget);
-    if (!key || !values) return null;
-    out.updates.push({ key, values });
+    const original = parseValues((item as { original?: unknown })?.original ?? {}, budget);
+    if (!key || !values || !original) return null;
+    out.updates.push({ key, values, ...(Object.keys(original).length > 0 ? { original } : {}) });
   }
   for (const item of deletes) {
     const key = parseValues((item as { key?: unknown })?.key, budget);
-    if (!key) return null;
-    out.deletes.push({ key });
+    const original = parseValues((item as { original?: unknown })?.original ?? {}, budget);
+    if (!key || !original) return null;
+    out.deletes.push({ key, ...(Object.keys(original).length > 0 ? { original } : {}) });
   }
   for (const item of inserts) {
     const values = parseValues((item as { values?: unknown })?.values, budget);

@@ -144,7 +144,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         data-hit={search.hits.has(pointer)}
         style={{ paddingLeft: depth * 16 }}
         className={cn(
-          'group flex items-start gap-1 rounded-sm pr-2 hover:bg-bg-inset/60 focus-visible:bg-bg-inset focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/70',
+          'relative group flex items-start gap-1 rounded-sm pr-2 hover:bg-bg-inset/60 focus-visible:bg-bg-inset focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/70',
           wrap ? 'min-w-0' : 'w-max min-w-full'
         )}
       >
@@ -197,7 +197,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
             data-testid="http-json-capture"
             aria-label={t('httpWorkspace.response.tree.captureAria', { path })}
             onClick={capture}
-            className="mt-[3px] shrink-0 rounded-sm px-1 text-micro font-semibold leading-[14px] text-fg-subtle opacity-0 hover:bg-bg-inset hover:text-fg-base group-hover:opacity-100 group-focus-visible:opacity-100"
+            className="absolute right-1 top-[3px] rounded-sm bg-bg-inset px-1 text-micro font-semibold leading-[14px] text-fg-subtle opacity-0 hover:text-fg-base group-hover:opacity-100 group-focus-visible:opacity-100"
           >
             {t('httpWorkspace.response.tree.capture')}
           </button>

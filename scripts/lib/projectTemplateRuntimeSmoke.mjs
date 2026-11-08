@@ -59,7 +59,7 @@ export async function loadCuratedProjectTemplates(repoRoot) {
     bundle: true,
     format: 'esm',
     platform: 'node',
-    target: 'node24',
+    target: 'node26',
     write: false,
     logLevel: 'silent',
   });

@@ -28,26 +28,24 @@ describe('main security helpers', () => {
     expect(isAllowedNavigationTarget('https://example.com', trusted)).toBe(false);
   });
 
-  it('does not treat the file scheme as authority to open any local document', () => {
-    expect(isAllowedNavigationTarget('file:///tmp/index.html', null)).toBe(false);
-    const packaged =
-      'file:///Applications/Lingua.app/Contents/Resources/app.asar/renderer/index.html';
-    expect(isAllowedNavigationTarget(packaged, packaged)).toBe(true);
-    expect(isAllowedNavigationTarget(`${packaged}#tab`, packaged)).toBe(true);
-    expect(isAllowedNavigationTarget('file:///tmp/index.html', packaged)).toBe(false);
-    expect(isAllowedNavigationTarget(`${packaged}?raw`, packaged)).toBe(false);
+  it('allows only the exact built renderer document on the app scheme', () => {
+    const app = 'app://lingua/index.html';
+    expect(isAllowedNavigationTarget(app, app)).toBe(true);
+    expect(isAllowedNavigationTarget(`${app}#tab`, app)).toBe(true);
+    expect(isAllowedNavigationTarget('app://lingua/other.html', app)).toBe(false);
+    expect(isAllowedNavigationTarget(`${app}?raw`, app)).toBe(false);
+    expect(isAllowedNavigationTarget('app://other/index.html', app)).toBe(false);
+    expect(isAllowedNavigationTarget('file:///tmp/index.html', app)).toBe(false);
+    expect(isAllowedNavigationTarget('http://localhost:5174/', app)).toBe(false);
   });
 
-  it.each(['file:///C:/Lingua%20App/index.html', 'file://trusted-share/Lingua/index.html'])(
-    'preserves the exact trusted packaged location %s',
-    document => {
-      expect(isAllowedNavigationTarget(document, document)).toBe(true);
-      expect(isAllowedNavigationTarget(`${document}#tab`, document)).toBe(true);
-      expect(
-        isAllowedNavigationTarget(document.replace('index.html', 'other.html'), document)
-      ).toBe(false);
-    }
-  );
+  it('gives a file document no navigation authority, not even to itself', () => {
+    expect(isAllowedNavigationTarget('file:///tmp/index.html', null)).toBe(false);
+    const legacy =
+      'file:///Applications/Lingua.app/Contents/Resources/app.asar/renderer/index.html';
+    expect(isAllowedNavigationTarget(legacy, legacy)).toBe(false);
+    expect(isAllowedNavigationTarget(`${legacy}#tab`, legacy)).toBe(false);
+  });
 
   it.each([
     'javascript:alert(1)',

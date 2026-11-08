@@ -10,6 +10,9 @@ import {
   openSettingsTab,
   paletteInput,
   seedSession,
+  clickRun,
+  createJavaScriptTab,
+  waitForRunCompleted,
   test,
 } from './licenseWeb.helpers';
 
@@ -43,6 +46,18 @@ const PYTHON_SOURCE = [
 
 test.describe.configure({ mode: 'serial' });
 test.use({ timezoneId: 'UTC' });
+
+const EXPLAIN_ENDPOINT = 'https://licenses.linguacode.dev/ai-explain-tour';
+const EXPLAIN_FAILING = ['const user = { id: 7, profile: null };', "const greeting = 'Hello, ' + user.profile.name;", 'console.log(greeting);'].join('\n');
+const EXPLAIN_ANSWER = [
+  'The profile is null, so reading .name throws a TypeError on line 2.',
+  '',
+  '```javascript',
+  'const user = { id: 7, profile: null };',
+  "const greeting = 'Hello, ' + (user.profile?.name ?? 'Guest');",
+  'console.log(greeting);',
+  '```',
+].join('\n');
 
 async function prepare(page: Page, language: 'en' | 'es'): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -97,7 +112,8 @@ async function hideConsole(page: Page): Promise<void> {
 
 async function capture(page: Page, file: string): Promise<void> {
   await dismissNotices(page);
-  await page.mouse.move(1430, 890);
+  // The bottom right corner holds Show dock once the dock is hidden, and its tooltip would cover the page.
+  await page.mouse.move(400, 4);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(screenshotDir, file), animations: 'disabled' });
@@ -180,7 +196,7 @@ test.describe('website tour evidence', () => {
       await expect(page.getByText('200 OK').first()).toBeVisible();
       await capture(page, `http-workspace-${language}.png`);
 
-      // SQL workspace: imported CSV, formatted aggregate query, Profile tab.
+      // SQL workspace: imported CSV, formatted aggregate query, result table.
       await page.keyboard.press('ControlOrMeta+Alt+S');
       await hideConsole(page);
       await page.getByTestId('sql-workspace-empty-import-input').setInputFiles({
@@ -189,18 +205,56 @@ test.describe('website tour evidence', () => {
         buffer: Buffer.from(RELEASES_CSV),
       });
       await page.getByTestId('sql-import-modal-confirm').click();
+      // The import notice docks a row that shifts the sidebar; clear it before clicking.
+      await expect(page.getByTestId('status-notice-banner')).toBeVisible();
+      await dismissNotices(page);
+      await expect(page.getByTestId('status-notice-banner')).toBeHidden();
       await page.getByTestId('sql-query-list-create').click();
       await replaceEditorText(
         page,
-        'SELECT channel, count(*) AS releases, sum(features) AS features, sum(fixes) AS fixes, max(date) AS latest FROM releases GROUP BY channel ORDER BY releases DESC'
+        'SELECT channel, count(*) AS releases, sum(features) AS features, max(date) AS latest FROM releases GROUP BY channel ORDER BY releases DESC'
       );
       await page.getByTestId('sql-query-editor-format').click();
       await page.getByTestId('sql-query-editor-run').click();
       await page.getByRole('button', { name: /(Show columns for|Muestra las columnas de) releases/ }).click();
-      await page.getByRole('button', { name: /^(Profile|Perfil)$/ }).click();
-      await expect(page.getByTestId('sql-column-profile-panel')).toBeVisible();
+      await expect(page.getByText('stable').first()).toBeVisible();
       await capture(page, `sql-workspace-${language}.png`);
 
+      expect(errors).toEqual([]);
+    });
+
+    test(`${language} explain panel beside the code`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on('pageerror', error => errors.push(error.message));
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await seedSession(page, { language, primeProLicense: true, workflowModeDefaultsByLanguage: { javascript: 'run', typescript: 'run' } });
+      await page.addInitScript(
+        endpoint =>
+          localStorage.setItem('lingua-ai', JSON.stringify({ state: { endpoint, apiKey: 'local-fixture-only', model: 'sample-model' }, version: 0 })),
+        EXPLAIN_ENDPOINT
+      );
+      await page.route(EXPLAIN_ENDPOINT, route =>
+        route.fulfill(
+          route.request().method() === 'OPTIONS'
+            ? { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type', 'Access-Control-Allow-Methods': 'POST,OPTIONS' } }
+            : {
+                status: 200,
+                contentType: 'text/event-stream',
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: `data: ${JSON.stringify({ choices: [{ delta: { content: EXPLAIN_ANSWER } }] })}\n\ndata: [DONE]\n\n`,
+              }
+        )
+      );
+      await gotoApp(page);
+      await createJavaScriptTab(page);
+      await replaceEditorText(page, EXPLAIN_FAILING);
+      await clickRun(page);
+      await waitForRunCompleted(page);
+      await page.getByTestId('error-line-explain').click();
+      const panel = page.getByTestId('ai-explain-panel');
+      await panel.getByTestId('ai-explain-send').click();
+      await expect(panel).toContainText('The profile is null');
+      await capture(page, `ai-explain-${language}.png`);
       expect(errors).toEqual([]);
     });
   }

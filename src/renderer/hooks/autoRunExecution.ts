@@ -1,12 +1,15 @@
+import { useTimelineStore } from '../stores/timelineStore';
+import { useRunRegionStore } from '../stores/runRegionStore';
 import { executionKind } from '../utils/executionOutcome';
 import { webExecutionBoundary } from '../utils/runtimeModeSupport';
 import { isLanguageAllowed } from '../../shared/entitlements';
+import { isNativeToolchainMissing } from '../stores/nativeToolchainStore';
 import { isLikelyComplete } from '../../shared/autoRunGating';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { defaultRuntimeTimeoutPreset, presetToMs } from '../../shared/runtimeTimeoutPresets';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
-import { useResultStore } from '../stores/resultStore';
+import { runInputKey, useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { FileTab } from '../types/editor';
 import { executionModeForLanguage } from '../utils/languageMeta';
@@ -70,7 +73,8 @@ export async function executeAutoRun({
   const desktopOnlyGate =
     executionMode === 'run' && webExecutionBoundary(language, runtimeMode, isWebBuild) !== null;
 
-  if (executionMode === 'view' || desktopOnlyGate || proLanguageGate) {
+  // A missing Go or Rust binary keeps Run disabled; Scratchpad must not re-probe on every edit.
+  if (executionMode === 'view' || desktopOnlyGate || proLanguageGate || isNativeToolchainMissing(language)) {
     clear();
     return;
   }
@@ -138,6 +142,9 @@ export async function executeAutoRun({
   clearVisibleResults();
   setExecutionSource('auto');
   setAutoRunGateReason(gate.reason);
+  useResultStore.getState().setRanCode({ tabId: activeTab.id, code, input: runInputKey(stdinBuffer, activeTab.inputArgs), at: Date.now() });
+  useTimelineStore.getState().clearTab(activeTab.id);
+  useRunRegionStore.getState().clearTab(activeTab.id);
 
   let armedDeadlineAt: number | null = null;
   try {

@@ -49,6 +49,8 @@ export interface BuildCommandPaletteModelArgs {
   executionHistory?: readonly ExecutionHistoryEntry[];
   /** Canonical baseline Run entry, independent from paid replay/history. */
   onRunActiveTab?: () => void;
+  /** Record run, offered only when the tab can be recorded. */
+  onRecordRun?: () => void;
   /** Open a folder as the active project. */
   onOpenProject?: () => void | Promise<void>;
   /** Open the project test-suite detector. */
@@ -136,6 +138,8 @@ export interface BuildCommandPaletteModelArgs {
    * and an editor tab is active, so the command stays hidden otherwise.
    */
   onExplainSelectedCode?: () => void;
+  /** Edit selection with AI; same gating as Explain. */
+  onEditSelectedCode?: () => void;
   /**
    * Fires the "Install detected packages" action for a Go / Rust /
    * Ruby tab: detects imports/crates/gems in the active buffer and runs
@@ -291,6 +295,8 @@ export interface BuildCommandPaletteModelArgs {
    * to diff against — same UX contract as the toggle button.
    */
   compareSnapshotAvailable?: boolean;
+  /** Compare runs is on and a run exists, so Compare opens the session's runs. */
+  compareShowsRuns?: boolean;
   /**
    * Fires the "Toggle variable inspector"
    * palette action. Caller wires it via

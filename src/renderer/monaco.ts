@@ -26,14 +26,15 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import typeScriptWorkerUrl from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker&url';
 import { getLanguageSupportDescriptor } from './languageSupport/registry';
 import type { NavigationTreeItem } from './utils/symbolNavigation';
 import { loadNodeTypeDefinitions } from './nodeTypeDefinitionsLoader';
 import { NODE_BUILTINS } from '../shared/dependencies/nodeBuiltins';
+import { useSettingsStore } from './stores/settingsStore';
 
 type MonacoWorkerFactory = new () => Worker;
 
-const WORKER_RUNTIME_LIBS = ['es2022', 'webworker'];
 const NODE_TYPE_DEFINITION_ROOT_MARKER = 'node_modules/@types/node/';
 const NODE_TYPE_DEFINITION_ROOT_URI = 'file:///node_modules/@types/node/';
 const UNDICI_TYPE_DEFINITION_ROOT_MARKER = 'node_modules/undici-types/';
@@ -242,6 +243,29 @@ type MonacoTypeScriptDefaultsWithExtraLib = {
   typescriptDefaults: MonacoLanguageDefaultsWithExtraLib;
 };
 
+type MonacoDiagnosticsOptions = {
+  noSemanticValidation?: boolean;
+  noSyntaxValidation?: boolean;
+  noSuggestionDiagnostics?: boolean;
+  onlyVisible?: boolean;
+};
+
+type MonacoLanguageDefaults = MonacoLanguageDefaultsWithExtraLib & {
+  getDiagnosticsOptions: () => MonacoDiagnosticsOptions;
+  setDiagnosticsOptions: (options: MonacoDiagnosticsOptions) => void;
+  setCompilerOptions: (options: Record<string, unknown>) => void;
+};
+
+// Monaco 0.55 keeps the JS/TS defaults on its contribution module; `languages.typescript`
+// only exists when `editor.main.js` is imported, and Lingua imports `editor.api.js`.
+const typeScriptDefaults = typeScriptContribution as unknown as {
+  javascriptDefaults: MonacoLanguageDefaults;
+  typescriptDefaults: MonacoLanguageDefaults;
+  ModuleKind: { ESNext: number };
+  ModuleResolutionKind: { NodeJs: number };
+  ScriptTarget: { ESNext: number };
+};
+
 function typeDefinitionUri(modulePath: string): string | null {
   for (const { marker, uri } of [
     {
@@ -338,6 +362,27 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
   return false;
 }
 
+const LINGUA_GLOBAL_TYPES = `
+interface LinguaProgressBar { update(fraction: number, text?: string): void }
+interface LinguaDisplay {
+  (value: unknown, options?: { as?: 'table' | 'json' | 'image' | 'html' | 'text' | 'chart' }): void;
+  progress(label?: string): LinguaProgressBar;
+}
+declare const lingua: {
+  display: LinguaDisplay;
+  chart(spec: unknown): void;
+  image(source: unknown): void;
+  html(markup: unknown): void;
+};
+`;
+const LINGUA_GLOBAL_TYPES_URI = 'file:///node_modules/@types/lingua-worker/index.d.ts';
+
+/** The Worker's `lingua` bridge, so TypeScript tabs stop underlining it. */
+function registerLinguaGlobalTypes(ts: MonacoTypeScriptDefaultsWithExtraLib): void {
+  ts.javascriptDefaults.addExtraLib?.(LINGUA_GLOBAL_TYPES, LINGUA_GLOBAL_TYPES_URI);
+  ts.typescriptDefaults.addExtraLib?.(LINGUA_GLOBAL_TYPES, LINGUA_GLOBAL_TYPES_URI);
+}
+
 /**
  * Decide when the Node typings load.
  *
@@ -348,6 +393,7 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
  * the models and load on the first match, then stop watching.
  */
 function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWithExtraLib): void {
+  registerLinguaGlobalTypes(ts);
   if (nodeTypeDefinitionsRegistered || nodeTypeDefinitionsScheduled) return;
   const desktop = hasNodeRuntime();
   const editorNamespace = m.editor as unknown as MonacoEditorNamespaceLike;
@@ -430,82 +476,117 @@ function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWith
     });
 }
 
-/**
- * Configure TypeScript/JavaScript language defaults. Must be called inside a
- * MonacoEditor beforeMount callback where the monaco instance is fully
- * initialised. Modern ESM exposes TypeScript defaults via its contribution
- * module rather than the legacy core namespace.
- */
-export function applyTypeScriptDefaults(m: Monaco): void {
-  const ts = m.languages.typescript;
-  if (!ts) {
-    // Monaco 0.55's core API omits the legacy namespace. Typing registration
-    // must still run via the ESM contribution. Do not change unrelated
-    // compiler/diagnostic defaults while repairing this lazy-load boundary.
-    scheduleNodeTypeDefinitions(
-      m,
-      typeScriptContribution as unknown as MonacoTypeScriptDefaultsWithExtraLib
-    );
-    return;
-  }
-
-  const compilerOptions = {
-    allowJs: true,
-    allowNonTsExtensions: true,
-    allowSyntheticDefaultImports: true,
-    checkJs: true,
-    lib: WORKER_RUNTIME_LIBS,
-    module: ts.ModuleKind.ESNext,
-    moduleDetection: ts.ModuleDetectionKind.Force,
-    moduleResolution: ts.ModuleResolutionKind.NodeJs,
-    noEmit: true,
-    strict: true,
-    target: ts.ScriptTarget.ES2022,
-  };
-
-  const diagnosticsOptions = {
-    noSemanticValidation: false,
-    noSyntaxValidation: false,
-    onlyVisible: false,
-  };
-
-  ts.javascriptDefaults.setEagerModelSync(true);
-  ts.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
-  ts.javascriptDefaults.setCompilerOptions(compilerOptions);
-
-  ts.typescriptDefaults.setEagerModelSync(true);
-  ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
-  ts.typescriptDefaults.setCompilerOptions(compilerOptions);
-
-  // beforeMount is synchronous, so editor creation never waits on the Node
-  // typings; `scheduleNodeTypeDefinitions` decides whether they load on idle
-  // (desktop) or only once a buffer refers to Node (web).
-  scheduleNodeTypeDefinitions(m, ts);
-}
-
-/**
- * Toggle Monaco's built-in TS/JS live diagnostics for one language.
- * `applyTypeScriptDefaults` enables them by default; this lets the Settings
- * "Inline lint" toggle silence (or restore) the squiggles per language by
- * flipping `noSemanticValidation` / `noSyntaxValidation`. Monaco's TS/JS
- * defaults are global singletons, so this affects every model of that language
- * (the toggle is per-language, not per-tab, by design). No-op when the
- * TypeScript contribution is not yet present.
- */
-export function setMonacoInlineLintEnabled(
-  m: Monaco,
-  language: 'javascript' | 'typescript',
-  enabled: boolean
-): void {
-  const ts = m.languages.typescript;
-  if (!ts) return;
-  const defaults = language === 'typescript' ? ts.typescriptDefaults : ts.javascriptDefaults;
-  defaults.setDiagnosticsOptions({
-    noSemanticValidation: !enabled,
-    noSyntaxValidation: !enabled,
-    onlyVisible: false,
+// The patched Monaco WorkerManager awaits this before creating the shared TS worker, which costs
+// 100 MB or more; a model on screen is not a reason to start it, an editor interaction is.
+let releaseTypeScriptWorker: (() => void) | null = null;
+(globalThis as { __linguaTypeScriptWorkerGate?: Promise<void> }).__linguaTypeScriptWorkerGate =
+  new Promise<void>(resolve => {
+    releaseTypeScriptWorker = resolve;
   });
+let typeScriptWorkerGateWatched = false;
+
+function startTypeScriptWorker(): void {
+  releaseTypeScriptWorker?.();
+  releaseTypeScriptWorker = null;
 }
+
+function startTypeScriptWorkerOnFirstUse(m: Monaco): void {
+  if (typeScriptWorkerGateWatched || typeof m.editor.onDidCreateEditor !== 'function') return;
+  typeScriptWorkerGateWatched = true;
+  // The web service worker caches each chunk as it loads; fetch the script so the worker can start offline.
+  if (!hasNodeRuntime()) runWhenIdle(() => void fetch(typeScriptWorkerUrl).catch(() => {}));
+  const subscriptions: Array<{ dispose: () => void }> = [];
+  const start = (): void => {
+    startTypeScriptWorker();
+    for (const subscription of subscriptions.splice(0)) subscription.dispose();
+  };
+  subscriptions.push(
+    m.editor.onDidCreateEditor((editor: monaco.editor.ICodeEditor) => {
+      if (releaseTypeScriptWorker) subscriptions.push(editor.onKeyDown(start), editor.onMouseMove(start));
+    })
+  );
+}
+
+/** Register the Lingua and Node typings; call from beforeMount, it never waits on them. */
+export function applyTypeScriptDefaults(m: Monaco): void {
+  startTypeScriptWorkerOnFirstUse(m);
+  scheduleNodeTypeDefinitions(m, typeScriptDefaults);
+}
+
+type InlineLintDiagnostics = Required<
+  Pick<
+    MonacoDiagnosticsOptions,
+    'noSemanticValidation' | 'noSyntaxValidation' | 'noSuggestionDiagnostics'
+  >
+>;
+
+function inlineLintDiagnostics(options: MonacoDiagnosticsOptions): InlineLintDiagnostics {
+  return {
+    noSemanticValidation: options.noSemanticValidation ?? false,
+    noSyntaxValidation: options.noSyntaxValidation ?? false,
+    noSuggestionDiagnostics: options.noSuggestionDiagnostics ?? false,
+  };
+}
+
+// Monaco's own defaults, read before anything changes them, plus JavaScript's semantic pass:
+// without checkJs it reports only code that always fails.
+const INLINE_LINT_DIAGNOSTICS = {
+  javascript: {
+    ...inlineLintDiagnostics(typeScriptDefaults.javascriptDefaults.getDiagnosticsOptions()),
+    noSemanticValidation: false,
+  },
+  typescript: inlineLintDiagnostics(typeScriptDefaults.typescriptDefaults.getDiagnosticsOptions()),
+};
+const SILENT_DIAGNOSTICS: InlineLintDiagnostics = {
+  noSemanticValidation: true,
+  noSyntaxValidation: true,
+  noSuggestionDiagnostics: true,
+};
+
+function setMonacoInlineLintEnabled(language: 'javascript' | 'typescript', enabled: boolean): void {
+  const defaults = typeScriptDefaults[`${language}Defaults`];
+  const next = enabled ? INLINE_LINT_DIAGNOSTICS[language] : SILENT_DIAGNOSTICS;
+  const current = defaults.getDiagnosticsOptions();
+  const applied = inlineLintDiagnostics(current);
+  // Every change restarts the TypeScript worker.
+  if (
+    applied.noSemanticValidation === next.noSemanticValidation &&
+    applied.noSyntaxValidation === next.noSyntaxValidation &&
+    applied.noSuggestionDiagnostics === next.noSuggestionDiagnostics
+  )
+    return;
+  defaults.setDiagnosticsOptions({ ...current, ...next });
+}
+
+function applyInlineLintSetting(enabledByLanguage: Record<string, boolean>): void {
+  setMonacoInlineLintEnabled('javascript', enabledByLanguage.javascript !== false);
+  setMonacoInlineLintEnabled('typescript', enabledByLanguage.typescript !== false);
+}
+
+// Lingua runs JS/TS as an async function body or an ES module, so every tab is a module
+// that may use top-level await, and its names never clash with the DOM's globals.
+const COMPILER_OPTIONS = {
+  allowNonTsExtensions: true,
+  allowSyntheticDefaultImports: true,
+  module: typeScriptDefaults.ModuleKind.ESNext,
+  // ModuleDetectionKind.Force, which Monaco does not export.
+  moduleDetection: 3,
+  moduleResolution: typeScriptDefaults.ModuleResolutionKind.NodeJs,
+  noEmit: true,
+  target: typeScriptDefaults.ScriptTarget.ESNext,
+};
+// Without Lingua's Monaco patch, allowJs would read an extensionless TypeScript model as JavaScript.
+typeScriptDefaults.javascriptDefaults.setCompilerOptions({ ...COMPILER_OPTIONS, allowJs: true });
+typeScriptDefaults.typescriptDefaults.setCompilerOptions(COMPILER_OPTIONS);
+
+// Monaco's diagnostics defaults are global, so one subscription covers every model,
+// whether or not an editor is mounted.
+applyInlineLintSetting(useSettingsStore.getState().inlineLintEnabledByLanguage);
+useSettingsStore.subscribe((state, previous) => {
+  if (state.inlineLintEnabledByLanguage !== previous.inlineLintEnabledByLanguage) {
+    applyInlineLintSetting(state.inlineLintEnabledByLanguage);
+  }
+});
 
 // Monaco's direct TypeScript contribution declaration is currently an empty
 // stub even though the ESM module exports the worker accessors at runtime.
@@ -547,6 +628,8 @@ export async function loadNavigationTree(model: {
         : null;
 
   if (!getWorker) return null;
+  // Asking for symbols is a use of the language service, even without an editor keystroke.
+  startTypeScriptWorker();
 
   try {
     const workerFactory = await getWorker();

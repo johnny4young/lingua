@@ -138,4 +138,26 @@ describe('ExplainCodeDialog', () => {
       window.removeEventListener('keydown', outerEscape);
     }
   });
+
+  it('leaves the last run out until it is ticked', () => {
+    configureAi();
+    const runChatCompletionImpl = vi.fn().mockResolvedValue({ ok: true, content: 'ok' });
+    render(<ExplainCodeDialog {...baseProps} question="why twice?" lastRun="twice" runChatCompletionImpl={runChatCompletionImpl as never} />);
+    const preview = screen.getByTestId('ai-explain-code-preview');
+    expect(preview.textContent).toContain('Question: why twice?');
+    expect(preview.textContent).not.toContain('Last run:');
+    const box = screen.getByTestId('ai-explain-code-include-last-run') as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    expect(screen.getByTestId('ai-explain-code-preview').textContent).toContain('Last run:');
+    fireEvent.click(screen.getByTestId('ai-explain-code-send'));
+    expect(runChatCompletionImpl.mock.calls[0]![0].messages[1].content).toContain('twice');
+  });
+
+  it('offers no last run box without a last run', () => {
+    configureAi();
+    render(<ExplainCodeDialog {...baseProps} question="why?" />);
+    expect(screen.queryByTestId('ai-explain-code-include-last-run')).toBeNull();
+  });
 });
+

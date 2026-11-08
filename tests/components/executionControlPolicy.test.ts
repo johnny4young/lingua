@@ -18,6 +18,25 @@ function resolve(
 }
 
 describe('executionControlPolicy', () => {
+  it('disables every action when no tab is open, and says to open a file', () => {
+    const policy = resolve({ noActiveTab: true, enabledBreakpointCount: 2 });
+    expect(policy.actions.run).toEqual({ disabled: true, reason: 'no-active-tab' });
+    expect(policy.actions.debug.reason).toBe('no-active-tab');
+    expect(policy.actions.scratchpad.reason).toBe('no-active-tab');
+    expect(executionDisabledTooltipKey('run', 'no-active-tab')).toBe('toolbar.run.noActiveTabTooltip');
+    expect(resolve().actions.run.disabled).toBe(false);
+  });
+
+  it('disables every action while a desktop toolchain is missing, behind the license gate', () => {
+    const policy = resolve({ language: 'go', isWebBuild: false, toolchainMissing: true });
+    expect(policy.actions.run).toEqual({ disabled: true, reason: 'toolchain-missing' });
+    expect(policy.actions.scratchpad.reason).toBe('toolchain-missing');
+    expect(executionDisabledTooltipKey('run', 'toolchain-missing')).toBe('toolbar.run.toolchainMissingTooltip');
+    // Upgrading comes first: a Free user cannot run Go even with the binary.
+    expect(resolve({ language: 'go', isWebBuild: false, effectiveTier: 'free', toolchainMissing: true }).actions.run.reason).toBe('pro-only');
+    expect(resolve({ language: 'go', isWebBuild: false, toolchainMissing: false }).actions.run).toEqual({ disabled: false, reason: null });
+  });
+
   it.each(['sql', 'http'] as const)('keeps Run available on a free %s workspace tab', language => {
     const policy = resolve({ language, effectiveTier: 'free', isWorkspaceTab: true });
     expect(policy.actions.run).toEqual({ disabled: false, reason: null });

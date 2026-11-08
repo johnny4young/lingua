@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import type { Language } from '../types/language';
-import { changedValuesLabel } from '../utils/debuggerLocals';
 import { languageSupportsBreakpointModes, languageSupportsDebugger } from '../utils/languageMeta';
 
 /**
@@ -42,7 +41,6 @@ export function useBreakpointGutter(
 ): void {
   const breakpoints = useDebuggerStore((state) => state.breakpoints);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
-  const previousPause = useDebuggerStore((state) => state.previousPause);
   const decorationsRef = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
 
   const { activeTabId, language, toggleAriaLabel } = options;
@@ -97,17 +95,6 @@ export function useBreakpointGutter(
       });
       editor.revealLineInCenterIfOutsideViewport(pausedLine);
       editor.setPosition({ lineNumber: pausedLine, column: 1 });
-      const inline = previousPause?.tabId === activeTabId ? changedValuesLabel(previousPause.locals, pausedFrame!.locals) : null;
-      const model = editor.getModel();
-      const previousLine = previousPause?.line ?? 0;
-      if (inline && model && Number.isInteger(previousLine) && previousLine >= 1 && previousLine <= model.getLineCount()) {
-        // What the last step changed, after the line it stepped from, like a scratchpad value.
-        const column = model.getLineMaxColumn(previousPause!.line);
-        decorations.push({
-          range: new monaco.Range(previousPause!.line, column, previousPause!.line, column),
-          options: { after: { content: inline, inlineClassName: 'lingua-debugger-inline-value' }, showIfCollapsed: true },
-        });
-      }
     }
 
     if (!decorationsRef.current) {
@@ -123,7 +110,6 @@ export function useBreakpointGutter(
     activeTabId,
     breakpoints,
     pausedFrame,
-    previousPause,
     toggleAriaLabel,
   ]);
 

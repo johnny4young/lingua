@@ -3,6 +3,7 @@ import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteMode
 
 export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate }) => {
   const {
+    onRecordRun,
     onExportLatestCapsule,
     latestCapsuleAvailable = false,
     onOpenCapsuleImport,
@@ -27,6 +28,20 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
   } = args;
 
   const commands: CommandEntry[] = [
+    ...(onRecordRun
+      ? [
+          buildActionCommand(
+            'action-record-run',
+            translate('actionPill.record.label'),
+            translate('actionPill.record.desc'),
+            ['record', 'timeline', 'steps', 'replay', 'grabar', 'pasos'],
+            () => {
+              onRecordRun();
+              onClose();
+            }
+          ),
+        ]
+      : []),
     // Export latest run as capsule. Surfaces
     // only when the caller wires the handler AND the history store
     // confirms at least one entry still carries a `lastCapsule`. Hiding
@@ -106,7 +121,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
       : []),
     // Compare two capsules. Gated on the SAME
     // `onBrowseCapsules` handler: the comparator selection lives inline
-    // in the capsule browser (per-row checkboxes + a Compare button), so
+    // in the capsule browser (More → Compare with…, then a second row), so
     // this command just opens that overlay where the user picks the pair.
     // No separate "compare mode" plumbing is needed. `onClose()` MUST run
     // before `onBrowseCapsules()` (same overlay-survival ordering as

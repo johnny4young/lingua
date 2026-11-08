@@ -9,6 +9,7 @@ import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import { useLicenseStore } from '../../stores/licenseStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
 import { TRUST_EVENT_STORAGE_KEY, useTrustEventStore } from '../../stores/trustEventStore';
 import { SQL_WORKSPACE_STORAGE_KEY, clearLiveSqlStore } from '../../stores/sqlQueryTabCount';
@@ -39,6 +40,7 @@ import type { TrustEvent, TrustFeature, TrustSensitivity } from '../../stores/tr
 import { emitCommand } from '../../stores/commandBus';
 import { isAiConfigured, useAiConfigStore } from '../../stores/aiConfigStore';
 import type { TabId } from './settingsRailModel';
+import { isStorageEphemeral } from '../../utils/ephemeralStorage';
 
 /** Newest N trust events shown in the Recent activity feed. */
 const RECENT_ACTIVITY_LIMIT = 8;
@@ -116,9 +118,10 @@ export function PrivacyTrustSection() {
   // Count of run capsules retained in memory.
   // Derive a primitive (not the `capsuleEntries()` array) so the
   // subscription stays stable and never trips zustand v5's update loop.
-  const capsulesRetained = useExecutionHistoryStore(
-    s => s.entries.filter(entry => entry.lastCapsule !== undefined).length
-  );
+  const capsulesRetained =
+    useExecutionHistoryStore(s => s.entries.filter(entry => entry.lastCapsule !== undefined).length) +
+    useImportedCapsuleStore(s => s.entries.length);
+  const compareRunsRetained = useExecutionHistoryStore(s => s.entries.filter(entry => entry.runCompare !== undefined).length);
   const dependencyInstallLastAt = useDependencyDetectionStore(s => {
     let latest: number | null = null;
     for (const entry of s.installByTab.values()) {
@@ -233,13 +236,14 @@ export function PrivacyTrustSection() {
     <div className="space-y-7" data-testid="privacy-trust-section" data-surface={surface}>
       <SettingsSection
         eyebrow={t('settings.privacy.localStores.title')}
-        description={t('settings.privacy.localStores.hint')}
+        description={t(isStorageEphemeral() ? 'storage.ephemeral.message' : 'settings.privacy.localStores.hint')}
       >
         <div className="overflow-hidden rounded-[10px] border border-border-subtle bg-bg-panel">
           <div className="px-4">
             <LocalDataSummary
               rows={localRows}
               capsuleCount={capsulesRetained}
+              compareRunCount={compareRunsRetained}
               clearStore={clearStore}
               onCleared={() => setRefreshTick(tick => tick + 1)}
             />

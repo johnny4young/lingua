@@ -1,11 +1,15 @@
 import net, { type AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { Server, utils, type Connection } from 'ssh2';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sshFingerprint } from '../../../src/main/sqlSsh/knownHosts';
 import type { HostSshConfig, HostSshHop } from '../../../src/main/sqlHost/protocol';
 import { createTunnelPool } from '../../../src/main/sqlHost/tunnel';
 import { generateSshKeyPair } from '../../__fixtures__/sshKeys';
+
+// Waits use real time even while a test freezes the clock the pool's timeouts run on.
+const realSetTimeout = globalThis.setTimeout;
+const CHANNEL_TIMEOUT_MS = 300;
 
 const hostKey = generateSshKeyPair();
 const userKey = generateSshKeyPair('ed25519', { passphrase: 'open sesame', cipher: 'aes256-ctr', rounds: 1 });
@@ -58,6 +62,7 @@ beforeAll(async () => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   forwarded.length = 0;
 });
 
@@ -93,7 +98,17 @@ function roundTrip(socket: Duplex & { connect?: () => unknown }, text: string): 
 }
 
 const until = async (check: () => boolean) => {
-  for (let i = 0; i < 100 && !check(); i++) await new Promise((resolve) => setTimeout(resolve, 20));
+  for (let i = 0; i < 100 && !check(); i++) await new Promise((resolve) => realSetTimeout(resolve, 20));
+};
+
+/**
+ * Sign-in and channels share `timeoutMs`, and a slow sign-in fails with the same fix as a stalled
+ * channel. So the clock stays frozen until the server has seen the channel request.
+ */
+const freezeClock = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+const expireChannelOnce = async (requests: number) => {
+  await until(() => forwarded.length === requests);
+  vi.advanceTimersByTime(CHANNEL_TIMEOUT_MS);
 };
 
 describe('SSH tunnel pool', () => {
@@ -169,22 +184,115 @@ describe('SSH tunnel pool', () => {
   });
 
   it('gives up on a hop that signs in but never opens the next channel, and tries again later', async () => {
-    const pool = createTunnelPool({ timeoutMs: 300 });
+    freezeClock();
+    const pool = createTunnelPool({ timeoutMs: CHANNEL_TIMEOUT_MS });
     const stalled = config({ auth: 'key', password: undefined, privateKey: userKey.private, passphrase: 'open sesame', hops: [hop(), hop({ port: 9 })] });
-    await expect(pool.acquire(stalled)).rejects.toMatchObject({ detail: { step: 'ssh', fix: 'ssh-unreachable' } });
+    const attempt = async (requests: number) => {
+      const failed = expect(pool.acquire(stalled)).rejects.toMatchObject({
+        detail: { step: 'ssh', fix: 'ssh-unreachable', message: expect.stringContaining('did not open a channel') },
+      });
+      await expireChannelOnce(requests);
+      await failed;
+    };
+    await attempt(1);
     // The failed entry is gone, so the next attempt runs again instead of waiting on the first.
-    await expect(pool.acquire(stalled)).rejects.toMatchObject({ detail: { fix: 'ssh-unreachable' } });
+    await attempt(2);
     expect(forwarded.filter((target) => target.endsWith(':9'))).toHaveLength(2);
   });
 
   it('fails one database channel that never opens without closing the tunnel under the others', async () => {
-    const pool = createTunnelPool({ timeoutMs: 300 });
+    freezeClock();
+    const pool = createTunnelPool({ timeoutMs: CHANNEL_TIMEOUT_MS });
     await until(() => connections.size === 0);
     const tunnel = await pool.acquire(config({ target: { host: '127.0.0.1', port: 9 } }));
-    await expect(roundTrip(tunnel.socket(), 'SELECT 1')).rejects.toMatchObject({ detail: { fix: 'ssh-unreachable' } });
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    const failed = expect(roundTrip(tunnel.socket(), 'SELECT 1')).rejects.toMatchObject({ detail: { fix: 'ssh-unreachable' } });
+    await expireChannelOnce(1);
+    await failed;
+    await new Promise((resolve) => realSetTimeout(resolve, 100));
     expect(connections.size).toBe(1);
     await tunnel.release();
   });
 });
 
+describe('SSH tunnel pool, as a connection that failed before sign-in closes', () => {
+  const uncaught: Error[] = [];
+  const record = (error: Error) => void uncaught.push(error);
+  const servers: net.Server[] = [];
+  const sockets: net.Socket[] = [];
+  let resets = 0;
+
+  beforeEach(() => {
+    uncaught.length = 0;
+    resets = 0;
+    process.on('uncaughtException', record);
+  });
+
+  afterEach(() => {
+    process.off('uncaughtException', record);
+    for (const socket of sockets.splice(0)) socket.destroy();
+    for (const server of servers.splice(0)) server.close();
+  });
+
+  const track = (socket: net.Socket) => {
+    sockets.push(socket);
+    socket.on('error', () => undefined);
+    return socket;
+  };
+
+  const serve = async (onConnection: (socket: net.Socket) => void) => {
+    const server = net.createServer({ allowHalfOpen: true }, (socket) => onConnection(track(socket)));
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    return (server.address() as AddressInfo).port;
+  };
+
+  /** A proxy to the SSH server that does not close with the client: it resets the connection or holds it open. */
+  const proxyThat = (onClientEnd: 'resets' | 'holds') =>
+    serve((client) => {
+      const ssh = track(net.connect(sshPort, '127.0.0.1'));
+      client.pipe(ssh, { end: false });
+      ssh.pipe(client, { end: false });
+      if (onClientEnd === 'holds') return;
+      client.once('end', () => {
+        client.resetAndDestroy();
+        ssh.destroy();
+        resets += 1;
+      });
+    });
+
+  const settle = (ms: number) => new Promise((resolve) => realSetTimeout(resolve, ms));
+
+  // In the SQL host an uncaught error ends the process, and every other session with it.
+  it('keeps the host up when a refused sign-in is followed by a reset', async () => {
+    const port = await proxyThat('resets');
+    await expect(createTunnelPool().acquire(config({ hops: [hop({ port })], password: 'nope' }))).rejects.toMatchObject({ detail: { fix: 'ssh-auth' } });
+    await until(() => resets === 1);
+    await settle(100);
+    expect(uncaught).toEqual([]);
+  });
+
+  it('keeps the host up when a refused host key is followed by a reset', async () => {
+    const port = await proxyThat('resets');
+    await expect(createTunnelPool().acquire(config({ hops: [hop({ port, known: [] })] }))).rejects.toMatchObject({ detail: { fix: 'ssh-host-unknown' } });
+    await until(() => resets === 1);
+    await settle(100);
+    expect(uncaught).toEqual([]);
+  });
+
+  it('keeps the host up when the peer never closes after a refused sign-in, so the sign-in timeout still fires', async () => {
+    const timeoutMs = 1000;
+    const port = await proxyThat('holds');
+    await expect(createTunnelPool({ timeoutMs }).acquire(config({ hops: [hop({ port })], password: 'nope' }))).rejects.toMatchObject({ detail: { step: 'ssh' } });
+    await settle(timeoutMs + 100);
+    expect(uncaught).toEqual([]);
+  });
+
+  it('keeps the host up when a port accepts the connection and never answers', async () => {
+    const port = await serve((socket) => socket.resume());
+    await expect(createTunnelPool({ timeoutMs: 200 }).acquire(config({ hops: [hop({ port })] }))).rejects.toMatchObject({
+      detail: { fix: 'ssh-unreachable', message: expect.stringContaining('Timed out') },
+    });
+    await settle(100);
+    expect(uncaught).toEqual([]);
+  });
+});

@@ -14,6 +14,8 @@ Lingua incluye los paneles cotidianos que normalmente empujan un flujo de code r
 - <span id="json-csv"></span>**JSON / CSV** — convierte payloads tabulares entre JSON y CSV.
 - <span id="sql-formatter"></span>**Formateador SQL** — formatea SQL para diffs legibles.
 - <span id="number-base"></span>**Base numérica** — convierte decimal, binario, hex y bases relacionadas.
+- <span id="mock-data"></span>**Datos de prueba** — genera datos de prueba realistas.
+- <span id="utility-pipelines"></span>**Pipelines de utilidades** — encadena utilidades en pasos guardados (Pro).
 
 ## Texto
 

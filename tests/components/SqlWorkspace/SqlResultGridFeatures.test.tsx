@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
 import type { SqlForeignKey } from '../../../src/renderer/runtime/sqlForeignKeys';
+import { useSnippetsStore } from '../../../src/renderer/stores/snippetsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
 
@@ -114,6 +115,34 @@ describe('cell menu and filters', () => {
     expect(screen.getByTestId('sql-grid-sql').textContent).toContain(`WHERE "city" = 'Medellin'`);
     await user.click(screen.getByTestId('sql-grid-sql-apply'));
     expect(onApplySql).toHaveBeenCalledWith(expect.stringContaining('FROM (\nSELECT * FROM orders\n) AS result'));
+  });
+
+  describe('saving the grid SQL as a snippet', () => {
+    const filtered = async (sql: string, snippetLabel = 'Orders by city') => {
+      const user = userEvent.setup();
+      render(<SqlResultPreview response={response(rows.slice(0, 9))} isExecuting={false} rowDisplayLimit={1_000} source={{ origin: 'editor', sql }} snippetLabel={snippetLabel} />);
+      fireEvent.contextMenu(screen.getAllByTestId('sql-result-preview-row')[0]!.querySelector('td[data-column="city"]')!);
+      await user.click(screen.getByTestId('sql-cell-menu-filter'));
+      return user;
+    };
+    afterEach(() => {
+      useSnippetsStore.setState({ snippets: [] });
+    });
+
+    it('falls back to the default label for an unnamed query', async () => {
+      const user = await filtered('SELECT * FROM orders', '  ');
+      await user.click(screen.getByTestId('sql-grid-sql-snippet'));
+      expect(useSnippetsStore.getState().snippets[0]!.label).toBe(i18next.t('sqlWorkspace.snippet.defaultLabel'));
+    });
+
+    it('saves what the grid generates, with literal secrets masked', async () => {
+      const user = await filtered("SELECT * FROM 'https://ana:pw-SECRET@h.test/orders.csv'");
+      await user.click(screen.getByTestId('sql-grid-sql-snippet'));
+      const [snippet] = useSnippetsStore.getState().snippets;
+      expect(snippet).toMatchObject({ language: 'sql', label: 'Orders by city' });
+      expect(snippet!.code).toContain(`WHERE "city" = 'Medellin'`);
+      expect(snippet!.code).not.toContain('pw-SECRET');
+    });
   });
 
   it('adds a condition from the editor and hides a column from the picker', async () => {

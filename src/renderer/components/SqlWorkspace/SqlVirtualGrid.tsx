@@ -1,7 +1,8 @@
 /**
- * Virtualized result grid: fixed 26 px rows, only the visible ones mounted,
- * a sticky typed header, cell selection with the arrow keys, a cell menu, and
- * foreign-key cells that link to the referenced row.
+ * Virtualized result grid: fixed 26 px rows and, on wide results, fixed-width
+ * columns, only the visible ones mounted, a sticky typed header, cell selection
+ * with the arrow keys, a cell menu, and foreign-key cells that link to the
+ * referenced row.
  */
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
@@ -13,12 +14,15 @@ import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeName
 import { cn } from '../../utils/cn';
 import { fixedRowWindow } from './sqlResultFilters';
 import { renderCell } from './sqlResultFormatters';
+import { cellMagic, fractionColumns, type SqlCellMagic } from './sqlCellMagic';
+import { columnSlots, fixedColumnWindow, MAX_AUTO_LAYOUT_COLUMNS, planColumns, type ColumnSlot, type TypedColumn } from './sqlGridColumns';
 import type { SqlSortState } from './sqlResultGrid';
 import { cellText, cellTone, DELETED, type CellTone, type ShownRow } from './sqlRowEditModel';
 import '../../i18n/sqlConnectionsCatalog';
 
 const ROW_HEIGHT = 26;
 const OVERSCAN = 12;
+const COLUMN_OVERSCAN = 4;
 
 export interface SqlGridCell {
   row: number;
@@ -30,6 +34,7 @@ export type SqlCellAction = 'filter' | 'exclude' | 'copy-value' | 'copy-row' | '
 /** Staged editing of an Explorer table's rows. */
 export interface SqlGridEditing {
   canEdit: (row: Record<string, unknown>, column: string) => boolean;
+  canSetNull: (row: Record<string, unknown>, column: string) => boolean;
   /** The row as it was when the editor opened, so a reorder underneath cannot move the value. */
   onEditCell: (row: Record<string, unknown>, column: string, value: string) => void;
 }
@@ -75,9 +80,66 @@ function cellColor(value: unknown, numeric: boolean): CSSProperties | undefined 
   return typeof value === 'boolean' ? { color: 'var(--color-syntax-keyword)' } : undefined;
 }
 
-type TypedColumn = { col: SqlColumnMetadata; duckType: string; numeric: boolean };
+const magicCache = new WeakMap<Record<string, unknown>, Map<string, SqlCellMagic | null>>();
+
+/** A cell's magic, worked out once per row object, column and bar choice. */
+function cachedMagic(row: Record<string, unknown>, column: string, value: unknown, duckType: string, fraction: boolean): SqlCellMagic | null {
+  let cells = magicCache.get(row);
+  if (!cells) magicCache.set(row, (cells = new Map()));
+  const key = `${fraction ? 'bar' : 'plain'}:${column}`;
+  if (!cells.has(key)) cells.set(key, cellMagic(value, duckType, fraction));
+  return cells.get(key) ?? null;
+}
+
+/** A link, a 0–1 bar, a check or a thumbnail with or instead of a cell's text; the value itself is unchanged. */
+function MagicCell({ magic, text }: { magic: SqlCellMagic; text: string }) {
+  const { t } = useTranslation();
+  switch (magic.kind) {
+    case 'link':
+      return (
+        <a
+          href={magic.href}
+          tabIndex={-1}
+          title={t('sqlWorkspace.grid.magic.openLink', { host: magic.host })}
+          rel="noopener noreferrer"
+          data-testid="sql-cell-link"
+          onClick={(event) => {
+            event.preventDefault();
+            if (!event.metaKey && !event.ctrlKey) return;
+            event.stopPropagation();
+            void window.lingua.openExternal(magic.href);
+          }}
+          // A middle click would open the URL itself; only Cmd/Ctrl+click opens it.
+          onAuxClick={(event) => event.preventDefault()}
+          className="text-accent-fg underline underline-offset-2"
+        >
+          {text}
+        </a>
+      );
+    case 'bar':
+      return (
+        <span className="inline-flex items-center gap-2" data-testid="sql-cell-bar">
+          <span aria-hidden="true" className="relative h-1.5 w-12 overflow-hidden rounded bg-border-subtle">
+            <span className="absolute inset-y-0 left-0 rounded bg-accent" style={{ width: `${Math.round(magic.value * 100)}%` }} />
+          </span>
+          {text}
+        </span>
+      );
+    case 'check':
+      return (
+        <span data-testid="sql-cell-check" aria-label={text} title={text}>
+          {magic.on ? '✓' : '✗'}
+        </span>
+      );
+    case 'image':
+      return <img src={magic.src} alt="" decoding="async" data-testid="sql-cell-thumb" className="inline-block h-5 max-w-[6rem] rounded-sm object-contain align-middle" />;
+  }
+}
+
+const readViewport = (node: HTMLElement) => ({ scrollTop: node.scrollTop, scrollLeft: node.scrollLeft, height: node.clientHeight, width: node.clientWidth });
 
 interface RowActions {
+  sort: (column: string) => void;
   select: (event: MouseEvent, index: number) => void;
   open: (index: number, column: string) => void;
   menu: (event: MouseEvent, cell: SqlGridCell) => void;
@@ -92,16 +154,18 @@ interface RowActions {
 const GridRow = memo(function GridRow({
   row,
   index,
-  typed,
+  slots,
   selectedColumn,
   linkedColumns,
   canFollow,
   actions,
   editor,
+  fractions,
 }: {
   row: Record<string, unknown>;
   index: number;
-  typed: ReadonlyArray<TypedColumn>;
+  /** The cells to mount; the rest of the row's columns are gaps. */
+  slots: ReadonlyArray<ColumnSlot>;
   /** The selected column when this row holds the selection, else null. */
   selectedColumn: string | null;
   linkedColumns: ReadonlySet<string> | undefined;
@@ -109,6 +173,8 @@ const GridRow = memo(function GridRow({
   actions: RowActions;
   /** The cell being edited in this row, with its text. */
   editor: { column: string; value: string } | null;
+  /** The numeric columns drawn as 0–1 bars. */
+  fractions: ReadonlySet<string>;
 }) {
   const rowSelected = selectedColumn !== null;
   return (
@@ -120,15 +186,18 @@ const GridRow = memo(function GridRow({
       onClick={(event) => actions.select(event, index)}
       className={`h-[26px] border-b border-border-subtle ${rowSelected ? 'bg-editor-line-hl' : 'hover:bg-bg-panel-alt/60'}`}
     >
-      {typed.map(({ col, numeric }) => {
+      {slots.map((slot) => {
+        if ('gap' in slot) return <td key={slot.key} role="presentation" aria-hidden="true" colSpan={slot.gap} />;
+        const { col, duckType, numeric, index: columnIndex } = slot;
         const value = row[col.name];
         const isNull = value === null || value === undefined;
         const cellSelected = selectedColumn === col.name;
         const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
         const tone = cellTone(row, col.name);
+        const magic = !linked ? cachedMagic(row, col.name, value, duckType, fractions.has(col.name)) : null;
         if (editor?.column === col.name) {
           return (
-            <td key={col.name} role="gridcell" data-column={col.name} className="p-0">
+            <td key={col.name} role="gridcell" aria-colindex={columnIndex + 1} data-column={col.name} className="p-0">
               <input
                 autoFocus
                 data-testid="sql-cell-editor"
@@ -151,6 +220,7 @@ const GridRow = memo(function GridRow({
           <td
             key={col.name}
             role="gridcell"
+            aria-colindex={columnIndex + 1}
             aria-selected={cellSelected}
             data-column={col.name}
             data-null={isNull ? 'true' : undefined}
@@ -175,6 +245,8 @@ const GridRow = memo(function GridRow({
               </button>
             ) : tone === 'inserted' && value === undefined ? (
               UNSET_CELL
+            ) : magic ? (
+              <MagicCell magic={magic} text={renderCell(value)} />
             ) : (
               renderCell(value)
             )}
@@ -185,10 +257,69 @@ const GridRow = memo(function GridRow({
   );
 });
 
+/** Every column's header stays mounted, so sort buttons keep their tab order and focus; memoized so scrolling skips it. */
+const GridHeader = memo(function GridHeader({
+  typed,
+  sort,
+  linkedColumns,
+  onSort,
+}: {
+  typed: ReadonlyArray<TypedColumn>;
+  sort: SqlSortState;
+  linkedColumns: ReadonlySet<string> | undefined;
+  onSort: (column: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <thead className="sticky top-0 z-10 bg-bg-panel">
+      <tr aria-rowindex={1}>
+        {typed.map(({ col, duckType, numeric, index }) => {
+          const isSorted = sort.column === col.name;
+          return (
+            <th
+              key={col.name}
+              scope="col"
+              aria-colindex={index + 1}
+              aria-sort={isSorted ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+              className={`h-7 whitespace-nowrap border-b border-border-subtle p-0 font-normal ${numeric ? 'min-w-[8.125rem]' : 'min-w-[12.5rem]'}`}
+            >
+              <button
+                type="button"
+                onClick={() => onSort(col.name)}
+                data-testid="sql-result-preview-sort"
+                data-column={col.name}
+                data-sort={isSorted ? sort.direction : 'none'}
+                title={t('sqlWorkspace.grid.sortBy', { name: col.name })}
+                className={`flex w-full items-center gap-1.5 overflow-hidden px-2.5 py-1.5 transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 ${numeric ? 'justify-end text-right' : 'text-left'}`}
+              >
+                <span className="shrink-0 text-fg-subtle">{col.name}</span>
+                <span
+                  data-testid="sql-result-preview-type"
+                  className="min-w-0 truncate text-micro tracking-[0.04em] text-fg-subtle/70"
+                  title={t('sqlWorkspace.grid.arrowType', { type: col.type })}
+                >
+                  {linkedColumns?.has(col.name) ? `${duckType} · FK` : duckType}
+                </span>
+                {isSorted ? (
+                  sort.direction === 'asc' ? (
+                    <ArrowUp size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
+                  ) : (
+                    <ArrowDown size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
+                  )
+                ) : null}
+              </button>
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+  );
+});
+
 /** The edit items a cell's menu starts with: edit and NULL for an editable cell, then duplicate and delete or restore. */
 function editActionsFor(editing: SqlGridEditing, row: Record<string, unknown>, column: string) {
   const deleted = (row as ShownRow)[DELETED] === true;
-  return EDIT_ACTIONS.filter(({ id }) => (id === 'edit-cell' || id === 'set-null' ? editing.canEdit(row, column) : !(deleted && id === 'duplicate-row'))).map((action) =>
+  return EDIT_ACTIONS.filter(({ id }) => (id === 'edit-cell' ? editing.canEdit(row, column) : id === 'set-null' ? editing.canSetNull(row, column) : !(deleted && id === 'duplicate-row'))).map((action) =>
     action.id === 'delete-row' && deleted ? { ...action, labelKey: 'sqlWorkspace.edits.menu.restore' } : action
   );
 }
@@ -234,23 +365,59 @@ export function SqlVirtualGrid({
     } else onCellAction('open-value', cell);
   };
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 });
+  const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, height: 0, width: 0 });
   const [menu, setMenu] = useState<{ cell: SqlGridCell; x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const typed = useMemo(
     () =>
-      columns.map((col) => {
+      columns.map((col, index): TypedColumn => {
         const duckType = arrowTypeToDuckDb(col.type);
-        return { col, duckType, numeric: isNumericSqlType(duckType) };
+        return { col, duckType, numeric: isNumericSqlType(duckType), index };
       }),
     [columns]
+  );
+
+  // Keyed by the column names, so a new rows array (filter, Load more) with the same bars leaves unchanged rows memoized.
+  const fractionNames = useMemo(
+    () => [...fractionColumns(typed.map(({ col, numeric }) => ({ name: col.name, numeric })), rows)].join('\u0000'),
+    [typed, rows]
+  );
+  const fractions = useMemo(
+    () => new Set(fractionNames ? fractionNames.split('\u0000') : []),
+    [fractionNames]
+  );
+
+  // Only the column set: a sort, filter or Load more must not move columns.
+  const plan = useMemo(
+    () => (typed.length > MAX_AUTO_LAYOUT_COLUMNS ? planColumns(typed, rows, fractions, linkedColumns) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [typed]
+  );
+  const colgroup = useMemo(
+    () => (plan ? <colgroup>{plan.widths.map((width, column) => <col key={column} style={{ width }} />)}</colgroup> : null),
+    [plan]
+  );
+  const columnWindow = plan
+    ? fixedColumnWindow({ offsets: plan.offsets, scrollLeft: viewport.scrollLeft, viewportWidth: viewport.width, overscan: COLUMN_OVERSCAN })
+    : null;
+  const firstColumn = columnWindow?.start ?? 0;
+  const lastColumn = columnWindow?.end ?? typed.length - 1;
+  const slots = useMemo<ReadonlyArray<ColumnSlot>>(
+    () => (plan ? columnSlots(typed, firstColumn, lastColumn) : typed),
+    [plan, typed, firstColumn, lastColumn]
+  );
+  // The open editor's cell stays mounted when scrolled away sideways, so it keeps focus and its keys.
+  const editorColumn = plan && editor ? typed.findIndex(({ col }) => col.name === editor.column) : -1;
+  const editorSlots = useMemo(
+    () => (editorColumn < 0 ? slots : columnSlots(typed, firstColumn, lastColumn, editorColumn)),
+    [editorColumn, slots, typed, firstColumn, lastColumn]
   );
 
   useLayoutEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
-    const measure = () => setViewport({ scrollTop: node.scrollTop, height: node.clientHeight });
+    const measure = () => setViewport(readViewport(node));
     measure();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     observer?.observe(node);
@@ -292,20 +459,37 @@ export function SqlVirtualGrid({
     }
   };
 
+  // Reads the header cell, mounted for every column in either layout.
+  const revealColumn = (column: number) => {
+    const node = scrollRef.current;
+    const cell = node?.querySelector('table')?.tHead?.rows[0]?.cells[column];
+    if (!node || !cell) return;
+    const left = cell.offsetLeft;
+    const right = left + cell.offsetWidth;
+    if (left < node.scrollLeft) node.scrollLeft = left;
+    else if (right > node.scrollLeft + node.clientWidth) node.scrollLeft = Math.min(left, right - node.clientWidth);
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (rows.length === 0 || typed.length === 0) return;
     const current = selected ?? { row: -1, column: typed[0]!.col.name };
     const colIndex = Math.max(0, typed.findIndex(({ col }) => col.name === current.column));
     const move = (row: number, col: number) => {
-      const next = { row: Math.min(rows.length - 1, Math.max(0, row)), column: typed[Math.min(typed.length - 1, Math.max(0, col))]!.col.name };
+      const nextColumn = Math.min(typed.length - 1, Math.max(0, col));
+      const next = { row: Math.min(rows.length - 1, Math.max(0, row)), column: typed[nextColumn]!.col.name };
       onSelect(next);
       revealRow(next.row);
+      revealColumn(nextColumn);
+      if (scrollRef.current) setViewport(readViewport(scrollRef.current));
     };
     if (event.key === 'ArrowDown') move(current.row + 1, colIndex);
     else if (event.key === 'ArrowUp') move(current.row < 0 ? 0 : current.row - 1, colIndex);
     else if (event.key === 'ArrowRight' && selected) move(current.row, colIndex + 1);
     else if (event.key === 'ArrowLeft' && selected) move(current.row, colIndex - 1);
-    else if (event.key === 'Enter' && selected) openCell(selected);
+    else if (event.key === 'Enter' && selected) {
+      if (event.shiftKey) onCellAction('open-value', selected);
+      else openCell(selected);
+    }
     else if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && selected) {
       const rect = scrollRef.current?.getBoundingClientRect();
       setMenu({ cell: selected, x: (rect?.left ?? 0) + 40, y: (rect?.top ?? 0) + 40 });
@@ -325,12 +509,13 @@ export function SqlVirtualGrid({
   };
 
   // Rows get one stable set of handlers that read the latest props, so a re-render skips them.
-  const latest = useRef({ onSelect, onCellAction, onFollowLink, openMenu, selected, typed, openCell, editing });
+  const latest = useRef({ onSort, onSelect, onCellAction, onFollowLink, openMenu, selected, typed, openCell, editing });
   useLayoutEffect(() => {
-    latest.current = { onSelect, onCellAction, onFollowLink, openMenu, selected, typed, openCell, editing };
+    latest.current = { onSort, onSelect, onCellAction, onFollowLink, openMenu, selected, typed, openCell, editing };
   });
   const rowActions = useMemo<RowActions>(
     () => ({
+      sort: (column) => latest.current.onSort(column),
       select: (event, index) => {
         const { selected: current, typed: shown } = latest.current;
         const column = (event.target as HTMLElement).closest('td')?.dataset.column ?? current?.column ?? shown[0]?.col.name;
@@ -365,57 +550,19 @@ export function SqlVirtualGrid({
       tabIndex={rows.length > 0 ? 0 : undefined}
       aria-label={t('sqlWorkspace.grid.ariaLabel')}
       onKeyDown={handleKeyDown}
-      onScroll={(event) => setViewport({ scrollTop: event.currentTarget.scrollTop, height: event.currentTarget.clientHeight })}
-      className="min-h-[6.5rem] flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+      onScroll={(event) => setViewport(readViewport(event.currentTarget))}
+      className="min-h-[4.5rem] flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
     >
       <table
         data-testid="sql-result-preview-table"
         role="grid"
         aria-rowcount={rows.length + 1}
         aria-colcount={typed.length}
-        className="w-max border-collapse font-mono text-caption"
+        style={plan ? { width: plan.offsets[plan.offsets.length - 1] } : undefined}
+        className={cn('border-collapse font-mono text-caption', plan ? 'table-fixed' : 'w-max')}
       >
-        <thead className="sticky top-0 z-10 bg-bg-panel">
-          <tr aria-rowindex={1}>
-            {typed.map(({ col, duckType, numeric }) => {
-              const isSorted = sort.column === col.name;
-              return (
-                <th
-                  key={col.name}
-                  scope="col"
-                  aria-sort={isSorted ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className={`h-7 whitespace-nowrap border-b border-border-subtle p-0 font-normal ${numeric ? 'min-w-[8.125rem]' : 'min-w-[12.5rem]'}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onSort(col.name)}
-                    data-testid="sql-result-preview-sort"
-                    data-column={col.name}
-                    data-sort={isSorted ? sort.direction : 'none'}
-                    title={t('sqlWorkspace.grid.sortBy', { name: col.name })}
-                    className={`flex w-full items-center gap-1.5 overflow-hidden px-2.5 py-1.5 transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 ${numeric ? 'justify-end text-right' : 'text-left'}`}
-                  >
-                    <span className="shrink-0 text-fg-subtle">{col.name}</span>
-                    <span
-                      data-testid="sql-result-preview-type"
-                      className="min-w-0 truncate text-micro tracking-[0.04em] text-fg-subtle/70"
-                      title={t('sqlWorkspace.grid.arrowType', { type: col.type })}
-                    >
-                      {linkedColumns?.has(col.name) ? `${duckType} · FK` : duckType}
-                    </span>
-                    {isSorted ? (
-                      sort.direction === 'asc' ? (
-                        <ArrowUp size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
-                      ) : (
-                        <ArrowDown size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
-                      )
-                    ) : null}
-                  </button>
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
+        {colgroup}
+        <GridHeader typed={typed} sort={sort} linkedColumns={linkedColumns} onSort={rowActions.sort} />
         <tbody>
           {slice.top > 0 ? <tr aria-hidden="true" style={{ height: slice.top }} /> : null}
           {rows.slice(slice.start, slice.end + 1).map((row, offset) => {
@@ -425,12 +572,13 @@ export function SqlVirtualGrid({
                 key={index}
                 row={row}
                 index={index}
-                typed={typed}
+                slots={editor?.row === index ? editorSlots : slots}
                 selectedColumn={selected?.row === index ? selected.column : null}
                 linkedColumns={linkedColumns}
                 canFollow={onFollowLink !== undefined}
                 actions={rowActions}
                 editor={editor?.row === index ? { column: editor.column, value: editor.value } : null}
+                fractions={fractions}
               />
             );
           })}

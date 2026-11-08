@@ -27,6 +27,10 @@ interface Harness {
   externalEdits: number;
   documentResets: number;
   viewRestores: number;
+  modelSwitches: number;
+  /** Keyed models by URI, as Monaco's model registry holds them. */
+  models: Map<string, { getValue: () => string; disposed: boolean }>;
+  render: () => void;
   glyphs: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>;
   onCursor: ((event: unknown) => void) | null;
   onMouseDown: ((event: unknown) => void) | null;
@@ -45,6 +49,9 @@ const harness: Harness = {
   externalEdits: 0,
   documentResets: 0,
   viewRestores: 0,
+  modelSwitches: 0,
+  models: new Map(),
+  render: () => {},
   glyphs: [],
   onCursor: null,
   onMouseDown: null,
@@ -67,6 +74,29 @@ const chord = {
 };
 
 vi.mock('@monaco-editor/react', () => {
+  type Uri = { scheme: string; toString: () => string };
+  class Model {
+    disposed = false;
+    constructor(
+      public text: string,
+      public uri: Uri
+    ) {}
+    getValueInRange = () => harness.selectedRangeText ?? '';
+    getValue = () => this.text;
+    getFullModelRange = () => ({});
+    setValue = (next: string) => {
+      harness.documentResets += 1;
+      harness.glyphs = []; // Monaco clears decorations when setValue resets a document.
+      this.text = next;
+      harness.render();
+    };
+    getOffsetAt = (position: { offset?: number }) => position.offset ?? harness.cursorOffset;
+    dispose = () => {
+      this.disposed = true;
+      harness.models.delete(this.uri.toString());
+    };
+  }
+  let unkeyed = 0;
   const MonacoEditor = ({
     defaultValue,
     onChange,
@@ -78,89 +108,111 @@ vi.mock('@monaco-editor/react', () => {
     onMount?: (editor: unknown, monaco: unknown) => void;
     options?: { ariaLabel?: string; glyphMargin?: boolean };
   }) => {
-    // An uncontrolled model, like Monaco's: only typing and executeEdits change it.
-    const [value, setValue] = useState(defaultValue ?? '');
-    const valueRef = useRef(value);
-    valueRef.current = value;
+    // An uncontrolled model, like Monaco's: only typing, executeEdits and setModel change it.
+    const [, setTick] = useState(0);
+    harness.render = () => setTick((tick) => tick + 1);
+    const modelRef = useRef<Model | null>(null);
+    if (modelRef.current === null) {
+      const id = ++unkeyed;
+      modelRef.current = new Model(defaultValue ?? '', { scheme: 'inmemory', toString: () => `inmemory://model/${id}` });
+    }
     const disposable = { dispose: () => {} };
-    const editor = {
-      executeEdits: (_source: string, edits: Array<{ text: string }>) => {
-        harness.externalEdits += 1;
-        valueRef.current = edits[0]?.text ?? '';
-        setValue(valueRef.current);
-        return true;
-      },
-      pushUndoStop: () => true,
-      getSelection: () => (harness.selectedRangeText !== null ? { __selection: true } : null),
-      getPosition: () => ({ lineNumber: 1, column: 1 }),
-      getModel: () => ({
-        getValueInRange: () => harness.selectedRangeText ?? '',
-        getValue: () => valueRef.current,
-        getFullModelRange: () => ({}),
-        setValue: (next: string) => {
-          harness.documentResets += 1;
-          harness.glyphs = []; // Monaco clears decorations when setValue resets a document.
-          valueRef.current = next;
-          setValue(next);
+    const mounted = useRef<{ editor: unknown; monaco: unknown } | null>(null);
+    if (mounted.current === null) {
+      const editor = {
+        executeEdits: (_source: string, edits: Array<{ text: string }>) => {
+          harness.externalEdits += 1;
+          modelRef.current!.text = edits[0]?.text ?? '';
+          harness.render();
+          return true;
         },
-        getOffsetAt: (position: { offset?: number }) => position.offset ?? harness.cursorOffset,
-      }),
-      addCommand: (key: number, callback: () => void) => {
-        harness.commands.set(key, callback);
-      },
-      setScrollLeft: () => {
-        harness.scrollLeftResets += 1;
-      },
-      saveViewState: () => ({ __view: true }),
-      restoreViewState: () => {
-        harness.viewRestores += 1;
-      },
-      createDecorationsCollection: () => ({
-        set: (glyphs: Harness['glyphs']) => {
-          harness.glyphs = glyphs;
+        pushUndoStop: () => true,
+        getSelection: () => (harness.selectedRangeText !== null ? { __selection: true } : null),
+        getPosition: () => ({ lineNumber: 1, column: 1 }),
+        getModel: () => modelRef.current,
+        setModel: (model: Model) => {
+          harness.modelSwitches += 1;
+          harness.glyphs = []; // A new model starts without this editor's decorations.
+          modelRef.current = model;
+          harness.render();
         },
-      }),
-      onDidChangeCursorSelection: (listener: (event: unknown) => void) => {
-        harness.onCursor = listener;
-        return disposable;
-      },
-      onMouseDown: (listener: (event: unknown) => void) => {
-        harness.onMouseDown = listener;
-        return disposable;
-      },
-      onDidDispose: (cb: () => void) => {
-        harness.didDispose = cb;
-      },
-    };
-    const monaco = {
-      KeyMod,
-      KeyCode,
-      Range: class {
-        constructor(public startLineNumber: number) {}
-      },
-      editor: { defineTheme: vi.fn(), MouseTargetType: { GUTTER_GLYPH_MARGIN: GLYPH_MARGIN } },
-      languages: {
-        CompletionItemKind: { Function: 1, Struct: 5, Field: 4, Keyword: 17 },
-        registerCompletionItemProvider: (_lang: string, provider: Harness['completionProvider']) => {
-          harness.completionProvider = provider;
-          return {
-            dispose: () => {
-              harness.disposeCount += 1;
-            },
+        addCommand: (key: number, callback: () => void) => {
+          harness.commands.set(key, callback);
+        },
+        setScrollLeft: () => {
+          harness.scrollLeftResets += 1;
+        },
+        saveViewState: () => ({ __view: modelRef.current!.uri.toString() }),
+        restoreViewState: () => {
+          harness.viewRestores += 1;
+        },
+        // The first collection holds the Run glyphs; later ones (the Instant SQL range) are not recorded.
+        createDecorationsCollection: (() => {
+          let created = 0;
+          return () => {
+            const glyphs = created++ === 0;
+            return {
+              set: (items: Harness['glyphs']) => {
+                if (glyphs) harness.glyphs = items;
+              },
+            };
           };
+        })(),
+        onDidChangeCursorSelection: (listener: (event: unknown) => void) => {
+          harness.onCursor = listener;
+          return disposable;
         },
-      },
-    };
-    onMount?.(editor, monaco);
+        onMouseDown: (listener: (event: unknown) => void) => {
+          harness.onMouseDown = listener;
+          return disposable;
+        },
+        onDidDispose: (cb: () => void) => {
+          harness.didDispose = cb;
+        },
+      };
+      const monaco = {
+        KeyMod,
+        KeyCode,
+        Uri: { from: ({ scheme, path }: { scheme: string; path: string }) => ({ scheme, toString: () => `${scheme}:${path}` }) },
+        Range: class {
+          constructor(public startLineNumber: number) {}
+        },
+        editor: {
+          defineTheme: vi.fn(),
+          MouseTargetType: { GUTTER_GLYPH_MARGIN: GLYPH_MARGIN },
+          getModel: (uri: Uri) => harness.models.get(uri.toString()) ?? null,
+          getModels: () => [...harness.models.values()],
+          createModel: (text: string, _language: string, uri: Uri) => {
+            const model = new Model(text, uri);
+            harness.models.set(uri.toString(), model);
+            return model;
+          },
+        },
+        languages: {
+          CompletionItemKind: { Function: 1, Struct: 5, Field: 4, Keyword: 17 },
+          registerCompletionItemProvider: (_lang: string, provider: Harness['completionProvider']) => {
+            harness.completionProvider = provider;
+            return {
+              dispose: () => {
+                harness.disposeCount += 1;
+              },
+            };
+          },
+        },
+      };
+      mounted.current = { editor, monaco };
+      onMount?.(editor, monaco);
+    }
+    const model = modelRef.current;
     return (
       <textarea
         data-testid="sql-monaco-textarea"
         data-glyph-margin={String(options?.glyphMargin)}
         aria-label={options?.ariaLabel}
-        value={value}
+        value={model.text}
         onChange={(event) => {
-          valueRef.current = event.target.value;
-          setValue(event.target.value);
+          model.text = event.target.value;
+          harness.render();
           onChange?.(event.target.value);
         }}
       />
@@ -178,6 +230,8 @@ function resetHarness() {
   harness.externalEdits = 0;
   harness.documentResets = 0;
   harness.viewRestores = 0;
+  harness.modelSwitches = 0;
+  harness.models = new Map();
   harness.glyphs = [];
   harness.onCursor = null;
   harness.onMouseDown = null;
@@ -352,15 +406,16 @@ describe('SqlMonacoEditor', () => {
     expect(harness.externalEdits).toBe(1);
     expect(onChange).not.toHaveBeenCalledWith('SELECT 9;');
 
-    // A new document whose text matches an earlier keystroke still replaces the model, without undo.
+    // A new document gets its own model, even when its text matches an earlier keystroke.
     fireEvent.change(textarea, { target: { value: '' } });
     fireEvent.change(textarea, { target: { value: 'x' } });
     rerender(host('', 'q2'));
     expect(textarea.value).toBe('');
-    expect(harness.documentResets).toBe(1);
+    expect(harness.modelSwitches).toBe(1);
+    expect(harness.documentResets).toBe(0);
     expect(harness.externalEdits).toBe(1);
 
-    // A different document must reset history even when its text is exactly the current model.
+    // A copy of the current text (Save As) gets a new model and keeps the cursor and scroll.
     fireEvent.change(textarea, { target: { value: 'SELECT 8;' } });
     const sameStatements = splitSqlStatements('SELECT 8;');
     rerender(host('SELECT 8;', 'q2', sameStatements));
@@ -368,15 +423,53 @@ describe('SqlMonacoEditor', () => {
     const scrollResets = harness.scrollLeftResets;
     rerender(host('SELECT 8;', 'q3', sameStatements));
     expect(textarea.value).toBe('SELECT 8;');
-    expect(harness.documentResets).toBe(2);
+    expect(harness.modelSwitches).toBe(2);
     expect(harness.viewRestores).toBe(1);
     expect(harness.scrollLeftResets).toBe(scrollResets);
     expect(harness.externalEdits).toBe(1);
     expect(onChange).toHaveBeenCalledTimes(emitted);
     expect(harness.glyphs.map(glyph => glyph.range.startLineNumber)).toEqual([1]);
-    // Re-rendering that same document must keep its existing undo history.
     rerender(host('SELECT 8;', 'q3', sameStatements));
-    expect(harness.documentResets).toBe(2);
+    expect(harness.modelSwitches).toBe(2);
+
+    // Going back to a document shows its own model again, with the view it was left at.
+    fireEvent.change(textarea, { target: { value: 'SELECT 3;' } });
+    rerender(host('SELECT 3;', 'q3'));
+    rerender(host('SELECT 8;', 'q2', sameStatements));
+    expect(textarea.value).toBe('SELECT 8;');
+    expect(harness.modelSwitches).toBe(3);
+    expect(harness.viewRestores).toBe(2);
+    expect(harness.externalEdits).toBe(1);
+    expect([...harness.models.keys()]).toEqual(['lingua-sql:/q2.sql', 'lingua-sql:/q3.sql']);
+    expect(harness.models.get('lingua-sql:/q3.sql')?.getValue()).toBe('SELECT 3;');
+  });
+
+  it('disposes the models of documents that no longer exist', () => {
+    const { rerender, onChange } = renderHost({ value: 'SELECT 1;', documentKey: 'q1', documentKeys: ['q1', 'q2'] });
+    const host = (value: string, documentKey: string, documentKeys: string[]) => (
+      <SqlMonacoEditor
+        value={value}
+        documentKey={documentKey}
+        documentKeys={documentKeys}
+        statements={splitSqlStatements(value)}
+        runGlyphLabel="Run statement"
+        tables={[]}
+        ariaLabel="SQL query editor"
+        onChange={onChange}
+        onRunCommand={vi.fn()}
+        onCancelShortcut={vi.fn()}
+        onSaveShortcut={vi.fn()}
+        onCursorChange={vi.fn()}
+        onFormatShortcut={vi.fn()}
+      />
+    );
+    rerender(host('SELECT 2;', 'q2', ['q1', 'q2']));
+    expect([...harness.models.keys()]).toEqual(['lingua-sql:/q1.sql', 'lingua-sql:/q2.sql']);
+    rerender(host('SELECT 2;', 'q2', ['q2']));
+    expect([...harness.models.keys()]).toEqual(['lingua-sql:/q2.sql']);
+    // The model on screen stays even before its key reaches the list.
+    rerender(host('SELECT 5;', 'q5', ['q2']));
+    expect([...harness.models.keys()]).toEqual(['lingua-sql:/q2.sql', 'lingua-sql:/q5.sql']);
   });
 
   it('offers table, column, and keyword completions', () => {

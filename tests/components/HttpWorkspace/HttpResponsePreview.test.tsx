@@ -24,6 +24,12 @@ function makeResponse(overrides: Partial<HttpResponseV1> = {}): HttpResponseV1 {
 }
 
 describe('HttpResponsePreview', () => {
+  it('shows the starter requests under the empty state', () => {
+    render(<HttpResponsePreview response={undefined} isExecuting={false} starters={<button type="button">starter</button>} />);
+    expect(screen.getByTestId('http-response-preview').getAttribute('data-state')).toBe('empty');
+    expect(screen.getByText('starter')).toBeTruthy();
+  });
+
   it('renders image responses without throwing on Unicode bodies', () => {
     render(<HttpResponsePreview response={makeResponse()} isExecuting={false} />);
     const img = screen.getByTestId('http-response-preview-body-image');

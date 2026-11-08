@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { initI18n } from '../../../src/renderer/i18n';
 import { AppChrome } from '../../../src/renderer/components/Chrome';
 import { SettingsModal } from '../../../src/renderer/components/Settings/SettingsModal';
@@ -130,8 +131,22 @@ describe('AppChrome', () => {
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 
-  it('license badge opens Settings and navigates to the Account tab (accessibility pass)', async () => {
+  it('a paid license badge opens Settings and navigates to the Account tab (accessibility pass)', async () => {
     seedTab();
+    const initialLicense = useLicenseStore.getState();
+    onTestFinished(() => useLicenseStore.setState(initialLicense, true));
+    useLicenseStore.setState({
+      token: 'dev-pro.token',
+      status: {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 24 * 60 * 60 * 1000,
+          payload: { productId: 'lingua', tier: 'pro' },
+        },
+      },
+    } as never);
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();
     render(<AppChromeSettingsHarness onOpenSettings={onOpenSettings} />);

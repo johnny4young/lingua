@@ -10,6 +10,8 @@ export interface JsWorkerExecuteMessage {
   code: string;
   resultTruncationMarker?: string;
   debug?: boolean;
+  /** Record run: post a `timeline` of every step before `done`. */
+  record?: boolean;
   breakpoints?: DebuggerBreakpointPayload[];
   watches?: string[];
   /** Character-accurate maps, newest transform first. */
@@ -28,6 +30,8 @@ export interface JsWorkerExecuteMessage {
    * calls throw `ReferenceError`).
    */
   stdin?: string;
+  /** Read past the end of `stdin` stops the run with a `stdin-request` reply. */
+  askStdin?: boolean;
   /**
    * When `true`, capture the post-execute global
    * scope and emit a `'scope-snapshot'` reply before `done`. The

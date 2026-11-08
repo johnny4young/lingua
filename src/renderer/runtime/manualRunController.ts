@@ -1,3 +1,4 @@
+import { useTimelineStore } from '../stores/timelineStore';
 import i18next from 'i18next';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import type { RuntimeMode } from '../../shared/runtimeModes';
@@ -31,7 +32,7 @@ export async function runActiveTab(
   if (!activeTab) {
     useConsoleStore.getState().addEntry({
       type: 'error',
-      content: 'No active file to run.',
+      content: i18next.t('runner.noActiveFile'),
     });
     return;
   }
@@ -87,7 +88,7 @@ async function executeTabById(
   if (!activeTab) {
     useConsoleStore.getState().addEntry({
       type: 'error',
-      content: 'No active file to run.',
+      content: i18next.t('runner.noActiveFile'),
     });
     return;
   }
@@ -142,9 +143,15 @@ async function executeTabById(
       setLoadingMessage: resultState.setManualLoadingMessage,
       recordHistory: options.recordHistory,
       debug: options.debug,
+      record: options.record,
+      region: options.region,
+      maskedStdin: options.maskedStdin,
       track,
     });
     if (!session.isCurrent()) return;
+    if (options.record && useTimelineStore.getState().recording?.tabId === activeTab.id) {
+      useUIStore.getState().openBottomPanel('timeline');
+    }
     if (summary.cancelled) {
       editor.setTabExecutionState(activeTab.id, 'idle');
     } else if (!summary.ok) {

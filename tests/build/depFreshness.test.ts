@@ -325,7 +325,7 @@ describe('undici advisory floors', () => {
           .slice(1)
           .map(Number);
         const minimum =
-          major === 6 ? [28, 1] : major === 7 ? [29, 1] : major === 8 ? [10, 2] : null;
+          major === 6 ? [29, 1] : major === 7 ? [30, 1] : major === 8 ? [12, 2] : null;
         expect(minimum, `unreviewed undici major: ${key}`).not.toBeNull();
         expect(
           minor! > minimum![0]! || (minor === minimum![0] && patch! >= minimum![1]!),

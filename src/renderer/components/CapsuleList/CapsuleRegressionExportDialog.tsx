@@ -10,7 +10,7 @@ import {
 } from '../../../shared/capsuleRegressionSuite';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { prepareRunCapsuleExport } from '../../utils/exportCapsule';
+import { capsuleLanguageForLog, prepareRunCapsuleExport } from '../../utils/exportCapsule';
 import { saveOrDownloadTextFile } from '../../utils/saveTextFileToDisk';
 import { recordTrustEventBestEffort } from '../../stores/trustEventStore';
 import { ModalShell } from '../ui/ModalShell';
@@ -98,7 +98,7 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
             feature: 'capsule-export',
             action: 'exported',
             sensitivity: 'medium',
-            summary: `${baseline.tab.language} capsule exported as a regression suite (${prepared.sizeBucket})`,
+            summary: `${capsuleLanguageForLog(baseline.tab.language)} capsule exported as a regression suite (${prepared.sizeBucket})`,
           });
           setMessage(t('capsuleRegression.saved'));
         },

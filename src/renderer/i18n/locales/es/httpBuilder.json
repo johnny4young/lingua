@@ -14,7 +14,7 @@
   "httpWorkspace.response.tree.showLess": "Mostrar menos",
   "httpWorkspace.response.tree.more_one": "Mostrar {{count}} más",
   "httpWorkspace.response.tree.more_other": "Mostrar {{count}} más",
-  "httpWorkspace.response.tree.capture": "Capturar",
+  "httpWorkspace.response.tree.capture": "Capturar como variable",
   "httpWorkspace.response.tree.captureAria": "Capturar {{path}} como variable",
   "httpWorkspace.response.tree.captured": "capturado → {{name}}",
   "httpWorkspace.response.tab.timing": "Timing",
@@ -31,7 +31,7 @@
   "httpWorkspace.response.timing.unavailable": "Esta respuesta no tiene tiempos por fase.",
   "httpWorkspace.response.delta.faster": "{{ms}} ms más rápida que la respuesta anterior",
   "httpWorkspace.response.delta.slower": "{{ms}} ms más lenta que la respuesta anterior",
-  "httpWorkspace.offline.sendWhenOnline": "Enviar al reconectar",
+  "httpWorkspace.offline.sendWhenOnline": "Encolar hasta reconectar",
   "httpWorkspace.offline.queuedLabel": "En cola",
   "httpWorkspace.offline.remove": "Quitar de la cola",
   "httpWorkspace.offline.sendNow": "Enviar ahora",
@@ -133,5 +133,7 @@
   "httpWorkspace.editor.assert.results.pass": "PASA",
   "httpWorkspace.editor.assert.results.fail": "FALLA",
   "httpWorkspace.editor.assert.results.actual": "obtuvo {{actual}}",
-  "httpWorkspace.editor.assert.results.miss": "sin valor"
+  "httpWorkspace.editor.assert.results.miss": "sin valor",
+  "httpWorkspace.editor.openAsTab": "Abrir como pestaña JS",
+  "httpWorkspace.editor.openAsTabFillIn": "Pon aquí tus valores para ejecutarlo; lo que escribas se guarda con esta pestaña y su historial de ejecuciones."
 }

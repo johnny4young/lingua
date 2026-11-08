@@ -58,6 +58,7 @@ import {
   MAX_INPUT_SET_NAME_LENGTH,
   MAX_INPUT_SETS_PER_TAB,
 } from '../../stores/editorTabUtils';
+import { splitStdinLines } from '../../utils/stdinRequest';
 
 const SUPPORTED: ReadonlySet<Language> = new Set<Language>([
   'javascript',
@@ -70,13 +71,6 @@ function inferTypeKind(value: string): TypePillKind | null {
   if (/^-?\d+(\.\d+)?$/.test(value)) return 'number';
   if (/^(true|false)$/i.test(value)) return 'boolean';
   return 'string';
-}
-
-function splitLines(buffer: string): string[] {
-  if (!buffer) return [];
-  const lines = buffer.split('\n');
-  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-  return lines;
 }
 
 function joinLines(lines: readonly string[]): string {
@@ -154,7 +148,7 @@ export function StdinInputPanel() {
   // guards below — see React's rules-of-hooks. The early returns sit
   // after these `useMemo` calls.
   const buffer = activeTab?.stdinBuffer ?? '';
-  const lines = useMemo(() => splitLines(buffer), [buffer]);
+  const lines = useMemo(() => splitStdinLines(buffer), [buffer]);
   // Append a single trailing blank slot so the next prompt is always
   // visible/editable without forcing the user to press Enter first.
   // Always allocate a fresh array so we never mutate

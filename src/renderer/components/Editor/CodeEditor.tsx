@@ -6,6 +6,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
+import { useDebuggerStore } from '../../stores/debuggerStore';
+import { pausedLineResults } from '../../utils/debuggerLocals';
 import { PRESENTER_EDITOR_FONT_LIFT, usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
@@ -34,6 +36,7 @@ import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/dependencyDetectionPaste';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
+import { openEditSelectionForEditor } from '../../stores/aiEditSelectionStore';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -43,7 +46,12 @@ import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
 import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
+import { TestFailureCardHost } from '../ProjectTests/TestFailureCardHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
+import { useRunStale, useRunStaleAgeProperty } from '../../hooks/useRunStale';
+import { bindStopRunKey } from './stopRunKeybinding';
+import { TimelineLineHost } from '../Timeline/TimelineLineHost';
+import { RunRegionsHost } from '../RunRegions/RunRegionsHost';
 
 configureMonaco();
 
@@ -97,6 +105,8 @@ export function CodeEditor() {
   const [editorInstance, setEditorInstance] = useState<Parameters<OnMount>[0] | null>(null);
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const { applyDiagnostics, clearMarkers } = useExecutionMarkers();
+  const pausedFrame = useDebuggerStore(state => state.pausedFrame);
+  const previousPause = useDebuggerStore(state => state.previousPause);
   const visibleLineResults = useMemo(
     () => lineResults.filter(result => !isHiddenUndefinedLineResult(result)),
     [lineResults]
@@ -121,6 +131,14 @@ export function CodeEditor() {
   );
 
   const activeTab = useActiveTab();
+  // While paused here, the frame's values join what the run has logged so far.
+  const inlineLineResults = useMemo(
+    () =>
+      activeTab && pausedFrame?.tabId === activeTab.id
+        ? [...visibleLineResults, ...pausedLineResults(pausedFrame, previousPause, activeTab.content, activeTab.language)]
+        : visibleLineResults,
+    [activeTab, pausedFrame, previousPause, visibleLineResults]
+  );
 
   // "Explain with AI" over a selection (or the whole buffer) is
   // the first main-editor AI affordance. Registered as a Monaco context-menu
@@ -129,10 +147,10 @@ export function CodeEditor() {
   // palette). The action closure reads live tab context through a ref so it
   // never needs re-registering on every keystroke.
   const aiEntitled = useEntitlement('LOCAL_AI');
-  const explainCtxRef = useRef<{ language: string; name: string } | null>(null);
+  const explainCtxRef = useRef<{ id: string; language: string; name: string } | null>(null);
   useEffect(() => {
     explainCtxRef.current = activeTab
-      ? { language: activeTab.language, name: activeTab.name }
+      ? { id: activeTab.id, language: activeTab.language, name: activeTab.name }
       : null;
   }, [activeTab]);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
@@ -257,6 +275,8 @@ export function CodeEditor() {
   }, [activeLanguage, activeRuntimeMode]);
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
+    // Monaco's Cmd/Ctrl+Enter inserts a line and swallows the key, so the app's Run shortcut never fired inside the editor.
+    monaco.editor.addKeybindingRules([{ keybinding: monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, command: '-editor.action.insertLineAfter' }]);
     defineCustomThemes(monaco);
     applyTypeScriptDefaults(monaco);
     // pre-register the scratchpad happy-path languages so a blank
@@ -316,7 +336,17 @@ export function CodeEditor() {
     };
   }, []);
 
-  // register/dispose the "Explain with AI" context-menu action.
+  const runStale = useRunStale();
+  const runStateRef = useRef<HTMLDivElement>(null);
+  useRunStaleAgeProperty(runStateRef, runStale.ranAt);
+
+  useEffect(() => {
+    if (!editorInstance || !monacoInstance) return;
+    const binding = bindStopRunKey(editorInstance, monacoInstance, t('shortcuts.item.stopRun.label'));
+    return () => binding.dispose();
+  }, [editorInstance, monacoInstance, t]);
+
+  // register/dispose the AI context-menu actions (Explain, Edit).
   // Only mounted when entitled, so it stays invisible on Free (matching
   // the ExplainErrorButton/AskSqlButton convention).
   useEffect(() => {
@@ -333,7 +363,20 @@ export function CodeEditor() {
         openExplainCodeForEditor(ed, ctx.language, ctx.name);
       },
     });
-    return () => action.dispose();
+    const edit = editor.addAction({
+      id: 'lingua.ai.editSelection',
+      label: t('ai.editCode.action'),
+      contextMenuGroupId: '9_ai',
+      contextMenuOrder: 2,
+      run: ed => {
+        const ctx = explainCtxRef.current;
+        if (ctx) openEditSelectionForEditor(ed, ctx.language, ctx.name, ctx.id);
+      },
+    });
+    return () => {
+      action.dispose();
+      edit.dispose();
+    };
   }, [editorInstance, aiEntitled, t]);
 
   useEffect(() => {
@@ -466,7 +509,13 @@ export function CodeEditor() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1">
+      <RunRegionsHost editor={editorInstance} monaco={monacoInstance} />
+      <div
+        ref={runStateRef}
+        className={runStale.stale ? 'run-stale min-h-0 flex-1' : 'min-h-0 flex-1'}
+        data-testid="editor-run-state"
+        data-stale={runStale.stale ? 'true' : undefined}
+      >
         <MonacoEditor
           height="100%"
           language={monacoLanguageFor(activeTab.language)}
@@ -485,12 +534,14 @@ export function CodeEditor() {
         <InlineResultWidgetsHost
           editor={editorInstance}
           monaco={monacoInstance}
-          lineResults={visibleLineResults}
+          lineResults={inlineLineResults}
           tabId={activeTabId}
           lineTimings={lineTimings}
           lineEndReserve={errorActionsReserve}
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <TestFailureCardHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}
           monaco={monacoInstance}

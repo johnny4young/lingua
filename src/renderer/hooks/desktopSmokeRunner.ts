@@ -166,6 +166,8 @@ interface SmokePerformanceArtifact {
     }
   >;
   memorySnapshots: SmokeMemoryArtifact[];
+  /** The memory budget only applies to the packaged app. */
+  packaged: boolean;
 }
 
 interface SmokeProgressArtifact {
@@ -285,7 +287,8 @@ function buildPerformanceArtifact(
   launcherToSmokeReadyMs: number | null,
   firstEditorInteractionWallTimeMs: number | null,
   summaries: SmokeCaseSummary[],
-  memorySnapshots: SmokeMemoryArtifact[]
+  memorySnapshots: SmokeMemoryArtifact[],
+  packaged: boolean
 ): SmokePerformanceArtifact {
   const firstRunTimings: SmokePerformanceArtifact['firstRunTimings'] = {};
   for (const caseId of ['javascript', 'typescript', 'python']) {
@@ -305,6 +308,7 @@ function buildPerformanceArtifact(
     totalSmokeWallTimeMs: Math.round(performance.now() - startedAt),
     firstRunTimings,
     memorySnapshots,
+    packaged,
   };
 }
 
@@ -528,7 +532,8 @@ export async function runDesktopSmoke(): Promise<void> {
         launcherToSmokeReadyMs,
         firstEditorInteractionWallTimeMs,
         summaries,
-        memorySnapshots
+        memorySnapshots,
+        config.packagedSubset === true
       )
     );
     api.finish(success);
@@ -554,7 +559,8 @@ export async function runDesktopSmoke(): Promise<void> {
         launcherToSmokeReadyMs,
         firstEditorInteractionWallTimeMs,
         summaries,
-        memorySnapshots
+        memorySnapshots,
+        config.packagedSubset === true
       )
     );
     api.finish(false);

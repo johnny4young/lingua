@@ -1,4 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { resetNativeToolchainStoreForTests } from '../../src/renderer/stores/nativeToolchainStore';
+import { resetMissingToolchainConsoleForTests } from '../../src/renderer/hooks/useMissingActiveToolchain';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -12,6 +14,7 @@ import { useDebuggerStore } from '../../src/renderer/stores/debuggerStore';
 
 const mockRun = vi.fn();
 const mockStop = vi.fn();
+const mockOpenBottomPanel = vi.fn();
 const editorStoreState = {
   tabs: [
     {
@@ -111,6 +114,7 @@ vi.mock('../../src/renderer/stores/uiStore', () => ({
       toggleConsole: mockToggleConsole,
       statusNotice: uiStoreState.statusNotice,
       pushStatusNotice: mockPushStatusNotice,
+      openBottomPanel: mockOpenBottomPanel,
     }),
   }),
 }));
@@ -199,6 +203,8 @@ describe('Toolbar', () => {
   beforeEach(async () => {
     resetRunnerState();
     vi.clearAllMocks();
+    resetNativeToolchainStoreForTests();
+    resetMissingToolchainConsoleForTests();
     setActiveProLicense();
     useSettingsStore.getState().resetShortcutOverrides();
     useDebuggerStore.setState(
@@ -531,6 +537,29 @@ describe('Toolbar', () => {
         writable: true,
         value: originalLingua,
       });
+    }
+  });
+
+  it('disables Run and opens the Console once when the Go binary is missing on desktop', async () => {
+    editorStoreState.tabs = [
+      { id: 'tab-go', name: 'main.go', language: 'go', content: 'package main\n', isDirty: false },
+    ];
+    editorStoreState.activeTabId = 'tab-go';
+    const originalLingua = window.lingua;
+    const goDetect = vi.fn().mockResolvedValue({ installed: false, reason: 'missing', searched: ['/usr/local/go/bin'] });
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'darwin', go: { detect: goDetect }, rust: { detect: vi.fn() } },
+    });
+    try {
+      render(<Toolbar />);
+      const runBtn = screen.getByTestId('toolbar-run-button') as HTMLButtonElement;
+      await waitFor(() => expect(runBtn.disabled).toBe(true));
+      expect(runBtn.closest('[title]')?.getAttribute('title') ?? runBtn.getAttribute('aria-label') ?? '').not.toBe('');
+      expect(mockOpenBottomPanel).toHaveBeenCalledOnce();
+      expect(mockOpenBottomPanel).toHaveBeenCalledWith('console');
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
     }
   });
 

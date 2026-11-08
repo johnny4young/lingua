@@ -38,10 +38,13 @@ export function SqlSaveQueryPopover({
   const nameRef = useRef<HTMLInputElement | null>(null);
   const position = useFloatingPosition(anchor, true, 'inside');
 
+  // A hidden element cannot take focus, so wait until the popover is placed.
+  const placed = position.visibility !== 'hidden';
   useEffect(() => {
+    if (!placed) return;
     nameRef.current?.focus({ preventScroll: true });
     nameRef.current?.select();
-  }, []);
+  }, [placed]);
 
   const folder = folderChoice === NEW_FOLDER ? newFolder.trim() : folderChoice;
   const canSave = name.trim().length > 0 && (folderChoice !== NEW_FOLDER || folder.length > 0);

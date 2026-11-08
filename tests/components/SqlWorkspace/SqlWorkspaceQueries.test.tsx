@@ -186,6 +186,39 @@ describe('SQL query tabs and the Free budget', () => {
     expect(state.openQueryIds).toEqual([state.activeQueryId]);
     expect(state.getQuery(state.activeQueryId!)?.name).toBe('Report copy');
   });
+
+  it('focuses the name only once the save popover is placed, since a hidden field cannot take focus', () => {
+    openQuery('SELECT 1');
+    render(<SqlWorkspacePanel />);
+    const popoverStateAtFocus: string[] = [];
+    const nativeFocus = HTMLElement.prototype.focus;
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options) {
+      if (this.dataset.testid === 'sql-save-name') {
+        popoverStateAtFocus.push(this.closest<HTMLElement>('[data-testid="sql-save-popover"]')!.style.visibility);
+      }
+      nativeFocus.call(this, options);
+    });
+    act(() => {
+      emitCommand('workspace.save', { kind: 'sql', as: true });
+    });
+    focus.mockRestore();
+    const name = screen.getByTestId('sql-save-name');
+    expect(popoverStateAtFocus.length).toBeGreaterThan(0);
+    expect(popoverStateAtFocus).not.toContain('hidden');
+    expect(document.activeElement).toBe(name);
+  });
+
+  it('saves a copy with the text typed just before Save as', () => {
+    openQuery('SELECT 1');
+    render(<SqlWorkspacePanel />);
+    fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), { target: { value: 'SELECT 2' } });
+    act(() => {
+      emitCommand('workspace.save', { kind: 'sql', as: true });
+    });
+    fireEvent.click(screen.getByTestId('sql-save-confirm'));
+    const state = useWorkspaceSqlStore.getState();
+    expect(state.getQuery(state.activeQueryId!)).toMatchObject({ name: 'Report copy', query: 'SELECT 2' });
+  });
 });
 
 describe('SQL run modes', () => {

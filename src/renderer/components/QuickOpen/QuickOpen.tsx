@@ -59,10 +59,12 @@ const MAX_SCOPE_ROWS = 50;
 
 interface QuickOpenProps {
   onClose: () => void;
+  /** Typed in on open, from the command palette. */
+  initialQuery?: string;
 }
 
-export function QuickOpen({ onClose }: QuickOpenProps) {
-  const [query, setQuery] = useState('');
+export function QuickOpen({ onClose, initialQuery = '' }: QuickOpenProps) {
+  const [query, setQuery] = useState(initialQuery);
   const [selectedIndex, setSelectedIndex] = useState(0);
   // "edited N min ago" is relative to when the overlay opened.
   const [openedAt] = useState(() => Date.now());

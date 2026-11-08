@@ -33,6 +33,7 @@
  *     same code path as web.
  */
 
+import i18next from 'i18next';
 import { sha256HexToIntegrity } from './wasmIntegrity';
 import { DuckDbEngineLifecycle } from './duckdbEngineLifecycle';
 import {
@@ -145,6 +146,8 @@ export interface DuckDbEngineHandle {
   registerEmptyFile?: (name: string) => Promise<void>;
   /** The bytes of a virtual file, after `COPY … TO` wrote it. */
   readFile?: (name: string) => Promise<Uint8Array>;
+  /** Loads Lingua's copy of the JSON extension; false when it could not. */
+  loadJsonExtension?: () => Promise<boolean>;
 }
 
 /**
@@ -197,7 +200,8 @@ const DUCKDB_ACCESS_MODE_READ_WRITE = 3;
  */
 const OPFS_SQL_DB_FILE_NAMES: readonly string[] = (() => {
   const base = OPFS_SQL_DB_PATH.replace(/^opfs:\/\//, '');
-  return [base, `${base}.wal`];
+  // Staged copies an interrupted storage migration from an older build can leave behind.
+  return [base, `${base}.wal`, `${base}.lingua-migrating`, `${base}.wal.lingua-migrating`];
 })();
 
 /** Minimal `db.open` surface the persistence helper depends on. */
@@ -526,47 +530,131 @@ async function fetchVerifiedWasmUrl(
   return URL.createObjectURL(await response.blob());
 }
 
+const VENDORED_EXTENSIONS_DIR = '../duckdb-extensions/v1.4.3/wasm_eh';
+const EXTENSION_FETCH_TIMEOUT_MS = 15_000;
+
+/** Extensions Lingua ships; DuckDB reaches for any other one by name and fails. */
+export const VENDORED_DUCKDB_EXTENSIONS = ['json', 'icu', 'parquet'] as const;
+type VendoredDuckDbExtension = (typeof VENDORED_DUCKDB_EXTENSIONS)[number];
+type DuckDbExtensionLoaders = Record<VendoredDuckDbExtension, () => Promise<boolean>>;
+
+/** Keeps DuckDB off its own host. An autoload through this repository traps in the EH build, so autoloading stays off. */
+const CLOSE_EXTENSION_REPOSITORY_SQL = ["SET custom_extension_repository='data:'", 'SET autoload_known_extensions=false'];
+/** `LOAD` and `ATTACH` reach the closed repository; anything else is named by the catalog error. */
+const MISSING_EXTENSION_ERROR = /(?:Failed to load 'data:[^']*\/|but it exists in the )([a-z0-9_]+)(?:\.duckdb_extension\.wasm'| extension)/;
+/** Parquet weighs too much to load for everyone, so the first SQL that names it pays. */
+const PARQUET_SQL = /parquet/i;
+
+/** The extension a failed statement needed, when DuckDB's closed repository is why it failed. */
+export function missingExtensionName(err: unknown): string | undefined {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  return MISSING_EXTENSION_ERROR.exec(raw)?.[1];
+}
+
+const isVendoredExtension = (name: string | undefined): name is VendoredDuckDbExtension =>
+  (VENDORED_DUCKDB_EXTENSIONS as readonly string[]).includes(name ?? '');
+
+/**
+ * DuckDB's own request for an extension blocks its worker with no time limit,
+ * so it gets a local URL. It names the extension after the URL's last segment.
+ */
+export async function readExtensionToBlobUrl(url: string): Promise<string> {
+  const file = url.slice(url.lastIndexOf('/') + 1);
+  const response = await fetch(url, { signal: AbortSignal.timeout(EXTENSION_FETCH_TIMEOUT_MS) });
+  if (!response.ok) throw new Error(`Failed to fetch ${file} (${response.status})`);
+  return `${URL.createObjectURL(await response.blob())}#/${file}`;
+}
+
+/** A failed load leaves the next call free to retry; DuckDB checks the file's signature. */
+export function createExtensionLoader(
+  run: (sql: string) => Promise<void>,
+  readToBlobUrl: () => Promise<string>
+): () => Promise<boolean> {
+  let loading: Promise<boolean> | null = null;
+  const load = async (): Promise<boolean> => {
+    const blobUrl = await readToBlobUrl();
+    try {
+      await run(`LOAD '${blobUrl}'`);
+      return true;
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+  };
+  return () =>
+    (loading ??= load().catch(() => {
+      loading = null;
+      return false;
+    }));
+}
+
+/**
+ * Loads what `sql` needs before it runs. SQL can need an extension without naming
+ * it, through a saved view or after a failed load at start, so a statement that
+ * failed for one it ships runs again. Only one statement: a script may have written.
+ */
+export async function runWithExtensions<T>(
+  sql: string,
+  run: () => Promise<T>,
+  loaders: DuckDbExtensionLoaders,
+  wasStopped: () => boolean
+): Promise<T> {
+  const load = async (loader: () => Promise<boolean>): Promise<boolean> => {
+    const loaded = await loader();
+    if (wasStopped()) throw new Error('Query cancelled');
+    return loaded;
+  };
+  if (PARQUET_SQL.test(sql)) await load(loaders.parquet);
+  try {
+    return await run();
+  } catch (err) {
+    const name = missingExtensionName(err);
+    if (!isVendoredExtension(name) || countSqlStatements(sql) !== 1 || !(await load(loaders[name]))) throw err;
+    return run();
+  }
+}
+
 /**
  * Production factory. Dynamically imports `@duckdb/duckdb-wasm` so
  * the bundler emits it on the `duckdb-wasm` chunk (see
  * `vite.web.config.mts` + `vite.renderer.config.mts`). Desktop keeps
  * the WASM blob bundled; the standalone web build points the >25 MiB
- * MVP WASM at the public R2 runtime prefix because Cloudflare Pages
- * rejects oversized single assets.
+ * WASM at the public R2 runtime prefix because Cloudflare Pages
+ * rejects oversized single assets. The EH build, because the MVP one
+ * fails on any C++ exception that DuckDB catches, including internal ones.
  */
 async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   // Dynamic imports keep the chunk lazy. The browser fetches the
   // ~1 MiB JS shim first; the WASM only when DuckDB
   // actually instantiates.
   const duckdb = await import('@duckdb/duckdb-wasm');
-  const mvpWorkerModule = await import(
-    '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url'
+  const workerModule = await import(
+    '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url'
   );
-  const mvpWorkerUrl: string = mvpWorkerModule.default;
-  let mvpWasmUrl: string;
+  const workerUrl: string = workerModule.default;
+  let wasmUrl: string;
   let revokeWasmUrl: (() => void) | null = null;
-  if (__LINGUA_DUCKDB_MVP_WASM_URL__) {
-    const expectedSha256 = __LINGUA_DUCKDB_MVP_WASM_SHA256__;
+  if (__LINGUA_DUCKDB_WASM_URL__) {
+    const expectedSha256 = __LINGUA_DUCKDB_WASM_SHA256__;
     if (expectedSha256) {
-      mvpWasmUrl = await fetchVerifiedWasmUrl(
-        __LINGUA_DUCKDB_MVP_WASM_URL__,
+      wasmUrl = await fetchVerifiedWasmUrl(
+        __LINGUA_DUCKDB_WASM_URL__,
         expectedSha256
       );
-      const blobUrl = mvpWasmUrl;
+      const blobUrl = wasmUrl;
       revokeWasmUrl = () => URL.revokeObjectURL(blobUrl);
     } else {
-      mvpWasmUrl = __LINGUA_DUCKDB_MVP_WASM_URL__;
+      wasmUrl = __LINGUA_DUCKDB_WASM_URL__;
     }
   } else {
-    const mvpWasmModule = await import(
-      '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url'
+    const wasmModule = await import(
+      '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url'
     );
-    mvpWasmUrl = mvpWasmModule.default;
+    wasmUrl = wasmModule.default;
   }
   // Wrap the worker URL into an actual `Worker` instance. DuckDB's
   // `createWorker` would normally fetch the URL itself; we pass our
   // bundled URL directly so the same-origin guarantee holds.
-  const worker = new Worker(mvpWorkerUrl);
+  const worker = new Worker(workerUrl);
   // Reviewer pass (HIGH-1) — if WASM instantiation fails (offline,
   // CSP rejection, OOM), the just-spawned worker must be terminated
   // so it doesn't sit idle in the browser. Without this guard each
@@ -576,7 +664,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   try {
     const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
     const db = new duckdb.AsyncDuckDB(logger, worker);
-    await db.instantiate(mvpWasmUrl);
+    await db.instantiate(wasmUrl);
     // The verified blob URL has served its purpose once instantiation
     // completes; revoking frees the duplicated WASM bytes.
     revokeWasmUrl?.();
@@ -595,17 +683,50 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       isOpfsStorageAvailable()
     );
     resolvedStorageRequestedMode = requestedStorageMode;
+    const runAlone = async (sql: string) => {
+      const connection = await db.connect();
+      try {
+        await connection.query(sql);
+      } finally {
+        await connection.close();
+      }
+    };
+    // After the open above, which replaces the database and its settings.
+    for (const sql of CLOSE_EXTENSION_REPOSITORY_SQL) await runAlone(sql);
+    const extensionLoader = (name: VendoredDuckDbExtension) =>
+      createExtensionLoader(runAlone, () =>
+        readExtensionToBlobUrl(
+          new URL(/* @vite-ignore */ `${VENDORED_EXTENSIONS_DIR}/${name}.duckdb_extension.wasm`, import.meta.url).href
+        )
+      );
+    const extensions: DuckDbExtensionLoaders = {
+      json: extensionLoader('json'),
+      icu: extensionLoader('icu'),
+      parquet: extensionLoader('parquet'),
+    };
+    // ICU cannot wait for first use: `now() - INTERVAL` fails without it and never asks for it.
+    await Promise.all([extensions.json(), extensions.icu()]);
     return {
+      loadJsonExtension: extensions.json,
       connect: async (): Promise<DuckDbConnection> => {
         const connection = await db.connect();
+        // A cancel during an extension load has no statement to stop yet.
+        let stopped = false;
+        const withExtensions = <T>(sql: string, run: () => Promise<T>) => {
+          stopped = false;
+          return runWithExtensions(sql, run, extensions, () => stopped);
+        };
         return {
           query: async (sql: string) => {
-            const arrowTable = await connection.query(sql);
+            const arrowTable = await withExtensions(sql, () => connection.query(sql));
             return mapArrowTable(arrowTable);
           },
           stream: async (sql: string) => {
-            const reader = await connection.send(sql, true);
-            await reader.open();
+            const reader = await withExtensions(sql, async () => {
+              const opened = await connection.send(sql, true);
+              await opened.open();
+              return opened;
+            });
             return {
               fields: () => reader.schema?.fields ?? [],
               next: async () => {
@@ -614,7 +735,10 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
               },
             };
           },
-          cancel: () => connection.cancelSent(),
+          cancel: () => {
+            stopped = true;
+            return connection.cancelSent();
+          },
           close: async () => {
             await connection.close();
           },
@@ -883,7 +1007,9 @@ export async function readResultStream(
  *   - `Uint8Array` / Buffer → base64 string (rare in result sets but
  *     defensive).
  *   - Nested objects + arrays are recursed.
- *   - Numbers + booleans + strings + null pass through.
+ *   - Numbers + booleans + strings + null pass through; `Infinity`,
+ *     `-Infinity` and `NaN` become that text, as the connection host does,
+ *     because JSON cannot hold them.
  *   - Symbols + functions → `null` (defensive — DuckDB never returns
  *     these, but Arrow row objects can carry prototype chains).
  */
@@ -902,7 +1028,7 @@ function sanitiseValueForJson(value: unknown): unknown {
   const valueType = typeof value;
   if (valueType === 'string' || valueType === 'boolean') return value;
   if (valueType === 'number') {
-    return Number.isFinite(value) ? value : null;
+    return Number.isFinite(value) ? value : String(value);
   }
   if (valueType === 'bigint') return (value as bigint).toString();
   if (valueType === 'symbol' || valueType === 'function') return null;
@@ -1016,9 +1142,6 @@ interface QueryTimeoutSentinel {
  * of a string so a query result can never collide with it accidentally.
  */
 const TIMEOUT_SENTINEL: QueryTimeoutSentinel = { __sqlWorkspaceTimeout: true };
-const DUCKDB_WASM_INTERNAL_ERROR = /_setThrew is not defined/i;
-const DUCKDB_WASM_INTERNAL_ERROR_MESSAGE =
-  'DuckDB could not return the detailed SQL error. Check the query syntax, table names, and column names.';
 
 function isTimeoutSentinel(value: unknown): value is QueryTimeoutSentinel {
   return (
@@ -1028,18 +1151,36 @@ function isTimeoutSentinel(value: unknown): value is QueryTimeoutSentinel {
   );
 }
 
-function errorMessageForUser(err: unknown, fallback: string): string {
-  const raw = err instanceof Error ? err.message : String(err ?? fallback);
-  if (DUCKDB_WASM_INTERNAL_ERROR.test(raw)) {
-    return DUCKDB_WASM_INTERNAL_ERROR_MESSAGE;
-  }
-  return raw;
+/** A sentence for a statement that failed for want of an extension; undefined for any other failure. */
+export function missingExtensionMessage(err: unknown): string | undefined {
+  const name = missingExtensionName(err);
+  if (!name) return undefined;
+  return i18next.t(isVendoredExtension(name) ? 'sqlWorkspace.extension.notLoaded' : 'sqlWorkspace.extension.notIncluded', { name });
 }
 
-/** DuckDB's own reason for a failure, or undefined when the wasm build lost it. */
+/** A parser error comes as JSON on a streamed statement and with its source line twice on a script. */
+function readableDuckDbError(raw: string): string {
+  if (raw.startsWith('{"exception_type"')) {
+    try {
+      const { exception_type: type, exception_message: message } = JSON.parse(raw) as Record<string, string>;
+      return `${type} Error: ${message}`;
+    } catch {
+      return raw;
+    }
+  }
+  return raw.replace(/(\n\nLINE [\s\S]*)\1$/, '$1');
+}
+
+function errorMessageForUser(err: unknown, fallback: string): string {
+  const missing = missingExtensionMessage(err);
+  if (missing) return missing;
+  return readableDuckDbError(err instanceof Error ? err.message : String(err ?? fallback));
+}
+
+/** DuckDB's own reason for a failure, or undefined when it gave none. */
 export function duckDbErrorDetail(err: unknown): string | undefined {
-  const raw = err instanceof Error ? err.message : String(err ?? '');
-  return raw.trim() === '' || DUCKDB_WASM_INTERNAL_ERROR.test(raw) ? undefined : raw;
+  const message = errorMessageForUser(err, '');
+  return message.trim() === '' ? undefined : message;
 }
 
 /** Statement count for the UX badge and the stream decision, from the shared splitter. */
@@ -1149,6 +1290,12 @@ async function runOnConnection(
     ),
     ...(stillRunning ? { stillRunning } : {}),
   });
+  // Aborted while the connection opened: send nothing.
+  if (options.signal?.aborted) {
+    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+    removeAbortListener();
+    return stopped('cancelled', false);
+  }
   try {
     // One statement streams, so it can stop at the row window and be cancelled.
     const stream = statementCount === 1 ? connection.stream : undefined;

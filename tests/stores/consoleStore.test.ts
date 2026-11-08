@@ -362,4 +362,17 @@ describe('consoleStore', () => {
     useConsoleStore.getState().clear();
     expect(useConsoleStore.getState().collapsedEntries).toHaveLength(0);
   });
+
+  it('redraws a progress bar row in place and keeps its id', () => {
+    const bar = (value: number) => ({ type: 'log' as const, content: `p ${value}`, payload: [{ kind: 'progress' as const, id: 'run:1', label: 'p', value }] });
+    useConsoleStore.getState().addEntries([{ type: 'log', content: 'before' }, bar(0)]);
+    const id = useConsoleStore.getState().entries[1]!.id;
+    useConsoleStore.getState().addEntries([bar(0.4), bar(0.5), { type: 'log', content: 'after' }]);
+    useConsoleStore.getState().addEntries([bar(1)]);
+    const { entries, collapsedEntries } = useConsoleStore.getState();
+    expect(entries.map(entry => entry.content)).toEqual(['before', 'p 1', 'after']);
+    expect(entries[1]!.id).toBe(id);
+    expect(collapsedEntries.map(row => row.entry.content)).toEqual(['before', 'p 1', 'after']);
+    expect(collapsedEntries[1]!.entry.id).toBe(id);
+  });
 });

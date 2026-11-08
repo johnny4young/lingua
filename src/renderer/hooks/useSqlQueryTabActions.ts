@@ -25,9 +25,10 @@ function nextScratchNumber(queries: ReadonlyArray<SqlQueryV1>, label: (n: number
 
 /**
  * Opening, closing and saving query tabs. Anything that opens a tab passes
- * the Free tab budget first; `onViewReset` clears the results view.
+ * the Free tab budget first; `onViewReset` clears the results view, and
+ * `canLeaveView` can refuse anything that would.
  */
-export function useSqlQueryTabActions(onViewReset: () => void) {
+export function useSqlQueryTabActions(onViewReset: () => void, canLeaveView: () => boolean = () => true) {
   const { t } = useTranslation();
   const { track } = useTelemetry();
   const admit = useCallback(() => admitSqlQueryTab(track), [track]);
@@ -36,7 +37,7 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
 
   const create = useCallback(
     (sql = '', name = '', connectionId?: string) => {
-      if (!admit()) return;
+      if (!canLeaveView() || !admit()) return;
       const store = useWorkspaceSqlStore.getState();
       const label = (n: number) => t('sqlWorkspace.scratch.name', { n });
       const scratchName = name || label(nextScratchNumber(store.queries, label));
@@ -47,28 +48,30 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
       setSaveDialog(null);
       onViewReset();
     },
-    [admit, onViewReset, t]
+    [admit, canLeaveView, onViewReset, t]
   );
 
   const select = useCallback(
     (id: string) => {
       const store = useWorkspaceSqlStore.getState();
+      if (id !== store.activeQueryId && !canLeaveView()) return;
       if (!store.openQueryIds.includes(id) && !admit()) return;
       store.openQueryTab(id);
       setSaveDialog((dialog) => (dialog?.queryId === id ? dialog : null));
       onViewReset();
     },
-    [admit, onViewReset]
+    [admit, canLeaveView, onViewReset]
   );
 
   const close = useCallback((id: string) => {
+    if (id === useWorkspaceSqlStore.getState().activeQueryId && !canLeaveView()) return;
     const query = useWorkspaceSqlStore.getState().getQuery(id);
     if (query?.kind === 'scratch' && query.query.trim().length > 0) {
       setClosePromptId(id);
       return;
     }
     useWorkspaceSqlStore.getState().closeQueryTab(id);
-  }, []);
+  }, [canLeaveView]);
 
   const rename = useCallback((id: string, name: string) => {
     useWorkspaceSqlStore.getState().updateQuery(id, { name });
@@ -93,10 +96,11 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
 
   const remove = useCallback(
     (id: string) => {
+      if (id === useWorkspaceSqlStore.getState().activeQueryId && !canLeaveView()) return;
       useWorkspaceSqlStore.getState().deleteQuery(id);
       onViewReset();
     },
-    [onViewReset]
+    [canLeaveView, onViewReset]
   );
 
   // Saved queries save as you type, so Mod+S on one only confirms it.

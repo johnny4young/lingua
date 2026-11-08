@@ -1,11 +1,13 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import {
   APP_VERSION,
   dismissWhatsNew,
+  expect,
   openCommandPalette,
   openQuickOpen,
   openSettings,
   openSettingsTab,
+  test,
 } from '../e2e/licenseWeb.helpers';
 
 type Theme = 'light' | 'dark';
@@ -93,6 +95,8 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('stdin input panel', async ({ page }) => {
       await boot(page, theme);
+      // A shortcut pressed before the welcome tab's auto-run ends can leave the dock on Console.
+      await expect(page.getByTestId('dock-execution-time')).toBeVisible();
       await page.keyboard.press('ControlOrMeta+Shift+E');
       await expect(page.getByTestId('stdin-panel')).toBeVisible();
       await expect(page.getByTestId('stdin-panel')).toHaveScreenshot(`stdin-panel-${theme}.png`);

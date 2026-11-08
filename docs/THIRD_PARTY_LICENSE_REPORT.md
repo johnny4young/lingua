@@ -63,11 +63,11 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `@azure/msal-common` | `16.14.3` | `MIT` | `node_modules/@azure/msal-common` |
 | `@azure/msal-node` | `7.1.1` | `MIT` | `node_modules/@azure/msal-node` |
 | `@clickhouse/client` | `1.24.1` | `Apache-2.0` | `node_modules/@clickhouse/client` |
-| `@hono/node-server` | `1.19.17` | `MIT` | `node_modules/@hono/node-server` |
+| `@hono/node-server` | `2.1.6` | `MIT` | `node_modules/@hono/node-server` |
 | `@js-joda/core` | `6.3.0` | `BSD-3-Clause` | `node_modules/@js-joda/core` |
-| `@modelcontextprotocol/core` | `2.3.1` | `Apache-2.0` | `node_modules/@modelcontextprotocol/core` |
-| `@modelcontextprotocol/node` | `2.1.1` | `Apache-2.0` | `node_modules/@modelcontextprotocol/node` |
-| `@modelcontextprotocol/server` | `2.3.1` | `Apache-2.0` | `node_modules/@modelcontextprotocol/server` |
+| `@modelcontextprotocol/core` | `2.4.0` | `Apache-2.0` | `node_modules/@modelcontextprotocol/core` |
+| `@modelcontextprotocol/node` | `2.1.2` | `Apache-2.0` | `node_modules/@modelcontextprotocol/node` |
+| `@modelcontextprotocol/server` | `2.4.0` | `Apache-2.0` | `node_modules/@modelcontextprotocol/server` |
 | `@types/node` | `25.9.6` | `MIT` | `node_modules/@types/node` |
 | `@types/readable-stream` | `4.0.25` | `MIT` | `node_modules/@types/readable-stream` |
 | `@typespec/ts-http-runtime` | `0.3.9` | `MIT` | `node_modules/@typespec/ts-http-runtime` |

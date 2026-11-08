@@ -289,7 +289,14 @@ describe('HttpWorkspacePanel', () => {
       screen.getByTestId('http-request-editor-url'),
       'https://api.example.com/users'
     );
+    const record = vi.spyOn(useExecutionHistoryStore.getState(), 'record');
     await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => {
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({ summary: expect.objectContaining({ kind: 'http', method: 'GET', status: 200 }) })
+      );
+    });
+    record.mockRestore();
 
     await waitFor(() => {
       const latestCapsule = useExecutionHistoryStore.getState().latestCapsule();
@@ -948,6 +955,53 @@ describe('HttpWorkspacePanel — collection workspace (rail-driven)', () => {
     });
   });
 
+  it('keeps a token this response introduced out of the run capsule and off disk', async () => {
+    const user = userEvent.setup();
+    const token = 'tok_0123456789abcdef';
+    useExecutionHistoryStore.getState().clear();
+    useWorkspaceToolStore.setState({
+      environments: [devEnv([])],
+      activeEnvironmentId: 'e1',
+      requests: [seedCaptureRequest()],
+      activeRequestId: 'req-login',
+    });
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({ body: JSON.stringify({ data: { token } }) })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => expect(useExecutionHistoryStore.getState().entries).toHaveLength(1));
+
+    const capsule = useExecutionHistoryStore.getState().entries[0]?.lastCapsule;
+    expect(capsule).toBeDefined();
+    expect(JSON.stringify(capsule)).not.toContain(token);
+    const stored = JSON.parse(localStorage.getItem('lingua-workspace-tool-state') ?? '{}').state;
+    expect(JSON.stringify(stored.responsesByRequestId)).not.toContain(token);
+    expect(useWorkspaceToolStore.getState().responsesByRequestId['req-login']?.[0]?.body).toContain(token);
+  });
+
+  it('marks a captured JSON Web Token secret whatever its variable is called', async () => {
+    const user = userEvent.setup();
+    const [rule] = seedCaptureRequest().captures;
+    useWorkspaceToolStore.setState({
+      environments: [devEnv([])],
+      activeEnvironmentId: 'e1',
+      requests: [{ ...seedCaptureRequest(), captures: [{ ...rule!, targetVariable: 'me' }] }],
+      activeRequestId: 'req-login',
+    });
+    executeHttpRequestMock.mockResolvedValue(
+      makeResponse({ body: JSON.stringify({ data: { token: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig' } }) })
+    );
+    render(<HttpWorkspacePanel />);
+
+    await user.click(screen.getByTestId('http-request-editor-send'));
+    await waitFor(() => {
+      const row = useWorkspaceToolStore.getState().environments[0]?.variables.find((v) => v.key === 'me');
+      expect(row?.secret).toBe(true);
+    });
+  });
+
   it('updates an existing variable in place rather than duplicating it', async () => {
     const user = userEvent.setup();
     useWorkspaceToolStore.setState({
@@ -1017,7 +1071,7 @@ describe('HttpWorkspacePanel — variable scopes', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpScopes: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false });
     useUIStore.setState({ statusNotice: null });
     executeHttpRequestMock.mockReset();
     executeHttpRequestMock.mockResolvedValue(makeResponse());
@@ -1046,15 +1100,6 @@ describe('HttpWorkspacePanel — variable scopes', () => {
     await user.click(screen.getByTestId('http-request-editor-send'));
     await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalled());
     expect(executeHttpRequestMock.mock.calls[0]![0].url).toBe('https://staging.example/repos/octocat/lingua');
-  });
-
-  it('ignores the new scopes with the flag off', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
-    useWorkspaceToolStore.setState({ collectionVariables: [{ id: 'c1', key: 'owner', value: 'octocat', secret: false }] });
-    const user = await sendUrl('https://api.example.com/{{owner}}');
-    await user.click(screen.getByTestId('http-request-editor-send'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(executeHttpRequestMock).not.toHaveBeenCalled();
   });
 
   const twoEnvironments = () =>
@@ -1133,7 +1178,7 @@ describe('HttpWorkspacePanel — chain tags', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpChainTags: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false });
     useUIStore.setState({ statusNotice: null });
     executeHttpRequestMock.mockReset();
   });
@@ -1286,7 +1331,7 @@ describe('HttpWorkspacePanel — chain tags', () => {
       render(<HttpWorkspacePanel />);
       await userEvent.click(screen.getByTestId('http-request-editor-send'));
       await waitFor(() =>
-        expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.confirm', values: { name: 'Get repo', origin: 'https://other.example' } })
+        expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'httpWorkspace.chain.confirm', sticky: true, values: { name: 'Get repo', origin: 'https://other.example' } })
       );
       expect(sentUrls()).toEqual([`${API}/users/octocat/repos`]);
       const action = useUIStore.getState().statusNotice!.actions![0]!;
@@ -1325,13 +1370,6 @@ describe('HttpWorkspacePanel — chain tags', () => {
     });
   });
 
-  it('leaves tags alone with the flag off', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
-    seed({ owner: 'source-first' });
-    render(<HttpWorkspacePanel />);
-    expect(screen.queryByTestId('http-chain')).toBeNull();
-    expect(screen.getByTestId('http-request-editor-send').hasAttribute('disabled')).toBe(true);
-  });
 });
 
 describe('HttpWorkspacePanel — snapshot assertions', () => {
@@ -1339,7 +1377,7 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspaceToolStoreForTests();
-    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false, featureFlags: { httpSnapshots: true } });
+    useSettingsStore.setState({ sensitiveHttpHeaders: [], httpAllowPrivateHosts: false });
     executeHttpRequestMock.mockReset();
   });
 

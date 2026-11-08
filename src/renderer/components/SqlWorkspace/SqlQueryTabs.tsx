@@ -2,6 +2,7 @@ import { Loader2, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SqlQueryV1 } from '../../../shared/sqlWorkspace';
 import { cn } from '../../utils/cn';
+import { CONNECTION_TONE, type SqlConnectionTone } from './sqlConnectionStyle';
 
 /** Query tabs inside the SQL tab. Each one counts toward the Free tab budget. */
 export function SqlQueryTabs({
@@ -12,6 +13,7 @@ export function SqlQueryTabs({
   onClose,
   onCreate,
   freeHint,
+  tone = 'local',
 }: {
   tabs: ReadonlyArray<SqlQueryV1>;
   activeId: string | null;
@@ -21,6 +23,8 @@ export function SqlQueryTabs({
   onCreate: () => void;
   /** Shown on Free, where these tabs share the open-tab budget. */
   freeHint: string | null;
+  /** The active connection's environment, drawn on the active tab. */
+  tone?: SqlConnectionTone;
 }) {
   const { t } = useTranslation();
   return (
@@ -39,9 +43,10 @@ export function SqlQueryTabs({
               data-testid="sql-query-tab"
               data-query-id={tab.id}
               data-active={active}
+              data-env={active ? tone : undefined}
               className={cn(
                 'group flex max-w-[200px] shrink-0 items-center gap-1 border-r border-border-subtle pl-2.5 pr-1 text-caption',
-                active ? 'bg-bg-base text-fg-base shadow-[inset_0_-2px_0_var(--color-accent)]' : 'text-fg-muted hover:bg-bg-panel-alt'
+                active ? cn('bg-bg-base text-fg-base shadow-[inset_0_-2px_0_var(--color-accent)]', CONNECTION_TONE[tone].tab) : 'text-fg-muted hover:bg-bg-panel-alt'
               )}
             >
               <button
@@ -55,7 +60,8 @@ export function SqlQueryTabs({
                 {tab.id === runningId ? (
                   <Loader2 size={10} aria-hidden="true" className="shrink-0 animate-spin text-accent" />
                 ) : null}
-                <span className={cn('min-w-0 truncate', tab.kind === 'scratch' && 'italic')}>{name}</span>
+                {/* Truncation clips, so an italic name keeps room for its last glyph's slant. */}
+                <span className={cn('min-w-0 truncate', tab.kind === 'scratch' && 'pr-0.5 italic')}>{name}</span>
                 {unsaved ? (
                   <span
                     data-testid="sql-query-tab-unsaved"

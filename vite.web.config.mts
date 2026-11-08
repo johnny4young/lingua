@@ -75,10 +75,10 @@ export default defineConfig(({ command }) => {
   // does not apply.
   const useExternalWebRuntime =
     command === 'build' && process.env.LINGUA_WEB_RUNTIME_SAME_ORIGIN !== '1';
-  const duckdbWasmUrl = `${webRuntimeBase}/duckdb/${duckdbWasmVersion}/duckdb-mvp.wasm`;
+  const duckdbWasmUrl = `${webRuntimeBase}/duckdb/${duckdbWasmVersion}/duckdb-eh.wasm`;
   const rubyWasmUrl = `${webRuntimeBase}/ruby/${rubyWasmVersion}/ruby+stdlib.wasm`;
   const duckdbWasmSha256 = useExternalWebRuntime
-    ? sha256OfRuntimeAsset('node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm')
+    ? sha256OfRuntimeAsset('node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm')
     : null;
   const rubyWasmSha256 = useExternalWebRuntime
     ? sha256OfRuntimeAsset('node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm')
@@ -114,15 +114,15 @@ export default defineConfig(({ command }) => {
       // `new URL('../pyodide/...')` path is the authority.
       __LINGUA_PYODIDE_INDEX_URL__: JSON.stringify(null),
       // Cloudflare Pages rejects single files above 25 MiB. Ruby's
-      // stdlib WASM and DuckDB's MVP WASM are uploaded to the public R2
+      // stdlib WASM and DuckDB's WASM are uploaded to the public R2
       // runtime prefix by deploy-web.yml, while local dev keeps using
       // the same-origin Vite middleware/assets.
-      __LINGUA_DUCKDB_MVP_WASM_URL__: JSON.stringify(useExternalWebRuntime ? duckdbWasmUrl : null),
+      __LINGUA_DUCKDB_WASM_URL__: JSON.stringify(useExternalWebRuntime ? duckdbWasmUrl : null),
       __LINGUA_RUBY_WASM_URL__: JSON.stringify(useExternalWebRuntime ? rubyWasmUrl : null),
       // Expected sha256 of the R2-mirrored payloads (null when serving
       // same-origin assets, which skip runtime verification — they are
       // covered by runtime-assets.lock.json / pnpm-lock integrity).
-      __LINGUA_DUCKDB_MVP_WASM_SHA256__: JSON.stringify(duckdbWasmSha256),
+      __LINGUA_DUCKDB_WASM_SHA256__: JSON.stringify(duckdbWasmSha256),
       __LINGUA_RUBY_WASM_SHA256__: JSON.stringify(rubyWasmSha256),
     },
     root: path.resolve(__dirname, 'src/web'),

@@ -92,6 +92,8 @@ type RustDetectResult = import('./shared/nativeRuntimeTypes').RustDetectResult;
 
 type RustRunResult = import('./shared/nativeRuntimeTypes').RustRunResult;
 
+type ToolchainChooseResult = import('./shared/toolchainBinary').ToolchainChooseResult;
+
 // -------------------------------------------------------------- Node types
 // Desktop Node child-spawn IPC. Detection + run.
 
@@ -384,6 +386,8 @@ type DesktopSmokeMemorySnapshot =
         workingSetSizeBytes: number;
         peakWorkingSetSizeBytes: number;
         privateBytes: number;
+        /** macOS footprint; null where the platform has no equivalent. */
+        footprintBytes: number | null;
       }>;
     }
   | {
@@ -548,6 +552,9 @@ interface LinguaAPI {
   platform: string;
   getSystemLanguages: () => Promise<string[]>;
   getAppInfo: () => Promise<AppInfo>;
+  consumeStorageMigrationNotice: () => Promise<
+    import('./shared/ipcContract').StorageMigrationNotice | null
+  >;
   openExternal: (url: string) => Promise<boolean>;
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
   /** Desktop-only encrypted secret vault; absent on web. */
@@ -570,6 +577,12 @@ interface LinguaAPI {
       runId?: string
     ) => Promise<GoCompileResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    /** Main opens the picker, validates the binary and keeps its path. */
+    chooseBinary: () => Promise<ToolchainChooseResult>;
+    /** The picked binary, home-relative; null when Run uses PATH. */
+    chosenBinary: () => Promise<{ path: string | null }>;
+    /** Forgets the picked binary so Run searches PATH again. */
+    clearBinary: () => Promise<{ cleared: boolean }>;
   };
 
   rust: {
@@ -581,6 +594,12 @@ interface LinguaAPI {
       runId?: string
     ) => Promise<RustRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
+    /** Main opens the picker, validates the binary and keeps its path. */
+    chooseBinary: () => Promise<ToolchainChooseResult>;
+    /** The picked binary, home-relative; null when Run uses PATH. */
+    chosenBinary: () => Promise<{ path: string | null }>;
+    /** Forgets the picked binary so Run searches PATH again. */
+    clearBinary: () => Promise<{ cleared: boolean }>;
   };
 
   // Desktop Node child-spawn IPC. Worker-mode JS
@@ -1052,7 +1071,7 @@ declare const __LINGUA_BUILD_DATE__: string | undefined;
 declare const __LINGUA_WEBSITE_URL__: string | undefined;
 declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;
 declare const __LINGUA_LICENSE_SERVER_URL__: string | undefined;
-declare const __LINGUA_DUCKDB_MVP_WASM_URL__: string | null | undefined;
+declare const __LINGUA_DUCKDB_WASM_URL__: string | null | undefined;
 declare const __LINGUA_RUBY_WASM_URL__: string | null | undefined;
 /**
  * Expected sha256 (hex) of the R2-mirrored WASM payloads, computed at
@@ -1060,7 +1079,7 @@ declare const __LINGUA_RUBY_WASM_URL__: string | null | undefined;
  * only in the standalone web build; the workers verify fetched bytes
  * against these before instantiation.
  */
-declare const __LINGUA_DUCKDB_MVP_WASM_SHA256__: string | null | undefined;
+declare const __LINGUA_DUCKDB_WASM_SHA256__: string | null | undefined;
 declare const __LINGUA_RUBY_WASM_SHA256__: string | null | undefined;
 declare const __LINGUA_PYODIDE_INDEX_URL__: string | null | undefined;
 declare const __LINGUA_E2E_HOOKS__: boolean | undefined;

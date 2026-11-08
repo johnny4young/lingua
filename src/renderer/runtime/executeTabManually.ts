@@ -1,9 +1,13 @@
+import { useTimelineStore } from '../stores/timelineStore';
+import { useRunRegionStore } from '../stores/runRegionStore';
+import { runRegionSource, type RunRegion } from '../utils/runRegions';
 import { beginManualRun } from './manualRunSession';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { FileTab } from '../types/editor';
+import type { ExecutionResult } from '../types/execution';
 import { acquireRunner, announceCompilation, startRunnerBootstrap } from './execute/prepareRun';
 import {
   publishCancelledRun,
@@ -21,6 +25,8 @@ import { snapshotGitPosture } from './execute/recordRunHistory';
 import { resolveRunExecution, resolveRunPlan } from './execute/resolveRunPlan';
 import { createRunConsole, runAndCollect } from './execute/runAndCollect';
 import type { ManualExecutionLifecycle, ManualExecutionSummary } from './execute/types';
+
+type StdinRequest = NonNullable<ExecutionResult['stdinRequest']>;
 
 export type { ManualExecutionLifecycle, ManualExecutionSummary } from './execute/types';
 
@@ -121,6 +127,11 @@ async function executeOwnedTab(
   }
 
   publishRunStart(activeTab, plan, runConsole, showsResults);
+  // A new run leaves the tab's recording behind; only Record run replaces it.
+  useTimelineStore.getState().clearTab(activeTab.id);
+  useRunRegionStore.getState().clearTab(activeTab.id);
+  // The run state still compares against the whole tab, so only what runs is cut.
+  const runTab = plan.region ? { ...activeTab, content: runRegionSource(activeTab.content, plan.region) } : activeTab;
   lifecycle.setIsRunning?.(true);
   const bootstrap = startRunnerBootstrap(activeTab, plan, lifecycle, runConsole);
   let runnerPrepared = false;
@@ -156,7 +167,7 @@ async function executeOwnedTab(
     try {
       run = await runAndCollect(
         runner,
-        activeTab,
+        runTab,
         execution,
         runConsole,
         session.isCurrent,
@@ -167,10 +178,13 @@ async function executeOwnedTab(
     }
     if (!session.isCurrent()) return cancelledSummary();
     if (run.result.cancelled) {
-      return publishCancelledRun(activeTab, run, runConsole, showsResults);
+      return publishCancelledRun(runTab, run, runConsole, showsResults);
     }
-    return await publishCompletedRun(
-      activeTab,
+    if (plan.recordRequested && run.result.timeline) {
+      useTimelineStore.getState().publish(activeTab.id, run.result.timeline);
+    }
+    const summary = await publishCompletedRun(
+      runTab,
       plan,
       run,
       gitSnapshot,
@@ -178,10 +192,14 @@ async function executeOwnedTab(
       session.isCurrent,
       showsResults
     );
+    if (plan.region && session.isCurrent()) {
+      publishRegion(activeTab.id, plan.region, summary.ok ? '' : summary.message, summary.executionTime, showsResults(), run.result.stdinRequest);
+    }
+    return summary;
   } catch (error) {
     if (!session.isCurrent()) return cancelledSummary();
     const message = await publishRunFailure(
-      activeTab,
+      runTab,
       plan,
       error,
       gitSnapshot,
@@ -189,6 +207,7 @@ async function executeOwnedTab(
       showsResults
     );
     if (!session.isCurrent()) return cancelledSummary();
+    if (plan.region) publishRegion(activeTab.id, plan.region, message, null, false);
     if (!runnerPrepared) {
       bootstrap.fail();
     }
@@ -202,6 +221,18 @@ async function executeOwnedTab(
     lifecycle.setLoadingMessage?.(null);
     lifecycle.setCurrentLanguage?.(null);
   }
+}
+
+function publishRegion(
+  tabId: string,
+  region: RunRegion,
+  message: string,
+  executionTime: number | null,
+  withRows: boolean,
+  request?: StdinRequest
+): void {
+  const rows = withRows ? useResultStore.getState().lineResults.filter(row => row.line >= region.startLine && row.line <= region.endLine) : [];
+  useRunRegionStore.getState().publish({ tabId, region, ranAt: Date.now(), executionTime, ok: message === '', message, rows, ...(request ? { request } : {}) });
 }
 
 /** The result store mirrors the active tab; synthetic tabs (smoke) always own it. */

@@ -4,6 +4,7 @@ import { computeLicenseJwkThumbprint } from '../../../shared/license';
 import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
 import { PUBLIC_KEY_JWK } from '../../stores/licenseWebVerify';
 import { useUIStore } from '../../stores/uiStore';
+import { openPricingPage, pricingUrl as pricingUrlFor } from '../../utils/openPricingPage';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
 import { writeToClipboard } from '../../utils/clipboard';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
@@ -199,9 +200,7 @@ export function LicenseSection() {
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const isDevicesExhausted = status.kind === 'invalid' && status.reason === 'devices-exhausted';
   const lifetimeNotice = lifetimeUpdateNotice(status);
-  const pricingUrl = i18n.language.startsWith('es')
-    ? 'https://linguacode.dev/es/pricing'
-    : 'https://linguacode.dev/pricing';
+  const pricingUrl = pricingUrlFor(i18n.language);
 
   // When a child CTA hits a duplicate-email branch with
   // `canRecover: true`, we capture the email here and pass it down to
@@ -322,14 +321,7 @@ export function LicenseSection() {
     );
   };
 
-  const handleOpenPricing = async () => {
-    try {
-      if (await window.lingua.openExternal(pricingUrl)) return;
-    } catch {
-      // The OS shell can reject a launch even for a trusted fixed URL.
-    }
-    pushStatusNotice({ tone: 'error', messageKey: 'license.benefits.pricingOpenFailed' });
-  };
+  const handleOpenPricing = () => openPricingPage(i18n.language);
 
   const runClear = async () => {
     if (isClearing) return;
@@ -350,6 +342,8 @@ export function LicenseSection() {
   const showCtas =
     status.kind === 'free' ||
     (status.kind === 'invalid' && !isDevicesExhausted);
+  // The trial sits right under the current plan instead of at the bottom.
+  const trialFirst = showCtas;
 
   return (
     <SettingsSection
@@ -403,6 +397,12 @@ export function LicenseSection() {
           }
         />
       </SpecCard>
+
+      {trialFirst ? (
+        <SpecCard>
+          <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} last />
+        </SpecCard>
+      ) : null}
 
       {lifetimeNotice ? (
         <div data-testid="license-lifetime-updates-lapsed">
@@ -514,7 +514,7 @@ export function LicenseSection() {
       {showCtas ? (
         <>
           <SpecCard>
-            <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
+            {trialFirst ? null : <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />}
             <EducationCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
             <RecoveryCta
               key={recoveryPrefillEmail ?? 'empty-recovery-prefill'}

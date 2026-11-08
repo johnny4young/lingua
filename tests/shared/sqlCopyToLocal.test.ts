@@ -101,6 +101,18 @@ describe('Copy to Local planner', () => {
     expect(parseLocalCopyOrigin(table?.comment)).toEqual({ connection: "orders-dev's", at: '2026-10-23T10:00:00.000Z' });
   });
 
+  it('copies non-finite text into a real DOUBLE column', () => {
+    const columns = localCopyColumns([{ name: 'x', type: 'DOUBLE' }]);
+    conn.query(localCopyCreate('readings', columns));
+    const batch = [{ x: 'Infinity' }, { x: '-Infinity' }, { x: 'NaN' }, { x: null }, { x: 1.5 }];
+    db.registerFileText('readings.json', localCopyLines(batch, ['x'], columns));
+    expect(localCopyCheckFailure(columns, rows(localCopyCheck(columns, 'readings.json')!)[0])).toBeNull();
+    conn.query(localCopyInsert('readings', columns, 'readings.json'));
+    expect(rows("SELECT count(*) FILTER (WHERE x = 'Infinity'::DOUBLE) AS pos, count(*) FILTER (WHERE x = '-Infinity'::DOUBLE) AS neg, count(*) FILTER (WHERE isnan(x)) AS nan, count(*) FILTER (WHERE x IS NULL) AS none FROM readings")).toEqual([
+      { pos: '1', neg: '1', nan: '1', none: '1' },
+    ]);
+  });
+
   it('names the column whose value its type cannot hold, without a cast that throws', () => {
     const columns = localCopyColumns([{ name: 'id', type: 'BIGINT' }, { name: 'day', type: 'DATE' }]);
     db.registerFileText('batch_2.json', localCopyLines([{ id: '1', day: '2026-10-23' }, { id: '2', day: 'not a date' }], ['id', 'day'], columns));

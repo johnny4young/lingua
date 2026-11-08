@@ -136,7 +136,7 @@ export function UtilityPipelineLibrarySidebar() {
 
   return (
     <>
-      <aside className="flex min-h-0 flex-col border-r border-border/60 pr-2">
+      <aside className="flex min-h-0 flex-col @[67rem]:border-r @[67rem]:border-border/60 @[67rem]:pr-2">
         <header className="flex items-center justify-between gap-2 pb-2">
           <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
             {t('utilityPipeline.list.label')}

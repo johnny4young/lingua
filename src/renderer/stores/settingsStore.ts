@@ -30,6 +30,7 @@ import { persist } from 'zustand/middleware';
 import type { SettingsState } from '../types/settings';
 import { createMigrate } from './persistence/migrationRegistry';
 import { createInitialSettingsState } from './settingsDefaults';
+import { attachCrossTabSync } from './persistence/crossTabSync';
 import { settingsPartialize, syncConsentMirror } from './settingsPersistence';
 import { settingsMerge } from './settingsMerge';
 import { createAppearanceActions } from './settingsAppearanceActions';
@@ -77,6 +78,8 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
+
+attachCrossTabSync(useSettingsStore, { defaults: createInitialSettingsState });
 
 // Register only after the persisted store is fully assembled. Telemetry policy
 // reads through this leaf bridge instead of importing the store back into the

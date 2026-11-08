@@ -7,6 +7,7 @@ import {
   parseConnectionDraft,
   parseConnectionUrl,
   sameSshTarget,
+  takeUrlPassword,
   withoutUrlPassword,
 } from '../../src/shared/sqlConnections';
 import { dbConnectionCeilingForTier, withinDbConnectionBudget } from '../../src/shared/entitlements';
@@ -23,6 +24,39 @@ const pg = {
   readOnly: false,
   passwordMode: 'keychain',
 };
+
+describe('takeUrlPassword', () => {
+  it.each([
+    ['postgres://u:s3cret@h/db?a=1', 'postgres://u@h/db?a=1', 's3cret'],
+    ['postgres://u:pa%2Fss@h/db', 'postgres://u@h/db', 'pa/ss'],
+    ['postgres://u:pa/ss@h/db', 'postgres://u@h/db', 'pa/ss'],
+    ['mysql://u:p@ss@h/db', 'mysql://u@h/db', 'p@ss'],
+    ['clickhouse://h/db?password=s3', 'clickhouse://h/db', 's3'],
+    ['clickhouse://h/db?password=s3&secure=1', 'clickhouse://h/db?secure=1', 's3'],
+    ['clickhouse://h/db?a=1&pwd=s3', 'clickhouse://h/db?a=1', 's3'],
+    ['clickhouse://h/db?a=1&passwd=s3&b=2', 'clickhouse://h/db?a=1&b=2', 's3'],
+    ['sqlserver://h;user=u;password=s3;encrypt=true', 'sqlserver://h;user=u;encrypt=true', 's3'],
+    ['sqlserver://h;user=u;Password=s3', 'sqlserver://h;user=u', 's3'],
+  ])('takes it from %s', (raw, url, password) => {
+    expect(takeUrlPassword(raw, true)).toEqual({ url, password });
+  });
+
+  it.each([
+    'postgres://u@h:5432/db',
+    'postgres://h:5432/db?email=a@b.example',
+    'sqlite:/tmp/a.db',
+    'not a url',
+    '',
+  ])('leaves %s alone', (raw) => {
+    expect(takeUrlPassword(raw, true)).toEqual({ url: raw });
+  });
+
+  it('waits for a parameter still being typed, unless a separator ends it', () => {
+    expect(takeUrlPassword('clickhouse://h/db?password=s3', false)).toEqual({ url: 'clickhouse://h/db?password=s3' });
+    expect(takeUrlPassword('clickhouse://h/db?password=s3&', false)).toEqual({ url: 'clickhouse://h/db?', password: 's3' });
+    expect(takeUrlPassword('sqlserver://h;password=s3;', false)).toEqual({ url: 'sqlserver://h;', password: 's3' });
+  });
+});
 
 describe('parseConnectionUrl', () => {
   it('fills a Postgres draft from a pasted URL and keeps the password apart', () => {

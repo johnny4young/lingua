@@ -15,19 +15,24 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { useWorkspaceRunTarget } from '../../hooks/useWorkspaceRunTarget';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
+import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import {
   MAX_QUERY_BYTES,
   utf8ByteLength,
   type SqlQueryV1,
 } from '../../../shared/sqlWorkspace';
 import { hasWhereClause, splitSqlStatements, statementAtOffset } from '../../../shared/sqlStatements';
+import { planInstantPreview } from '../../../shared/sqlCtePreview';
+import type { InstantSqlChannel } from './instantSqlChannel';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor, type SqlEditorCursor, type SqlRunContext } from './SqlMonacoEditor';
 import { SqlRunMenu, type SqlRunMenuMode } from './SqlRunMenu';
@@ -84,7 +89,12 @@ export interface SqlQueryEditorProps {
    * rather than a baked-in button so the editor stays AI-agnostic.
    */
   headerExtra?: ReactNode;
+  /** Instant SQL: the draft and cursor go to the preview, and the CTE shown is highlighted. */
+  instantSql?: InstantSqlChannel;
 }
+
+const NO_JUMP = () => null;
+const NO_SUBSCRIBE = () => () => {};
 
 export function SqlQueryEditor({
   query,
@@ -100,8 +110,10 @@ export function SqlQueryEditor({
   engine,
   functions,
   headerExtra,
+  instantSql,
 }: SqlQueryEditorProps) {
   const { t, i18n } = useTranslation();
+  const queryIds = useWorkspaceSqlStore(useShallow((state) => state.queries.map((saved) => saved.id)));
   const [text, setText] = useState<string>(query.query);
   const lastInsertNonceRef = useRef<number>(insertSignal?.nonce ?? 0);
   const lastSavedRef = useRef<string>(query.query);
@@ -133,6 +145,17 @@ export function SqlQueryEditor({
   const [draftQueryId, setDraftQueryId] = useState(query.id);
   const cursorIndex = statementAtOffset(statements, cursor.offset)?.index ?? 0;
   const hasSelection = text.slice(cursor.selectionStart, cursor.selectionEnd).trim().length > 0;
+  const instantPlan = useMemo(
+    () => (instantSql && !overCap ? planInstantPreview(text, cursor.offset, statements) : null),
+    [instantSql, overCap, text, cursor.offset, statements]
+  );
+  useEffect(() => {
+    instantSql?.publish({ queryId: draftQueryId, text, plan: instantPlan });
+  }, [instantSql, draftQueryId, text, instantPlan]);
+  const instantJump = useSyncExternalStore(
+    instantSql?.subscribe ?? NO_SUBSCRIBE,
+    instantSql ? () => instantSql.snapshot().jump : NO_JUMP
+  );
 
   const flushPendingDraft = useCallback(() => {
     if (debounceRef.current !== null) {
@@ -231,9 +254,11 @@ export function SqlQueryEditor({
         lastSavedRef.current = buffer;
         onPatch(query.id, { query: buffer });
       }
+      // The run's buffer can be ahead of the last published draft, as right after a paste.
+      instantSql?.markRun({ queryId: query.id, text: buffer, plan: planInstantPreview(buffer, context.offset, bufferStatements) });
       onRun({ query: { ...query, query: buffer }, mode, statements: pieces });
     },
-    [isExecuting, isBusy, statements, text, query, onPatch, onRun]
+    [isExecuting, isBusy, statements, text, query, onPatch, onRun, instantSql]
   );
   const selectedText = useCallback(() => {
     const { selectionStart, selectionEnd } = latestCursorRef.current;
@@ -245,8 +270,16 @@ export function SqlQueryEditor({
     [runMode, selectedText]
   );
   useWorkspaceRunTarget('sql', () => runFromToolbar('statement'));
+  // Save As copies the stored text, so typing still inside the debounce must land first.
+  const save = useCallback(
+    (as: boolean) => {
+      flushPendingDraft();
+      onSave(as);
+    },
+    [flushPendingDraft, onSave]
+  );
   useCommandListener('workspace.save', (payload) => {
-    if (payload.kind === 'sql') onSave(payload.as);
+    if (payload.kind === 'sql') save(payload.as);
   });
 
   // A rail predicate joins the statement under the cursor: AND after its WHERE, else WHERE.
@@ -353,15 +386,18 @@ export function SqlQueryEditor({
       <SqlMonacoEditor
         value={text}
         documentKey={draftQueryId}
+        documentKeys={queryIds}
         onChange={updateText}
         onRunCommand={runMode}
         onCancelShortcut={onCancel}
-        onSaveShortcut={onSave}
+        onSaveShortcut={save}
         onCursorChange={handleCursorChange}
         statements={statements}
         runGlyphLabel={t('sqlWorkspace.run.statement')}
         onFormatShortcut={handleFormat}
         {...(cursorInsert ? { insertAtCursor: cursorInsert } : {})}
+        {...(instantPlan?.range ? { highlightRange: instantPlan.range } : {})}
+        {...(instantJump ? { moveCursorTo: instantJump } : {})}
         tables={tables}
         {...(engine ? { engine } : {})}
         {...(functions ? { functions } : {})}

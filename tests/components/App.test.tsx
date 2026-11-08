@@ -445,6 +445,25 @@ describe('App', () => {
     }
   });
 
+  it('asks before a close drops staged row edits, and stays open on Cancel', async () => {
+    const { setStagedRowEdits } = await import('../../src/renderer/runtime/sqlStagedEdits');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<App />);
+    await waitFor(() => expect(beforeCloseHandler).toBeDefined());
+    setStagedRowEdits({ count: 2 } as never);
+    try {
+      act(() => beforeCloseHandler?.());
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(mockForceClose).not.toHaveBeenCalled();
+      confirm.mockReturnValue(true);
+      act(() => beforeCloseHandler?.());
+      await waitFor(() => expect(mockForceClose).toHaveBeenCalledTimes(1));
+    } finally {
+      setStagedRowEdits(null);
+      confirm.mockRestore();
+    }
+  });
+
   it('saves untitled dirty tabs before forcing close', async () => {
     mockEditorState.saveTabById.mockImplementation(async (id: string) => {
       mockEditorState.tabs = mockEditorState.tabs.map(tab =>

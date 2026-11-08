@@ -4,8 +4,8 @@ import Legal from '~/layouts/Legal.astro';
 
 <Legal
   title="Security"
-  description="Code signing, notarization, SHA256 checksums, sandboxed execution, and how to report a vulnerability."
-  lastUpdated="2026-07-20"
+  description="Code signing, notarization, SHA256 checksums, how code runs, and how to report a vulnerability."
+  lastUpdated="2026-11-03"
   locale="en"
 >
   <p>
@@ -47,7 +47,13 @@ import Legal from '~/layouts/Legal.astro';
     Service Worker on first load and serves it locally afterward.
   </p>
 
-  <h2>Sandboxed execution</h2>
+  <h2>How code runs</h2>
+  <p>
+    Lingua contains runaway code, but it is not a sandbox. On packaged desktop builds, code you run
+    can read a response from any host and any local file your account can read. Settings → Privacy →
+    Network from running code can ask or block in the Worker, Pyodide and Ruby WASM runtimes, as a
+    best-effort guard.
+  </p>
   <ul>
     <li>JavaScript and TypeScript run inside a Web Worker with parent-owned timeouts and capped output buffers — a runaway loop cannot lock the renderer.</li>
     <li>Python runs in a dedicated Pyodide worker with the same timeout and output limits.</li>

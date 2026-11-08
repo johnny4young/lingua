@@ -20,13 +20,8 @@ beforeEach(() => {
 afterEach(() => cancelNetworkQuestions('tab-1'));
 
 describe('network ask store', () => {
-  it('carries no policy until the flag is on and the policy limits the network', () => {
-    useSettingsStore.setState({ networkFromRunningCode: 'block' });
-    expect(networkRunPolicyFor('tab-1')).toBeUndefined();
-    useSettingsStore.setState({
-      featureFlags: { networkPolicy: true },
-      networkFromRunningCode: 'allow',
-    });
+  it('carries no policy until the policy limits the network', () => {
+    useSettingsStore.setState({ networkFromRunningCode: 'allow' });
     expect(networkRunPolicyFor('tab-1')).toBeUndefined();
     useSettingsStore.setState({ networkFromRunningCode: 'ask' });
     expect(networkRunPolicyFor('tab-1')).toEqual({
@@ -38,7 +33,6 @@ describe('network ask store', () => {
 
   it('asks once per host per tab, shares the wait, and remembers the answer', async () => {
     useSettingsStore.setState({
-      featureFlags: { networkPolicy: true },
       networkFromRunningCode: 'ask',
     });
     const first = askNetworkHost('tab-1', 'api.example', 'worker');

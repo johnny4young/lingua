@@ -14,7 +14,8 @@ import type { HostRequest, HostSessionConfig } from '../../src/main/sqlHost/prot
 import { openSqlite } from '../../src/main/sqlHost/sqlite';
 import { openSqlServer } from '../../src/main/sqlHost/sqlserver';
 import type { SqlDbIntrospectResult } from '../../src/shared/sqlDb';
-import { rowEditStatements, type RowEditTable } from '../../src/shared/sqlRowEdits';
+import { cellText } from '../../src/renderer/components/SqlWorkspace/sqlRowEditModel';
+import { rowEditOriginal, rowEditProblem, rowEditRefusal, rowEditStatements, type RowEditTable } from '../../src/shared/sqlRowEdits';
 import { startBastion, type Bastion } from './sshBastion';
 
 const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite, sqlserver: openSqlServer, clickhouse: openClickHouse });
@@ -185,6 +186,41 @@ describe.skipIf(!mssql)('sqlserver host', () => {
     const conflict = rowEditStatements(table, { updates: [{ key: { id: '3' }, values: { city: 'changed' } }], deletes: [{ key: { id: '4' } }], inserts: [] }, false);
     expect(await send({ type: 'apply-edits', config, statements: conflict })).toMatchObject({ ok: false, error: { edit: { kind: 'conflict', change: 2, touched: 0 } } });
     expect((await run('SELECT city FROM dbo.lingua_it_orders WHERE id = 3')).rows[0]?.city).toBe("O'Brien");
+  });
+
+  it('finds a row again from what the driver hands the grid, and refuses a key it cannot read exactly', async () => {
+    const run = (sql: string) => ok<Rows>({ type: 'execute', config, runId: `o-${sql.length}`, sql, readWrite: false, window });
+    await run("IF OBJECT_ID('dbo.lingua_it_typed') IS NOT NULL DROP TABLE dbo.lingua_it_typed");
+    await run('CREATE TABLE dbo.lingua_it_typed (id BIGINT PRIMARY KEY, city NVARCHAR(40), code NCHAR(4), flag BIT, ref UNIQUEIDENTIFIER, price DECIMAL(20,4), at DATETIME2, note NTEXT, empty_n INT)');
+    await run("INSERT INTO dbo.lingua_it_typed VALUES (9007199254740993, N'O''Brien', N'ab', 1, NEWID(), 12.3400, SYSUTCDATETIME(), N'long', NULL)");
+    const types = { id: 'bigint', city: 'nvarchar(40)', code: 'nchar(4)', flag: 'bit', ref: 'uniqueidentifier', price: 'decimal(20,4)', at: 'datetime2', note: 'ntext', empty_n: 'int' };
+    const table: RowEditTable = { engine: 'sqlserver', schema: 'dbo', name: 'lingua_it_typed', columns: Object.keys(types), types, key: { kind: 'pk', columns: ['id'] } };
+    const { rows } = await run('SELECT * FROM dbo.lingua_it_typed');
+    const asRead = rowEditOriginal(table, table.columns, (column) => cellText(rows[0]![column]));
+    expect(Object.keys(asRead).sort()).toEqual(['city', 'code', 'empty_n', 'id', 'ref']);
+    const update = (original: Record<string, string | null>) => rowEditStatements(table, { updates: [{ key: { id: '9007199254740993' }, values: { city: 'mine' }, original }], deletes: [], inserts: [] }, false);
+    expect(await send({ type: 'apply-edits', config, statements: update({ ...asRead, city: 'Someone else' }) })).toMatchObject({ ok: false, error: { edit: { kind: 'conflict', touched: 0 } } });
+    expect(await ok({ type: 'apply-edits', config, statements: update(asRead) })).toEqual({ applied: 1 });
+    expect(rowEditProblem(table, { updates: [{ key: { id: '9007199254740993' }, values: { empty_n: '' } }], deletes: [], inserts: [] })).toBe('invalid-value');
+    expect(rowEditRefusal('sqlserver', [{ name: 'id', primaryKey: true, type: 'decimal(20,0)' }])).toBe('key-type');
+    await run('DROP TABLE dbo.lingua_it_typed');
+  });
+
+  it('counts only the statement, whatever its triggers write', async () => {
+    const run = (sql: string) => ok<Rows>({ type: 'execute', config, runId: `t-${sql.length}`, sql, readWrite: false, window });
+    await run("IF OBJECT_ID('dbo.lingua_it_audited') IS NOT NULL DROP TABLE dbo.lingua_it_audited");
+    await run("IF OBJECT_ID('dbo.lingua_it_audit') IS NOT NULL DROP TABLE dbo.lingua_it_audit");
+    await run('CREATE TABLE dbo.lingua_it_audit (id INT IDENTITY PRIMARY KEY, note NVARCHAR(40))');
+    await run('CREATE TABLE dbo.lingua_it_audited (id INT PRIMARY KEY, v NVARCHAR(40))');
+    await run("INSERT INTO dbo.lingua_it_audited VALUES (1, N'a'), (2, N'b')");
+    await run("CREATE TRIGGER dbo.lingua_it_audited_t ON dbo.lingua_it_audited AFTER UPDATE AS BEGIN INSERT INTO dbo.lingua_it_audit (note) VALUES (N'one'); INSERT INTO dbo.lingua_it_audit (note) VALUES (N'two'); END");
+    const table: RowEditTable = { engine: 'sqlserver', schema: 'dbo', name: 'lingua_it_audited', columns: ['id', 'v'], key: { kind: 'pk', columns: ['id'] } };
+    const update = (id: string) => rowEditStatements(table, { updates: [{ key: { id }, values: { v: 'mine' } }], deletes: [], inserts: [] }, false);
+    expect(await ok({ type: 'apply-edits', config, statements: update('1') })).toEqual({ applied: 1 });
+    // A row that is gone stays a conflict, though the trigger still writes.
+    expect(await send({ type: 'apply-edits', config, statements: update('99') })).toMatchObject({ ok: false, error: { edit: { kind: 'conflict', touched: 0 } } });
+    await run('DROP TABLE dbo.lingua_it_audited');
+    await run('DROP TABLE dbo.lingua_it_audit');
   });
 
   it('rolls an edit back when another session holds its row, well before main stops waiting', async () => {

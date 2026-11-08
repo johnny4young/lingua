@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AppLayout } from './components/Layout';
 import { AppOverlays } from './components/AppOverlays';
 import { AiExplainCodeHost } from './components/AI/AiExplainCodeHost';
+import { AiEditSelectionHost } from './components/AI/AiEditSelectionHost';
 import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
 import { useProjectBundle } from './hooks/useProjectBundle';
@@ -11,16 +12,13 @@ import { claimCapsuleListSurface } from './components/CapsuleList/capsuleListSur
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { NetworkAskDialog } from './components/NetworkAsk/NetworkAskDialog';
-import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { LiveAnnouncer } from './components/a11y/LiveAnnouncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
-import {
-  findDeveloperUtilityCatalogEntry,
-  type DeveloperUtilityId,
-} from './data/developerUtilityCatalog';
-import { getActiveAppLanguage } from './i18n';
+import type { DeveloperUtilityId } from './data/developerUtilityCatalog';
+import { getActiveAppLanguage, translateAppCommon } from './i18n';
+import { stagedRowEdits } from './runtime/sqlStagedEdits';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
@@ -32,6 +30,7 @@ import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
+import { useStorageMigrationNotice } from './hooks/useStorageMigrationNotice';
 import { useWhatsNewNotice } from './hooks/useWhatsNewNotice';
 import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
@@ -44,12 +43,12 @@ import { useGitStatus } from './hooks/useGitStatus';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
+import { useEphemeralStorageNotice } from './hooks/useEphemeralStorageNotice';
 import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useBootCompletionMarkers } from './hooks/useBootCompletionMarkers';
 import { useLicenseSettingsNavigation } from './hooks/useLicenseSettingsNavigation';
 import { useCommandListener } from './hooks/useCommandListener';
-import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { useTelemetry } from './hooks/useTelemetry';
 import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { openUtilitiesWorkspaceTab } from './runtime/openWorkspaceTab';
@@ -58,7 +57,6 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
-import { pushUpsellNotice } from './utils/upsellNotice';
 import { toggleExplorerOrToolList } from './utils/explorerToggle';
 
 function FactoryRecoveryNotice() {
@@ -91,7 +89,6 @@ function AppChrome({
   closeOverlay: () => void;
 }) {
   const { run, stop, isRunning } = useRunner();
-  const { t } = useTranslation();
   const { track } = useTelemetry();
   const saveActiveTab = useEditorStore(s => s.saveActiveTab);
   const saveActiveTabAs = useEditorStore(s => s.saveActiveTabAs);
@@ -110,8 +107,6 @@ function AppChrome({
   const initializePlugins = usePluginStore(s => s.initialize);
   const initializeUpdates = useUpdateStore(s => s.initialize);
   const appInfo = useAppInfo();
-  const effectiveTier = useEffectiveTier();
-  const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
   // rust-analyzer lifecycle.
   // Gopls lifecycle. Same hook shape via the shared
   // `useLspLifecycle`; the two languages have independent stores so a
@@ -153,6 +148,7 @@ function AppChrome({
   // the same App-mount scope and runs independently of whether the
   // user opens Settings → Updates.
   useDownloadedUpdateNotice();
+  useStorageMigrationNotice();
   useWhatsNewNotice({
     currentVersion: appInfo?.version,
     hasHandledDeepLink,
@@ -247,6 +243,7 @@ function AppChrome({
     smokeEnabled,
   ]);
 
+  useEphemeralStorageNotice();
   useProjectWatchSync();
   useProjectIndexSync();
   useWatcherDiagnosticsSync();
@@ -260,6 +257,8 @@ function AppChrome({
     }
 
     return window.lingua.onBeforeClose(() => {
+      const staged = stagedRowEdits();
+      if (staged && !window.confirm(translateAppCommon('sqlWorkspace.edits.leaveConfirm', { count: staged.count }))) return;
       for (const tab of useEditorStore.getState().tabs) flushNotebookDocumentDrafts(tab.id);
       const { tabs } = useEditorStore.getState();
       const dirtyTabs = tabs.filter(tab => tab.isDirty);
@@ -286,18 +285,6 @@ function AppChrome({
   }, []);
 
   const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
-    const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
-    if (requestedUtility?.requiresEntitlement && !canUseUtilityWorkflows) {
-      pushUpsellNotice({
-        messageKey: 'upsell.freeCeilingReached',
-        featureLabel: t('upsell.feature.utilityWorkflows'),
-      });
-      track('feature.blocked', {
-        entitlement: 'utility-workflows',
-        tier: effectiveTier,
-      });
-      return;
-    }
     openUtilitiesWorkspaceTab(utilityId);
     closeOverlay();
     // Preserve the pre-workspace adoption signal: the telemetry enum still
@@ -329,6 +316,7 @@ function AppChrome({
   // producers request the snippets surface through the typed bus.
   useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
   useCommandListener('overlay.openRecipes', () => openOverlay('recipes'));
+  useCommandListener('plans.compare', () => openOverlay('compare-plans'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 
@@ -378,12 +366,12 @@ function AppChrome({
         exportProjectBundle={exportProjectBundle}
       />
       <FactoryRecoveryNotice />
-      <StatusNoticeBanner />
       <LiveAnnouncer />
       <FirstRunConsentModal />
       <NativeExecutionWarning />
       <NetworkAskDialog />
       <AiExplainCodeHost />
+      <AiEditSelectionHost />
     </>
   );
 }

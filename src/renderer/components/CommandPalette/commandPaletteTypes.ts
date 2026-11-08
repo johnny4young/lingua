@@ -13,6 +13,8 @@ export interface CommandPaletteProps {
   onOpenWhatsNew: () => void;
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
+  /** Opens Quick Open with this query typed in. */
+  onOpenQuickOpen?: (query: string) => void;
   onOpenProjectSearch?: () => void;
   onOpenProjectReplace?: () => void;
   onOpenHttpWorkspace?: () => void;
@@ -25,6 +27,8 @@ export interface CommandPaletteProps {
    * toolbar action. This stays separate from replay/history availability.
    */
   onRunActiveTab?: () => void;
+  /** Record run on the active tab, for the execution timeline. */
+  onRecordRun?: () => void;
   /** Opens a local folder as the active project. */
   onOpenProject?: () => void | Promise<void>;
   /** Opens the test-suite detector for the active project. */

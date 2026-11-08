@@ -23,9 +23,8 @@ import {
 import {
   resolveNativeRunnerMessages,
   resolveUserEnvForRunner,
-  resolveUserEnvForNativeProbe,
 } from './env';
-import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
+import { useNativeToolchainStore } from '../stores/nativeToolchainStore';
 
 // The literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
@@ -56,15 +55,9 @@ export class GoRunner implements LanguageRunner {
   private cancelInFlight: (() => void) | null = null;
 
   async init(): Promise<void> {
-    // Check if Go is installed via IPC
     const result = await window.lingua.go.detect(resolveUserEnvForRunner());
-    this.goInstalled = result.installed;
-    this.detectFailure = result.reason === 'check-failed';
-    // A failed check is not an answer: the next run detects again.
-    this.ready = !this.detectFailure;
-
+    this.applyDetection(result);
     if (!result.installed) {
-      if (!this.detectFailure) this.pushMissingToolchainNotice();
       throw new Error(t(
         this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
         { toolchain: 'Go' }
@@ -72,15 +65,13 @@ export class GoRunner implements LanguageRunner {
     }
   }
 
-  private pushMissingToolchainNotice(): void {
-    pushMissingNativeToolchainNotice('go', async () => {
-      const result = await window.lingua.go.detect(
-        resolveUserEnvForNativeProbe('go', window.lingua?.platform)
-      );
-      this.goInstalled = result.installed;
-      this.detectFailure = result.reason === 'check-failed';
-      return result.reason === 'check-failed' ? 'check-failed' : result.installed;
-    });
+  /** The Dock empty state and Run read the same answer the runner acts on. */
+  private applyDetection(result: { installed: boolean; reason?: 'missing' | 'check-failed'; searched?: string[] }): void {
+    this.goInstalled = result.installed;
+    this.detectFailure = result.reason === 'check-failed';
+    // A failed check is not an answer: the next run detects again.
+    this.ready = !this.detectFailure;
+    useNativeToolchainStore.getState().report('go', result);
   }
 
   isReady(): boolean {
@@ -101,8 +92,9 @@ export class GoRunner implements LanguageRunner {
       ? 'override'
       : presetForLanguage ?? 'normal';
 
+    // Choose binary or a fresh install may have fixed it since the last check.
+    if (!this.goInstalled) this.applyDetection(await window.lingua.go.detect(resolveUserEnvForRunner()));
     if (!this.goInstalled) {
-      if (!this.detectFailure) this.pushMissingToolchainNotice();
       return {
         stdout: [],
         stderr: [],

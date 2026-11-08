@@ -50,7 +50,7 @@ describe('Per-language defaults matrix', () => {
   it('writes the same stores as the stacked rows did', () => {
     render(<PerLanguageDefaultsSection />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Default workflow · Python' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Workflow for new tabs · Python' }), {
       target: { value: 'run' },
     });
     expect(useSettingsStore.getState().workflowModeDefaultsByLanguage.python).toBe('run');

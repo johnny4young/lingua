@@ -343,6 +343,26 @@ describe('AppLayout responsive shell', () => {
     expect(screen.getByTestId('console-panel')).toBeTruthy();
   });
 
+  it('opens a dock tab hint above the tab, away from the panel it would cover', async () => {
+    const user = userEvent.setup();
+    editorTabs = [{ id: 'tab-1', language: 'javascript' }];
+    activeTabId = 'tab-1';
+    useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'console' });
+
+    await renderLayout();
+
+    // jsdom measures everything as 0×0, which leaves no room above; place the tab mid-screen so the preferred side holds.
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+      { top: 300, bottom: 334, left: 100, right: 160, width: 60, height: 34, x: 100, y: 300, toJSON: () => ({}) } as DOMRect
+    );
+    try {
+      await user.hover(await screen.findByTestId('bottom-panel-console-tab'));
+      expect((await screen.findByRole('tooltip')).getAttribute('data-side')).toBe('top');
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
   it('folds the dock to its tab row and reopens it from a tab', async () => {
     const user = userEvent.setup();
     editorTabs = [{ id: 'tab-1', language: 'javascript' }];
@@ -577,6 +597,21 @@ describe('AppLayout responsive shell', () => {
     expect(shellUnderlay.hasAttribute('inert')).toBe(false);
     expect(shellUnderlay.getAttribute('aria-hidden')).toBeNull();
     expect(document.body.style.overflow).toBe('');
+  });
+
+  it('keeps a notice reachable while the compact drawer hides the shell', async () => {
+    setCompactShell(true);
+    useUIStore.setState({ sidebarVisible: true, consoleVisible: false, statusNotice: null, statusNoticeQueue: [] });
+    useSettingsStore.setState({ showStatusBar: true });
+    await renderLayout();
+    await screen.findByRole('dialog', { name: 'Project explorer' });
+    act(() => {
+      useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'editor.restoreSession.prompt', values: { count: 1 }, sticky: true });
+    });
+    const notice = await screen.findByTestId('status-notice-banner');
+    expect(notice.closest('[inert]')).toBeNull();
+    expect(notice.closest('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByTestId('status-bar').closest('[inert]')).not.toBeNull();
   });
 
   it('traps keyboard focus inside the compact drawer while it is open', async () => {

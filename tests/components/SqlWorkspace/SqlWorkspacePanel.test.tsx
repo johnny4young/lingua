@@ -164,7 +164,12 @@ describe('SqlWorkspacePanel', () => {
       'sql-query-editor-textarea'
     ) as HTMLTextAreaElement;
     await user.type(textarea, 'SELECT 1');
+    const record = vi.spyOn(useExecutionHistoryStore.getState(), 'record');
     await user.click(screen.getByTestId('sql-query-editor-run'));
+    await waitFor(() => {
+      expect(record).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.objectContaining({ kind: 'rows', count: 2 }) }));
+    });
+    record.mockRestore();
     await waitFor(() => {
       expect(useWorkspaceSqlStore.getState().getLatestResponse(
         useWorkspaceSqlStore.getState().queries[0]!.id
@@ -1043,7 +1048,7 @@ describe('SqlWorkspacePanel — file import', () => {
       return {
         ...connection,
         query: async (sql: string) => {
-          if (/^INSERT INTO/i.test(sql)) throw new ReferenceError('_setThrew is not defined');
+          if (/^INSERT INTO/i.test(sql)) throw new Error('');
           return connection.query(sql);
         },
       };
@@ -1087,5 +1092,44 @@ describe('SqlWorkspacePanel — file import', () => {
     await waitFor(() =>
       expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ sales_data: 'csv' })
     );
+  });
+});
+
+describe('SqlWorkspacePanel Instant SQL', () => {
+  const seen: string[] = [];
+  beforeEach(() => {
+    seen.length = 0;
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve({
+        connect: async () => ({
+          query: async (sql: string) => {
+            seen.push(sql);
+            return sql.startsWith('SELECT json_serialize_sql')
+              ? mapArrowTable(arrowTable([{ name: 'j', type: 'VARCHAR' }], [{ j: JSON.stringify({ error: false, statements: [{}] }) }]))
+              : mapArrowTable(arrowTable([{ name: 'v', type: 'INTEGER' }], [{ v: 7 }]));
+          },
+          close: async () => undefined,
+        }),
+        terminate: async () => undefined,
+      })
+    );
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'q', name: 'q', query: 'SELECT 7 AS v' }));
+  });
+  it('samples the statement above the results on Local', async () => {
+    render(<SqlWorkspacePanel />);
+    const preview = await screen.findByTestId('sql-instant-table');
+    expect(preview.textContent).toContain('v INTEGER');
+    expect(seen).toContain('SELECT * FROM (\nSELECT 7 AS v\n) AS lingua_instant LIMIT 1000');
+    const results = document.querySelector('[data-panel-id="sql-results-pane"]')!;
+    expect(results.contains(screen.getByTestId('sql-instant-preview'))).toBe(true);
+  });
+
+  it('stays off with its setting off', async () => {
+    useSettingsStore.setState({ sqlWorkspaceInstantPreview: false });
+    render(<SqlWorkspacePanel />);
+    await screen.findByTestId('sql-query-editor');
+    expect(screen.queryByTestId('sql-instant-preview')).toBeNull();
+    expect(seen.some((sql) => sql.includes('lingua_instant'))).toBe(false);
+    useSettingsStore.setState({ sqlWorkspaceInstantPreview: true });
   });
 });

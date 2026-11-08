@@ -25,6 +25,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { asRootId } from '../../src/shared/fs/brandedIds';
 import { useUIStore } from '@/stores/uiStore';
+import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/stores/nativeToolchainStore';
 
 describe('GoRunner', () => {
   const initialEnv = useEnvVarsStore.getState();
@@ -37,6 +38,7 @@ describe('GoRunner', () => {
     useEditorStore.setState(initialEditor, true);
     useProjectStore.setState(initialProject, true);
     useUIStore.setState({ statusNotice: null });
+    resetNativeToolchainStoreForTests();
   });
 
   it('should have correct metadata', () => {
@@ -64,10 +66,9 @@ describe('GoRunner', () => {
     const runner = new GoRunner();
     await expect(runner.init()).rejects.toThrow('Go is not installed');
     expect(runner.isReady()).toBe(true); // ready is set even if not installed
-    expect(useUIStore.getState().statusNotice).toMatchObject({
-      tone: 'warning',
-      values: { toolchain: 'Go' },
-    });
+    // The Dock empty state owns the way out; no sticky notice competes with it.
+    expect(useUIStore.getState().statusNotice).toBeNull();
+    expect(useNativeToolchainStore.getState().go.status).toBe('missing');
   });
 
   it('does not offer installation after a failed Go probe', async () => {
@@ -103,48 +104,19 @@ describe('GoRunner', () => {
     }
   });
 
-  it('retries detection and uses Go without restarting Lingua', async () => {
-    useEnvVarsStore.setState({
-      global: { PATH: '/opt/go/bin', API_TOKEN: 'private-project-secret' },
-    });
+  it('detects again on the next run, so a chosen binary works without restarting Lingua', async () => {
     mockDetect
-      .mockResolvedValueOnce({ installed: false, error: 'Go is not installed' })
-      .mockResolvedValueOnce({
-        installed: true,
-        version: 'go1.22.0',
-        goRoot: '/usr/local/go',
-      });
+      .mockResolvedValueOnce({ installed: false, reason: 'missing', searched: ['/usr/local/go/bin'] })
+      .mockResolvedValueOnce({ installed: true, version: 'go1.22.0', goRoot: '/usr/local/go' });
     mockCompile.mockResolvedValue({ success: false, error: 'compile reached' });
     const runner = new GoRunner();
     await expect(runner.init()).rejects.toThrow('Go is not installed');
-
-    const retryAction = useUIStore.getState().statusNotice?.actions?.[1];
-    useUIStore.getState().dismissStatusNotice('cta');
-    retryAction?.onClick();
-    await vi.waitFor(() => {
-      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
-        'nativeToolchain.retry.detected'
-      );
-    });
-    expect(mockDetect.mock.calls[1]?.[0]).toEqual({});
+    expect(useNativeToolchainStore.getState().go).toEqual({ status: 'missing', searched: ['/usr/local/go/bin'] });
 
     const result = await runner.execute('package main\nfunc main() {}');
     expect(mockCompile).toHaveBeenCalledOnce();
     expect(result.error?.message).not.toContain('not installed');
-  });
-
-  it('does not relabel a failed retry as a missing Go installation', async () => {
-    mockDetect
-      .mockResolvedValueOnce({ installed: false, reason: 'missing', error: 'Go is not installed' })
-      .mockResolvedValueOnce({ installed: false, reason: 'check-failed', error: 'Go check timed out' });
-    const runner = new GoRunner();
-    await expect(runner.init()).rejects.toThrow('Go is not installed');
-    const retry = useUIStore.getState().statusNotice?.actions?.[1];
-    useUIStore.getState().dismissStatusNotice('cta');
-    retry?.onClick();
-    await vi.waitFor(() => {
-      expect(useUIStore.getState().statusNotice?.messageKey).toBe('nativeToolchain.retry.checkFailed');
-    });
+    expect(useNativeToolchainStore.getState().go.status).toBe('installed');
   });
 
   it('should return error result when Go is not installed and execute is called', async () => {

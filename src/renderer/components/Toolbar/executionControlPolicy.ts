@@ -12,9 +12,11 @@ import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 export type ExecutionControlDisabledReason =
   | 'desktop-only'
   | 'desktop-and-pro'
+  | 'no-active-tab'
   | 'no-enabled-breakpoint'
   | 'notebook'
   | 'pro-only'
+  | 'toolchain-missing'
   | 'unsupported-workflow'
   | 'view-only'
   | 'workspace-sql-empty'
@@ -44,6 +46,10 @@ interface ExecutionControlPolicyInput {
   /** Set on a SQL / HTTP tab with no open query or request to run. */
   emptyWorkspace?: 'sql' | 'http' | null;
   enabledBreakpointCount: number;
+  /** Desktop Go or Rust tab whose binary was not found. */
+  toolchainMissing?: boolean;
+  /** No tab is open, so there is nothing to run. */
+  noActiveTab?: boolean;
 }
 
 function availability(
@@ -69,8 +75,23 @@ export function resolveExecutionControlPolicy({
   isWorkspaceTab = false,
   emptyWorkspace = null,
   enabledBreakpointCount,
+  toolchainMissing = false,
+  noActiveTab = false,
 }: ExecutionControlPolicyInput): ExecutionControlPolicy {
   const executionMode = executionModeForLanguage(language);
+  if (noActiveTab) {
+    return {
+      executionMode,
+      desktopOnlyGate: false,
+      proLanguageGate: false,
+      supportsDebug: false,
+      actions: {
+        run: availability('no-active-tab'),
+        debug: availability('no-active-tab'),
+        scratchpad: availability('no-active-tab'),
+      },
+    };
+  }
   if (isWorkspaceTab) {
     return {
       executionMode: 'run',
@@ -94,6 +115,7 @@ export function resolveExecutionControlPolicy({
   else if (proLanguageGate) sharedReason = 'pro-only';
   else if (desktopOnlyGate) sharedReason = 'desktop-only';
   else if (executionMode === 'view') sharedReason = 'view-only';
+  else if (toolchainMissing) sharedReason = 'toolchain-missing';
   const supportsDebug = supportsWorkflowModeInShell(language, 'debug', isWebBuild);
   const debugReason =
     sharedReason ??
@@ -134,9 +156,11 @@ export function executionDisabledTooltipKey(
   reason: ExecutionControlDisabledReason | null,
 ): string | undefined {
   if (reason === null) return undefined;
+  if (reason === 'no-active-tab') return 'toolbar.run.noActiveTabTooltip';
   if (reason === 'pro-only') return 'toolbar.run.proOnlyTooltip';
   if (reason === 'desktop-and-pro') return 'toolbar.run.desktopAndProTooltip';
   if (reason === 'desktop-only') return 'toolbar.run.desktopOnlyTooltip';
+  if (reason === 'toolchain-missing') return 'toolbar.run.toolchainMissingTooltip';
   if (reason === 'view-only') return 'toolbar.viewOnly.title';
   if (reason === 'notebook') return 'notebook.notice.useNotebookToolbar';
   if (reason === 'no-enabled-breakpoint') return 'toolbar.debug.noBreakpoint';

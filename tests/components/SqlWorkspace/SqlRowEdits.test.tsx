@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setStagedRowEdits } from '../../../src/renderer/runtime/sqlStagedEdits';
 
 const { applyLocalEdits } = vi.hoisted(() => ({ applyLocalEdits: vi.fn() }));
 vi.mock('../../../src/renderer/runtime/sqlLocalEdits', () => ({ applyLocalEdits, loadLocalEditTable: vi.fn() }));
@@ -39,7 +40,7 @@ const localPreview: SqlTablePreview = {
   edit: { table: { engine: 'duckdb', name: 'orders', columns: ['id', 'city', 'total'], key: { kind: 'pk', columns: ['id'] } } },
 };
 
-function Harness({ preview, reload }: { preview: SqlTablePreview; reload: (preview: SqlTablePreview) => void }) {
+function Harness({ preview, reload }: { preview: SqlTablePreview; reload: (preview: SqlTablePreview) => Promise<void> }) {
   const rowEdits = useSqlRowEdits(preview, reload);
   return (
     <>
@@ -59,6 +60,7 @@ const cell = (row: number, column: string) => within(screen.getAllByTestId('sql-
 
 beforeEach(() => applyLocalEdits.mockReset());
 afterEach(() => {
+  setStagedRowEdits(null);
   delete (window as { lingua?: unknown }).lingua;
   useSqlConnectionsStore.setState({ catalog: null });
 });
@@ -155,6 +157,39 @@ describe('staged row edits', () => {
     expect(applyLocalEdits).not.toHaveBeenCalled();
     rerender(<Harness preview={{ ...localPreview, table: { name: 'customers' } }} reload={vi.fn()} />);
     expect(screen.queryByTestId('sql-edit-notice')).toBeNull();
+  });
+
+  it('sends a commit once, keeps the bar busy until the table is read again, and has nothing left to send', async () => {
+    const user = userEvent.setup();
+    applyLocalEdits.mockResolvedValue({ applied: 1 });
+    let finishReload = () => {};
+    const reload = vi.fn(() => new Promise<void>((resolve) => { finishReload = resolve; }));
+    render(<Harness preview={localPreview} reload={reload} />);
+    await user.dblClick(cell(0, 'city'));
+    await user.clear(screen.getByTestId('sql-cell-editor'));
+    await user.type(screen.getByTestId('sql-cell-editor'), 'Cali{Enter}');
+    const commit = screen.getByTestId('sql-edit-commit');
+    fireEvent.click(commit);
+    fireEvent.click(commit);
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(applyLocalEdits).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('sql-edit-commit')).toBeNull();
+    expect((screen.getByTestId('sql-edit-add') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => finishReload());
+    expect((screen.getByTestId('sql-edit-add') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('keeps the commit when the table cannot be read again', async () => {
+    const user = userEvent.setup();
+    applyLocalEdits.mockResolvedValue({ applied: 1 });
+    render(<Harness preview={localPreview} reload={vi.fn().mockRejectedValue(new Error('gone'))} />);
+    await user.dblClick(cell(0, 'city'));
+    await user.clear(screen.getByTestId('sql-cell-editor'));
+    await user.type(screen.getByTestId('sql-cell-editor'), 'Cali{Enter}');
+    await user.click(screen.getByTestId('sql-edit-commit'));
+    expect((await screen.findByTestId('sql-edit-notice')).textContent).toContain('Committed 1 change');
+    expect(screen.queryByTestId('sql-edit-commit')).toBeNull();
+    expect((screen.getByTestId('sql-edit-add') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('says why a table is read-only and offers no editing', async () => {

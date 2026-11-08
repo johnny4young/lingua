@@ -1,8 +1,10 @@
 import type { PythonWorkerExecuteMessage } from './python-worker-protocol';
+import { PYTHON_ASK_STDIN_SOURCE, PYTHON_RESTORE_INPUT_SOURCE } from './python-worker-stdin-request';
+import { PYTHON_DISPLAY_SOURCE } from './python-worker-display';
 
 /** Build the Python bootstrap installed before each user-code execution. */
 export function buildPythonExecutionBootstrapSource(
-  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled'>
+  message: Pick<PythonWorkerExecuteMessage, 'richConsoleEnabled' | 'sourceMappingEnabled' | 'askStdin'>
 ): string {
   return `
 import io
@@ -255,8 +257,7 @@ def __lingua_caller_line():
     try:
         frame = sys._getframe(1)
         while frame is not None:
-            name = frame.f_code.co_name
-            if name not in ("__lingua_print", "__lingua_displayhook", "__lingua_caller_line"):
+            if not frame.f_code.co_filename.startswith("<lingua"):
                 return frame.f_lineno
             frame = frame.f_back
     except Exception:  # noqa: BLE001 — best-effort
@@ -310,7 +311,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
 # __lingua_builtins.print intact for any library that reaches for the
 # original.
 globals()["print"] = __lingua_print
-
+${message.askStdin === true ? PYTHON_ASK_STDIN_SOURCE : PYTHON_RESTORE_INPUT_SOURCE}
 
 def __lingua_displayhook(value):
     # REPL-style top-level expression capture. Pyodide's
@@ -426,6 +427,7 @@ __lingua = __lingua_types.SimpleNamespace(
     image=__lingua_image_helper,
     html=__lingua_html_helper,
 )
+${PYTHON_DISPLAY_SOURCE}
 
 
 def __lingua_seed_scope(ns):
@@ -444,6 +446,11 @@ def __lingua_seed_scope(ns):
             or __lingua_k.startswith("__lingua")
         ):
             ns[__lingua_k] = __lingua_v
+    # A name the notebook assigned stays its own.
+    if "display" not in ns or getattr(ns["display"], "__name__", "") == "__lingua_display":
+        ns["display"] = globals()["__lingua_display"]
+    if hasattr(ns.get("lingua", globals()["__lingua"]), "display"):
+        ns["lingua"] = globals()["__lingua"]
       `;
 }
 

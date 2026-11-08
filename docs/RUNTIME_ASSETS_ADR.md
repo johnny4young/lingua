@@ -15,7 +15,7 @@ Lingua's renderer relies on a handful of "runtime assets" — files that
 ship outside the JS / CSS bundle but are required for code execution.
 The set today includes Pyodide v0.29.4 (CPython compiled to WASM, plus
 its standard library and lockfile) for Python, Ruby's `ruby+stdlib.wasm`
-for the bundled Ruby worker, DuckDB's MVP WASM for the SQL workspace,
+for the bundled Ruby worker, DuckDB's EH WASM for the SQL workspace,
 and esbuild-wasm for TypeScript transpilation.
 
 Before this ADR, Pyodide loaded from `https://cdn.jsdelivr.net` at run
@@ -51,7 +51,8 @@ directly through Cloudflare Pages.
 - `python-worker.ts` resolves the Pyodide entry via
   `new URL('../pyodide/', import.meta.url).href` and imports
   `${indexURL}pyodide.mjs` — this produces a `file://.../pyodide/`
-  URL inside the packaged renderer and a
+  URL inside the packaged renderer (`app://lingua/pyodide/` since the
+  renderer moved to the app scheme) and a
   `http://localhost:5173/src/renderer/pyodide/...` URL in dev. No
   desktop CDN fallback.
 - The desktop renderer's CSP loses `https://cdn.jsdelivr.net` from
@@ -84,7 +85,7 @@ Pyodide through `new URL('../pyodide/', import.meta.url)` and Vite copies
 the curated runtime files into `dist/web/pyodide/`.
 
 Cloudflare Pages rejects individual assets above 25 MiB. Ruby's
-`ruby+stdlib.wasm` and DuckDB's `duckdb-mvp.wasm` exceed that deployment
+`ruby+stdlib.wasm` and DuckDB's `duckdb-eh.wasm` exceed that deployment
 budget, so production web builds inject absolute URLs under
 `VITE_LINGUA_WEB_RUNTIME_BASE` (default:
 `https://downloads.linguacode.dev/web-runtime`). The `deploy-web.yml`
@@ -108,19 +109,75 @@ Concretely:
 - `public/sw.js` no longer has a `PYODIDE_CACHE_PREFIX` or
   `NETWORK_FIRST_ORIGINS` branch. Pyodide is a same-origin static
   asset like other built chunks.
-- `vite.web.config.mts` defines `__LINGUA_DUCKDB_MVP_WASM_URL__` and
+- `vite.web.config.mts` defines `__LINGUA_DUCKDB_WASM_URL__` and
   `__LINGUA_RUBY_WASM_URL__` to versioned R2 URLs only for production
   build commands. `vite.renderer.config.mts` keeps both `null` so packaged
   desktop builds stay fully bundled.
 - `copyRuntimeAssetsPlugin({ exclude: ['ruby'] })` is used only on web
   production builds; the upload step copies the exact Ruby WASM from
   `node_modules/@ruby/3.4-wasm-wasi/dist/`. DuckDB's worker JS stays in the
-  `duckdb-wasm` chunk while the MVP WASM URL is injected at runtime.
+  `duckdb-wasm` chunk while the WASM URL is injected at runtime.
 - `CACHE_VERSION` was bumped to `v5` so existing clients drop the old
   jsDelivr Pyodide cache entries on next activation.
 - `tests/shared/runtimeAssets.test.ts` now pins both renderer and web
   configs to `JSON.stringify(null)` for `__LINGUA_PYODIDE_INDEX_URL__`, and
   pins the R2 URL defines for Ruby/DuckDB web runtime assets.
+
+### DuckDB's extensions (vendored)
+
+`@duckdb/duckdb-wasm` leaves its loadable extensions out of the package, and
+DuckDB would fetch them from `extensions.duckdb.org` on first use, in a request
+from its worker. Everyday SQL asks for them: `current_date` needs ICU, and
+Instant SQL parses every statement with `json_serialize_sql`, so that fetch would
+happen while the user types, and it would fail offline.
+
+The engine sets `custom_extension_repository` to `data:` right after it opens the
+database, so no extension comes from that host, and turns
+`autoload_known_extensions` off. An autoload through that repository throws a
+JavaScript error across the wasm frames and traps the EH build. With autoloading
+off, DuckDB's catalog error names the extension, and `LOAD` and `ATTACH`, which
+still reach the closed repository, fail with its file name. The app turns either
+into a sentence naming the extension. `date_trunc(now())` still reaches for ICU
+regardless, so it traps if ICU failed to load at start; the engine stays usable.
+A user who types their own `SET custom_extension_repository` opts out of this, as
+with any URL they type.
+
+Lingua uses the EH build because the MVP worker in `@duckdb/duckdb-wasm` 1.32.0
+calls `_setThrew` without defining it. There, any C++ exception that DuckDB catches
+fails the statement with no reason, including exceptions that are not errors, such
+as the one behind an untyped `CREATE MACRO` parameter. Browsers without
+WebAssembly exceptions cannot start the engine.
+
+`vendor/duckdb-extensions/<duckdb>/wasm_eh/` holds the signed upstream builds.
+The registry copies them to the same path on web and desktop, and the lock
+records their hashes.
+
+| Extension | Size | Brotli | Loads |
+| --- | --- | --- | --- |
+| JSON | 801 KiB | 123 KiB | When the engine starts |
+| ICU | 6.2 MiB | 1.3 MiB | When the engine starts, because `now() - INTERVAL 1 DAY` fails without it and never asks for it |
+| Parquet | 2.9 MiB | 487 KiB | The first time SQL names `parquet` |
+
+The main thread reads each file with a time limit and gives `LOAD` a blob URL,
+because DuckDB's own request blocks its worker with none. DuckDB checks the
+file's signature, so a changed file does not load. If a load fails the engine
+still starts, and the next statement that needs the extension tries again. A
+single statement that failed for an extension Lingua ships runs again once it has
+loaded, which covers a failed load at start and SQL that needs Parquet without
+naming it. A script does not run again, since an earlier statement may have
+written.
+
+Any other extension, such as INET, spatial, Excel or SQLite, is not shipped: the
+query fails with a message naming it. On the web, a Parquet file that was never
+used online is not in the service worker's cache, so it reports that its copy did
+not load until the app is online.
+
+To bump `@duckdb/duckdb-wasm`: read the DuckDB version it embeds, download the
+`wasm_eh` extensions for that version into a new `vendor` folder, update the
+`duckdbExtensions` entry and the folder in `duckdbClient.ts`, and run
+`pnpm run build:runtime-assets`. `tests/shared/runtimeAssets.test.ts` fails until
+the version, the path and the footers agree, and `tests/e2e/sqlExtensions.spec.ts`
+fails if the engine rejects a file.
 
 ## Consequences
 
@@ -149,7 +206,8 @@ Concretely:
   the plain copy-into-renderer-output approach already works under
   Electron's existing `loadFile` flow and adds no new IPC surface.
   The custom-protocol option remains open for a later work if we want
-  per-asset SRI verification at request time.
+  per-asset SRI verification at request time. The whole renderer later
+  moved to `app://lingua`; see `ARCHITECTURE.md` § Desktop renderer origin.
 - **`asarUnpack: '**/pyodide/**'`** — would store the files outside
   asar and load them from disk. Not needed today because Electron's
   asar layer transparently handles `fetch()` reads inside asar for

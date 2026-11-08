@@ -3,14 +3,10 @@ import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
 import { useSettingsStore } from './settingsStore';
 import { useUtilityWorkspaceStore } from './utilityWorkspaceStore';
-import {
-  findDeveloperUtilityCatalogEntry,
-  type DeveloperUtilityId,
-} from '../data/developerUtilityCatalog';
+import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled, isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
-import { trackEvent } from '../utils/telemetry';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   budgetedTabCount,
@@ -180,22 +176,6 @@ export function createWorkspaceActions(
      * different tab.
      */
     addUtilitiesTab: (utilityId?: DeveloperUtilityId) => {
-      const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
-      const tier = currentEffectiveTier();
-      if (
-        requestedUtility?.requiresEntitlement &&
-        !isEntitled(tier, requestedUtility.requiresEntitlement)
-      ) {
-        pushUpsellNotice({
-          messageKey: 'upsell.freeCeilingReached',
-          featureLabel: i18next.t('upsell.feature.utilityWorkflows'),
-        });
-        void trackEvent('feature.blocked', {
-          entitlement: 'utility-workflows',
-          tier,
-        });
-        return null;
-      }
       if (utilityId) {
         useUtilityWorkspaceStore.getState().setActiveUtilityId(utilityId);
       }

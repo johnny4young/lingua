@@ -59,6 +59,9 @@ import { sqlDialect } from '../../../shared/sqlDialect';
 configureMonaco();
 
 type EditorInstance = Parameters<OnMount>[0];
+type ViewState = ReturnType<EditorInstance['saveViewState']>;
+
+const DOCUMENT_SCHEME = 'lingua-sql';
 
 const MAX_PENDING_ECHOES = 64;
 
@@ -134,8 +137,10 @@ export interface SqlEditorCursor {
 export interface SqlMonacoEditorProps {
   /** Buffer text owned by the parent; external changes replace the model. */
   value: string;
-  /** Identifies the document `value` belongs to; a new key replaces the model without undo history. */
+  /** Identifies the document `value` belongs to; each key keeps its own model, undo history and view. */
   documentKey?: string;
+  /** Every live document key; the models of other keys are disposed. */
+  documentKeys?: ReadonlyArray<string>;
   /** Fired on every user edit with the full buffer text. */
   onChange: (value: string) => void;
   /** A run gesture; `offset` is the cursor (or the gutter statement's start). */
@@ -169,11 +174,16 @@ export interface SqlMonacoEditorProps {
   engine?: SqlEngineKind;
   /** Function names from a connection's catalog. */
   functions?: ReadonlyArray<string>;
+  /** Offsets whose lines get the Instant SQL highlight. */
+  highlightRange?: { start: number; end: number };
+  /** Moves the cursor to `offset`; a new nonce moves it again. */
+  moveCursorTo?: { offset: number; nonce: number };
 }
 
 export function SqlMonacoEditor({
   value,
   documentKey,
+  documentKeys,
   onChange,
   onRunCommand,
   onCancelShortcut,
@@ -187,6 +197,8 @@ export function SqlMonacoEditor({
   ariaLabel,
   engine,
   functions,
+  highlightRange,
+  moveCursorTo,
 }: SqlMonacoEditorProps) {
   const editorTheme = useSettingsStore((state) => state.editorTheme);
   const fontSize = useSettingsStore((state) => state.fontSize);
@@ -245,23 +257,68 @@ export function SqlMonacoEditor({
     paintRunGlyphs();
   }, [statements, runGlyphLabel, paintRunGlyphs]);
 
+  const highlightStart = highlightRange?.start;
+  const highlightEnd = highlightRange?.end;
+  const highlightRef = useRef<{ start: number; end: number } | null>(null);
+  const highlightsRef = useRef<ReturnType<EditorInstance['createDecorationsCollection']> | null>(null);
+  const paintHighlight = useCallback(() => {
+    const model = editorRef.current?.getModel();
+    const collection = highlightsRef.current;
+    if (!model || !collection) return;
+    const range = highlightRef.current;
+    if (!range) {
+      collection.set([]);
+      return;
+    }
+    const start = model.getPositionAt(range.start);
+    const end = model.getPositionAt(range.end);
+    collection.set([
+      {
+        range: { startLineNumber: start.lineNumber, startColumn: 1, endLineNumber: end.lineNumber, endColumn: 1 },
+        options: { isWholeLine: true, className: 'lingua-sql-instant-range' },
+      },
+    ]);
+  }, []);
+  useEffect(() => {
+    highlightRef.current = highlightStart === undefined || highlightEnd === undefined ? null : { start: highlightStart, end: highlightEnd };
+    paintHighlight();
+  }, [highlightStart, highlightEnd, paintHighlight]);
+
+  const movedNonceRef = useRef(moveCursorTo?.nonce ?? 0);
+  useEffect(() => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model || !moveCursorTo || moveCursorTo.nonce === movedNonceRef.current) return;
+    movedNonceRef.current = moveCursorTo.nonce;
+    const position = model.getPositionAt(moveCursorTo.offset);
+    editor.setPosition(position);
+    editor.revealPositionInCenterIfOutsideViewport(position);
+    editor.focus();
+  }, [moveCursorTo]);
+
   const typedValueRef = useRef(value);
   // Texts emitted since the parent last caught up, oldest first. The parent renders them in
   // order, so a render of one is stale rather than external; the cap bounds a long lag.
   const pendingEchoesRef = useRef<string[]>([]);
   const applyingExternalRef = useRef(false);
   const documentKeyRef = useRef(documentKey);
+  const viewStatesRef = useRef(new Map<string, ViewState>());
   useEffect(() => {
     const echoes = pendingEchoesRef.current;
     const editor = editorRef.current;
     if (documentKey !== documentKeyRef.current) {
+      const previousKey = documentKeyRef.current;
       documentKeyRef.current = documentKey;
       echoes.length = 0;
       typedValueRef.current = value;
       if (!editor) return;
-      replaceModelText(editor, value, applyingExternalRef, false);
+      const monaco = monacoRef.current;
+      if (monaco && documentKey !== undefined) {
+        showDocument(editor, monaco, documentKey, value, previousKey, viewStatesRef.current, applyingExternalRef);
+      } else replaceModelText(editor, value, applyingExternalRef, false);
       // Resetting the model clears its decorations.
       paintRunGlyphs();
+      paintHighlight();
       return;
     }
     const echo = echoes.indexOf(value);
@@ -273,7 +330,17 @@ export function SqlMonacoEditor({
     echoes.length = 0;
     typedValueRef.current = value;
     if (editor) replaceModelText(editor, value, applyingExternalRef, true);
-  }, [value, documentKey, paintRunGlyphs]);
+  }, [value, documentKey, paintRunGlyphs, paintHighlight]);
+  const documentKeysKey = documentKeys?.join('\n');
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco || documentKeysKey === undefined) return;
+    const live = new Set(documentKeysKey.split('\n').map((key) => documentUri(monaco, key).toString()));
+    for (const model of monaco.editor.getModels()) {
+      if (model.uri.scheme !== DOCUMENT_SCHEME || live.has(model.uri.toString())) continue;
+      if (editorRef.current?.getModel() !== model) model.dispose();
+    }
+  }, [documentKeysKey]);
   const insertedNonceRef = useRef(insertAtCursor?.nonce ?? 0);
   useEffect(() => {
     const editor = editorRef.current;
@@ -287,8 +354,12 @@ export function SqlMonacoEditor({
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editorRef.current = editor;
-    // `value` may have changed while Monaco was loading.
-    if (editor.getModel()?.getValue() !== typedValueRef.current) {
+    monacoRef.current = monaco;
+    const key = documentKeyRef.current;
+    if (key !== undefined) {
+      showDocument(editor, monaco, key, typedValueRef.current, undefined, viewStatesRef.current, applyingExternalRef);
+    } else if (editor.getModel()?.getValue() !== typedValueRef.current) {
+      // `value` may have changed while Monaco was loading.
       replaceModelText(editor, typedValueRef.current, applyingExternalRef, false);
     }
     // INVARIANT: do NOT call setActiveEditor here — this surface stays
@@ -296,9 +367,10 @@ export function SqlMonacoEditor({
 
     const disposables: { dispose: () => void }[] = [];
 
-    monacoRef.current = monaco;
     glyphsRef.current = editor.createDecorationsCollection();
     paintRunGlyphs();
+    highlightsRef.current = editor.createDecorationsCollection();
+    paintHighlight();
     const cursorOffset = () => {
       const model = editor.getModel();
       const position = editor.getPosition();
@@ -438,8 +510,8 @@ export function SqlMonacoEditor({
       monaco.languages.registerCompletionItemProvider('sql', completionProvider)
     );
 
-    // Tear down the registered providers when the editor disposes. The
-    // editor/model lifecycle itself is owned by `<MonacoEditor>`.
+    // Tear down the registered providers when the editor disposes. Keyed
+    // models outlive it, so a query keeps its history across mounts.
     editor.onDidDispose(() => {
       for (const disposable of disposables) {
         disposable.dispose();
@@ -447,7 +519,7 @@ export function SqlMonacoEditor({
       editorRef.current = null;
       glyphsRef.current = null;
     });
-  }, [paintRunGlyphs]);
+  }, [paintRunGlyphs, paintHighlight]);
 
   return (
     <div className="min-h-0 flex-1" data-testid="sql-query-editor-monaco">
@@ -466,6 +538,7 @@ export function SqlMonacoEditor({
           onChange(next);
         }}
         onMount={handleMount}
+        keepCurrentModel={documentKey !== undefined}
         options={{ ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }), glyphMargin: true }}
       />
     </div>
@@ -501,4 +574,37 @@ function replaceModelText(
   }
   if (viewState) editor.restoreViewState(viewState);
   else editor.setScrollLeft(0);
+}
+
+function documentUri(monaco: Monaco, key: string) {
+  return monaco.Uri.from({ scheme: DOCUMENT_SCHEME, path: `/${encodeURIComponent(key)}.sql` });
+}
+
+/**
+ * Shows `key`'s own model, so a query keeps its undo history, cursor and scroll while others are
+ * open. A new copy of the previous text (Save As, Duplicate) starts where the previous one was.
+ */
+function showDocument(
+  editor: EditorInstance,
+  monaco: Monaco,
+  key: string,
+  text: string,
+  previousKey: string | undefined,
+  viewStates: Map<string, ViewState>,
+  applying: { current: boolean }
+): void {
+  const previous = editor.getModel();
+  const previousView = editor.saveViewState();
+  if (previousKey !== undefined) viewStates.set(previousKey, previousView);
+  const uri = documentUri(monaco, key);
+  const existing = monaco.editor.getModel(uri);
+  const model = existing ?? monaco.editor.createModel(text, 'sql', uri);
+  if (model !== previous) editor.setModel(model);
+  if (existing && existing.getValue() !== text) replaceModelText(editor, text, applying, true);
+  const saved = viewStates.get(key);
+  if (saved) editor.restoreViewState(saved);
+  else if (!existing && previous?.getValue() === text) editor.restoreViewState(previousView);
+  else editor.setScrollLeft(0);
+  // The wrapper's own first model has no key; this host owns keyed models from here on.
+  if (previous && previous !== model && previous.uri.scheme !== DOCUMENT_SCHEME) previous.dispose();
 }

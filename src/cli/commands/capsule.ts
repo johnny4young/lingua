@@ -231,17 +231,17 @@ export async function loadCapsule(
   try {
     raw = await io.readFile(filePath);
   } catch (error) {
-    const code =
-      error && typeof error === 'object' && 'code' in error
-        ? (error as { code?: string }).code
-        : undefined;
-    return {
-      ok: false,
-      reason: code === 'ENOENT' ? 'file-not-found' : 'read-failed',
-      detail: errorMessage(error),
-    };
+    return { ok: false, reason: readFailureReason(error), detail: errorMessage(error) };
   }
   return parseRunCapsule(raw);
+}
+
+export function readFailureReason(error: unknown): 'file-not-found' | 'read-failed' {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+  return code === 'ENOENT' ? 'file-not-found' : 'read-failed';
 }
 
 function emit(
@@ -272,6 +272,6 @@ function emit(
   }
 }
 
-function errorMessage(error: unknown): string {
+export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

@@ -146,7 +146,7 @@ beforeEach(() => {
   resetWorkspaceSqlStoreForTests();
   resetSqlRunStateForTests();
   useUIStore.setState({ statusNotice: null });
-  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, featureFlags: { dbClient: true } });
+  useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, sqlWorkspaceInstantPreview: false });
   useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
   useSqlConnectionsStore.setState({ catalog: null });
   duckRan = [];
@@ -167,11 +167,19 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (window as { lingua?: unknown }).lingua;
-  useSettingsStore.setState({ featureFlags: {} });
   __setDuckDbEngineFactoryForTests(() => Promise.resolve(localEngine()));
 });
 
 describe('SQL workspace on a saved connection', () => {
+  it('never previews as you type on a connection, even with Instant SQL on', async () => {
+    useSettingsStore.setState({ sqlWorkspaceInstantPreview: true });
+    openQuery('SELECT id FROM orders', 'c_dev');
+    await renderPanel();
+    expect(screen.queryByTestId('sql-instant-preview')).toBeNull();
+    expect(db.execute).not.toHaveBeenCalled();
+    expect(duckRan.some((sql) => sql.includes('lingua_instant'))).toBe(false);
+  });
+
   it('runs on the SQL host instead of Local, and reads more rows from the host cursor', async () => {
     db.execute.mockResolvedValueOnce(result({ rows: Array.from({ length: 1000 }, (_, id) => ({ id })), rowCount: 1000, hasMore: true, rowCountIsLowerBound: true }));
     db.fetch.mockResolvedValueOnce({ rows: Array.from({ length: 500 }, (_, id) => ({ id: id + 1000 })), done: true, bytes: 4000 });
@@ -220,6 +228,7 @@ describe('SQL workspace on a saved connection', () => {
     openQuery("UPDATE customers SET plan = 'pro' WHERE id <= 10", 'c_prod');
     await renderPanel();
     expect(screen.getByTestId('sql-prod-banner').textContent).toContain('orders-prod');
+    expect(screen.getByTestId('sql-query-tab').dataset.env).toBe('prod');
     act(() => pressSqlChord('statement'));
     const dialog = await screen.findByTestId('sql-write-confirm');
     expect(dialog.textContent).toContain('read-only');
@@ -288,8 +297,8 @@ describe('SQL workspace on a saved connection', () => {
     expect(db.execute).not.toHaveBeenCalled();
   });
 
-  it('runs on Local when the Labs flag is off, whatever the query points at', async () => {
-    useSettingsStore.setState({ featureFlags: {} });
+  it('runs on Local when the app has no database bridge, whatever the query points at', async () => {
+    (window as { lingua?: unknown }).lingua = { platform: 'darwin' };
     openQuery('SELECT 1', 'c_dev');
     render(<SqlWorkspacePanel />);
     expect(screen.getByTestId('sql-connection-pill').getAttribute('data-env')).toBe('local');
@@ -315,6 +324,19 @@ describe('SQL workspace on a saved connection', () => {
     fireEvent.click(screen.getByTestId('sql-password-connect'));
     await waitFor(() => expect(db.sessionPassword).toHaveBeenCalledWith('c_dev', 'tunnel', 'ssh'));
     await waitFor(() => expect(db.execute).toHaveBeenCalledTimes(2));
+  });
+
+  it("clears a query's results when the picker moves it to another connection", async () => {
+    db.execute.mockResolvedValue(result({ rows: [{ id: 1 }, { id: 2 }], rowCount: 2 }));
+    openQuery('SELECT id FROM orders', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-result-preview-export');
+    fireEvent.click(screen.getByTestId('sql-connection-pill'));
+    fireEvent.click(await screen.findByTestId('sql-connection-option-local'));
+    expect(useWorkspaceSqlStore.getState().getQuery('q1')?.connectionId).toBeUndefined();
+    await waitFor(() => expect(screen.queryByTestId('sql-result-preview-export')).toBeNull());
+    expect(useWorkspaceSqlStore.getState().responsesByQueryId.q1).toBeUndefined();
   });
 
   it('opens the manager from the picker, edits a connection in the sheet, and comes back to the manager', async () => {

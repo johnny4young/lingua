@@ -428,6 +428,22 @@ describe('settingsStore', () => {
     expect(persisted.state).not.toHaveProperty('showVariableInspectorByDefault');
   });
 
+  it.each([
+    [{}, true],
+    [{ sqlWorkspaceInstantPreview: false }, false],
+    [{ sqlWorkspaceInstantPreview: 'off' }, true],
+    [{ featureFlags: { instantSql: true } }, true],
+  ])('reads Instant SQL as on unless it was turned off: %j', async (state, expected) => {
+    useSettingsStore.setState({ sqlWorkspaceInstantPreview: true });
+    localStorage.setItem('lingua-settings', JSON.stringify({ state, version: 0 }));
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+    expect(useSettingsStore.getState().sqlWorkspaceInstantPreview).toBe(expected);
+  });
+
   it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (OPFS)', async () => {
     localStorage.setItem(
       'lingua-settings',

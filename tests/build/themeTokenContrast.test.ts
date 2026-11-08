@@ -50,6 +50,31 @@ describe.each([
   });
 });
 
+describe.each([
+  ['light', light],
+  ['dark', dark],
+] as const)('%s theme switch track', (_name, theme) => {
+  it.each(['--color-bg-panel', '--color-bg-panel-alt'])('the off track clears 3:1 on %s', (bg) => {
+    expect(ratio(theme, '--color-control-off', bg)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the white knob clears 3:1 on the off track', () => {
+    const track = parseColor(resolveToken('--color-control-off', theme, theme === dark ? light : undefined));
+    expect(contrastRatio(parseColor('#ffffff'), track)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('guided tour scrim', () => {
+  it('dims with dark ink in both themes, never a light wash', () => {
+    for (const theme of [light, dark]) {
+      const value = theme.get('--tour-overlay') ?? '';
+      const base = /var\((--[\w-]+)\)/.exec(value)?.[1] ?? '';
+      const ink = parseColor(resolveToken(base, theme, theme === dark ? light : undefined));
+      expect(contrastRatio(ink, parseColor('#ffffff'))).toBeGreaterThan(10);
+    }
+  });
+});
+
 describe('accent as text', () => {
   it('reads on white in light, where it is used for links and selection only', () => {
     expect(ratio(light, '--color-accent', '--color-bg-panel')).toBeGreaterThanOrEqual(4.5);

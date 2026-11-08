@@ -20,6 +20,7 @@
  * agree about them.
  */
 
+import { sanitizeTimeline, type ExecutionTimeline } from '../../shared/timeline';
 import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import type {
@@ -47,14 +48,16 @@ import {
   networkRunPolicyFor,
   networkTabKey,
 } from './networkPolicyBridge';
+import { BLOCK_ALL_NETWORK } from '../../shared/networkPolicy';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import {
-  appendCappedOutput,
+  appendCappedOutput, replaceProgressOutput, sanitizeProgressOutput,
   createConsoleCapState,
   runnerStoppedResult,
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
+import { sanitizeStdinRequest } from '../utils/stdinRequest';
 
 const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
 
@@ -90,6 +93,8 @@ export interface WorkerRunSpec {
   timeout: number;
   timeoutPreset: RuntimeTimeoutPreset | 'override';
   debug: boolean;
+  /** Record run: collect the worker's step timeline into the result. */
+  record?: boolean;
   breakpoints: ReadonlyArray<WorkerBreakpoint>;
   watches: string[];
   /** Character-accurate maps, newest transform first. */
@@ -168,11 +173,13 @@ export class WorkerRunnerShell {
     let nextCaptureOrder = 0;
     const magicResults: MagicCommentResult[] = [];
     let lineTimings: LineTimingEntry[] = [];
+    let timeline: ExecutionTimeline | undefined;
     let result: unknown;
     /** The worker's structured return value, forwarded losslessly when asked. */
     let structuredResult: unknown;
     let error: ExecutionError | undefined;
     let stdinConsumed: { count: number; total: number } | undefined;
+    let stdinRequest: ExecutionResult['stdinRequest'];
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — stdout overflowing should not mute the
     // truncation notice on stderr (and vice versa).
@@ -185,7 +192,7 @@ export class WorkerRunnerShell {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = networkRunPolicyFor(networkKey);
+    const network = context?.blockNetwork ? BLOCK_ALL_NETWORK : networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>(resolve => {
       // A new worker per execution, for clean state.
@@ -260,9 +267,12 @@ export class WorkerRunnerShell {
             // Thread the additive `payload` through to `ConsoleOutput`. Absent
             // when the legacy protocol omits the field, so the renderer text
             // path keeps working unchanged.
-            const output: ConsoleOutput = msg.payload
-              ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
-              : { type: msg.method, args: msg.args, line: msg.line };
+            const output: ConsoleOutput = sanitizeProgressOutput(
+              msg.payload
+                ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
+                : { type: msg.method, args: msg.args, line: msg.line },
+              runId
+            );
             output.captureOrder = nextCaptureOrder++;
             // `console.table` adoption signal. Fire-and-forget; the renderer
             // never blocks on telemetry.
@@ -275,7 +285,8 @@ export class WorkerRunnerShell {
               const { kind, reason } = msg.richMediaRejected;
               void trackEvent('runtime.rich_media_payload_rejected', { kind, reason });
             }
-            const live = appendCappedOutput({ stdout, stderr }, caps, output, msg.method === 'error', t);
+            const updated = replaceProgressOutput(stdout, output);
+            const live = updated ?? appendCappedOutput({ stdout, stderr }, caps, output, msg.method === 'error', t);
             if (live) context?.onConsole?.(live);
             break;
           }
@@ -294,6 +305,9 @@ export class WorkerRunnerShell {
             stdinConsumed = { count, total };
             break;
           }
+          case 'stdin-request':
+            stdinRequest = sanitizeStdinRequest(msg);
+            break;
           case 'scope-snapshot': {
             // Relay the worker's scope capture onto the eventual
             // ExecutionResult. The worker already applied the boot-time and
@@ -342,6 +356,9 @@ export class WorkerRunnerShell {
             // Batched per-statement timings, one message per run, posted right
             // before done.
             lineTimings = msg.entries;
+            break;
+          case 'timeline':
+            timeline = sanitizeTimeline(msg.timeline);
             break;
           case 'result':
             result = msg.value;
@@ -406,7 +423,9 @@ export class WorkerRunnerShell {
               // Per-statement wall-clock timings when the run was instrumented
               // (setting or `// @time` directive).
               ...(lineTimings.length > 0 ? { lineTimings } : {}),
+              ...(timeline ? { timeline } : {}),
               stdinConsumed,
+              ...(stdinRequest ? { stdinRequest } : {}),
               // Explicit kind so the result-panel pill self-gates on a field
               // instead of regexing the error message. Timeout and stop paths
               // never reach this branch — they finish() via
@@ -484,6 +503,7 @@ export class WorkerRunnerShell {
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
         debug,
+        record: spec.record === true,
         breakpoints: breakpoints.map(bp => ({
           line: bp.line,
           mode: bp.mode,
@@ -498,10 +518,11 @@ export class WorkerRunnerShell {
         // / `readline()` answers. Empty or undefined leaves the native worker
         // behavior in place.
         stdin: context?.stdin,
-        // Variable inspector capture. Debug runs skip it; the debugger drawer
+        askStdin: context?.askStdin === true,
+        // Variable inspector capture. Debug and record runs skip it; the debugger drawer
         // already exposes the paused-frame locals and a second snapshot would
         // race with the resume protocol.
-        captureScope: !debug && context?.captureScope === true,
+        captureScope: !debug && spec.record !== true && context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
         scopeLanguage: language,
         captureStructuredResult,

@@ -111,7 +111,8 @@ export function startOnboardingChoreography({
     const next = state.snippets.length;
     const previous = lastSnippetCount;
     lastSnippetCount = next;
-    if (next > previous) {
+    // During a rehydrate the snippet came from another tab, which already handled it.
+    if (next > previous && useSnippetsStore.persist?.hasHydrated() !== false) {
       handleFirstSnippetSave(track);
     }
   });
@@ -254,10 +255,8 @@ function handleFirstSnippetSave(track: TelemetryTrack): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: 'onboarding.firstSnippet.message',
-    // Same priority rationale as the
-    // first-run toast above; the library-tip toast must survive any
-    // normal-tier notice push for the ~6 s the user needs to read
-    // it.
+    // Same priority rationale as the first-run toast above: a normal-tier
+    // push waits behind the library tip instead of replacing it.
     priority: 'high',
     // clobber-attempt telemetry.
     onSurvived: () => {

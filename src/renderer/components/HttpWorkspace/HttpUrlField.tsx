@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   splitVariableTokens,
-  type HttpEnvironmentV1,
   type HttpUrlState,
   type HttpVariableSource,
 } from '../../../shared/httpEnvironment';
+import { requestLabel, type HttpChainTag } from '../../../shared/httpChain';
 import type { HttpTransportKind } from '../../../shared/httpWorkspaceSchema';
+import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { cn } from '../../utils/cn';
 import '../../i18n/httpBuilderCatalog';
 import { SCOPE_TINTS, tintPill, UNRESOLVED_TINT } from './httpScopeColors';
@@ -57,14 +58,22 @@ export function HttpUrlHint({
 
 export interface HttpUrlFieldProps {
   value: string;
-  env: HttpEnvironmentV1 | null;
-  /** With variable scopes on: each token takes the colour of the scope that resolves it. */
-  sources?: ReadonlyMap<string, HttpVariableSource>;
+  /** Each token takes the colour of the scope that resolves it. */
+  sources: ReadonlyMap<string, HttpVariableSource>;
   placeholder: string;
   ariaLabel: string;
   describedBy?: string;
   onChange: (value: string) => void;
   onPaste: (event: React.ClipboardEvent<HTMLInputElement>) => void;
+  /** Chain tags the URL uses: away from the field each reads as its source and path, and opens on click. */
+  chain?: { tags: readonly HttpChainTag[]; openTag: string | null; onOpenTag: (key: string | null) => void };
+}
+
+/** `response(List repos) · $[0].owner.login`: where a chain tag's value comes from. */
+function tagLabel(tag: HttpChainTag): string {
+  const source = useWorkspaceToolStore.getState().getRequest(tag.sourceId);
+  const path = tag.capture.source === 'status' ? 'status' : tag.capture.path;
+  return `response(${source ? requestLabel(source) : tag.sourceId}) · ${path}`;
 }
 
 // Both layers share font, size and padding, and tokens only change colour, so every glyph lines up.
@@ -72,20 +81,23 @@ const TEXT = 'px-3 font-mono text-body-sm';
 
 /**
  * The URL input. With `{{tokens}}` in it, the text is drawn by a layer behind
- * a transparent input, which keeps native editing and highlights each token:
- * accent when the environment defines it, red when it does not, or with
- * variable scopes on, the colour of the scope that resolves it.
+ * a transparent input, which keeps native editing and colours each token by
+ * the scope that resolves it, red when none does.
  */
-export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, describedBy, onChange, onPaste }: HttpUrlFieldProps) {
+export function HttpUrlField({ value, sources, placeholder, ariaLabel, describedBy, onChange, onPaste, chain }: HttpUrlFieldProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
+  const [focused, setFocused] = useState(false);
   const pieces = useMemo(() => splitVariableTokens(value), [value]);
   const mirrored = pieces.some((piece) => piece.key !== undefined);
-  const known = useMemo(() => new Set(env?.variables.map((variable) => variable.key) ?? []), [env]);
+  const tags = useMemo(() => new Map(chain?.tags.map((tag) => [tag.key, tag])), [chain?.tags]);
+  // Labels are wider than their `{{token}}`, so they show only while the caret is elsewhere.
+  const labelled = !focused && pieces.some((piece) => piece.key !== undefined && tags.has(piece.key));
 
   const syncScroll = useCallback(() => {
-    if (inputRef.current && mirrorRef.current) mirrorRef.current.scrollLeft = inputRef.current.scrollLeft;
-  }, []);
+    if (inputRef.current && mirrorRef.current) mirrorRef.current.scrollLeft = labelled ? 0 : inputRef.current.scrollLeft;
+  }, [labelled]);
   useLayoutEffect(syncScroll, [syncScroll, value]);
   // Resizing the field can move the input's scroll position without a scroll event.
   useEffect(() => {
@@ -100,37 +112,47 @@ export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, desc
     <div
       data-testid="http-request-editor-url-field"
       data-mirrored={mirrored}
-      className="relative h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset focus-within:border-border-strong"
+      className="relative h-8 min-w-[7rem] flex-1 rounded-md border border-border-subtle bg-bg-inset focus-within:border-border-strong"
     >
       {mirrored ? (
         <div
           ref={mirrorRef}
           aria-hidden="true"
           data-testid="http-request-editor-url-mirror"
-          className={cn(TEXT, 'pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-fg-base')}
+          className={cn(TEXT, 'pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-fg-base', labelled && 'z-10')}
         >
           {pieces.map((piece, index) => {
-            if (piece.key === undefined) return <span key={index}>{piece.text}</span>;
-            if (sources) {
-              const scope = sources.get(piece.key)?.scope;
+            // Away from the field the tag keeps its width and the plain text gives way.
+            if (piece.key === undefined) return <span key={index} className={labelled ? 'min-w-0 truncate' : undefined}>{piece.text}</span>;
+            const tag = labelled ? tags.get(piece.key) : undefined;
+            if (tag && chain) {
+              const label = tagLabel(tag);
               return (
-                <span
+                <button
                   key={index}
-                  data-testid="http-request-editor-url-token"
-                  data-state={scope ?? 'missing'}
-                  className="rounded-sm"
-                  style={tintPill(scope ? SCOPE_TINTS[scope] : UNRESOLVED_TINT)}
+                  type="button"
+                  tabIndex={-1}
+                  data-testid="http-request-editor-url-tag"
+                  data-tag={tag.key}
+                  aria-pressed={chain.openTag === tag.key}
+                  aria-label={t('httpWorkspace.chain.tag.open', { name: tag.key })}
+                  title={label}
+                  onClick={() => chain.onOpenTag(chain.openTag === tag.key ? null : tag.key)}
+                  className="focus-ring pointer-events-auto max-w-[20rem] shrink-0 truncate rounded-sm border px-1 leading-5"
+                  style={{ ...tintPill(SCOPE_TINTS.chain), borderColor: SCOPE_TINTS.chain.line }}
                 >
-                  {piece.text}
-                </span>
+                  {label}
+                </button>
               );
             }
+            const scope = sources.get(piece.key)?.scope;
             return (
               <span
                 key={index}
                 data-testid="http-request-editor-url-token"
-                data-state={known.has(piece.key) ? 'defined' : 'missing'}
-                className={cn('rounded-sm', known.has(piece.key) ? 'bg-accent-tint text-accent-fg' : 'bg-error-bg text-error-fg')}
+                data-state={scope ?? 'missing'}
+                className="rounded-sm"
+                style={tintPill(scope ? SCOPE_TINTS[scope] : UNRESOLVED_TINT)}
               >
                 {piece.text}
               </span>
@@ -154,6 +176,8 @@ export function HttpUrlField({ value, env, sources, placeholder, ariaLabel, desc
         onScroll={syncScroll}
         onSelect={syncScroll}
         onKeyUp={syncScroll}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         className={cn(
           TEXT,
           'absolute inset-0 h-full w-full rounded-md bg-transparent placeholder:italic placeholder:text-fg-subtle focus:outline-none',

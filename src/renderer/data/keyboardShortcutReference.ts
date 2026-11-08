@@ -33,6 +33,11 @@ const SHORTCUT_METADATA = {
     descriptionKey: 'shortcuts.item.runToggle.description',
     keywords: ['run', 'stop', 'execute'],
   },
+  'run-stop': {
+    labelKey: 'shortcuts.item.stopRun.label',
+    descriptionKey: 'shortcuts.item.stopRun.description',
+    keywords: ['stop', 'cancel', 'abort', 'run'],
+  },
   'run-cycle-runtime-mode': {
     labelKey: 'shortcuts.item.cycleRuntimeMode.label',
     descriptionKey: 'shortcuts.item.cycleRuntimeMode.description',

@@ -64,6 +64,9 @@ interface UtilityPipelineState {
   setPipelineInput: (id: string, input: string) => void;
   /** Flip the execution flag (called by the panel layer). */
   setIsExecutingActive: (value: boolean) => void;
+  /** The panel runs this pipeline once it is on screen; never persisted. */
+  pendingRunPipelineId: string | null;
+  setPendingRunPipelineId: (id: string | null) => void;
 
   // -------- selectors -----------------------------------------------------
 
@@ -82,13 +85,14 @@ interface UtilityPipelineState {
 
 function createInitialState(): Pick<
   UtilityPipelineState,
-  'pipelines' | 'inputsByPipelineId' | 'activePipelineId' | 'isExecutingActive'
+  'pipelines' | 'inputsByPipelineId' | 'activePipelineId' | 'isExecutingActive' | 'pendingRunPipelineId'
 > {
   return {
     pipelines: [],
     inputsByPipelineId: {},
     activePipelineId: null,
     isExecutingActive: false,
+    pendingRunPipelineId: null,
   };
 }
 
@@ -123,9 +127,14 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
         set((state) => {
           // LRU cap: trim oldest pipelines (tail) when at cap.
           const next = [pipeline, ...state.pipelines].slice(0, PIPELINE_CAP);
+          // An evicted pipeline's input can hold a token, and no screen reaches it any more.
+          const kept = new Set(next.map((p) => p.id));
           return {
             pipelines: next,
             activePipelineId: pipeline.id,
+            inputsByPipelineId: Object.fromEntries(
+              Object.entries(state.inputsByPipelineId).filter(([id]) => kept.has(id))
+            ),
           };
         }),
 
@@ -172,10 +181,10 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
           id: newId,
           name: source.name.length > 0 ? `${source.name} ${copySuffix}` : copySuffix.trim(),
           steps: source.steps.map((step) => ({
-            id: step.id, // step ids stay stable — the parent pipeline's id distinguishes them
-            utilityId: step.utilityId,
+            ...step, // step ids stay stable — the parent pipeline's id distinguishes them
             options: { ...step.options },
           })),
+          ...(source.autoBake ? { autoBake: true as const } : {}),
           createdAt: now,
           updatedAt: now,
         };
@@ -197,6 +206,8 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
         set((state) => ({
           inputsByPipelineId: { ...state.inputsByPipelineId, [id]: input },
         })),
+
+      setPendingRunPipelineId: (id) => set({ pendingRunPipelineId: id }),
 
       setIsExecutingActive: (value) =>
         set((state) =>

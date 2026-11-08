@@ -48,8 +48,8 @@ const sections = [
       <h1>{isEs ? 'Todo lo que hace Lingua. Sin adornos.' : 'Everything Lingua does. Honestly.'}</h1>
       <p class="lede">
         {isEs
-          ? 'Cada línea de esta página corresponde a comportamiento que ya se distribuye en la app de escritorio. Donde todavía no estamos, lo decimos. Los visuales son representaciones HTML de la interfaz real.'
-          : "Every line below maps to behavior shipping in the desktop app today. Where we're not there yet, we say so. The visuals are HTML representations of the real interface."}
+          ? 'Cada línea de esta página corresponde a comportamiento de la app de escritorio. Donde todavía no estamos, lo decimos. Los visuales son representaciones HTML de la interfaz real.'
+          : "Every line below maps to behavior in the desktop app. Where we're not there yet, we say so. The visuals are HTML representations of the real interface."}
       </p>
 
       <nav class="section-jump" aria-label={isEs ? 'Saltar a sección' : 'Jump to section'}>
@@ -170,8 +170,8 @@ const sections = [
           </header>
           <p>
             {isEs
-              ? 'Cada ejecución se captura localmente. Compara runs consecutivos lado a lado, restaura una versión anterior o borra el historial con un atajo. Los snapshots son opt-in y nunca salen del dispositivo.'
-              : 'Every run is captured locally. Compare consecutive runs side-by-side, restore an old version, or clear the history with one keystroke. Snapshots are opt-in and never transmitted off the device.'}
+              ? 'Free compara una ejecución con la anterior. Pro compara dos ejecuciones cualesquiera y restaura una versión anterior en una pestaña nueva. El historial vive en memoria y nunca sale del dispositivo; Captura el código para reproducir apaga las copias de código.'
+              : 'Free compares a run with the one before it. Pro compares any two runs and restores an earlier version in a new tab. History stays in memory and never leaves the device; Capture code for replay turns off the code copies.'}
           </p>
           <HistoryDiffMockup locale={locale} />
         </article>
@@ -217,6 +217,45 @@ const sections = [
             </li>
           </ul>
         </article>
+
+        <article class="workflow-card">
+          <header>
+            <Icon name="lucide:list-video" />
+            <h3>{isEs ? 'Ejecutar e inspeccionar' : 'Run and inspect'}</h3>
+          </header>
+          <ul class="bullet-list inline">
+            <li>
+              <strong>{isEs ? 'Regiones' : 'Run regions'}</strong> — {isEs ? '// %% y # %% dividen un archivo; ejecuta una región y ve la salida debajo.' : '// %% and # %% split a file; run one region and read its output under it.'}
+            </li>
+            <li>
+              <strong>{isEs ? 'Línea de tiempo' : 'Execution timeline'}</strong> — {isEs ? 'Grabar ejecución reproduce una ejecución de JS o TS paso a paso. Free guarda los últimos 20 pasos; Pro, hasta 5,000.' : 'Record run replays a JS or TS run step by step. Free keeps the last 20 steps; Pro keeps up to 5,000.'}
+            </li>
+            <li>
+              <strong>{isEs ? 'Salida enriquecida' : 'Rich display'}</strong> — {isEs ? 'lingua.display y display de Python dibujan tablas, JSON, imágenes, gráficos y barras de progreso.' : "lingua.display and Python's display draw tables, JSON, images, charts and progress bars."}
+            </li>
+            <li>
+              <strong>{isEs ? 'Celdas SQL' : 'SQL grid'}</strong> — {isEs ? 'enlaces, barras de 0 a 1, casillas y miniaturas en las celdas.' : 'links, 0–1 bars, checks and image thumbnails in the cells.'}
+            </li>
+          </ul>
+        </article>
+
+        <article class="workflow-card">
+          <header>
+            <Icon name="lucide:send" />
+            <h3>{isEs ? 'Solicitudes HTTP' : 'HTTP requests'}</h3>
+          </header>
+          <ul class="bullet-list inline">
+            <li>
+              <strong>{isEs ? 'Ámbitos de variables' : 'Variable scopes'}</strong> — {isEs ? 'variables de colección, entorno y solicitud, cada ámbito con su color.' : 'collection, environment and request variables, each scope with its colour.'}
+            </li>
+            <li>
+              <strong>Chain tags</strong> — {isEs ? 'una variable que captura otra solicitud lleva el valor de su respuesta a esta.' : "a variable another request captures carries that response's value into this one."}
+            </li>
+            <li>
+              <strong>{isEs ? 'Aserciones de snapshot' : 'Snapshot assertions'}</strong> — {isEs ? 'guarda una respuesta y ve qué cambió en el siguiente envío.' : 'save a response and see what changed on the next send.'}
+            </li>
+          </ul>
+        </article>
       </div>
     </section>
 
@@ -259,14 +298,20 @@ const sections = [
           <h3>{isEs ? 'Telemetría desactivada por defecto' : 'Telemetry off by default'}</h3>
           <p>
             {isEs
-              ? 'Nada sale de tu dispositivo hasta que das consentimiento explícito en el prompt inicial. Incluso activada, los payloads son nombres de eventos anónimos con la versión de la app: nunca tu código, nunca rutas de archivos, nunca un vendor de terceros.'
-              : 'Nothing leaves your device until you explicitly opt in from the first-run prompt below. Even when on, payloads are anonymous event names with the app version — never your code, never your file paths, never a third-party vendor.'}
+              ? 'Ninguna telemetría sale de tu dispositivo hasta que das consentimiento explícito en el prompt inicial. Incluso activada, los payloads son nombres de eventos y propiedades permitidas con la versión de la app: nunca tu código, nunca rutas de archivos, nunca un vendor de terceros.'
+              : 'No telemetry leaves your device until you explicitly opt in from the first-run prompt below. Even when on, payloads are event names and allow-listed properties with the app version — never your code, never your file paths, never a third-party vendor.'}
           </p>
-          <h3>{isEs ? 'Ejecución en sandbox' : 'Sandboxed execution'}</h3>
+          <h3>{isEs ? 'Cómo se ejecuta el código' : 'How code runs'}</h3>
           <p>
             {isEs
-              ? 'JS/TS/Python corren en workers con timeouts controlados por el padre y salida limitada. Los subprocesses Go/Rust heredan un env mínimo (PATH, HOME, LANG, TMPDIR). El IPC de filesystem usa un registro de capacidades: el renderer solo toca rutas bajo roots aprobados.'
-              : 'JS/TS/Python run in workers with parent-owned timeouts and capped output. Go/Rust subprocesses inherit a minimal env (PATH, HOME, LANG, TMPDIR). Filesystem IPC uses a capability registry — the renderer can only touch paths under approved roots.'}
+              ? 'JS/TS/Python corren en workers con timeouts controlados por el padre y salida limitada. Los subprocesses Go/Rust heredan un env mínimo (PATH, HOME, LANG, TMPDIR). El IPC de filesystem usa un registro de capacidades: el renderer solo toca rutas bajo roots aprobados. No es un sandbox: en escritorio, tu código puede leer cualquier host y cualquier archivo que tu cuenta pueda leer.'
+              : 'JS/TS/Python run in workers with parent-owned timeouts and capped output. Go/Rust subprocesses inherit a minimal env (PATH, HOME, LANG, TMPDIR). Filesystem IPC uses a capability registry — the renderer can only touch paths under approved roots. It is not a sandbox: on desktop, your code can read any host and any file your account can read.'}
+          </p>
+          <h3>{isEs ? 'Red desde el código en ejecución' : 'Network from running code'}</h3>
+          <p>
+            {isEs
+              ? 'Permitir, Preguntar o Bloquear para Worker, Pyodide y Ruby WASM. Permitir es la opción predeterminada. Es una protección de mejor esfuerzo, y los hosts bloqueados aparecen en Actividad reciente.'
+              : 'Allow, Ask or Block for Worker, Pyodide and Ruby WASM. Allow is the default. It is a best-effort guard, and blocked hosts are listed in Recent activity.'}
           </p>
           <h3>{isEs ? 'CSP estricta' : 'Strict CSP'}</h3>
           <p>
@@ -307,10 +352,10 @@ const sections = [
           <strong>SHA256SUMS.txt</strong> {isEs ? 'se publica junto a cada release. Verifica antes de instalar.' : 'ships next to every release. Verify before you install (the snippet on the left).'}
         </li>
         <li>
-          <strong>{isEs ? 'Verificación offline de licencias' : 'Offline license verification'}</strong> — {isEs ? 'los tokens Pro están firmados con Ed25519 y se verifican contra una llave pública embebida. Sin cuenta, sin check de servidor.' : 'Pro tokens are Ed25519-signed and verified against an embedded public key. No account, no server check.'}
+          <strong>{isEs ? 'Verificación offline de licencias' : 'Offline license verification'}</strong> — {isEs ? 'los tokens Pro están firmados con Ed25519 y se verifican contra una llave pública embebida. Sin cuenta; el estado y los límites de dispositivos usan el servidor de licencias.' : 'Pro tokens are Ed25519-signed and verified against an embedded public key. No account; status and device limits use the license server.'}
         </li>
         <li>
-          <strong>Auto-updates</strong> {isEs ? 'usan el canal oficial de GitHub Releases y los controles de integridad de cada plataforma. Puedes desactivarlas por instalación.' : 'use the official GitHub Releases channel and each platform\'s integrity checks. You can disable them per install.'}
+          <strong>Auto-updates</strong> {isEs ? 'usan el canal oficial de GitHub Releases y los controles de integridad de cada plataforma. Se buscan al abrir y cada hora, y se instalan al cerrar.' : 'use the official GitHub Releases channel and each platform\'s integrity checks. They are checked at launch and hourly, and install on quit.'}
         </li>
         <li>
           <strong>Source-available</strong> {isEs ? 'bajo la Licencia Comercial de Lingua. Compílalo tú mismo si quieres auditar lo que corre en tu máquina.' : 'under the Lingua Commercial License. Build it yourself if you want to audit what runs on your machine.'}

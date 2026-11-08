@@ -123,8 +123,23 @@ After a fresh full instrumented run, raise a floor when that formula yields a
 higher value; otherwise leave it unchanged. Never lower a floor to make a run
 pass or substitute a partial-suite measurement. The command validates these
 floors but does not automatically update them. CI enforces the floors in a
-dedicated `coverage` job that runs beside the uninstrumented `unit` job, which
-keeps the benchmarks gated.
+dedicated `coverage-floors` job that runs beside the uninstrumented `unit` job,
+which keeps the benchmarks gated.
+
+Both suites shard across two runners because a hosted Linux runner has 4 vCPUs
+and already runs Vitest at 4 workers. `unit` runs `pnpm test --shard=<n>/2`, and
+`coverage` runs `pnpm run test:coverage --shard=<n>/2` with the blob reporter.
+A shard run skips the coverage reports and floors, since it measures part of the
+suite. `coverage-floors` then merges both blobs and enforces the floors on the
+whole suite; it also fails if a shard left no blob. Both jobs set
+`NODE_COMPILE_CACHE`, because every test file starts a process that reloads
+jsdom. Reproduce the merge locally:
+
+```bash
+pnpm run test:coverage --shard=1/2 --reporter=default --reporter=blob
+pnpm run test:coverage --shard=2/2 --reporter=default --reporter=blob
+pnpm run test:coverage --merge-reports
+```
 
 Keep `vitest` and `@vitest/coverage-v8` pinned to the same exact version and
 update them together: the provider declares an exact runner peer dependency.
@@ -141,13 +156,25 @@ pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4
 Pull requests run the full `pnpm run test:e2e:web` suite in a dedicated
 `web-e2e` job. It runs in parallel with the Linux gate jobs (`static`, `unit`,
 `coverage`, `build-web`, and `subprojects`), so a red gate in one of them
-never hides the result of another. The job is a matrix of three shards on
+never hides the result of another. The job is a matrix of five shards on
 separate runners; each shard builds its own `dist/web`, runs its slice of the
-suite with `--shard=<n>/3`, and on failure uploads its traces and screenshots
+suite with `--shard=<n>/5`, and on failure uploads its traces and screenshots
 as a `playwright-web-e2e-shard-<n>` artifact. Re-running failed jobs repeats
-only the shard that failed. Reproduce one shard locally with
-`pnpm run test:e2e:web --shard=2/3`. The job restores the Playwright browser
+only the shard that failed. `PWTEST_SHARD_WEIGHTS` sizes the shards by measured
+duration, since they are contiguous slices in file order and the slow specs
+cluster near the end; every test still lands in exactly one shard. Refresh the
+weights when one shard stays far slower than the others. Reproduce one shard
+locally with `PWTEST_SHARD_WEIGHTS=112:130:123:114:98 pnpm run test:e2e:web --shard=2/5`.
+The job restores the Playwright browser
 cache and uses CI-only timeout scaling so local feedback stays fast.
+
+Locally, each checkout gets its own preview port, derived from its path in
+the 20000-29999 range, so worktrees can run the suite at the same time. The
+wrapper prints the port it picked. It reuses a server only when that server
+serves the same `dist/web/index.html`, and moves to the next port when
+something else holds the derived one. To choose the port yourself, set
+`LINGUA_E2E_PORT`; the run stops if that port serves anything else. CI stays
+on port 4175 and never reuses a server.
 
 ### Electron Base
 
@@ -335,9 +362,9 @@ Use this order when automating:
 | ✅ | `TC-048` | `BOTH` | `developer` | Toggle word wrap | Monaco wrapping updates |
 | ✅ | `TC-049` | `BOTH` | `developer` | Toggle minimap | Monaco minimap updates |
 | ✅ | `TC-050` | `BOTH` | `developer` | Change layout horizontal/vertical/editor-only | Shell panels rearrange correctly |
-| ✅ | `TC-104` | `BOTH` | `developer` | In Settings press `Cmd/Ctrl+1`–`9` and `0`, then click a section chip on the Editor tab | Tabs open in rail order (Plugins and Labs have no number); the chip scrolls to its section and stays pressed while that section is in view |
+| ✅ | `TC-104` | `BOTH` | `developer` | In Settings press `Cmd/Ctrl+1`–`9` and `0`, then click a section chip on the Editor tab | Tabs open in rail order (Plugins has no number); the chip scrolls to its section and stays pressed while that section is in view |
 | ✅ | `TC-105` | `BOTH` | `developer` | Settings → Privacy → Local data → `Clear everything…` | One confirmation lists the stores (SQL queries and History included), the SQL database and the capsules; confirming clears them and keeps HTTP requests, notebooks and the session |
-| ✅ | `TC-106` | `BOTH` | `developer` | Settings › Labs: turn on the network policy, set Block, run a JS `fetch` | The request fails with a message naming the host, and Recent activity shows it |
+| ✅ | `TC-106` | `BOTH` | `developer` | Settings › Privacy: set Network from running code to Block, run a JS `fetch` | The request fails with a message naming the host, and Recent activity shows it |
 | ✅ | `TC-107` | `BOTH` | `developer` | Network policy Ask, run a JS `fetch` to a new host, choose Allow in this tab, run again | One dialog names the host while the run waits; the request goes through and the second run does not ask |
 | ✅ | `TC-108` | `BOTH` | `developer` | SQL tab: Try a sample table, Run, click the table in the Explorer, then `Cmd/Ctrl+B` twice | Six rows with revenue right-aligned under a *ran from the editor* strip; the table opens under a generated SELECT with Edit in editor; the Explorer folds to its rail and back |
 | ✅ | `TC-109` | `BOTH` | `developer` | SQL result: select a row and press `Cmd/Ctrl+C`; open Export full result…, pick TSV, Export… | The row lands on the clipboard as JSON; the dialog states the row count and downloads a `.tsv` |
@@ -350,9 +377,9 @@ Use this order when automating:
 | ✅ | `TC-116` | `BOTH` | `developer` | SQL: sort a windowed result, Export full result… as CSV and as XLSX, then cancel a Markdown export | Every row downloads in the grid order; the XLSX is a workbook; Cancel shows *Export cancelled* and keeps the dialog |
 | ✅ | `TC-117` | `BOTH` | `developer` | SQL (ES): import a semicolon CSV into an existing table with a mapping, then a file with a bad row | *Se agregaron 2 filas*; the bad file adds nothing and the preview stays open |
 | ✅ | `TC-118` | `WEB` | `developer` | SQL: 100,000 rows by 100 columns in the grid (`SqlResultGridScale.test.tsx`) and in a browser | A screenful of rows is mounted; the rail summarizes the first 10,000 rows and says so; Load more stops at 40,000 rows for 100 columns |
-| ✅ | `TC-119` | `ELEC` | `developer` | Labs › Database connections on: paste a Postgres URL into New connection, Test connection, Save, run a 25,000-row SELECT, Load more, then Cancel a `pg_sleep` | The URL field loses the password; every step reads ok with its time; the grid loads past the window from the host and Cancel stops the server backend |
+| ✅ | `TC-119` | `ELEC` | `developer` | Paste a Postgres URL into New connection, Test connection, Save, run a 25,000-row SELECT, Load more, then Cancel a `pg_sleep` | The URL field loses the password; every step reads ok with its time; the grid loads past the window from the host and Cancel stops the server backend |
 | ✅ | `TC-120` | `ELEC` | `developer` | Move that connection to prod, run an UPDATE, type the name; add a MySQL connection with Ask each session and a SQLite file, then a fourth | Read-only turns on and a red band shows; the confirm shows the EXPLAIN estimate and the write answers with a Count row; after a restart MySQL asks for its password and again after a wrong one; the fourth offers Open without saving |
-| ✅ | `TC-121` | `WEB` | `developer` | Labs › Database connections on, open the connection picker | Local, New connection, Open from URL without saving and a DESKTOP ONLY row naming Postgres, MySQL, SQL Server, ClickHouse, SQLite and D1 with the browser and Cloudflare reason; no saved count and no Manage connections… |
+| ✅ | `TC-121` | `WEB` | `developer` | Open the connection picker | Local, New connection, Open from URL without saving and a DESKTOP ONLY row naming Postgres, MySQL, SQL Server, ClickHouse, SQLite and D1 with the browser and Cloudflare reason; no saved count and no Manage connections… |
 | ✅ | `TC-122` | `ELEC` | `developer` | On a Postgres connection, open the Explorer, a second schema, then `orders`; switch its chips to Keys, DDL and Data; press Refresh | The first schema opens on its tables with row estimates, the second reads only when opened; the detail shows PK, FK and indexed columns, the DDL and Copy DDL; Data runs `SELECT * FROM "public"."orders" LIMIT 100;` on the connection; Refresh reads the levels again |
 | ✅ | `TC-123` | `ELEC` | `developer` | On the SQL tab press `Cmd/Ctrl+P`, type `ord ite`, then try `Enter`, `Cmd/Ctrl+Enter` and `Alt+Enter` | Tables, views and functions of the connection come before files with their connection name; on a table Enter opens the data, Cmd/Ctrl+Enter the structure, Alt+Enter puts the quoted name at the cursor; a function opens its DDL |
 | ✅ | `TC-125` | `WEB` | `developer` | On the SQL tab with a Local table and a saved query, press `Cmd/Ctrl+P` | The table and the saved query come before files with Local and saved as their source; Enter opens the table's rows or the query |
@@ -365,14 +392,14 @@ Use this order when automating:
 | ✅ | `TC-132` | `ELEC` | `developer` | With Edit table rows on, save a SQL Server connection, open a table from the Explorer, edit a cell, Review SQL and Commit, then Explain a SELECT | The tree lists Tables, Views, Functions and Sequences under dbo; Data reads `SELECT TOP (100)`; the review binds the change in one transaction and Commit reads the table again; Explain shows the estimated plan without running the statement |
 | ✅ | `TC-133` | `ELEC` | `developer` | With Edit table rows on, save a ClickHouse connection on port 8123 with SSL off, open a table, then run an INSERT on it while it is read-only | Databases show as schemas with tables, views and materialized views; the grid shows wide integers as text and says the table is not edited row by row; the INSERT is refused by the server and allowed once confirmed |
 | ✅ | `TC-134` | `ELEC` | `developer` | Save a Turso connection to a local libSQL server with TLS off and no token, test it and run a query; then fill a D1 connection with an account, database id and a wrong token and test it | The test lists resolve, policy, TCP, TLS skipped, auth and the libSQL version; the grid shows integers past 2^53 as text and blobs as base64; the D1 test resolves `api.cloudflare.com` and fails at auth |
-| ✅ | `TC-135` | `WEB` | `developer` | With Database connections on in the browser, open the picker, then New connection: paste a `libsql://…?authToken=…` URL, test it with a wrong token and the right one, open it for this tab and run a query; paste a Neon `postgresql://` string, open it and commit a staged edit | The picker lists the socket engines and D1 as DESKTOP ONLY; the sheet offers Turso and Neon only and says the token stays in the tab; the URL field drops the token; the wrong token fails at auth; queries and the edit run from the browser; reloading forgets the connections |
+| ✅ | `TC-135` | `WEB` | `developer` | In the browser, open the picker, then New connection: paste a `libsql://…?authToken=…` URL, test it with a wrong token and the right one, open it for this tab and run a query; paste a Neon `postgresql://` string, open it and commit a staged edit | The picker lists the socket engines and D1 as DESKTOP ONLY; the sheet offers Turso and Neon only and says the token stays in the tab; the URL field drops the token; the wrong token fails at auth; queries and the edit run from the browser; reloading forgets the connections |
 | ✅ | `TC-136` | `WEB` `ELEC` | `developer` | Run a read query on a connection (a Turso tab connection on the web, Postgres on desktop), open Export full result…, Copy to Local as table and Create; open a Postgres table from the Explorer and copy it too; run an UPDATE on the connection and open the dialog again | The row reads Copy to Local as table with its hint on its own line; progress counts the rows and the notice says how many were copied; the Local Explorer lists the table with its row count (the whole table, not the 100-row preview) and the connection's name, the copy and the date in the tooltip; integers stay exact past 2^53 and bytes stay bytes; after the UPDATE the row keeps the Copy to Local title and says a single read query is needed |
 | ✅ | `TC-137` | `WEB` | `developer` | Open the HTTP workspace, create a request, type `{{base}}/users` with no environment, then a full URL to a JSON API; Send it, fold a node, search a value inside a folded node, hover a value and click Capture, then turn on Wrap | Send stays off with the hint naming what is missing and the token red; the response opens as a tree with sizes, the search count matches and unfolds the hidden node, Capture adds the rule, opens the Capture tab and marks the value `captured → name`; long values scroll until Wrap is on |
 | ✅ | `TC-138` | `ELEC` | `developer` | In the desktop HTTP workspace, send a GET to an HTTPS host and to an HTTP host that redirects once, open Timing, then send the same request again; move through the JSON tree with the keyboard | Timing lists DNS, Connect, TLS, Waiting and Download (TLS is 0 on HTTP) with the total and 1 redirect for the redirecting host; the header shows the change from the previous response; one Tab enters the tree, arrows move and fold, C captures |
 | ✅ | `TC-139` | `WEB` | `developer` | In the HTTP workspace, go offline (DevTools or the system), Send a GET and a POST to an internet host and one GET to `localhost`, then come back online | The localhost request sends; the others read Send when online, then Queued, and the last response stays; back online the GET sends by itself and the POST reads Send now until clicked |
-| ✅ | `TC-140` | `WEB` | `developer` | Turn on Settings › Labs › HTTP variable scopes; add a collection variable, a request Vars row and two environments (one named prod), then use all three in a URL with one variable only the other environment defines | Each token takes its scope's colour and the missing one is red; chips name the scope and what it overrides, secrets masked; prod tints the selector, tabs and Send red; Add to prod copies the missing value and Send turns on, a missing secret arrives without its value with the manager open on it; with the flag off only the environment resolves |
-| ✅ | `TC-141` | `WEB` | `developer` | Turn on Settings › Labs › HTTP chain tags; make request A capture a value into {{x}} and request B use {{x}} in its URL, then open B before sending A | B's hint names A and Send stays off; the derived pipeline shows A then B; the tag chip shows A, the path and No 2xx response yet; after Send source first, Send turns on and sends A then B with the fresh value; with A answering 503 the chain stops with a notice and B is not sent; when A returns the base URL B uses, Send shows that host and sends only after Send in the notice |
-| ✅ | `TC-142` | `WEB` | `developer` | Turn on Settings › Labs › HTTP snapshot assertions; send a JSON request, add a suggested test, turn on Snapshot, then send again after the server changes one field and adds another | Suggestions offer the status, the JSON content type and plain fields; the snapshot matches at first; after the change the strip shows the snapshot as failed and the diff lists the changed and added fields while timestamps and ids stay scrubbed; Reject closes the diff and keeps the failure and the snapshot; after another send, Accept makes it match again |
+| ✅ | `TC-140` | `WEB` | `developer` | Add a collection variable, a request Vars row and two environments (one named prod), then use all three in a URL with one variable only the other environment defines | Each token takes its scope's colour and the missing one is red; chips name the scope and what it overrides, secrets masked; prod tints the selector, tabs and Send red; Add to prod copies the missing value and Send turns on, a missing secret arrives without its value with the manager open on it |
+| ✅ | `TC-141` | `WEB` | `developer` | Make request A capture a value into {{x}} and request B use {{x}} in its URL, then open B before sending A | B's hint names A and Send stays off; the derived pipeline shows A then B; the tag chip shows A, the path and No 2xx response yet; after Send source first, Send turns on and sends A then B with the fresh value; with A answering 503 the chain stops with a notice and B is not sent; when A returns the base URL B uses, Send shows that host and sends only after Send in the notice |
+| ✅ | `TC-142` | `WEB` | `developer` | Send a JSON request, add a suggested test, turn on Snapshot, then send again after the server changes one field and adds another | Suggestions offer the status, the JSON content type and plain fields; the snapshot matches at first; after the change the strip shows the snapshot as failed and the diff lists the changed and added fields while timestamps and ids stay scrubbed; Reject closes the diff and keeps the failure and the snapshot; after another send, Accept makes it match again |
 | ✅ | `TC-143` | `BOTH` | `developer` | On a JavaScript tab, Alt-click the gutter once on one line and twice on another, click a third line, then Debug, Step over and open the Console | The marks are an amber diamond, a blue ring and a red dot, also in the Breakpoints list; the paused line is accent-tinted with an arrow and the controls sit under it on one line; after Step over the line stepped from shows the changed value, Locals tag it new or changed with the previous value on hover, and the Console ends with the paused line and Open Debugger; on desktop, a Python tab's Alt-click adds a plain red dot and its tooltip says conditional breakpoints and logpoints are JavaScript and TypeScript only |
 | ✅ | `TC-144` | `WEB` | `developer` | With Pro and an AI endpoint configured, run a JavaScript tab that throws on line 2, click Explain at the end of the failing line, Send, vote Helpful, ask a suggested follow-up, Pin, then Apply & re-run | The line is tinted with an alert mark, its end shows TypeError with Explain, Copy stack and Add breakpoint, and the message stays in the inline result; the panel opens beside the editor with no scrim, names the file and line, and sends nothing before Send; Cmd/Ctrl+J returns the cursor to line 2; the vote stores only TypeError; after the fix the pinned panel stays and the actions clear |
 | ✅ | `TC-145` | `BOTH` | `developer` | With Pro, open Settings › Account › AI with a remote endpoint saved, switch Send to to Local · Ollama, Detect and pick a model, then Explain a failing line and switch the panel between the two modes, sending in each | The key field shows only for My endpoint; Detect fills the Local endpoint and lists the models; the panel caption names the model and host, Local adds nothing leaves this machine, a mode not set up is disabled with the reason; each mode keeps its own answer when you switch back; Local sends no Authorization header |
@@ -587,7 +614,7 @@ path, preserves displayed stack text and ambiguous relative filenames, and
 leaves unknown external frames visible. A real worker-source-mapper unit test
 compares named and unnamed async forms of its trusted probe location.
 
-The three existing E2E shards retain their full inventory and failure traces.
+The E2E shards retain their full inventory and failure traces.
 A narrow first-use screenshot upload also runs on successful jobs; inspect
 those screenshots before calling a visual change verified. Passing component
 geometry tests alone does not establish visual correctness or native first use.

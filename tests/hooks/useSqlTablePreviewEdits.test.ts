@@ -11,7 +11,6 @@ vi.mock('../../src/renderer/runtime/sqlForeignKeys', () => ({
 }));
 
 import { useSqlTablePreview } from '../../src/renderer/hooks/useSqlTablePreview';
-import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useSqlConnectionsStore } from '../../src/renderer/stores/sqlConnectionsStore';
 import type { SqlDbConnectionView } from '../../src/shared/sqlDb';
 
@@ -20,25 +19,43 @@ const outcome = { status: 'success', columns: [], rows: [], rowCount: 0, duratio
 beforeEach(() => {
   executeQuery.mockReset().mockResolvedValue(outcome);
   loadLocalEditTable.mockReset();
-  useSettingsStore.setState({ featureFlags: { editRows: true, dbClient: true } });
 });
 afterEach(() => {
-  useSettingsStore.setState({ featureFlags: {} });
   useSqlConnectionsStore.setState({ catalog: null });
   delete (window as { lingua?: unknown }).lingua;
 });
 
 describe('opening a table for editing', () => {
-  it('reads rowid with a keyless Local table, and nothing extra when the flag is off', async () => {
+  it('reads rowid with a keyless Local table and keeps it out of the columns, the row text and the SQL', async () => {
     loadLocalEditTable.mockResolvedValue({ engine: 'duckdb', name: 'sales', columns: ['region'], key: { kind: 'rowid' } });
+    executeQuery.mockResolvedValue({ ...outcome, columns: [{ name: 'rowid', type: 'BIGINT' }, { name: 'region', type: 'VARCHAR' }], rows: [{ rowid: 3, region: 'north' }], rowCount: 1 });
     const { result } = renderHook(() => useSqlTablePreview(1000, []));
     await act(() => result.current.open({ name: 'sales' }));
     expect(executeQuery).toHaveBeenLastCalledWith('SELECT rowid, * FROM "sales" LIMIT 100;', { timeoutMs: 1000 });
     expect(result.current.preview?.edit).toEqual({ table: { engine: 'duckdb', name: 'sales', columns: ['region'], key: { kind: 'rowid' } } });
-    useSettingsStore.setState({ featureFlags: {} });
+    expect(result.current.preview?.sql).toBe('SELECT * FROM "sales" LIMIT 100;');
+    const response = result.current.preview!.response;
+    expect(response.columns.map((column) => column.name)).toEqual(['region']);
+    expect(JSON.stringify(response.rows[0])).toBe('{"region":"north"}');
+    expect(response.rows[0]?.['rowid']).toBe(3);
+  });
+
+  it('shows a column the table itself names rowid', async () => {
+    loadLocalEditTable.mockResolvedValue({ engine: 'duckdb', name: 'sales', columns: ['rowid', 'region'], key: { kind: 'rowid' } });
+    executeQuery.mockResolvedValue({ ...outcome, columns: [{ name: 'rowid', type: 'VARCHAR' }, { name: 'region', type: 'VARCHAR' }], rows: [{ rowid: 'a', region: 'north' }], rowCount: 1 });
+    const { result } = renderHook(() => useSqlTablePreview(1000, []));
+    await act(() => result.current.open({ name: 'sales' }));
+    expect(executeQuery).toHaveBeenLastCalledWith('SELECT * FROM "sales" LIMIT 100;', { timeoutMs: 1000 });
+    expect(result.current.preview?.response.columns.map((column) => column.name)).toEqual(['rowid', 'region']);
+  });
+
+  it('still opens a Local table when its catalog read fails', async () => {
+    loadLocalEditTable.mockRejectedValue(new Error('catalog failed'));
+    const { result } = renderHook(() => useSqlTablePreview(1000, []));
     await act(() => result.current.open({ name: 'sales' }));
     expect(executeQuery).toHaveBeenLastCalledWith('SELECT * FROM "sales" LIMIT 100;', { timeoutMs: 1000 });
     expect(result.current.preview?.edit).toBeUndefined();
+    expect(result.current.preview?.table.name).toBe('sales');
   });
 
   it('names a Local view, and offers nothing for a table it cannot edit', async () => {
@@ -64,7 +81,7 @@ describe('opening a table for editing', () => {
       await act(() => result.current.open({ ...table, kind }, undefined, undefined, remote));
       return result.current.preview?.edit;
     };
-    expect(await openWith({})).toEqual({ table: { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city'], key: { kind: 'pk', columns: ['id'] } } });
+    expect(await openWith({})).toEqual({ table: { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city'], types: expect.any(Object), key: { kind: 'pk', columns: ['id'] } } });
     expect(introspect).toHaveBeenCalledWith('c_1', { level: 'detail', schema: 'public', name: 'orders', kind: 'table' });
     expect(await openWith({ readOnly: true })).toEqual({ reason: 'read-only' });
     expect(await openWith({ env: 'prod' })).toEqual({ reason: 'production' });

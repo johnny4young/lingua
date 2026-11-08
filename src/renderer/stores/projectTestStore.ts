@@ -50,11 +50,14 @@ interface ProjectTestState {
   casesTruncated: boolean;
   runningScope: ProjectTestScope | null;
   filter: 'all' | 'failed';
+  /** The failed test the editor shows a card for; its result is read from `cases`. */
+  focusedFailure: Pick<ProjectTestCase, 'file' | 'path'> | null;
   detect: (binding: ProjectTestBinding) => Promise<void>;
   selectFramework: (framework: ProjectTestFramework) => void;
   run: (binding: ProjectTestBinding, scope?: ProjectTestScope) => Promise<void>;
   stop: (binding: ProjectTestBinding) => Promise<void>;
   setFilter: (filter: 'all' | 'failed') => void;
+  focusFailure: (test: Pick<ProjectTestCase, 'file' | 'path'> | null) => void;
 }
 
 const sameTest = (a: Pick<ProjectTestCase, 'file' | 'path'>, b: Pick<ProjectTestCase, 'file' | 'path'>) =>
@@ -134,8 +137,10 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   casesTruncated: false,
   runningScope: null,
   filter: 'all',
+  focusedFailure: null,
 
   setFilter: filter => set({ filter }),
+  focusFailure: test => set({ focusedFailure: test ? { file: test.file, path: [...test.path] } : null }),
 
   detect: async binding => {
     const bridge = window.lingua?.projectTests;
@@ -156,6 +161,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       cases: null,
       casesTruncated: false,
       runningScope: null,
+      focusedFailure: null,
     });
     if (!bridge) {
       set({ status: 'ready', detection: { kind: 'none', candidates: [] } });
@@ -180,7 +186,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   },
 
   selectFramework: selectedFramework =>
-    set({ selectedFramework, result: null, error: null, cases: null, casesTruncated: false }),
+    set({ selectedFramework, result: null, error: null, cases: null, casesTruncated: false, focusedFailure: null }),
 
   run: async (binding, scope = { kind: 'all' }) => {
     const bridge = window.lingua?.projectTests;
@@ -218,18 +224,22 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       if (get().activeRunId !== runId) return;
       const project = useProjectStore.getState().currentProject;
       if (project?.rootId === binding.rootId) useProjectStore.getState().setRecentTestRunner(project.id, framework);
-      set(state => ({
-        status: 'ready',
-        activeRunId: null,
-        runningScope: null,
-        result,
-        ...(result.cases
-          ? {
-              cases: mergeProjectTestCases(state.cases, scope, result.cases),
-              casesTruncated: scope.kind === 'all' ? result.casesTruncated === true : state.casesTruncated,
-            }
-          : {}),
-      }));
+      set(state => {
+        if (!result.cases) return { status: 'ready', activeRunId: null, runningScope: null, result };
+        const cases = mergeProjectTestCases(state.cases, scope, result.cases);
+        const focused = state.focusedFailure;
+        // The card closes once its test stops failing.
+        const stillFailing = focused && cases.some(entry => sameTest(entry, focused) && entry.status === 'failed');
+        return {
+          status: 'ready',
+          activeRunId: null,
+          runningScope: null,
+          result,
+          cases,
+          casesTruncated: scope.kind === 'all' ? result.casesTruncated === true : state.casesTruncated,
+          focusedFailure: stillFailing ? focused : null,
+        };
+      });
     } catch {
       if (get().activeRunId !== runId) return;
       set({ status: 'error', activeRunId: null, runningScope: null, error: 'run-failed' });

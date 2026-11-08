@@ -96,9 +96,33 @@ export function looksSecret(key: string): boolean {
   // (KEY/KER inside a word) do not. A PASSWORD substring matches anywhere —
   // a password rarely belongs on a non-secret token.
   return (
-    /(^|[^A-Z0-9])(TOKEN|KEY|SECRET|PASSWORD)$/.test(normalised) ||
+    /(^|[^A-Z0-9])(TOKEN|KEY|APIKEY|SECRET|PASSWORD|JWT|BEARER|AUTH|COOKIE|SESSION|SESSION_ID|SID|CSRF|XSRF)$/.test(normalised) ||
     normalised.includes('PASSWORD')
   );
+}
+
+/** The text with every secret value replaced by the redaction sentinel. */
+export function maskSecretValuesInText(input: string, secretValues: readonly string[]): string {
+  let out = input;
+  for (const secret of secretValues) {
+    out = replaceAllLiteral(out, secret, REDACTED_SENTINEL);
+  }
+  return out;
+}
+
+/** The keys of the environment's secret variables. */
+export function collectSecretKeys(env: HttpEnvironmentV1 | null): Set<string> {
+  const keys = new Set<string>();
+  if (!env) return keys;
+  for (const variable of buildFinalVariableMap(env).values()) {
+    if (variable.secret) keys.add(variable.key);
+  }
+  return keys;
+}
+
+/** A value shaped like a JSON Web Token is a credential whatever its name. */
+export function looksSecretValue(value: string): boolean {
+  return /^eyJ[\w-]+\.[\w-]+\.[\w-]*$/.test(value);
 }
 
 /**
@@ -147,7 +171,7 @@ const VARIABLE_TOKEN = /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/;
  * to `String#matchAll` / a `replace` callback. A new object per call
  * means no `lastIndex` leaks between scans.
  */
-function variableTokenMatcher(): RegExp {
+export function variableTokenMatcher(): RegExp {
   return new RegExp(VARIABLE_TOKEN.source, 'g');
 }
 
@@ -406,7 +430,12 @@ function buildFullLookup(env: HttpEnvironmentV1 | null): Map<string, string> {
 function buildNonSecretLookup(
   env: HttpEnvironmentV1 | null
 ): Map<string, string> {
-  return buildLookupFromFinalVariables(buildFinalVariableMap(env), false);
+  const lookup = buildLookupFromFinalVariables(buildFinalVariableMap(env), false);
+  // A row nobody marked secret can still be one; it stays a placeholder in anything saved or copied.
+  for (const [key, value] of lookup) {
+    if (looksSecret(key) || looksSecretValue(value)) lookup.delete(key);
+  }
+  return lookup;
 }
 
 /**
@@ -722,13 +751,7 @@ export function maskSecretValuesInResponse(
   secretValues: readonly string[]
 ): HttpResponseV1 {
   if (secretValues.length === 0) return response;
-  const scrub = (input: string): string => {
-    let out = input;
-    for (const secret of secretValues) {
-      out = replaceAllLiteral(out, secret, REDACTED_SENTINEL);
-    }
-    return out;
-  };
+  const scrub = (input: string): string => maskSecretValuesInText(input, secretValues);
   return {
     ...response,
     body: scrub(response.body),

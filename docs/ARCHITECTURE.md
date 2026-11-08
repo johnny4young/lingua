@@ -95,7 +95,7 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
-The network policy for running code (Labs flag `networkPolicy`) is enforced
+The network policy for running code is enforced
 inside these workers by `networkGuard.ts`, which wraps `fetch`,
 `XMLHttpRequest`, `WebSocket`, `EventSource`, `WebTransport`,
 `WebSocketStream`, `Cache.add` and nested workers, leaving no prototype path
@@ -114,6 +114,36 @@ its kill timer while any question is open and re-arms the full budget once the
 last is answered, as for a debugger pause. Ruby's synchronous eval
 cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
 it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
+
+On packaged desktop builds the renderer and its workers run on the
+`app://lingua` origin (see § Desktop renderer origin), so CORS applies to their
+requests and Chromium refuses `file:` URLs, as in the web build. A worker's CSP
+comes from its script response and the protocol handler sends none, so the meta
+CSP in `index.html` binds the page and not the workers. Under Allow no guard
+runs: code reaches any host and reads what CORS lets it read. Send's protections
+in `httpProxy.ts` live in the main process and do not cover it. Under Ask and
+Block the guard refuses local URLs outside the renderer root, which it takes as
+the parent of the worker's own `assets/` folder. A dynamic `import()` still
+reaches any remote module, so Block is not a boundary for those. A per-response
+CSP on worker scripts would close that; `webRequest` sees a worker's http(s)
+requests but not its script.
+
+`ExecutionContext.blockNetwork` blocks every host for one run whatever the
+policy says; it can only tighten the policy, never loosen it. Edit with AI
+(`runtime/aiEditPreview.ts`) uses it, on the user's Run preview click, to run
+the file before and after the AI's change with a 5 s timeout. Both runs use the redacted file the model saw, so the
+file they run holds no secret that was masked from it; on packaged desktop the
+limits above still apply to what that code can import. They stay outside the
+tab's console,
+results and history; blocked hosts still reach the Privacy & Trust log, as for
+any other run. Both runs go to a new runner instance, never the shared
+`runnerManager` one, and the runner is stopped afterwards, terminating its
+worker. That way a tab's own run is never interrupted, and timers, tasks or
+patched globals the AI's code leaves behind die with that worker instead of
+running later under the tab's own network policy. For Python this boots a
+second Pyodide, created with `new PythonRunner(true)`: that isolated runner
+sends no user env vars and leaves the shared boot progress alone. A runner
+that rejects is reported as a failed run, so the dialog never waits forever.
 
 The Python runner lets one execution reach that persistent worker at a time.
 A new `execute()` stops a run already in flight by terminating the worker, so
@@ -232,8 +262,8 @@ Pyodide tests cover failure, recovery, notebook namespaces and stream restoratio
 
 JS/TS transforms retain the original expression characters and emit high-resolution
 source maps only when requested by a runner. Maps are passed newest-first through
-the worker protocol: debugger instrumentation, TypeScript transpilation, timing,
-captures and loop guards. Both console origins and execution errors use the same
+the worker protocol: debugger or timeline instrumentation, TypeScript
+transpilation, timing, captures and loop guards. Both console origins and execution errors use the same
 map chain, including structured errors from non-fatal captures. TypeScript parse
 errors use esbuild's structured locations, not numbers extracted from its message.
 
@@ -309,6 +339,51 @@ a statement cannot hide behind a quote DuckDB does not see. History masks
 credential-bearing string literals with `redactSqlSecrets` before keeping SQL;
 for a MySQL or ClickHouse run it finds literals by that server's quoting
 rules, and an unclosed literal masks the rest of the text.
+
+Instant SQL (`sqlWorkspaceInstantPreview`, on by default) samples the statement under the cursor on Local only. The
+editor computes the target with `planInstantPreview`
+(`src/shared/sqlCtePreview.ts`): a token scanner finds the WITH chain, because
+DuckDB's serialized AST has no CTE positions, and the sampled SQL is the chain
+up to the CTE under the cursor plus `SELECT * FROM <cte> LIMIT 1000`, or the
+statement wrapped in `SELECT * FROM (…) LIMIT 1000`. It reaches the preview
+through `instantSqlChannel.ts`, so typing does not re-render the panel.
+`planInstantPreview` produces no SQL for a statement `isReadOnlySqlStatement`
+rejects or that names a side-effect function, and `runInstantPreview` runs the
+sampled SQL only after `json_serialize_sql` parses it as one SELECT. `instantAstBlockReason`
+then walks that parse and fails closed: side-effect functions by their
+normalized name (logging and checkpoints included), a remote URL anywhere in a
+function's arguments or options or in any table reference (catalog, schema and
+table are joined back, as a replacement scan does), a table function outside
+the built-in readers, generators and `duckdb_*`/`pragma_*` metadata, a computed
+path, and a replacement scan of a format that autoloads an extension block the
+run, since text checks miss quoted names and concatenated URLs. The check and the sample of a preview share one 3 s
+budget through `executeQuery` and an
+abort signal, so a newer edit or a Run cancels it like Cancel does;
+`runOnConnection` sends nothing once the signal has aborted. It never runs
+while a Run or an import is in flight, a sample DuckDB did not stop
+(`stillRunning`) pauses previews until the next Run, and the result is never
+persisted.
+
+The expression breakdown (`src/shared/sqlExprBreakdown.ts`,
+`runtime/sqlExprBreakdown.ts`) reuses the parse the preview already fetched, so
+no query runs until a header is clicked. It finds the previewed SELECT in that
+parse, keeps its select list and adds each sub-expression as an extra column,
+so ORDER BY, LIMIT and lateral aliases still bind, then turns the tree back
+into SQL with `json_deserialize_sql`. Locations are the operator's start, not a
+range, so labels also come from DuckDB. Counts and narrowed rows run through
+`runInstantPreview`, which parses and gates the generated SQL again. `u64`
+locations are normalized in the raw JSON (`parseSerializedSql`), since
+`JSON.parse` would round them into values the deserializer refuses. Aggregates
+stay leaves because their arguments do not bind on their own under GROUP BY,
+and GROUP BY ALL keeps only the root, since an extra operand would regroup the
+rows. When a part still cannot run alone, the breakdown retries with the root.
+Its rebuild and its counts each get their own 3 s, and a newer sample in flight
+cancels them. Each part repeats its expression in the select list and planning
+time grows much faster than that text (200 chained terms plan for about 7 s,
+which `cancelSent` cannot interrupt), so the tree also stops at a weight budget.
+A constant `JSON.parse` would round means no breakdown, since the rebuilt SQL
+would differ. The check query also lists the user's functions from
+`duckdb_functions()`, and the gate blocks them: a macro's body is out of sight.
 
 With `keepCursor`, a windowed single statement keeps its stream instead of
 cancelling it: the outcome carries a `SqlResultCursor` over the rows left in
@@ -438,16 +513,23 @@ queue, and the move stores only the value that signed in and only while the
 catalog still points the connection at that target, so a concurrent edit cannot
 bind it to another host.
 
-Staged row edits (Labs flag `editRows`, `src/shared/sqlRowEdits.ts`) cross IPC
+Staged row edits (`src/shared/sqlRowEdits.ts`) cross IPC
 as a structured change set, never as SQL: `sql-db:apply-edits` takes the
 schema, the table and keyed values, at most 1,000 changes, 1,048,576 characters per value and 16 Mi characters in all.
 Main refuses a read-only or production connection and, with Confirm every
 write, a commit without the typed name; it reads the table's columns and
 primary key through the host's own introspection, rejects a key or column the
-table does not have, and builds the statements itself with bound parameters.
+table does not have, a key whose type does not reach the grid exactly
+(`rowEditRefusal`), a MySQL table whose engine has no transactions, text for a
+binary column and an empty value for a number or date, and builds the
+statements itself with bound parameters. Each update and delete also carries
+the values it read (`original`), and main compares the types whose text finds
+them exactly; the rest fall back to the key.
 The host runs them in one transaction on a session of its own
 (`<connectionId>#edits`, dropped with the connection), and every statement must
-report exactly one affected row or the whole transaction rolls back. The
+report exactly one affected row or the whole transaction rolls back. SQL Server
+reads `@@ROWCOUNT`, since the request's total also holds what triggers wrote,
+and MySQL adds `STRICT_ALL_TABLES` to the session. The
 server bounds lock waits to 10 s and each statement, and the host the whole
 transaction, below the 120 s main waits, so an edit another session blocks
 rolls back instead of committing after main reported a failure. Local
@@ -552,10 +634,9 @@ Copy to Local (`runtime/sqlCopyToLocal.ts`, with its SQL built in
 bridge, reads its pages, and fills a new Local table in batches of 50,000
 rows inside one transaction (`copyBatchesIntoTable` in `duckdbClient.ts`).
 Each batch travels as newline-delimited JSON of strings and is cast in
-DuckDB to the column's mapped type. DuckDB-WASM cannot report a failed cast
-(it surfaces as `_setThrew is not defined`), so each batch is first checked
-with `TRY_CAST` and bytes are checked as base64 before they are written; a
-bad value names its column and rolls the copy back. The table's COMMENT
+DuckDB to the column's mapped type. Each batch is first checked with
+`TRY_CAST` and bytes are checked as base64 before they are written; a bad
+value names its column and rolls the copy back. The table's COMMENT
 records the connection's name and the time as JSON, which the Local
 Explorer reads; never the SQL.
 
@@ -720,6 +801,96 @@ Once the protocol session is installed, ownership transfers to its runtime map.
 Map deletion is record-identity-safe, preventing an older finalizer from deleting
 a later session that reuses the same ID. The ID is not persisted and remains
 optional on the preload contract for compatible direct callers.
+
+### Execution timeline recording
+
+Record run is separate from the debugger. The JS / TS runner asks
+`timelineInstrument.ts` to put `__lingua_rec(line, locals)` before every
+statement in every statement list, on the same line, so nothing pauses and no
+`await` is added; synchronous functions also push and pop a frame, while async
+functions and generators record without one because their bodies interleave.
+Loop-protection guard statements are not recorded as steps (the protection
+still applies), and record runs skip line timing and scope capture, like Debug.
+The worker's step buffer keeps line, frames and value previews (bounded, two
+levels deep, never calling getters or `toJSON`), never throws into user code,
+stops at 5,000
+steps or 2 million characters of values (and then
+only tracks the current line), marks the step that logged or threw, and posts
+one `timeline` message before `done`. `timelineStore` keeps the latest
+recording in memory after `sanitizeTimeline` re-applies the caps in the
+shell (Free keeps its last 20 steps); a later manual run or
+Scratchpad auto-run of the tab drops it. Replay reads the recording and never runs the code again:
+`utils/timelineModel.ts` derives depth moves (Over skips deeper calls, Out
+leaves the call, both backward too), the other runs of a line, what a line
+changed against the next step in the same call, and the lines not reached yet.
+
+### Rich display
+
+The workers always expose the display helpers.
+`shared/richDisplay.ts` turns a value into one payload (detected, or forced
+with `as`, reusing the auto-table, the scope serializer and the media
+validators) and builds `progress` payloads. The JS bridge adds
+`lingua.display` with the calling line and `lingua.display.progress`, which
+posts a bar only when its whole percent changes or, for a new note, at most
+every 50 ms, holding the latest note until the run ends; a run gets 100 bars,
+and display text goes through the same value cap as `console.log`. The
+runners rebuild every progress payload and drop the payload of one whose id
+does not belong to the run, so it cannot redraw another run's row. The Python bootstrap (`python-worker-display.ts`) appends tables,
+trees and text to the print buffer, so they keep their order with `print()`,
+and edits one buffered entry per bar; images, HTML and charts go through the
+`__lingua_emit_*` bridge like `__lingua.image/html/chart`, so they post at
+once, without a line. A `display` or `lingua` the user assigned stays theirs
+across runs and notebook cells. A progress output carries its bar id in the payload:
+`replaceProgressOutput` keeps one output per bar in each runner's stdout and in
+the streamed result panel, and the console store redraws that bar's row in
+place, keeping its id.
+
+The SQL grid reuses the flag: `components/SqlWorkspace/sqlCellMagic.ts` picks a
+link (no credentials or control characters), a 0–1 bar (columns from
+`fractionColumns` over the rows the grid shows), a check or a thumbnail (raster
+BLOBs by their signature and base64 raster `data:image/` values, up to about
+300 KB, the BLOB's base64 used as the data URL as is) for a cell, once per row
+object, and the grid draws it with or instead of the text; foreign-key links
+keep priority, links open through `openExternal` only on Cmd/Ctrl+click (a
+middle click is blocked), and no remote URL loads. `normalizeExternalUrl`
+refuses URLs with credentials for every caller.
+
+### Run regions
+
+Run regions split a JS / TS / Python tab at `%%` markers
+(`utils/runRegions.ts`: top-level `//` comments found with the magic-comment
+line walker, or `#` at column 0 outside triple-quoted strings). A region run
+threads `region` through the manual run like Record run: `resolveRunPlan`
+drops it under Debug or Record, turns history off and asks for auto-log (which
+the Worker JS / TS runners and Python honor), and
+`executeTabManually` hands the runner the tab cut after the region's last line,
+so line numbers and the regions above stay as they are. The run state, the
+console and the result store see a normal run, except that it records no
+history and no Compare snapshot; `runRegionStore` keeps the latest region
+result, with its rows, in memory for the card, and any other manual or
+Scratchpad run of the tab clears it. Monaco's own `Cmd/Ctrl+Enter` (insert line
+below) is unbound for every Monaco editor, flag or not (SQL and notebook cells
+keep their own commands), so the key reaches the global Run shortcut, whose handler asks
+`runtime/regionRun.ts` for the region at the cursor of a focused editor; the
+editor binds only `Cmd/Ctrl+Shift+Enter` (run all) as a Monaco action while the
+tab has regions and no manual run is in flight.
+
+A region run also sets `askStdin`: the JS worker installs `prompt()` /
+`readline()` even with an empty buffer, and a read past the end throws a
+private request object (a user `try`/`catch` around the read can catch it); the Python bootstrap swaps the user-namespace `input()`
+for one that raises a `BaseException` subclass (so `except Exception` does not
+catch it), and a later run without regions gets the stock `input()` back. The
+worker posts `stdin-request` with the prompt and line instead of an error; the
+runners sanitize it, Python maps the line back past loop protection, and the
+card asks for the line, masking the answer when `isMaskedPrompt` sees a secret or an
+empty prompt. Masked answers stay in `runRegionStore` with their
+index in the stdin stream and the tab Input and code they were placed against, and
+`mergeRegionStdin` puts them back into the tab's stdin for each region run, so
+they never reach the tab, history, capsules or share links. Any other edit to
+that Input or code, or closing the tab, drops them, so one can never shift onto
+a plain prompt, and a run fed masked answers skips the scope capture. Python
+reads the request from a value the patched `input()` leaves on `sys`, never
+from exception text, so a traceback cannot fake one.
 
 ## Notebook lazy-reactivity boundary
 
@@ -893,6 +1064,87 @@ The drift guard in that test fails CI if any new `persist(...)` store ships
 without a `version` + `createMigrate(...)`, so a store can never silently go
 unversioned.
 
+### Stores across tabs
+
+Zustand's `persist` does not sync tabs, and every write saves the store's whole
+partialized state. A web tab holding an old copy would keep acting on a revoked
+consent or a removed API key, then restore it on its next write.
+`attachCrossTabSync` (`stores/persistence/crossTabSync.ts`) rehydrates on the
+`storage` event, and on `pageshow` when the page returns from the back/forward
+cache, where it received no events. The desktop app has one window, so nothing
+fires there. Rules that keep it safe:
+
+- It reads the current stored value, not `event.newValue`, which a later write may
+  have replaced. Clear store writes defaults and then removes the key.
+- It skips a stored value with another schema version. Zustand writes back after
+  any version mismatch, so a tab on an old bundle and one on a new bundle would
+  rewrite each other forever. An old-bundle tab stays stale until it reloads, and
+  its next write can still overwrite newer data.
+- A missing key means the store's `defaults`, without writing. Zustand's default
+  merge keeps the live copy, which the next write would restore. This covers Clear
+  store and `localStorage.clear()` (`storage` event with a null key).
+- `keepLocal` names the fields that belong to one tab and resolves them against what
+  was stored. A missing key skips it: a clear reaches session-only data too.
+- Boot and migrations keep the store's own `merge`. The sync installs its merge after
+  `create()`, where localStorage has already hydrated synchronously.
+- A rehydrate writes nothing, and rewriting an identical value fires no event, so
+  two tabs on the same schema settle. For the same reason `keepLocal` runs inside the
+  merge: a `setState` afterwards would write.
+- A tab writes only when its stored fields differ from what it last read or wrote.
+  Zustand writes on every `set`, even one that changes nothing stored, and each write
+  carries the tab's `keepLocal` fields. Without this check an idle tab finishing its
+  DuckDB load replaces the open query tabs another tab just stored.
+- A subscriber that reports or reacts to a user action checks
+  `persist.hasHydrated()`, which is false while a rehydrate applies. Otherwise each
+  tab would report the action again.
+
+| Store | Kept per tab |
+| --- | --- |
+| `lingua-settings`, `lingua-ai`, `lingua-snippets`, `lingua-trust-events`, `lingua-env-vars` | Nothing |
+| `lingua-utility-state` | History of tools whose stored persistence is off |
+| `lingua-workspace-sql-state` | Open and active query, folded explorer, the newest response when it is transient |
+| `lingua-workspace-tool-state` | Active request, environment and pipeline, the request in flight, the newest response when it is transient |
+
+Stores that do not sync: `lingua-session` and `lingua-notebook-state` are each tab's
+working copy, `lingua-utility-workspace` is its selected tool, and the rest hold
+nothing sensitive or clearable. `lingua-license` has its own listener because a
+rehydrate there revalidates with the server. A test in
+`tests/stores/persistence/crossTabSync.test.ts` fails until a new persisted store
+joins one of these lists.
+
+Limits: rehydrating skips setter side effects, so a language change from another
+tab is stored but the UI text changes only after a reload. Two writes a few
+milliseconds apart still resolve to the last one, and a real change still stores that
+tab's own `keepLocal` fields, so a reload opens what the last writer had open. Each
+write parses the store in the other tab, which is the cost to watch for large SQL and
+HTTP stores. Turning a tool's persistence off in one tab leaves its history in the
+memory of both tabs, and only a clear removes it there.
+
+### Blocked storage
+
+With site storage blocked (block-all-cookies), reading `window.localStorage`
+throws `SecurityError`, and `typeof localStorage` throws too, because it runs
+the getter. The inline `lingua-theme-bootstrap` script probes it and, on a
+throw, replaces the property with an in-memory `Storage`. Stores, `safeBoot` and
+the panel layouts then run unchanged, and state is gone on reload. A failed
+write alone does not trigger this, so full storage keeps its data.
+
+The fallback has to live in that script: a module, even the first import of the
+entry, can evaluate after chunks that already read storage, and the shell CSP
+authorizes only the hash of that one inline script. `sessionStorage` throws the
+same way and has no fallback, so renderer code must not read it.
+
+The script marks this mode with `<html data-storage="memory">`, which
+`isStorageEphemeral()` reads. In it the guided tour and the first-run and
+first-snippet toasts do not start on their own, because they would repeat on
+every load. The command bar says "not saved" in place of "autosave", a warning
+says so on each boot, and the browser asks before a reload drops an edited tab.
+A license is pasted again after a reload, so its device id is derived from the
+license and the browser family and OS rather than minted: re-pasting and a
+second tab reuse one web seat. Machines with the same browser and OS that both
+block storage share that seat, which adds no bypass since the client already
+chooses its device id.
+
 ## Browser permission posture
 
 The Electron shell is **deny-by-default** for browser permissions. `src/main/permissionHandlers.ts` installs both
@@ -912,9 +1164,9 @@ pure predicate, `isPermissionAllowed`, so the policy has a single decision point
   **`clipboard-sanitized-write`** (copy affordances — QR, JWT, snippets, share
   links, capsule export, SQL results, "Copy JSON" — call
   `navigator.clipboard.writeText` / `.write`) and **`clipboard-read`** (capsule
-  import from the clipboard, the Utility Pipeline paste action, and
-  clipboard-on-focus paste detection after the Pro `DEV_UTILITIES` + user-consent
-  gates call `navigator.clipboard.readText`).
+  import from the clipboard, the Utility Pipeline paste action, clipboard-on-focus
+  paste detection after the Pro `DEV_UTILITIES` + user-consent gates, and
+  clipboard suggestions behind the same gates call `navigator.clipboard.readText`).
   Denying either breaks real app-shell features with `NotAllowedError`.
 - Subframes are denied even for those clipboard permissions, so sandboxed rich
   HTML and Browser Preview user code do not inherit the app shell's clipboard
@@ -956,6 +1208,34 @@ opens supplemental files one at a time and never auto-executes them.
 
 See [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) for the wire shape,
 limits, and CLI boundary.
+
+### Compare runs
+
+With a tier that keeps run history, the Compare dock tab lists the execution history by day and diffs any two runs.
+`executionHistoryStore.record` cuts a `RunCompareRecord`
+(`utils/runCompareRecord.ts`) from each run's capsule: code up to 256 KiB,
+stdout and stderr up to 64 KiB each, up to 200 inline values, the exit status,
+and for successful SQL and HTTP runs a row or status summary. The record stays on the history
+entry after the capsule cap strips older capsules, lives in memory only, and
+leaves with the entry at the 50-run cap. The DuckDB Run Ledger keeps its
+metadata-only contract. Removing a run's capsule, or Clear everything in
+Settings › Privacy, drops the record too. Restore as new tab opens the earlier run's code in Run mode, never
+running it.
+
+### Run state
+
+Each run records the code and the stdin and arguments it started from in
+`resultStore.ranCode` (manual runs in `publishRunStart`, Scratchpad in
+`executeAutoRun`); a tab switch clears it.
+`useRunStale` compares it with the editor: the
+results are stale when the code differs, results are visible and nothing is
+running. A Scratchpad whose policy runs on its own is only stale while the
+incomplete-code gate holds it. The run policy (`shared/runPolicy.ts`, persisted
+as `runPolicyByGroup`) maps each language group to a Scratchpad debounce:
+500 ms, 1 s, or none for Manual, which `resolveAutoRunSchedule` treats like
+Browser preview's Off. `Cmd/Ctrl+.` stops a manual run: the global shortcut is
+bound only while a run is in flight, and the editor's command runs under the
+`linguaManualRun` context key, so Monaco's Quick Fix keeps the key otherwise.
 
 ## Project lifecycle
 
@@ -1312,7 +1592,7 @@ the same `window.lingua.fs.searchInFiles(...)` contract.
 
 Project tests are an explicit desktop action adjacent to the project
 lifecycle, not a background lifecycle phase. Opening a folder never runs code.
-The Explorer action or Command Palette opens the Tests dock tab, which asks main
+The Explorer ⋯ menu or Command Palette opens the Tests dock tab, which asks main
 to inspect the already-approved project root for Vitest, Jest, Pytest, Go, and
 Cargo markers. A run may carry a scope (one file or one test) and returns
 project-relative cases parsed from each runner's own report; see
@@ -1525,7 +1805,7 @@ held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
 The drain picks each next entry from the live queue, so one queued while a send
 is pending is not stranded.
 
-With the `httpScopes` Labs flag, variables resolve from three scopes:
+Variables resolve from three scopes:
 collection (`collectionVariables` in the workspace store), the active
 environment and the request's own `variables`. `layeredEnvironment` in
 `src/shared/httpEnvironment.ts` joins them into one environment whose rows run
@@ -1533,10 +1813,12 @@ from lowest to highest precedence, so the existing last-row-wins lookups,
 secret masking and response scrubbing apply to every scope unchanged;
 `variableSources` says which scope supplies each key for the colours. Secret
 values of the new scopes follow the environments' vault rules, and
-`maskSecretsForCapsule` also blanks secret request variables. With the flag
-off the request resolves against the active environment alone, as before.
+`maskSecretsForCapsule` also blanks secret request variables. The store's
+`partialize` runs `maskPersistedHttpData`: responses stay raw in the session so
+chain tags can read them, but the stored copies and snapshots mask every secret
+value, including tokens a capture rule surfaced after the send.
 
-With the `httpChainTags` Labs flag, a variable that another request's
+A variable that another request's
 capture rule writes is a chain tag (`src/shared/httpChain.ts`): the graph is
 read from the capture rules, never stored, and each request keeps only a
 per-tag sending rule (`chainRules`). Tag values form a `chain` layer between
@@ -1550,7 +1832,7 @@ or a stream source is refused before sending. When a value the chain just
 captured sets a request's scheme or host (`chainedOrigin`), that send waits for
 the user to confirm the resolved origin. Explicit pipelines also skip chains.
 
-With the `httpSnapshots` Labs flag, a request can keep a snapshot
+A request can keep a snapshot
 (`HttpRequestV1.snapshot`): the status and the recorded body, already masked
 like every recorded response, capped at 256 KB, plus its scrubbers.
 `src/shared/httpSnapshot.ts` scrubs both sides at compare time and diffs them
@@ -1559,10 +1841,52 @@ the response strip and fails a pipeline step.
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
-active environment fresh for each step, and stop after transport, HTTP, assertion or (with `httpSnapshots`) snapshot
+active environment fresh for each step, and stop after transport, HTTP, assertion or snapshot
 failure unless the saved pipeline says to continue. SSE and WebSocket
 sessions are intentionally excluded because a long-lived connection has no
 deterministic next-step boundary.
+
+
+**Open as JS tab** (`src/shared/httpJsTab.ts`)
+is a deliberate exit from this path: the tab is user code, so its `fetch` gets
+only the Worker's `networkGuard`, with no SSRF guard, redirect header stripping,
+response caps or masking at send time. That is why the generated source reads
+placeholders the user fills in, and never receives a secret from the workspace.
+
+### Clipboard suggestions in Utilities
+
+`useClipboardSuggestion` reads the clipboard when the Utilities tab becomes active and on
+window focus, with no polling, behind `DEV_UTILITIES` and
+`utilitiesClipboardOnFocusConsent`. It skips browsers whose Permissions API cannot report
+`clipboard-read`, where each read could prompt, and a read on focus never asks. It keeps only the result of `classifyClipboard`,
+so the text never reaches a store, the DOM, a log or telemetry.
+
+### Utility pipeline run controls
+
+On every tier, Free's slice included and with no clipboard consent, steps can carry `disabled` and `breakpoint`, and a pipeline
+`autoBake`. All three are additive to version 1 and only `true` survives a parse. `runPipeline` reports
+`disabled` and `paused` step statuses, which the aggregate telemetry status does not count,
+so `PIPELINE_RUN_STATUSES` is unchanged. Auto-bake lives in `UtilityPipelinePanel`: it
+debounces, never overlaps a run, and records no telemetry. Continue re-runs with the
+breakpoints up to that step removed, for that run only, rather than resuming, since each
+run owns a worker. `sendOutputToNewPipeline` and the results' Send set the transient
+`pendingRunPipelineId`, which the panel runs once that pipeline is on screen.
+
+`runPipeline`'s step timer lives in the worker, so a synchronous adapter starves it.
+`runPipelineOffThread` keeps a main-thread deadline, re-armed on each reported step, that
+terminates the worker and settles with `outcomeOfStalledRun`. It settles rather than
+failing because the inline fallback would hang the renderer on the same step. Resetting or
+unmounting `useUtilityPipelineRun` aborts the worker too.
+
+### Utility pipeline export
+
+**Save as JS snippet** on a utility pipeline
+(`src/shared/utilityPipelineJs.ts`). It emits one block per step from the step's
+parsed options, with the engine's fallback to defaults, and never reads the
+pipeline's input. The utilities remain the source of truth: each template is a
+second implementation, and `tests/shared/utilityPipelineJs.test.ts` runs both over
+the same inputs and fails when they disagree. A new adapter has to add a template
+or join the list that stays a comment.
 
 ### Encrypted secret vault
 
@@ -1814,6 +2138,62 @@ that trusts its signing key loads it. **Remove license** still deletes it. The
 renderer records each rejection in the Privacy & Trust log as
 `License rejected (<reason>)`.
 
+### Desktop renderer origin
+
+Built desktop renderers load from `app://lingua/index.html`, which
+`src/main/rendererProtocol.ts` serves from the renderer folder inside
+`app.asar`. The scheme is standard and secure, with `supportFetchAPI`,
+`corsEnabled` and `codeCache`. Chromium keeps no V8 code cache for `file://`, or
+for a custom scheme registered without `codeCache`, so `file://` builds compiled
+the whole bundle on every launch. The handler serves GET and HEAD for files
+under the renderer folder only, and answers anything else with 404. A missing
+file gets a network error, so a missing `index.html` fails startup with
+`renderer-load/ERR_FAILED` instead of rendering an error body. Development
+servers keep their loopback origin. The scheme is `app` because local model
+servers such as Ollama accept `app://*` by default; `lingua-app://` drew a 403.
+
+Chromium keys storage by origin, so `src/main/originMigration.ts` copies the
+renderer's `localStorage` and origin private file system (the persisted SQL
+database) from the `file://` origin of earlier builds before the first load.
+`createWindow` runs it after the hidden main window exists, so closing the
+migration pages cannot fire `window-all-closed`. A hidden page on a blank file in
+a private temp folder reads the old origin, and a hidden page on
+`app://lingua/.lingua/blank.html` writes the new one; main drives both with
+constant scripts from `originMigrationScripts.ts`. It runs once per profile:
+`renderer-origin-migration.json` in `userData` records the result and counts.
+`localStorage` goes first and never overwrites a key the new origin holds.
+Files are then staged under a `.lingua-migrating` name and moved in together
+once every one is staged, so the SQL database and its WAL land as a pair. Until
+they land, legacy wins: a retry (three launches at most) replaces a database
+the app created after a failed attempt. The marker records the attempt before
+any page opens, so a crash spends one, and then each finished step, so a retry
+neither repeats it nor restores what a factory reset or Recovery cleared since.
+The Dock or taskbar shows the copy's progress, and five minutes bound the
+whole attempt. A failure is logged by its error name, the app opens anyway, and
+the renderer shows a warning that says whether the next launch retries.
+
+The `file://` copy stays in place, so an older build still opens with it. It
+also means data cleared in the app afterwards still sits in that copy: env
+values, the SQL database, or an AI key an older build stored in plain text.
+Removing it, for example with `session.clearStorageData({ origin: 'file://' })`
+once a later version runs, is an open decision. There is no disk probe for a fresh
+profile, because Chromium creates `Local Storage` before any page loads; the
+first launch of a new profile opens the reading page once, about 100 ms.
+
+Release builds turn the `GrantFileProtocolExtraPrivileges` fuse off
+(`tests/build/electronFuses.test.ts`). Without it Chromium still lets a
+`file://` page read its origin private file system but denies its
+`localStorage`, so a profile that comes straight from a `file://` build keeps
+its SQL database and loses settings, sessions and layouts; the marker records
+`localStorageUnreadable`. A profile migrated by a build that still had the fuse
+is unaffected.
+
+The renderer uses no IndexedDB, CacheStorage or cookies;
+`tests/build/rendererOriginStorage.test.ts` fails if that changes before the
+migration covers it. `scripts/smoke-origin-migration.mjs` seeds a profile the
+way earlier builds wrote it and proves the copy, the single run, the retained
+`file://` copy and the code cache on real Electron.
+
 ## How to extend this architecture
 
 ### If you add a new file-system operation
@@ -1966,16 +2346,17 @@ and [Git environment](https://git-scm.com/docs/git#_environment_variables).
 The main window may reload only its chosen renderer document. The navigation
 policy compares complete normalized URLs, ignoring fragments but preserving the
 path and query. A development server's origin does not authorize other files on
-that server; packaged file mode does not authorize arbitrary local files. The
-expected packaged URL is derived from the exact loadFile path with pathToFileURL,
-including escaped paths and Windows drive/UNC locations. The same policy handles
-page-initiated navigation and HTTP redirects. Resource loading and sandboxed
-preview documents remain separate from main-window navigation.
+that server; the built renderer's document is `app://lingua/index.html`, and
+other files on that origin are not navigation targets. A `file:` document gets
+no navigation authority at all. The same policy handles page-initiated
+navigation and HTTP redirects. Resource loading and sandboxed preview documents
+remain separate from main-window navigation.
 
-Electron main-process loadURL/loadFile calls do not emit will-navigate; those
-calls must continue to use the chosen target, not an untrusted renderer payload.
-The permanent real-Electron navigation smoke exercises both built file mode and
-a loopback server, including an actual redirect, reload, fragments and EN/ES.
+Electron main-process loadURL calls do not emit will-navigate; those calls must
+continue to use the chosen target, not an untrusted renderer payload. The
+permanent real-Electron navigation smoke exercises both the built renderer on
+`app://lingua` and a loopback server, including an actual redirect, reload,
+fragments and EN/ES.
 See [Electron navigation events](https://www.electronjs.org/docs/latest/api/web-contents#navigation-events).
 
 ### Terminal desktop startup failures
@@ -2037,11 +2418,23 @@ parent-owned timeout, bounded output and process-group termination. Stop, owner 
 and app shutdown therefore cancel both a hung wrapper and its descendants rather
 than merely ignoring a late detector result. Standalone capability refreshes use
 the same bounded supervisor without acquiring execution authority.
-Settings availability checks and missing-toolchain Retry actions pass only
+Settings availability checks, missing-toolchain Retry actions and the Go/Rust
+Detect again action pass only
 toolchain-discovery environment keys to IPC; explicit Run alone forwards the
 full user/project/tab environment and records project-scope usage. A failed
 version check (timeout, permission error or nonzero result) is a retryable
 error, not evidence that the binary is absent or a reason to offer installation.
+Go and Rust resolve their binary in main (`src/main/runners/toolchainBinary.ts`):
+the binary the user chose, then the bare command on `PATH`, then existing
+executables in the usual install folders. The first candidate that answers its
+version probe runs the compile, with its folder put first on `PATH`; the result
+is `missing` only when no candidate exists, and a missing result carries the
+folders searched, home-relative, never the account path. `go:choose-binary` and
+`rust:choose-binary` take no arguments: main opens the file dialog, accepts only
+an absolute executable regular file named `go`/`rustc` outside credential and
+app-data folders that answers its version, and keeps the path in
+`<userData>/toolchain-binaries.json` (mode 0600). Detect results never return the
+absolute binary path to the renderer.
 Staged files and identity registrations are cleaned in `finally`, including cancelled
 runs. This complements the renderer fence after IPC has crossed into main.
 

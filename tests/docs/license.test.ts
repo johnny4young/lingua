@@ -38,7 +38,7 @@ describe('repository license posture', () => {
 
   it('README intro, pricing, and audience sections are present', () => {
     const readme = readFileSync(README_PATH, 'utf-8');
-    expect(readme).toContain('Multi-language desktop code runner');
+    expect(readme).toContain('offline-first code runner');
     expect(readme).toContain('## Pricing and licensing');
     expect(readme).toContain('## Who it is for');
     expect(readme).toContain('linguacode.dev');

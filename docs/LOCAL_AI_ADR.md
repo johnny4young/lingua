@@ -102,6 +102,27 @@ action and a preview of exactly what is sent.
   the error's kind, the vote and its time in `lingua-explain-ratings`.
 - SQL workspace: "Ask AI" sends only the live schema and typed question, then
   inserts the generated SQL for user review; it never auto-runs generated SQL.
+- Palette autodetect sends a question typed in the command palette to
+  the Explain this code consent dialog. **Include the last run**, off by
+  default, appends the tab's Console output and error (capped) to the payload
+  preview. Output gets
+  `redactSecretsFromOutput`, which also masks secret-named `key=value` pairs
+  anywhere on a line and URL passwords; the run is left out when the code
+  changed since it ran or another tab's run is still writing to the Console. Empty SQL
+  queries offer starter prompts that only prefill Ask AI.
+- Edit with AI (`src/shared/ai/editSelection.ts`, `EditWithAiDialog`) sends
+  the file with the span to edit marked, only 60 lines around it once the
+  file passes 12,000 characters. Redaction runs before the markers go in,
+  on the text before, inside and after the span. If that differs from
+  redacting the whole file, because a boundary splits a secret, the span widens
+  to whole lines, then to the whole file. The answer's first fenced
+  block replaces the span. Only on an explicit **Run preview**, JavaScript,
+  TypeScript and Python run the file before and after the change through
+  `runtime/aiEditPreview.ts` on a
+  throwaway Worker or Pyodide, never Node, Deno or Bun, on the redacted file,
+  with network requests blocked, no user env vars and a 5 s timeout. Nothing is applied until
+  Accept, which is one undoable edit and refuses a stale model version or an
+  answer that still holds `<redacted>`.
 
 ## Modes and transport
 
@@ -111,7 +132,7 @@ Local profile, any other host becomes My endpoint with its key.
 
 | Mode | Desktop | Web |
 | --- | --- | --- |
-| Local · Ollama (loopback, no key) | Direct `fetch`; the renderer CSP allows `http://localhost:*` and `http://127.0.0.1:*` | Direct `fetch`; the same two origins are the only plain-http entries in the web CSP. The server must allow the Lingua origin (`OLLAMA_ORIGINS`) |
+| Local · Ollama (loopback, no key) | Direct `fetch`; the renderer CSP allows `http://localhost:*` and `http://127.0.0.1:*`. The server must allow the `app://lingua` origin, which Ollama's defaults do | Direct `fetch`; the same two origins are the only plain-http entries in the web CSP. The server must allow the Lingua origin (`OLLAMA_ORIGINS`) |
 | My endpoint (HTTPS, key) | `http:execute` through the SSRF-guarded main proxy, private hosts blocked; no CORS and no renderer CSP room | Direct `fetch`, bound by the provider's CORS policy |
 
 - **Streaming through main.** The renderer adapter
@@ -165,3 +186,11 @@ providers. Streaming updates are coalesced to 50 ms plus first/final text.
 A budget failure is a typed failure, not a successful truncated answer. The
 EN/ES consumers do not retain partial output as an assistant turn or SQL to
 insert. This does not change explicit consent, entitlement, or BYO transport.
+
+## Amendment (2026-11-03): what shipped
+
+The explain flows, Explain this code, Edit with AI and Ask AI in SQL have all
+shipped, behind `LOCAL_AI`. The API key no longer lives only in Settings: on
+desktop it is in the system keychain when one is available and in local storage
+otherwise, and on the web it is in the browser's local storage. The controls sit
+under Settings › Account. The consent and payload rules above still apply.

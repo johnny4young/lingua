@@ -2,6 +2,7 @@ import { formatShortcutLabel, type ShortcutId, type ShortcutOverrideMap } from '
 import type { CommandEntry } from './commandPaletteModelTypes';
 
 export type CommandGroupId =
+  | 'autodetected'
   | 'recent'
   | 'workspaces'
   | 'commands'
@@ -20,6 +21,7 @@ const COMMAND_GROUP_ORDER: readonly CommandGroupId[] = [
 ];
 
 export const COMMAND_GROUP_LABEL_KEY: Record<CommandGroupId, string> = {
+  autodetected: 'commandPalette.scope.autodetected',
   recent: 'commandPalette.scope.recent',
   workspaces: 'commandPalette.scope.workspaces',
   commands: 'commandPalette.scope.actions',
@@ -64,7 +66,7 @@ const COMMAND_SHORTCUTS: Readonly<Record<string, ShortcutId>> = {
   'action-toggle-presenter-mode': 'view-toggle-presenter',
 };
 
-export function commandGroupFor(command: CommandEntry): Exclude<CommandGroupId, 'recent'> {
+export function commandGroupFor(command: CommandEntry): Exclude<CommandGroupId, 'recent' | 'autodetected'> {
   if (command.category === 'template') return 'templates';
   if (command.category === 'snippet') return 'snippets';
   if (WORKSPACE_COMMAND_IDS.has(command.id)) return 'workspaces';
