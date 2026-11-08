@@ -3,7 +3,11 @@ import path from 'node:path';
 import { createGoTestCollector, parseJestStyleReport } from '../../src/main/projectTestReports';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { asRootId } from '../../src/shared/fs/brandedIds';
-import type { ProjectTestDetectionResult } from '../../src/shared/projectTests';
+import type {
+  ProjectTestDetectionResult,
+  ProjectTestOutputEvent,
+  ProjectTestRunResult,
+} from '../../src/shared/projectTests';
 import { mergeProjectTestCases, useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useNativeExecutionGateStore } from '../../src/renderer/stores/nativeExecutionGateStore';
@@ -272,6 +276,165 @@ describe('projectTestStore', () => {
     useNativeExecutionGateStore.getState().confirm();
 
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('projectTestStore run ownership across project switches', () => {
+  const alpha = { rootId: rootA, projectName: 'Alpha' };
+  const beta = { rootId: rootB, projectName: 'Beta' };
+  const store = () => useProjectTestStore.getState();
+  const vitestReady: ProjectTestDetectionResult = {
+    kind: 'ready',
+    candidates: [
+      { framework: 'vitest', command: 'vitest run', evidence: ['vitest.config.ts'], available: true },
+    ],
+  };
+  // What main sends back for a stopped run: no cases.
+  const stopped: ProjectTestRunResult = {
+    kind: 'stopped',
+    framework: 'vitest',
+    command: '',
+    stdout: '',
+    stderr: '',
+    exitCode: -1,
+    executionTime: 0,
+    timeoutMs: 300_000,
+  };
+
+  function deferredRun() {
+    let resolve!: (result: ProjectTestRunResult) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<ProjectTestRunResult>((resolveRun, rejectRun) => {
+      resolve = resolveRun;
+      reject = rejectRun;
+    });
+    return { promise, resolve, reject };
+  }
+
+  function passed(file: string): ProjectTestRunResult {
+    return {
+      kind: 'success',
+      framework: 'vitest',
+      command: 'vitest run',
+      stdout: `${file} passed\n`,
+      stderr: '',
+      exitCode: 0,
+      executionTime: 3,
+      timeoutMs: 300_000,
+      cases: [{ file, path: ['passes'], status: 'passed' }],
+    };
+  }
+
+  function ownershipBridge(
+    run: NonNullable<LinguaAPI['projectTests']>['run'],
+    stop: NonNullable<LinguaAPI['projectTests']>['stop'] = vi.fn().mockResolvedValue({ stopped: true })
+  ) {
+    const listeners: ((event: ProjectTestOutputEvent) => void)[] = [];
+    const unsubscribers: ReturnType<typeof vi.fn>[] = [];
+    installBridge({
+      detect: vi.fn().mockResolvedValue(vitestReady),
+      run,
+      stop,
+      onOutput: handler => {
+        listeners.push(handler);
+        const unsubscribe = vi.fn();
+        unsubscribers.push(unsubscribe);
+        return unsubscribe;
+      },
+    });
+    const unsubscribeCalls = () => unsubscribers.map(unsubscribe => unsubscribe.mock.calls.length);
+    return { listeners, unsubscribeCalls };
+  }
+
+  it.each(['resolves', 'rejects'] as const)(
+    'keeps the new project run when the old one %s late',
+    async settlement => {
+      const oldRun = deferredRun();
+      const currentRun = deferredRun();
+      const run = vi.fn().mockReturnValueOnce(oldRun.promise).mockReturnValueOnce(currentRun.promise);
+      const stop = vi.fn().mockResolvedValue({ stopped: true });
+      const { listeners, unsubscribeCalls } = ownershipBridge(run, stop);
+
+      await store().detect(alpha);
+      const oldPending = store().run(alpha);
+      const oldId = store().activeRunId!;
+      listeners[0]!({ runId: oldId, stream: 'stdout', chunk: 'alpha running\n' });
+
+      await store().detect(beta);
+      const currentPending = store().run(beta);
+      const currentId = store().activeRunId!;
+      expect(currentId).not.toBe(oldId);
+      expect(run).toHaveBeenLastCalledWith(beta.rootId, 'vitest', currentId, { kind: 'all' });
+      listeners[1]!({ runId: currentId, stream: 'stdout', chunk: 'beta running\n' });
+      const currentState = store();
+
+      listeners[0]!({ runId: oldId, stream: 'stderr', chunk: 'late alpha output\n' });
+      if (settlement === 'resolves') oldRun.resolve(passed('alpha.test.ts'));
+      else oldRun.reject(new Error('Alpha stopped after switching projects'));
+      await oldPending;
+
+      // Not one write, so no equal-looking overwrite either.
+      expect(store()).toBe(currentState);
+      expect(store()).toMatchObject({
+        rootId: beta.rootId,
+        projectName: 'Beta',
+        status: 'running',
+        activeRunId: currentId,
+        result: null,
+        cases: null,
+        liveOutput: { stdout: 'beta running\n', stderr: '' },
+      });
+      expect(unsubscribeCalls()).toEqual([1, 0]);
+
+      await store().stop(beta);
+      expect(stop).toHaveBeenLastCalledWith(beta.rootId, currentId);
+      currentRun.resolve(stopped);
+      await currentPending;
+      expect(store()).toMatchObject({
+        rootId: beta.rootId,
+        status: 'ready',
+        activeRunId: null,
+        runningScope: null,
+        result: stopped,
+        cases: null,
+        error: null,
+      });
+
+      const settledState = store();
+      listeners[0]!({ runId: oldId, stream: 'stdout', chunk: 'alpha after cleanup\n' });
+      listeners[1]!({ runId: currentId, stream: 'stdout', chunk: 'beta after cleanup\n' });
+      expect(store()).toBe(settledState);
+      expect(unsubscribeCalls()).toEqual([1, 1]);
+    }
+  );
+
+  it('keeps an old run that settles while the switch is still stopping it out of the new project', async () => {
+    const oldRun = deferredRun();
+    let oldPending!: Promise<void>;
+    // Stopping kills the process, so the old run usually settles before the stop reply.
+    const stop = vi.fn(async () => {
+      oldRun.resolve(stopped);
+      await oldPending;
+      return { stopped: true };
+    });
+    const { unsubscribeCalls } = ownershipBridge(vi.fn().mockReturnValueOnce(oldRun.promise), stop);
+
+    await store().detect(alpha);
+    oldPending = store().run(alpha);
+    await store().detect(beta);
+
+    expect(stop).toHaveBeenCalledOnce();
+    expect(store()).toMatchObject({
+      rootId: beta.rootId,
+      projectName: 'Beta',
+      status: 'ready',
+      selectedFramework: 'vitest',
+      activeRunId: null,
+      result: null,
+      cases: null,
+      liveOutput: { stdout: '', stderr: '' },
+    });
+    expect(unsubscribeCalls()).toEqual([1]);
   });
 });
 
