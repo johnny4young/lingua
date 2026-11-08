@@ -1,7 +1,116 @@
 {
-  "generatedAt": "2026-11-06T20:45:42.269Z",
+  "generatedAt": "2026-11-08T04:36:42.184Z",
   "baseRef": "v2.1.0",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "commitCount": 12,
+  "totalSinceBase": 71,
+  "commits": [
+    {
+      "hash": "25bc7a7",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "desktop",
+      "message": "keep the migrated database and WAL consistent",
+      "breaking": false
+    },
+    {
+      "hash": "c3e80b2",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "desktop",
+      "message": "stage origin files together and tell the user when the copy fails",
+      "breaking": false
+    },
+    {
+      "hash": "8abf33f",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "desktop",
+      "message": "harden the renderer origin migration steps",
+      "breaking": false
+    },
+    {
+      "hash": "21e6497",
+      "date": "2026-11-07",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "budget",
+      "message": "refresh the desktop footprint budget for the app-scheme renderer",
+      "breaking": false
+    },
+    {
+      "hash": "5df7007",
+      "date": "2026-11-07",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "settings",
+      "message": "show and reset the Go and Rust binary Run uses",
+      "breaking": false
+    },
+    {
+      "hash": "1256e2a",
+      "date": "2026-11-07",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "desktop",
+      "message": "load the built renderer from an app scheme with V8 code cache",
+      "breaking": false
+    },
+    {
+      "hash": "5e1a105",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "explorer",
+      "message": "fit more of a long project name in the header",
+      "breaking": false
+    },
+    {
+      "hash": "d64355f",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "sql",
+      "message": "clear a query's results when the picker moves it to another connection",
+      "breaking": false
+    },
+    {
+      "hash": "3a21fa2",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "settings",
+      "message": "name the per-language workflow column after new tabs",
+      "breaking": false
+    },
+    {
+      "hash": "4a0c07f",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "ai",
+      "message": "drop the key a loopback endpoint left in the keychain",
+      "breaking": false
+    },
+    {
+      "hash": "a39cdae",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "http",
+      "message": "end the offline replay on Stop",
+      "breaking": false
+    },
+    {
+      "hash": "b08fb79",
+      "date": "2026-11-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runtime",
+      "message": "extend the existing Path on Windows when adding a toolchain folder",
+      "breaking": false
+    }
+  ]
 }

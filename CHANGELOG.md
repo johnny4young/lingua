@@ -6,6 +6,8 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-11-07
+
 ### Added
 - On desktop, Settings › Languages shows which Go and Rust binary Run uses, with Choose binary… and Use PATH to go back to the one on PATH.
 
