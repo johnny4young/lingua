@@ -264,6 +264,21 @@ describe('renderer origin migration', () => {
     await expect(run).resolves.toMatchObject({ status: 'failed' });
   });
 
+  it('still copies origin files when the legacy page may not read localStorage', async () => {
+    legacy.localStorage.setItem('lingua-settings', 'legacy');
+    legacy.localStorage.denied = true;
+    legacy.opfs.put('lingua-sql.db', bytes(40));
+    await expect(migrate().run).resolves.toMatchObject({ status: 'migrated' });
+    expect(target.localStorage.length).toBe(0);
+    expect(sameBytes(target.opfs.file('lingua-sql.db')?.data, bytes(40))).toBe(true);
+    expect(await marker()).toMatchObject({
+      state: 'done',
+      localStorageUnreadable: true,
+      localStorageKeys: 0,
+      files: 1,
+    });
+  });
+
   it('drops a WAL the new origin wrote when legacy moves in a database without one', async () => {
     legacy.opfs.put('lingua-sql.db', bytes(64));
     target.opfs.put('lingua-sql.db', bytes(4, 9));

@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- On desktop, pages loaded from files get no extra privileges. Updating straight from a version older than 2.2.0 keeps your saved SQL tables but resets settings, sessions and layouts.
+
 ## [2.2.0] — 2026-11-07
 
 ### Added

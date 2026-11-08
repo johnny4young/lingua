@@ -81,7 +81,10 @@ export class FakeDirectoryHandle {
 
 export class FakeStorage {
   readonly map = new Map<string, string>();
+  /** Chromium's answer for a file:// page without the file-protocol fuse. */
+  denied = false;
   get length() {
+    if (this.denied) throw new DOMException('Access is denied for this document.', 'SecurityError');
     return this.map.size;
   }
   key(index: number) {

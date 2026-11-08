@@ -2180,6 +2180,14 @@ once a later version runs, is an open decision. There is no disk probe for a fre
 profile, because Chromium creates `Local Storage` before any page loads; the
 first launch of a new profile opens the reading page once, about 100 ms.
 
+Release builds turn the `GrantFileProtocolExtraPrivileges` fuse off
+(`tests/build/electronFuses.test.ts`). Without it Chromium still lets a
+`file://` page read its origin private file system but denies its
+`localStorage`, so a profile that comes straight from a `file://` build keeps
+its SQL database and loses settings, sessions and layouts; the marker records
+`localStorageUnreadable`. A profile migrated by a build that still had the fuse
+is unaffected.
+
 The renderer uses no IndexedDB, CacheStorage or cookies;
 `tests/build/rendererOriginStorage.test.ts` fails if that changes before the
 migration covers it. `scripts/smoke-origin-migration.mjs` seeds a profile the
