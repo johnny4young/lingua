@@ -1,8 +1,8 @@
 class LinguaCli < Formula
   desc "Headless offline CLI for Lingua utilities, runners, and Run Capsules"
   homepage "https://linguacode.dev/cli"
-  url "https://github.com/johnny4young/lingua/releases/download/v2.1.0/linguacode-cli-2.1.0.tgz"
-  sha256 "40b03bc621e0fa7a0d158a499d835a1a988be06140e957d65343f8b81a3fff92"
+  url "https://github.com/johnny4young/lingua/releases/download/v2.2.0/linguacode-cli-2.2.0.tgz"
+  sha256 "2c467147549b2b287995cfea1a48c679180bf7782b7705085ea33226254b6597"
   license :cannot_represent
 
   depends_on "node@26"
