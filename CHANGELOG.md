@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Fixed
+- Saved Local SQL tables stay writable when their database has no write-ahead log or an empty one. If opening persisted storage fails, Lingua releases its file handles before falling back to memory.
+
 ### Changed
 - On desktop, pages loaded from files get no extra privileges. Updating straight from a version older than 2.2.0 keeps your saved SQL tables but resets settings, sessions and layouts.
 

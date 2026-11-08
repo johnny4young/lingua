@@ -36,6 +36,7 @@
 import i18next from 'i18next';
 import { sha256HexToIntegrity } from './wasmIntegrity';
 import { DuckDbEngineLifecycle } from './duckdbEngineLifecycle';
+import { openOwnedDuckDb } from './duckdbPersistence';
 import {
   MAX_RESULT_PREVIEW_BYTES,
   MAX_RESULT_ROWS,
@@ -184,15 +185,6 @@ let resolvedStorageMode: SqlStorageMode = 'memory';
 let resolvedStorageRequestedMode: SqlStorageMode = 'memory';
 
 /**
- * `DuckDBAccessMode.READ_WRITE` — numeric value from the
- * `@duckdb/duckdb-wasm` binding enum (UNDEFINED=0, AUTOMATIC=1,
- * READ_ONLY=2, READ_WRITE=3). Inlined so the persistence helper does
- * not force the lazy `duckdb-wasm` chunk into the main bundle just to
- * read one constant.
- */
-const DUCKDB_ACCESS_MODE_READ_WRITE = 3;
-
-/**
  * OPFS file names DuckDB may create for the persistent database — the
  * database file plus its write-ahead-log sidecar. Derived from
  * `OPFS_SQL_DB_PATH` minus the `opfs://` protocol prefix. Used by the
@@ -203,15 +195,6 @@ const OPFS_SQL_DB_FILE_NAMES: readonly string[] = (() => {
   // Staged copies an interrupted storage migration from an older build can leave behind.
   return [base, `${base}.wal`, `${base}.lingua-migrating`, `${base}.wal.lingua-migrating`];
 })();
-
-/** Minimal `db.open` surface the persistence helper depends on. */
-interface DuckDbOpenable {
-  open: (config: {
-    path?: string;
-    accessMode?: number;
-    opfs?: { fileHandling?: 'auto' | 'manual' };
-  }) => Promise<void>;
-}
 
 /**
  * Set the persistence preference for the NEXT engine instantiate. A
@@ -245,44 +228,6 @@ export function isOpfsStorageAvailable(): boolean {
     typeof navigator.storage !== 'undefined' &&
     typeof navigator.storage.getDirectory === 'function'
   );
-}
-
-/**
- * Resolve the storage backing for a freshly-instantiated database.
- * Pure decision + IO, extracted so tests can exercise every branch
- * without standing up DuckDB:
- *
- *   - persistence off OR OPFS unavailable → `'memory'` (no `open`).
- *   - persistence on + available → `db.open(opfs://…)`; `'opfs'` on
- *     success.
- *   - `open` throws (locked by another tab, quota, unsupported) →
- *     best-effort reopen of an in-memory database, resolve `'memory'`.
- *
- * `instantiate` already leaves an in-memory database ready, so the
- * `':memory:'` reopen is belt-and-suspenders against a half-open state
- * from the throwing `open` — the workspace must never be left dead.
- */
-export async function applyDuckDbPersistence(
-  db: DuckDbOpenable,
-  persist: boolean,
-  opfsAvailable: boolean
-): Promise<SqlStorageMode> {
-  if (!persist || !opfsAvailable) return 'memory';
-  try {
-    await db.open({
-      path: OPFS_SQL_DB_PATH,
-      accessMode: DUCKDB_ACCESS_MODE_READ_WRITE,
-      opfs: { fileHandling: 'auto' },
-    });
-    return 'opfs';
-  } catch {
-    try {
-      await db.open({ path: ':memory:' });
-    } catch {
-      /* the post-instantiate default is already in-memory */
-    }
-    return 'memory';
-  }
 }
 
 /**
@@ -623,6 +568,8 @@ export async function runWithExtensions<T>(
  * fails on any C++ exception that DuckDB catches, including internal ones.
  */
 async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
+  const persist = desiredPersistence;
+  const requestedStorageMode: SqlStorageMode = persist ? 'opfs' : 'memory';
   // Dynamic imports keep the chunk lazy. The browser fetches the
   // ~1 MiB JS shim first; the WASM only when DuckDB
   // actually instantiates.
@@ -651,38 +598,35 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     );
     wasmUrl = wasmModule.default;
   }
-  // Wrap the worker URL into an actual `Worker` instance. DuckDB's
-  // `createWorker` would normally fetch the URL itself; we pass our
-  // bundled URL directly so the same-origin guarantee holds.
-  const worker = new Worker(workerUrl);
-  // Reviewer pass (HIGH-1) — if WASM instantiation fails (offline,
-  // CSP rejection, OOM), the just-spawned worker must be terminated
-  // so it doesn't sit idle in the browser. Without this guard each
-  // retry leaks another worker + its WASM heap. Production retries
-  // are user-driven via the `engine-load-failed` band, so the leak
-  // is small per failure but unbounded across a long session.
+  let terminateWorker: (() => void) | undefined;
   try {
-    const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
-    const db = new duckdb.AsyncDuckDB(logger, worker);
-    await db.instantiate(wasmUrl);
-    // The verified blob URL has served its purpose once instantiation
-    // completes; revoking frees the duplicated WASM bytes.
+    const opened = await openOwnedDuckDb(async () => {
+      const worker = new Worker(workerUrl);
+      let terminated = false;
+      const dispose = () => {
+        if (terminated) return;
+        terminated = true;
+        worker.terminate();
+      };
+      try {
+        const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
+        const db = new duckdb.AsyncDuckDB(logger, worker);
+        await db.instantiate(wasmUrl);
+        return { db, terminateWorker: dispose };
+      } catch (error) {
+        dispose();
+        throw error;
+      }
+    }, {
+      persist,
+      storage: isOpfsStorageAvailable() ? navigator.storage : undefined,
+      protocol: duckdb.DuckDBDataProtocol.BROWSER_FSACCESS,
+    });
+    const { db } = opened.instance;
+    terminateWorker = opened.instance.terminateWorker;
+    // A verified blob stays alive until both the persistent attempt and any clean fallback instantiate.
     revokeWasmUrl?.();
     revokeWasmUrl = null;
-    // Resolve the storage backing. When the
-    // user opted into persistence and OPFS is available this opens the
-    // `opfs://` database so tables survive a reload; otherwise it stays
-    // in-memory. Failures fall back to in-memory inside the helper, so
-    // this never blocks the engine from coming up.
-    const requestedStorageMode: SqlStorageMode = desiredPersistence
-      ? 'opfs'
-      : 'memory';
-    resolvedStorageMode = await applyDuckDbPersistence(
-      db,
-      desiredPersistence,
-      isOpfsStorageAvailable()
-    );
-    resolvedStorageRequestedMode = requestedStorageMode;
     const runAlone = async (sql: string) => {
       const connection = await db.connect();
       try {
@@ -706,6 +650,8 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     };
     // ICU cannot wait for first use: `now() - INTERVAL` fails without it and never asks for it.
     await Promise.all([extensions.json(), extensions.icu()]);
+    resolvedStorageMode = opened.mode;
+    resolvedStorageRequestedMode = requestedStorageMode;
     return {
       loadJsonExtension: extensions.json,
       connect: async (): Promise<DuckDbConnection> => {
@@ -763,7 +709,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
         try {
           await db.terminate();
         } finally {
-          worker.terminate();
+          terminateWorker?.();
         }
       },
     };
@@ -772,7 +718,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     // rejection propagates up to the `getDuckDbEngine` cache-reset path.
     revokeWasmUrl?.();
     try {
-      worker.terminate();
+      terminateWorker?.();
     } catch {
       /* defensive — terminating a worker should never throw */
     }
