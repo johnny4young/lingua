@@ -7,9 +7,10 @@ import { STAGING_SUFFIX } from './originMigrationScripts';
  * One-time copy of renderer storage from the file:// origin of older builds to
  * the custom-scheme origin; Chromium keys storage by origin. The legacy copy is
  * left on disk. Keys the new origin holds are never overwritten. Files are staged,
- * then moved in together, so a database and its WAL land as a pair; until they
- * land, legacy wins over a file the app created after a failed attempt. The
- * marker's progress keeps retries from restoring what the user deleted since.
+ * then moved database-first with any old target WAL removed. A database and its
+ * WAL count as copied only after both moves succeed; until then, a retry copies
+ * both again over files the app created after a failed attempt. The marker's
+ * progress keeps retries from restoring a completed group the user deleted since.
  */
 
 export const ORIGIN_MIGRATION_MARKER = 'renderer-origin-migration.json';
@@ -112,6 +113,25 @@ function stagingPath(file: OriginFile): string[] {
   return [...file.path.slice(0, -1), `${file.path.at(-1)}${STAGING_SUFFIX}`];
 }
 
+/** A database and its WAL share retry ownership, regardless of listing order. */
+function fileGroups(files: OriginFile[]): OriginFile[][] {
+  const byPath = new Map(files.map(file => [file.path.join('/'), file]));
+  const groups: OriginFile[][] = [];
+  for (const file of files) {
+    const key = file.path.join('/');
+    if (key.endsWith('.wal')) {
+      if (byPath.has(key.slice(0, -4))) continue;
+      throw Object.assign(new Error('Legacy WAL has no database'), { code: 'EWALWITHOUTDB' });
+    }
+    const group = [file];
+    for (let wal = byPath.get(`${key}.wal`); wal; wal = byPath.get(`${wal.path.join('/')}.wal`)) {
+      group.push(wal);
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+
 async function stageFile(
   legacy: LegacyOriginReader,
   target: TargetOriginWriter,
@@ -190,8 +210,10 @@ export async function migrateRendererOrigin(
       await writeMarker(markerPath, marker);
     }
     const listed = await legacy.listFiles();
-    const legacyPaths = new Set(listed.map(file => file.path.join('/')));
-    const files = listed.filter(file => !marker.copiedFiles.includes(file.path.join('/')));
+    const pendingGroups = fileGroups(listed).filter(group =>
+      group.some(file => !marker.copiedFiles.includes(file.path.join('/')))
+    );
+    const files = pendingGroups.flat();
     if (files.length > 0) target ??= await deps.openTarget();
     const empty = !target;
     if (target) {
@@ -212,16 +234,25 @@ export async function migrateRendererOrigin(
       }
       // Past this point the moves run to the end, so an abort cannot split a database from its WAL.
       deps.signal?.throwIfAborted();
-      for (const file of staged) {
-        // A WAL the new origin wrote must not replay onto the legacy database.
-        const wal = [...file.path.slice(0, -1), `${file.path.at(-1)}.wal`];
-        if (!legacyPaths.has(wal.join('/'))) await writer.removeFile(wal);
-      }
-      for (const file of staged) {
-        await writer.commitFile(stagingPath(file), file.path.at(-1) as string);
-        marker.files += 1;
-        marker.fileBytes += file.size;
-        marker.copiedFiles.push(file.path.join('/'));
+      for (const group of pendingGroups) {
+        // A failed WAL move must leave a checkpoint without a WAL, never one
+        // next to an unrelated WAL the target origin wrote before this attempt.
+        for (const file of group) {
+          const wal = [...file.path.slice(0, -1), `${file.path.at(-1)}.wal`];
+          await writer.removeFile(wal);
+        }
+        for (const file of group) {
+          await writer.commitFile(stagingPath(file), file.path.at(-1) as string);
+        }
+        // Record only a complete group. Older failed markers may already name
+        // its database; retry that database too without counting it twice.
+        for (const file of group) {
+          const key = file.path.join('/');
+          if (marker.copiedFiles.includes(key)) continue;
+          marker.files += 1;
+          marker.fileBytes += file.size;
+          marker.copiedFiles.push(key);
+        }
       }
       await writeMarker(markerPath, marker);
     }

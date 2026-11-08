@@ -2162,10 +2162,15 @@ a private temp folder reads the old origin, and a hidden page on
 constant scripts from `originMigrationScripts.ts`. It runs once per profile:
 `renderer-origin-migration.json` in `userData` records the result and counts.
 `localStorage` goes first and never overwrites a key the new origin holds.
-Files are then staged under a `.lingua-migrating` name and moved in together
-once every one is staged, so the SQL database and its WAL land as a pair. Until
-they land, legacy wins: a retry (three launches at most) replaces a database
-the app created after a failed attempt. The marker records the attempt before
+Files are then staged under a `.lingua-migrating` name before any moves start.
+Each database moves before its WAL, regardless of listing order, and any target
+WAL is removed first. A failed move can leave a database checkpoint without its
+WAL, but never beside an unrelated WAL. A legacy WAL without its database fails
+before any files move, leaving target files untouched. The marker records a database and its
+WAL only once both moves finish; a retry copies both again, including when an
+older failed marker recorded only one. Until that pair finishes, legacy wins:
+a retry (three launches at most) replaces a database the app created after a
+failed attempt. The marker records the attempt before
 any page opens, so a crash spends one, and then each finished step, so a retry
 neither repeats it nor restores what a factory reset or Recovery cleared since.
 The Dock or taskbar shows the copy's progress, and five minutes bound the
