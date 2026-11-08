@@ -33,6 +33,7 @@
  *     same code path as web.
  */
 
+import '../i18n/sqlLocalCatalog';
 import i18next from 'i18next';
 import { sha256HexToIntegrity } from './wasmIntegrity';
 import { DuckDbEngineLifecycle } from './duckdbEngineLifecycle';

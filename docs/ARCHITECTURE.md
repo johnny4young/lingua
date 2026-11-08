@@ -318,6 +318,11 @@ the public SQL client API or persisted workspace data.
 
 ### Native Local SQL engine
 
+Local-engine Settings and error messages live in `sqlLocal.json`. The lazy
+Settings section and SQL client register the English copy in the common namespace
+when loaded; Spanish merges it with the rest of its catalog when selected. These
+messages do not belong to the English startup catalog.
+
 Desktop builds that include `@duckdb/node-api` can run Local SQL natively when
 Settings → SQL workspace → Local engine is `native`
 (`sqlWorkspaceLocalEngine`). `duckdbClient`'s production factory asks

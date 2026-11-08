@@ -1,3 +1,4 @@
+import '../../i18n/sqlLocalCatalog';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';

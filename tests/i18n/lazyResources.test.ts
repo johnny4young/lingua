@@ -37,6 +37,36 @@ describe('renderer locale bundle boundary', () => {
     expect(registration).toContain("import en from './locales/en/sqlConnections.json'");
   });
 
+  it('loads Local engine copy with its SQL and Settings consumers instead of English boot', () => {
+    const keys = [
+      'settings.editor.sqlWorkspace.persistTables.hintNative',
+      'settings.editor.sqlWorkspace.persistTables.clearFailed',
+      'settings.editor.sqlWorkspace.localEngine.label',
+      'settings.editor.sqlWorkspace.localEngine.hint',
+      'settings.editor.sqlWorkspace.localEngine.option.native',
+      'settings.editor.sqlWorkspace.localEngine.option.wasm',
+      'settings.editor.sqlWorkspace.localEngine.fallback',
+      'settings.editor.sqlWorkspace.localEngine.unavailable',
+      'sqlWorkspace.nativeEngine.settingFixed',
+    ];
+    for (const language of ['en', 'es']) {
+      const boot = JSON.parse(readFileSync(resolve(__dirname, `../../src/renderer/i18n/locales/${language}/common.json`), 'utf8')) as Record<string, string>;
+      const local = JSON.parse(readFileSync(resolve(__dirname, `../../src/renderer/i18n/locales/${language}/sqlLocal.json`), 'utf8')) as Record<string, string>;
+      expect(Object.keys(local)).toEqual(keys);
+      for (const key of keys) {
+        expect(Object.hasOwn(boot, key)).toBe(false);
+        expect(local[key]).toBeTruthy();
+      }
+    }
+    expect(rendererI18n).not.toContain('locales/en/sqlLocal.json');
+    expect(rendererI18n).toContain("import('./locales/es/sqlLocal.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/sqlLocalCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/sqlLocal.json'");
+    expect(registration).toContain("addResourceBundle('en', 'common'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/SqlWorkspaceSettingsSection.tsx'), 'utf8')).toContain("import '../../i18n/sqlLocalCatalog'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/runtime/duckdbClient.ts'), 'utf8')).toContain("import '../i18n/sqlLocalCatalog'");
+  });
+
   it('keeps the HTTP builder copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')

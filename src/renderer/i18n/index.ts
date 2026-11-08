@@ -35,9 +35,10 @@ async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> 
     import('./locales/es/pipelineJs.json'),
     import('./locales/es/clipboardChains.json'),
     import('./locales/es/localMcp.json'),
+    import('./locales/es/sqlLocal.json'),
   ]).then(
-    ([common, connections, httpBuilder, debuggerCopy, explain, tests, runCompare, timeline, runRegions, sqlInstant, pipelineJs, clipboardChains, localMcp]) =>
-      ({ ...common.default, ...connections.default, ...httpBuilder.default, ...debuggerCopy.default, ...explain.default, ...tests.default, ...runCompare.default, ...timeline.default, ...runRegions.default, ...sqlInstant.default, ...pipelineJs.default, ...clipboardChains.default, ...localMcp.default }) as CommonCatalog
+    ([common, connections, httpBuilder, debuggerCopy, explain, tests, runCompare, timeline, runRegions, sqlInstant, pipelineJs, clipboardChains, localMcp, sqlLocal]) =>
+      ({ ...common.default, ...connections.default, ...httpBuilder.default, ...debuggerCopy.default, ...explain.default, ...tests.default, ...runCompare.default, ...timeline.default, ...runRegions.default, ...sqlInstant.default, ...pipelineJs.default, ...clipboardChains.default, ...localMcp.default, ...sqlLocal.default }) as CommonCatalog
   );
   const catalog = await spanishCatalogPromise;
   loadedCatalogs.es = catalog;
