@@ -156,6 +156,8 @@ function createChosenToolchainStore() {
     return cache;
   }
 
+  let writes: Promise<void> = Promise.resolve();
+
   return {
     configure(userDataDir: string) {
       filePath = path.join(userDataDir, 'toolchain-binaries.json');
@@ -164,28 +166,53 @@ function createChosenToolchainStore() {
     async get(id: ToolchainBinaryId): Promise<string | undefined> {
       return (await load())[id];
     },
-    async set(id: ToolchainBinaryId, binary: string): Promise<void> {
-      if (!filePath) throw new Error('Toolchain binary store is not configured.');
-      const next = { ...(await load()), [id]: binary };
-      const tmp = `${filePath}.${randomUUID()}.tmp`;
-      await mkdir(path.dirname(filePath), { recursive: true });
-      await writeFile(tmp, `${JSON.stringify({ version: 1, ...next }, null, 2)}\n`, { mode: 0o600 });
-      if (process.platform !== 'win32') await chmod(tmp, 0o600);
-      try {
-        await rename(tmp, filePath);
-      } catch (error) {
-        await rm(tmp, { force: true }).catch(() => undefined);
-        throw error;
-      }
-      cache = next;
+    set(id: ToolchainBinaryId, binary: string | undefined): Promise<void> {
+      // One write at a time: each builds on the last, so a Go clear and a Rust pick cannot undo each other.
+      const write = writes.then(() => save(id, binary));
+      writes = write.catch(() => undefined);
+      return write;
     },
   };
+
+  async function save(id: ToolchainBinaryId, binary: string | undefined): Promise<void> {
+    if (!filePath) throw new Error('Toolchain binary store is not configured.');
+    const next = { ...(await load()) };
+    if (binary === undefined) delete next[id];
+    else next[id] = binary;
+    const tmp = `${filePath}.${randomUUID()}.tmp`;
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(tmp, `${JSON.stringify({ version: 1, ...next }, null, 2)}\n`, { mode: 0o600 });
+    if (process.platform !== 'win32') await chmod(tmp, 0o600);
+    try {
+      await rename(tmp, filePath);
+    } catch (error) {
+      await rm(tmp, { force: true }).catch(() => undefined);
+      throw error;
+    }
+    cache = next;
+  }
 }
 
 export const chosenToolchainBinaries = createChosenToolchainStore();
 
 export function configureToolchainBinaryStore(userDataDir: string): void {
   chosenToolchainBinaries.configure(userDataDir);
+}
+
+/** The picked binary as Settings shows it, home-relative; null when Run uses PATH. */
+export async function chosenToolchainDisplayPath(id: ToolchainBinaryId): Promise<string | null> {
+  const stored = await chosenToolchainBinaries.get(id);
+  return stored ? displayToolchainPath(stored) : null;
+}
+
+/** Forgets the picked binary so the next detect searches PATH again. */
+export async function clearChosenToolchainBinary(id: ToolchainBinaryId): Promise<boolean> {
+  try {
+    await chosenToolchainBinaries.set(id, undefined);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

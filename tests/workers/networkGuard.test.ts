@@ -45,6 +45,16 @@ function desktopScope() {
   return fake;
 }
 
+/** A built worker on the renderer's app scheme. */
+function appSchemeScope() {
+  const fake = fakeScope();
+  (fake.scope as unknown as { location: unknown }).location = {
+    href: 'app://lingua/assets/js-worker.js',
+    protocol: 'app:',
+  };
+  return fake;
+}
+
 const policy = (
   value: NetworkRunPolicy['policy'],
   allowed: string[] = [],
@@ -329,6 +339,26 @@ describe('network guard against code that patches the realm', () => {
 
     const xhr = new (scope as unknown as { XMLHttpRequest: new () => XMLHttpRequest }).XMLHttpRequest();
     expect(() => xhr.open('GET', 'file:///Users/me/.ssh/id_rsa')).toThrow('file:');
+  });
+
+  it('limits the app scheme to the renderer root and refuses file:', async () => {
+    const { scope, fetch } = appSchemeScope();
+    const report = vi.fn();
+    installNetworkGuard(scope, { report }).begin(policy('block'));
+
+    await scope.fetch('app://lingua/pyodide/pyodide.asm.wasm');
+    await scope.fetch('../ruby/ruby.wasm');
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    for (const [target, label] of [
+      ['file:///app/renderer/assets/a.js', 'file:'],
+      ['file:///Users/me/.ssh/id_rsa', 'file:'],
+      ['app://other/a.js', 'app:'],
+      ['app://lingua/assets/..%2F..%2Fsecret', 'app:'],
+    ] as const) {
+      await expect(scope.fetch(target)).rejects.toThrow(label);
+    }
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('refuses a local file under Ask without asking', async () => {

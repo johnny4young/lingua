@@ -556,6 +556,9 @@ interface LinguaAPI {
   platform: string;
   getSystemLanguages: () => Promise<string[]>;
   getAppInfo: () => Promise<AppInfo>;
+  consumeStorageMigrationNotice: () => Promise<
+    import('./shared/ipcContract').StorageMigrationNotice | null
+  >;
   openExternal: (url: string) => Promise<boolean>;
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
   /** Desktop-only encrypted secret vault; absent on web. */
@@ -582,6 +585,10 @@ interface LinguaAPI {
     stop: (runId: string) => Promise<{ stopped: boolean }>;
     /** Main opens the picker, validates the binary and keeps its path. */
     chooseBinary: () => Promise<ToolchainChooseResult>;
+    /** The picked binary, home-relative; null when Run uses PATH. */
+    chosenBinary: () => Promise<{ path: string | null }>;
+    /** Forgets the picked binary so Run searches PATH again. */
+    clearBinary: () => Promise<{ cleared: boolean }>;
   };
 
   rust: {
@@ -595,6 +602,10 @@ interface LinguaAPI {
     stop: (runId: string) => Promise<{ stopped: boolean }>;
     /** Main opens the picker, validates the binary and keeps its path. */
     chooseBinary: () => Promise<ToolchainChooseResult>;
+    /** The picked binary, home-relative; null when Run uses PATH. */
+    chosenBinary: () => Promise<{ path: string | null }>;
+    /** Forgets the picked binary so Run searches PATH again. */
+    clearBinary: () => Promise<{ cleared: boolean }>;
   };
 
   // Desktop Node child-spawn IPC. Worker-mode JS

@@ -36,7 +36,7 @@ try {
     if (message.type() === 'error') errors.push(message.text());
   });
   await page.locator('[data-testid="app-chrome"]').waitFor({ timeout: 60_000 });
-  assert.equal(new URL(page.url()).protocol, 'file:', 'Smoke uses the built desktop renderer');
+  assert.equal(new URL(page.url()).protocol, 'app:', 'Smoke uses the built desktop renderer');
 
   const captured = await page.evaluate(source => window.lingua.node.run(source, {
     runId: 'unicode-capture', timeoutMs: 15_000,

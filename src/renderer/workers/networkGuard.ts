@@ -3,6 +3,7 @@ import {
   networkBlockedMessage,
   type NetworkRunPolicy,
 } from '../../shared/networkPolicy';
+import { DESKTOP_RENDERER_SCHEME } from '../../shared/desktopRendererOrigin';
 
 /**
  * Network policy inside a runtime worker. The wrappers stay installed for the
@@ -15,8 +16,7 @@ import {
  * wrap (a dynamic `import()` of a URL or a local file, for one) is not stopped.
  * The guard holds its own references to the built-ins it uses, so code that
  * replaces them cannot make a request read as local. While a policy is in force,
- * `file:` is limited to the app's own files: on packaged desktop nothing else
- * limits it.
+ * local URLs are limited to the app's own files.
  */
 
 export interface NetworkGuardOptions {
@@ -114,9 +114,11 @@ export function installNetworkGuard(
   const requestUrl = getterOf(NativeRequest?.prototype, 'url');
   const location = scope.location as Location | undefined;
   const base = location ? NativeString(location.href) : undefined;
-  // Packaged workers load from <renderer root>/assets/ on file://.
+  // Built workers load from <renderer root>/assets/ on the app scheme (file:// before it).
+  const baseProtocol = NativeString(location?.protocol);
+  const fromApp = baseProtocol === `${DESKTOP_RENDERER_SCHEME}:` || baseProtocol === 'file:';
   const appRoot =
-    base !== undefined && NativeString(location?.protocol) === 'file:'
+    base !== undefined && fromApp
       ? (apply(urlHref, new NativeURL('../', base), []) as string)
       : undefined;
 
