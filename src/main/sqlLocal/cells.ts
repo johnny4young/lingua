@@ -7,9 +7,9 @@
  * keeps DuckDB's own value instead; the parity suite pins each of these.
  */
 
-import type { DuckDBType, DuckDBValue } from '@duckdb/node-api';
+import type { DuckDBDataChunk, DuckDBType, DuckDBValue } from '@duckdb/node-api';
 import { formatDecimalText, temporalFormatter } from '../../shared/sqlResultRows';
-import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
+import { MAX_RESULT_PREVIEW_BYTES, type SqlColumnMetadata } from '../../shared/sqlWorkspace';
 
 // DuckDB's C API type ids, stable across releases; read here so this module never loads the binding.
 const T = {
@@ -276,18 +276,94 @@ export function columnsOf(names: readonly string[], types: readonly DuckDBType[]
   return names.map((name, index) => ({ name, type: arrowTypeName(types[index]!) }));
 }
 
-/** One row object per row, built in column order so a repeated name keeps the last value, like an Arrow row. */
-export function rowsOf(
+/** The binding's reader for bytes behind a string pointer; passed in so this module never loads it. */
+export type PointerReader = (buffer: ArrayBuffer, pointerOffset: number, byteCount: number) => Uint8Array;
+
+/** No top-level text or blob cell grows past the preview window, so one huge value never becomes a huge string. */
+const CELL_BYTES = MAX_RESULT_PREVIEW_BYTES;
+const BLOB_BYTES = Math.floor(CELL_BYTES / 4) * 3;
+const decoder = new TextDecoder();
+
+/** The layout of DuckDB's VARCHAR and BLOB vectors in @duckdb/node-api: 16 bytes per item, inlined up to 12. */
+interface StringVector {
+  dataView?: unknown;
+  validity?: { itemValid(index: number): boolean };
+}
+
+/** Reads at most `max` bytes of each item, or null when the binding's layout is not the one expected. */
+function boundedBytes(vector: unknown, max: number, read: PointerReader | undefined): ((row: number) => { bytes: Uint8Array; cut: boolean } | null) | null {
+  const { dataView, validity } = vector as StringVector;
+  if (!read || !(dataView instanceof DataView) || typeof validity?.itemValid !== 'function') return null;
+  return row => {
+    if (!validity.itemValid(row)) return null;
+    const offset = row * 16;
+    const length = dataView.getUint32(offset, true);
+    if (length <= 12) return { bytes: new Uint8Array(dataView.buffer, dataView.byteOffset + offset + 4, length), cut: false };
+    return { bytes: read(dataView.buffer as ArrayBuffer, dataView.byteOffset + offset + 8, Math.min(length, max)), cut: length > max };
+  };
+}
+
+/** Cuts a decoded prefix at a whole character; a multibyte one split at the cap decodes as U+FFFD. */
+const textOf = (bytes: Uint8Array, cut: boolean) => {
+  const value = decoder.decode(bytes);
+  return cut ? value.replace(/\uFFFD+$/u, '') : value;
+};
+
+const cutText = (value: string) => (value.length > CELL_BYTES ? value.slice(0, CELL_BYTES) : value);
+
+/**
+ * Converts a chunk one row at a time, in column order so a repeated name keeps
+ * the last value, like an Arrow row. Top-level VARCHAR and BLOB cells are cut to
+ * the preview window before any string is built when `read` is given.
+ */
+export function chunkRows(
+  chunk: DuckDBDataChunk,
   names: readonly string[],
+  types: readonly DuckDBType[],
   converters: readonly Convert[],
-  rows: readonly (readonly DuckDBValue[])[]
-): Array<Record<string, unknown>> {
-  return rows.map(row => {
-    const out: Record<string, unknown> = {};
-    for (let index = 0; index < names.length; index += 1) {
-      const value = row[index];
-      out[names[index]!] = value === null || value === undefined ? null : converters[index]!(value);
+  read?: PointerReader
+): { rowCount: number; row(index: number): Record<string, unknown> } {
+  const cells = names.map((_, column): ((row: number) => unknown) => {
+    const vector = chunk.getColumnVector(column);
+    const typeId = types[column]!.typeId;
+    if (typeId === T.VARCHAR) {
+      const bytes = boundedBytes(vector, CELL_BYTES, read);
+      if (bytes) {
+        return row => {
+          const value = bytes(row);
+          return value === null ? null : textOf(value.bytes, value.cut);
+        };
+      }
+      return row => {
+        const value = vector.getItem(row) as string | null;
+        return value === null ? null : cutText(value);
+      };
     }
-    return out;
+    if (typeId === T.BLOB) {
+      const bytes = boundedBytes(vector, BLOB_BYTES, read);
+      if (bytes) {
+        return row => {
+          const value = bytes(row);
+          return value === null ? null : base64(value.bytes);
+        };
+      }
+      return row => {
+        const value = vector.getItem(row) as { bytes: Uint8Array } | null;
+        return value === null ? null : base64(value.bytes.subarray(0, BLOB_BYTES));
+      };
+    }
+    const convert = converters[column]!;
+    return row => {
+      const value = vector.getItem(row) as DuckDBValue | undefined;
+      return value === null || value === undefined ? null : convert(value);
+    };
   });
+  return {
+    rowCount: chunk.rowCount,
+    row(index) {
+      const out: Record<string, unknown> = {};
+      for (let column = 0; column < names.length; column += 1) out[names[column]!] = cells[column]!(index);
+      return out;
+    },
+  };
 }

@@ -327,11 +327,13 @@ failed start falls back to DuckDB-WASM, and the web build never has the
 bridge. Main (`src/main/ipc/sqlLocal.ts`, `src/main/sqlLocal/service.ts`)
 parses every argument, stamps the sending window as owner, decides every path
 under `userData/sql-local` and forks `src/main/sqlLocal/localEntry.ts`
-(bundled to `.vite/build/sqlLocal.js` by `vite.sqllocal.config.mts`) as the
-`Lingua local SQL` utility process, separate from the remote SQL host so
-neither restart drops the other's sessions. The process starts with a minimal
-environment and its own HOME. Each window gets one DuckDB instance whose
-files and spill folders are the only paths SQL may touch:
+(bundled to `.vite/build/sqlLocal.js` by `vite.sqllocal.config.mts`) as one
+`Lingua local SQL` utility process per window, started on that window's first
+request and stopped when it reloads, navigates or closes, separate from the
+remote SQL host so neither restart drops the other's sessions. Main decides
+which window holds the persisted database file. The process starts with a
+minimal environment and its own HOME. Each window gets one DuckDB instance
+whose files and spill folders are the only paths SQL may touch:
 `allowed_directories`, `enable_external_access=false` and
 `lock_configuration=true` run before any SQL, so `SET` of DuckDB options is
 refused on this engine. Rows are converted in the process to what DuckDB-WASM's
@@ -339,7 +341,7 @@ Arrow rows become and capped by the shared window in
 `src/shared/sqlResultRows.ts`, so both engines show the same results
 (`tests/integration/duckdbBackendParity.test.ts`). Registered files are named
 by absolute path (`DuckDbEngineHandle.filePath`). A forced restart for a
-statement that ignored Cancel restarts the process. See
+statement that ignored Cancel restarts only that window's process. See
 `docs/SQL_LOCAL_NATIVE_ADR.md`.
 
 ### SQL runs, cancel and the row window

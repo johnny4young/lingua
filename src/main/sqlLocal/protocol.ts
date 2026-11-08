@@ -11,7 +11,7 @@ export interface LocalPaths {
   database: string;
   /** This owner's registered files: the one folder SQL may read and write. */
   files: string;
-  /** Where DuckDB spills when a query outgrows memory. */
+  /** Where DuckDB spills when a query outgrows memory; SQL cannot name it. */
   temp: string;
 }
 
@@ -29,6 +29,8 @@ export type LocalRequest =
   | { id: number; type: 'read-file'; owner: number; engineId: string; name: string }
   | { id: number; type: 'terminate'; owner: number; engineId: string }
   | { id: number; type: 'release-owner'; owner: number }
+  /** Closes every engine, so the persisted file is checkpointed before main stops the process. */
+  | { id: number; type: 'dispose' }
   | { id: number; type: 'clear-database'; database: string }
   | { id: number; type: 'database-bytes'; database: string };
 

@@ -21,7 +21,11 @@ export class SqlHostError<Detail extends { message: string } = HostError> extend
   }
 }
 
-type Body<Request> = Request extends infer R ? (R extends Request ? Omit<R, 'id'> : never) : never;
+/** A request without the id the supervisor stamps on it. */
+export type SqlHostRequestBody<Request> = Request extends infer R ? (R extends Request ? Omit<R, 'id'> : never) : never;
+
+/** How long a restart waits for the killed host to exit before the next one starts. */
+const RETIRE_WAIT_MS = 5_000;
 
 interface Pending {
   resolve(value: unknown): void;
@@ -35,6 +39,8 @@ export function createSqlHostSupervisor<Request extends { id: number } = HostReq
   stopped: (message: string) => Failure = (message) => ({ message }) as Failure
 ) {
   let child: HostChild | null = null;
+  // A killed host may still hold files (a DuckDB lock) until it exits; the next fork waits for that.
+  let retiring: Promise<void> | null = null;
   let nextId = 1;
   const pending = new Map<number, Pending>();
 
@@ -65,38 +71,61 @@ export function createSqlHostSupervisor<Request extends { id: number } = HostReq
     return started;
   }
 
+  function retire(current: HostChild): Promise<void> {
+    const exited = new Promise<void>(resolve => {
+      const timer = setTimeout(resolve, RETIRE_WAIT_MS);
+      timer.unref?.();
+      current.on('exit', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    const waiting: Promise<void> = Promise.all([retiring, exited]).then(() => {
+      if (retiring === waiting) retiring = null;
+    });
+    retiring = waiting;
+    current.kill();
+    return waiting;
+  }
+
+  function request<T>(body: SqlHostRequestBody<Request>, timeoutMs?: number): Promise<T> {
+    if (!child && retiring) return retiring.then(() => request<T>(body, timeoutMs));
+    child ??= start();
+    const id = nextId++;
+    const target = child;
+    return new Promise<T>((resolve, reject) => {
+      const timer =
+        timeoutMs === undefined
+          ? null
+          : setTimeout(() => {
+              pending.delete(id);
+              reject(new SqlHostError(stopped('The SQL host did not answer in time.')));
+            }, timeoutMs);
+      pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
+      target.postMessage({ ...body, id });
+    });
+  }
+
+  /** Stops the host and resolves once it exited, or after a bounded wait. */
+  function stop(): Promise<void> {
+    const current = child;
+    child = null;
+    failAll('The SQL host was restarted.');
+    return current ? retire(current) : (retiring ?? Promise.resolve());
+  }
+
   return {
     /** Sends one request; `timeoutMs` fails it without stopping the host. */
-    request<T>(body: Body<Request>, timeoutMs?: number): Promise<T> {
-      child ??= start();
-      const id = nextId++;
-      const target = child;
-      return new Promise<T>((resolve, reject) => {
-        const timer =
-          timeoutMs === undefined
-            ? null
-            : setTimeout(() => {
-                pending.delete(id);
-                reject(new SqlHostError(stopped('The SQL host did not answer in time.')));
-              }, timeoutMs);
-        pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
-        target.postMessage({ ...body, id });
-      });
-    },
+    request,
 
-    /** Stops the host and every session in it; the next request starts a new one. */
+    /** Stops the host and every session in it; the next request starts a new one once it exited. */
     restart(): void {
-      const current = child;
-      child = null;
-      failAll('The SQL host was restarted.');
-      current?.kill();
+      void stop();
     },
 
     isRunning: () => child !== null,
 
-    dispose(): void {
-      this.restart();
-    },
+    dispose: stop,
   };
 }
 

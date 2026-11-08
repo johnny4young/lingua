@@ -25,8 +25,8 @@ import { createSqlDbService } from './sqlDbService';
 import { createConnectionCatalog, resolveConnectionCatalogPath } from './sqlConnectionCatalog';
 import { createSystemSshTargets } from './sqlSsh/sshTargets';
 import { disposeSqlHost, sqlHost } from './sqlHostProcess';
-import { disposeSqlLocalHost, sqlLocalHost } from './sqlLocalProcess';
-import { createSqlLocalService, nativeSqlEngineAvailable } from './sqlLocal/service';
+import { createSqlLocalHost } from './sqlLocalProcess';
+import { createSqlLocalService, nativeSqlEngineAvailable, type SqlLocalService } from './sqlLocal/service';
 import { licenseTier } from './licenseTier';
 import { blockedPathFamily } from './ipc/permissions';
 import { registerFormatterHandlers } from './formatters';
@@ -146,6 +146,9 @@ function registerProtocolClient(profile: UserDataProfile) {
   app.setAsDefaultProtocolClient('lingua');
 }
 
+let sqlLocalService: SqlLocalService | null = null;
+const disposeSqlLocalService = () => sqlLocalService?.dispose();
+
 function disposeMainResources() {
   // A failed disposer must not strand the remaining children or prevent exit.
   for (const dispose of [
@@ -160,7 +163,7 @@ function disposeMainResources() {
     disposeGoDebuggerSessions,
     disposeRustDebuggerSessions,
     disposeSqlHost,
-    disposeSqlLocalHost,
+    disposeSqlLocalService,
   ]) {
     try {
       void Promise.resolve(dispose()).catch(() => console.warn('[lingua] shutdown cleanup failed'));
@@ -450,9 +453,8 @@ function registerPrimaryInstance() {
         blockedPathFamily
       );
       const sqlLocalAvailable = nativeSqlEngineAvailable();
-      registerSqlLocalHandlers(
-        createSqlLocalService({ host: sqlLocalHost, root: path.join(userDataDir, 'sql-local'), available: () => sqlLocalAvailable })
-      );
+      sqlLocalService = createSqlLocalService({ createHost: createSqlLocalHost, root: path.join(userDataDir, 'sql-local'), available: () => sqlLocalAvailable });
+      registerSqlLocalHandlers(sqlLocalService);
 
       registerProtocolClient(userDataProfile);
       registerUpdater();

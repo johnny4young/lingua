@@ -9,7 +9,7 @@ const resets: Array<() => void> = [];
 vi.mock('../../src/main/runners/ownerReset', () => ({
   onOwnerReset: vi.fn((_owner: unknown, reset: () => void) => {
     resets.push(reset);
-    return () => undefined;
+    return () => resets.splice(resets.indexOf(reset), 1);
   }),
 }));
 
@@ -73,5 +73,15 @@ describe('sql-local IPC handlers', () => {
     expect(resets).toHaveLength(1);
     resets[0]!();
     expect(service.releaseOwner).toHaveBeenCalledWith(7);
+  });
+
+  it('keeps one reset subscription per window across reloads', async () => {
+    for (let reload = 0; reload < 3; reload += 1) {
+      await invoke('sql-local:open', false);
+      expect(resets).toHaveLength(1);
+      resets[0]!();
+    }
+    expect(resets).toHaveLength(0);
+    expect(service.releaseOwner).toHaveBeenCalledTimes(3);
   });
 });

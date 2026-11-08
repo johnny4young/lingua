@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { __setDuckDbEngineFactoryForTests, executeQuery, getDuckDbEngine, type DuckDbEngineHandle } from '../../../src/renderer/runtime/duckdbClient';
+import { __setDuckDbEngineFactoryForTests, clearPersistedSqlDatabase, executeQuery, getDuckDbEngine, type DuckDbEngineHandle } from '../../../src/renderer/runtime/duckdbClient';
 import { DuckDbEngineLifecycle } from '../../../src/renderer/runtime/duckdbEngineLifecycle';
 import { openNativeEngine } from '../../../src/renderer/runtime/duckdbNativeEngine';
 import type { SqlLocalBridge, SqlLocalReply } from '../../../src/shared/sqlLocal';
@@ -78,5 +78,34 @@ describe('engine lifecycle after a lost engine', () => {
   it('keeps executeQuery usable once a test factory swaps engines', async () => {
     __setDuckDbEngineFactoryForTests(async () => (await openNativeEngine(bridge(), false, () => undefined)).handle);
     expect(await getDuckDbEngine()).toBeDefined();
+  });
+});
+
+describe('native engine errors and clears', () => {
+  it('reports only engine-gone as a lost engine; a closed id is an ordinary error', async () => {
+    const gone = vi.fn();
+    const native = await openNativeEngine(
+      bridge({ query: () => Promise.resolve({ ok: false, error: { message: 'The SQL connection is closed.' } }) }),
+      false,
+      gone
+    );
+    const connection = await native.handle.connect();
+    await expect(connection.query('SELECT 1')).rejects.toThrow('The SQL connection is closed.');
+    expect(gone).not.toHaveBeenCalled();
+  });
+
+  it('fails a clear the native engine refused, after clearing what it could', async () => {
+    const original = (window as { lingua?: unknown }).lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { sqlLocal: bridge({ clearDatabase: () => Promise.resolve({ ok: false, error: { message: 'The SQL database is in use.' } }) }) },
+    });
+    try {
+      await expect(clearPersistedSqlDatabase()).rejects.toThrow('The SQL database is in use.');
+      Object.defineProperty(window, 'lingua', { configurable: true, value: { sqlLocal: bridge() } });
+      await expect(clearPersistedSqlDatabase()).resolves.toBeUndefined();
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: original });
+    }
   });
 });

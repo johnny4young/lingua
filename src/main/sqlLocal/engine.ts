@@ -1,22 +1,23 @@
 /**
  * The Local SQL engine inside its utilityProcess: one DuckDB instance per
  * renderer, locked before any SQL runs. `enable_external_access=false` with
- * `allowed_directories` refuses every path but the renderer's files and spill
- * folders, network reads, INSTALL and LOAD; `lock_configuration` then fixes every
+ * `allowed_directories` refuses every path but the renderer's files folder
+ * (spilling to the temp folder needs no grant), network reads, INSTALL and LOAD; `lock_configuration` then fixes every
  * setting, so SQL cannot point the extension, secret or profiling paths
  * elsewhere. JSON, ICU and Parquet are compiled into the library.
  */
 
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { mkdir, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, open as openFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { totalmem } from 'node:os';
 import path from 'node:path';
 import type { DuckDBConnection, DuckDBInstance, DuckDBResult, DuckDBType } from '@duckdb/node-api';
 import { createRowAccumulator } from '../../shared/sqlResultRows';
 import { SQL_LOCAL_MAX_CONNECTIONS, SQL_LOCAL_MAX_READ_BYTES, SQL_LOCAL_MAX_STREAMS, type SqlLocalError, type SqlLocalOpened, type SqlLocalQueryResult, type SqlLocalStreamOpened } from '../../shared/sqlLocal';
 import type { SqlColumnMetadata, SqlStorageMode } from '../../shared/sqlWorkspace';
-import { cellConverter, columnsOf, rowsOf } from './cells';
+import { cellConverter, chunkRows, columnsOf, type PointerReader } from './cells';
+import { sizeOf } from './fileSize';
 import { withoutFolder } from './messages';
 import type { LocalPaths, LocalRequest, LocalResponse } from './protocol';
 
@@ -27,9 +28,10 @@ interface Stream {
   owner: number;
   result: DuckDBResult;
   names: string[];
+  types: DuckDBType[];
   converters: Array<ReturnType<typeof cellConverter>>;
-  /** Converted rows of the last chunk that did not fit the previous batch. */
-  pending: Array<Record<string, unknown>>;
+  /** The chunk being sent and the next row of it; rows are converted only as a batch takes them. */
+  pending: { rows: ReturnType<typeof chunkRows>; next: number } | null;
 }
 
 interface Connection {
@@ -62,6 +64,8 @@ class LocalError extends Error {
 }
 
 const gone = () => new LocalError('The SQL engine stopped. Run the query again to start a new one.', 'engine-gone');
+const closedConnection = () => new LocalError('The SQL connection is closed.');
+const closedResult = () => new LocalError('The SQL result is closed.');
 
 const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
@@ -84,16 +88,8 @@ async function freshFolder(folder: string): Promise<void> {
   await mkdir(folder, { recursive: true });
 }
 
-async function sizeOf(file: string): Promise<number> {
-  try {
-    return (await stat(file)).size;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 0;
-    throw error;
-  }
-}
-
-export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
+/** `readPointer` lets text and blob cells be cut before their whole value is read. */
+export function createSqlLocalEngine(load: () => Promise<NodeApi>, readPointer?: PointerReader) {
   const engines = new Map<string, Engine>();
   const connections = new Map<string, Connection>();
   const streams = new Map<string, { owner: number; connection: Connection }>();
@@ -104,10 +100,13 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     return engine;
   };
 
+  // An id this process never handed the owner means its engine is gone (a new process); otherwise the id was closed.
+  const ownsEngine = (owner: number) => [...engines.values()].some(engine => engine.owner === owner);
+
   const connectionFor = (owner: number, connectionId: string): Connection => {
     const entry = connections.get(connectionId);
-    if (!entry || engines.get(entry.engineId)?.owner !== owner) throw gone();
-    return entry;
+    if (entry && engines.get(entry.engineId)?.owner === owner) return entry;
+    throw ownsEngine(owner) ? closedConnection() : gone();
   };
 
   const filesDirsOf = (owner: number) => [...engines.values()].filter(engine => engine.owner === owner).map(engine => engine.paths.files);
@@ -203,7 +202,7 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     let version = '';
     const setup = await instance.connect();
     try {
-      await setup.run(`SET allowed_directories=[${literal(paths.files)}, ${literal(paths.temp)}]`);
+      await setup.run(`SET allowed_directories=[${literal(paths.files)}]`);
       await setup.run('SET enable_external_access=false');
       // Last: profiling_output writes outside DuckDB's file checks, and extension_directory could aim INSTALL at an allowed folder.
       await setup.run('SET lock_configuration=true');
@@ -248,7 +247,8 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
       let rowCount = 0;
       for (let chunk = await result.fetchChunk(); chunk && chunk.rowCount > 0; chunk = await result.fetchChunk()) {
         rowCount += chunk.rowCount;
-        if (!accumulator.isFull()) accumulator.add(rowsOf(names, converters, chunk.getRows()));
+        const rows = chunkRows(chunk, names, types, converters, readPointer);
+        for (let index = 0; index < rows.rowCount && !accumulator.isFull(); index += 1) accumulator.add([rows.row(index)]);
       }
       return { columns, rows: accumulator.rows, rowCount, tooLarge: accumulator.isFull() && accumulator.rows.length < rowCount };
     });
@@ -260,9 +260,11 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     if ([...streams.values()].filter(found => found.owner === owner).length >= SQL_LOCAL_MAX_STREAMS) throw new LocalError('Too many open SQL results.');
     return run(entry, async () => {
       const result = await entry.connection.stream(sql);
+      // Closed while DuckDB started the result: the binding frees it once nothing holds it.
+      if (connections.get(entry.id) !== entry) throw closedConnection();
       const names = result.columnNames();
       const types = result.columnTypes();
-      const opened: Stream = { id: randomUUID(), owner, result, names, converters: types.map(cellConverter), pending: [] };
+      const opened: Stream = { id: randomUUID(), owner, result, names, types, converters: types.map(cellConverter), pending: null };
       entry.stream = opened;
       streams.set(opened.id, { owner, connection: entry });
       return { streamId: opened.id, columns: columnsOf(names, types) };
@@ -271,26 +273,29 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
 
   async function next(owner: number, streamId: string): Promise<Array<Record<string, unknown>> | null> {
     const found = streams.get(streamId);
-    if (!found || found.owner !== owner || found.connection.stream?.id !== streamId) throw gone();
+    if (!found || found.owner !== owner || found.connection.stream?.id !== streamId) throw ownsEngine(owner) ? closedResult() : gone();
     const entry = found.connection;
     const current = entry.stream!;
     return run(entry, async () => {
-      if (current.pending.length === 0) {
+      if (!current.pending || current.pending.next >= current.pending.rows.rowCount) {
         const chunk = await current.result.fetchChunk();
         if (!chunk || chunk.rowCount === 0) {
           if (entry.stream === current) dropStream(entry);
           return null;
         }
-        current.pending = rowsOf(current.names, current.converters, chunk.getRows());
+        current.pending = { rows: chunkRows(chunk, current.names, current.types, current.converters, readPointer), next: 0 };
       }
       // A chunk of wide rows crosses in several batches instead of one message of any size.
+      const pending = current.pending;
+      const batch: Array<Record<string, unknown>> = [];
       let bytes = 0;
-      let take = 0;
-      while (take < current.pending.length && (take === 0 || bytes < BATCH_BYTES)) {
-        bytes += JSON.stringify(current.pending[take]).length;
-        take += 1;
+      while (pending.next < pending.rows.rowCount && (batch.length === 0 || bytes < BATCH_BYTES)) {
+        const row = pending.rows.row(pending.next);
+        pending.next += 1;
+        bytes += JSON.stringify(row).length;
+        batch.push(row);
       }
-      return current.pending.splice(0, take);
+      return batch;
     });
   }
 
@@ -307,17 +312,41 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
   }
 
   async function writeEngineFile(engine: Engine, name: string, bytes: Uint8Array): Promise<void> {
-    const used = [...engine.files.entries()].reduce((total, [file, size]) => (file === name ? total : total + size), 0);
+    const file = fileIn(engine, name);
+    const used = [...engine.files.entries()].reduce((total, [other, size]) => (other === name ? total : total + size), 0);
     if (used + bytes.byteLength > ENGINE_FILE_BYTES) throw new LocalError('The SQL engine holds too many registered files.');
-    await writeFile(fileIn(engine, name), bytes, { flag: NO_FOLLOW_WRITE });
-    engine.files.set(name, bytes.byteLength);
+    // Reserved before the write, so two writes in flight cannot both pass the quota.
+    const previous = engine.files.get(name);
+    const reserved = bytes.byteLength;
+    engine.files.set(name, reserved);
+    try {
+      await writeFile(file, bytes, { flag: NO_FOLLOW_WRITE });
+    } catch (error) {
+      if (engine.files.get(name) === reserved) {
+        if (previous === undefined) engine.files.delete(name);
+        else engine.files.set(name, previous);
+      }
+      throw error;
+    }
   }
 
   async function readEngineFile(engine: Engine, name: string): Promise<Uint8Array> {
-    const file = fileIn(engine, name);
-    if ((await stat(file)).size > SQL_LOCAL_MAX_READ_BYTES) throw new LocalError('The file DuckDB wrote is too large to read back.');
-    const data = await readFile(file);
-    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    // One handle for the size check and the read, so the file cannot grow in between.
+    const handle = await openFile(fileIn(engine, name), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    try {
+      const { size } = await handle.stat();
+      if (size > SQL_LOCAL_MAX_READ_BYTES) throw new LocalError('The file DuckDB wrote is too large to read back.');
+      const data = new Uint8Array(size);
+      let offset = 0;
+      while (offset < size) {
+        const { bytesRead } = await handle.read(data, offset, size - offset, offset);
+        if (bytesRead === 0) break;
+        offset += bytesRead;
+      }
+      return data.subarray(0, offset);
+    } finally {
+      await handle.close();
+    }
   }
 
   async function handle(request: LocalRequest): Promise<unknown> {
@@ -361,6 +390,9 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
       case 'release-owner':
         await serially(() => releaseOwner(request.owner));
         return null;
+      case 'dispose':
+        await serially(() => dispose());
+        return null;
       case 'clear-database':
         if ([...engines.values()].some(engine => engine.persistent)) throw new LocalError('The SQL database is in use.');
         await Promise.all([unlink(request.database), unlink(`${request.database}.wal`)].map(removal => removal.catch(() => undefined)));
@@ -374,6 +406,10 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
     }
   }
 
+  async function dispose(): Promise<void> {
+    await Promise.all([...engines.values()].map(closeEngine));
+  }
+
   return {
     async handle(request: LocalRequest): Promise<LocalResponse> {
       try {
@@ -384,9 +420,7 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>) {
         return { id: request.id, ok: false, error: { message: messageOf(error, folders), ...(code ? { code } : {}) } };
       }
     },
-    async dispose(): Promise<void> {
-      await Promise.all([...engines.values()].map(closeEngine));
-    },
+    dispose,
   };
 }
 
