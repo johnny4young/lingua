@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 125.
+Packages reviewed: 132.
 Policy result: pass.
 
 ## License Summary
@@ -15,7 +15,7 @@ Policy result: pass.
 | `BlueOak-1.0.0` | 1 |
 | `BSD-3-Clause` | 4 |
 | `ISC` | 6 |
-| `MIT` | 105 |
+| `MIT` | 112 |
 | `Python-2.0` | 1 |
 | `Unlicense` | 1 |
 
@@ -63,6 +63,13 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `@azure/msal-common` | `16.14.3` | `MIT` | `node_modules/@azure/msal-common` |
 | `@azure/msal-node` | `7.1.1` | `MIT` | `node_modules/@azure/msal-node` |
 | `@clickhouse/client` | `1.24.1` | `Apache-2.0` | `node_modules/@clickhouse/client` |
+| `@duckdb/node-api` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-api` |
+| `@duckdb/node-bindings` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings` |
+| `@duckdb/node-bindings-darwin-arm64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-darwin-arm64` |
+| `@duckdb/node-bindings-darwin-x64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-darwin-x64` |
+| `@duckdb/node-bindings-linux-arm64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-linux-arm64` |
+| `@duckdb/node-bindings-linux-x64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-linux-x64` |
+| `@duckdb/node-bindings-win32-x64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-win32-x64` |
 | `@hono/node-server` | `2.1.6` | `MIT` | `node_modules/@hono/node-server` |
 | `@js-joda/core` | `6.3.0` | `BSD-3-Clause` | `node_modules/@js-joda/core` |
 | `@modelcontextprotocol/core` | `2.4.0` | `Apache-2.0` | `node_modules/@modelcontextprotocol/core` |

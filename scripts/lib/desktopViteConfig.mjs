@@ -20,7 +20,7 @@ export async function getDesktopBuildConfigs(root) {
       MAIN_WINDOW_VITE_DEV_SERVER_URL: 'undefined',
     },
     build: {
-      // Main, preload and the SQL host share an output directory; none may erase the others.
+      // Main, preload and both SQL processes share an output directory; none may erase the others.
       emptyOutDir: false,
       outDir: '.vite/build',
       copyPublicDir: false,
@@ -62,6 +62,13 @@ export async function getDesktopBuildConfigs(root) {
     ['vite.sqlhost.config.mts', mergeConfig(shared, {
       build: {
         lib: { entry: 'src/main/sqlHost/hostEntry.ts', fileName: () => 'sqlHost.js', formats: ['cjs'] },
+        rollupOptions: { external },
+      },
+      resolve: { conditions: ['node'], mainFields: ['module', 'jsnext:main', 'jsnext'] },
+    })],
+    ['vite.sqllocal.config.mts', mergeConfig(shared, {
+      build: {
+        lib: { entry: 'src/main/sqlLocal/localEntry.ts', fileName: () => 'sqlLocal.js', formats: ['cjs'] },
         rollupOptions: { external },
       },
       resolve: { conditions: ['node'], mainFields: ['module', 'jsnext:main', 'jsnext'] },

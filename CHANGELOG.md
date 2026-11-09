@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- On desktop, Local SQL runs on native DuckDB in its own process: the engine starts faster and large queries finish several times faster with less memory. WebAssembly stays available under Settings › Editor › SQL workspace › Local engine, and takes over when the native engine cannot start. If you already save your SQL tables between sessions, Lingua keeps WebAssembly so they stay in view; choose Native there to switch. The native engine keeps DuckDB's settings fixed, so SET of an option asks you to switch engines.
 - On desktop, pages loaded from files get no extra privileges. Updating straight from a version older than 2.2.0 keeps your saved SQL tables but resets settings, sessions and layouts.
 
 ### Fixed

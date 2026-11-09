@@ -67,8 +67,9 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         // node-pty owns a native .node addon. Keep it as a production
         // dependency for electron-builder to rebuild/package instead of
-        // asking Vite to inline an architecture-specific binary.
-        external: ['electron', 'electron-updater', 'node-pty'],
+        // asking Vite to inline an architecture-specific binary. DuckDB's
+        // binding loads only in the Local SQL process, never inlined.
+        external: ['electron', 'electron-updater', 'node-pty', '@duckdb/node-api'],
         output: {
           format: 'cjs',
           entryFileNames: 'main.js',

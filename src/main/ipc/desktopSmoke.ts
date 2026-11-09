@@ -106,12 +106,14 @@ export function registerDesktopSmokeHandlers(): void {
   typedHandle('desktop-smoke:get-config', async () => {
     const launchedAtMs = getLaunchedAtMs();
     const licenseToken = getSmokeLicenseToken();
+    const sqlLocal = process.env.LINGUA_DESKTOP_SMOKE_SQL_LOCAL;
 
     return {
       enabled: isDesktopSmokeEnabled(),
       artifactDir: getArtifactDir(),
       offline: isOfflineSmokeRequested(),
       packagedSubset: isPackagedSubsetRequested(),
+      ...(sqlLocal === 'native' || sqlLocal === 'wasm' ? { sqlLocal } : {}),
       ...(licenseToken ? { licenseToken } : {}),
       ...(launchedAtMs === null ? {} : { launchedAtMs }),
     };
@@ -161,6 +163,7 @@ export function registerDesktopSmokeHandlers(): void {
         // reading to 0 rather than leaking `undefined` across the wire.
         privateBytes: metric.memory.privateBytes ?? 0,
         footprintBytes: footprints?.get(metric.pid) ?? null,
+        ...(metric.type === 'Utility' && metric.name ? { name: metric.name } : {}),
       })),
     };
   });

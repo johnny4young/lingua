@@ -1,0 +1,10 @@
+{
+  "settings.editor.sqlWorkspace.persistTables.hintNative": "Save the SQL workspace database in Lingua's data folder so tables and data survive a restart. Takes effect on the next reload or via Reconnect now. Off by default — otherwise the workspace is an in-memory scratchpad.",
+  "settings.editor.sqlWorkspace.persistTables.clearFailed": "Could not clear stored SQL data. Close SQL in other windows.",
+  "settings.editor.sqlWorkspace.localEngine.label": "Local engine",
+  "settings.editor.sqlWorkspace.localEngine.hint": "Native runs DuckDB in its own process and is faster on large tables. Takes effect on the next reload or via Reconnect now.",
+  "settings.editor.sqlWorkspace.localEngine.option.native": "Native",
+  "settings.editor.sqlWorkspace.localEngine.option.wasm": "WebAssembly",
+  "settings.editor.sqlWorkspace.localEngine.fallback": "The native engine is not available, so Local SQL runs on WebAssembly.",
+  "sqlWorkspace.nativeEngine.settingFixed": "The native engine keeps DuckDB's {{name}} setting fixed. Choose WebAssembly as the Local engine in Settings to change it."
+}

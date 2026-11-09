@@ -115,6 +115,12 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
       ...state,
       variableInspectorSurface: 'bottom',
     }),
+    // v4->v5 — native becomes the Local SQL default. A profile that saves its
+    // tables (and Run Ledger) in OPFS keeps WebAssembly, so that data stays in view.
+    5: (state) =>
+      state.sqlWorkspaceLocalEngine === undefined && state.sqlWorkspacePersistTables === true
+        ? { ...state, sqlWorkspaceLocalEngine: 'wasm' }
+        : state,
   },
   // input-set fields are additive optional fields on each
   // saved tab. The identity step re-stamps the envelope without inventing

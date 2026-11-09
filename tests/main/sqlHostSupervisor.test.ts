@@ -67,12 +67,41 @@ describe('SQL host supervisor', () => {
     const replacement = supervisor.request({ type: 'close-run', runId: 'replacement' })
       .then(value => ({ value }), error => ({ error: error.message }));
     children[0]!.emit('exit', 0);
+    await vi.waitFor(() => expect(children).toHaveLength(2));
     children[1]!.reply(children[1]!.sent[0]!.id, 'ready');
     expect(await replacement).toEqual({ value: 'ready' });
     const crashed = supervisor.request({ type: 'close-run', runId: 'crashed' }).catch(error => error);
     children[1]!.emit('exit', 1);
     expect(await crashed).toBeInstanceOf(SqlHostError);
     supervisor.dispose();
+  });
+
+  it('starts the next host only after the killed one exited, or after a bounded wait', async () => {
+    vi.useFakeTimers();
+    const children: FakeChild[] = [];
+    const supervisor = createSqlHostSupervisor(() => {
+      const child = new FakeChild();
+      child.kill = vi.fn(() => true);
+      children.push(child);
+      return child;
+    });
+    void supervisor.request({ type: 'close-run', runId: 'a' }).catch(() => undefined);
+    supervisor.restart();
+    const next = supervisor.request({ type: 'close-run', runId: 'b' }).catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(children).toHaveLength(1);
+    children[0]!.emit('exit', 0);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(children).toHaveLength(2);
+    const stopped = supervisor.dispose();
+    void supervisor.request({ type: 'close-run', runId: 'c' }).catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(children).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    await stopped;
+    expect(children).toHaveLength(3);
+    await next;
+    vi.useRealTimers();
   });
 
   it('carries the host error detail and times out without stopping the host', async () => {
@@ -87,5 +116,17 @@ describe('SQL host supervisor', () => {
     await expect(slow).rejects.toThrow('did not answer');
     expect(child.kill).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it('shapes the failure of requests a stopped host took down with it', async () => {
+    const child = new FakeChild();
+    const supervisor = createSqlHostSupervisor<{ id: number; type: string }, { message: string; code?: string }>(
+      () => child,
+      () => ({ message: 'The SQL engine stopped.', code: 'engine-gone' })
+    );
+    const pending = supervisor.request({ type: 'query' });
+    child.emit('exit', 134);
+    await expect(pending).rejects.toMatchObject({ detail: { message: 'The SQL engine stopped.', code: 'engine-gone' } });
+    expect(supervisor.isRunning()).toBe(false);
   });
 });

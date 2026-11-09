@@ -13,6 +13,7 @@ import type { ScorecardPlatform } from '../../shared/languageSupport';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { WorkflowMode } from '../../shared/workflowMode';
+import type { SqlLocalEnginePreference } from '../../shared/sqlLocal';
 import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcuts';
 import type { AppLanguage } from './language';
 
@@ -357,6 +358,13 @@ export interface SettingsState {
    */
   sqlWorkspacePersistTables: boolean;
   /**
+   * Engine for Local SQL on desktop builds that ship the DuckDB binding.
+   * `native` runs DuckDB in its own process and falls back to WASM when it
+   * cannot start; `wasm` keeps DuckDB-WASM. Web builds always run WASM.
+   * Takes effect on the next engine start, like table persistence.
+   */
+  sqlWorkspaceLocalEngine: SqlLocalEnginePreference;
+  /**
    * Opt into the local Run Ledger: manual runs recorded into
    * the `lingua_ledger` schema of the SQL workspace's DuckDB database.
    * It stores source hashes plus metadata-only capsule summaries; source,
@@ -547,6 +555,7 @@ export interface SettingsState {
    * is not migrated mid-session.
    */
   setSqlWorkspacePersistTables: (value: boolean) => void;
+  setSqlWorkspaceLocalEngine: (value: SqlLocalEnginePreference) => void;
   setSqlWorkspaceInstantPreview: (value: boolean) => void;
   /** Toggle the local Run Ledger (see `runLedgerEnabled`). */
   setRunLedgerEnabled: (value: boolean) => void;

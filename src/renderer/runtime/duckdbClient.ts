@@ -36,19 +36,20 @@
 import i18next from 'i18next';
 import { sha256HexToIntegrity } from './wasmIntegrity';
 import { DuckDbEngineLifecycle } from './duckdbEngineLifecycle';
+import { openNativeEngine } from './duckdbNativeEngine';
+import { useSettingsStore } from '../stores/settingsStore';
+import type { SqlLocalBridge } from '../../shared/sqlLocal';
 import {
-  MAX_RESULT_PREVIEW_BYTES,
-  MAX_RESULT_ROWS,
   DEFAULT_QUERY_TIMEOUT_MS,
   MAX_QUERY_TIMEOUT_MS,
   OPFS_SQL_DB_PATH,
-  utf8ByteLength,
   type SqlColumnMetadata,
   type SqlImportFormat,
   type SqlQueryStatus,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
 import { quoteSqlTableReference } from '../../shared/sqlQuote';
+import { createRowAccumulator } from '../../shared/sqlResultRows';
 import { splitSqlStatements } from '../../shared/sqlStatements';
 import type { RowEditFailure } from '../../shared/sqlRowEdits';
 import { localCopyCheck, localCopyCheckFailure, localCopyComment, localCopyCreate, localCopyInsert, localCopyLines, type LocalCopyColumn, type LocalCopyOrigin } from '../../shared/sqlCopyToLocal';
@@ -59,6 +60,7 @@ import {
   type SqlImportCsvOptions,
   type SqlImportTarget,
 } from '../../shared/sqlImportPlan';
+import '../i18n/sqlLocalEngineCatalog';
 
 // ---------------------------------------------------------------------------
 // Public types — what the panel + tests consume.
@@ -129,7 +131,8 @@ export interface DuckDbConnection {
  */
 export interface DuckDbEngineHandle {
   connect: () => Promise<DuckDbConnection>;
-  terminate: () => Promise<void>;
+  /** `force` stops an engine whose statement ignored Cancel; only the native engine needs it. */
+  terminate: (options?: { force?: boolean }) => Promise<void>;
   /**
    * Register a virtual file from a byte buffer so `read_csv_auto` /
    * `read_json_auto` / `read_parquet` can read it by `name`. Maps onto
@@ -148,6 +151,8 @@ export interface DuckDbEngineHandle {
   readFile?: (name: string) => Promise<Uint8Array>;
   /** Loads Lingua's copy of the JSON extension; false when it could not. */
   loadJsonExtension?: () => Promise<boolean>;
+  /** The path SQL names a registered file by; WASM reads the bare name, the native engine an absolute path. */
+  filePath?: (name: string) => string;
 }
 
 /**
@@ -182,6 +187,36 @@ let desiredPersistence = false;
 let resolvedStorageMode: SqlStorageMode = 'memory';
 /** The storage backing requested when the live (or last) engine resolved. */
 let resolvedStorageRequestedMode: SqlStorageMode = 'memory';
+
+/** Which engine the live (or last) generation runs, and why it is not the native one when it asked for it. */
+export interface ResolvedLocalEngine {
+  engine: 'native' | 'wasm';
+  version?: string;
+  fallback?: 'unavailable' | 'failed';
+  reason?: string;
+}
+let resolvedLocalEngine: ResolvedLocalEngine | null = null;
+const resolvedLocalEngineListeners = new Set<() => void>();
+
+function setResolvedLocalEngine(next: ResolvedLocalEngine | null): void {
+  resolvedLocalEngine = next;
+  for (const listener of resolvedLocalEngineListeners) listener();
+}
+
+export function getResolvedLocalEngine(): ResolvedLocalEngine | null {
+  return resolvedLocalEngine;
+}
+
+/** For `useSyncExternalStore`: Settings re-renders when an engine resolves. */
+export function subscribeResolvedLocalEngine(listener: () => void): () => void {
+  resolvedLocalEngineListeners.add(listener);
+  return () => resolvedLocalEngineListeners.delete(listener);
+}
+
+/** The desktop's native engine bridge; absent on web. */
+function nativeBridge(): SqlLocalBridge | null {
+  return typeof window === 'undefined' ? null : (window.lingua?.sqlLocal ?? null);
+}
 
 /**
  * `DuckDBAccessMode.READ_WRITE` — numeric value from the
@@ -326,11 +361,17 @@ export async function flushAndReleaseDuckDbEngine(): Promise<void> {
  * `removeEntry`), then removes the database file + WAL sidecar. The
  * next `getDuckDbEngine` re-instantiates; re-opening the (now absent)
  * OPFS path yields a fresh empty database. Idempotent — a missing file
- * is swallowed.
+ * is swallowed. Rejects when the native file could not be removed, e.g.
+ * while another window's engine holds it.
  */
 export async function clearPersistedSqlDatabase(): Promise<void> {
   await engineLifecycle.release({
     afterTerminate: async () => {
+      // Either engine may have written: the native file and the OPFS copy both go.
+      const bridge = nativeBridge();
+      const native = bridge
+        ? await bridge.clearDatabase().catch((error: unknown) => ({ ok: false as const, error: { message: error instanceof Error ? error.message : String(error) } }))
+        : null;
       if (isOpfsStorageAvailable()) {
         try {
           const root = await navigator.storage.getDirectory();
@@ -346,6 +387,7 @@ export async function clearPersistedSqlDatabase(): Promise<void> {
         }
       }
       resetResolvedStorageMode();
+      if (native && !native.ok) throw new Error(native.error.message);
     },
   });
 }
@@ -356,6 +398,13 @@ export async function clearPersistedSqlDatabase(): Promise<void> {
  * file's exclusive handle).
  */
 export async function persistedSqlDatabaseBytes(): Promise<number | null> {
+  const native = nativeBridge();
+  const nativeBytes = native ? await native.databaseBytes().then(reply => (reply.ok ? reply.value : null), () => null) : 0;
+  const opfsBytes = await persistedOpfsBytes();
+  return nativeBytes === null || opfsBytes === null ? null : nativeBytes + opfsBytes;
+}
+
+async function persistedOpfsBytes(): Promise<number | null> {
   if (!isOpfsStorageAvailable()) return 0;
   try {
     const root = await navigator.storage.getDirectory();
@@ -408,6 +457,7 @@ export function __setDuckDbEngineFactoryForTests(
   engineLifecycle = createEngineLifecycle();
   resolvedStorageMode = 'memory';
   resolvedStorageRequestedMode = 'memory';
+  setResolvedLocalEngine(null);
   desiredPersistence = false;
 }
 
@@ -623,6 +673,33 @@ export async function runWithExtensions<T>(
  * fails on any C++ exception that DuckDB catches, including internal ones.
  */
 async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
+  const bridge = useSettingsStore.getState().sqlWorkspaceLocalEngine === 'native' ? nativeBridge() : null;
+  if (bridge) {
+    try {
+      const status = await bridge.status();
+      if (status.available) return await nativeEngineFactory(bridge);
+      setResolvedLocalEngine({ engine: 'wasm', fallback: 'unavailable' });
+    } catch (error) {
+      setResolvedLocalEngine({ engine: 'wasm', fallback: 'failed', reason: error instanceof Error ? error.message : String(error) });
+    }
+  } else {
+    setResolvedLocalEngine({ engine: 'wasm' });
+  }
+  return wasmEngineFactory();
+}
+
+async function nativeEngineFactory(bridge: SqlLocalBridge): Promise<DuckDbEngineHandle> {
+  const requested: SqlStorageMode = desiredPersistence ? 'opfs' : 'memory';
+  const native = await openNativeEngine(bridge, desiredPersistence, gone =>
+    void engineLifecycle.releaseIfCurrent(gone, { afterTerminate: async () => resetResolvedStorageMode() })
+  );
+  resolvedStorageMode = native.storageMode;
+  resolvedStorageRequestedMode = requested;
+  setResolvedLocalEngine({ engine: 'native', version: native.version });
+  return native.handle;
+}
+
+async function wasmEngineFactory(): Promise<DuckDbEngineHandle> {
   // Dynamic imports keep the chunk lazy. The browser fetches the
   // ~1 MiB JS shim first; the WASM only when DuckDB
   // actually instantiates.
@@ -797,70 +874,6 @@ export interface ArrowTableLike {
 }
 
 /**
- * Collects preview rows under the row and byte caps. `add` returns false once
- * the window is full, so a streaming reader knows when to stop.
- */
-function createRowAccumulator(
-  fields: ArrowTableLike['schema']['fields'],
-  caps: { maxRows: number; maxBytes: number } = { maxRows: MAX_RESULT_ROWS, maxBytes: MAX_RESULT_PREVIEW_BYTES }
-) {
-  const columns: SqlColumnMetadata[] = fields.map((field) => ({
-    name: field.name,
-    type: stringifyArrowType(field.type),
-  }));
-  const temporal = columns.flatMap(column => {
-    const format = temporalFormatter(column.type);
-    return format ? [[column.name, format] as const] : [];
-  });
-  const decimals = columns.flatMap(column => {
-    const scale = decimalScale(column.type);
-    return scale === null ? [] : [[column.name, scale] as const];
-  });
-  const rows: Array<Record<string, unknown>> = [];
-  let approxBytes = 0;
-  let full = false;
-  return {
-    columns,
-    rows,
-    /** Adds rows until the window fills; returns how many it took. */
-    add(batch: Array<Record<string, unknown>>): number {
-      let taken = 0;
-      for (const raw of batch) {
-        if (full) break;
-        if (rows.length >= caps.maxRows) {
-          full = true;
-          break;
-        }
-        taken += 1;
-        if (raw === undefined || raw === null) continue;
-        const safeRow = sanitiseRowForJson(raw);
-        for (const [name, scale] of decimals) {
-          const text = formatArrowDecimal(raw[name], scale);
-          if (text !== null) safeRow[name] = text;
-        }
-        for (const [name, format] of temporal) {
-          const cell = safeRow[name];
-          if (typeof cell === 'number') safeRow[name] = format(cell);
-        }
-        const rowBytes = utf8ByteLength(JSON.stringify(safeRow));
-        if (approxBytes + rowBytes > caps.maxBytes) {
-          full = true;
-          taken -= 1;
-          break;
-        }
-        approxBytes += rowBytes;
-        rows.push(safeRow);
-      }
-      if (rows.length >= caps.maxRows) full = true;
-      return taken;
-    },
-    isFull: () => full,
-    /** Rows taken so far, measured as UTF-8 JSON. */
-    bytes: () => approxBytes,
-  };
-}
-
-/**
  * Convert an Arrow Table to the JSON-serialisable preview row set
  * with the row + byte caps applied. Pure function — no side effects.
  */
@@ -998,126 +1011,6 @@ export async function readResultStream(
   };
 }
 
-/**
- * Coerce DuckDB / Arrow cell values into JSON-friendly shapes.
- *
- *   - `BigInt` → string (JSON cannot encode BigInts; preserving
- *     precision matters for `BIGINT` columns).
- *   - `Date` → ISO string.
- *   - `Uint8Array` / Buffer → base64 string (rare in result sets but
- *     defensive).
- *   - Nested objects + arrays are recursed.
- *   - Numbers + booleans + strings + null pass through; `Infinity`,
- *     `-Infinity` and `NaN` become that text, as the connection host does,
- *     because JSON cannot hold them.
- *   - Symbols + functions → `null` (defensive — DuckDB never returns
- *     these, but Arrow row objects can carry prototype chains).
- */
-function sanitiseRowForJson(
-  row: Record<string, unknown>
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const key of Object.keys(row)) {
-    out[key] = sanitiseValueForJson(row[key]);
-  }
-  return out;
-}
-
-function sanitiseValueForJson(value: unknown): unknown {
-  if (value === null || value === undefined) return null;
-  const valueType = typeof value;
-  if (valueType === 'string' || valueType === 'boolean') return value;
-  if (valueType === 'number') {
-    return Number.isFinite(value) ? value : String(value);
-  }
-  if (valueType === 'bigint') return (value as bigint).toString();
-  if (valueType === 'symbol' || valueType === 'function') return null;
-  if (value instanceof Date) return value.toISOString();
-  if (value instanceof Uint8Array) {
-    // Best-effort: convert to base64. Avoids dragging in `buffer`.
-    let binary = '';
-    for (let i = 0; i < value.byteLength; i += 1) {
-      binary += String.fromCharCode(value[i]!);
-    }
-    if (typeof btoa === 'function') return btoa(binary);
-    return binary;
-  }
-  if (Array.isArray(value)) return value.map(sanitiseValueForJson);
-  if (ArrayBuffer.isView(value)) return Array.from(value as unknown as ArrayLike<number>, sanitiseValueForJson);
-  if (valueType === 'object') {
-    const obj = value as Record<string, unknown>;
-    // Arrow LIST and STRUCT cells are Vector / row objects; their toJSON is the plain value.
-    if (typeof obj.toJSON === 'function') return sanitiseValueForJson((obj.toJSON as () => unknown)());
-    const out: Record<string, unknown> = {};
-    for (const key of Object.keys(obj)) {
-      out[key] = sanitiseValueForJson(obj[key]);
-    }
-    return out;
-  }
-  return null;
-}
-
-/** Scale of an Arrow `Decimal[precision e±scale]` type, or null for other types. */
-function decimalScale(type: string): number | null {
-  const match = /^Decimal\[\d+e\+?(-?\d+)\]/u.exec(type);
-  return match ? Number(match[1]) : null;
-}
-
-/**
- * Arrow Decimal cells (DuckDB SUM over integers, HUGEINT, DECIMAL) arrive as
- * little-endian 32-bit words of a two's-complement integer; render them as
- * exact decimal text instead of a word array.
- */
-function formatArrowDecimal(value: unknown, scale: number): string | null {
-  if (value === null || value === undefined || typeof value !== 'object') return null;
-  const words = Array.from(value as ArrayLike<number>);
-  if (words.length === 0 || words.some(word => typeof word !== 'number')) return null;
-  let unscaled = 0n;
-  for (let index = words.length - 1; index >= 0; index -= 1) {
-    unscaled = (unscaled << 32n) | BigInt(words[index]! >>> 0);
-  }
-  const bits = BigInt(words.length * 32);
-  if (unscaled >> (bits - 1n)) unscaled -= 1n << bits;
-  const negative = unscaled < 0n;
-  let digits = (negative ? -unscaled : unscaled).toString();
-  if (scale > 0) {
-    digits = digits.padStart(scale + 1, '0');
-    digits = `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
-  }
-  return negative ? `-${digits}` : digits;
-}
-
-/**
- * Arrow hands DATE and TIMESTAMP cells back as epoch milliseconds; render
- * them as ISO text so the grid and import preview show calendar values.
- */
-function temporalFormatter(type: string): ((epochMs: number) => string | number) | null {
-  const iso = (epochMs: number) => {
-    const date = new Date(epochMs);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
-  };
-  if (/^Date(32)?<DAY>/u.test(type)) return epochMs => iso(epochMs)?.slice(0, 10) ?? epochMs;
-  if (/^Date(64)?</u.test(type)) return epochMs => iso(epochMs) ?? epochMs;
-  if (/^Timestamp</u.test(type)) {
-    // Without a zone the value is a wall-clock time, so drop the UTC marker.
-    const zoned = type.includes(',');
-    return epochMs => {
-      const text = iso(epochMs);
-      if (!text) return epochMs;
-      return zoned ? text : text.replace('Z', '');
-    };
-  }
-  return null;
-}
-
-function stringifyArrowType(type: { toString(): string }): string {
-  try {
-    return String(type);
-  } catch {
-    return 'unknown';
-  }
-}
-
 // ---------------------------------------------------------------------------
 // executeQuery — the public entry point the panel consumes.
 // ---------------------------------------------------------------------------
@@ -1171,9 +1064,14 @@ function readableDuckDbError(raw: string): string {
   return raw.replace(/(\n\nLINE [\s\S]*)\1$/, '$1');
 }
 
+/** The native engine locks DuckDB's settings so SQL cannot widen its file access. */
+const LOCKED_SETTING_ERROR = /Cannot change configuration option "([^"]+)" - the configuration has been locked/;
+
 function errorMessageForUser(err: unknown, fallback: string): string {
   const missing = missingExtensionMessage(err);
   if (missing) return missing;
+  const locked = LOCKED_SETTING_ERROR.exec(err instanceof Error ? err.message : String(err ?? ''));
+  if (locked) return i18next.t('sqlWorkspace.nativeEngine.settingFixed', { name: locked[1] });
   return readableDuckDbError(err instanceof Error ? err.message : String(err ?? fallback));
 }
 
@@ -1455,7 +1353,7 @@ export async function runEditTransaction(statements: ReadonlyArray<string>): Pro
  * In-memory tables are lost; the next run starts a fresh engine.
  */
 export async function restartDuckDbEngine(): Promise<void> {
-  await engineLifecycle.release({ afterTerminate: async () => resetResolvedStorageMode() });
+  await engineLifecycle.release({ force: true, afterTerminate: async () => resetResolvedStorageMode() });
 }
 
 // ---------------------------------------------------------------------------
@@ -1552,7 +1450,7 @@ export async function previewImportFile(args: {
   await registerFileCopy(engine, name, args.bytes);
   const connection = await engine.connect();
   try {
-    const reader = readerSql(args.format, name, args.csv);
+    const reader = readerSql(args.format, engine.filePath?.(name) ?? name, args.csv);
     const sample = await connection.query(
       `SELECT * FROM ${reader} LIMIT ${IMPORT_PREVIEW_SAMPLE_ROWS}`
     );
@@ -1609,6 +1507,7 @@ export async function importFileAsTable(args: {
     throw new Error('This SQL engine cannot register files for import.');
   }
   const name = virtualFileName(args.format);
+  const file = engine.filePath?.(name) ?? name;
   await registerFileCopy(engine, name, args.bytes);
   const connection = await engine.connect();
   const target: SqlImportTarget = args.target ?? { mode: 'new', table: args.tableName };
@@ -1616,11 +1515,11 @@ export async function importFileAsTable(args: {
   try {
     let mapping = args.mapping;
     if (!mapping) {
-      const probe = await connection.query(`SELECT * FROM ${readerSql(args.format, name, args.csv)} LIMIT 0`);
+      const probe = await connection.query(`SELECT * FROM ${readerSql(args.format, file, args.csv)} LIMIT 0`);
       mapping = probe.columns.map((column) => ({ source: column.name, target: column.name }));
     }
     let inserted: number | null = null;
-    for (const statement of buildImportStatements({ format: args.format, file: name, csv: args.csv, target, mapping })) {
+    for (const statement of buildImportStatements({ format: args.format, file, csv: args.csv, target, mapping })) {
       if (statement === 'BEGIN TRANSACTION') inTransaction = true;
       const result = await connection.query(statement);
       if (statement.startsWith('INSERT INTO')) inserted = readCountValue(result.rows[0]?.['Count']);
@@ -1687,12 +1586,13 @@ export async function copyBatchesIntoTable(args: {
       const name = virtualFileName('json');
       await engine.registerFile(name, encoder.encode(localCopyLines(batch, args.sourceNames, args.columns)));
       try {
-        const check = localCopyCheck(args.columns, name);
+        const file = engine.filePath?.(name) ?? name;
+        const check = localCopyCheck(args.columns, file);
         if (check) {
           const failure = localCopyCheckFailure(args.columns, (await connection.query(check)).rows[0]);
           if (failure) throw failure;
         }
-        await connection.query(localCopyInsert(args.table, args.columns, name));
+        await connection.query(localCopyInsert(args.table, args.columns, file));
       } finally {
         await engine.dropFile?.(name).catch(() => undefined);
       }
