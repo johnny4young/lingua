@@ -46,9 +46,11 @@
         "ditto",
         "file",
         "fish",
+        "lipo",
         "mkfifo",
         "openssl",
-        "ruby"
+        "ruby",
+        "strip"
       ],
       "ignoreDependencies": [
         // Monaco loads these declarations through an import.meta.glob string.

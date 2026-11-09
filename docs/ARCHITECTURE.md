@@ -318,9 +318,12 @@ the public SQL client API or persisted workspace data.
 
 ### Native Local SQL engine
 
-Desktop builds that include `@duckdb/node-api` can run Local SQL natively when
-Settings → SQL workspace → Local engine is `native`
-(`sqlWorkspaceLocalEngine`). `duckdbClient`'s production factory asks
+Desktop builds ship `@duckdb/node-api` for their platform and run Local SQL
+natively unless Settings → SQL workspace → Local engine is `wasm`
+(`sqlWorkspaceLocalEngine`, `native` by default). Packaging keeps only the
+target's binding package, unpacks it from app.asar, and on macOS
+`scripts/electron-builder-after-pack.mjs` thins the universal library to the
+packaged architecture before signing. `duckdbClient`'s production factory asks
 `window.lingua.sqlLocal.status()` and opens `duckdbNativeEngine.ts`, a
 `DuckDbEngineHandle` over the `sql-local:*` channels; a missing binding or a
 failed start falls back to DuckDB-WASM, and the web build never has the
