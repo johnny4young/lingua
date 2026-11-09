@@ -176,6 +176,23 @@ something else holds the derived one. To choose the port yourself, set
 `LINGUA_E2E_PORT`; the run stops if that port serves anything else. CI stays
 on port 4175 and never reuses a server.
 
+The web validation wrapper caches the bundle together with its synthetic license.
+Its input fingerprint covers the renderer/shared/web trees, shared build helpers,
+public assets, patches, root package/lock/CSS/TypeScript/Vite configuration, and
+the copied runtime files named by `RUNTIME_ASSETS`. It also tracks optional Vite
+dotenv and package-install metadata, Node/platform/architecture, and public build
+environment overrides. Only filesystem metadata and digests are stored; dotenv
+contents and environment values are not written to the cache metadata. Caller
+license-key and telemetry values are ignored because the wrapper replaces them.
+
+Names, sizes, mtime and ctime detect normal edits, additions and removals without
+reading large runtime payloads. This is a freshness cache, not an integrity check
+for manually edited installed dependencies or output artifacts; use
+`--force-rebuild` for those. An input change during compilation fails the run
+before Playwright starts. Unchanged inputs reuse the existing bundle/key pair;
+docs, tests, desktop HTML, preview-port changes and Finder metadata do not force
+a web build. `--no-rebuild` remains an explicit request to use existing artifacts.
+
 ### Electron Base
 
 For interactive desktop debugging, use the managed desktop launcher:

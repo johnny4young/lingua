@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -13,6 +14,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { resolveE2ePreviewServer } from './lib/e2ePreviewServer.mjs';
+import { RUNTIME_ASSETS } from '../src/shared/runtimeAssets.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,8 +68,10 @@ const cacheDir = path.join(repoRoot, '.cache', 'playwright-e2e');
 const licenseCachePath = path.join(cacheDir, 'dev-license.json');
 const buildMetadataPath = path.join(cacheDir, 'web-build-metadata.json');
 const distIndexPath = path.join(distDir, 'index.html');
+const buildInputsFingerprint = fingerprintBuildInputs();
 const e2eBuildMetadata = {
-  cacheVersion: 3,
+  cacheVersion: 4,
+  buildInputsFingerprint,
   e2eHooks: true,
   telemetryUrl: 'https://updates.linguacode.dev/telemetry',
   // Local e2e builds keep DuckDB/Ruby WASM same-origin (see the
@@ -79,40 +83,57 @@ const e2eBuildMetadata = {
   sameOriginRuntime: true,
 };
 
-function newestMtimeMs(anchorPath) {
-  if (!existsSync(anchorPath)) return 0;
-  const info = statSync(anchorPath);
-  if (!info.isDirectory()) return info.mtimeMs;
-
-  let newest = info.mtimeMs;
-  for (const entry of readdirSync(anchorPath, { withFileTypes: true })) {
-    if (entry.name === '.DS_Store') continue;
-    newest = Math.max(newest, newestMtimeMs(path.join(anchorPath, entry.name)));
-  }
-  return newest;
-}
-
-const distIsFresh = (() => {
-  if (!existsSync(path.join(distDir, 'index.html'))) return false;
+/** Metadata freshness only: never read dotenv contents or persist env values. */
+function fingerprintBuildInputs() {
   try {
-    const distMtime = statSync(path.join(distDir, 'index.html')).mtimeMs;
-    // Treat dist as fresh if every web-runtime source was modified
-    // before it. The old handful-of-files heuristic skipped rebuilds
-    // after component/store edits when locales did not also change,
-    // so Playwright could validate stale artifacts.
-    const anchors = [
-      path.join(repoRoot, 'index.html'),
-      path.join(repoRoot, 'src', 'renderer'),
-      path.join(repoRoot, 'src', 'shared'),
-      path.join(repoRoot, 'src', 'web'),
-      path.join(repoRoot, 'vite.web.config.mts'),
+    const hash = createHash('sha256');
+    // These two caller values are replaced by the minted key and fixed E2E
+    // endpoint below. Other VITE_* values can be embedded by Vite.
+    const overridden = new Set(['VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK', 'VITE_LINGUA_TELEMETRY_URL']);
+    const buildEnv = Object.keys(process.env)
+      .filter(name => (name.startsWith('VITE_') && !overridden.has(name)) || name === 'LINGUA_WEBSITE_URL')
+      .sort()
+      .map(name => [name, process.env[name]])
+      .filter(([name, value]) => name !== 'LINGUA_WEBSITE_URL' || Boolean(value));
+    hash.update(JSON.stringify([process.version, process.platform, process.arch, process.env.NODE_ENV ?? 'production', buildEnv]));
+    const inputs = [
+      'src/renderer', 'src/shared', 'src/web', 'build', 'public', 'patches',
+      'package.json', 'CHANGELOG.md', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json',
+      'postcss.config.mjs', 'vite.web.config.mts', 'runtime-assets.lock.json',
+      '.env', '.env.local', '.env.production', '.env.production.local',
+      'node_modules/.modules.yaml', 'node_modules/.package-lock.json',
+      ...Object.values(RUNTIME_ASSETS).flatMap(asset =>
+        (asset.copyFiles ?? asset.criticalFiles).map(file => path.join(asset.nodeModulesPath, file))),
     ];
-    const newestAnchor = Math.max(...anchors.map(newestMtimeMs));
-    return distMtime >= newestAnchor;
+
+    function visit(relativePath) {
+      const absolutePath = path.join(repoRoot, relativePath);
+      let info;
+      try {
+        info = statSync(absolutePath);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        hash.update(JSON.stringify([relativePath, null]));
+        return;
+      }
+      if (info.isDirectory()) {
+        // Directory timestamps alone change for ignored Finder metadata.
+        // Enumerating names still detects removals and renames.
+        hash.update(JSON.stringify([relativePath, 'directory']));
+        for (const name of readdirSync(absolutePath).sort()) {
+          if (name !== '.DS_Store') visit(path.join(relativePath, name));
+        }
+      } else {
+        hash.update(JSON.stringify([relativePath, info.size, info.mtimeMs, info.ctimeMs]));
+      }
+    }
+    for (const input of inputs) visit(input);
+    return hash.digest('hex');
   } catch {
-    return false;
+    // An unreadable input cannot justify reusing an old bundle.
+    return null;
   }
-})();
+}
 
 let needsRebuild;
 function cachedLicenseMatchesBundle() {
@@ -142,7 +163,7 @@ if (skipBuild) {
   }
   console.log('[run-playwright-web-validation] --no-rebuild: reusing dist/web');
   needsRebuild = false;
-} else if (buildIfStale && distIsFresh && cachedLicenseMatchesBundle()) {
+} else if (buildIfStale && buildInputsFingerprint && cachedLicenseMatchesBundle()) {
   console.log(
     '[run-playwright-web-validation] dist/web is fresh; skipping build. Use --force-rebuild to override.'
   );
@@ -199,6 +220,9 @@ if (needsRebuild) {
       },
     }
   );
+  if (buildInputsFingerprint && fingerprintBuildInputs() !== buildInputsFingerprint) {
+    throw new Error('Web build inputs changed during compilation; rerun against settled inputs.');
+  }
   mkdirSync(cacheDir, { recursive: true });
   writeFileSync(licenseCachePath, JSON.stringify(mintedLicense, null, 2));
   writeFileSync(buildMetadataPath, JSON.stringify(e2eBuildMetadata, null, 2));
