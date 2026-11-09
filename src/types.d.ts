@@ -367,6 +367,8 @@ interface DesktopSmokeConfig {
    */
   packagedSubset?: boolean;
   licenseToken?: string;
+  /** `LINGUA_DESKTOP_SMOKE_SQL_LOCAL`: run the Local SQL timings on this engine. */
+  sqlLocal?: 'native' | 'wasm';
 }
 
 type DesktopSmokeMemorySnapshot =
@@ -388,6 +390,8 @@ type DesktopSmokeMemorySnapshot =
         privateBytes: number;
         /** macOS footprint; null where the platform has no equivalent. */
         footprintBytes: number | null;
+        /** A utility process's service name, such as Lingua local SQL. */
+        name?: string;
       }>;
     }
   | {
@@ -560,6 +564,8 @@ interface LinguaAPI {
   /** Desktop-only encrypted secret vault; absent on web. */
   secrets?: import('./shared/secretVault').SecretVaultBridge;
   db?: import('./shared/sqlDb').SqlDbBridge;
+  /** Desktop builds that ship the DuckDB binding; web and other builds keep DuckDB-WASM. */
+  sqlLocal?: import('./shared/sqlLocal').SqlLocalBridge;
   pythonDebugger?: import('./shared/pythonDebugger').PythonDebuggerBridge;
   goDebugger?: import('./shared/goDebugger').GoDebuggerBridge;
   rustDebugger?: import('./shared/rustDebugger').RustDebuggerBridge;

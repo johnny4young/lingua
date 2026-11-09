@@ -142,6 +142,7 @@ describe('public documentation hygiene', () => {
       'LINGUA_SMOKE_USER_DATA_DIR',
       'LINGUA_DESKTOP_SMOKE_OFFLINE',
       'LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET',
+      'LINGUA_DESKTOP_SMOKE_SQL_LOCAL',
     ]) {
       expect(development, `docs/DEVELOPMENT.md must document ${envName}`).toContain(envName);
     }

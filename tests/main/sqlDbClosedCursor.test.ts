@@ -34,7 +34,7 @@ beforeEach(async () => {
     },
     restart: () => { throw new Error('Unexpected restart in a cursor fixture'); },
     isRunning: () => true,
-    dispose: () => { void host.dispose(); },
+    dispose: async () => { await host.dispose(); },
   };
   const catalog = createConnectionCatalog(path.join(directory, 'connections.json'));
   const saved = await catalog.save({ name: 'Synthetic read-only', engine: 'sqlite', path: file, readOnly: true, passwordMode: 'none' });

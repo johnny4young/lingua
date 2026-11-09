@@ -109,6 +109,7 @@ export function settingsPartialize(state: SettingsState) {
     sqlWorkspaceInstantPreview: state.sqlWorkspaceInstantPreview,
     // Persist the table-persistence toggle.
     sqlWorkspacePersistTables: state.sqlWorkspacePersistTables,
+    sqlWorkspaceLocalEngine: state.sqlWorkspaceLocalEngine,
     // Persist the Run Ledger opt-in.
     runLedgerEnabled: state.runLedgerEnabled,
     // Persist the user's default language for new

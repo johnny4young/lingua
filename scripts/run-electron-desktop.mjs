@@ -36,6 +36,7 @@ const esbuildBin = path.join(repoRoot, 'node_modules', 'esbuild', 'bin', 'esbuil
 const builtMainPath = path.join(repoRoot, '.vite', 'build', 'main.js');
 const builtPreloadPath = path.join(repoRoot, '.vite', 'build', 'preload.js');
 const builtSqlHostPath = path.join(repoRoot, '.vite', 'build', 'sqlHost.js');
+const builtSqlLocalPath = path.join(repoRoot, '.vite', 'build', 'sqlLocal.js');
 const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
 const defaultRendererUrl = 'http://localhost:5174';
 const serverReadyTimeoutMs = 30_000;
@@ -269,7 +270,8 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
   const mainExists = await fileExists(builtMainPath);
   const preloadExists = await fileExists(builtPreloadPath);
   const sqlHostExists = await fileExists(builtSqlHostPath);
-  const needsBootstrap = !mainExists || !preloadExists || !sqlHostExists;
+  const sqlLocalExists = await fileExists(builtSqlLocalPath);
+  const needsBootstrap = !mainExists || !preloadExists || !sqlHostExists || !sqlLocalExists;
 
   if (!needsBootstrap && !syncMain) {
     return;
@@ -312,6 +314,17 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
     '--external:pg-native',
     '--external:mysql2',
     '--external:ssh2',
+  ]);
+
+  await runEsbuild([
+    path.join(repoRoot, 'src', 'main', 'sqlLocal', 'localEntry.ts'),
+    '--bundle',
+    '--platform=node',
+    '--format=cjs',
+    '--sourcemap',
+    '--outfile=.vite/build/sqlLocal.js',
+    '--external:electron',
+    '--external:@duckdb/node-api',
   ]);
 
   await runEsbuild([
