@@ -49,6 +49,9 @@ queries and persistence policy. Its small
 [`runtime/duckdbEngineLifecycle.ts`](runtime/duckdbEngineLifecycle.ts) helper
 owns only engine generations and serialized release; keep OPFS cleanup inside
 that release transition so a new engine cannot reopen partially cleared data.
+Persistent startup and ownership of a worker discarded before a clean memory
+fallback live in runtime/duckdbPersistence.ts; only the active DB/WAL pair can
+be preregistered, and other tabs’ locks are never removed or bypassed.
 Full-result export (`COPY … TO` a virtual file, or rows through the result
 cursor) lives in [`runtime/duckdbExport.ts`](runtime/duckdbExport.ts), and
 foreign-key metadata in [`runtime/sqlForeignKeys.ts`](runtime/sqlForeignKeys.ts).

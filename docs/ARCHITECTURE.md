@@ -316,6 +316,18 @@ evict its own generation, never a newer one. Failed best-effort checkpoints do
 not prevent termination; failed generations remain retryable without changing
 the public SQL client API or persisted workspace data.
 
+Persistent startup belongs to duckdbPersistence.ts. With a nonempty database
+and an absent or empty WAL, it registers only the two active OPFS handles
+before opening, database first. It rechecks the WAL after acquiring the
+database; a WAL with content keeps automatic recovery. Fresh/empty databases
+and existing nonempty WALs retain automatic handling. Nothing is truncated or
+deleted to obtain access. An inspection, registration or open failure kills
+that worker before one fresh in-memory fallback is created, so failed startup does not
+reuse a worker holding partial handles. The same verified WASM asset is kept alive until that
+fallback has instantiated. Releasing while startup is pending still waits for
+the shared factory, then terminates it before allowing another generation;
+cancelling one query does not cancel initialization shared with other queries.
+
 ### Native Local SQL engine
 
 Desktop builds ship `@duckdb/node-api` for their platform and run Local SQL

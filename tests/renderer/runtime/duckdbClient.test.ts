@@ -11,7 +11,6 @@ import {
   CANCEL_SETTLE_MS,
   __setDuckDbEngineFactoryForTests,
   __setResolvedSqlStorageModeForTests,
-  applyDuckDbPersistence,
   clearPersistedSqlDatabase,
   configureDuckDbPersistence,
   countSqlStatements,
@@ -39,7 +38,6 @@ import {
 import {
   MAX_RESULT_PREVIEW_BYTES,
   MAX_RESULT_ROWS,
-  OPFS_SQL_DB_PATH,
 } from '../../../src/shared/sqlWorkspace';
 
 function arrowTableFrom(
@@ -700,48 +698,6 @@ describe('OPFS persistence ', () => {
 
     expect(getResolvedSqlStorageMode()).toBe('memory');
     expect(getResolvedSqlStorageRequestMode()).toBe('memory');
-  });
-
-  it('stays in-memory when persistence is off (no open call)', async () => {
-    const open = vi.fn(async () => undefined);
-    const mode = await applyDuckDbPersistence({ open }, false, true);
-    expect(mode).toBe('memory');
-    expect(open).not.toHaveBeenCalled();
-  });
-
-  it('stays in-memory when OPFS is unavailable (no open call)', async () => {
-    const open = vi.fn(async () => undefined);
-    const mode = await applyDuckDbPersistence({ open }, true, false);
-    expect(mode).toBe('memory');
-    expect(open).not.toHaveBeenCalled();
-  });
-
-  it('opens the opfs database when persistence is on and OPFS available', async () => {
-    const open = vi.fn(async () => undefined);
-    const mode = await applyDuckDbPersistence({ open }, true, true);
-    expect(mode).toBe('opfs');
-    expect(open).toHaveBeenCalledTimes(1);
-    const cfg = open.mock.calls[0]![0] as {
-      path?: string;
-      accessMode?: number;
-      opfs?: { fileHandling?: string };
-    };
-    expect(cfg.path).toBe(OPFS_SQL_DB_PATH);
-    expect(cfg.accessMode).toBe(3); // DuckDBAccessMode.READ_WRITE
-    expect(cfg.opfs).toEqual({ fileHandling: 'auto' });
-  });
-
-  it('falls back to in-memory when the opfs open throws (cross-tab lock)', async () => {
-    const open = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('locked by another tab'))
-      .mockResolvedValueOnce(undefined);
-    const mode = await applyDuckDbPersistence({ open }, true, true);
-    expect(mode).toBe('memory');
-    // First call = opfs attempt; second = the defensive ':memory:' reopen.
-    expect(open).toHaveBeenCalledTimes(2);
-    const reopen = open.mock.calls[1]![0] as { path?: string };
-    expect(reopen.path).toBe(':memory:');
   });
 
   it('isOpfsStorageAvailable is false in jsdom (no navigator.storage.getDirectory)', () => {
