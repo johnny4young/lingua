@@ -35,6 +35,7 @@ import type {
   ProjectTerminalStartResult,
 } from './projectTerminal';
 import type { LocalMcpStartResult, LocalMcpState } from './localMcp';
+import type { SqlLocalReply } from './sqlLocal';
 import type {
   PythonDebuggerResponse,
   PythonDebuggerStartRequest,
@@ -293,6 +294,23 @@ interface IpcInvokeContract {
     args: [connectionId: string, table: import('./sqlDb').SqlDbEditTable, changes: import('./sqlRowEdits').RowEditChanges, confirmName?: string];
     result: import('./sqlDb').SqlDbApplyResult;
   };
+
+  // ------------------------------------------------ native Local SQL engine
+  'sql-local:status': { args: []; result: import('./sqlLocal').SqlLocalStatus };
+  'sql-local:open': { args: [persist: boolean]; result: SqlLocalReply<import('./sqlLocal').SqlLocalOpened> };
+  'sql-local:connect': { args: [engineId: string]; result: SqlLocalReply<string> };
+  'sql-local:query': { args: [connectionId: string, sql: string]; result: SqlLocalReply<import('./sqlLocal').SqlLocalQueryResult> };
+  'sql-local:stream': { args: [connectionId: string, sql: string]; result: SqlLocalReply<import('./sqlLocal').SqlLocalStreamOpened> };
+  'sql-local:next': { args: [streamId: string]; result: SqlLocalReply<Array<Record<string, unknown>> | null> };
+  'sql-local:cancel': { args: [connectionId: string]; result: SqlLocalReply<boolean> };
+  'sql-local:close-connection': { args: [connectionId: string]; result: SqlLocalReply<null> };
+  'sql-local:register-file': { args: [engineId: string, name: string, bytes: Uint8Array]; result: SqlLocalReply<null> };
+  'sql-local:register-empty-file': { args: [engineId: string, name: string]; result: SqlLocalReply<null> };
+  'sql-local:drop-file': { args: [engineId: string, name: string]; result: SqlLocalReply<null> };
+  'sql-local:read-file': { args: [engineId: string, name: string]; result: SqlLocalReply<Uint8Array> };
+  'sql-local:terminate': { args: [engineId: string, force: boolean]; result: SqlLocalReply<null> };
+  'sql-local:clear-database': { args: []; result: SqlLocalReply<null> };
+  'sql-local:database-bytes': { args: []; result: SqlLocalReply<number | null> };
 
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
@@ -758,6 +776,21 @@ export const IPC_INVOKE_CHANNELS = [
   'sql-db:import-env',
   'sql-db:export',
   'sql-db:apply-edits',
+  'sql-local:status',
+  'sql-local:open',
+  'sql-local:connect',
+  'sql-local:query',
+  'sql-local:stream',
+  'sql-local:next',
+  'sql-local:cancel',
+  'sql-local:close-connection',
+  'sql-local:register-file',
+  'sql-local:register-empty-file',
+  'sql-local:drop-file',
+  'sql-local:read-file',
+  'sql-local:terminate',
+  'sql-local:clear-database',
+  'sql-local:database-bytes',
   'env:snapshot',
   'http:execute',
   'http:cancel',

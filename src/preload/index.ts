@@ -4,6 +4,7 @@ import { contextBridge } from 'electron';
 import type { HttpDesktopAPI } from '../shared/httpWorkspaceSchema';
 import type { SecretVaultBridge } from '../shared/secretVault';
 import type { SqlDbBridge } from '../shared/sqlDb';
+import type { SqlLocalBridge } from '../shared/sqlLocal';
 import type {
   ProjectTerminalBridge,
   ProjectTerminalDataEvent,
@@ -275,6 +276,25 @@ contextBridge.exposeInMainWorld('lingua', {
     exportCatalog: () => typedInvoke('sql-db:export'),
     applyEdits: (connectionId, table, changes, confirmName) => typedInvoke('sql-db:apply-edits', connectionId, table, changes, confirmName),
   } satisfies SqlDbBridge,
+
+  // Native Local SQL engine; main keeps every path and serves ids only to this window.
+  sqlLocal: {
+    status: () => typedInvoke('sql-local:status'),
+    open: (persist) => typedInvoke('sql-local:open', persist),
+    connect: (engineId) => typedInvoke('sql-local:connect', engineId),
+    query: (connectionId, sql) => typedInvoke('sql-local:query', connectionId, sql),
+    stream: (connectionId, sql) => typedInvoke('sql-local:stream', connectionId, sql),
+    next: (streamId) => typedInvoke('sql-local:next', streamId),
+    cancel: (connectionId) => typedInvoke('sql-local:cancel', connectionId),
+    closeConnection: (connectionId) => typedInvoke('sql-local:close-connection', connectionId),
+    registerFile: (engineId, name, bytes) => typedInvoke('sql-local:register-file', engineId, name, bytes),
+    registerEmptyFile: (engineId, name) => typedInvoke('sql-local:register-empty-file', engineId, name),
+    dropFile: (engineId, name) => typedInvoke('sql-local:drop-file', engineId, name),
+    readFile: (engineId, name) => typedInvoke('sql-local:read-file', engineId, name),
+    terminate: (engineId, force) => typedInvoke('sql-local:terminate', engineId, force),
+    clearDatabase: () => typedInvoke('sql-local:clear-database'),
+    databaseBytes: () => typedInvoke('sql-local:database-bytes'),
+  } satisfies SqlLocalBridge,
 
   // Env-snapshot bridge . Intentionally returns an empty
   // record today: host `process.env` stays in main until runner integration

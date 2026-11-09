@@ -29,6 +29,7 @@ export function createSessionActions(
   | 'setSqlWorkspaceQueryTimeoutMs'
   | 'setSqlWorkspaceInstantPreview'
   | 'setSqlWorkspacePersistTables'
+  | 'setSqlWorkspaceLocalEngine'
   | 'setRunLedgerEnabled'
 > {
   return {
@@ -98,6 +99,7 @@ export function createSessionActions(
         if (state.sqlWorkspacePersistTables === next) return state;
         return { sqlWorkspacePersistTables: next };
       }),
+    setSqlWorkspaceLocalEngine: (value) => set({ sqlWorkspaceLocalEngine: value === 'native' ? 'native' : 'wasm' }),
     // Same boolean coercion for the Run Ledger opt-in.
     setRunLedgerEnabled: (value) =>
       set((state) => {

@@ -50,6 +50,18 @@ describe('renderer locale bundle boundary', () => {
     expect(registration).toContain(`addResourceBundle('en', '${COMMON_NAMESPACE}'`);
   });
 
+  it('keeps the native SQL engine copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => /^(settings\.editor\.sqlWorkspace\.localEngine\.|sqlWorkspace\.nativeEngine\.)/u.test(key))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/sqlLocalEngine.json');
+    expect(rendererI18n).toContain("import('./locales/es/sqlLocalEngine.json')");
+    for (const file of ['components/Settings/SqlLocalEngineRow.tsx', 'components/Settings/SqlWorkspaceSettingsSection.tsx']) {
+      expect(readFileSync(resolve(__dirname, `../../src/renderer/${file}`), 'utf8')).toContain("import '../../i18n/sqlLocalEngineCatalog'");
+    }
+  });
+
   it('keeps the debugger panel copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')

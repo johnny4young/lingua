@@ -92,6 +92,9 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: ^1.32.0
         version: 1.32.0
+      '@duckdb/node-api':
+        specifier: 1.4.3-r.3
+        version: 1.4.3-r.3
       '@electron/fuses':
         specifier: 1.8.0
         version: 1.8.0
@@ -560,6 +563,37 @@ packages:
 
   '@duckdb/duckdb-wasm@1.32.0':
     resolution: {integrity: sha512-IewXTNYEjsZCPE9weUWgtjGxUlMRo7qhX0GF6tq/KjK8bnY+RAl4cyUdYUfcdzbyb4b9ZxPC+FOsCcxgaKFWMg==}
+
+  '@duckdb/node-api@1.4.3-r.3':
+    resolution: {integrity: sha512-lPHpmYRMoFJkTCZmp76sETTNPly7lT3eJfV69vqsZE3wur+OY9VW/BflMQ41mP1vSucGqw4rY6XCSmMACE7bwQ==}
+
+  '@duckdb/node-bindings-darwin-arm64@1.4.3-r.3':
+    resolution: {integrity: sha512-iyVZbanRsZKSoK1BHqC61+PExyFUjJ7Ftz+BVN6xsWvB3tfkBBwEcZ5K/cCkHuCqmT7IcUwwDoc89Naz7Tze/A==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@duckdb/node-bindings-darwin-x64@1.4.3-r.3':
+    resolution: {integrity: sha512-exWYLzYLlKqsTp92iBR8SEcaMJpOWbUjaTmNN48TYCjDzLXPW2r4G2xhbFA67KuxnBJcrGvwNOOFcBje2AhfHg==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@duckdb/node-bindings-linux-arm64@1.4.3-r.3':
+    resolution: {integrity: sha512-Jx3SS6Hy2l3TuHUZ9iJ/b2ZnajfFV7AB1TMEh2gE1mmytoVkqjiMvVRj7487u4pxEANj9ELYXspdspC4/wyOaA==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@duckdb/node-bindings-linux-x64@1.4.3-r.3':
+    resolution: {integrity: sha512-1ISlvsyQheiJlr8tdtVJ0cfCsjBB2leQZL82KJHFKx4Q5gj4yWRYi4tfaPup9zk5rY0xXSuVuhBxKPkTX1UZqg==}
+    cpu: [x64]
+    os: [linux]
+
+  '@duckdb/node-bindings-win32-x64@1.4.3-r.3':
+    resolution: {integrity: sha512-DQBGxcIZ6yatHrcxIevejKsyj1cobu6BwXU17YuxCSA/BxdfEl7QnhBzwEpDJUDj6gUbLbBqsEvwY+K/NWAwEg==}
+    cpu: [x64]
+    os: [win32]
+
+  '@duckdb/node-bindings@1.4.3-r.3':
+    resolution: {integrity: sha512-QrkUgZw4Xwn5lNbvUHXcF3F5OvVexf9uQyJnxrLTzs9P93Be0UB+b4hr1EZwf1OMMocchN9iG1R839aVIfSJBg==}
 
   '@electron-internal/extract-zip@1.0.6':
     resolution: {integrity: sha512-/aQLgFDdCSnwChfUwqekSmE1q2dCTzhUy5saIHBb5vyYn5LzWaKPaIz1wM0lDMCZYBoIG4svJNvAJb6vkI8BuA==}
@@ -5048,6 +5082,33 @@ snapshots:
   '@duckdb/duckdb-wasm@1.32.0':
     dependencies:
       apache-arrow: 17.0.0
+
+  '@duckdb/node-api@1.4.3-r.3':
+    dependencies:
+      '@duckdb/node-bindings': 1.4.3-r.3
+
+  '@duckdb/node-bindings-darwin-arm64@1.4.3-r.3':
+    optional: true
+
+  '@duckdb/node-bindings-darwin-x64@1.4.3-r.3':
+    optional: true
+
+  '@duckdb/node-bindings-linux-arm64@1.4.3-r.3':
+    optional: true
+
+  '@duckdb/node-bindings-linux-x64@1.4.3-r.3':
+    optional: true
+
+  '@duckdb/node-bindings-win32-x64@1.4.3-r.3':
+    optional: true
+
+  '@duckdb/node-bindings@1.4.3-r.3':
+    optionalDependencies:
+      '@duckdb/node-bindings-darwin-arm64': 1.4.3-r.3
+      '@duckdb/node-bindings-darwin-x64': 1.4.3-r.3
+      '@duckdb/node-bindings-linux-arm64': 1.4.3-r.3
+      '@duckdb/node-bindings-linux-x64': 1.4.3-r.3
+      '@duckdb/node-bindings-win32-x64': 1.4.3-r.3
 
   '@electron-internal/extract-zip@1.0.6': {}
 

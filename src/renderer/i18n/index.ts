@@ -20,7 +20,7 @@ let spanishCatalogPromise: Promise<CommonCatalog> | null = null;
 async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> {
   if (language === 'en') return en;
   if (loadedCatalogs.es) return loadedCatalogs.es;
-  // Database connection, HTTP builder, debugger, explain panel, Tests tab, Compare runs, timeline, run regions, Instant SQL, pipeline export, clipboard and Local MCP copy are separate files so English can leave them out of the boot catalog.
+  // Database connection, HTTP builder, debugger, explain panel, Tests tab, Compare runs, timeline, run regions, Instant SQL, pipeline export, clipboard, Local MCP and native SQL engine copy are separate files so English can leave them out of the boot catalog.
   spanishCatalogPromise ??= Promise.all([
     import('./locales/es/common.json'),
     import('./locales/es/sqlConnections.json'),
@@ -35,9 +35,10 @@ async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> 
     import('./locales/es/pipelineJs.json'),
     import('./locales/es/clipboardChains.json'),
     import('./locales/es/localMcp.json'),
+    import('./locales/es/sqlLocalEngine.json'),
   ]).then(
-    ([common, connections, httpBuilder, debuggerCopy, explain, tests, runCompare, timeline, runRegions, sqlInstant, pipelineJs, clipboardChains, localMcp]) =>
-      ({ ...common.default, ...connections.default, ...httpBuilder.default, ...debuggerCopy.default, ...explain.default, ...tests.default, ...runCompare.default, ...timeline.default, ...runRegions.default, ...sqlInstant.default, ...pipelineJs.default, ...clipboardChains.default, ...localMcp.default }) as CommonCatalog
+    ([common, connections, httpBuilder, debuggerCopy, explain, tests, runCompare, timeline, runRegions, sqlInstant, pipelineJs, clipboardChains, localMcp, sqlLocalEngine]) =>
+      ({ ...common.default, ...connections.default, ...httpBuilder.default, ...debuggerCopy.default, ...explain.default, ...tests.default, ...runCompare.default, ...timeline.default, ...runRegions.default, ...sqlInstant.default, ...pipelineJs.default, ...clipboardChains.default, ...localMcp.default, ...sqlLocalEngine.default }) as CommonCatalog
   );
   const catalog = await spanishCatalogPromise;
   loadedCatalogs.es = catalog;

@@ -1,3 +1,4 @@
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';
 import { trackSqlStorageMode } from '../../hooks/sqlWorkspaceTelemetry';
@@ -6,15 +7,19 @@ import {
   configureDuckDbPersistence,
   flushAndReleaseDuckDbEngine,
   getDuckDbEngine,
+  getResolvedLocalEngine,
   getResolvedSqlStorageMode,
   getResolvedSqlStorageRequestMode,
   isOpfsStorageAvailable,
+  subscribeResolvedLocalEngine,
 } from '../../runtime/duckdbClient';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 import { Select, Toggle } from './shared';
+import { SqlLocalEngineRow } from './SqlLocalEngineRow';
+import '../../i18n/sqlLocalEngineCatalog';
 
 /**
  * SQL query timeout presets (milliseconds). The
@@ -35,6 +40,28 @@ const SQL_QUERY_TIMEOUT_PRESETS: ReadonlyArray<{
 const SQL_ROW_DISPLAY_LIMITS: ReadonlyArray<100 | 500 | 1000 | 5000> = [
   100, 500, 1000, 5000,
 ];
+
+/** Whether this build ships the native binding: null while asking, false on web. */
+function useNativeSqlEngineAvailable(): boolean | null {
+  const bridge = typeof window === 'undefined' ? undefined : window.lingua?.sqlLocal;
+  const [available, setAvailable] = useState<boolean | null>(bridge ? null : false);
+  useEffect(() => {
+    if (!bridge) return;
+    let cancelled = false;
+    bridge
+      .status()
+      .then(status => {
+        if (!cancelled) setAvailable(status.available);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+  return available;
+}
 
 export function SqlWorkspaceSettingsSection() {
   const sqlWorkspaceRowDisplayLimit = useSettingsStore(
@@ -58,6 +85,11 @@ export function SqlWorkspaceSettingsSection() {
   const sqlWorkspacePersistTables = useSettingsStore(
     (state) => state.sqlWorkspacePersistTables
   );
+  const nativePreferred = useSettingsStore((state) => state.sqlWorkspaceLocalEngine === 'native');
+  const nativeAvailable = useNativeSqlEngineAvailable();
+  const resolvedEngine = useSyncExternalStore(subscribeResolvedLocalEngine, getResolvedLocalEngine, () => null);
+  // The native engine saves to a file in Lingua's data folder, not to the browser's OPFS.
+  const nativeEngine = resolvedEngine ? resolvedEngine.engine === 'native' : nativePreferred && nativeAvailable === true;
   const setSqlWorkspacePersistTables = useSettingsStore(
     (state) => state.setSqlWorkspacePersistTables
   );
@@ -108,7 +140,16 @@ export function SqlWorkspaceSettingsSection() {
       return;
     }
     void (async () => {
-      await clearPersistedSqlDatabase();
+      try {
+        await clearPersistedSqlDatabase();
+      } catch (err) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'warning',
+          messageKey: 'settings.editor.sqlWorkspace.persistTables.clearFailed',
+          detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
+        });
+        return;
+      }
       await reconnectDuckDbAndNotify(
         'settings.editor.sqlWorkspace.persistTables.cleared'
       );
@@ -199,6 +240,8 @@ export function SqlWorkspaceSettingsSection() {
           }
         />
 
+        <SqlLocalEngineRow available={nativeAvailable} resolved={resolvedEngine} />
+
         {/* Opt into persisting the DuckDB
             database to OPFS. Off by default; the runtime falls back to
             in-memory when OPFS is unavailable. Takes effect on the next
@@ -206,9 +249,11 @@ export function SqlWorkspaceSettingsSection() {
         <SpecRow
           label={t('settings.editor.sqlWorkspace.persistTables.label')}
           description={
-            opfsAvailable
-              ? t('settings.editor.sqlWorkspace.persistTables.hint')
-              : `${t('settings.editor.sqlWorkspace.persistTables.hint')} ${t('settings.editor.sqlWorkspace.persistTables.unavailable')}`
+            nativeEngine
+              ? t('settings.editor.sqlWorkspace.persistTables.hintNative')
+              : opfsAvailable
+                ? t('settings.editor.sqlWorkspace.persistTables.hint')
+                : `${t('settings.editor.sqlWorkspace.persistTables.hint')} ${t('settings.editor.sqlWorkspace.persistTables.unavailable')}`
           }
           last
           control={

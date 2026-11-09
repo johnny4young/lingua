@@ -9,14 +9,16 @@ let main: DesktopConfig;
 let preload: DesktopConfig;
 let renderer: DesktopConfig;
 let sqlHost: DesktopConfig;
+let sqlLocal: DesktopConfig;
 
 beforeAll(async () => {
   const configs = await getDesktopBuildConfigs(root);
-  const [mainConfig, preloadConfig, rendererConfig, sqlHostConfig] = configs;
-  if (!mainConfig || !preloadConfig || !rendererConfig || !sqlHostConfig) {
-    throw new Error(`expected main, preload, renderer and SQL host configs, got ${configs.length}`);
+  const [mainConfig, preloadConfig, rendererConfig, sqlHostConfig, sqlLocalConfig] = configs;
+  if (!mainConfig || !preloadConfig || !rendererConfig || !sqlHostConfig || !sqlLocalConfig) {
+    throw new Error(`expected main, preload, renderer and both SQL process configs, got ${configs.length}`);
   }
   sqlHost = sqlHostConfig;
+  sqlLocal = sqlLocalConfig;
   main = mainConfig;
   preload = preloadConfig;
   renderer = rendererConfig;
@@ -82,6 +84,13 @@ describe('production desktop bundle contract', () => {
     expect(sqlHost.build.outDir).toBe('.vite/build');
     expect(sqlHost.build.rollupOptions.output).toMatchObject({ format: 'cjs', entryFileNames: 'sqlHost.js' });
     expect(sqlHost.build.rollupOptions.external).toEqual(expect.arrayContaining(['pg', 'pg-cursor', 'mysql2', 'ssh2', 'tedious', '@clickhouse/client', 'node:sqlite']));
+  });
+
+  it('builds the native Local SQL process beside main with DuckDB left to node_modules', () => {
+    expect(sqlLocal.build.lib).toMatchObject({ entry: 'src/main/sqlLocal/localEntry.ts', formats: ['cjs'] });
+    expect(sqlLocal.build.outDir).toBe('.vite/build');
+    expect(sqlLocal.build.rollupOptions.output).toMatchObject({ format: 'cjs', entryFileNames: 'sqlLocal.js' });
+    expect(sqlLocal.build.rollupOptions.external).toEqual(expect.arrayContaining(['electron', '@duckdb/node-api']));
   });
 
   it('preserves file-protocol renderer assets and repository environment defines', () => {

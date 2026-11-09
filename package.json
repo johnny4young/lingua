@@ -96,6 +96,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@duckdb/duckdb-wasm": "^1.32.0",
+    "@duckdb/node-api": "1.4.3-r.3",
     "@electron/fuses": "1.8.0",
     "@electron/windows-sign": "2.1.0",
     "@jridgewell/trace-mapping": "^0.3.31",
