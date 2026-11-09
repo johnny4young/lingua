@@ -7,9 +7,10 @@ import { STAGING_SUFFIX } from './originMigrationScripts';
  * One-time copy of renderer storage from the file:// origin of older builds to
  * the custom-scheme origin; Chromium keys storage by origin. The legacy copy is
  * left on disk. Keys the new origin holds are never overwritten. Files are staged,
- * then moved in together, so a database and its WAL land as a pair; until they
- * land, legacy wins over a file the app created after a failed attempt. The
- * marker's progress keeps retries from restoring what the user deleted since.
+ * then moved database-first with any old target WAL removed. A database and its
+ * WAL count as copied only after both moves succeed; until then, a retry copies
+ * both again over files the app created after a failed attempt. The marker's
+ * progress keeps retries from restoring a completed group the user deleted since.
  */
 
 export const ORIGIN_MIGRATION_MARKER = 'renderer-origin-migration.json';
@@ -108,8 +109,51 @@ function errorCode(error: unknown): string {
   return 'unknown';
 }
 
-function stagingPath(file: OriginFile): string[] {
-  return [...file.path.slice(0, -1), `${file.path.at(-1)}${STAGING_SUFFIX}`];
+const WAL_SUFFIX = '.wal';
+/** Where the target's own WAL waits while the legacy database moves in. */
+const PREVIOUS_SUFFIX = '.lingua-previous';
+
+const keyOf = (file: OriginFile) => file.path.join('/');
+const nameOf = (file: OriginFile) => file.path.at(-1) as string;
+const siblingPath = (file: OriginFile, suffix: string) => [...file.path.slice(0, -1), `${nameOf(file)}${suffix}`];
+const stagingPath = (file: OriginFile) => siblingPath(file, STAGING_SUFFIX);
+
+/**
+ * A database and its WAL share retry ownership, regardless of listing order. A
+ * WAL whose database is gone is never copied: it is useless alone and could
+ * replay onto another database.
+ */
+function fileGroups(files: OriginFile[]): OriginFile[][] {
+  const byKey = new Map(files.map(file => [keyOf(file), file]));
+  const groups: OriginFile[][] = [];
+  for (const file of files) {
+    const key = keyOf(file);
+    if (key.endsWith(WAL_SUFFIX)) continue;
+    const wal = byKey.get(`${key}${WAL_SUFFIX}`);
+    groups.push(wal ? [file, wal] : [file]);
+  }
+  return groups;
+}
+
+/**
+ * Moves one staged group in, database first. The target's own WAL is set aside
+ * rather than deleted, so a failed database move leaves the target pair intact;
+ * once the legacy database lands, that WAL no longer matches and goes.
+ */
+async function commitGroup(target: TargetOriginWriter, group: OriginFile[]): Promise<void> {
+  const [database, wal] = group as [OriginFile, OriginFile | undefined];
+  const targetWal = siblingPath(database, WAL_SUFFIX);
+  const aside = siblingPath(database, `${WAL_SUFFIX}${PREVIOUS_SUFFIX}`);
+  const hadWal = (await target.fileSize(targetWal)) !== null;
+  if (hadWal) await target.commitFile(targetWal, aside.at(-1) as string);
+  try {
+    await target.commitFile(stagingPath(database), nameOf(database));
+  } catch (error) {
+    if (hadWal) await target.commitFile(aside, `${nameOf(database)}${WAL_SUFFIX}`).catch(() => {});
+    throw error;
+  }
+  if (hadWal) await target.removeFile(aside).catch(() => {});
+  if (wal) await target.commitFile(stagingPath(wal), nameOf(wal));
 }
 
 async function stageFile(
@@ -189,9 +233,9 @@ export async function migrateRendererOrigin(
       marker.localStorageCopied = true;
       await writeMarker(markerPath, marker);
     }
-    const listed = await legacy.listFiles();
-    const legacyPaths = new Set(listed.map(file => file.path.join('/')));
-    const files = listed.filter(file => !marker.copiedFiles.includes(file.path.join('/')));
+    const copied = new Set(marker.copiedFiles);
+    const pendingGroups = fileGroups(await legacy.listFiles()).filter(group => group.some(file => !copied.has(keyOf(file))));
+    const files = pendingGroups.flat();
     if (files.length > 0) target ??= await deps.openTarget();
     const empty = !target;
     if (target) {
@@ -212,18 +256,27 @@ export async function migrateRendererOrigin(
       }
       // Past this point the moves run to the end, so an abort cannot split a database from its WAL.
       deps.signal?.throwIfAborted();
-      for (const file of staged) {
-        // A WAL the new origin wrote must not replay onto the legacy database.
-        const wal = [...file.path.slice(0, -1), `${file.path.at(-1)}.wal`];
-        if (!legacyPaths.has(wal.join('/'))) await writer.removeFile(wal);
+      let committed = 0;
+      try {
+        for (const group of pendingGroups) {
+          await commitGroup(writer, group);
+          committed += 1;
+          // Recorded per group, so a crash after it never restores this group over later changes.
+          // An older failed marker may already name one of its files; that one is not counted twice.
+          for (const file of group) {
+            if (copied.has(keyOf(file))) continue;
+            copied.add(keyOf(file));
+            marker.files += 1;
+            marker.fileBytes += file.size;
+            marker.copiedFiles.push(keyOf(file));
+          }
+          await writeMarker(markerPath, marker);
+        }
+      } catch (error) {
+        const left = pendingGroups.slice(committed).flat();
+        await Promise.all(left.map(file => writer.removeFile(stagingPath(file)).catch(() => {})));
+        throw error;
       }
-      for (const file of staged) {
-        await writer.commitFile(stagingPath(file), file.path.at(-1) as string);
-        marker.files += 1;
-        marker.fileBytes += file.size;
-        marker.copiedFiles.push(file.path.join('/'));
-      }
-      await writeMarker(markerPath, marker);
     }
     marker.state = 'done';
     delete marker.error;
