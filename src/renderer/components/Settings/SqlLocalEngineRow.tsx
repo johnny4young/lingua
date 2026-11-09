@@ -3,6 +3,7 @@ import type { ResolvedLocalEngine } from '../../runtime/duckdbClient';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { SpecRow } from '../ui/SpecRow';
 import { Select } from './shared';
+import '../../i18n/sqlLocalEngineCatalog';
 
 /** Native or WASM Local engine; shown where the desktop build ships DuckDB's binding, or where a stored `native` cannot run. */
 export function SqlLocalEngineRow({ available, resolved }: { available: boolean | null; resolved: ResolvedLocalEngine | null }) {
@@ -12,11 +13,7 @@ export function SqlLocalEngineRow({ available, resolved }: { available: boolean 
   const setPreference = useSettingsStore(state => state.setSqlWorkspaceLocalEngine);
 
   if (available === null || (!available && preference !== 'native')) return null;
-  const note = !available
-    ? t('settings.editor.sqlWorkspace.localEngine.unavailable')
-    : preference === 'native' && resolved?.fallback === 'failed'
-      ? t('settings.editor.sqlWorkspace.localEngine.fallback')
-      : null;
+  const note = !available || (preference === 'native' && resolved?.fallback === 'failed') ? t('settings.editor.sqlWorkspace.localEngine.fallback') : null;
 
   return (
     <SpecRow

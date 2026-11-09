@@ -59,7 +59,7 @@ describe('SQL workspace settings with the native engine', () => {
   it('shows a stored native choice that this build cannot run as WebAssembly, with the browser storage hint', async () => {
     desktop(false);
     render(<SqlWorkspaceSettingsSection />);
-    expect(await screen.findByText('This build does not include the native engine, so Local SQL runs on WebAssembly.')).toBeTruthy();
+    expect(await screen.findByText('The native engine is not available, so Local SQL runs on WebAssembly.')).toBeTruthy();
     expect((screen.getByTestId('settings-sql-local-engine') as HTMLSelectElement).value).toBe('wasm');
     expect(screen.queryByText(/in Lingua's data folder/)).toBeNull();
   });
@@ -69,7 +69,7 @@ describe('SQL workspace settings with the native engine', () => {
     render(<SqlWorkspaceSettingsSection />);
     expect(await screen.findByText(/in Lingua's data folder/)).toBeTruthy();
     act(() => engine.set({ engine: 'wasm', fallback: 'failed', reason: 'boom' } satisfies ResolvedLocalEngine));
-    expect(screen.getByText('The native engine did not start, so Local SQL runs on WebAssembly.')).toBeTruthy();
+    expect(screen.getByText('The native engine is not available, so Local SQL runs on WebAssembly.')).toBeTruthy();
     expect(screen.queryByText(/in Lingua's data folder/)).toBeNull();
   });
 
@@ -95,7 +95,7 @@ describe('SQL workspace settings with the native engine', () => {
     await i18next.changeLanguage('es');
     desktop(false);
     render(<SqlWorkspaceSettingsSection />);
-    expect(await screen.findByText('Esta compilación no incluye el motor nativo, así que SQL local usa WebAssembly.')).toBeTruthy();
-    expect(i18next.t('settings.editor.sqlWorkspace.persistTables.clearFailed')).toMatch(/^Lingua no pudo borrar/);
+    expect(await screen.findByText('El motor nativo no está disponible, así que SQL local usa WebAssembly.')).toBeTruthy();
+    expect(i18next.t('settings.editor.sqlWorkspace.persistTables.clearFailed')).toMatch(/^No se pudieron borrar/);
   });
 });

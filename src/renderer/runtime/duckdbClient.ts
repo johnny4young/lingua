@@ -60,6 +60,7 @@ import {
   type SqlImportCsvOptions,
   type SqlImportTarget,
 } from '../../shared/sqlImportPlan';
+import '../i18n/sqlLocalEngineCatalog';
 
 // ---------------------------------------------------------------------------
 // Public types — what the panel + tests consume.

@@ -19,6 +19,7 @@ import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 import { Select, Toggle } from './shared';
 import { SqlLocalEngineRow } from './SqlLocalEngineRow';
+import '../../i18n/sqlLocalEngineCatalog';
 
 /**
  * SQL query timeout presets (milliseconds). The
