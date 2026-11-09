@@ -29,7 +29,7 @@ function deferred<T>() {
   const promise = new Promise<T>(done => { resolve = done; });
   return { promise, resolve };
 }
-const options = { persist: true, protocol: 3 };
+const options = { persist: true, protocol: 3, accessMode: 3 };
 
 describe('owned persistent DuckDB startup', () => {
   it.each([false, true])('does no OPFS IO when persistence is %s and storage is unavailable', async persist => {
@@ -93,11 +93,15 @@ describe('owned persistent DuckDB startup', () => {
     const directory = storage({});
     directory.getFileHandle.mockRejectedValue(new DOMException('denied', name));
     const create = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(next);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const opened = await openOwnedDuckDb(create, { ...options, storage: directory });
 
     expect(opened.mode).toBe('memory');
     expect(opened.instance).toBe(next);
+    // The reason stays diagnosable by name; the message, which can carry paths, does not leave.
+    expect(warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('OPFS'), name);
+    warn.mockRestore();
     expect(directory.getFileHandle).toHaveBeenCalledExactlyOnceWith('lingua-sql.db');
     expect(first.terminateWorker).toHaveBeenCalledTimes(1);
     expect(first.db.open).not.toHaveBeenCalled();

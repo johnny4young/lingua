@@ -43,7 +43,7 @@ import type { SqlLocalBridge } from '../../shared/sqlLocal';
 import {
   DEFAULT_QUERY_TIMEOUT_MS,
   MAX_QUERY_TIMEOUT_MS,
-  OPFS_SQL_DB_PATH,
+  OPFS_SQL_DB_FILE,
   type SqlColumnMetadata,
   type SqlImportFormat,
   type SqlQueryStatus,
@@ -226,7 +226,7 @@ function nativeBridge(): SqlLocalBridge | null {
  * clear-data action to remove every artifact.
  */
 const OPFS_SQL_DB_FILE_NAMES: readonly string[] = (() => {
-  const base = OPFS_SQL_DB_PATH.replace(/^opfs:\/\//, '');
+  const base = OPFS_SQL_DB_FILE;
   // Staged copies an interrupted storage migration from an older build can leave behind.
   return [base, `${base}.wal`, `${base}.lingua-migrating`, `${base}.wal.lingua-migrating`];
 })();
@@ -679,25 +679,22 @@ async function wasmEngineFactory(): Promise<DuckDbEngineHandle> {
   try {
     const opened = await openOwnedDuckDb(async () => {
       const worker = new Worker(workerUrl);
-      let terminated = false;
-      const dispose = () => {
-        if (terminated) return;
-        terminated = true;
-        worker.terminate();
-      };
+      // Worker.terminate is idempotent, so the handle and db.terminate may both call it.
+      const terminateWorker = () => worker.terminate();
       try {
         const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
         const db = new duckdb.AsyncDuckDB(logger, worker);
         await db.instantiate(wasmUrl);
-        return { db, terminateWorker: dispose };
+        return { db, terminateWorker };
       } catch (error) {
-        dispose();
+        terminateWorker();
         throw error;
       }
     }, {
       persist,
       storage: isOpfsStorageAvailable() ? navigator.storage : undefined,
       protocol: duckdb.DuckDBDataProtocol.BROWSER_FSACCESS,
+      accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
     });
     const { db } = opened.instance;
     terminateWorker = opened.instance.terminateWorker;

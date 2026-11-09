@@ -1,4 +1,4 @@
-import { OPFS_SQL_DB_PATH, type SqlStorageMode } from '../../shared/sqlWorkspace';
+import { OPFS_SQL_DB_FILE, OPFS_SQL_DB_PATH, OPFS_SQL_WAL_FILE, type SqlStorageMode } from '../../shared/sqlWorkspace';
 
 interface PersistentDuckDb {
   open(config: { path: string; accessMode: number; opfs: { fileHandling: 'auto' } }): Promise<void>;
@@ -27,19 +27,17 @@ async function prepareMissingWal(
   protocol: number
 ): Promise<void> {
   const root = await storage.getDirectory();
-  const name = OPFS_SQL_DB_PATH.slice('opfs://'.length);
-  const database = await existingFile(root, name);
+  const database = await existingFile(root, OPFS_SQL_DB_FILE);
   if (!database || (await database.getFile()).size === 0) return;
-  const walName = `${name}.wal`;
-  const wal = await existingFile(root, walName);
+  const wal = await existingFile(root, OPFS_SQL_WAL_FILE);
   if (wal && (await wal.getFile()).size > 0) return;
 
   // Acquire the database first. A competing owner must fail here, before we create a WAL.
   await db.registerFileHandle(OPFS_SQL_DB_PATH, database, protocol, true);
   // The inspection was not a lock. A WAL that gained content belongs to automatic recovery.
-  const currentWal = await existingFile(root, walName);
+  const currentWal = await existingFile(root, OPFS_SQL_WAL_FILE);
   if (currentWal && (await currentWal.getFile()).size > 0) return;
-  const handle = currentWal ?? await root.getFileHandle(walName, { create: true });
+  const handle = currentWal ?? await root.getFileHandle(OPFS_SQL_WAL_FILE, { create: true });
   await db.registerFileHandle(`${OPFS_SQL_DB_PATH}.wal`, handle, protocol, true);
 }
 
@@ -54,15 +52,20 @@ export async function openOwnedDuckDb<Db extends PersistentDuckDb>(
     persist: boolean;
     storage?: Pick<StorageManager, 'getDirectory'>;
     protocol: number;
+    /** DuckDBAccessMode.READ_WRITE from the loaded duckdb-wasm module. */
+    accessMode: number;
   }
 ): Promise<{ instance: OwnedDuckDb<Db>; mode: SqlStorageMode }> {
   const instance = await create();
   if (!options.persist || !options.storage) return { instance, mode: 'memory' };
   try {
     await prepareMissingWal(instance.db, options.storage, options.protocol);
-    await instance.db.open({ path: OPFS_SQL_DB_PATH, accessMode: 3, opfs: { fileHandling: 'auto' } });
+    await instance.db.open({ path: OPFS_SQL_DB_PATH, accessMode: options.accessMode, opfs: { fileHandling: 'auto' } });
     return { instance, mode: 'opfs' };
-  } catch {
+  } catch (error) {
+    // Only the error name: a lock, quota or registration failure, without paths.
+    const name = (error as { name?: unknown } | null)?.name;
+    console.warn('[sql] OPFS persistence unavailable, using memory:', typeof name === 'string' ? name : 'unknown');
     instance.terminateWorker();
   }
   return { instance: await create(), mode: 'memory' };

@@ -51,7 +51,6 @@
     // reverted to a bare string would let every swap compile.
     "tests/main/projectCapabilitiesBrand.test.ts",
     "tests/hooks/useTelemetry.types.test.ts",
-    "tests/renderer/runtime/duckdbPersistence.test.ts",
     "tests/build/rendererTypeBoundaries.test.ts",
     "tests/build/ambientTypeBoundaries.test.ts",
     "tests/shared/telemetryArchitecture.test.ts",
