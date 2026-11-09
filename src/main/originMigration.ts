@@ -109,27 +109,51 @@ function errorCode(error: unknown): string {
   return 'unknown';
 }
 
-function stagingPath(file: OriginFile): string[] {
-  return [...file.path.slice(0, -1), `${file.path.at(-1)}${STAGING_SUFFIX}`];
-}
+const WAL_SUFFIX = '.wal';
+/** Where the target's own WAL waits while the legacy database moves in. */
+const PREVIOUS_SUFFIX = '.lingua-previous';
 
-/** A database and its WAL share retry ownership, regardless of listing order. */
+const keyOf = (file: OriginFile) => file.path.join('/');
+const nameOf = (file: OriginFile) => file.path.at(-1) as string;
+const siblingPath = (file: OriginFile, suffix: string) => [...file.path.slice(0, -1), `${nameOf(file)}${suffix}`];
+const stagingPath = (file: OriginFile) => siblingPath(file, STAGING_SUFFIX);
+
+/**
+ * A database and its WAL share retry ownership, regardless of listing order. A
+ * WAL whose database is gone is never copied: it is useless alone and could
+ * replay onto another database.
+ */
 function fileGroups(files: OriginFile[]): OriginFile[][] {
-  const byPath = new Map(files.map(file => [file.path.join('/'), file]));
+  const byKey = new Map(files.map(file => [keyOf(file), file]));
   const groups: OriginFile[][] = [];
   for (const file of files) {
-    const key = file.path.join('/');
-    if (key.endsWith('.wal')) {
-      if (byPath.has(key.slice(0, -4))) continue;
-      throw Object.assign(new Error('Legacy WAL has no database'), { code: 'EWALWITHOUTDB' });
-    }
-    const group = [file];
-    for (let wal = byPath.get(`${key}.wal`); wal; wal = byPath.get(`${wal.path.join('/')}.wal`)) {
-      group.push(wal);
-    }
-    groups.push(group);
+    const key = keyOf(file);
+    if (key.endsWith(WAL_SUFFIX)) continue;
+    const wal = byKey.get(`${key}${WAL_SUFFIX}`);
+    groups.push(wal ? [file, wal] : [file]);
   }
   return groups;
+}
+
+/**
+ * Moves one staged group in, database first. The target's own WAL is set aside
+ * rather than deleted, so a failed database move leaves the target pair intact;
+ * once the legacy database lands, that WAL no longer matches and goes.
+ */
+async function commitGroup(target: TargetOriginWriter, group: OriginFile[]): Promise<void> {
+  const [database, wal] = group as [OriginFile, OriginFile | undefined];
+  const targetWal = siblingPath(database, WAL_SUFFIX);
+  const aside = siblingPath(database, `${WAL_SUFFIX}${PREVIOUS_SUFFIX}`);
+  const hadWal = (await target.fileSize(targetWal)) !== null;
+  if (hadWal) await target.commitFile(targetWal, aside.at(-1) as string);
+  try {
+    await target.commitFile(stagingPath(database), nameOf(database));
+  } catch (error) {
+    if (hadWal) await target.commitFile(aside, `${nameOf(database)}${WAL_SUFFIX}`).catch(() => {});
+    throw error;
+  }
+  if (hadWal) await target.removeFile(aside).catch(() => {});
+  if (wal) await target.commitFile(stagingPath(wal), nameOf(wal));
 }
 
 async function stageFile(
@@ -209,10 +233,8 @@ export async function migrateRendererOrigin(
       marker.localStorageCopied = true;
       await writeMarker(markerPath, marker);
     }
-    const listed = await legacy.listFiles();
-    const pendingGroups = fileGroups(listed).filter(group =>
-      group.some(file => !marker.copiedFiles.includes(file.path.join('/')))
-    );
+    const copied = new Set(marker.copiedFiles);
+    const pendingGroups = fileGroups(await legacy.listFiles()).filter(group => group.some(file => !copied.has(keyOf(file))));
     const files = pendingGroups.flat();
     if (files.length > 0) target ??= await deps.openTarget();
     const empty = !target;
@@ -234,27 +256,27 @@ export async function migrateRendererOrigin(
       }
       // Past this point the moves run to the end, so an abort cannot split a database from its WAL.
       deps.signal?.throwIfAborted();
-      for (const group of pendingGroups) {
-        // A failed WAL move must leave a checkpoint without a WAL, never one
-        // next to an unrelated WAL the target origin wrote before this attempt.
-        for (const file of group) {
-          const wal = [...file.path.slice(0, -1), `${file.path.at(-1)}.wal`];
-          await writer.removeFile(wal);
+      let committed = 0;
+      try {
+        for (const group of pendingGroups) {
+          await commitGroup(writer, group);
+          committed += 1;
+          // Recorded per group, so a crash after it never restores this group over later changes.
+          // An older failed marker may already name one of its files; that one is not counted twice.
+          for (const file of group) {
+            if (copied.has(keyOf(file))) continue;
+            copied.add(keyOf(file));
+            marker.files += 1;
+            marker.fileBytes += file.size;
+            marker.copiedFiles.push(keyOf(file));
+          }
+          await writeMarker(markerPath, marker);
         }
-        for (const file of group) {
-          await writer.commitFile(stagingPath(file), file.path.at(-1) as string);
-        }
-        // Record only a complete group. Older failed markers may already name
-        // its database; retry that database too without counting it twice.
-        for (const file of group) {
-          const key = file.path.join('/');
-          if (marker.copiedFiles.includes(key)) continue;
-          marker.files += 1;
-          marker.fileBytes += file.size;
-          marker.copiedFiles.push(key);
-        }
+      } catch (error) {
+        const left = pendingGroups.slice(committed).flat();
+        await Promise.all(left.map(file => writer.removeFile(stagingPath(file)).catch(() => {})));
+        throw error;
       }
-      await writeMarker(markerPath, marker);
     }
     marker.state = 'done';
     delete marker.error;

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -355,8 +356,10 @@ describe('renderer origin migration', () => {
       );
 
     await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
+    // The target pair stays intact: its WAL was set aside, then put back.
     expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(4, 9));
-    expect(target.opfs.file('lingua-sql.db.wal')).toBeUndefined();
+    expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(6, 5));
+    expect([...target.opfs.children.keys()].sort()).toEqual(['lingua-sql.db', 'lingua-sql.db.wal']);
     expect(await marker()).toMatchObject({ copiedFiles: [] });
   });
 
@@ -401,8 +404,20 @@ describe('renderer origin migration', () => {
           : code
       );
 
+    let onDiskBeforeNextGroup: string[] | undefined;
+    const failingRun = target.run;
+    target.run = code => {
+      if (code.includes('.move(') && code.includes('"lingua-sql.db.lingua-migrating"')) {
+        onDiskBeforeNextGroup = (JSON.parse(readFileSync(path.join(userDataDir, ORIGIN_MIGRATION_MARKER), 'utf8')) as OriginMigrationMarker).copiedFiles;
+      }
+      return failingRun(code);
+    };
     await expect(migrate().run).resolves.toMatchObject({ status: 'failed' });
+    // Written before the next group moved, so a crash there would not restore it later.
+    expect(onDiskBeforeNextGroup).toEqual(['completed.bin']);
     expect(await marker()).toMatchObject({ copiedFiles: ['completed.bin'], files: 1, fileBytes: 12 });
+    // No staged copy outlives the failed attempt.
+    expect([...target.opfs.children.keys()].filter(name => name.endsWith('.lingua-migrating'))).toEqual([]);
     target.opfs.children.delete('completed.bin');
     target.run = originalRun;
 
@@ -411,20 +426,23 @@ describe('renderer origin migration', () => {
     expect(await marker()).toMatchObject({ files: 3, fileBytes: 84 });
   });
 
-  it('refuses an orphan legacy WAL instead of pairing it with a target database', async () => {
+  it('skips an orphan legacy WAL and still migrates every other file', async () => {
     legacy.opfs.put('lingua-sql.db.wal', bytes(8, 3));
+    legacy.opfs.put('notes.bin', bytes(12));
     target.opfs.put('lingua-sql.db', bytes(4, 9));
     target.opfs.put('lingua-sql.db.wal', bytes(6, 5));
 
     await expect(migrate().run).resolves.toMatchObject({
-      status: 'failed',
-      marker: { error: 'EWALWITHOUTDB', copiedFiles: [] },
+      status: 'migrated',
+      marker: { state: 'done', copiedFiles: ['notes.bin'], files: 1, fileBytes: 12 },
     });
+    expect(target.opfs.file('notes.bin')?.data).toEqual(bytes(12));
+    // The orphan never lands next to the target's own database.
     expect(target.opfs.file('lingua-sql.db')?.data).toEqual(bytes(4, 9));
     expect(target.opfs.file('lingua-sql.db.wal')?.data).toEqual(bytes(6, 5));
   });
 
-  it('keeps both target files when removing their WAL fails, then retries the pair', async () => {
+  it('keeps both target files when setting their WAL aside fails, then retries the pair', async () => {
     legacy.opfs.put('lingua-sql.db', bytes(64));
     legacy.opfs.put('lingua-sql.db.wal', bytes(8, 3));
     target.opfs.put('lingua-sql.db', bytes(4, 9));
@@ -432,10 +450,10 @@ describe('renderer origin migration', () => {
     const originalRun = target.run.bind(target);
     target.run = code =>
       originalRun(
-        code.includes('dir.removeEntry(') && code.includes('"lingua-sql.db.wal"')
+        code.includes('.move(') && code.includes('"lingua-sql.db.wal.lingua-previous"')
           ? code.replace(
               'const create = false;',
-              "throw Object.assign(new Error('remove'), { name: 'NoModificationAllowedError' }); const create = false;"
+              "throw Object.assign(new Error('move'), { name: 'NoModificationAllowedError' }); const create = false;"
             )
           : code
       );

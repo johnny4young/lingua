@@ -2194,14 +2194,17 @@ constant scripts from `originMigrationScripts.ts`. It runs once per profile:
 `renderer-origin-migration.json` in `userData` records the result and counts.
 `localStorage` goes first and never overwrites a key the new origin holds.
 Files are then staged under a `.lingua-migrating` name before any moves start.
-Each database moves before its WAL, regardless of listing order, and any target
-WAL is removed first. A failed move can leave a database checkpoint without its
-WAL, but never beside an unrelated WAL. A legacy WAL without its database fails
-before any files move, leaving target files untouched. The marker records a database and its
-WAL only once both moves finish; a retry copies both again, including when an
-older failed marker recorded only one. Until that pair finishes, legacy wins:
-a retry (three launches at most) replaces a database the app created after a
-failed attempt. The marker records the attempt before
+Each database moves before its WAL, regardless of listing order. The target's
+own WAL is set aside first and put back if the database move fails, so the
+target pair stays intact; once the legacy database lands, that WAL no longer
+matches and is removed. A failed WAL move can leave a checkpoint without its
+WAL, never beside an unrelated one. A legacy WAL without its database is never
+copied, and every other file still migrates. The marker records each database
+and its WAL once both moves finish, group by group, so a crash later never
+restores a finished group; a retry copies both again, including when an older
+failed marker recorded only one, and a failed attempt removes the staged copies
+it did not move in. Until a pair finishes, legacy wins: a retry (three launches
+at most) replaces a database the app created after a failed attempt. The marker records the attempt before
 any page opens, so a crash spends one, and then each finished step, so a retry
 neither repeats it nor restores what a factory reset or Recovery cleared since.
 The Dock or taskbar shows the copy's progress, and five minutes bound the
