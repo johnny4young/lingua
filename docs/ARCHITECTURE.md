@@ -2471,6 +2471,12 @@ runs. This complements the renderer fence after IPC has crossed into main.
 
 ### Project test preparation ownership
 
+Renderer detection belongs to the latest request, including repeated detection
+of the same project. An older request finishing Stop or discovery cannot rebind
+the Tests panel, replace the selected runner, or clear a newer run's Stop owner,
+and a switch whose project is no longer the open one stops there. Rebinding
+stops an active run first, so no run outlives its Stop control.
+
 Project-test IPC reserves cancellation by sender, root capability and run identity
 before awaiting root authorization. Stop revokes only that sender's matching
 request immediately; root validation still runs, and execution never begins before
