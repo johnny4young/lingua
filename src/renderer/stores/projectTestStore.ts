@@ -123,6 +123,8 @@ function createRunId(): string {
   return `project-tests-${id}`;
 }
 
+let detectionGeneration = 0;
+
 export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   rootId: null,
   projectName: null,
@@ -143,11 +145,13 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   focusFailure: test => set({ focusedFailure: test ? { file: test.file, path: [...test.path] } : null }),
 
   detect: async binding => {
+    const generation = ++detectionGeneration;
     const bridge = window.lingua?.projectTests;
     const previous = get();
     if (bridge && previous.rootId && previous.rootId !== binding.rootId && previous.activeRunId) {
       await bridge.stop(previous.rootId, previous.activeRunId).catch(() => ({ stopped: false }));
     }
+    if (generation !== detectionGeneration) return;
     set({
       rootId: binding.rootId,
       projectName: binding.projectName,
@@ -172,7 +176,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       const detection = await bridge.detect(binding.rootId);
       // A project switch while detection was in flight must not install stale
       // candidates into the new project's surface.
-      if (get().rootId !== binding.rootId) return;
+      if (generation !== detectionGeneration || get().rootId !== binding.rootId) return;
       const selectedFramework = defaultFramework(detection.candidates);
       set({ status: 'ready', detection, selectedFramework });
       const project = useProjectStore.getState().currentProject;
@@ -180,7 +184,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
         useProjectStore.getState().setRecentTestRunner(project.id, selectedFramework);
       }
     } catch {
-      if (get().rootId !== binding.rootId) return;
+      if (generation !== detectionGeneration || get().rootId !== binding.rootId) return;
       set({ status: 'error', error: 'detect-failed' });
     }
   },

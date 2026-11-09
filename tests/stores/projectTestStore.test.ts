@@ -436,6 +436,84 @@ describe('projectTestStore run ownership across project switches', () => {
     });
     expect(unsubscribeCalls()).toEqual([1]);
   });
+
+  it('keeps the latest project run when an earlier switch finishes stopping the old run late', async () => {
+    const gamma = { rootId: asRootId('root-c'), projectName: 'Gamma' };
+    const oldRun = deferredRun();
+    const currentRun = deferredRun();
+    let finishFirstStop!: (result: { stopped: boolean }) => void;
+    const firstStop = new Promise<{ stopped: boolean }>(resolve => {
+      finishFirstStop = resolve;
+    });
+    const stop = vi.fn().mockReturnValueOnce(firstStop).mockResolvedValue({ stopped: true });
+    const run = vi.fn().mockReturnValueOnce(oldRun.promise).mockReturnValueOnce(currentRun.promise);
+    ownershipBridge(run, stop);
+
+    await store().detect(alpha);
+    const oldPending = store().run(alpha);
+    const earlierSwitch = store().detect(beta);
+    await store().detect(gamma);
+    const currentPending = store().run(gamma);
+    const currentId = store().activeRunId!;
+    const currentState = store();
+
+    finishFirstStop({ stopped: true });
+    await earlierSwitch;
+    const afterEarlierSwitch = store();
+    await store().stop(gamma);
+    oldRun.resolve(stopped);
+    currentRun.resolve(passed('gamma.test.ts'));
+    await Promise.all([oldPending, currentPending]);
+
+    expect(afterEarlierSwitch).toBe(currentState);
+    expect(afterEarlierSwitch).toMatchObject({
+      rootId: gamma.rootId,
+      projectName: 'Gamma',
+      status: 'running',
+      activeRunId: currentId,
+    });
+    expect(window.lingua!.projectTests!.detect).not.toHaveBeenCalledWith(beta.rootId);
+    expect(stop).toHaveBeenLastCalledWith(gamma.rootId, currentId);
+    expect(store().result?.cases).toEqual([{ file: 'gamma.test.ts', path: ['passes'], status: 'passed' }]);
+  });
+
+  it('keeps the latest detection when two requests target the same project', async () => {
+    let finishFirst!: (result: ProjectTestDetectionResult) => void;
+    const first = new Promise<ProjectTestDetectionResult>(resolve => {
+      finishFirst = resolve;
+    });
+    installBridge({
+      detect: vi.fn().mockReturnValueOnce(first).mockResolvedValue(vitestReady),
+    });
+
+    const earlier = store().detect(alpha);
+    await store().detect(alpha);
+    const latest = store();
+    finishFirst({ kind: 'none', candidates: [] });
+    await earlier;
+
+    expect(store()).toBe(latest);
+    expect(store().selectedFramework).toBe('vitest');
+  });
+
+  it('ignores an earlier detection failure after the same project was detected again', async () => {
+    let rejectFirst!: (reason: Error) => void;
+    const first = new Promise<ProjectTestDetectionResult>((_resolve, reject) => {
+      rejectFirst = reject;
+    });
+    installBridge({
+      detect: vi.fn().mockReturnValueOnce(first).mockResolvedValue(vitestReady),
+    });
+
+    const earlier = store().detect(alpha);
+    await store().detect(alpha);
+    const latest = store();
+    rejectFirst(new Error('Earlier detection failed'));
+    await earlier;
+
+    expect(store()).toBe(latest);
+    expect(store()).toMatchObject({ status: 'ready', error: null, selectedFramework: 'vitest' });
+  });
 });
 
 describe('projectTestStore focused failure', () => {
