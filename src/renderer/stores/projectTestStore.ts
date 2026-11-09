@@ -123,6 +123,8 @@ function createRunId(): string {
   return `project-tests-${id}`;
 }
 
+let detectionGeneration = 0;
+
 export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   rootId: null,
   projectName: null,
@@ -143,11 +145,17 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   focusFailure: test => set({ focusedFailure: test ? { file: test.file, path: [...test.path] } : null }),
 
   detect: async binding => {
+    const generation = ++detectionGeneration;
+    const isLatest = () => generation === detectionGeneration;
     const bridge = window.lingua?.projectTests;
     const previous = get();
-    if (bridge && previous.rootId && previous.rootId !== binding.rootId && previous.activeRunId) {
+    // Rebinding clears the run's Stop control, so the run stops first, whichever project this is.
+    if (bridge && previous.rootId && previous.activeRunId) {
       await bridge.stop(previous.rootId, previous.activeRunId).catch(() => ({ stopped: false }));
     }
+    // Returning to the old project while its Stop was pending does not detect again; the open project decides.
+    const open = useProjectStore.getState().currentProject;
+    if (!isLatest() || (open && open.rootId !== binding.rootId)) return;
     set({
       rootId: binding.rootId,
       projectName: binding.projectName,
@@ -170,9 +178,8 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
 
     try {
       const detection = await bridge.detect(binding.rootId);
-      // A project switch while detection was in flight must not install stale
-      // candidates into the new project's surface.
-      if (get().rootId !== binding.rootId) return;
+      // Only the latest detection, of this project or another, installs candidates.
+      if (!isLatest()) return;
       const selectedFramework = defaultFramework(detection.candidates);
       set({ status: 'ready', detection, selectedFramework });
       const project = useProjectStore.getState().currentProject;
@@ -180,7 +187,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
         useProjectStore.getState().setRecentTestRunner(project.id, selectedFramework);
       }
     } catch {
-      if (get().rootId !== binding.rootId) return;
+      if (!isLatest()) return;
       set({ status: 'error', error: 'detect-failed' });
     }
   },
