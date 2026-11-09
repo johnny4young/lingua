@@ -253,3 +253,26 @@ describe('real persist.rehydrate round-trip (back-compat)', () => {
     expect(useRecentFilesStore.getState().recentFiles).toEqual([]);
   });
 });
+
+describe('lingua-settings v4->v5 — native Local SQL default keeps OPFS users on WebAssembly', () => {
+  const migrate = createMigrate('lingua-settings');
+
+  it('keeps WebAssembly for a profile that persists its tables and never chose an engine', () => {
+    expect(migrate({ sqlWorkspacePersistTables: true, theme: 'dark' }, 4)).toMatchObject({
+      sqlWorkspaceLocalEngine: 'wasm',
+      sqlWorkspacePersistTables: true,
+      theme: 'dark',
+    });
+  });
+
+  it('leaves the engine unset, so the native default applies, when nothing is persisted', () => {
+    expect(migrate({ sqlWorkspacePersistTables: false }, 4)).not.toHaveProperty('sqlWorkspaceLocalEngine');
+    expect(migrate({}, 4)).not.toHaveProperty('sqlWorkspaceLocalEngine');
+  });
+
+  it('respects an engine the user already chose', () => {
+    expect(migrate({ sqlWorkspacePersistTables: true, sqlWorkspaceLocalEngine: 'native' }, 4)).toMatchObject({
+      sqlWorkspaceLocalEngine: 'native',
+    });
+  });
+});

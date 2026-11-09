@@ -41,10 +41,10 @@ const SQL_ROW_DISPLAY_LIMITS: ReadonlyArray<100 | 500 | 1000 | 5000> = [
   100, 500, 1000, 5000,
 ];
 
-/** Whether this build ships the native binding: null while asking, false on web. */
+/** Whether this build ships the native binding: null while asking, and always on web, which has no native engine to offer. */
 function useNativeSqlEngineAvailable(): boolean | null {
   const bridge = typeof window === 'undefined' ? undefined : window.lingua?.sqlLocal;
-  const [available, setAvailable] = useState<boolean | null>(bridge ? null : false);
+  const [available, setAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     if (!bridge) return;
     let cancelled = false;

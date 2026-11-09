@@ -322,7 +322,7 @@ Desktop builds ship `@duckdb/node-api` for their platform and run Local SQL
 natively unless Settings → SQL workspace → Local engine is `wasm`
 (`sqlWorkspaceLocalEngine`, `native` by default). Packaging keeps only the
 target's binding package, unpacks it from app.asar, and on macOS
-`scripts/electron-builder-after-pack.cjs` thins the universal library to the
+`scripts/electron-builder-after-pack.mjs` thins the universal library to the
 packaged architecture before signing. `duckdbClient`'s production factory asks
 `window.lingua.sqlLocal.status()` and opens `duckdbNativeEngine.ts`, a
 `DuckDbEngineHandle` over the `sql-local:*` channels; a missing binding or a

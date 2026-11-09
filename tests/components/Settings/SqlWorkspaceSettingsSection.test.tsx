@@ -56,6 +56,14 @@ describe('SQL workspace settings with the native engine', () => {
     vi.unstubAllGlobals();
   });
 
+  it('hides the engine row on web, which has no native engine to offer', async () => {
+    Object.defineProperty(window, 'lingua', { configurable: true, value: {} });
+    render(<SqlWorkspaceSettingsSection />);
+    await Promise.resolve();
+    expect(screen.queryByTestId('settings-sql-local-engine')).toBeNull();
+    expect(screen.queryByText('The native engine is not available, so Local SQL runs on WebAssembly.')).toBeNull();
+  });
+
   it('shows a stored native choice that this build cannot run as WebAssembly, with the browser storage hint', async () => {
     desktop(false);
     render(<SqlWorkspaceSettingsSection />);

@@ -167,7 +167,8 @@ describe('check-third-party-licenses', () => {
       await write('pg', { version: '8.0.0', optionalDependencies: { 'pg-cloudflare': '^1.4.1' } });
       const installed = [
         { ...baseEntry, name: '@scope/bindings', version: '2.0.0', license: 'MIT', path: 'node_modules/@scope/bindings' },
-        { ...baseEntry, name: '@scope/bindings-darwin-arm64', version: '2.0.0', license: 'MIT', path: 'node_modules/@scope/bindings-darwin-arm64' },
+        // The installed binary declares its own license, which wins over the parent's.
+        { ...baseEntry, name: '@scope/bindings-darwin-arm64', version: '2.0.0', license: 'Apache-2.0', path: 'node_modules/@scope/bindings-darwin-arm64' },
         { ...baseEntry, name: 'pg', version: '8.0.0', license: 'MIT', path: 'node_modules/pg' },
         { ...baseEntry, name: 'pg-cloudflare', version: '1.4.1', license: 'MIT', path: 'node_modules/pg-cloudflare' },
       ];
@@ -178,6 +179,10 @@ describe('check-third-party-licenses', () => {
         'pg-cloudflare@1.4.1',
         'pg@8.0.0',
       ]);
+      const byName = new Map(expandPlatformBinaries(installed, { root }).map(entry => [entry.name, entry]));
+      expect(byName.get('@scope/bindings-darwin-arm64')).toMatchObject({ license: 'Apache-2.0' });
+      expect(byName.get('@scope/bindings-darwin-arm64')).not.toHaveProperty('licenseFrom');
+      expect(byName.get('@scope/bindings-linux-x64')).toMatchObject({ license: 'MIT', licenseFrom: '@scope/bindings' });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

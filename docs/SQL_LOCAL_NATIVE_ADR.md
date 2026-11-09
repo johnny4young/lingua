@@ -1,8 +1,10 @@
 # Native Local SQL engine
 
-Status: proposed as the desktop default. Desktop builds ship DuckDB's binding
+Status: accepted as the desktop default. Desktop builds ship DuckDB's binding
 for their platform and run Local SQL natively unless Settings chooses
-WebAssembly; the web build keeps WASM.
+WebAssembly; the web build keeps WASM. A profile that already saved its tables
+in OPFS before this default keeps WebAssembly until the user switches, since
+the native engine keeps its own file (settings migration v5).
 
 ## Context
 
