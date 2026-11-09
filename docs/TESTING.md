@@ -178,10 +178,12 @@ on port 4175 and never reuses a server.
 
 The web validation wrapper caches the bundle together with its synthetic license.
 Its input fingerprint covers the renderer/shared/web trees, shared build helpers,
-public assets, patches, root package/lock/CSS/TypeScript/Vite configuration, and
+public assets, patches, root package/lock/CSS/TypeScript/Vite/Browserslist configuration, and
 the copied runtime files named by `RUNTIME_ASSETS`. It also tracks optional Vite
 dotenv and package-install metadata, Node/platform/architecture, and public build
-environment overrides. Only filesystem metadata and digests are stored; dotenv
+environment overrides, Node options and Browserslist settings. Explicit Browserslist
+configuration outside the checkout disables reuse without being inspected. Only
+filesystem metadata and digests are stored; dotenv
 contents and environment values are not written to the cache metadata. Caller
 license-key and telemetry values are ignored because the wrapper replaces them.
 

@@ -91,20 +91,34 @@ function fingerprintBuildInputs() {
     // endpoint below. Other VITE_* values can be embedded by Vite.
     const overridden = new Set(['VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK', 'VITE_LINGUA_TELEMETRY_URL']);
     const buildEnv = Object.keys(process.env)
-      .filter(name => (name.startsWith('VITE_') && !overridden.has(name)) || name === 'LINGUA_WEBSITE_URL')
+      .filter(name => (name.startsWith('VITE_') && !overridden.has(name)) ||
+        name.startsWith('BROWSERSLIST') || name === 'LINGUA_WEBSITE_URL' || name === 'NODE_OPTIONS')
       .sort()
       .map(name => [name, process.env[name]])
-      .filter(([name, value]) => name !== 'LINGUA_WEBSITE_URL' || Boolean(value));
-    hash.update(JSON.stringify([process.version, process.platform, process.arch, process.env.NODE_ENV ?? 'production', buildEnv]));
+      .filter(([name, value]) => name.startsWith('VITE_') || Boolean(value));
+    hash.update(JSON.stringify([process.version, process.platform, process.arch, process.env.NODE_ENV || 'production', buildEnv]));
     const inputs = [
       'src/renderer', 'src/shared', 'src/web', 'build', 'public', 'patches',
       'package.json', 'CHANGELOG.md', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json',
       'postcss.config.mjs', 'vite.web.config.mts', 'runtime-assets.lock.json',
+      '.browserslistrc', 'browserslist',
       '.env', '.env.local', '.env.production', '.env.production.local',
       'node_modules/.modules.yaml', 'node_modules/.package-lock.json',
       ...Object.values(RUNTIME_ASSETS).flatMap(asset =>
         (asset.copyFiles ?? asset.criticalFiles).map(file => path.join(asset.nodeModulesPath, file))),
     ];
+
+    for (const name of ['BROWSERSLIST_CONFIG', 'BROWSERSLIST_STATS', 'BROWSERSLIST_ROOT_PATH']) {
+      if (!process.env[name]) continue;
+      const absolutePath = path.resolve(repoRoot, process.env[name]);
+      const relativePath = path.relative(repoRoot, absolutePath);
+      // Do not inspect configuration outside the checkout. Rebuild instead.
+      if (relativePath === '..' || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath)) return null;
+      if (name !== 'BROWSERSLIST_ROOT_PATH') {
+        if (!relativePath || (existsSync(absolutePath) && statSync(absolutePath).isDirectory())) return null;
+        inputs.push(relativePath);
+      }
+    }
 
     function visit(relativePath) {
       const absolutePath = path.join(repoRoot, relativePath);

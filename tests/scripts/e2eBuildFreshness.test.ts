@@ -174,6 +174,9 @@ describe('web E2E build input cache', () => {
     ['VITE_BASE_PATH', '/one/', '/two/'],
     ['VITE_NEW_FEATURE_FLAG', 'synthetic-option-one', 'synthetic-option-two'],
     ['LINGUA_WEBSITE_URL', 'https://one.invalid', 'https://two.invalid'],
+    ['BROWSERSLIST', 'last 1 Chrome version', 'last 2 Chrome versions'],
+    ['BROWSERSLIST_ENV', 'production', 'development'],
+    ['NODE_OPTIONS', '--conditions=fixture-one', '--conditions=fixture-two'],
     ['NODE_ENV', 'production', 'development'],
   ])('invalidates a changed %s build override without persisting its value', (name, before, after) => {
     const root = fixture();
@@ -187,7 +190,32 @@ describe('web E2E build input cache', () => {
     const root = fixture();
     pass(root);
     pass(root, { NODE_ENV: 'production' });
+    pass(root, { NODE_ENV: '' });
     expect(builds(root)).toBe('1');
+  });
+
+  it.each(['.browserslistrc', 'browserslist'])('invalidates creation of a root Browserslist config %s', name => {
+    const root = fixture();
+    pass(root);
+    write(root, name, 'last 2 Chrome versions');
+    pass(root);
+    expect(builds(root)).toBe('2');
+  });
+
+  it.each(['BROWSERSLIST_CONFIG', 'BROWSERSLIST_STATS'])('tracks the in-checkout file selected by %s', name => {
+    const root = fixture();
+    write(root, 'config/browser-data', 'synthetic browser configuration');
+    pass(root, { [name]: 'config/browser-data' });
+    write(root, 'config/browser-data', 'updated synthetic browser configuration');
+    pass(root, { [name]: 'config/browser-data' });
+    expect(builds(root)).toBe('2');
+  });
+
+  it('does not reuse a build with external Browserslist configuration', () => {
+    const root = fixture();
+    pass(root, { BROWSERSLIST_CONFIG: '../unread-external-config' });
+    pass(root, { BROWSERSLIST_CONFIG: '../unread-external-config' });
+    expect(builds(root)).toBe('2');
   });
 
   it('does not invalidate for test selection, preview port or unrelated environment values', () => {
