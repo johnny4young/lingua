@@ -12,6 +12,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - Switching projects quickly while Tests stops an old run keeps the latest project's runner and Stop control. An older detection response or error no longer replaces a newer detection of the same project.
+- On desktop, a failed storage copy no longer leaves saved SQL tables beside an unrelated database log. A retry copies the database and its log together.
 
 ## [2.2.0] — 2026-11-07
 
