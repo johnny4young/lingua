@@ -625,6 +625,7 @@ describe('OPFS persistence ', () => {
         'lingua-sql.db.wal',
         'lingua-sql.db.lingua-migrating',
         'lingua-sql.db.wal.lingua-migrating',
+        'lingua-sql.db.wal.lingua-previous',
       ]);
       expect(await nextEngine).toBe(next);
     } finally {

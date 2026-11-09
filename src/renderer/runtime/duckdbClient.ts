@@ -228,7 +228,7 @@ function nativeBridge(): SqlLocalBridge | null {
 const OPFS_SQL_DB_FILE_NAMES: readonly string[] = (() => {
   const base = OPFS_SQL_DB_FILE;
   // Staged copies an interrupted storage migration from an older build can leave behind.
-  return [base, `${base}.wal`, `${base}.lingua-migrating`, `${base}.wal.lingua-migrating`];
+  return [base, `${base}.wal`, `${base}.lingua-migrating`, `${base}.wal.lingua-migrating`, `${base}.wal.lingua-previous`];
 })();
 
 /**
