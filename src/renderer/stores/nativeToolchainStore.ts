@@ -9,6 +9,8 @@ interface NativeToolchainEntry {
   status: NativeJsRuntimeStatus;
   /** Folders checked besides PATH, home-relative; empty unless missing. */
   searched: string[];
+  /** The picked binary, home-relative; null on PATH, undefined until read. */
+  chosenPath?: string | null;
 }
 
 interface DetectAnswer {
@@ -22,6 +24,9 @@ interface NativeToolchainState extends Record<NativeLanguageToolchain, NativeToo
   probe: (id: NativeLanguageToolchain, options?: { refresh?: boolean }) => Promise<NativeJsRuntimeStatus>;
   /** `failed` means main could not finish the pick (IPC or store error). */
   choose: (id: NativeLanguageToolchain) => Promise<ToolchainChooseResult | { status: 'failed' }>;
+  loadChoice: (id: NativeLanguageToolchain) => Promise<void>;
+  /** Back to PATH; false when main could not forget the pick. */
+  clearChoice: (id: NativeLanguageToolchain) => Promise<boolean>;
 }
 
 const CHECKING: NativeToolchainEntry = { status: 'checking', searched: [] };
@@ -39,7 +44,7 @@ export const useNativeToolchainStore = create<NativeToolchainState>((set, get) =
 
   report: (id, answer) => {
     const status = nativeDetectStatus(answer);
-    set({ [id]: { status, searched: status === 'missing' ? (answer.searched ?? []) : [] } });
+    set((state) => ({ [id]: { ...state[id], status, searched: status === 'missing' ? (answer.searched ?? []) : [] } }));
   },
 
   probe: (id, { refresh = false } = {}) => {
@@ -70,8 +75,23 @@ export const useNativeToolchainStore = create<NativeToolchainState>((set, get) =
     const bridge = desktopBridge(id);
     if (!bridge?.chooseBinary) return { status: 'canceled' };
     const result = await bridge.chooseBinary().catch(() => ({ status: 'failed' }) as const);
-    if (result.status === 'saved') await get().probe(id, { refresh: true });
+    if (result.status === 'saved') await Promise.all([get().probe(id, { refresh: true }), get().loadChoice(id)]);
     return result;
+  },
+
+  loadChoice: async (id) => {
+    const bridge = desktopBridge(id);
+    if (!bridge?.chosenBinary) return;
+    const answer = await bridge.chosenBinary().catch(() => null);
+    if (answer) set((state) => ({ [id]: { ...state[id], chosenPath: answer.path } }));
+  },
+
+  clearChoice: async (id) => {
+    const bridge = desktopBridge(id);
+    if (!bridge?.clearBinary) return false;
+    const answer = await bridge.clearBinary().catch(() => ({ cleared: false }));
+    await Promise.all([get().probe(id, { refresh: true }), get().loadChoice(id)]);
+    return answer.cleared;
   },
 }));
 

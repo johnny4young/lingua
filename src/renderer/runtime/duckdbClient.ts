@@ -60,6 +60,7 @@ import {
   type SqlImportCsvOptions,
   type SqlImportTarget,
 } from '../../shared/sqlImportPlan';
+import '../i18n/sqlLocalEngineCatalog';
 
 // ---------------------------------------------------------------------------
 // Public types — what the panel + tests consume.
@@ -195,9 +196,21 @@ export interface ResolvedLocalEngine {
   reason?: string;
 }
 let resolvedLocalEngine: ResolvedLocalEngine | null = null;
+const resolvedLocalEngineListeners = new Set<() => void>();
+
+function setResolvedLocalEngine(next: ResolvedLocalEngine | null): void {
+  resolvedLocalEngine = next;
+  for (const listener of resolvedLocalEngineListeners) listener();
+}
 
 export function getResolvedLocalEngine(): ResolvedLocalEngine | null {
   return resolvedLocalEngine;
+}
+
+/** For `useSyncExternalStore`: Settings re-renders when an engine resolves. */
+export function subscribeResolvedLocalEngine(listener: () => void): () => void {
+  resolvedLocalEngineListeners.add(listener);
+  return () => resolvedLocalEngineListeners.delete(listener);
 }
 
 /** The desktop's native engine bridge; absent on web. */
@@ -222,7 +235,8 @@ const DUCKDB_ACCESS_MODE_READ_WRITE = 3;
  */
 const OPFS_SQL_DB_FILE_NAMES: readonly string[] = (() => {
   const base = OPFS_SQL_DB_PATH.replace(/^opfs:\/\//, '');
-  return [base, `${base}.wal`];
+  // Staged copies an interrupted storage migration from an older build can leave behind.
+  return [base, `${base}.wal`, `${base}.lingua-migrating`, `${base}.wal.lingua-migrating`];
 })();
 
 /** Minimal `db.open` surface the persistence helper depends on. */
@@ -347,13 +361,17 @@ export async function flushAndReleaseDuckDbEngine(): Promise<void> {
  * `removeEntry`), then removes the database file + WAL sidecar. The
  * next `getDuckDbEngine` re-instantiates; re-opening the (now absent)
  * OPFS path yields a fresh empty database. Idempotent — a missing file
- * is swallowed.
+ * is swallowed. Rejects when the native file could not be removed, e.g.
+ * while another window's engine holds it.
  */
 export async function clearPersistedSqlDatabase(): Promise<void> {
   await engineLifecycle.release({
     afterTerminate: async () => {
       // Either engine may have written: the native file and the OPFS copy both go.
-      await nativeBridge()?.clearDatabase().catch(() => undefined);
+      const bridge = nativeBridge();
+      const native = bridge
+        ? await bridge.clearDatabase().catch((error: unknown) => ({ ok: false as const, error: { message: error instanceof Error ? error.message : String(error) } }))
+        : null;
       if (isOpfsStorageAvailable()) {
         try {
           const root = await navigator.storage.getDirectory();
@@ -369,6 +387,7 @@ export async function clearPersistedSqlDatabase(): Promise<void> {
         }
       }
       resetResolvedStorageMode();
+      if (native && !native.ok) throw new Error(native.error.message);
     },
   });
 }
@@ -438,7 +457,7 @@ export function __setDuckDbEngineFactoryForTests(
   engineLifecycle = createEngineLifecycle();
   resolvedStorageMode = 'memory';
   resolvedStorageRequestedMode = 'memory';
-  resolvedLocalEngine = null;
+  setResolvedLocalEngine(null);
   desiredPersistence = false;
 }
 
@@ -659,12 +678,12 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     try {
       const status = await bridge.status();
       if (status.available) return await nativeEngineFactory(bridge);
-      resolvedLocalEngine = { engine: 'wasm', fallback: 'unavailable' };
+      setResolvedLocalEngine({ engine: 'wasm', fallback: 'unavailable' });
     } catch (error) {
-      resolvedLocalEngine = { engine: 'wasm', fallback: 'failed', reason: error instanceof Error ? error.message : String(error) };
+      setResolvedLocalEngine({ engine: 'wasm', fallback: 'failed', reason: error instanceof Error ? error.message : String(error) });
     }
   } else {
-    resolvedLocalEngine = { engine: 'wasm' };
+    setResolvedLocalEngine({ engine: 'wasm' });
   }
   return wasmEngineFactory();
 }
@@ -676,7 +695,7 @@ async function nativeEngineFactory(bridge: SqlLocalBridge): Promise<DuckDbEngine
   );
   resolvedStorageMode = native.storageMode;
   resolvedStorageRequestedMode = requested;
-  resolvedLocalEngine = { engine: 'native', version: native.version };
+  setResolvedLocalEngine({ engine: 'native', version: native.version });
   return native.handle;
 }
 

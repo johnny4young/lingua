@@ -32,7 +32,9 @@ export function registerSqlLocalHandlers(service: SqlLocalService): void {
     if (!watched.has(sender.id)) {
       watched.add(sender.id);
       const owner = sender.id;
-      onOwnerReset(sender, () => {
+      // Fires on every reload; the next request subscribes again, so this one goes.
+      const unsubscribe = onOwnerReset(sender, () => {
+        unsubscribe();
         watched.delete(owner);
         service.releaseOwner(owner);
       });

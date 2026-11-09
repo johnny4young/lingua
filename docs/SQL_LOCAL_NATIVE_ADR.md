@@ -15,16 +15,26 @@ faster, peak footprint 371 against 656 MB, total CPU 1.0 against 3.7 s.
 
 ## Decision
 
-**Process.** The native engine runs in its own utilityProcess, `Lingua local
-SQL` (`src/main/sqlLocal/`, bundled to `.vite/build/sqlLocal.js`). The
-sandboxed renderer cannot load native code, and the remote SQL host is the
-wrong home: a remote engine that cannot cancel restarts that host, which would
-drop Local's in-memory tables, and Local's own restart for a statement that
-ignored Cancel would drop every remote session. A separate process also keeps
-a native crash away from main and from remote sessions, and shows Local's
-memory on its own line. The renderer reaches it over `sql-local:*`; main
-validates every argument, stamps the sending window as owner and decides every
-path. Results cross already capped to the preview window.
+**Process.** The native engine runs in utilityProcesses named `Lingua local
+SQL` (`src/main/sqlLocal/`, bundled to `.vite/build/sqlLocal.js`), one per
+window. Main starts a window's process on that window's first request and
+stops it when the window reloads, navigates or closes, and on quit; it first
+asks the process to close its engines (bounded at 3 s) so the database file
+is checkpointed, then kills it. A forced restart for a statement that ignored
+Cancel, an out-of-memory crash or a native abort ends only that window's
+engine. A restart waits (up to 5 s) for the old process to exit before the
+next one starts, so a lock the dying process still holds does not push the
+next open to memory. Leftover files and spill folders are removed when main
+starts the service and when a window's process stops. The sandboxed renderer
+cannot load native code, and the remote SQL host is the wrong home: a remote
+engine that cannot cancel restarts that host, which would drop Local's
+in-memory tables, and Local's own restart would drop every remote session. A
+separate process also keeps a native crash away from main and from remote
+sessions, and shows Local's memory on its own line. The renderer reaches it
+over `sql-local:*`; main validates every argument, stamps the sending window
+as owner and decides every path. An id the window's process no longer holds
+is an ordinary error; only a missing engine or a stopped process answers
+`engine-gone`, which makes the renderer open a new engine.
 
 **Package.** `@duckdb/node-api`, the binding DuckDB Labs maintains, pinned to
 `1.4.3-r.3`, the release duckdb-wasm 1.32.0 is built from, so both engines
@@ -35,8 +45,9 @@ API through FFI would add a toolchain and a maintenance burden for no gain.
 
 **Sandbox.** Each window gets one instance, configured before any SQL runs:
 extension install and autoload off, persistent secrets off, spill to the
-window's temp folder, then `allowed_directories` (the window's files and temp
-folders), `enable_external_access=false` and `lock_configuration=true`.
+window's temp folder, then `allowed_directories` (the window's files folder;
+DuckDB adds its own temp folder to the list by itself),
+`enable_external_access=false` and `lock_configuration=true`.
 Without the lock, SQL could point `extension_directory` at an allowed folder
 and download an extension, or set `profiling_output` to write outside the
 sandbox; with it, every setting stays fixed. SQL therefore cannot `SET`
@@ -48,6 +59,10 @@ DuckDB's `~/.duckdb` defaults never reach the user's folder.
 (`src/shared/sqlResultRows.ts`). The native engine reports DuckDB-WASM's
 Arrow type names and converts values to what WASM's Arrow rows become, so the
 grid, imports, exports, staged edits and Copy to Local read the same results.
+Results cross already capped to the preview window, and a top-level text or
+blob cell is cut to that window's size (256 KiB) while the chunk is read, row
+by row, so one huge value never becomes a huge string; a stream batch stays
+near 8 MiB.
 `tests/integration/duckdbBackendParity.test.ts` runs the client over both real
 engines. Where WASM's Arrow mapping loses data (INTERVAL, TIME WITH TIME
 ZONE, BIT, BIGNUM, UHUGEINT, DECIMAL and HUGEINT inside nested values,
@@ -67,8 +82,10 @@ extensions.duckdb.org. Any other extension fails by name on both.
 
 **Persistence.** With table persistence on, the native engine saves to
 `userData/sql-local/lingua-sql.duckdb`; WASM keeps its OPFS file. One engine
-holds the file at a time, as one WASM tab holds OPFS. Clearing stored data
-removes both. Existing OPFS tables are not copied to the native file.
+holds the file at a time, as one WASM tab holds OPFS: main grants the file to
+the first window that asks and opens the others in memory. Clearing stored
+data removes both; while another window's engine holds the file, its process
+refuses and Settings reports the failure. Existing OPFS tables are not copied to the native file.
 
 ## Measurements
 

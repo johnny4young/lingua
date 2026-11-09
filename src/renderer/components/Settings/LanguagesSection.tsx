@@ -4,6 +4,7 @@ import { GoLanguageIntelligenceRow } from './GoLanguageIntelligenceRow';
 import { LanguageSupportScorecard } from './LanguageSupportScorecard';
 import { RubyRuntimeRow } from './RubyRuntimeRow';
 import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
+import { ToolchainBinaryRow } from './ToolchainBinaryRow';
 
 /**
  * Dedicated Settings tab for
@@ -36,6 +37,8 @@ export function LanguagesSection() {
         <SpecCard>
           <RustLanguageIntelligenceRow />
           <GoLanguageIntelligenceRow />
+          <ToolchainBinaryRow toolchain="go" />
+          <ToolchainBinaryRow toolchain="rust" />
           <RubyRuntimeRow last />
         </SpecCard>
       </SettingsSection>

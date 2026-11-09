@@ -1,4 +1,4 @@
-/** The native Local SQL engine: a utilityProcess running `.vite/build/sqlLocal.js`, apart from the remote SQL host so neither restart drops the other's sessions. */
+/** The native Local SQL engine: utilityProcesses running `.vite/build/sqlLocal.js`, apart from the remote SQL host so neither restart drops the other's sessions. */
 
 import path from 'node:path';
 import { app, utilityProcess } from 'electron';
@@ -18,16 +18,15 @@ export function sqlLocalEnvironment(env: NodeJS.ProcessEnv, home: string): Recor
   return out;
 }
 
-export const sqlLocalHost = createSqlHostSupervisor<LocalRequest, SqlLocalError>(
-  () =>
-    utilityProcess.fork(path.join(__dirname, 'sqlLocal.js'), [], {
-      serviceName: 'Lingua local SQL',
-      stdio: 'ignore',
-      env: sqlLocalEnvironment(process.env, path.join(app.getPath('userData'), 'sql-local', 'home')),
-    }),
-  () => ({ message: 'The SQL engine stopped. Run the query again to start a new one.', code: 'engine-gone' })
-);
-
-export function disposeSqlLocalHost(): void {
-  sqlLocalHost.dispose();
+/** One window's engine process; the service starts one per window, on its first request. */
+export function createSqlLocalHost() {
+  return createSqlHostSupervisor<LocalRequest, SqlLocalError>(
+    () =>
+      utilityProcess.fork(path.join(__dirname, 'sqlLocal.js'), [], {
+        serviceName: 'Lingua local SQL',
+        stdio: 'ignore',
+        env: sqlLocalEnvironment(process.env, path.join(app.getPath('userData'), 'sql-local', 'home')),
+      }),
+    () => ({ message: 'The SQL engine stopped. Run the query again to start a new one.', code: 'engine-gone' })
+  );
 }

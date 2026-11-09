@@ -564,13 +564,30 @@ After `pnpm run build:desktop-bundles`, run:
 node scripts/smoke-shell-navigation.mjs [path-to-electron-executable]
 ```
 
-This runs the real main/preload and built renderer in fresh profiles, first from
-file URLs and then from a temporary loopback server. It asserts document-only
+This runs the real main/preload and built renderer in fresh profiles, first on
+`app://lingua` and then from a temporary loopback server. It asserts document-only
 navigation and redirect rejection, permitted reload/fragments, preserved EN/ES
 rendering, and zero renderer console errors. Results and screenshots are written
 to `output/playwright/shell-navigation/`; the owned profiles and server are cleaned
 up. It does not use the installed application's profile or claim release-package
 fuse/signing coverage; packaged acceptance remains a separate gate.
+
+### Origin migration smoke
+
+After `pnpm run build:desktop-bundles`, run:
+
+```sh
+node scripts/smoke-origin-migration.mjs [path-to-electron-executable]
+```
+
+It seeds a fresh profile with the current main process pointed at the built
+`index.html` on `file://`, the way builds before `app://lingua` stored their
+data, adds Spanish settings and origin private files, then launches the current
+build. It asserts every key and file arrives byte for byte, the UI comes up in
+Spanish, `fetch('file://…')` is refused, later launches neither migrate again
+nor roll data back, the V8 code cache fills, and the `file://` copy still opens
+in the older layout, with zero unexpected renderer console errors. Results go to
+`output/playwright/origin-migration/`; the profile is removed.
 
 ### Startup failure smoke
 

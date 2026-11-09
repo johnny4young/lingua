@@ -8,6 +8,16 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - On desktop, Local SQL runs on native DuckDB in its own process: the engine starts in under a tenth of a second and large queries finish several times faster with less memory. WebAssembly stays available under Settings › Editor › SQL workspace › Local engine, and takes over when the native engine cannot start. The native engine keeps DuckDB's settings fixed, so SET of an option asks you to switch engines.
+- On desktop, pages loaded from files get no extra privileges. Updating straight from a version older than 2.2.0 keeps your saved SQL tables but resets settings, sessions and layouts.
+
+## [2.2.0] — 2026-11-07
+
+### Added
+- On desktop, Settings › Languages shows which Go and Rust binary Run uses, with Choose binary… and Use PATH to go back to the one on PATH.
+
+### Changed
+- On desktop, the app keeps the JavaScript it compiled and reuses it on later launches instead of compiling it again each time. The first launch after updating copies your settings, sessions and saved SQL tables to the app's new storage; the old copy stays, so an older version still opens with it. If that copy fails, Lingua tells you and tries again on the next launch.
+- On desktop, scripts follow the same network rules as in the browser: reading a response from another site needs that site's CORS permission, and `fetch` can no longer read files on your disk. A local AI server must allow requests from Lingua; Ollama does by default, and LM Studio needs its CORS option on.
 - A result from a database connection that is already closed says so in your language, and reading it again keeps failing instead of looking complete.
 - Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
 - An AI endpoint that answers with an HTML page, such as a proxy error or a sign-in wall, shows the page title in the error instead of raw markup.
