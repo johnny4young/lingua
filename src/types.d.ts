@@ -448,6 +448,9 @@ interface LicenseRemoveDeviceData {
 // field as an intersection preserves that diagnostic without forking the
 // shared Result discriminator.
 type LicenseRemoveDeviceResult = Result<LicenseRemoveDeviceData> & { issues?: string[] };
+type LicenseFlowCall<C extends import('./shared/ipcContract').IpcInvokeChannel> = (
+  ...args: import('./shared/ipcContract').IpcInvokeArgs<C>
+) => Promise<import('./shared/ipcContract').IpcInvokeResult<C>>;
 
 // ------------------------------------------------------------- Plugin types
 //
@@ -951,6 +954,10 @@ interface LinguaAPI {
     clear: () => Promise<LicenseClearResult>;
     revalidate: () => Promise<LicenseApplyResult>;
     removeDevice: (deviceIdToRemove: string) => Promise<LicenseRemoveDeviceResult>;
+    startTrial: LicenseFlowCall<'license:start-trial'>;
+    startEducation: LicenseFlowCall<'license:start-education'>;
+    renewEducation: LicenseFlowCall<'license:renew-education'>;
+    startRecovery: LicenseFlowCall<'license:start-recovery'>;
   };
 
   deepLinks: {

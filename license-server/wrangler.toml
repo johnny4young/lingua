@@ -54,9 +54,10 @@ RESEND_FROM_NAME = "Lingua"
 # and new signatures; `next` selects the private key that signs newly
 # issued/refreshed tokens. Keep it paired with the primary public key.
 LINGUA_LICENSE_SIGNING_KEY_SLOT = "current"
-# CORS allowed origins for browser-side calls: the web build, and the built
-# desktop renderer (app://lingua), which posts trial, education and recovery
-# requests itself. Add additional origins (e.g. preview deploys) here.
+# CORS allowed origins for browser-side calls: the web build, and desktop
+# 2.2-2.3 builds, whose app://lingua renderer posts trial, education and
+# recovery itself. Later builds send these from main; drop app://lingua once
+# 2.3 is no longer supported. Add additional origins (e.g. preview deploys) here.
 CORS_ALLOWED_ORIGINS = "https://linguacode.dev,https://app.linguacode.dev,http://localhost:5174,http://localhost:4173,app://lingua"
 # Lemon Squeezy identity pins (public numeric ids, not secrets). The
 # store is SHARED with the maintainer's other products, so the worker

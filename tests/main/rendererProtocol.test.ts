@@ -32,7 +32,7 @@ describe('renderer scheme', () => {
     expect(RENDERER_ENTRY_URL).toBe('app://lingua/index.html');
   });
 
-  it('is an origin the license server accepts, since the renderer posts trials itself', () => {
+  it('stays an origin the license server accepts for released builds that post trials from the renderer', () => {
     const toml = readFileSync(path.resolve(__dirname, '../../license-server/wrangler.toml'), 'utf8');
     const allowed = /^\s*CORS_ALLOWED_ORIGINS\s*=\s*"([^"]*)"/mu.exec(toml)?.[1]?.split(',') ?? [];
     expect(allowed.map(origin => origin.trim())).toContain(DESKTOP_RENDERER_ORIGIN);

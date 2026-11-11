@@ -14,6 +14,12 @@ import type { LocalMcpBridge } from '../shared/localMcp';
 import type { PythonDebuggerBridge } from '../shared/pythonDebugger';
 import type { GoDebuggerBridge } from '../shared/goDebugger';
 import type { RustDebuggerBridge } from '../shared/rustDebugger';
+import type {
+  EducationRenewInput,
+  EducationStartInput,
+  LicenseRecoverInput,
+  TrialStartInput,
+} from '../shared/licenseServerTypes';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
 import { DESKTOP_SMOKE_FLAG } from '../shared/desktopSmoke';
 
@@ -476,6 +482,14 @@ contextBridge.exposeInMainWorld('lingua', {
     // so callers do not need a separate getState round-trip.
     removeDevice: (deviceIdToRemove: string) =>
       typedInvoke('license:remove-device', deviceIdToRemove),
+    // License-server flows started from Settings; main sends the request.
+    startTrial: (input: TrialStartInput) => typedInvoke('license:start-trial', input),
+    startEducation: (input: EducationStartInput) =>
+      typedInvoke('license:start-education', input),
+    renewEducation: (input: EducationRenewInput) =>
+      typedInvoke('license:renew-education', input),
+    startRecovery: (input: LicenseRecoverInput) =>
+      typedInvoke('license:start-recovery', input),
   },
 
   desktopSmoke: {

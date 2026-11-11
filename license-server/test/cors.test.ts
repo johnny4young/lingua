@@ -74,7 +74,7 @@ describe('license-server CORS', () => {
     expect(response.headers.get('vary')).toContain('Origin');
   });
 
-  it('allows the built desktop renderer on the routes it posts to itself', async () => {
+  it('allows released desktop renderers on the routes they post to themselves', async () => {
     const origin = 'app://lingua';
     for (const route of ['/trials/start', '/education/start', '/licenses/recover/start']) {
       const response = await app.request(
