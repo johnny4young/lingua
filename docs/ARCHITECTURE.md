@@ -2161,7 +2161,9 @@ recovery all go through `window.lingua.license` to main
 (`src/main/ipc/license.ts`), which validates the input and posts to the
 allowlisted base URL in `src/main/licenseServer.ts`. The web build sends trial,
 education and recovery with `fetch`; both surfaces build and parse them with
-`src/shared/licenseFlowRequests.ts`.
+`src/shared/licenseFlowRequests.ts`. Desktop 2.2 and 2.3 still post trial,
+education and recovery from the renderer, so the license Worker keeps
+`app://lingua` in `CORS_ALLOWED_ORIGINS` until those builds are unsupported.
 
 Chromium keys storage by origin, so `src/main/originMigration.ts` copies the
 renderer's `localStorage` and origin private file system (the persisted SQL

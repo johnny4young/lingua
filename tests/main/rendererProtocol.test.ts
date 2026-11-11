@@ -32,11 +32,10 @@ describe('renderer scheme', () => {
     expect(RENDERER_ENTRY_URL).toBe('app://lingua/index.html');
   });
 
-  it('stays off the license server CORS list, since main sends every license request', () => {
+  it('stays an origin the license server accepts for released builds that post trials from the renderer', () => {
     const toml = readFileSync(path.resolve(__dirname, '../../license-server/wrangler.toml'), 'utf8');
     const allowed = /^\s*CORS_ALLOWED_ORIGINS\s*=\s*"([^"]*)"/mu.exec(toml)?.[1]?.split(',') ?? [];
-    expect(allowed.length).toBeGreaterThan(0);
-    expect(allowed.map(origin => origin.trim())).not.toContain(DESKTOP_RENDERER_ORIGIN);
+    expect(allowed.map(origin => origin.trim())).toContain(DESKTOP_RENDERER_ORIGIN);
   });
 });
 
