@@ -25,8 +25,8 @@
       need renderer CSP room: they go through the SSRF-guarded main
       proxy (see docs/LOCAL_AI_ADR.md), so this page stays loopback-only.
 
-      This CSP binds the page only: the app scheme sends worker scripts without
-      a CSP header, so code running in a worker is outside it (docs/ARCHITECTURE.md).
+      This CSP binds the page only. Packaged worker scripts get their own CSP
+      header from the app scheme (src/main/workerCsp.ts, docs/ARCHITECTURE.md).
     -->
     <meta
       http-equiv="Content-Security-Policy"

@@ -589,6 +589,25 @@ nor roll data back, the V8 code cache fills, and the `file://` copy still opens
 in the older layout, with zero unexpected renderer console errors. Results go to
 `output/playwright/origin-migration/`; the profile is removed.
 
+### Worker CSP smoke
+
+After `pnpm run build:desktop-bundles`, run:
+
+```sh
+node scripts/smoke-worker-csp.mjs [path-to-packaged-executable]
+```
+
+Without an argument it launches the built main process with the Electron
+binary; with the packaged app's executable it drives that build over Chromium
+CDP, since its fuses refuse the Node inspector. It checks that every worker
+entry arrives with the CSP `src/main/workerCsp.ts` lists for it, that Chromium
+refuses remote scripts and fonts in each kind of worker while runtime workers
+still reach the network, that JavaScript, Python, Ruby, Go, DuckDB and the diff
+worker run through their own protocols under Allow and Block, and that Monaco's
+workers still mark a syntax error in English and Spanish, with zero unexpected
+console errors. Results and screenshots go to `output/playwright/worker-csp/`;
+the profile is removed.
+
 ### Startup failure smoke
 
 After building desktop bundles:

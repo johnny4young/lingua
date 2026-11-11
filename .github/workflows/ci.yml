@@ -37,7 +37,8 @@ jobs:
         with:
           fetch-depth: 0
       # Skip only when every changed path is on the first list and none is on the
-      # second, which holds what only the macOS lane runs. Any other path runs it.
+      # second, which holds what only the macOS lane runs (worker sources included,
+      # so the worker CSP smoke sees them). Any other path runs it.
       # grep exits 2 on an error, so only a clean no-match (1) can skip.
       - id: pick
         env:
@@ -47,7 +48,7 @@ jobs:
           macos=true
           if [ -n "$BASE_SHA" ] && files="$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA")" && [ -n "$files" ]; then
             grep -vqE '^(docs/|src/renderer/|src/web/|tests/|license-server/|update-server/|\.github/(ISSUE_TEMPLATE/|workflows/|[^/]+$)|[^/]+\.md$)' <<<"$files" && others=0 || others=$?
-            grep -qE '^(docs/performance/|src/renderer/.*[dD]esktopSmoke|tests/build/|tests/cli/|tests/shared/runCapsule|tests/website/|\.github/workflows/ci\.yml$)' <<<"$files" && macos_only=0 || macos_only=$?
+            grep -qE '^(docs/performance/|src/renderer/.*[dD]esktopSmoke|src/renderer/workers/|src/renderer/monaco\.ts$|src/renderer/runtime/(duckdb|utilityCompute)Client\.ts$|src/renderer/runners/(workerRunnerShell|go|python|ruby)\.ts$|tests/build/|tests/cli/|tests/shared/runCapsule|tests/website/|\.github/workflows/ci\.yml$)' <<<"$files" && macos_only=0 || macos_only=$?
             if [ "$others" -eq 1 ] && [ "$macos_only" -eq 1 ]; then macos=false; fi
           fi
           echo "macos=$macos" | tee -a "$GITHUB_OUTPUT"
@@ -461,6 +462,19 @@ jobs:
           path: |
             output/playwright/origin-migration/result.json
             output/playwright/origin-migration/migrated-es.png
+          retention-days: 7
+      # The page CSP does not bind workers; this proves each worker script's own
+      # header arrives, Chromium enforces it, and every runtime still runs.
+      - name: Worker CSP smoke
+        run: node scripts/smoke-worker-csp.mjs
+      - name: Upload worker CSP smoke evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: worker-csp-smoke
+          path: |
+            output/playwright/worker-csp/*
+            !output/playwright/worker-csp/profile-*
           retention-days: 7
       # The release runs this smoke only after signing and notarization, so a
       # renderer-gate regression otherwise surfaces at release time. An ad-hoc

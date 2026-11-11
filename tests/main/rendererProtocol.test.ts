@@ -10,6 +10,7 @@ import {
   RENDERER_SCHEME,
   resolveRendererAssetPath,
 } from '../../src/main/rendererProtocol';
+import { TOOLING_WORKER_CSP } from '../../src/main/workerCsp';
 import { DESKTOP_RENDERER_ORIGIN } from '../../src/shared/desktopRendererOrigin';
 
 const root = path.resolve('/opt/lingua/renderer/main_window');
@@ -73,6 +74,10 @@ describe('resolveRendererAssetPath', () => {
     'app://lingua/a%00.js',
     'app://lingua/%E0%A4%A',
     'app://lingua/.lingua/blank.html',
+    // Windows aliases of assets/js-worker.js that would skip its name-keyed CSP.
+    'app://lingua/assets/js-worker.js.',
+    'app://lingua/assets/js-worker.js%20',
+    'app://lingua/assets/js-worker.js::$DATA',
     'app://other/index.html',
     'app://user:pass@lingua/index.html',
     'lingua://app/index.html',
@@ -92,8 +97,38 @@ describe('renderer protocol handler', () => {
 
   it('serves renderer files through a file fetch of the resolved path', async () => {
     const { fetch, handle } = handler();
-    await expect(handle(new Request('app://lingua/assets/main.js'))).resolves.toBe(ok);
-    expect(fetch).toHaveBeenCalledWith(pathToFileURL(path.join(root, 'assets/main.js')).href);
+    await expect(handle(new Request('app://lingua/assets/main.css'))).resolves.toBe(ok);
+    expect(fetch).toHaveBeenCalledWith(pathToFileURL(path.join(root, 'assets/main.css')).href);
+  });
+
+  it('gives a worker script its policy as a response header and keeps the rest of the response', async () => {
+    const script = () =>
+      new Response('self.onmessage = () => {};', {
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'text/javascript' },
+      });
+    const { handle } = handler(vi.fn(async () => script()));
+    for (const url of [
+      'app://lingua/assets/editor.worker-C3R1XRkp.js',
+      'app://lingua/assets/editor%2Eworker-C3R1XRkp.js',
+      'app://lingua/assets/../assets/editor.worker-C3R1XRkp.js',
+    ]) {
+      const response = await handle(new Request(url));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toBe('text/javascript');
+      expect(response.headers.get('content-security-policy')).toBe(TOOLING_WORKER_CSP);
+      await expect(response.text()).resolves.toBe('self.onmessage = () => {};');
+    }
+  });
+
+  it('leaves files that cannot start a worker as the file loader returned them', async () => {
+    const { handle } = handler();
+    for (const url of ['app://lingua/index.html', 'app://lingua/pyodide/pyodide.asm.wasm']) {
+      const response = await handle(new Request(url));
+      expect(response).toBe(ok);
+      expect(response.headers.has('content-security-policy')).toBe(false);
+    }
   });
 
   it('answers a missing file with a network error, so the load fails instead of rendering', async () => {
