@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { copyFileSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -240,6 +240,27 @@ describe('web E2E build input cache', () => {
     write(root, 'tests/example.test.ts', 'test only');
     write(root, 'index.html', '<main>desktop-only change</main>');
     write(root, 'public/.DS_Store', 'Finder metadata');
+    write(root, 'src/renderer/.app.ts.swp', 'vim swap');
+    write(root, 'src/renderer/app.ts~', 'editor backup');
+    write(root, 'src/shared/x.ts___jb_tmp___', 'JetBrains temp');
+    pass(root);
+    expect(builds(root)).toBe('1');
+  });
+
+  it('ignores NODE_OPTIONS flags that cannot change the bundle', () => {
+    const root = fixture();
+    write(root, 'debug-bootloader.js', '');
+    pass(root, { NODE_OPTIONS: '--conditions fixture' });
+    pass(root, { NODE_OPTIONS: '--max-old-space-size=8192 --conditions=fixture --require ./debug-bootloader.js' });
+    expect(builds(root)).toBe('1');
+  });
+
+  it('ignores ctime churn from another hardlink to a store-linked runtime asset', () => {
+    const root = fixture();
+    pass(root);
+    const asset = Object.values(RUNTIME_ASSETS)[0];
+    const file = path.join(root, asset.nodeModulesPath, (asset.copyFiles ?? asset.criticalFiles)[0]);
+    linkSync(file, path.join(root, 'store-link'));
     pass(root);
     expect(builds(root)).toBe('1');
   });
@@ -260,5 +281,9 @@ describe('web E2E build input cache', () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('Web build inputs changed during compilation');
     expect(readFileSync(path.join(root, 'test-count.txt'), 'utf8')).toBe('1');
+    const license = statSync(path.join(root, '.cache/playwright-e2e/dev-license.json')).mtimeMs;
+    expect(license).toBeGreaterThanOrEqual(statSync(path.join(root, 'dist/web/index.html')).mtimeMs);
+    pass(root);
+    expect(builds(root)).toBe('3');
   });
 });

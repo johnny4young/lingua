@@ -68,7 +68,7 @@ const cacheDir = path.join(repoRoot, '.cache', 'playwright-e2e');
 const licenseCachePath = path.join(cacheDir, 'dev-license.json');
 const buildMetadataPath = path.join(cacheDir, 'web-build-metadata.json');
 const distIndexPath = path.join(distDir, 'index.html');
-const buildInputsFingerprint = fingerprintBuildInputs();
+const buildInputsFingerprint = skipBuild ? null : fingerprintBuildInputs();
 const e2eBuildMetadata = {
   cacheVersion: 4,
   buildInputsFingerprint,
@@ -83,6 +83,23 @@ const e2eBuildMetadata = {
   sameOriginRuntime: true,
 };
 
+// Only resolution conditions change the bundle; heap sizes and debugger
+// preloads in NODE_OPTIONS would otherwise force needless rebuilds.
+function nodeConditions(options = '') {
+  const tokens = options.split(/\s+/).filter(Boolean);
+  const kept = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (/^(--conditions|-C)=/.test(tokens[index])) kept.push(tokens[index]);
+    else if (tokens[index] === '--conditions' || tokens[index] === '-C') kept.push(`--conditions=${tokens[++index] ?? ''}`);
+  }
+  return kept.join(' ');
+}
+
+// Dotfiles (Finder metadata, vim swap, Emacs locks) and editor backups are never build inputs.
+function isEditorArtifact(name) {
+  return name.startsWith('.') || name.endsWith('~') || name.includes('___jb_');
+}
+
 /** Metadata freshness only: never read dotenv contents or persist env values. */
 function fingerprintBuildInputs() {
   try {
@@ -94,7 +111,7 @@ function fingerprintBuildInputs() {
       .filter(name => (name.startsWith('VITE_') && !overridden.has(name)) ||
         name.startsWith('BROWSERSLIST') || name === 'LINGUA_WEBSITE_URL' || name === 'NODE_OPTIONS')
       .sort()
-      .map(name => [name, process.env[name]])
+      .map(name => [name, name === 'NODE_OPTIONS' ? nodeConditions(process.env[name]) : process.env[name]])
       .filter(([name, value]) => name.startsWith('VITE_') || Boolean(value));
     hash.update(JSON.stringify([process.version, process.platform, process.arch, process.env.NODE_ENV || 'production', buildEnv]));
     const inputs = [
@@ -135,10 +152,12 @@ function fingerprintBuildInputs() {
         // Enumerating names still detects removals and renames.
         hash.update(JSON.stringify([relativePath, 'directory']));
         for (const name of readdirSync(absolutePath).sort()) {
-          if (name !== '.DS_Store') visit(path.join(relativePath, name));
+          if (!isEditorArtifact(name)) visit(path.join(relativePath, name));
         }
       } else {
-        hash.update(JSON.stringify([relativePath, info.size, info.mtimeMs, info.ctimeMs]));
+        // pnpm hardlinks node_modules from a shared store, so another install changes ctime there.
+        const ctime = relativePath.startsWith(`node_modules${path.sep}`) ? 0 : info.ctimeMs;
+        hash.update(JSON.stringify([relativePath, info.size, info.mtimeMs, ctime]));
       }
     }
     for (const input of inputs) visit(input);
@@ -183,6 +202,11 @@ if (skipBuild) {
   );
   needsRebuild = false;
 } else {
+  if (buildIfStale && !buildInputsFingerprint) {
+    console.log(
+      '[run-playwright-web-validation] build inputs could not be fingerprinted (unreadable input or external Browserslist config); rebuilding.'
+    );
+  }
   needsRebuild = true;
 }
 
@@ -234,11 +258,16 @@ if (needsRebuild) {
       },
     }
   );
-  if (buildInputsFingerprint && fingerprintBuildInputs() !== buildInputsFingerprint) {
-    throw new Error('Web build inputs changed during compilation; rerun against settled inputs.');
-  }
+  // The new bundle bakes this key in, so --no-rebuild must find it even when
+  // the stale metadata below forces the next cached run to rebuild.
   mkdirSync(cacheDir, { recursive: true });
   writeFileSync(licenseCachePath, JSON.stringify(mintedLicense, null, 2));
+  if (buildInputsFingerprint && fingerprintBuildInputs() !== buildInputsFingerprint) {
+    console.error(
+      '[run-playwright-web-validation] Web build inputs changed during compilation; rerun against settled inputs.'
+    );
+    process.exit(1);
+  }
   writeFileSync(buildMetadataPath, JSON.stringify(e2eBuildMetadata, null, 2));
 } else {
   console.log(

@@ -181,7 +181,7 @@ Its input fingerprint covers the renderer/shared/web trees, shared build helpers
 public assets, patches, root package/lock/CSS/TypeScript/Vite/Browserslist configuration, and
 the copied runtime files named by `RUNTIME_ASSETS`. It also tracks optional Vite
 dotenv and package-install metadata, Node/platform/architecture, and public build
-environment overrides, Node options and Browserslist settings. Explicit Browserslist
+environment overrides, Node `--conditions` and Browserslist settings. Explicit Browserslist
 configuration outside the checkout disables reuse without being inspected. Only
 filesystem metadata and digests are stored; dotenv
 contents and environment values are not written to the cache metadata. Caller
@@ -192,8 +192,8 @@ reading large runtime payloads. This is a freshness cache, not an integrity chec
 for manually edited installed dependencies or output artifacts; use
 `--force-rebuild` for those. An input change during compilation fails the run
 before Playwright starts. Unchanged inputs reuse the existing bundle/key pair;
-docs, tests, desktop HTML, preview-port changes and Finder metadata do not force
-a web build. `--no-rebuild` remains an explicit request to use existing artifacts.
+docs, tests, desktop HTML, preview-port changes, dotfiles, editor temp files and
+`node_modules` ctime churn from pnpm hardlinks do not force a web build. `--no-rebuild` remains an explicit request to use existing artifacts.
 
 ### Electron Base
 
