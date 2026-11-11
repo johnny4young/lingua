@@ -36,31 +36,34 @@ type PostOutcome =
 
 async function postJson(url: string, payload: unknown): Promise<PostOutcome> {
   const controller = new AbortController();
+  // The timeout covers the body read too, so a stalled response cannot hang the form.
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let response: Response;
   try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : 'fetch failed' };
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : 'fetch failed' };
+    }
+    let json: unknown = null;
+    try {
+      json = await response.json();
+    } catch {
+      if (controller.signal.aborted) return { ok: false, message: 'request timed out' };
+    }
+    const body =
+      json !== null && typeof json === 'object' && !Array.isArray(json)
+        ? (json as Record<string, unknown>)
+        : null;
+    return { ok: true, response, body, json };
   } finally {
     clearTimeout(timer);
   }
-  let json: unknown;
-  try {
-    json = await response.json();
-  } catch {
-    json = null;
-  }
-  const body =
-    json !== null && typeof json === 'object' && !Array.isArray(json)
-      ? (json as Record<string, unknown>)
-      : null;
-  return { ok: true, response, body, json };
 }
 
 function readIssues(body: Record<string, unknown> | null): string[] | undefined {

@@ -43,6 +43,7 @@ import {
   stripProtocolEnvelope,
   validateLicenseServerProtocol,
 } from '../../shared/licenseServerProtocol';
+import { readLicenseServerBaseUrl } from './licenseFlowTransport';
 
 // Re-export so existing renderer imports
 // (`from '../services/licenseServer'`) keep working unchanged.
@@ -67,13 +68,6 @@ export type {
 } from '../../shared/licenseServerTypes';
 
 const REQUEST_TIMEOUT_MS = 5000;
-
-function getBaseUrl(): string | null {
-  const raw = import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL;
-  if (typeof raw !== 'string') return null;
-  const trimmed = raw.trim().replace(/\/$/, '');
-  return trimmed.length === 0 ? null : trimmed;
-}
 
 /**
  * Map the server's `reason` strings (per
@@ -173,7 +167,7 @@ function warnOnInvalidInput(endpoint: string, reason: LicenseServerFailureReason
 // ------------------------------------------------------------------ activate
 
 export async function activate(input: ActivateInput): Promise<ActivateResult> {
-  const base = getBaseUrl();
+  const base = readLicenseServerBaseUrl();
   if (!base) return { ok: false, reason: 'disabled' };
 
   const result = await fetchWithTimeout(`${base}/licenses/activate`, {
@@ -220,7 +214,7 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
 // -------------------------------------------------------------------- status
 
 export async function status(input: StatusInput): Promise<StatusResult> {
-  const base = getBaseUrl();
+  const base = readLicenseServerBaseUrl();
   if (!base) return { ok: false, reason: 'disabled' };
 
   const params = new URLSearchParams({ deviceId: input.deviceId, surface: input.surface });
@@ -261,7 +255,7 @@ export async function status(input: StatusInput): Promise<StatusResult> {
 // ------------------------------------------------------------- removeDevice
 
 export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDeviceResult> {
-  const base = getBaseUrl();
+  const base = readLicenseServerBaseUrl();
   if (!base) return { ok: false, reason: 'disabled' };
 
   const result = await fetchWithTimeout(`${base}/licenses/devices/remove`, {
@@ -306,5 +300,5 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
  * is no server).
  */
 export function isLicenseServerEnabled(): boolean {
-  return getBaseUrl() !== null;
+  return readLicenseServerBaseUrl() !== null;
 }

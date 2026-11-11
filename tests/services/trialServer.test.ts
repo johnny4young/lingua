@@ -188,4 +188,33 @@ describe('startTrial', () => {
       expect(result.reason).toBe('unreachable');
     }
   });
+
+  it('returns unreachable when the response body stalls past the timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+        const signal = init?.signal;
+        return {
+          ok: true,
+          status: 200,
+          json: () =>
+            new Promise((_resolve, reject) => {
+              signal?.addEventListener('abort', () => reject(new Error('aborted')));
+            }),
+        } as unknown as Response;
+      }) as FetchMock;
+      vi.stubGlobal('fetch', fetchMock);
+      const { startTrial } = await importService();
+      const pending = startTrial({
+        email: 'me@example.com',
+        deviceId: 'd',
+        deviceName: 'n',
+        os: 'darwin',
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+      await expect(pending).resolves.toMatchObject({ ok: false, reason: 'unreachable' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

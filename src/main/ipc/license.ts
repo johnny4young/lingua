@@ -21,9 +21,8 @@ import {
   startTrial,
   type RemoveDeviceResult,
 } from '../licenseServer';
+import { utf8ByteLength } from '../../shared/utf8';
 import { typedHandle } from './typedHandle';
-
-const TEXT_ENCODER = new TextEncoder();
 
 // Same byte caps as the Worker's validator (license-server/src/lib/validation.ts).
 const FLOW_FIELD_BYTE_CAPS = {
@@ -73,7 +72,7 @@ function readFlowInput<K extends FlowField>(
     }
     const trimmed = typeof raw === 'string' ? raw.trim() : '';
     if (trimmed.length === 0) issues.push(`${field} is required`);
-    else if (TEXT_ENCODER.encode(trimmed).byteLength > cap) issues.push(`${field} exceeds ${cap} byte cap`);
+    else if (utf8ByteLength(trimmed) > cap) issues.push(`${field} exceeds ${cap} byte cap`);
     else value[field] = trimmed;
   }
   if (issues.length > 0) {
