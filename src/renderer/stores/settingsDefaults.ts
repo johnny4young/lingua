@@ -238,6 +238,7 @@ export function createInitialSettingsState() {
     // Off by default; the SQL workspace is
     // an in-memory scratchpad unless the user opts into persistence.
     sqlWorkspacePersistTables: false,
+    sqlWorkspaceLocalEngine: 'native',
     // The Run Ledger is opt-in; nothing is recorded until the
     // user flips the Privacy toggle.
     runLedgerEnabled: false,

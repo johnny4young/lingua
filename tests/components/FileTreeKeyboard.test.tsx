@@ -93,6 +93,14 @@ describe('FileTree keyboard navigation (accessibility pass)', () => {
     await i18next.changeLanguage('en');
   });
 
+  it('names the project in full, with its folder, in the header tooltip', () => {
+    render(<FileTree />);
+    const name = screen.getByTestId('file-tree-root-tooltip');
+    expect(name.getAttribute('title')?.split('\n')[0]).toBe(name.textContent);
+    expect(name.getAttribute('title')?.split('\n')).toHaveLength(2);
+    expect(name.className).not.toContain('tracking-');
+  });
+
   it('exposes role=tree + treeitem with aria-level and aria-expanded', () => {
     render(<FileTree />);
     expect(screen.getByRole('tree')).toBeTruthy();

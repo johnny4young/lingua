@@ -485,6 +485,22 @@ export async function runDesktopSmoke(): Promise<void> {
       memorySnapshots.push(await captureMemorySnapshot(`after-${smokeCase.caseId}`));
     }
 
+    if (config.sqlLocal) {
+      const { runSqlLocalSmoke } = await import('./desktopSmokeSqlLocal');
+      const startedAt = performance.now();
+      const result = await withTimeout(runSqlLocalSmoke(config.sqlLocal, captureMemorySnapshot), 600_000, 'sql-local smoke');
+      await api.writeJsonArtifact('desktop-smoke-sql-local.json', result.artifact);
+      summaries.push({
+        caseId: `sql-local-${config.sqlLocal}`,
+        language: 'javascript',
+        ok: result.ok,
+        message: result.message,
+        executionTime: null,
+        executionWallTimeMs: Math.round(performance.now() - startedAt),
+        screenshotPath: null,
+      });
+    }
+
     // offline-mode synthetic case. When the
     // smoke is launched with --offline, the main-process
     // webRequest filter cancels any non-loopback HTTP/HTTPS

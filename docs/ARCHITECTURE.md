@@ -316,6 +316,49 @@ evict its own generation, never a newer one. Failed best-effort checkpoints do
 not prevent termination; failed generations remain retryable without changing
 the public SQL client API or persisted workspace data.
 
+Persistent startup belongs to duckdbPersistence.ts. With a nonempty database
+and an absent or empty WAL, it registers only the two active OPFS handles
+before opening, database first. It rechecks the WAL after acquiring the
+database; a WAL with content keeps automatic recovery. Fresh/empty databases
+and existing nonempty WALs retain automatic handling. Nothing is truncated or
+deleted to obtain access. An inspection, registration or open failure kills
+that worker before one fresh in-memory fallback is created, so failed startup does not
+reuse a worker holding partial handles. The same verified WASM asset is kept alive until that
+fallback has instantiated. Releasing while startup is pending still waits for
+the shared factory, then terminates it before allowing another generation;
+cancelling one query does not cancel initialization shared with other queries.
+
+### Native Local SQL engine
+
+Desktop builds ship `@duckdb/node-api` for their platform and run Local SQL
+natively unless Settings → SQL workspace → Local engine is `wasm`
+(`sqlWorkspaceLocalEngine`, `native` by default). Packaging keeps only the
+target's binding package, unpacks it from app.asar, and on macOS
+`scripts/electron-builder-after-pack.mjs` thins the universal library to the
+packaged architecture before signing. `duckdbClient`'s production factory asks
+`window.lingua.sqlLocal.status()` and opens `duckdbNativeEngine.ts`, a
+`DuckDbEngineHandle` over the `sql-local:*` channels; a missing binding or a
+failed start falls back to DuckDB-WASM, and the web build never has the
+bridge. Main (`src/main/ipc/sqlLocal.ts`, `src/main/sqlLocal/service.ts`)
+parses every argument, stamps the sending window as owner, decides every path
+under `userData/sql-local` and forks `src/main/sqlLocal/localEntry.ts`
+(bundled to `.vite/build/sqlLocal.js` by `vite.sqllocal.config.mts`) as one
+`Lingua local SQL` utility process per window, started on that window's first
+request and stopped when it reloads, navigates or closes, separate from the
+remote SQL host so neither restart drops the other's sessions. Main decides
+which window holds the persisted database file. The process starts with a
+minimal environment and its own HOME. Each window gets one DuckDB instance
+whose files and spill folders are the only paths SQL may touch:
+`allowed_directories`, `enable_external_access=false` and
+`lock_configuration=true` run before any SQL, so `SET` of DuckDB options is
+refused on this engine. Rows are converted in the process to what DuckDB-WASM's
+Arrow rows become and capped by the shared window in
+`src/shared/sqlResultRows.ts`, so both engines show the same results
+(`tests/integration/duckdbBackendParity.test.ts`). Registered files are named
+by absolute path (`DuckDbEngineHandle.filePath`). A forced restart for a
+statement that ignored Cancel restarts only that window's process. See
+`docs/SQL_LOCAL_NATIVE_ADR.md`.
+
 ### SQL runs, cancel and the row window
 
 `useSqlRunner` resolves a run into statements with the shared splitter
@@ -2174,11 +2217,24 @@ a private temp folder reads the old origin, and a hidden page on
 `app://lingua/.lingua/blank.html` writes the new one; main drives both with
 constant scripts from `originMigrationScripts.ts`. It runs once per profile:
 `renderer-origin-migration.json` in `userData` records the result and counts.
-It never overwrites a key or a non-empty file the new origin holds, so a retry
-after a failure (three launches at most) cannot roll data back. The marker
-records the attempt before any page opens, so a crash spends one, and then each
-finished step, so a retry neither repeats it nor restores what a factory reset
-or Recovery cleared since. A failure is logged by code and the app opens anyway.
+`localStorage` goes first and never overwrites a key the new origin holds.
+Files are then staged under a `.lingua-migrating` name before any moves start.
+Each database moves before its WAL, regardless of listing order. The target's
+own WAL is set aside first and put back if the database move fails, so the
+target pair stays intact; once the legacy database lands, that WAL no longer
+matches and is removed. A failed WAL move can leave a checkpoint without its
+WAL, never beside an unrelated one. A legacy WAL without its database is never
+copied, and every other file still migrates. The marker records each database
+and its WAL once both moves finish, group by group, so a crash later never
+restores a finished group; a retry copies both again, including when an older
+failed marker recorded only one, and a failed attempt removes the staged copies
+it did not move in. Until a pair finishes, legacy wins: a retry (three launches
+at most) replaces a database the app created after a failed attempt. The marker records the attempt before
+any page opens, so a crash spends one, and then each finished step, so a retry
+neither repeats it nor restores what a factory reset or Recovery cleared since.
+The Dock or taskbar shows the copy's progress, and five minutes bound the
+whole attempt. A failure is logged by its error name, the app opens anyway, and
+the renderer shows a warning that says whether the next launch retries.
 
 The `file://` copy stays in place, so an older build still opens with it. It
 also means data cleared in the app afterwards still sits in that copy: env
@@ -2187,6 +2243,14 @@ Removing it, for example with `session.clearStorageData({ origin: 'file://' })`
 once a later version runs, is an open decision. There is no disk probe for a fresh
 profile, because Chromium creates `Local Storage` before any page loads; the
 first launch of a new profile opens the reading page once, about 100 ms.
+
+Release builds turn the `GrantFileProtocolExtraPrivileges` fuse off
+(`tests/build/electronFuses.test.ts`). Without it Chromium still lets a
+`file://` page read its origin private file system but denies its
+`localStorage`, so a profile that comes straight from a `file://` build keeps
+its SQL database and loses settings, sessions and layouts; the marker records
+`localStorageUnreadable`. A profile migrated by a build that still had the fuse
+is unaffected.
 
 The renderer uses no IndexedDB, CacheStorage or cookies;
 `tests/build/rendererOriginStorage.test.ts` fails if that changes before the
@@ -2439,6 +2503,12 @@ Staged files and identity registrations are cleaned in `finally`, including canc
 runs. This complements the renderer fence after IPC has crossed into main.
 
 ### Project test preparation ownership
+
+Renderer detection belongs to the latest request, including repeated detection
+of the same project. An older request finishing Stop or discovery cannot rebind
+the Tests panel, replace the selected runner, or clear a newer run's Stop owner,
+and a switch whose project is no longer the open one stops there. Rebinding
+stops an active run first, so no run outlives its Stop control.
 
 Project-test IPC reserves cancellation by sender, root capability and run identity
 before awaiting root authorization. Stop revokes only that sender's matching

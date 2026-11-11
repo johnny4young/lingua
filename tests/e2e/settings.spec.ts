@@ -505,8 +505,8 @@ test.describe('Settings persistence', () => {
     expect(loaded?.state?.fontSize).toBe(18);
 
     // Toggle a setting so the store persists, then assert the envelope now
-    // carries the current schema version (v3 enables live Scratchpad
-    // expressions after the earlier restore-session migration).
+    // carries the current schema version (v5 keeps OPFS users on WebAssembly
+    // after the native Local SQL default).
     await openSettings(page);
     await openSettingsTab(page, 'editor');
     await page.getByRole('switch', { name: 'Vim mode' }).click();
@@ -519,6 +519,6 @@ test.describe('Settings persistence', () => {
           return raw ? (JSON.parse(raw) as { version?: number }).version : undefined;
         })
       )
-      .toBe(4);
+      .toBe(5);
   });
 });

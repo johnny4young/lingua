@@ -296,6 +296,8 @@ async function main() {
           LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
           LINGUA_SMOKE_SECRET: '__lingua_smoke_secret__',
           LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET: '1',
+          // Proves the signed app loads DuckDB's native binding and runs Local SQL on it.
+          LINGUA_DESKTOP_SMOKE_SQL_LOCAL: process.env.LINGUA_DESKTOP_SMOKE_SQL_LOCAL ?? 'native',
           ...(offlineMode ? { LINGUA_DESKTOP_SMOKE_OFFLINE: '1' } : {}),
         },
       }

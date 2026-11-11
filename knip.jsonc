@@ -13,6 +13,7 @@
         // renderer/web entries are picked up by Knip's Vite plugin.
         "src/main/index.ts",
         "src/main/sqlHost/hostEntry.ts",
+        "src/main/sqlLocal/localEntry.ts",
         "src/preload/index.ts",
         // Web-only alias target invisible to static import scanning.
         "src/web/plugin-catalog.ts",
@@ -45,9 +46,11 @@
         "ditto",
         "file",
         "fish",
+        "lipo",
         "mkfifo",
         "openssl",
-        "ruby"
+        "ruby",
+        "strip"
       ],
       "ignoreDependencies": [
         // Monaco loads these declarations through an import.meta.glob string.

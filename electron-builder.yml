@@ -33,6 +33,9 @@ files:
   # Source maps, TypeScript sources and declarations, and nested readmes never load at runtime.
   - '!**/node_modules/**/*.{map,ts,mts,cts}'
   - '!**/node_modules/**/{README,Readme,readme}.md'
+  # DuckDB ships one binding package per platform; keep only the one this build targets.
+  - '!**/node_modules/@duckdb/node-bindings-*{,/**}'
+  - '**/node_modules/@duckdb/node-bindings-${platform}-${arch}/**'
 # ripgrep is an executable, so keep it outside app.asar. The build script copies
 # every release target into an architecture-specific source path; electron-
 # builder's macros select the matching executable for each packaged app.
@@ -50,21 +53,19 @@ asar: true
 # exists in the packaged application during the desktop packaging smoke.
 asarUnpack:
   - '**/*.node'
+  # duckdb.node loads libduckdb from its own folder, so the library leaves the asar too.
+  - '**/node_modules/@duckdb/node-bindings-*/**'
+# Thins DuckDB's universal macOS library to the packaged architecture before signing.
+afterPack: scripts/electron-builder-after-pack.mjs
 # Deep-link scheme (lingua://) — replaces the Forge packagerConfig.protocols.
 protocols:
   - name: Lingua
     schemes:
       - lingua
-# Mirror the Electron fuses the Forge FusesPlugin set. Forge set only these six
-# and left grantFileProtocolExtraPrivileges at the Electron default (enabled).
-# The first electron-builder cut over-hardened it to false, which strips the
-# file:// protocol of the privileges loadFile needs to read the renderer
-# index.html out of app.asar — the packaged app then failed with
-# ERR_FILE_NOT_FOUND and never rendered (the smoke gate then timed out and hung).
-# Keep it enabled to match the working Forge build. asar integrity validation
-# stays on; it was never the cause.
-# The cost: every file:// context, workers included, skips CORS and can read any
-# local file. Turning it off needs a custom protocol for the renderer.
+# The renderer loads from app://lingua, so no window needs file:// privileges
+# (they let a file:// page skip CORS and read any local file). Without them a
+# file:// page cannot read its localStorage, so the one-time storage migration
+# copies only the origin private file system for profiles still on file://.
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true
@@ -72,7 +73,7 @@ electronFuses:
   enableNodeCliInspectArguments: false
   enableEmbeddedAsarIntegrityValidation: true
   onlyLoadAppFromAsar: true
-  grantFileProtocolExtraPrivileges: true
+  grantFileProtocolExtraPrivileges: false
 # Target formats are dictated by electron-updater's auto-install support: mac
 # updates from a zip (Squirrel.Mac), windows needs an NSIS installer, linux needs
 # an AppImage. mac also ships a dmg for the first manual download.

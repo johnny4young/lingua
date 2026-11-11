@@ -35,6 +35,8 @@ import {
 import type { GoCompileResult, GoDetectResult } from '../shared/nativeRuntimeTypes';
 import {
   chooseToolchainBinary,
+  chosenToolchainDisplayPath,
+  clearChosenToolchainBinary,
   findToolchain,
   toolchainCandidates,
   toolchainSearchedPlaces,
@@ -265,6 +267,11 @@ export function registerGoHandlers(): void {
   });
   typedHandle('go:choose-binary', async (event) => {
     try { return await chooseToolchainBinary('go', event.sender, verifyChosenGo); }
+    finally { cachedGoDetect = null; detectGeneration += 1; }
+  });
+  typedHandle('go:chosen-binary', async () => ({ path: await chosenToolchainDisplayPath('go') }));
+  typedHandle('go:clear-binary', async () => {
+    try { return { cleared: await clearChosenToolchainBinary('go') }; }
     finally { cachedGoDetect = null; detectGeneration += 1; }
   });
   typedHandle('go:compile', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {

@@ -3,7 +3,7 @@
  * transition, not merely clearing a cache: the next factory must wait until
  * termination and any storage cleanup finish.
  */
-export class DuckDbEngineLifecycle<Engine extends { terminate: () => Promise<void> }> {
+export class DuckDbEngineLifecycle<Engine extends { terminate: (options?: { force?: boolean }) => Promise<void> }> {
   private cached: Promise<Engine> | null = null;
   private releaseBarrier: Promise<void> = Promise.resolve();
 
@@ -23,10 +23,20 @@ export class DuckDbEngineLifecycle<Engine extends { terminate: () => Promise<voi
     return current;
   }
 
+  /** Releases only while `engine` is still the cached generation, so a late failure of an old one never drops a newer one. */
+  async releaseIfCurrent(engine: Engine, options: { afterTerminate?: () => Promise<void> } = {}): Promise<void> {
+    const pending = this.cached;
+    if (pending === null) return;
+    const current = await pending.catch(() => null);
+    if (current !== engine || this.cached !== pending) return;
+    await this.release(options);
+  }
+
   release(
     options: {
       beforeTerminate?: (engine: Engine) => Promise<void>;
       afterTerminate?: () => Promise<void>;
+      force?: boolean;
     } = {}
   ): Promise<void> {
     const pending = this.cached;
@@ -41,7 +51,7 @@ export class DuckDbEngineLifecycle<Engine extends { terminate: () => Promise<voi
             // A failed best-effort checkpoint must not prevent termination.
           }
           try {
-            await engine.terminate();
+            await (options.force ? engine.terminate({ force: true }) : engine.terminate());
           } catch {
             // A rejected instantiate or already-terminated engine is gone.
           }

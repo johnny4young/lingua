@@ -6,16 +6,34 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-11-09
+
 ### Changed
-- On desktop, the app keeps the JavaScript it compiled and reuses it on later launches instead of compiling it again each time. The first launch after updating copies your settings, sessions and saved SQL tables to the app's new storage; the old copy stays, so an older version still opens with it.
+- On desktop, Local SQL runs on native DuckDB in its own process: the engine starts faster and large queries finish several times faster with less memory. WebAssembly stays available under Settings › Editor › SQL workspace › Local engine, and takes over when the native engine cannot start. If you already save your SQL tables between sessions, Lingua keeps WebAssembly so they stay in view; choose Native there to switch. The native engine keeps DuckDB's settings fixed, so SET of an option asks you to switch engines.
+- On desktop, pages loaded from files get no extra privileges. Updating straight from a version older than 2.2.0 keeps your saved SQL tables but resets settings, sessions and layouts.
+
+### Fixed
+- Saved Local SQL tables stay writable when their database has no write-ahead log or an empty one. If opening persisted storage fails, Lingua releases its file handles before falling back to memory.
+- Switching projects quickly while Tests stops an old run keeps the latest project's runner and Stop control. An older detection response or error no longer replaces a newer detection of the same project.
+- On desktop, a failed storage copy no longer leaves saved SQL tables beside an unrelated database log. A retry copies the database and its log together.
+
+## [2.2.0] — 2026-11-07
+
+### Added
+- On desktop, Settings › Languages shows which Go and Rust binary Run uses, with Choose binary… and Use PATH to go back to the one on PATH.
+
+### Changed
+- On desktop, the app keeps the JavaScript it compiled and reuses it on later launches instead of compiling it again each time. The first launch after updating copies your settings, sessions and saved SQL tables to the app's new storage; the old copy stays, so an older version still opens with it. If that copy fails, Lingua tells you and tries again on the next launch.
 - On desktop, scripts follow the same network rules as in the browser: reading a response from another site needs that site's CORS permission, and `fetch` can no longer read files on your disk. A local AI server must allow requests from Lingua; Ollama does by default, and LM Studio needs its CORS option on.
 - A result from a database connection that is already closed says so in your language, and reading it again keeps failing instead of looking complete.
 - Each SQL query keeps its own undo history, cursor and scroll while you switch between query tabs. Switching used to clear them.
 - An AI endpoint that answers with an HTML page, such as a proxy error or a sign-in wall, shows the page title in the error instead of raw markup.
 
 ### Fixed
+- Picking another connection for a SQL query clears that query's results, so a result from the previous connection no longer shows under the new pill.
 - The start page shows the Lingua initials, LG, as Settings › General does, instead of the old RL.
 - Dock tab hints open above the tabs, so the Input hint no longer covers the input set controls.
+- The Explorer header fits more of a long project name, and its tooltip shows the full name above the folder path.
 - The SQL save popover takes focus when it opens from Mod+S or Mod+Shift+S, so Enter saves. Enter used to add a line to the query instead.
 - In the light theme, the guided tour dims the rest of the page; it used to wash it almost white.
 - The italic name of a SQL scratch tab no longer has its last character clipped beside the unsaved dot.

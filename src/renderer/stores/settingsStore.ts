@@ -62,7 +62,7 @@ export const useSettingsStore = create<SettingsState>()(
       // migrationRegistry; v3 enables live inline expressions for Scratchpad
       // JS/TS/Python by default; v4 moves Variables into the dock. Bump here
       // in lockstep.
-      version: 4,
+      version: 5,
       migrate: createMigrate('lingua-settings'),
       partialize: settingsPartialize,
       merge: settingsMerge,

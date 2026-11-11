@@ -99,6 +99,9 @@ export const MAX_QUERY_TIMEOUT_MS = 5 * 60 * 1000;
  * databases is out of scope for this change.
  */
 export const OPFS_SQL_DB_PATH = 'opfs://lingua-sql.db';
+/** The database and WAL names inside the origin's OPFS root. */
+export const OPFS_SQL_DB_FILE = OPFS_SQL_DB_PATH.slice('opfs://'.length);
+export const OPFS_SQL_WAL_FILE = `${OPFS_SQL_DB_FILE}.wal`;
 
 /**
  * Resolved storage backing of the live
