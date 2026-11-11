@@ -74,6 +74,8 @@ export function resolveRendererAssetPath(
     return null;
   }
   if (pathname.includes('\0') || pathname.startsWith(INTERNAL_PREFIX)) return null;
+  // Windows opens `x.js.`, `x.js ` and `x.js::$DATA` as `x.js`, which would dodge the name-keyed worker CSP.
+  if (pathname.split(/[/\\]/).some(segment => /[. ]$|:/.test(segment))) return null;
   const root = pathApi.resolve(rendererRoot);
   const candidate = pathApi.resolve(root, pathname === '/' ? 'index.html' : `.${pathname}`);
   const relative = pathApi.relative(root, candidate);
@@ -96,6 +98,7 @@ export function createRendererProtocolHandler(args: {
   isFile?: (filePath: string) => Promise<boolean>;
 }): (request: Request) => Promise<Response> {
   const isFile = args.isFile ?? isRegularFile;
+  const root = path.resolve(args.rendererRoot);
   return async request => {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response(null, { status: 405 });
@@ -109,16 +112,14 @@ export function createRendererProtocolHandler(args: {
     // startup dialog names; a rejected handler surfaces as ERR_UNEXPECTED instead.
     // Directories never reach the file loader, which would list them.
     if (!(await isFile(assetPath))) return Response.error();
-    let response: Response;
+    // Keyed on the file served, so every spelling of its URL gets the same policy.
+    const csp = workerScriptCsp(path.relative(root, assetPath).split(path.sep).join('/'));
     try {
-      response = await args.net.fetch(pathToFileURL(assetPath).href);
+      const response = await args.net.fetch(pathToFileURL(assetPath).href);
+      return csp ? withHeader(response, 'content-security-policy', csp) : response;
     } catch {
       return Response.error();
     }
-    // Keyed on the file served, so every spelling of its URL gets the same policy.
-    const relative = path.relative(path.resolve(args.rendererRoot), assetPath).split(path.sep).join('/');
-    const csp = workerScriptCsp(relative);
-    return csp ? withHeader(response, 'content-security-policy', csp) : response;
   };
 }
 

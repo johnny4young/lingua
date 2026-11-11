@@ -73,6 +73,10 @@ describe('resolveRendererAssetPath', () => {
     'app://lingua/a%00.js',
     'app://lingua/%E0%A4%A',
     'app://lingua/.lingua/blank.html',
+    // Windows aliases of assets/js-worker.js that would skip its name-keyed CSP.
+    'app://lingua/assets/js-worker.js.',
+    'app://lingua/assets/js-worker.js%20',
+    'app://lingua/assets/js-worker.js::$DATA',
     'app://other/index.html',
     'app://user:pass@lingua/index.html',
     'lingua://app/index.html',

@@ -123,8 +123,8 @@ describe('worker entry coverage', () => {
     const unseen = sources.flatMap(({ file, code }) => {
       const constructions = [...code.matchAll(ANY_WORKER)].length;
       const literal = [...code.matchAll(URL_WORKER)].length;
-      const imported = [...code.matchAll(IMPORTED_WORKER)].length > 0;
-      return constructions > literal && !imported ? [file] : [];
+      const imported = [...code.matchAll(IMPORTED_WORKER)].length;
+      return constructions > literal + imported ? [file] : [];
     });
     expect(unseen).toEqual([]);
   });
