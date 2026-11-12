@@ -54,5 +54,8 @@ export function isAllowedNavigationTarget(
 
   target.hash = '';
   document.hash = '';
+  if (target.href === document.href) return true;
+  // Reload in safe mode builds its URL exactly this way in the renderer.
+  document.searchParams.set('safe-mode', '1');
   return target.href === document.href;
 }

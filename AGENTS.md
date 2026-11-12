@@ -65,6 +65,12 @@ Before making non-trivial changes, open these files (in order).
   vulnerable. `pnpm run check:bundled-audit` now blocks that class in CI and
   release; if you add a runtime import to main or preload, that gate is what
   covers it. See `docs/RELEASE_SECURITY.md` § Bundled dependency audit gate.
+- **Check the license before bringing in third-party code.** Never copy code
+  from GPL or AGPL projects; read them for ideas only. A new runtime
+  dependency must pass `pnpm run check:licenses`, and its notice belongs in
+  `THIRD_PARTY_NOTICES.md`. If GPUI (Apache-2.0) is ever adopted, never depend
+  on or copy Zed's GPL-3.0 crates `ui`, `theme`, `editor`, `component`,
+  `terminal` or `terminal_view`.
 
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
 
@@ -145,6 +151,11 @@ and any blocked validation rather than claiming an unavailable tool ran.
   `tests/main/projectCapabilitiesBrand.test.ts`; `pnpm test` alone does
   not enforce it, which is why `typecheck:tests` is on the list above.
 - Web builds: `pnpm run build:web`. Desktop dev: `pnpm run dev:desktop`.
+- **Probes share five macOS runners with every repository on the account.**
+  A temporary or diagnostic workflow, or a dispatch used as one, always sets
+  `timeout-minutes`; one that fans out (a matrix, repeated runs) also sets
+  `strategy.max-parallel: 2`. Run it between 07:00 and 11:00 UTC when it can
+  wait. Release and full-suite runs are not probes.
 - Keep scope tight. If a review surfaces something out of scope, flag
   it in the implementation notes rather than expanding the current change.
 
