@@ -39,6 +39,30 @@ describe('main security helpers', () => {
     expect(isAllowedNavigationTarget('http://localhost:5174/', app)).toBe(false);
   });
 
+  it('lets the renderer reload its own document in safe mode, and nothing else', () => {
+    for (const document of ['app://lingua/index.html', 'http://localhost:5174/']) {
+      expect(isAllowedNavigationTarget(`${document}?safe-mode=1`, document)).toBe(true);
+      expect(isAllowedNavigationTarget(`${document}?safe-mode=1#tab`, document)).toBe(true);
+      expect(isAllowedNavigationTarget(`${document}?safe-mode=0`, document)).toBe(false);
+      expect(isAllowedNavigationTarget(`${document}?safe-mode=1&raw`, document)).toBe(false);
+      expect(isAllowedNavigationTarget(`${document}?raw&safe-mode=1`, document)).toBe(false);
+      expect(isAllowedNavigationTarget(`${document}?safe-mode`, document)).toBe(false);
+      expect(isAllowedNavigationTarget(`${document}?safe-mode=1&safe-mode=0`, document)).toBe(false);
+      expect(isAllowedNavigationTarget(`${document}?safe%2Dmode=%31`, document)).toBe(true);
+      // Without safe-mode the query still has to match exactly.
+      expect(isAllowedNavigationTarget(`${document}?`, document)).toBe(false);
+    }
+    const withQuery = 'http://127.0.0.1:5174/?navigation-smoke=1';
+    expect(isAllowedNavigationTarget(`${withQuery}&safe-mode=1`, withQuery)).toBe(true);
+    expect(isAllowedNavigationTarget('http://127.0.0.1:5174/?safe-mode=1', withQuery)).toBe(false);
+    expect(isAllowedNavigationTarget(`${withQuery}&safe-mode=1&safe-mode=1`, withQuery)).toBe(false);
+    expect(isAllowedNavigationTarget(`${withQuery}&`, withQuery)).toBe(false);
+    expect(isAllowedNavigationTarget('app://lingua/other.html?safe-mode=1', 'app://lingua/index.html')).toBe(false);
+    expect(isAllowedNavigationTarget('app://other/index.html?safe-mode=1', 'app://lingua/index.html')).toBe(false);
+    const legacy = 'file:///Applications/Lingua.app/Contents/Resources/app.asar/renderer/index.html';
+    expect(isAllowedNavigationTarget(`${legacy}?safe-mode=1`, legacy)).toBe(false);
+  });
+
   it('gives a file document no navigation authority, not even to itself', () => {
     expect(isAllowedNavigationTarget('file:///tmp/index.html', null)).toBe(false);
     const legacy =
