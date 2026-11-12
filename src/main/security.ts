@@ -55,12 +55,7 @@ export function isAllowedNavigationTarget(
   target.hash = '';
   document.hash = '';
   if (target.href === document.href) return true;
-  // Reload in safe mode adds this one parameter with searchParams.set, which
-  // re-serializes the query, so that case compares parsed queries.
-  const params = new URLSearchParams(target.search);
-  if (params.getAll('safe-mode').join() !== '1') return false;
-  params.delete('safe-mode');
-  target.search = params.toString();
-  document.search = new URLSearchParams(document.search).toString();
+  // Reload in safe mode builds its URL exactly this way in the renderer.
+  document.searchParams.set('safe-mode', '1');
   return target.href === document.href;
 }

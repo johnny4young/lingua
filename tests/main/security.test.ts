@@ -48,7 +48,9 @@ describe('main security helpers', () => {
       expect(isAllowedNavigationTarget(`${document}?raw&safe-mode=1`, document)).toBe(false);
       expect(isAllowedNavigationTarget(`${document}?safe-mode`, document)).toBe(false);
       expect(isAllowedNavigationTarget(`${document}?safe-mode=1&safe-mode=0`, document)).toBe(false);
-      expect(isAllowedNavigationTarget(`${document}?safe%2Dmode=%31`, document)).toBe(true);
+      expect(isAllowedNavigationTarget(`${document}?safe%2Dmode=%31`, document)).toBe(false);
+      expect(isAllowedNavigationTarget(`${document}?&safe-mode=1`, document)).toBe(false);
+      expect(isAllowedNavigationTarget(`${document}?safe-mode=1&`, document)).toBe(false);
       // Without safe-mode the query still has to match exactly.
       expect(isAllowedNavigationTarget(`${document}?`, document)).toBe(false);
     }
@@ -57,6 +59,13 @@ describe('main security helpers', () => {
     expect(isAllowedNavigationTarget('http://127.0.0.1:5174/?safe-mode=1', withQuery)).toBe(false);
     expect(isAllowedNavigationTarget(`${withQuery}&safe-mode=1&safe-mode=1`, withQuery)).toBe(false);
     expect(isAllowedNavigationTarget(`${withQuery}&`, withQuery)).toBe(false);
+    expect(isAllowedNavigationTarget(`${withQuery}&&safe-mode=1`, withQuery)).toBe(false);
+    const spaced = 'http://127.0.0.1:5174/?q=a%20b';
+    const reload = new URL(spaced);
+    reload.searchParams.set('safe-mode', '1');
+    expect(isAllowedNavigationTarget(reload.href, spaced)).toBe(true);
+    expect(isAllowedNavigationTarget(`${spaced}&safe-mode=1`, spaced)).toBe(false);
+    expect(isAllowedNavigationTarget('app://lingua/index.html?safe-mode=1', 'app://lingua/index.html?safe-mode=1')).toBe(true);
     expect(isAllowedNavigationTarget('app://lingua/other.html?safe-mode=1', 'app://lingua/index.html')).toBe(false);
     expect(isAllowedNavigationTarget('app://other/index.html?safe-mode=1', 'app://lingua/index.html')).toBe(false);
     const legacy = 'file:///Applications/Lingua.app/Contents/Resources/app.asar/renderer/index.html';
