@@ -284,7 +284,8 @@ JS/TS transforms retain the original expression characters and emit high-resolut
 source maps only when requested by a runner. Maps are passed newest-first through
 the worker protocol: debugger or timeline instrumentation, TypeScript
 transpilation, timing, captures and loop guards. Both console origins and execution errors use the same
-map chain, including structured errors from non-fatal captures. TypeScript parse
+map chain, including structured errors from non-fatal captures. TypeScript that
+desktop main strips with Node keeps every position and adds no map. TypeScript parse
 errors use esbuild's structured locations, not numbers extracted from its message.
 
 The worker labels the dynamic function with a synthetic source URL and measures

@@ -32,6 +32,57 @@ describe('TypeScriptRunner', () => {
     expect(() => runner.stop()).not.toThrow();
   });
 
+  it('runs code Node strips in main without esbuild, and esbuild for the rest', async () => {
+    const esbuild = await import('esbuild-wasm');
+    vi.mocked(esbuild.transform).mockClear();
+    vi.mocked(esbuild.transform).mockResolvedValue(transformResult('var Color;'));
+    const strip = vi.fn(async (code: string) =>
+      code.includes('enum') ? null : code.replace(': number', '        ')
+    );
+    const originalLingua = window.lingua;
+    const originalWorker = globalThis.Worker;
+    const posted: string[] = [];
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.messageHandler = handler;
+      }
+      postMessage(message: { type?: string; runId?: string; code?: string }): void {
+        if (message.type !== 'execute') return;
+        posted.push(message.code ?? '');
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(window, 'lingua', {
+      value: { ...originalLingua, typescript: { strip } },
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, 'Worker', { value: MockWorker, writable: true, configurable: true });
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+      expect(strip).toHaveBeenCalledWith('');
+
+      await runner.execute('const value: number = 1');
+      expect(esbuild.transform).not.toHaveBeenCalled();
+      expect(posted.at(-1)).toContain('const value         = 1');
+
+      await runner.execute('enum Color { Red }');
+      expect(esbuild.transform).toHaveBeenCalledTimes(1);
+      expect(posted.at(-1)).toContain('var Color;');
+    } finally {
+      Object.defineProperty(window, 'lingua', { value: originalLingua, writable: true, configurable: true });
+      Object.defineProperty(globalThis, 'Worker', { value: originalWorker, writable: true, configurable: true });
+    }
+  });
+
   it('attaches a table payload for table-directed magic comments', async () => {
     const esbuild = await import('esbuild-wasm');
     vi.mocked(esbuild.transform).mockResolvedValue(transformResult('rows;'));

@@ -41,6 +41,7 @@ import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerLocaleHandlers } from './ipc/locale';
 import { desktopSmokeRendererArguments, registerDesktopSmokeHandlers } from './ipc/desktopSmoke';
 import { registerEnvHandlers } from './ipc/env';
+import { registerTypeScriptHandlers } from './ipc/typescriptStrip';
 import { registerLspHandlers, disposeLspBridge } from './ipc/lsp';
 import { registerProfileHandlers } from './ipc/profile';
 import { registerRecoveryHandlers } from './ipc/recovery';
@@ -334,6 +335,7 @@ function registerPrimaryInstance() {
   registerAppInfoHandlers();
   registerDesktopSmokeHandlers();
   registerEnvHandlers();
+  registerTypeScriptHandlers();
   registerFileSystemHandlers();
   registerLocaleHandlers();
   registerLspHandlers();
