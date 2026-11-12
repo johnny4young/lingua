@@ -1,10 +1,10 @@
 /**
  * Small app modules the desktop shell loads before its first paint. Rolldown
  * keeps each in its own chunk, shared with the lazy chunks that also use it,
- * and every chunk is one more request through main's app:// handler. A module
- * left off this list only costs its own request; one that stops loading at
- * boot drags its bytes into the initial graph, which the performance budget
- * reports.
+ * and every chunk is one more request through main's app:// handler. The group
+ * also captures each listed module's static imports. A module left off this
+ * list only costs its own request; one that stops loading at boot drags itself
+ * and its imports into the initial graph.
  */
 export const BOOT_SMALL_MODULES = [
   'src/renderer/data/developerUtilityCatalog.ts',

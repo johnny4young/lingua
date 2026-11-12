@@ -105,7 +105,7 @@ export default defineConfig({
             bootSmallGroup(__dirname),
             // Vendor code below is split so a deploy that touches app code
             // does not invalidate the framework bytes returning visitors
-            // already cached. Every group is vendor-only on purpose: app
+            // already cached. Every group below is vendor-only on purpose: app
             // modules keep following their lazy boundaries, Monaco stays
             // owned by its dynamic import plus monacoInitialGraph.test.ts,
             // and worker entries must remain separate files for

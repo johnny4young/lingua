@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import rendererConfig from '../../vite.renderer.config.mts';
 import webConfig from '../../vite.web.config.mts';
 import { BOOT_SMALL_MODULES, bootSmallGroup } from '../../build/bootChunk.mts';
+import { createRendererViteAliases } from '../../build/viteAliases.mts';
+import { walkStaticImportGraph } from '../../scripts/lib/staticImportGraph.mjs';
 
 const root = path.resolve(__dirname, '../..');
 const groups = (config: typeof rendererConfig) => {
@@ -20,7 +22,17 @@ describe('desktop boot chunk', () => {
     for (const file of BOOT_SMALL_MODULES) expect(existsSync(path.join(root, file)), file).toBe(true);
   });
 
-  it('captures exactly the listed modules, with either separator', () => {
+  // The group also takes each listed module's imports, so one that moves
+  // behind a lazy boundary would keep its whole tree in the boot download.
+  it('lists only modules the renderer entry imports statically', () => {
+    const aliases = Object.entries(createRendererViteAliases(root)).map(
+      ([find, target]) => [find, path.relative(root, target).split(path.sep).join('/')] as [string, string]
+    );
+    const { parents } = walkStaticImportGraph({ repoRoot: root, entry: 'src/renderer/main.tsx', aliases });
+    for (const file of BOOT_SMALL_MODULES) expect(parents.has(file), file).toBe(true);
+  });
+
+  it('matches the listed modules by path, with either separator', () => {
     const group = bootSmallGroup('/repo');
     expect(group.test('/repo/src/renderer/stores/uiStore.ts')).toBe(true);
     expect(bootSmallGroup('C:\\repo').test('C:\\repo\\src\\shared\\workflowMode.ts')).toBe(true);

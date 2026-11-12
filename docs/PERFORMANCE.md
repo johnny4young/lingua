@@ -55,16 +55,20 @@ modules keep following their lazy boundaries, Monaco stays owned by its
 dynamic import plus `tests/build/monacoInitialGraph.test.ts`, and worker
 entries must remain separate files.
 
-The desktop renderer has one app group, `boot-small`, listed in
-`build/bootChunk.mts`: about twenty small stores and helpers the shell loads
-before its first paint. Rolldown gives each its own chunk because lazy chunks
-share it, and on desktop every chunk is a request through main's `app://`
-handler. Grouping them took the initial graph from 41 to 14 files, 9.5 KB
-smaller, and moved first paint 20–49 % earlier in packaged builds (28–96 ms).
-A module missing from the list only costs its own request; one that stops
-loading at boot pulls its bytes into `initial`, which the budget reports.
-`tests/build/bootChunk.test.ts` fails when a listed file moves. The web build
-keeps them apart.
+The desktop renderer has one app group, `boot-small`, seeded by the small
+stores and helpers listed in `build/bootChunk.mts` that the shell loads before
+its first paint. Rolldown gives each its own chunk because lazy chunks share
+it, and on desktop every chunk is a request through main's `app://` handler.
+The group also takes every static import of a listed module (rolldown's
+`includeDependenciesRecursively` default), so the chunk holds several times
+the listed set, the settings and license stores among them. Grouping took the
+initial graph from 41 to 14 files, 9.5 KB smaller, and moved first paint
+20–49 % earlier in packaged builds (28–96 ms). A module missing from the list
+only costs its own request; one that stops loading at boot would pull it and
+its imports into `initial`, and the byte budget has more headroom than the
+chunk. `tests/build/bootChunk.test.ts` therefore fails when a listed file moves
+or is no longer a static import of `src/renderer/main.tsx`. The web build keeps
+them apart.
 
 Desktop smoke also writes
 `output/playwright/desktop-smoke/desktop-smoke-performance.json` with:
