@@ -223,6 +223,7 @@ describe('runChatCompletion', () => {
     );
     const remote = await runChatCompletion(request, config, { fetchImpl });
     expect(local).toMatchObject({ ok: false, kind: 'network', localHost: 'localhost:1234' });
+    expect(remote).toMatchObject({ ok: false, kind: 'network' });
     expect(remote).not.toHaveProperty('localHost');
     const t = ((key: string, options?: Record<string, unknown>) =>
       `${key}${options ? JSON.stringify(options) : ''}`) as unknown as TFunction;
@@ -233,6 +234,23 @@ describe('runChatCompletion', () => {
     expect(i18next.getFixedT('en')('ai.response.localUnreachable', { host: 'localhost:1234' })).toBe(
       'No answer from the model server at localhost:1234. Check that it is running and accepts requests from Lingua. LM Studio needs Enable CORS on in its server settings.'
     );
+  });
+
+  it('does not blame a local server that answered and then dropped the stream', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new TypeError('network error'));
+      },
+    });
+    const fetchImpl = (async () =>
+      new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })) as unknown as typeof fetch;
+    const res = await runChatCompletion(
+      request,
+      { endpoint: 'http://localhost:1234/v1/chat/completions', apiKey: '', model: 'q' },
+      { fetchImpl, onChunk: () => {} }
+    );
+    expect(res).toMatchObject({ ok: false, kind: 'network' });
+    expect(res).not.toHaveProperty('localHost');
   });
 
   it('surfaces a timeout when the request aborts on the deadline', async () => {

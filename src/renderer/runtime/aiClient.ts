@@ -157,9 +157,10 @@ export async function runChatCompletion(
     else options.signal.addEventListener('abort', onAbort, { once: true });
   }
 
+  const local = isLocalAiEndpoint(normalizedConfig.endpoint);
+  let answered = false;
   try {
     if (controller.signal.aborted) throw new AiResponseError('cancelled');
-    const local = isLocalAiEndpoint(normalizedConfig.endpoint);
     recordTrustEventBestEffort({
       feature: 'ai',
       action: 'sent',
@@ -180,6 +181,7 @@ export async function runChatCompletion(
       }),
       signal: controller.signal,
     });
+    answered = true;
 
     if (!response.ok) {
       const kind: AiErrorKind =
@@ -258,8 +260,8 @@ export async function runChatCompletion(
       return { ok: false, kind: 'cancelled', message: 'The AI request was cancelled.' };
     if (err instanceof AiResponseError) return { ok: false, kind: err.kind, message: err.message };
     const message = redactKey(err instanceof Error ? err.message : String(err ?? 'network error'), normalizedConfig.apiKey);
-    // CORS refusals and a stopped server look the same to fetch.
-    return isLocalAiEndpoint(normalizedConfig.endpoint)
+    // CORS refusals and a stopped server look the same to fetch; a dropped stream is neither.
+    return local && !answered
       ? { ok: false, kind: 'network', message, localHost: new URL(normalizedConfig.endpoint).host }
       : { ok: false, kind: 'network', message };
   } finally {
