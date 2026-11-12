@@ -239,6 +239,7 @@ export function CodeEditor() {
   // first TS run otherwise pays for a dynamic import of esbuild-wasm plus its
   // initialize handshake, which dominated the measured first-run median:
   // 292.6 ms before this, 191.6 ms after, on non-overlapping sample ranges.
+  // On desktop it starts Node's type stripper in main instead.
   // `prepareRunner` dedupes through the manager's own init map and
   // `loadEsbuild` shares one in-flight promise, so firing early only moves the
   // cost, it cannot duplicate it.

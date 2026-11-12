@@ -310,6 +310,10 @@ contextBridge.exposeInMainWorld('lingua', {
     snapshot: () => typedInvoke('env:snapshot'),
   },
 
+  typescript: {
+    strip: (code: string) => typedInvoke('typescript:strip', code),
+  },
+
   projectTests: {
     detect: (rootId: RootId) => typedInvoke('project-tests:detect', rootId),
     run: (rootId: RootId, framework: ProjectTestFramework, runId: string, scope?: ProjectTestScope) =>
