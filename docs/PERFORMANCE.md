@@ -50,10 +50,21 @@ The 4 KiB threshold applies to vendor groups, but `vite-preload` explicitly
 uses `minSize: 0`: this small correctness pin must never fall back to
 automatic placement. Resolved-config and real-build tests lock that
 exception in both bundled surfaces.
-Groups are vendor-only on purpose: app modules keep following their
-lazy boundaries, Monaco stays owned by its dynamic import plus
-`tests/build/monacoInitialGraph.test.ts`, and worker entries must remain
-separate files.
+Apart from `boot-small` below, groups are vendor-only on purpose: app
+modules keep following their lazy boundaries, Monaco stays owned by its
+dynamic import plus `tests/build/monacoInitialGraph.test.ts`, and worker
+entries must remain separate files.
+
+The desktop renderer has one app group, `boot-small`, listed in
+`build/bootChunk.mts`: about twenty small stores and helpers the shell loads
+before its first paint. Rolldown gives each its own chunk because lazy chunks
+share it, and on desktop every chunk is a request through main's `app://`
+handler. Grouping them took the initial graph from 41 to 14 files, 9.5 KB
+smaller, and moved first paint 20–49 % earlier in packaged builds (35–96 ms).
+A module missing from the list only costs its own request; one that stops
+loading at boot pulls its bytes into `initial`, which the budget reports.
+`tests/build/bootChunk.test.ts` fails when a listed file moves. The web build
+keeps them apart.
 
 Desktop smoke also writes
 `output/playwright/desktop-smoke/desktop-smoke-performance.json` with:
