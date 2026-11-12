@@ -32,6 +32,7 @@ planning is intentionally excluded from the published repository.
 
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) — Electron build and packaging toolchain.
 - [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) — debugger backend and UI model.
+- [`DESKTOP_STACK_ADR.md`](./DESKTOP_STACK_ADR.md) — November 2026 stack review: Lingua stays on Electron.
 - [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) — environment-variable scopes and execution boundaries.
 - [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) — declarative language packs.
 - [`LOCAL_AI_ADR.md`](./LOCAL_AI_ADR.md) — consent-first, bring-your-own-endpoint AI.
