@@ -122,6 +122,7 @@ export function createRendererProtocolHandler(args: {
     // Keyed on the file served, so every spelling of its URL gets the same policy.
     const csp = workerScriptCsp(path.relative(root, assetPath).split(path.sep).join('/'));
     try {
+      // fs.readFile and fs streams cost main more; see ARCHITECTURE.md § Desktop renderer origin.
       const response = await args.net.fetch(pathToFileURL(assetPath).href);
       return csp ? withHeader(response, 'content-security-policy', csp) : response;
     } catch {

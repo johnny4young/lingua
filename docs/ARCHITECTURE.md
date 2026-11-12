@@ -2221,6 +2221,22 @@ servers such as Ollama accept `app://*` by default; `lingua-app://` drew a 403.
 JavaScript responses carry a worker CSP header; see § Browser execution-worker
 boundaries.
 
+Every renderer byte passes through main's JavaScript on its way to the page.
+Only the deprecated `registerFileProtocol` avoided that: an early prototype
+measured main at about 41 MB with it against 61 MB with `net.fetch`, in the
+first seconds of a launch. The handler keeps `net.fetch` because neither other
+body `protocol.handle` accepts did better overall on packaged arm64 Electron 44
+builds (5 rounds of cold and warm launches, against `net.fetch`):
+
+- `fs.readFile` into a `Response`: main 4–12 MB smaller in the first seconds,
+  then 32–39 MB larger once `esbuild.wasm` and Monaco load, because each file
+  sits whole in main's memory.
+- An `fs` stream through `Readable.toWeb`: main 2–6 MB smaller at 15 s, mixed
+  after large loads (−10% to +17%), and the first TypeScript run 5–33% slower.
+
+With `net.fetch`, main sits at about 61 MB 15 s into a warm launch and 72 MB
+into a cold one.
+
 CORS applies to the renderer's own requests on this origin, but no license-server
 request depends on it. Activation, status, device removal, trial, education and
 recovery all go through `window.lingua.license` to main
