@@ -44,6 +44,8 @@ export type AiChatResult =
       readonly kind: AiErrorKind;
       readonly message: string;
       readonly status?: number;
+      /** Host of a server on this machine that never answered. */
+      readonly localHost?: string;
     };
 
 export interface AiChatRequest {
@@ -256,7 +258,10 @@ export async function runChatCompletion(
       return { ok: false, kind: 'cancelled', message: 'The AI request was cancelled.' };
     if (err instanceof AiResponseError) return { ok: false, kind: err.kind, message: err.message };
     const message = redactKey(err instanceof Error ? err.message : String(err ?? 'network error'), normalizedConfig.apiKey);
-    return { ok: false, kind: 'network', message };
+    // CORS refusals and a stopped server look the same to fetch.
+    return isLocalAiEndpoint(normalizedConfig.endpoint)
+      ? { ok: false, kind: 'network', message, localHost: new URL(normalizedConfig.endpoint).host }
+      : { ok: false, kind: 'network', message };
   } finally {
     clearTimeout(timer);
     clearTimeout(absoluteTimer);

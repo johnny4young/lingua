@@ -62,5 +62,6 @@
   "ai.edit.redactedAnswer": "The answer still holds a masked secret, so it cannot be accepted as is.",
   "ai.edit.stale": "The file changed since you asked; close this and open Edit with AI again.",
   "ai.edit.provider.local": "Local · {{model}}",
-  "ai.edit.provider.remote": "Remote · {{model}}"
+  "ai.edit.provider.remote": "Remote · {{model}}",
+  "ai.response.localUnreachable": "No answer from the model server at {{host}}. Check that it is running and accepts requests from Lingua. LM Studio needs Enable CORS on in its server settings."
 }

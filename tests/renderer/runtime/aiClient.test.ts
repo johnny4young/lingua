@@ -5,10 +5,12 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import i18next, { type TFunction } from 'i18next';
 import {
   runChatCompletion,
   type AiProviderConfig,
 } from '../../../src/renderer/runtime/aiClient';
+import { aiFailureMessage } from '../../../src/renderer/runtime/aiFailureMessage';
 
 const config: AiProviderConfig = {
   endpoint: 'https://api.example.com/v1/chat/completions',
@@ -208,6 +210,29 @@ describe('runChatCompletion', () => {
     const res = await runChatCompletion(request, config, { fetchImpl });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.kind).toBe('network');
+  });
+
+  it('names the local server that did not answer, and says what LM Studio needs', async () => {
+    const fetchImpl = (async () => {
+      throw new TypeError('Failed to fetch');
+    }) as unknown as typeof fetch;
+    const local = await runChatCompletion(
+      request,
+      { endpoint: 'http://localhost:1234/v1/chat/completions', apiKey: '', model: 'q' },
+      { fetchImpl }
+    );
+    const remote = await runChatCompletion(request, config, { fetchImpl });
+    expect(local).toMatchObject({ ok: false, kind: 'network', localHost: 'localhost:1234' });
+    expect(remote).not.toHaveProperty('localHost');
+    const t = ((key: string, options?: Record<string, unknown>) =>
+      `${key}${options ? JSON.stringify(options) : ''}`) as unknown as TFunction;
+    if (!local.ok && !remote.ok) {
+      expect(aiFailureMessage(local, t)).toBe('ai.response.localUnreachable{"host":"localhost:1234"}');
+      expect(aiFailureMessage(remote, t)).toBe('ai.explain.failed{"message":"Failed to fetch"}');
+    }
+    expect(i18next.getFixedT('en')('ai.response.localUnreachable', { host: 'localhost:1234' })).toBe(
+      'No answer from the model server at localhost:1234. Check that it is running and accepts requests from Lingua. LM Studio needs Enable CORS on in its server settings.'
+    );
   });
 
   it('surfaces a timeout when the request aborts on the deadline', async () => {
