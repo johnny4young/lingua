@@ -62,5 +62,6 @@
   "ai.edit.redactedAnswer": "La respuesta todavía tiene un secreto enmascarado, así que no se puede aceptar tal cual.",
   "ai.edit.stale": "El archivo cambió desde que preguntaste; cierra esto y vuelve a abrir Editar con IA.",
   "ai.edit.provider.local": "Local · {{model}}",
-  "ai.edit.provider.remote": "Remoto · {{model}}"
+  "ai.edit.provider.remote": "Remoto · {{model}}",
+  "ai.response.localUnreachable": "No hubo respuesta del servidor del modelo en {{host}}. Revisa que esté corriendo y acepte solicitudes de Lingua. LM Studio necesita activar Enable CORS en la configuración de su servidor."
 }
