@@ -60,7 +60,7 @@ The desktop renderer has one app group, `boot-small`, listed in
 before its first paint. Rolldown gives each its own chunk because lazy chunks
 share it, and on desktop every chunk is a request through main's `app://`
 handler. Grouping them took the initial graph from 41 to 14 files, 9.5 KB
-smaller, and moved first paint 20–49 % earlier in packaged builds (35–96 ms).
+smaller, and moved first paint 20–49 % earlier in packaged builds (28–96 ms).
 A module missing from the list only costs its own request; one that stops
 loading at boot pulls its bytes into `initial`, which the budget reports.
 `tests/build/bootChunk.test.ts` fails when a listed file moves. The web build
