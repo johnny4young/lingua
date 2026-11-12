@@ -2221,11 +2221,10 @@ JavaScript responses carry a worker CSP header; see § Browser execution-worker
 boundaries.
 
 Every renderer byte passes through main's JavaScript on its way to the page.
-The deprecated `registerFileProtocol` avoided that (about 41 against 61 MB of
-main in the first seconds, in an early spike), and it is the only file loader
-that does. The handler keeps `net.fetch` because the alternatives that keep the
-code cache measured worse overall on packaged arm64 builds (5 rounds of cold
-and warm launches, against `net.fetch`):
+Only the deprecated `registerFileProtocol` avoided that (about 41 against 61 MB
+of main in the first seconds, in an early spike). The handler keeps `net.fetch`
+because the other bodies `protocol.handle` accepts measured worse overall on
+packaged arm64 builds (5 rounds of cold and warm launches, against `net.fetch`):
 
 - `fs.readFile` into a `Response`: main 4–12 MB smaller in the first seconds,
   then 37–40 MB larger once `esbuild.wasm` and Monaco load, because each file
