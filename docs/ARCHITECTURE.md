@@ -2227,7 +2227,7 @@ because the other bodies `protocol.handle` accepts measured worse overall on
 packaged arm64 builds (5 rounds of cold and warm launches, against `net.fetch`):
 
 - `fs.readFile` into a `Response`: main 4–12 MB smaller in the first seconds,
-  then 37–40 MB larger once `esbuild.wasm` and Monaco load, because each file
+  then 32–39 MB larger once `esbuild.wasm` and Monaco load, because each file
   sits whole in main's heap.
 - An `fs` stream through `Readable.toWeb`: main 2–6 MB smaller at 15 s, mixed
   after large loads (−10 % to +17 %), and the first TypeScript run 5–33 %
