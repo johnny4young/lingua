@@ -237,6 +237,36 @@ try {
         }
         await page.screenshot({ path: path.join(artifacts, `${mode}-${language}.png`) });
       }
+      // Settings › Recovery › Reload in safe mode is the one query the document may add.
+      // Reload first: locators keep waiting on the loaders the probes cancelled.
+      await page.reload();
+      await page.getByTestId('app-chrome').waitFor();
+      const decline = page.getByTestId('first-run-consent-decline');
+      if (await decline.isVisible().catch(() => false)) await decline.click();
+      const recoveryTab = page.getByTestId('settings-tab-recovery');
+      await expect(async () => {
+        if (await recoveryTab.isVisible().catch(() => false)) return;
+        await page.keyboard.press('ControlOrMeta+Comma');
+        await expect(recoveryTab).toBeVisible({ timeout: 5_000 });
+      }).toPass({ timeout: 45_000 });
+      await recoveryTab.click();
+      await page.getByTestId('recovery-safe-mode-reload').click();
+      await page.waitForURL(url => url.searchParams.get('safe-mode') === '1');
+      await page.getByTestId('app-chrome').waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.recoveryState), 'safe');
+      const safeModeEvent = await app.evaluate(() => globalThis.__navigationSmokeEvents.at(-1));
+      assert.equal(safeModeEvent.name, 'will-navigate', JSON.stringify(safeModeEvent));
+      assert.equal(new URL(safeModeEvent.url).searchParams.get('safe-mode'), '1');
+      assert.equal(safeModeEvent.prevented, false, JSON.stringify(safeModeEvent));
+      await page.screenshot({ path: path.join(artifacts, `${mode}-safe-mode.png`) });
+      results.push({ mode, event: safeModeEvent });
+      // Back to a normal boot, so the steps below cover the normal document.
+      await page.evaluate(target => {
+        location.href = target;
+      }, originalUrl);
+      await page.waitForURL(url => !url.searchParams.has('safe-mode'));
+      await page.getByTestId('app-chrome').waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.recoveryState), 'normal');
       if (mode === 'loopback') {
         redirectArmed = true;
         await page.evaluate(target => {
@@ -277,7 +307,7 @@ try {
   }
   await writeFile(path.join(artifacts, 'result.json'), JSON.stringify(results, null, 2));
   console.log(
-    'Shell security smoke passed: app + loopback, EN/ES, hashed shell CSP, independent opaque sandbox execution, exact-document reload/hash, denied foreign document/query and server redirect, zero console errors.'
+    'Shell security smoke passed: app + loopback, EN/ES, hashed shell CSP, independent opaque sandbox execution, exact-document reload/hash, Reload in safe mode, denied foreign document/query and server redirect, zero console errors.'
   );
 } finally {
   server.closeAllConnections();

@@ -9,6 +9,9 @@ The format follows Keep a Changelog and groups changes by release.
 ### Changed
 - On desktop, TypeScript that only needs its types removed runs without loading the esbuild compiler, so the first TypeScript run starts sooner. Code with enums, namespaces, decorators or JSX still goes through esbuild.
 
+### Fixed
+- On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.
+
 ## [2.3.0] — 2026-11-09
 
 ### Changed
