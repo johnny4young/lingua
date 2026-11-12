@@ -687,6 +687,7 @@ interface LinguaAPI {
   env: {
     snapshot: () => Promise<Record<string, string>>;
   };
+  typescript?: { strip: (code: string) => Promise<string | null> };
 
   /** Desktop-only capability-scoped project test discovery and execution. */
   projectTests?: {

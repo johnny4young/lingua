@@ -325,6 +325,9 @@ interface IpcInvokeContract {
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
 
+  // ------------------------------------------------------------- typescript
+  'typescript:strip': { args: [code: string]; result: string | null };
+
   // ------------------------------------------------ guarded HTTP workspace
   'http:execute': {
     args: [
@@ -815,6 +818,7 @@ export const IPC_INVOKE_CHANNELS = [
   'sql-local:clear-database',
   'sql-local:database-bytes',
   'env:snapshot',
+  'typescript:strip',
   'http:execute',
   'http:cancel',
   'project-tests:detect',

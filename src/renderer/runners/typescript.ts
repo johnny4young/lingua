@@ -40,6 +40,22 @@ import { esbuildErrorLocation, loadEsbuild } from './esbuildLoader';
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
+type StripInMain = (code: string) => Promise<string | null>;
+
+/** Desktop's type stripper in main; the web build has none. */
+function stripBridge(): StripInMain | undefined {
+  return typeof window === 'undefined' ? undefined : window.lingua?.typescript?.strip;
+}
+
+/** Null when the code needs esbuild's transform. */
+async function stripInMain(strip: StripInMain, code: string): Promise<string | null> {
+  try {
+    return await strip(code);
+  } catch {
+    return null;
+  }
+}
+
 export class TypeScriptRunner implements LanguageRunner {
   id = 'typescript';
   name = 'TypeScript';
@@ -59,9 +75,11 @@ export class TypeScriptRunner implements LanguageRunner {
   private readonly shell = new WorkerRunnerShell();
 
   async init(): Promise<void> {
-    // Lazy-loads + initializes esbuild-wasm exactly once across all
-    // runners (see esbuildLoader.ts) so the chunk stays off the boot path.
-    await loadEsbuild();
+    // Desktop warms Node's stripper in main; esbuild-wasm then loads only
+    // for code that needs a transform. Elsewhere it lazy-loads once across
+    // all runners (see esbuildLoader.ts), off the boot path.
+    const strip = stripBridge();
+    if (!strip || (await stripInMain(strip, '')) === null) await loadEsbuild();
     this.ready = true;
   }
 
@@ -70,7 +88,8 @@ export class TypeScriptRunner implements LanguageRunner {
   }
 
   /**
-   * Transpile TypeScript to JavaScript using esbuild-wasm.
+   * Transpile TypeScript to JavaScript: Node's type stripping on desktop,
+   * which keeps every position and so needs no map, else esbuild-wasm.
    *
    * When `withMap` is true we ask esbuild for an
    * external source map. Debug runs compose it with the debugger
@@ -79,8 +98,14 @@ export class TypeScriptRunner implements LanguageRunner {
    */
   private async transpile(
     code: string,
-    withMap = false
+    withMap = false,
+    isCurrent: () => boolean = () => true
   ): Promise<{ js: string; map?: string; error?: ExecutionError }> {
+    const strip = stripBridge();
+    const stripped = strip ? await stripInMain(strip, code) : null;
+    if (stripped !== null) return { js: stripped };
+    // Main drops a superseded request; a stopped run must not load esbuild for it.
+    if (!isCurrent()) return { js: '' };
     try {
       const esbuild = await loadEsbuild();
       const result = await esbuild.transform(code, {
@@ -199,7 +224,7 @@ export class TypeScriptRunner implements LanguageRunner {
     // repair: debug composes it with the instrumenter map, while normal
     // runs pass the complete map chain into the worker for output and errors.
     const { js, map: tsMap, error: transpileError } =
-      await this.transpile(codeWithTiming, true);
+      await this.transpile(codeWithTiming, true, () => executionGeneration === this.executionGeneration);
 
     if (executionGeneration !== this.executionGeneration) {
       return runnerStoppedResult(t, { stdout: [], stderr: [] });
