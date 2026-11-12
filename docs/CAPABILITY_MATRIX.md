@@ -163,13 +163,16 @@ auto-derived — do not edit by hand.
   keeps every position and loads no compiler. Main returns nothing when Node
   refuses the code (enum, namespace, parameter properties, `import =`, JSX,
   angle-bracket casts) or when the stripped result does not compile as the
-  worker's async function body (decorators, `accessor`, static `import`), and
-  the runner then transforms it with `esbuild-wasm`. The web build, notebooks
+  worker's async function body (decorators, `accessor`, static `import`) or
+  when removing a type-only statement also removed a semicolon that kept two
+  statements apart (`type T = number` then `;(iife)()`), and the runner then
+  transforms it with `esbuild-wasm`. The web build, notebooks
   and Node mode keep `esbuild-wasm` for everything.
 - **The stripper never runs on main's thread.** swc can backtrack for seconds
   on a few hundred characters of nested arrow functions, so it runs in a
-  `worker_threads` thread with a 750 ms limit per request. Main kills and
-  replaces the thread on a timeout or an unexpected error, keeps only the
+  `worker_threads` thread with a 750 ms limit per request once the thread
+  is up. Main kills and replaces the thread on a timeout, a failed start or an
+  unexpected error, keeps only the
   newest waiting request, and answers anything over 200,000 characters with
   nothing, which sends it to esbuild.
 

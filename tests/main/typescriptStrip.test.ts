@@ -38,6 +38,31 @@ describe('TypeScriptStripper', () => {
     expect(await stripper.strip(code)).toBeNull();
   });
 
+  it.each([
+    ['call', 'const a = 1\ntype T = number\n;(function () {})()'],
+    ['same-line call', 'const a = 1\ntype T = number; (function () {})()'],
+    ['unary minus', 'let n = 5\ntype T = number\n;-1\nconsole.log(n)'],
+    ['array', 'const xs = [1]\nimport type { X } from "y"\n;[2, 3].forEach(v => v)'],
+    ['template', 'const t = String\ndeclare const z: number\n;`x`'],
+    ['regex', 'const r = 2\ntype T = number\n;/re/.test("re")'],
+    ['overload', 'const a = 1\nfunction f(): void\n;(0)\nfunction f() {}'],
+    ['object before', 'const o = {}\ntype T = number\n;(0)'],
+  ])('leaves a removed semicolon that joined statements (%s) to esbuild', async (_label, code) => {
+    expect(await stripper.strip(code)).toBeNull();
+  });
+
+  it('keeps stripping when a removed semicolon joins nothing', async () => {
+    for (const code of [
+      'type T = number;\n(function () {})()',
+      'const a = 1;\ntype T = number;\n(function () {})()',
+      'const a = 1\ntype T = number\n(function () {})()',
+      'type T = { a: number; b: string }\nconst b = 1',
+      'if (true) { type T = number;\n[1].forEach(v => v) }',
+    ]) {
+      expect(await stripper.strip(code)).not.toBeNull();
+    }
+  });
+
   it('refuses what it cannot vouch for', async () => {
     expect(await stripper.strip(42)).toBeNull();
     expect(await stripper.strip(undefined)).toBeNull();
@@ -65,6 +90,14 @@ describe('TypeScriptStripper timeouts', () => {
     } finally {
       stripper.dispose();
     }
+  });
+
+  it('answers null when a thread cannot start', async () => {
+    const stripper = new TypeScriptStripper(400, () => {
+      throw new Error('spawn failed');
+    });
+    await expect(stripper.strip('let a: number = 1;')).resolves.toBeNull();
+    await expect(stripper.strip('let b: number = 2;')).resolves.toBeNull();
   });
 
   it('keeps only the newest waiting request', async () => {

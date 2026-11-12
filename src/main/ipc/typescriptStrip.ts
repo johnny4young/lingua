@@ -2,23 +2,37 @@ import { Worker } from 'node:worker_threads';
 import { typedHandle } from './typedHandle';
 
 const MAX_STRIP_SOURCE_LENGTH = 200_000;
-// Covers a cold start (thread plus Node's swc wasm); swc can backtrack for
-// seconds on a few hundred characters of nested arrow functions.
+// swc can backtrack for seconds on a few hundred characters of nested arrow
+// functions. Thread startup gets its own, looser budget.
 const STRIP_TIMEOUT_MS = 750;
+const STARTUP_TIMEOUT_MS = 5_000;
 
-// Plain CommonJS so bundling cannot rename what the thread requires. Node
-// refuses enums, namespaces, parameter properties and JSX; decorators and
-// `accessor` survive stripping but fail to compile as the JS worker's
-// async function body. Any other error (a wasm trap, a stack overflow) can
-// leave swc unusable, so the thread asks to be replaced.
+// Plain CommonJS so bundling cannot rename what the thread requires. Syntax
+// Node refuses or the worker's async body cannot compile returns null; any
+// other error (a wasm trap, a stack overflow) asks for a fresh thread.
 const WORKER_SOURCE = `
 const { parentPort } = require('node:worker_threads');
 const { stripTypeScriptTypes } = require('node:module');
 const { Script } = require('node:vm');
 const expected = /^ERR_(UNSUPPORTED|INVALID)_TYPESCRIPT_SYNTAX$/;
+// Node blanks a type-only statement together with its own semicolon, which
+// can join the statements on either side, as in a no-semicolon ;(iife)().
+const joinsStatements = (code, js) => {
+  for (let i = code.indexOf(';'); i !== -1; i = code.indexOf(';', i + 1)) {
+    if (js[i] === ';') continue;
+    let next = i + 1;
+    while (/\\s/.test(js[next] || '')) next++;
+    if (!'([+-/\\x60'.includes(js[next] || ' ')) continue;
+    let prev = i - 1;
+    while (/\\s/.test(js[prev] || '')) prev--;
+    if (prev >= 0 && js[prev] !== ';' && js[prev] !== '{') return true;
+  }
+  return false;
+};
 parentPort.on('message', ({ id, code }) => {
   try {
     const js = stripTypeScriptTypes(code, { mode: 'strip' });
+    if (joinsStatements(code, js)) return parentPort.postMessage({ id, js: null });
     new Script('(async function () {\\n' + js + '\\n})');
     parentPort.postMessage({ id, js });
   } catch (error) {
@@ -36,7 +50,7 @@ interface Waiting {
 interface Running {
   readonly id: number;
   readonly resolve: (js: string | null) => void;
-  readonly timer: ReturnType<typeof setTimeout>;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 /**
@@ -46,6 +60,7 @@ interface Running {
  */
 export class TypeScriptStripper {
   private worker: Worker | null = null;
+  private online = false;
   private running: Running | null = null;
   private waiting: Waiting | null = null;
   private nextId = 0;
@@ -77,16 +92,32 @@ export class TypeScriptStripper {
     const { code, resolve } = this.waiting;
     this.waiting = null;
     const id = ++this.nextId;
-    const timer = setTimeout(() => this.replaceWorker(), this.timeoutMs);
-    timer.unref();
+    const timer = this.startTimer(this.online ? this.timeoutMs : STARTUP_TIMEOUT_MS);
     this.running = { id, resolve, timer };
-    this.ensureWorker().postMessage({ id, code });
+    try {
+      this.ensureWorker().postMessage({ id, code });
+    } catch {
+      this.replaceWorker();
+    }
+  }
+
+  private startTimer(ms: number): ReturnType<typeof setTimeout> {
+    const timer = setTimeout(() => this.replaceWorker(), ms);
+    timer.unref();
+    return timer;
   }
 
   private ensureWorker(): Worker {
     if (this.worker) return this.worker;
     const worker = this.createWorker();
     worker.unref();
+    worker.once('online', () => {
+      if (this.worker !== worker) return;
+      this.online = true;
+      if (!this.running) return;
+      clearTimeout(this.running.timer);
+      this.running.timer = this.startTimer(this.timeoutMs);
+    });
     worker.on('message', (reply: { id?: unknown; js?: unknown; broken?: unknown }) => {
       // A replaced thread can still deliver a queued reply.
       if (this.worker !== worker || reply.id !== this.running?.id) return;
@@ -107,6 +138,7 @@ export class TypeScriptStripper {
   private replaceWorker(): void {
     const worker = this.worker;
     this.worker = null;
+    this.online = false;
     void worker?.terminate();
     this.settle(null);
   }
