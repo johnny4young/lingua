@@ -2431,8 +2431,10 @@ and [Git environment](https://git-scm.com/docs/git#_environment_variables).
 
 The main window may reload only its chosen renderer document. The navigation
 policy compares complete normalized URLs, ignoring fragments but preserving the
-path and query. A development server's origin does not authorize other files on
-that server; the built renderer's document is `app://lingua/index.html`, and
+path and query. The one query parameter it lets the document add is
+`safe-mode=1`, which Reload in safe mode sets. A development server's origin
+does not authorize other files on that server; the built renderer's document
+is `app://lingua/index.html`, and
 other files on that origin are not navigation targets. A `file:` document gets
 no navigation authority at all. The same policy handles page-initiated
 navigation and HTTP redirects. Resource loading and sandboxed preview documents
@@ -2442,7 +2444,7 @@ Electron main-process loadURL calls do not emit will-navigate; those calls must
 continue to use the chosen target, not an untrusted renderer payload. The
 permanent real-Electron navigation smoke exercises both the built renderer on
 `app://lingua` and a loopback server, including an actual redirect, reload,
-fragments and EN/ES.
+fragments, Reload in safe mode and EN/ES.
 See [Electron navigation events](https://www.electronjs.org/docs/latest/api/web-contents#navigation-events).
 
 ### Terminal desktop startup failures

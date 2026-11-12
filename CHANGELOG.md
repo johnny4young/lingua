@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Fixed
+- On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.
+
 ## [2.3.0] — 2026-11-09
 
 ### Changed
