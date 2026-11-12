@@ -129,6 +129,17 @@ test.describe('Settings — Privacy section', () => {
       /declined|no data leaves/i
     );
   });
+
+  for (const [language, title] of [['en', 'Privacy + Trust'], ['es', 'Privacidad y confianza']] as const) {
+    test(`renders its lazily loaded copy in ${language}`, async ({ page }) => {
+      await seedSession(page, { language });
+      await gotoApp(page);
+      await openSettings(page);
+      await openSettingsTab(page, 'privacy');
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.getByRole('dialog')).not.toContainText('settings.privacy.');
+    });
+  }
 });
 
 test.describe('Settings — About section', () => {

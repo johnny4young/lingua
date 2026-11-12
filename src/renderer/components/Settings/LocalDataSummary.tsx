@@ -1,3 +1,4 @@
+import '../../i18n/settingsPrivacyCatalog';
 import { useCallback, useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FolderOpen, Trash2 } from 'lucide-react';
