@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- When a model server on this machine does not answer, the AI error names its address and says LM Studio needs Enable CORS on, instead of Failed to fetch.
+
 ### Fixed
 - On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.
 
