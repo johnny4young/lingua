@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
 import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
 import { createRendererViteAliases } from './build/viteAliases.mts';
+import { bootSmallGroup } from './build/bootChunk.mts';
 
 // Seed VITE_LINGUA_APP_VERSION from package.json before Vite reads
 // process.env so the telemetry consumer and web update banner pick
@@ -100,9 +101,11 @@ export default defineConfig({
           groups: [
             // This correctness pin is smaller than the vendor threshold.
             { name: 'vite-preload', test: /preload-helper/, priority: 100, minSize: 0 },
+            // Desktop only: there every chunk is a round trip through main.
+            bootSmallGroup(__dirname),
             // Vendor code below is split so a deploy that touches app code
             // does not invalidate the framework bytes returning visitors
-            // already cached. Every group is vendor-only on purpose: app
+            // already cached. Every group below is vendor-only on purpose: app
             // modules keep following their lazy boundaries, Monaco stays
             // owned by its dynamic import plus monacoInitialGraph.test.ts,
             // and worker entries must remain separate files for

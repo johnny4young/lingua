@@ -50,10 +50,25 @@ The 4 KiB threshold applies to vendor groups, but `vite-preload` explicitly
 uses `minSize: 0`: this small correctness pin must never fall back to
 automatic placement. Resolved-config and real-build tests lock that
 exception in both bundled surfaces.
-Groups are vendor-only on purpose: app modules keep following their
-lazy boundaries, Monaco stays owned by its dynamic import plus
-`tests/build/monacoInitialGraph.test.ts`, and worker entries must remain
-separate files.
+Apart from `boot-small` below, groups are vendor-only on purpose: app
+modules keep following their lazy boundaries, Monaco stays owned by its
+dynamic import plus `tests/build/monacoInitialGraph.test.ts`, and worker
+entries must remain separate files.
+
+The desktop renderer has one app group, `boot-small`, seeded by the small
+stores and helpers listed in `build/bootChunk.mts` that the shell loads before
+its first paint. Rolldown gives each its own chunk because lazy chunks share
+it, and on desktop every chunk is a request through main's `app://` handler.
+The group also takes every static import of a listed module (rolldown's
+`includeDependenciesRecursively` default), so the chunk holds several times
+the listed set, the settings and license stores among them. Grouping took the
+initial graph from 41 to 14 files, 9.5 KB smaller, and moved first paint
+20–49 % earlier in packaged builds (28–96 ms). A module missing from the list
+only costs its own request; one that stops loading at boot would pull it and
+its imports into `initial`, and the byte budget has more headroom than the
+chunk. `tests/build/bootChunk.test.ts` therefore fails when a listed file moves
+or is no longer a static import of `src/renderer/main.tsx`. The web build keeps
+them apart.
 
 Desktop smoke also writes
 `output/playwright/desktop-smoke/desktop-smoke-performance.json` with:

@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Changed
 - On desktop, TypeScript that only needs its types removed runs without loading the esbuild compiler, so the first TypeScript run starts sooner. Code with enums, namespaces, decorators or JSX still goes through esbuild.
+- On desktop, the window paints sooner at startup: the shell loads its small startup modules as one file, so it fetches 14 files before its first paint instead of 41.
 - When a model server on this machine does not answer, the AI error names its address and says LM Studio needs Enable CORS on, instead of Failed to fetch.
 
 ### Fixed
