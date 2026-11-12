@@ -8,7 +8,6 @@
  * and Clear everything remove keys from the component.
  */
 
-import '../../i18n/settingsPrivacyCatalog';
 import type { TrustEvent, TrustFeature } from '../../stores/trustEventStore';
 
 /**

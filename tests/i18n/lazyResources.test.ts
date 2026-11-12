@@ -146,7 +146,7 @@ describe('renderer locale bundle boundary', () => {
     expect(rendererI18n).toContain("import('./locales/es/settingsPrivacy.json')");
     const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/settingsPrivacyCatalog.ts'), 'utf8');
     expect(registration).toContain("import en from './locales/en/settingsPrivacy.json'");
-    for (const file of ['PrivacySection.tsx', 'PrivacyTrustSection.tsx', 'NetworkPolicyRows.tsx', 'LocalDataSummary.tsx', 'privacyTrustHelpers.ts', 'settingsSearchModel.ts']) {
+    for (const file of ['PrivacySection.tsx', 'PrivacyTrustSection.tsx', 'NetworkPolicyRows.tsx', 'LocalDataSummary.tsx', 'settingsSearchModel.ts']) {
       expect(readFileSync(resolve(__dirname, `../../src/renderer/components/Settings/${file}`), 'utf8')).toContain("import '../../i18n/settingsPrivacyCatalog'");
     }
   });

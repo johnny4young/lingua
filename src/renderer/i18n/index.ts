@@ -38,8 +38,7 @@ async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> 
     import('./locales/es/sqlLocalEngine.json'),
     import('./locales/es/settingsPrivacy.json'),
   ]).then(
-    ([common, connections, httpBuilder, debuggerCopy, explain, tests, runCompare, timeline, runRegions, sqlInstant, pipelineJs, clipboardChains, localMcp, sqlLocalEngine, settingsPrivacy]) =>
-      ({ ...common.default, ...connections.default, ...httpBuilder.default, ...debuggerCopy.default, ...explain.default, ...tests.default, ...runCompare.default, ...timeline.default, ...runRegions.default, ...sqlInstant.default, ...pipelineJs.default, ...clipboardChains.default, ...localMcp.default, ...sqlLocalEngine.default, ...settingsPrivacy.default }) as CommonCatalog
+    (catalogs) => Object.assign({}, ...catalogs.map((catalog) => catalog.default)) as CommonCatalog
   );
   const catalog = await spanishCatalogPromise;
   loadedCatalogs.es = catalog;
