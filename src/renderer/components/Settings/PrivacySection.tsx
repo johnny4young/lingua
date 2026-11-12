@@ -1,3 +1,4 @@
+import '../../i18n/settingsPrivacyCatalog';
 import { useCallback, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

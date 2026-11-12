@@ -1,3 +1,4 @@
+import '../../i18n/settingsPrivacyCatalog';
 import type { TabId } from './settingsRailModel';
 import {
   currentShortcutDisplayPlatform,

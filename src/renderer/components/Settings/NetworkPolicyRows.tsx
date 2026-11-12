@@ -1,3 +1,4 @@
+import '../../i18n/settingsPrivacyCatalog';
 import { useTranslation } from 'react-i18next';
 import { NETWORK_POLICIES } from '../../../shared/networkPolicy';
 import { emitCommand } from '../../stores/commandBus';
