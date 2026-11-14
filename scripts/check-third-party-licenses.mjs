@@ -85,6 +85,11 @@ function shortPackagePath(storePath, name) {
  */
 export const PACKAGED_EXTERNAL_RUNTIME_COMPONENTS = [
   {
+    name: '@electron-stagewright/origin-migration',
+    packageJsonPath: 'node_modules/@electron-stagewright/origin-migration/package.json',
+    artifactPath: '.vite/build/main.js',
+  },
+  {
     name: '@vscode/ripgrep',
     packageJsonPath: 'node_modules/@vscode/ripgrep/package.json',
     artifactPath: 'extraResources/ripgrep',

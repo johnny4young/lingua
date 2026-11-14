@@ -9,7 +9,7 @@ import {
 } from '@electron-stagewright/origin-migration';
 import {
   migrateRendererStorage,
-  ORIGIN_MIGRATION_MARKER,
+  RENDERER_MIGRATION_MARKER,
   storageMigrationNoticeFor,
 } from '../../src/main/rendererStorageMigration';
 import { RENDERER_BLANK_URL } from '../../src/main/rendererProtocol';
@@ -66,12 +66,12 @@ describe('renderer storage migration wiring', () => {
 
   it('skips a profile an earlier build already migrated, without opening a page', async () => {
     await writeFile(
-      path.join(userDataDir, ORIGIN_MIGRATION_MARKER),
+      path.join(userDataDir, RENDERER_MIGRATION_MARKER),
       JSON.stringify(linguaMarker({}))
     );
     const result = await runOriginMigration({
       userDataDir,
-      markerFile: ORIGIN_MIGRATION_MARKER,
+      markerFile: RENDERER_MIGRATION_MARKER,
       openLegacy: unreachable,
       openTarget: unreachable,
       flush: () => {},
@@ -81,12 +81,12 @@ describe('renderer storage migration wiring', () => {
 
   it('spends the last attempt an earlier build left, then tells the user it gave up', async () => {
     await writeFile(
-      path.join(userDataDir, ORIGIN_MIGRATION_MARKER),
+      path.join(userDataDir, RENDERER_MIGRATION_MARKER),
       JSON.stringify(linguaMarker({ state: 'failed', attempts: 2, error: 'ETIMEDOUT' }))
     );
     const result = await runOriginMigration({
       userDataDir,
-      markerFile: ORIGIN_MIGRATION_MARKER,
+      markerFile: RENDERER_MIGRATION_MARKER,
       openLegacy: unreachable,
       openTarget: unreachable,
       flush: () => {},
@@ -94,7 +94,7 @@ describe('renderer storage migration wiring', () => {
     expect(result).toMatchObject({ status: 'failed', final: true });
     expect(storageMigrationNoticeFor(result)).toBe('final');
     const marker = JSON.parse(
-      await readFile(path.join(userDataDir, ORIGIN_MIGRATION_MARKER), 'utf8')
+      await readFile(path.join(userDataDir, RENDERER_MIGRATION_MARKER), 'utf8')
     ) as OriginMigrationMarker;
     expect(marker).toMatchObject({ attempts: 3, copiedFiles: ['sql/db.duckdb'] });
   });

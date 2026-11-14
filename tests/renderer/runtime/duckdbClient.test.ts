@@ -626,6 +626,9 @@ describe('OPFS persistence ', () => {
         'lingua-sql.db.lingua-migrating',
         'lingua-sql.db.wal.lingua-migrating',
         'lingua-sql.db.wal.lingua-previous',
+        'lingua-sql.db.origin-migration-staging',
+        'lingua-sql.db.wal.origin-migration-staging',
+        'lingua-sql.db.wal.origin-migration-previous',
       ]);
       expect(await nextEngine).toBe(next);
     } finally {
@@ -713,6 +716,7 @@ describe('OPFS persistence ', () => {
       'lingua-sql.db': 4096,
       'lingua-sql.db.wal': 512,
       'lingua-sql.db.lingua-migrating': 64,
+      'lingua-sql.db.origin-migration-staging': 128,
     };
     const notFound = Object.assign(new Error('missing'), { name: 'NotFoundError' });
     const directory = {
@@ -723,10 +727,11 @@ describe('OPFS persistence ', () => {
     };
     vi.stubGlobal('navigator', { storage: { getDirectory: async () => directory } });
     try {
-      expect(await persistedSqlDatabaseBytes()).toBe(4672);
+      expect(await persistedSqlDatabaseBytes()).toBe(4800);
       delete files['lingua-sql.db'];
       delete files['lingua-sql.db.wal'];
       delete files['lingua-sql.db.lingua-migrating'];
+      delete files['lingua-sql.db.origin-migration-staging'];
       expect(await persistedSqlDatabaseBytes()).toBe(0);
       directory.getFileHandle = async () => {
         throw Object.assign(new Error('locked'), { name: 'NoModificationAllowedError' });
