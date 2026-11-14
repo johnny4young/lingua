@@ -19,6 +19,8 @@ export async function settle<T, Failure extends { message: string } = HostError>
   try {
     answer = await reply;
   } catch (error) {
+    // Only the supervisor's own failures mean the host went away; anything else keeps its message.
+    if (!isHostError(error)) throw new SqlHostError({ message: error instanceof Error ? error.message : String(error) } as Failure);
     throw new SqlHostError(stopped(isHostError(error, 'HOST_CALL_TIMEOUT') ? 'The SQL host did not answer in time.' : 'The SQL host stopped.'));
   }
   if (answer.ok) return answer.value;

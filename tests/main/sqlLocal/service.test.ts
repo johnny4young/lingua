@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withoutFolder } from '../../../src/main/sqlLocal/messages';
 import { createSqlLocalService, nativeSqlEngineAvailable, type SqlLocalServiceDeps } from '../../../src/main/sqlLocal/service';
 import { SqlHostError } from '../../../src/main/sqlHostClient';
+import { HostError } from '@electron-stagewright/host-supervisor';
 
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp' }, utilityProcess: { fork: vi.fn() } }));
 const { sqlLocalEnvironment } = await import('../../../src/main/sqlLocalProcess');
@@ -196,7 +197,7 @@ describe('native Local SQL service', () => {
       return (async function* () {
         try {
           yield { ok: true, columns: [] };
-          if (body.sql === 'crash') throw new Error('The host exited');
+          if (body.sql === 'crash') throw new HostError('HOST_EXITED', 'The host exited before answering');
           yield { ok: true, rows: [{ n: 1 }] };
         } finally {
           closed += 1;
@@ -211,6 +212,63 @@ describe('native Local SQL service', () => {
     expect(await service.next(1, first.ok ? first.value.streamId : '')).toEqual({ ok: false, error: { message: 'The SQL result is closed.' } });
     const crashing = await service.stream(1, 'c', 'crash');
     expect(await service.next(1, crashing.ok ? crashing.value.streamId : '')).toMatchObject({ ok: false, error: { code: 'engine-gone' } });
+  });
+
+  it('answers result-closed, not the end of the rows, when a new statement closes a stream mid-pull', async () => {
+    let wake: (() => void) | undefined;
+    const { createHost } = fakeHosts(body => {
+      if (body.type === 'open') return opened(body);
+      if (body.type !== 'rows') return null;
+      // Like the supervisor: closing the stream settles a pull in flight as done.
+      let pulls = 0;
+      return {
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+        next: () =>
+          pulls++ === 0
+            ? Promise.resolve({ done: false, value: { ok: true, columns: [] } })
+            : new Promise(resolve => (wake = () => resolve({ done: true, value: undefined }))),
+        return: () => {
+          wake?.();
+          return Promise.resolve({ done: true, value: undefined });
+        },
+      };
+    });
+    const service = createSqlLocalService({ createHost, root, available: () => true });
+    await service.open(1, false);
+    const stream = await service.stream(1, 'c', 'SELECT 1');
+    const pull = service.next(1, stream.ok ? stream.value.streamId : '');
+    await vi.waitFor(() => expect(wake).toBeDefined());
+    await service.query(1, 'c', 'SELECT 2');
+    expect(await pull).toEqual({ ok: false, error: { message: 'The SQL result is closed.' } });
+  });
+
+  it('lets go of a stream that answered a failure, so the engine frees its result', async () => {
+    let closed = 0;
+    const { createHost } = fakeHosts(body => {
+      if (body.type === 'open') return opened(body);
+      if (body.type !== 'rows') return null;
+      return (async function* () {
+        try {
+          if (body.sql === 'bad') {
+            yield { ok: false, error: { message: 'Parser Error' } };
+            return;
+          }
+          yield { ok: true, columns: [] };
+          yield { ok: false, error: { message: 'Conversion Error' } };
+        } finally {
+          closed += 1;
+        }
+      })();
+    });
+    const service = createSqlLocalService({ createHost, root, available: () => true });
+    await service.open(1, false);
+    expect(await service.stream(1, 'c', 'bad')).toEqual({ ok: false, error: { message: 'Parser Error' } });
+    await vi.waitFor(() => expect(closed).toBe(1));
+    const stream = await service.stream(1, 'c', 'SELECT 1');
+    expect(await service.next(1, stream.ok ? stream.value.streamId : '')).toEqual({ ok: false, error: { message: 'Conversion Error' } });
+    await vi.waitFor(() => expect(closed).toBe(2));
   });
 
   it('keeps the home folder out of error messages', async () => {

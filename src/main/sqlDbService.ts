@@ -392,7 +392,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     keepOnSuccess.delete(sshSecretId(id));
     await deps.secrets.delete(connectionSecretId(id));
     await deps.secrets.delete(sshSecretId(id));
-    if (deps.host.state === 'running') await ask('disconnect', [id]).catch(() => undefined);
+    if (deps.host.state === 'running' || deps.host.state === 'starting') await ask('disconnect', [id]).catch(() => undefined);
     return { ok: await deps.catalog.remove(id) };
   }
 
