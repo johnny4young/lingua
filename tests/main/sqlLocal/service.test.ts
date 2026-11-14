@@ -5,7 +5,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withoutFolder } from '../../../src/main/sqlLocal/messages';
 import { createSqlLocalService, nativeSqlEngineAvailable, type SqlLocalServiceDeps } from '../../../src/main/sqlLocal/service';
-import { SqlHostError } from '../../../src/main/sqlHostSupervisor';
+import { SqlHostError } from '../../../src/main/sqlHostClient';
+import { HostError } from '@electron-stagewright/host-supervisor';
 
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp' }, utilityProcess: { fork: vi.fn() } }));
 const { sqlLocalEnvironment } = await import('../../../src/main/sqlLocalProcess');
@@ -13,36 +14,61 @@ const { sqlLocalEnvironment } = await import('../../../src/main/sqlLocalProcess'
 interface FakeHost {
   owner: number | null;
   requests: Array<Record<string, unknown>>;
-  restart: ReturnType<typeof vi.fn>;
-  dispose: ReturnType<typeof vi.fn>;
+  kill: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
 }
 
-/** One fake supervisor per window; `answer` sees each request with the host that got it. */
+/** Each engine operation as the request body the tests match on. */
+const bodies: Record<string, (args: unknown[]) => Record<string, unknown>> = {
+  open: ([owner, persist, paths]) => ({ type: 'open', owner, persist, paths }),
+  connect: ([owner, engineId]) => ({ type: 'connect', owner, engineId }),
+  query: ([owner, connectionId, sql]) => ({ type: 'query', owner, connectionId, sql }),
+  rows: ([owner, connectionId, sql]) => ({ type: 'rows', owner, connectionId, sql }),
+  cancel: ([owner, connectionId]) => ({ type: 'cancel', owner, connectionId }),
+  closeConnection: ([owner, connectionId]) => ({ type: 'close-connection', owner, connectionId }),
+  terminate: ([owner, engineId]) => ({ type: 'terminate', owner, engineId }),
+  dispose: () => ({ type: 'dispose' }),
+  clearDatabase: ([database]) => ({ type: 'clear-database', database }),
+};
+
+/** One fake host per window; `answer` sees each call with the host that got it, and returns the stream for `rows`. */
 function fakeHosts(answer: (body: Record<string, unknown>, host: FakeHost) => unknown) {
   const hosts: FakeHost[] = [];
   const createHost = () => {
-    let running = false;
+    let state = 'idle';
     const fake: FakeHost = {
       owner: null,
       requests: [],
-      restart: vi.fn(() => {
-        running = false;
+      kill: vi.fn(async () => {
+        state = 'idle';
       }),
-      dispose: vi.fn(async () => {
-        running = false;
+      close: vi.fn(async () => {
+        state = 'closed';
       }),
     };
     hosts.push(fake);
+    const record = (op: string, args: unknown[]) => {
+      state = 'running';
+      const body = bodies[op]!(args);
+      if (typeof body.owner === 'number') fake.owner ??= body.owner;
+      fake.requests.push(body);
+      return body;
+    };
     return {
-      request: vi.fn(async (body: Record<string, unknown>) => {
-        running = true;
-        if (typeof body.owner === 'number') fake.owner ??= body.owner;
-        fake.requests.push(body);
-        return answer(body, fake);
+      call: vi.fn(async (op: string, args: unknown[]) => {
+        try {
+          return { ok: true, value: await answer(record(op, args), fake) };
+        } catch (error) {
+          if (error instanceof SqlHostError) return { ok: false, error: error.detail };
+          throw error;
+        }
       }),
-      restart: fake.restart,
-      isRunning: () => running,
-      dispose: fake.dispose,
+      stream: vi.fn((op: string, args: unknown[]) => answer(record(op, args), fake)),
+      kill: fake.kill,
+      close: fake.close,
+      get state() {
+        return state;
+      },
     } as unknown as ReturnType<SqlLocalServiceDeps['createHost']>;
   };
   return { createHost, hosts, hostOf: (owner: number) => hosts.find(host => host.owner === owner)! };
@@ -89,10 +115,10 @@ describe('native Local SQL service', () => {
     expect(hosts).toHaveLength(2);
     expect(hostOf(1).requests.map(body => body.type)).toEqual(['open', 'query']);
     expect(await service.terminate(2, 'engine-1', true)).toEqual({ ok: true, value: null });
-    expect(hostOf(1).restart).not.toHaveBeenCalled();
+    expect(hostOf(1).kill).not.toHaveBeenCalled();
     await service.terminate(1, 'engine-1', true);
-    expect(hostOf(1).restart).toHaveBeenCalledTimes(1);
-    expect(hostOf(2).restart).not.toHaveBeenCalled();
+    expect(hostOf(1).kill).toHaveBeenCalledTimes(1);
+    expect(hostOf(2).kill).not.toHaveBeenCalled();
   });
 
   it('gives the database file to one window at a time, across processes', async () => {
@@ -118,7 +144,7 @@ describe('native Local SQL service', () => {
     service.releaseOwner(4);
     await service.open(4, false);
     expect(hostOf(4).requests.map(body => body.type)).toEqual(['open', 'dispose']);
-    expect(hostOf(4).dispose).toHaveBeenCalledOnce();
+    expect(hostOf(4).close).toHaveBeenCalledOnce();
     expect(hosts).toHaveLength(2);
     expect(hosts[1]!.requests.map(body => body.type)).toEqual(['open']);
     expect(existsSync(path.join(root, 'files', '4'))).toBe(false);
@@ -133,6 +159,116 @@ describe('native Local SQL service', () => {
     await service.open(1, false);
     expect(existsSync(path.join(root, 'files', '9'))).toBe(false);
     expect(existsSync(path.join(root, 'tmp', '9'))).toBe(false);
+  });
+
+  it('hands out a stream by id and pulls one batch per next', async () => {
+    let finished = false;
+    const { createHost } = fakeHosts(body => {
+      if (body.type === 'open') return opened(body);
+      if (body.type !== 'rows') return null;
+      return (async function* () {
+        try {
+          yield { ok: true, columns: [{ name: 'n', type: 'INTEGER' }] };
+          yield { ok: true, rows: [{ n: 1 }, { n: 2 }] };
+          yield { ok: true, rows: [{ n: 3 }] };
+        } finally {
+          finished = true;
+        }
+      })();
+    });
+    const service = createSqlLocalService({ createHost, root, available: () => true });
+    await service.open(1, false);
+    const stream = await service.stream(1, 'c', 'SELECT n');
+    expect(stream).toMatchObject({ ok: true, value: { columns: [{ name: 'n', type: 'INTEGER' }] } });
+    const streamId = stream.ok ? stream.value.streamId : '';
+    expect(await service.next(2, streamId)).toMatchObject({ ok: false });
+    expect(await service.next(1, streamId)).toEqual({ ok: true, value: [{ n: 1 }, { n: 2 }] });
+    expect(await service.next(1, streamId)).toEqual({ ok: true, value: [{ n: 3 }] });
+    expect(await service.next(1, streamId)).toEqual({ ok: true, value: null });
+    expect(finished).toBe(true);
+    expect(await service.next(1, streamId)).toEqual({ ok: false, error: { message: 'The SQL result is closed.' } });
+  });
+
+  it('closes a connection’s stream when a new statement runs on it, and reports a dead engine', async () => {
+    let closed = 0;
+    const { createHost } = fakeHosts(body => {
+      if (body.type === 'open') return opened(body);
+      if (body.type !== 'rows') return null;
+      return (async function* () {
+        try {
+          yield { ok: true, columns: [] };
+          if (body.sql === 'crash') throw new HostError('HOST_EXITED', 'The host exited before answering');
+          yield { ok: true, rows: [{ n: 1 }] };
+        } finally {
+          closed += 1;
+        }
+      })();
+    });
+    const service = createSqlLocalService({ createHost, root, available: () => true });
+    await service.open(1, false);
+    const first = await service.stream(1, 'c', 'SELECT 1');
+    await service.query(1, 'c', 'SELECT 2');
+    await vi.waitFor(() => expect(closed).toBe(1));
+    expect(await service.next(1, first.ok ? first.value.streamId : '')).toEqual({ ok: false, error: { message: 'The SQL result is closed.' } });
+    const crashing = await service.stream(1, 'c', 'crash');
+    expect(await service.next(1, crashing.ok ? crashing.value.streamId : '')).toMatchObject({ ok: false, error: { code: 'engine-gone' } });
+  });
+
+  it('answers result-closed, not the end of the rows, when a new statement closes a stream mid-pull', async () => {
+    let wake: (() => void) | undefined;
+    const { createHost } = fakeHosts(body => {
+      if (body.type === 'open') return opened(body);
+      if (body.type !== 'rows') return null;
+      // Like the supervisor: closing the stream settles a pull in flight as done.
+      let pulls = 0;
+      return {
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+        next: () =>
+          pulls++ === 0
+            ? Promise.resolve({ done: false, value: { ok: true, columns: [] } })
+            : new Promise(resolve => (wake = () => resolve({ done: true, value: undefined }))),
+        return: () => {
+          wake?.();
+          return Promise.resolve({ done: true, value: undefined });
+        },
+      };
+    });
+    const service = createSqlLocalService({ createHost, root, available: () => true });
+    await service.open(1, false);
+    const stream = await service.stream(1, 'c', 'SELECT 1');
+    const pull = service.next(1, stream.ok ? stream.value.streamId : '');
+    await vi.waitFor(() => expect(wake).toBeDefined());
+    await service.query(1, 'c', 'SELECT 2');
+    expect(await pull).toEqual({ ok: false, error: { message: 'The SQL result is closed.' } });
+  });
+
+  it('lets go of a stream that answered a failure, so the engine frees its result', async () => {
+    let closed = 0;
+    const { createHost } = fakeHosts(body => {
+      if (body.type === 'open') return opened(body);
+      if (body.type !== 'rows') return null;
+      return (async function* () {
+        try {
+          if (body.sql === 'bad') {
+            yield { ok: false, error: { message: 'Parser Error' } };
+            return;
+          }
+          yield { ok: true, columns: [] };
+          yield { ok: false, error: { message: 'Conversion Error' } };
+        } finally {
+          closed += 1;
+        }
+      })();
+    });
+    const service = createSqlLocalService({ createHost, root, available: () => true });
+    await service.open(1, false);
+    expect(await service.stream(1, 'c', 'bad')).toEqual({ ok: false, error: { message: 'Parser Error' } });
+    await vi.waitFor(() => expect(closed).toBe(1));
+    const stream = await service.stream(1, 'c', 'SELECT 1');
+    expect(await service.next(1, stream.ok ? stream.value.streamId : '')).toEqual({ ok: false, error: { message: 'Conversion Error' } });
+    await vi.waitFor(() => expect(closed).toBe(2));
   });
 
   it('keeps the home folder out of error messages', async () => {

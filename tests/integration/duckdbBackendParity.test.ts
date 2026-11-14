@@ -14,8 +14,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createHost, inProcessTransport } from '@electron-stagewright/host-supervisor';
 import { createSqlLocalEngine, type SqlLocalEngine } from '../../src/main/sqlLocal/engine';
-import type { LocalRequest } from '../../src/main/sqlLocal/protocol';
+import { SQL_LOCAL_OPERATIONS, SQL_LOCAL_STREAMS, type SqlLocalOps } from '../../src/main/sqlLocal/protocol';
+import { createSqlLocalService, type SqlLocalService } from '../../src/main/sqlLocal/service';
 import {
   __setDuckDbEngineFactoryForTests,
   executeQuery,
@@ -31,7 +33,7 @@ import {
 } from '../../src/renderer/runtime/duckdbClient';
 import { copyQueryToBytes, streamQueryRows } from '../../src/renderer/runtime/duckdbExport';
 import { openNativeEngine } from '../../src/renderer/runtime/duckdbNativeEngine';
-import type { SqlLocalBridge, SqlLocalReply } from '../../src/shared/sqlLocal';
+import type { SqlLocalBridge } from '../../src/shared/sqlLocal';
 
 interface BlockingConnection {
   query(sql: string): ArrowTableLike;
@@ -54,6 +56,7 @@ type Blocking = {
 let wasm: DuckDbEngineHandle;
 let native: DuckDbEngineHandle;
 let localEngine: SqlLocalEngine;
+let localService: SqlLocalService;
 let scratch: string;
 
 /** DuckDB-WASM as `wasmEngineFactory` configures it. */
@@ -100,30 +103,35 @@ async function wasmHandle(): Promise<DuckDbEngineHandle> {
   };
 }
 
-/** The native engine as main serves it to one window, without Electron in between. */
+/** The native engine as main serves it to one window, through the real supervisor but without Electron. */
 async function nativeHandle(): Promise<DuckDbEngineHandle> {
   scratch = await mkdtemp(path.join(tmpdir(), 'lingua-parity-'));
   localEngine = createSqlLocalEngine(() => import('@duckdb/node-api'));
-  let id = 0;
-  const call = async <T>(body: Record<string, unknown>): Promise<SqlLocalReply<T>> => {
-    const response = await localEngine.handle({ id: ++id, owner: 1, ...body } as LocalRequest);
-    return response.ok ? { ok: true, value: response.result as T } : { ok: false, error: response.error };
-  };
-  const paths = { database: path.join(scratch, 'lingua-sql.duckdb'), files: path.join(scratch, 'files', '1'), temp: path.join(scratch, 'tmp', '1') };
+  localService = createSqlLocalService({
+    root: scratch,
+    available: () => true,
+    createHost: () =>
+      createHost<SqlLocalOps>({
+        operations: SQL_LOCAL_OPERATIONS,
+        streams: SQL_LOCAL_STREAMS,
+        transport: inProcessTransport<SqlLocalOps>({ operations: SQL_LOCAL_OPERATIONS, streams: SQL_LOCAL_STREAMS, start: () => localEngine.handlers }),
+      }),
+  });
+  const owner = 1;
   const bridge: SqlLocalBridge = {
-    status: async () => ({ available: true }),
-    open: persist => call({ type: 'open', persist, paths }),
-    connect: engineId => call({ type: 'connect', engineId }),
-    query: (connectionId, sql) => call({ type: 'query', connectionId, sql }),
-    stream: (connectionId, sql) => call({ type: 'stream', connectionId, sql }),
-    next: streamId => call({ type: 'next', streamId }),
-    cancel: connectionId => call({ type: 'cancel', connectionId }),
-    closeConnection: connectionId => call({ type: 'close-connection', connectionId }),
-    registerFile: (engineId, name, bytes) => call({ type: 'register-file', engineId, name, bytes }),
-    registerEmptyFile: (engineId, name) => call({ type: 'register-empty-file', engineId, name }),
-    dropFile: (engineId, name) => call({ type: 'drop-file', engineId, name }),
-    readFile: (engineId, name) => call({ type: 'read-file', engineId, name }),
-    terminate: engineId => call({ type: 'terminate', engineId }),
+    status: async () => localService.status(),
+    open: persist => localService.open(owner, persist),
+    connect: engineId => localService.connect(owner, engineId),
+    query: (connectionId, sql) => localService.query(owner, connectionId, sql),
+    stream: (connectionId, sql) => localService.stream(owner, connectionId, sql),
+    next: streamId => localService.next(owner, streamId),
+    cancel: connectionId => localService.cancel(owner, connectionId),
+    closeConnection: connectionId => localService.closeConnection(owner, connectionId),
+    registerFile: (engineId, name, bytes) => localService.registerFile(owner, engineId, name, bytes),
+    registerEmptyFile: (engineId, name) => localService.registerEmptyFile(owner, engineId, name),
+    dropFile: (engineId, name) => localService.dropFile(owner, engineId, name),
+    readFile: (engineId, name) => localService.readFile(owner, engineId, name),
+    terminate: engineId => localService.terminate(owner, engineId, false),
     clearDatabase: async () => ({ ok: true, value: null }),
     databaseBytes: async () => ({ ok: true, value: 0 }),
   };
@@ -153,6 +161,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   __setDuckDbEngineFactoryForTests(null);
+  await localService?.dispose();
   await localEngine?.dispose();
   if (scratch) await rm(scratch, { recursive: true, force: true });
 });

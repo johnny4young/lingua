@@ -19,13 +19,13 @@ const host = createSqlHost({ postgres: unused, mysql: unused, sqlite: unused, sq
 afterAll(() => host.dispose());
 
 let id = 0;
-const send = (body: Omit<HostRequest, 'id'>) => host.handle({ id: ++id, ...body } as HostRequest);
+const send = (body: HostRequest) => host.handle(body);
 const window = { maxRows: 1_000, maxBytes: 256 * 1024 };
 
-async function ok<T>(body: Omit<HostRequest, 'id'>): Promise<T> {
+async function ok<T>(body: HostRequest): Promise<T> {
   const response = await send(body);
   if (!response.ok) throw new Error(response.error.message);
-  return response.result as T;
+  return response.value as T;
 }
 
 type Rows = { rows: Array<Record<string, unknown>>; columns: Array<{ name: string; type: string }>; hasMore: boolean; affectedRows?: number };

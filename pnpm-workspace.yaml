@@ -153,6 +153,7 @@ minimumReleaseAgeExclude:
   # First-party Electron Stagewright kit packages, published by the Lingua
   # maintainer; adopted the day they shipped.
   - '@electron-stagewright/origin-migration@0.1.0'
+  - '@electron-stagewright/host-supervisor@0.1.0'
 
 # Handle owned delayed-task cancellation when Monaco navigation widgets dispose.
 patchedDependencies:

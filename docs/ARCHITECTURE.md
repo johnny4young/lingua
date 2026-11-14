@@ -376,8 +376,14 @@ refused on this engine. Rows are converted in the process to what DuckDB-WASM's
 Arrow rows become and capped by the shared window in
 `src/shared/sqlResultRows.ts`, so both engines show the same results
 (`tests/integration/duckdbBackendParity.test.ts`). Registered files are named
-by absolute path (`DuckDbEngineHandle.filePath`). A forced restart for a
-statement that ignored Cancel restarts only that window's process. See
+by absolute path (`DuckDbEngineHandle.filePath`). The same supervisor package
+runs each window's process (`src/main/sqlLocalProcess.ts`). A streamed result
+is one `rows` stream pulled a batch at a time; main hands the renderer an id
+for it and closes it when a new statement runs on the connection, the
+connection closes or the window goes. A forced restart for a statement that
+ignored Cancel kills only that window's process, and so does a native crash:
+`scripts/smoke-sql-local-crash.mjs` kills the engine with SIGABRT and with
+SIGSEGV during a query and checks that the window stays. See
 `docs/SQL_LOCAL_NATIVE_ADR.md`.
 
 ### SQL runs, cancel and the row window
@@ -490,10 +496,17 @@ Saved Postgres, MySQL, SQL Server, ClickHouse, SQLite, Turso (libSQL), Neon
 and Cloudflare D1 connections run outside the renderer on desktop. Main forks `src/main/sqlHost/hostEntry.ts` (bundled to
 `.vite/build/sqlHost.js` by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`,
 `pg-native`, `mysql2`, `ssh2`, `tedious` and `@clickhouse/client` left
-external) as the `Lingua SQL host` utility process through
-`createSqlHostSupervisor`; a request pending when the host exits fails, and
-the next request forks a new host. Only the current host's exit fails pending
-requests, so a killed host that exits late cannot fail the new one's. The host
+external) as the `Lingua SQL host` utility process, supervised by `createHost`
+from `@electron-stagewright/host-supervisor` with `utilityProcessTransport` and
+`onExit: 'on-demand'` (`src/main/sqlHostProcess.ts`): a call pending when the
+host exits fails, and the next call starts a new host once the old one has
+exited or five seconds have passed. A forced restart is `host.kill()`. Each
+operation answers with a `HostReply` value rather than throwing, because the
+package carries only an error's message and an upper-case code across the
+boundary and Lingua's failures carry a step, a fix, a host key or an edit
+failure (`src/main/sqlHostClient.ts` unwraps them). Cancel stays an operation
+of its own: an aborted call settles at once in main, but the renderer and the
+restart decision need to know whether the engine actually stopped. The host
 starts without the `PG*` and `MYSQL_*` environment variables, and Postgres
 never falls back to a `.pgpass` file, so a driver can only use the password
 main gives it. The host holds one session per connection and serializes the

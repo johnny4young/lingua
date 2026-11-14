@@ -19,7 +19,7 @@ const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: o
 afterAll(() => host.dispose());
 
 let id = 0;
-const send = (body: Omit<HostRequest, 'id'>) => host.handle({ id: ++id, ...body } as HostRequest);
+const send = (body: HostRequest) => host.handle(body);
 const window = { maxRows: 1_000, maxBytes: 256 * 1024 };
 
 function configFrom(url: string | undefined, engine: 'postgres' | 'mysql', connectionId: string, readOnly = false): HostSessionConfig | null {
@@ -38,10 +38,10 @@ function configFrom(url: string | undefined, engine: 'postgres' | 'mysql', conne
   };
 }
 
-async function ok<T>(body: Omit<HostRequest, 'id'>): Promise<T> {
+async function ok<T>(body: HostRequest): Promise<T> {
   const response = await send(body);
   if (!response.ok) throw new Error(response.error.message);
-  return response.result as T;
+  return response.value as T;
 }
 
 for (const [engine, url] of [
@@ -193,7 +193,7 @@ for (const [engine, url] of [
           config,
           request: { level: 'detail', schema: config.database!, name: "x' OR SLEEP(0.5) #", kind: 'table' },
         });
-        expect(response).toMatchObject({ ok: true, result: { detail: { columns: [] } } });
+        expect(response).toMatchObject({ ok: true, value: { detail: { columns: [] } } });
         expect(performance.now() - started).toBeLessThan(400);
       } finally {
         await ok({ type: 'execute', config, runId: 'mode2', sql: "SET SESSION sql_mode = REPLACE(@@sql_mode, 'NO_BACKSLASH_ESCAPES', '')", readWrite: false, window });
@@ -205,7 +205,7 @@ for (const [engine, url] of [
       await ok({ type: 'execute', config, runId: 'plant', sql: planted, readWrite: false, window });
       try {
         const response = await send({ type: 'introspect', config, request: { level: 'detail', schema: 'public', name: `${table}_child`, kind: 'table' } });
-        expect(response).toMatchObject({ ok: true, result: { detail: { name: `${table}_child` } } });
+        expect(response).toMatchObject({ ok: true, value: { detail: { name: `${table}_child` } } });
         // Nothing stays open: the next run starts outside any transaction.
         const state = await ok<{ rows: Array<{ s: unknown }> }>({ type: 'execute', config, runId: 'txn', sql: "SELECT current_setting('search_path') AS s", readWrite: false, window });
         expect(String(state.rows[0]?.s)).not.toBe('pg_catalog, pg_temp');

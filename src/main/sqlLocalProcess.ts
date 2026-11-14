@@ -2,31 +2,31 @@
 
 import path from 'node:path';
 import { app, utilityProcess } from 'electron';
-import type { SqlLocalError } from '../shared/sqlLocal';
-import { createSqlHostSupervisor } from './sqlHostSupervisor';
-import type { LocalRequest } from './sqlLocal/protocol';
-
-const PASSED_THROUGH = ['PATH', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'SystemRoot', 'windir'];
+import { createHost, minimalEnvironment } from '@electron-stagewright/host-supervisor';
+import { utilityProcessTransport } from '@electron-stagewright/host-supervisor/utility';
+import { SQL_LOCAL_OPERATIONS, SQL_LOCAL_STREAMS, type SqlLocalOps } from './sqlLocal/protocol';
 
 /** Only what the runtime needs; HOME points at Lingua's own folder so DuckDB's ~/.duckdb defaults never reach the user's. */
 export function sqlLocalEnvironment(env: NodeJS.ProcessEnv, home: string): Record<string, string> {
-  const out: Record<string, string> = { HOME: home, USERPROFILE: home };
-  for (const name of PASSED_THROUGH) {
-    const value = env[name];
-    if (value !== undefined) out[name] = value;
-  }
-  return out;
+  return minimalEnvironment(env, { home });
 }
 
-/** One window's engine process; the service starts one per window, on its first request. */
+/** How long a window's process may take to close its engines before main stops it. */
+const SQL_LOCAL_STOP_GRACE_MS = 3_000;
+
+/** One window's engine process; it starts on the window's first call, and again after a crash or a forced restart. */
 export function createSqlLocalHost() {
-  return createSqlHostSupervisor<LocalRequest, SqlLocalError>(
-    () =>
-      utilityProcess.fork(path.join(__dirname, 'sqlLocal.js'), [], {
-        serviceName: 'Lingua local SQL',
-        stdio: 'ignore',
-        env: sqlLocalEnvironment(process.env, path.join(app.getPath('userData'), 'sql-local', 'home')),
-      }),
-    () => ({ message: 'The SQL engine stopped. Run the query again to start a new one.', code: 'engine-gone' })
-  );
+  return createHost<SqlLocalOps>({
+    operations: SQL_LOCAL_OPERATIONS,
+    streams: SQL_LOCAL_STREAMS,
+    transport: utilityProcessTransport({
+      entry: path.join(__dirname, 'sqlLocal.js'),
+      serviceName: 'Lingua local SQL',
+      stdio: 'ignore',
+      env: sqlLocalEnvironment(process.env, path.join(app.getPath('userData'), 'sql-local', 'home')),
+      fork: (entry, args, options) => utilityProcess.fork(entry, args, options),
+    }),
+    stop: { graceMs: SQL_LOCAL_STOP_GRACE_MS },
+    onExit: () => 'on-demand',
+  });
 }

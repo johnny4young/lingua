@@ -2,7 +2,9 @@
 
 import path from 'node:path';
 import { utilityProcess } from 'electron';
-import { createSqlHostSupervisor } from './sqlHostSupervisor';
+import { createHost } from '@electron-stagewright/host-supervisor';
+import { utilityProcessTransport } from '@electron-stagewright/host-supervisor/utility';
+import { SQL_HOST_OPERATIONS, type SqlHostOps } from './sqlHost/protocol';
 
 /** The app's environment without database client settings, so no driver picks up a password or host from it. */
 export function hostEnvironment(env: NodeJS.ProcessEnv): Record<string, string> {
@@ -11,14 +13,19 @@ export function hostEnvironment(env: NodeJS.ProcessEnv): Record<string, string> 
   );
 }
 
-export const sqlHost = createSqlHostSupervisor(() =>
-  utilityProcess.fork(path.join(__dirname, 'sqlHost.js'), [], {
+// A crash or a forced restart ends every session; the next call starts a new host.
+export const sqlHost = createHost<SqlHostOps>({
+  operations: SQL_HOST_OPERATIONS,
+  transport: utilityProcessTransport({
+    entry: path.join(__dirname, 'sqlHost.js'),
     serviceName: 'Lingua SQL host',
     stdio: 'ignore',
     env: hostEnvironment(process.env),
-  })
-);
+    fork: (entry, args, options) => utilityProcess.fork(entry, args, options),
+  }),
+  onExit: () => 'on-demand',
+});
 
-export function disposeSqlHost(): void {
-  sqlHost.dispose();
+export function disposeSqlHost(): Promise<void> {
+  return sqlHost.close();
 }

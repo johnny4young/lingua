@@ -19,7 +19,7 @@ import type { SqlColumnMetadata, SqlStorageMode } from '../../shared/sqlWorkspac
 import { cellConverter, chunkRows, columnsOf, type PointerReader } from './cells';
 import { sizeOf } from './fileSize';
 import { withoutFolder } from './messages';
-import type { LocalPaths, LocalRequest, LocalResponse } from './protocol';
+import { ENGINE_GONE_MESSAGE, RESULT_CLOSED_MESSAGE, type LocalPaths, type LocalReply, type LocalRequest, type LocalStreamItem, type SqlLocalOps } from './protocol';
 
 type NodeApi = Pick<typeof import('@duckdb/node-api'), 'DuckDBInstance'>;
 
@@ -63,9 +63,9 @@ class LocalError extends Error {
   }
 }
 
-const gone = () => new LocalError('The SQL engine stopped. Run the query again to start a new one.', 'engine-gone');
+const gone = () => new LocalError(ENGINE_GONE_MESSAGE, 'engine-gone');
 const closedConnection = () => new LocalError('The SQL connection is closed.');
-const closedResult = () => new LocalError('The SQL result is closed.');
+const closedResult = () => new LocalError(RESULT_CLOSED_MESSAGE);
 
 const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
@@ -361,6 +361,11 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>, readPointer?:
         return stream(request.owner, request.connectionId, request.sql);
       case 'next':
         return next(request.owner, request.streamId);
+      case 'close-stream': {
+        const found = streams.get(request.streamId);
+        if (found && found.owner === request.owner && found.connection.stream?.id === request.streamId) dropStream(found.connection);
+        return null;
+      }
       case 'cancel':
         return cancel(request.owner, request.connectionId);
       case 'close-connection': {
@@ -410,18 +415,60 @@ export function createSqlLocalEngine(load: () => Promise<NodeApi>, readPointer?:
     await Promise.all([...engines.values()].map(closeEngine));
   }
 
-  return {
-    async handle(request: LocalRequest): Promise<LocalResponse> {
-      try {
-        return { id: request.id, ok: true, result: await handle(request) };
-      } catch (error) {
-        const code = error instanceof LocalError ? error.code : undefined;
-        const folders = 'owner' in request ? filesDirsOf(request.owner) : [];
-        return { id: request.id, ok: false, error: { message: messageOf(error, folders), ...(code ? { code } : {}) } };
+  async function reply<T>(request: LocalRequest): Promise<LocalReply<T>> {
+    try {
+      return { ok: true, value: (await handle(request)) as T };
+    } catch (error) {
+      const code = error instanceof LocalError ? error.code : undefined;
+      const folders = 'owner' in request ? filesDirsOf(request.owner) : [];
+      return { ok: false, error: { message: messageOf(error, folders), ...(code ? { code } : {}) } };
+    }
+  }
+
+  async function* rows(owner: number, connectionId: string, sql: string): AsyncGenerator<LocalStreamItem> {
+    const opened = await reply<SqlLocalStreamOpened>({ type: 'stream', owner, connectionId, sql });
+    if (!opened.ok) {
+      yield opened;
+      return;
+    }
+    const { streamId } = opened.value;
+    try {
+      yield { ok: true, columns: opened.value.columns };
+      for (;;) {
+        const batch = await reply<Array<Record<string, unknown>> | null>({ type: 'next', owner, streamId });
+        if (!batch.ok) {
+          yield batch;
+          return;
+        }
+        if (batch.value === null) return;
+        yield { ok: true, rows: batch.value };
       }
-    },
-    dispose,
+    } finally {
+      // Main let go of the stream early; it no longer counts toward the open-results limit.
+      await handle({ type: 'close-stream', owner, streamId });
+    }
+  }
+
+  /** The operations `serveHost` answers. */
+  const handlers: SqlLocalOps = {
+    open: (owner, persist, paths) => reply({ type: 'open', owner, persist, paths }),
+    connect: (owner, engineId) => reply({ type: 'connect', owner, engineId }),
+    query: (owner, connectionId, sql) => reply({ type: 'query', owner, connectionId, sql }),
+    rows,
+    cancel: (owner, connectionId) => reply({ type: 'cancel', owner, connectionId }),
+    closeConnection: (owner, connectionId) => reply({ type: 'close-connection', owner, connectionId }),
+    registerFile: (owner, engineId, name, bytes) => reply({ type: 'register-file', owner, engineId, name, bytes }),
+    registerEmptyFile: (owner, engineId, name) => reply({ type: 'register-empty-file', owner, engineId, name }),
+    dropFile: (owner, engineId, name) => reply({ type: 'drop-file', owner, engineId, name }),
+    readFile: (owner, engineId, name) => reply({ type: 'read-file', owner, engineId, name }),
+    terminate: (owner, engineId) => reply({ type: 'terminate', owner, engineId }),
+    releaseOwner: owner => reply({ type: 'release-owner', owner }),
+    dispose: () => reply({ type: 'dispose' }),
+    clearDatabase: database => reply({ type: 'clear-database', database }),
+    databaseBytes: database => reply({ type: 'database-bytes', database }),
   };
+
+  return { handle: reply, handlers, dispose };
 }
 
 export type SqlLocalEngine = ReturnType<typeof createSqlLocalEngine>;

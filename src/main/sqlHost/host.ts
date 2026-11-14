@@ -16,9 +16,10 @@ import type {
   HostError,
   HostExecuteResult,
   HostFetchResult,
+  HostReply,
   HostRequest,
-  HostResponse,
   HostSessionConfig,
+  SqlHostOps,
   HostTestResult,
 } from './protocol';
 
@@ -313,7 +314,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
     });
   }
 
-  async function handle(request: HostRequest): Promise<HostResponse> {
+  async function handle(request: HostRequest): Promise<HostReply<unknown>> {
     try {
       let result: unknown;
       switch (request.type) {
@@ -328,7 +329,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
           break;
         case 'close-run':
           await closeRun(request.runId);
-          result = { closed: true };
+          result = null;
           break;
         case 'cancel':
           result = await cancel(request.runId);
@@ -346,14 +347,14 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
           await dropSession(request.connectionId);
           await dropSession(catalogSessionId(request.connectionId));
           await dropSession(editsSessionId(request.connectionId));
-          result = { disconnected: true };
+          result = null;
           break;
       }
-      return { id: request.id, ok: true, result };
+      return { ok: true, value: result };
     } catch (err) {
       const error: HostError =
         err instanceof HostRequestError ? err.detail : { message: err instanceof Error ? err.message : String(err) };
-      return { id: request.id, ok: false, error };
+      return { ok: false, error };
     }
   }
 
@@ -362,5 +363,19 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
     tunnels.dispose();
   }
 
-  return { handle, dispose };
+  const reply = <T>(request: HostRequest) => handle(request) as Promise<HostReply<T>>;
+  /** The operations `serveHost` answers; each one is a request to `handle`. */
+  const handlers: SqlHostOps = {
+    test: config => reply({ type: 'test', config }),
+    execute: (config, runId, sql, readWrite, window) => reply({ type: 'execute', config, runId, sql, readWrite, window }),
+    fetch: (runId, limit, maxBytes) => reply({ type: 'fetch', runId, limit, maxBytes }),
+    closeRun: runId => reply({ type: 'close-run', runId }),
+    cancel: runId => reply({ type: 'cancel', runId }),
+    estimate: (config, sql) => reply({ type: 'estimate', config, sql }),
+    introspect: (config, request) => reply({ type: 'introspect', config, request }),
+    applyEdits: (config, statements) => reply({ type: 'apply-edits', config, statements }),
+    disconnect: connectionId => reply({ type: 'disconnect', connectionId }),
+  };
+
+  return { handle, handlers, dispose };
 }

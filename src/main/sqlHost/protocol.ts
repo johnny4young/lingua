@@ -6,7 +6,7 @@
 
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { SqlConnectionD1, SqlRemoteEngine, SqlSshAuth, SqlSslMode } from '../../shared/sqlConnections';
-import type { SqlDbHostKey, SqlDbIntrospect } from '../../shared/sqlDb';
+import type { SqlDbHostKey, SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlDriverError } from '../../shared/sqlDriver';
 import type { RowEditFailure, RowEditStatement } from '../../shared/sqlRowEdits';
 import type { KnownHostKey } from '../sqlSsh/knownHosts';
@@ -63,24 +63,45 @@ interface HostWindow {
   maxBytes: number;
 }
 
+/** A reply as a value: errors keep their detail, which a thrown error would lose crossing the process boundary. */
+export type HostReply<T, Failure = HostError> = { ok: true; value: T } | { ok: false; error: Failure };
+
+/** The SQL host's closed list of operations. */
+export interface SqlHostOps {
+  test(config: HostSessionConfig): Promise<HostReply<HostTestResult>>;
+  execute(config: HostSessionConfig, runId: string, sql: string, readWrite: boolean, window: HostWindow): Promise<HostReply<HostExecuteResult>>;
+  fetch(runId: string, limit: number, maxBytes: number): Promise<HostReply<HostFetchResult>>;
+  closeRun(runId: string): Promise<HostReply<null>>;
+  cancel(runId: string): Promise<HostReply<HostCancelResult>>;
+  estimate(config: HostSessionConfig, sql: string): Promise<HostReply<number | null>>;
+  introspect(config: HostSessionConfig, request: SqlDbIntrospect): Promise<HostReply<SqlDbIntrospectResult>>;
+  applyEdits(config: HostSessionConfig, statements: RowEditStatement[]): Promise<HostReply<{ applied: number }>>;
+  disconnect(connectionId: string): Promise<HostReply<null>>;
+}
+
+/** One operation as data, as the host's handler and its tests take it. */
 export type HostRequest =
-  | { id: number; type: 'test'; config: HostSessionConfig }
-  | {
-      id: number;
-      type: 'execute';
-      config: HostSessionConfig;
-      runId: string;
-      sql: string;
-      readWrite: boolean;
-      window: HostWindow;
-    }
-  | { id: number; type: 'fetch'; runId: string; limit: number; maxBytes: number }
-  | { id: number; type: 'close-run'; runId: string }
-  | { id: number; type: 'cancel'; runId: string }
-  | { id: number; type: 'estimate'; config: HostSessionConfig; sql: string }
-  | { id: number; type: 'introspect'; config: HostSessionConfig; request: SqlDbIntrospect }
-  | { id: number; type: 'apply-edits'; config: HostSessionConfig; statements: RowEditStatement[] }
-  | { id: number; type: 'disconnect'; connectionId: string };
+  | { type: 'test'; config: HostSessionConfig }
+  | { type: 'execute'; config: HostSessionConfig; runId: string; sql: string; readWrite: boolean; window: HostWindow }
+  | { type: 'fetch'; runId: string; limit: number; maxBytes: number }
+  | { type: 'close-run'; runId: string }
+  | { type: 'cancel'; runId: string }
+  | { type: 'estimate'; config: HostSessionConfig; sql: string }
+  | { type: 'introspect'; config: HostSessionConfig; request: SqlDbIntrospect }
+  | { type: 'apply-edits'; config: HostSessionConfig; statements: RowEditStatement[] }
+  | { type: 'disconnect'; connectionId: string };
+
+export const SQL_HOST_OPERATIONS = [
+  'test',
+  'execute',
+  'fetch',
+  'closeRun',
+  'cancel',
+  'estimate',
+  'introspect',
+  'applyEdits',
+  'disconnect',
+] as const satisfies ReadonlyArray<keyof SqlHostOps>;
 
 export interface HostTestResult {
   tcpMs?: number;
@@ -124,4 +145,3 @@ export interface HostError extends SqlDriverError {
   edit?: RowEditFailure;
 }
 
-export type HostResponse = { id: number; ok: true; result: unknown } | { id: number; ok: false; error: HostError };

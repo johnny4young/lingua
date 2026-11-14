@@ -1,11 +1,12 @@
-/** Entry point of the SQL host utilityProcess: requests in, responses out on the parent port. */
+/** Entry point of the SQL host utilityProcess. */
 
+import { serveHost } from '@electron-stagewright/host-supervisor';
 import { openClickHouse } from './clickhouse';
 import { createSqlHost } from './host';
 import { openD1Host, openLibsqlHost, openNeonHost } from './httpEngines';
 import { openMysql } from './mysql';
 import { openPostgres } from './postgres';
-import type { HostRequest } from './protocol';
+import { SQL_HOST_OPERATIONS, type SqlHostOps } from './protocol';
 import { openSqlite } from './sqlite';
 import { openSqlServer } from './sqlserver';
 
@@ -20,8 +21,8 @@ const host = createSqlHost({
   d1: openD1Host,
 });
 
-process.parentPort.on('message', (event) => {
-  void host.handle(event.data as HostRequest).then((response) => process.parentPort.postMessage(response));
+serveHost<SqlHostOps>({
+  operations: SQL_HOST_OPERATIONS,
+  start: () => host.handlers,
+  stop: () => host.dispose(),
 });
-
-process.on('exit', () => void host.dispose());

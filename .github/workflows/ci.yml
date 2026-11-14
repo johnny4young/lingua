@@ -463,6 +463,17 @@ jobs:
             output/playwright/origin-migration/result.json
             output/playwright/origin-migration/migrated-es.png
           retention-days: 7
+      # Native crashes in the DuckDB engine process end that engine only; the
+      # window stays and the next open starts a new one.
+      - name: Local SQL engine crash smoke
+        run: node scripts/smoke-sql-local-crash.mjs
+      - name: Upload Local SQL crash smoke evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sql-local-crash-smoke
+          path: output/playwright/sql-local-crash/result.json
+          retention-days: 7
       # The page CSP does not bind workers; this proves each worker script's own
       # header arrives, Chromium enforces it, and every runtime still runs.
       - name: Worker CSP smoke

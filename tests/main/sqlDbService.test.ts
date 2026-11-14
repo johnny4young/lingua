@@ -4,10 +4,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SecretStore } from '../../src/main/secretStore';
 import { createConnectionCatalog } from '../../src/main/sqlConnectionCatalog';
-import { createSqlDbService } from '../../src/main/sqlDbService';
+import { createSqlDbService, type SqlDbServiceDeps } from '../../src/main/sqlDbService';
 import { createHostKeyStore } from '../../src/main/sqlSsh/hostKeyStore';
 import { createSshTargets } from '../../src/main/sqlSsh/sshTargets';
-import { SqlHostError, type SqlHostSupervisor } from '../../src/main/sqlHostSupervisor';
+import { SqlHostError } from '../../src/main/sqlHostClient';
 import type { LicenseTier } from '../../src/shared/license';
 import type { SqlConnectionDraft } from '../../src/shared/sqlConnections';
 
@@ -38,17 +38,38 @@ function memorySecrets(): SecretStore {
   };
 }
 
-function fakeHost(respond: (body: Record<string, unknown>) => unknown = () => ({})) {
+type Respond = (body: Record<string, unknown>, timeoutMs?: number) => unknown;
+
+/** Each host operation as the request body the tests match on. */
+const bodies: Record<string, (args: unknown[]) => Record<string, unknown>> = {
+  test: ([config]) => ({ type: 'test', config }),
+  execute: ([config, runId, sql, readWrite, window]) => ({ type: 'execute', config, runId, sql, readWrite, window }),
+  fetch: ([runId, limit, maxBytes]) => ({ type: 'fetch', runId, limit, maxBytes }),
+  closeRun: ([runId]) => ({ type: 'close-run', runId }),
+  cancel: ([runId]) => ({ type: 'cancel', runId }),
+  estimate: ([config, sql]) => ({ type: 'estimate', config, sql }),
+  introspect: ([config, request]) => ({ type: 'introspect', config, request }),
+  applyEdits: ([config, statements]) => ({ type: 'apply-edits', config, statements }),
+  disconnect: ([connectionId]) => ({ type: 'disconnect', connectionId }),
+};
+
+function fakeHost(respond: Respond = () => ({})) {
   const sent: Array<Record<string, unknown>> = [];
   const host = {
-    request: vi.fn(async (body: Record<string, unknown>) => {
+    respond,
+    call: vi.fn(async (op: string, args: unknown[], options?: { timeoutMs?: number }) => {
+      const body = bodies[op]!(args);
       sent.push(body);
-      return respond(body);
+      try {
+        return { ok: true, value: await host.respond(body, options?.timeoutMs) };
+      } catch (error) {
+        if (error instanceof SqlHostError) return { ok: false, error: error.detail };
+        throw error;
+      }
     }),
-    restart: vi.fn(),
-    isRunning: () => true,
-    dispose: vi.fn(),
-  } as unknown as SqlHostSupervisor;
+    kill: vi.fn(async () => undefined),
+    state: 'running' as const,
+  };
   return { host, sent };
 }
 
@@ -60,7 +81,7 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-function service(respond?: (body: Record<string, unknown>) => unknown, extra: { lookupAddress?: string } = {}) {
+function service(respond?: Respond, extra: { lookupAddress?: string } = {}) {
   const secrets = memorySecrets();
   const { host, sent } = fakeHost(respond);
   const catalogPath = path.join(dir, 'sql-connections.json');
@@ -75,7 +96,7 @@ function service(respond?: (body: Record<string, unknown>) => unknown, extra: { 
     }),
     catalog: createConnectionCatalog(catalogPath),
     secrets,
-    host,
+    host: host as unknown as SqlDbServiceDeps['host'],
     tier: async () => tier,
     blockedPath: (file) => (file.startsWith('/protected/') ? 'lingua-data' : null),
     lookup: async (name) => {
@@ -160,7 +181,7 @@ describe('passwords that belong to a target', () => {
     const svc = createSqlDbService({
       catalog: createConnectionCatalog(path.join(dir, 'c.json')),
       secrets: memorySecrets(),
-      host: fakeHost().host,
+      host: fakeHost().host as unknown as SqlDbServiceDeps['host'],
       tier: async () => 'free',
       blockedPath: (file) => (file.startsWith(blocked) ? 'lingua-data' : null),
     });
@@ -323,7 +344,7 @@ describe('running statements', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(await svc.cancel(2, 'r1')).toEqual({ cancelled: false });
     expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
-    expect(host.restart).toHaveBeenCalledOnce();
+    expect(host.kill).toHaveBeenCalledOnce();
     release();
     await running;
   });
@@ -374,11 +395,10 @@ describe('estimates and cancel', () => {
       const { svc, host } = service((body) =>
         body.type === 'cancel' || body.type === 'execute' ? new Promise(() => undefined) : { columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false }
       );
-      (host.request as ReturnType<typeof vi.fn>).mockImplementation((body: Record<string, unknown>, timeoutMs?: number) =>
+      host.respond = (body, timeoutMs) =>
         body.type === 'cancel' || body.type === 'execute'
           ? new Promise((_, reject) => (timeoutMs ? setTimeout(() => reject(new Error('timed out')), timeoutMs) : undefined))
-          : Promise.resolve(undefined)
-      );
+          : Promise.resolve(undefined);
       const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
         connection: { id: string };
       }).connection.id;
@@ -387,7 +407,7 @@ describe('estimates and cancel', () => {
       const cancelled = svc.cancel(1, 'r1');
       await vi.advanceTimersByTimeAsync(3_000);
       expect(await cancelled).toEqual({ cancelled: true });
-      expect(host.restart).toHaveBeenCalledTimes(1);
+      expect(host.kill).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
