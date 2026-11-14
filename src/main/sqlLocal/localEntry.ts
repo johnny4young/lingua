@@ -1,9 +1,10 @@
-/** Entry point of the Local SQL utilityProcess: requests in, responses out on the parent port. */
+/** Entry point of the Local SQL utilityProcess. */
 
 import { createRequire } from 'node:module';
+import { serveHost } from '@electron-stagewright/host-supervisor';
 import type { PointerReader } from './cells';
 import { createSqlLocalEngine } from './engine';
-import type { LocalRequest } from './protocol';
+import { SQL_LOCAL_OPERATIONS, SQL_LOCAL_STREAMS, type SqlLocalOps } from './protocol';
 
 /** The binding node-api itself loads, resolved from node-api so its own copy answers. */
 function pointerReader(): PointerReader | undefined {
@@ -17,6 +18,9 @@ function pointerReader(): PointerReader | undefined {
 
 const engine = createSqlLocalEngine(() => import('@duckdb/node-api'), pointerReader());
 
-process.parentPort.on('message', (event) => {
-  void engine.handle(event.data as LocalRequest).then((response) => process.parentPort.postMessage(response));
+serveHost<SqlLocalOps>({
+  operations: SQL_LOCAL_OPERATIONS,
+  streams: SQL_LOCAL_STREAMS,
+  start: () => engine.handlers,
+  stop: () => engine.dispose(),
 });

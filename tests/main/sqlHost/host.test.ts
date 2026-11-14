@@ -48,21 +48,20 @@ const pgConfig = (overrides: Partial<HostSessionConfig> = {}): HostSessionConfig
   ...overrides,
 });
 
-let id = 0;
-type HostRequestBody = HostRequest extends infer R ? (R extends unknown ? Omit<R, 'id'> : never) : never;
-const req = (body: HostRequestBody) => ({ id: ++id, ...body }) as HostRequest;
+type HostRequestBody = HostRequest;
+const req = (body: HostRequest) => body;
 
 describe('SQL host', () => {
   it('reads a window, keeps the run open for more rows, and maps bigints to text', async () => {
     const { open } = fakeDriver(25_000);
     const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
     const first = await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
-    expect(first).toMatchObject({ ok: true, result: { rowCount: 10_000, hasMore: true, rowCountIsLowerBound: true } });
-    const rows = (first as { result: { rows: Array<{ n: string }> } }).result.rows;
+    expect(first).toMatchObject({ ok: true, value: { rowCount: 10_000, hasMore: true, rowCountIsLowerBound: true } });
+    const rows = (first as { value: { rows: Array<{ n: string }> } }).value.rows;
     expect(rows[0]).toEqual({ n: '0' });
     const more = await host.handle(req({ type: 'fetch', runId: 'r1', limit: 15_000, maxBytes: Number.MAX_SAFE_INTEGER }));
-    expect(more).toMatchObject({ ok: true, result: { done: true } });
-    expect((more as { result: { rows: Array<{ n: string }> } }).result.rows.at(-1)).toEqual({ n: '24999' });
+    expect(more).toMatchObject({ ok: true, value: { done: true } });
+    expect((more as { value: { rows: Array<{ n: string }> } }).value.rows.at(-1)).toEqual({ n: '24999' });
     // The finished run is gone, and reading it again is an error rather than an empty end.
     expect(await host.handle(req({ type: 'fetch', runId: 'r1', limit: 1, maxBytes: 1 }))).toMatchObject({ ok: false });
   });
@@ -93,7 +92,7 @@ describe('SQL host', () => {
     };
     const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
     expect(await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }))).toMatchObject({
-      result: { hasMore: false },
+      value: { hasMore: false },
     });
     expect(closes[0]).toHaveBeenCalledOnce();
   });
@@ -102,7 +101,7 @@ describe('SQL host', () => {
     const { open } = fakeDriver(1_000);
     const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
     const first = await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window: { maxRows: 1_000, maxBytes: 100 } }));
-    const rows = (first as { result: { rows: unknown[]; hasMore: boolean } }).result;
+    const rows = (first as { value: { rows: unknown[]; hasMore: boolean } }).value;
     expect(rows.rows.length).toBeGreaterThan(0);
     expect(rows.rows.length).toBeLessThan(20);
     expect(rows.hasMore).toBe(true);
@@ -131,10 +130,10 @@ describe('SQL host', () => {
     const { open, session } = fakeDriver(20_000);
     const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
-    expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ result: { cancelled: true } });
+    expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ value: { cancelled: true } });
     expect(session.cancel).toHaveBeenCalledOnce();
     vi.mocked(session.cancel).mockResolvedValueOnce(false);
-    expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ result: { cancelled: false, restart: true } });
+    expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ value: { cancelled: false, restart: true } });
   });
 
   it('hands the driver the tunnel sockets without the SSH settings, and lets the tunnel go with the session', async () => {
@@ -217,7 +216,7 @@ describe('SQLite driver (node:sqlite)', () => {
     const result = await host.handle(req({ type: 'execute', config: sqliteConfig(false), runId: 'r', sql: 'SELECT * FROM t ORDER BY id', readWrite: false, window }));
     expect(result).toMatchObject({
       ok: true,
-      result: {
+      value: {
         columns: [
           { name: 'id', type: 'INTEGER' },
           { name: 'name', type: 'TEXT' },
@@ -239,11 +238,11 @@ describe('SQLite driver (node:sqlite)', () => {
     const host = createSqlHostSupervisorless();
     const table: RowEditTable = { engine: 'sqlite', name: 't', columns: ['id', 'name', 'price'], key: { kind: 'pk', columns: ['id'] } };
     const edits = rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { name: "O'Hare" } }], deletes: [{ key: { id: '2' } }], inserts: [{ values: { id: '3', name: 'c' } }] }, false);
-    expect(await host.handle(req({ type: 'apply-edits', config: sqliteConfig(false), statements: edits }))).toEqual({ id: expect.any(Number), ok: true, result: { applied: 3 } });
+    expect(await host.handle(req({ type: 'apply-edits', config: sqliteConfig(false), statements: edits }))).toEqual({ ok: true, value: { applied: 3 } });
     const conflict = rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { name: 'lost' } }], deletes: [{ key: { id: '42' } }], inserts: [] }, false);
     expect(await host.handle(req({ type: 'apply-edits', config: sqliteConfig(false), statements: conflict }))).toMatchObject({ ok: false, error: { message: expect.stringMatching(/Change 2 would touch 0 rows/), edit: { kind: 'conflict', change: 2, touched: 0 } } });
     const rows = await host.handle(req({ type: 'execute', config: sqliteConfig(false), runId: 'r', sql: 'SELECT id, name FROM t ORDER BY id', readWrite: false, window }));
-    expect(rows).toMatchObject({ result: { rows: [{ id: '1', name: "O'Hare" }, { id: '3', name: 'c' }] } });
+    expect(rows).toMatchObject({ value: { rows: [{ id: '1', name: "O'Hare" }, { id: '3', name: 'c' }] } });
     await host.dispose();
   });
 
@@ -252,7 +251,7 @@ describe('SQLite driver (node:sqlite)', () => {
     const refused = await host.handle(req({ type: 'execute', config: sqliteConfig(true), runId: 'w', sql: "UPDATE t SET name = 'z'", readWrite: false, window }));
     expect(refused).toMatchObject({ ok: false, error: { message: expect.stringMatching(/readonly/i) } });
     const lifted = await host.handle(req({ type: 'execute', config: sqliteConfig(true), runId: 'w2', sql: "UPDATE t SET name = 'z'", readWrite: true, window }));
-    expect(lifted).toMatchObject({ ok: true, result: { affectedRows: 2, columns: [] } });
+    expect(lifted).toMatchObject({ ok: true, value: { affectedRows: 2, columns: [] } });
     await host.dispose();
   });
 
@@ -276,7 +275,7 @@ describe('SQLite driver (node:sqlite)', () => {
     const ask = async (request: Extract<HostRequestBody, { type: 'introspect' }>['request']) => {
       const response = await host.handle(req({ type: 'introspect', config: sqliteConfig(true), request }));
       if (!response.ok) throw new Error(response.error.message);
-      return response.result as SqlDbIntrospectResult;
+      return response.value as SqlDbIntrospectResult;
     };
     expect(await ask({ level: 'schemas' })).toEqual({ schemas: [{ name: 'main', objects: 4 }] });
     expect((await ask({ level: 'objects', schema: 'main' })).objects).toEqual([
@@ -299,7 +298,7 @@ describe('SQLite driver (node:sqlite)', () => {
 
   it('tests the file: version on success, file-missing when it is gone', async () => {
     const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite });
-    expect(await host.handle(req({ type: 'test', config: sqliteConfig(true) }))).toMatchObject({ ok: true, result: { serverVersion: expect.stringMatching(/^SQLite 3\./) } });
+    expect(await host.handle(req({ type: 'test', config: sqliteConfig(true) }))).toMatchObject({ ok: true, value: { serverVersion: expect.stringMatching(/^SQLite 3\./) } });
     expect(await host.handle(req({ type: 'test', config: { ...sqliteConfig(true), path: path.join(dir, 'nope.db') } }))).toMatchObject({
       ok: false,
       error: { step: 'file', fix: 'file-missing' },

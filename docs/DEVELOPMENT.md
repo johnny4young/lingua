@@ -589,6 +589,20 @@ nor roll data back, the V8 code cache fills, and the `file://` copy still opens
 in the older layout, with zero unexpected renderer console errors. Results go to
 `output/playwright/origin-migration/`; the profile is removed.
 
+### Local SQL engine crash smoke
+
+After `pnpm run build:desktop-bundles`, run:
+
+```sh
+node scripts/smoke-sql-local-crash.mjs [path-to-electron-executable]
+```
+
+It opens the native Local SQL engine through the preload bridge, kills the
+`Lingua local SQL` process with SIGABRT while idle and with SIGSEGV during a
+query, and asserts the window stays, the in-flight query answers `engine-gone`,
+and the next open starts a new engine that answers. It needs a build that ships
+DuckDB's binding for the platform. Results go to `output/playwright/sql-local-crash/`.
+
 ### Worker CSP smoke
 
 After `pnpm run build:desktop-bundles`, run:

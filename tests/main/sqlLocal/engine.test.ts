@@ -9,11 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PointerReader } from '../../../src/main/sqlLocal/cells';
 import { createSqlLocalEngine, type SqlLocalEngine } from '../../../src/main/sqlLocal/engine';
 import type { LocalPaths, LocalRequest } from '../../../src/main/sqlLocal/protocol';
-import type { SqlHostRequestBody } from '../../../src/main/sqlHostSupervisor';
-import type { SqlLocalOpened, SqlLocalQueryResult, SqlLocalStreamOpened } from '../../../src/shared/sqlLocal';
+import { SQL_LOCAL_MAX_STREAMS, type SqlLocalOpened, type SqlLocalQueryResult, type SqlLocalStreamOpened } from '../../../src/shared/sqlLocal';
 import { MAX_RESULT_PREVIEW_BYTES } from '../../../src/shared/sqlWorkspace';
 
-type Body = SqlHostRequestBody<LocalRequest>;
+type Body = LocalRequest;
 
 const requireApi = createRequire(createRequire(import.meta.url).resolve('@duckdb/node-api'));
 const readPointer = (requireApi('@duckdb/node-bindings') as { get_data_from_pointer: PointerReader }).get_data_from_pointer;
@@ -21,7 +20,6 @@ const readPointer = (requireApi('@duckdb/node-bindings') as { get_data_from_poin
 let root: string;
 let outside: string;
 let engine: SqlLocalEngine;
-let id = 0;
 
 const pathsFor = (owner: number): LocalPaths => ({
   database: path.join(root, 'lingua-sql.duckdb'),
@@ -30,13 +28,13 @@ const pathsFor = (owner: number): LocalPaths => ({
 });
 
 async function ok<T>(body: Body): Promise<T> {
-  const response = await engine.handle({ id: ++id, ...body } as LocalRequest);
+  const response = await engine.handle(body);
   if (!response.ok) throw Object.assign(new Error(response.error.message), { code: response.error.code });
-  return response.result as T;
+  return response.value as T;
 }
 
 async function failure(body: Body): Promise<{ message: string; code?: string }> {
-  const response = await engine.handle({ id: ++id, ...body } as LocalRequest);
+  const response = await engine.handle(body);
   if (response.ok) throw new Error(`expected ${body.type} to fail`);
   return response.error;
 }
@@ -177,7 +175,7 @@ describe('native Local SQL engine', () => {
     }
     // Two writes in flight: only one of them fits the quota.
     const racing = await Promise.all(
-      [4, 5].map(index => engine.handle({ id: ++id, type: 'register-file', owner, engineId: opened.engineId, name: `lingua_import_cap${index}.csv`, bytes: chunk }))
+      [4, 5].map(index => engine.handle({ type: 'register-file', owner, engineId: opened.engineId, name: `lingua_import_cap${index}.csv`, bytes: chunk }))
     );
     expect(racing.filter(response => response.ok)).toHaveLength(1);
     const refused = racing.find(response => !response.ok);
@@ -243,6 +241,26 @@ describe('native Local SQL engine', () => {
     expect(await failure({ type: 'next', owner, streamId: opened.streamId })).toEqual({ message: 'The SQL result is closed.' });
   });
 
+  it('serves a stream as columns, then batches, and lets go of it when the reader stops early', async () => {
+    const owner = 1;
+    const { connectionId } = await openEngine(owner);
+    const items: unknown[] = [];
+    for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT range AS n FROM range(5000)')) {
+      items.push('columns' in item ? item.columns : 'rows' in item ? item.rows.length : item.error);
+    }
+    expect(items).toEqual([[{ name: 'n', type: 'Int64' }], 2048, 2048, 904]);
+    // Each early stop frees the result, so the open-results cap is never reached.
+    for (let index = 0; index < SQL_LOCAL_MAX_STREAMS + 1; index += 1) {
+      for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT range FROM range(5000)')) {
+        expect(item.ok).toBe(true);
+        break;
+      }
+    }
+    const failed: unknown[] = [];
+    for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT * FROM missing_table')) failed.push(item);
+    expect(failed[0]).toMatchObject({ ok: false, error: { message: expect.stringContaining('missing_table') } });
+  });
+
   it('answers a closed id with an ordinary error and only a missing engine with engine-gone', async () => {
     const owner = 1;
     const { connectionId } = await openEngine(owner);
@@ -251,9 +269,9 @@ describe('native Local SQL engine', () => {
     expect(await failure({ type: 'stream', owner, connectionId, sql: 'SELECT 1' })).toEqual({ message: 'The SQL connection is closed.' });
     // A new process knows nothing of the owner: its engine is gone.
     const fresh = createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer);
-    const reply = await fresh.handle({ id: ++id, type: 'query', owner, connectionId, sql: 'SELECT 1' });
+    const reply = await fresh.handle({ type: 'query', owner, connectionId, sql: 'SELECT 1' });
     expect(reply).toMatchObject({ ok: false, error: { code: 'engine-gone' } });
-    const next = await fresh.handle({ id: ++id, type: 'next', owner, streamId: connectionId });
+    const next = await fresh.handle({ type: 'next', owner, streamId: connectionId });
     expect(next).toMatchObject({ ok: false, error: { code: 'engine-gone' } });
   });
 
@@ -349,8 +367,8 @@ describe('native Local SQL engine', () => {
     await ok({ type: 'dispose' });
     expect(existsSync(pathsFor(1).files)).toBe(false);
     const other = createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer);
-    const reply = await other.handle({ id: ++id, type: 'open', owner: 2, persist: true, paths: pathsFor(2) });
-    expect(reply).toMatchObject({ ok: true, result: { storageMode: 'opfs' } });
+    const reply = await other.handle({ type: 'open', owner: 2, persist: true, paths: pathsFor(2) });
+    expect(reply).toMatchObject({ ok: true, value: { storageMode: 'opfs' } });
     await other.dispose();
   });
 
@@ -377,10 +395,10 @@ describe('native Local SQL engine races', () => {
     };
     const instance = { connect: async () => connection, closeSync: vi.fn() };
     const fake = createSqlLocalEngine(async () => ({ DuckDBInstance: { create: async () => instance } }) as never);
-    const send = (body: Body) => fake.handle({ id: ++id, ...body } as LocalRequest);
+    const send = (body: Body) => fake.handle(body);
     const opened = await send({ type: 'open', owner: 1, persist: false, paths: pathsFor(1) });
-    const engineId = (opened as { result: SqlLocalOpened }).result.engineId;
-    const connectionId = (await send({ type: 'connect', owner: 1, engineId }) as { result: string }).result;
+    const engineId = (opened as { value: SqlLocalOpened }).value.engineId;
+    const connectionId = (await send({ type: 'connect', owner: 1, engineId }) as { value: string }).value;
     const streaming = send({ type: 'stream', owner: 1, connectionId, sql: 'SELECT 1' });
     await vi.waitFor(() => expect(release).toBeTypeOf('function'));
     const closing = send({ type: 'close-connection', owner: 1, connectionId });

@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 132.
+Packages reviewed: 142.
 Policy result: pass.
 
 ## License Summary
@@ -11,11 +11,11 @@ Policy result: pass.
 | License expression | Packages |
 | --- | ---: |
 | `0BSD` | 1 |
-| `Apache-2.0` | 6 |
+| `Apache-2.0` | 7 |
 | `BlueOak-1.0.0` | 1 |
 | `BSD-3-Clause` | 4 |
 | `ISC` | 6 |
-| `MIT` | 112 |
+| `MIT` | 121 |
 | `Python-2.0` | 1 |
 | `Unlicense` | 1 |
 
@@ -70,11 +70,16 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `@duckdb/node-bindings-linux-arm64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-linux-arm64` |
 | `@duckdb/node-bindings-linux-x64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-linux-x64` |
 | `@duckdb/node-bindings-win32-x64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-win32-x64` |
+| `@electron-internal/extract-zip` | `1.0.6` | `MIT` | `node_modules/@electron-internal/extract-zip` |
+| `@electron-stagewright/host-supervisor` | `0.1.0` | `MIT` | `node_modules/@electron-stagewright/host-supervisor` |
+| `@electron-stagewright/origin-migration` | `0.1.0` | `MIT` | `node_modules/@electron-stagewright/origin-migration` |
+| `@electron/get` | `5.1.0` | `MIT` | `node_modules/@electron/get` |
 | `@hono/node-server` | `2.1.6` | `MIT` | `node_modules/@hono/node-server` |
 | `@js-joda/core` | `6.3.0` | `BSD-3-Clause` | `node_modules/@js-joda/core` |
 | `@modelcontextprotocol/core` | `2.4.0` | `Apache-2.0` | `node_modules/@modelcontextprotocol/core` |
 | `@modelcontextprotocol/node` | `2.1.2` | `Apache-2.0` | `node_modules/@modelcontextprotocol/node` |
 | `@modelcontextprotocol/server` | `2.4.0` | `Apache-2.0` | `node_modules/@modelcontextprotocol/server` |
+| `@types/node` | `24.19.2` | `MIT` | `node_modules/@types/node` |
 | `@types/node` | `25.9.6` | `MIT` | `node_modules/@types/node` |
 | `@types/readable-stream` | `4.0.25` | `MIT` | `node_modules/@types/readable-stream` |
 | `@typespec/ts-http-runtime` | `0.3.9` | `MIT` | `node_modules/@typespec/ts-http-runtime` |
@@ -96,7 +101,9 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `default-browser-id` | `5.0.1` | `MIT` | `node_modules/default-browser-id` |
 | `define-lazy-prop` | `3.0.0` | `MIT` | `node_modules/define-lazy-prop` |
 | `ecdsa-sig-formatter` | `1.0.11` | `Apache-2.0` | `node_modules/ecdsa-sig-formatter` |
+| `electron` | `44.9.1` | `MIT` | `node_modules/electron` |
 | `electron-updater` | `6.8.9` | `MIT` | `node_modules/electron-updater` |
+| `env-paths` | `3.0.0` | `MIT` | `node_modules/env-paths` |
 | `event-target-shim` | `5.0.1` | `MIT` | `node_modules/event-target-shim` |
 | `events` | `3.3.0` | `MIT` | `node_modules/events` |
 | `fs-extra` | `10.1.0` | `MIT` | `node_modules/fs-extra` |
@@ -154,6 +161,7 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `postgres-interval` | `1.2.0` | `MIT` | `node_modules/postgres-interval` |
 | `powershell-utils` | `0.2.1` | `MIT` | `node_modules/powershell-utils` |
 | `process` | `0.11.10` | `MIT` | `node_modules/process` |
+| `progress` | `2.0.3` | `MIT` | `node_modules/progress` |
 | `readable-stream` | `4.8.0` | `MIT` | `node_modules/readable-stream` |
 | `run-applescript` | `7.1.0` | `MIT` | `node_modules/run-applescript` |
 | `safe-buffer` | `5.2.1` | `MIT` | `node_modules/safe-buffer` |
@@ -165,10 +173,12 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `sql-escaper` | `1.5.2` | `MIT` | `node_modules/sql-escaper` |
 | `ssh2` | `1.17.0` | `MIT` | `node_modules/ssh2` |
 | `string_decoder` | `1.3.0` | `MIT` | `node_modules/string_decoder` |
+| `sumchecker` | `3.0.1` | `Apache-2.0` | `node_modules/sumchecker` |
 | `tedious` | `20.3.8` | `MIT` | `node_modules/tedious` |
 | `tiny-typed-emitter` | `2.1.0` | `MIT` | `node_modules/tiny-typed-emitter` |
 | `tslib` | `2.8.1` | `0BSD` | `node_modules/tslib` |
 | `tweetnacl` | `0.14.5` | `Unlicense` | `node_modules/tweetnacl` |
+| `undici` | `7.30.1` | `MIT` | `node_modules/undici` |
 | `undici` | `8.12.3` | `MIT` | `.vite/build/main.js` |
 | `undici-types` | `7.24.6` | `MIT` | `node_modules/undici-types` |
 | `universalify` | `2.0.1` | `MIT` | `node_modules/universalify` |

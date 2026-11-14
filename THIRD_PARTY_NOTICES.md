@@ -17,6 +17,8 @@ pnpm run compliance:release
 | Package | License |
 | --- | --- |
 | `@duckdb/duckdb-wasm` | MIT |
+| `@electron-stagewright/host-supervisor` | MIT |
+| `@electron-stagewright/origin-migration` | MIT |
 | `@monaco-editor/react` | MIT |
 | `@prettier/plugin-xml` | MIT |
 | `@vscode/ripgrep` | MIT |

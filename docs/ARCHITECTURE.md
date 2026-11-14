@@ -376,8 +376,14 @@ refused on this engine. Rows are converted in the process to what DuckDB-WASM's
 Arrow rows become and capped by the shared window in
 `src/shared/sqlResultRows.ts`, so both engines show the same results
 (`tests/integration/duckdbBackendParity.test.ts`). Registered files are named
-by absolute path (`DuckDbEngineHandle.filePath`). A forced restart for a
-statement that ignored Cancel restarts only that window's process. See
+by absolute path (`DuckDbEngineHandle.filePath`). The same supervisor package
+runs each window's process (`src/main/sqlLocalProcess.ts`). A streamed result
+is one `rows` stream pulled a batch at a time; main hands the renderer an id
+for it and closes it when a new statement runs on the connection, the
+connection closes or the window goes. A forced restart for a statement that
+ignored Cancel kills only that window's process, and so does a native crash:
+`scripts/smoke-sql-local-crash.mjs` kills the engine with SIGABRT and with
+SIGSEGV during a query and checks that the window stays. See
 `docs/SQL_LOCAL_NATIVE_ADR.md`.
 
 ### SQL runs, cancel and the row window
@@ -490,10 +496,17 @@ Saved Postgres, MySQL, SQL Server, ClickHouse, SQLite, Turso (libSQL), Neon
 and Cloudflare D1 connections run outside the renderer on desktop. Main forks `src/main/sqlHost/hostEntry.ts` (bundled to
 `.vite/build/sqlHost.js` by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`,
 `pg-native`, `mysql2`, `ssh2`, `tedious` and `@clickhouse/client` left
-external) as the `Lingua SQL host` utility process through
-`createSqlHostSupervisor`; a request pending when the host exits fails, and
-the next request forks a new host. Only the current host's exit fails pending
-requests, so a killed host that exits late cannot fail the new one's. The host
+external) as the `Lingua SQL host` utility process, supervised by `createHost`
+from `@electron-stagewright/host-supervisor` with `utilityProcessTransport` and
+`onExit: 'on-demand'` (`src/main/sqlHostProcess.ts`): a call pending when the
+host exits fails, and the next call starts a new host once the old one has
+exited or five seconds have passed. A forced restart is `host.kill()`. Each
+operation answers with a `HostReply` value rather than throwing, because the
+package carries only an error's message and an upper-case code across the
+boundary and Lingua's failures carry a step, a fix, a host key or an edit
+failure (`src/main/sqlHostClient.ts` unwraps them). Cancel stays an operation
+of its own: an aborted call settles at once in main, but the renderer and the
+restart decision need to know whether the engine actually stopped. The host
 starts without the `PG*` and `MYSQL_*` environment variables, and Postgres
 never falls back to a `.pgpass` file, so a driver can only use the password
 main gives it. The host holds one session per connection and serializes the
@@ -2247,33 +2260,28 @@ education and recovery with `fetch`; both surfaces build and parse them with
 education and recovery from the renderer, so the license Worker keeps
 `app://lingua` in `CORS_ALLOWED_ORIGINS` until those builds are unsupported.
 
-Chromium keys storage by origin, so `src/main/originMigration.ts` copies the
+Chromium keys storage by origin, so `src/main/rendererStorageMigration.ts`
+calls `migrateOrigin()` from `@electron-stagewright/origin-migration` to copy the
 renderer's `localStorage` and origin private file system (the persisted SQL
 database) from the `file://` origin of earlier builds before the first load.
 `createWindow` runs it after the hidden main window exists, so closing the
 migration pages cannot fire `window-all-closed`. A hidden page on a blank file in
 a private temp folder reads the old origin, and a hidden page on
-`app://lingua/.lingua/blank.html` writes the new one; main drives both with
-constant scripts from `originMigrationScripts.ts`. It runs once per profile:
+`app://lingua/.lingua/blank.html` (served with the package's
+`blankDocumentResponse()`) writes the new one. It runs once per profile:
 `renderer-origin-migration.json` in `userData` records the result and counts.
-`localStorage` goes first and never overwrites a key the new origin holds.
-Files are then staged under a `.lingua-migrating` name before any moves start.
-Each database moves before its WAL, regardless of listing order. The target's
-own WAL is set aside first and put back if the database move fails, so the
-target pair stays intact; once the legacy database lands, that WAL no longer
-matches and is removed. A failed WAL move can leave a checkpoint without its
-WAL, never beside an unrelated one. A legacy WAL without its database is never
-copied, and every other file still migrates. The marker records each database
-and its WAL once both moves finish, group by group, so a crash later never
-restores a finished group; a retry copies both again, including when an older
-failed marker recorded only one, and a failed attempt removes the staged copies
-it did not move in. Until a pair finishes, legacy wins: a retry (three launches
-at most) replaces a database the app created after a failed attempt. The marker records the attempt before
-any page opens, so a crash spends one, and then each finished step, so a retry
-neither repeats it nor restores what a factory reset or Recovery cleared since.
-The Dock or taskbar shows the copy's progress, and five minutes bound the
-whole attempt. A failure is logged by its error name, the app opens anyway, and
-the renderer shows a warning that says whether the next launch retries.
+Lingua passes that name as `markerFile`, because builds before the package wrote
+it; with the package default, migrated profiles would copy again and a retry
+could restore files the user deleted. The package's README lists the copy's
+guarantees: `localStorage` first without overwriting keys, files staged and
+moved database before WAL, an orphan WAL never copied, progress recorded group by
+group, and three attempts at most, the first spent before any page opens. A
+marker the package cannot read counts as done. Earlier builds staged under
+`.lingua-migrating` and set WALs aside as `.lingua-previous`; a failed attempt of
+theirs can leave such files on the new origin, where they are inert. The Dock or
+taskbar shows the copy's progress, and five minutes bound the whole attempt. A
+failure is logged by its error name, the app opens anyway, and the renderer
+shows a warning that says whether the next launch retries (`result.final`).
 
 The `file://` copy stays in place, so an older build still opens with it. It
 also means data cleared in the app afterwards still sits in that copy: env

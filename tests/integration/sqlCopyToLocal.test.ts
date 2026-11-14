@@ -25,10 +25,10 @@ const myUrl = process.env.LINGUA_TEST_MYSQL_URL;
 const unused: DriverFactory = () => Promise.reject(new Error('not in this suite'));
 const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: unused, sqlserver: unused, clickhouse: unused, libsql: unused, neon: unused, d1: unused });
 let id = 0;
-async function ok<T>(body: Omit<HostRequest, 'id'>): Promise<T> {
-  const response = await host.handle({ id: ++id, ...body } as HostRequest);
+async function ok<T>(body: HostRequest): Promise<T> {
+  const response = await host.handle(body);
   if (!response.ok) throw new Error(response.error.message);
-  return response.result as T;
+  return response.value as T;
 }
 
 function configFrom(url: string, engine: 'postgres' | 'mysql', connectionId: string, readOnly = true): HostSessionConfig {
