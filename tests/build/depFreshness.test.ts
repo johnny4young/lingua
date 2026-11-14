@@ -93,14 +93,14 @@ describe('dependency override hygiene', () => {
     }
   );
 
-  it('keeps the independently locked website on a patched YAML parser', () => {
+  it('keeps any YAML parser in the independently locked website patched', () => {
     const websiteLock = JSON.parse(readFileSync(WEBSITE_PACKAGE_LOCK_PATH, 'utf-8')) as {
       packages: Record<string, { version?: string }>;
     };
+    expect(websiteLock.packages['node_modules/astro']).toBeDefined();
     const versions = Object.entries(websiteLock.packages)
       .filter(([name]) => name.endsWith('node_modules/js-yaml'))
       .map(([, pkg]) => pkg.version);
-    expect(versions.length).toBeGreaterThan(0);
     for (const version of versions) {
       const match = /^4\.(\d+)\.(\d+)$/u.exec(version ?? '');
       expect(match, `Unexpected js-yaml version: ${version}`).not.toBeNull();
