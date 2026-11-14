@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { CustomScheme } from 'electron';
+import { blankDocumentResponse } from '@electron-stagewright/origin-migration';
 import {
   DESKTOP_RENDERER_HOST,
   DESKTOP_RENDERER_ORIGIN,
@@ -15,8 +16,6 @@ export const RENDERER_ENTRY_URL = `${DESKTOP_RENDERER_ORIGIN}/index.html`;
 const INTERNAL_PREFIX = '/.lingua/';
 /** An empty document on the renderer origin, for storage work before the app loads. */
 export const RENDERER_BLANK_URL = `${DESKTOP_RENDERER_ORIGIN}${INTERNAL_PREFIX}blank.html`;
-const BLANK_DOCUMENT =
-  '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'"><title></title>';
 
 export const RENDERER_SCHEME: CustomScheme = {
   scheme: DESKTOP_RENDERER_SCHEME,
@@ -111,7 +110,7 @@ export function createRendererProtocolHandler(args: {
       return new Response(null, { status: 405 });
     }
     if (request.url === RENDERER_BLANK_URL) {
-      return new Response(BLANK_DOCUMENT, { headers: { 'content-type': 'text/html' } });
+      return blankDocumentResponse();
     }
     const assetPath = resolveRendererAssetPath(args.rendererRoot, request.url);
     if (!assetPath) return new Response(null, { status: 404 });

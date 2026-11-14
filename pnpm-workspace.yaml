@@ -150,6 +150,9 @@ minimumReleaseAgeExclude:
   # entries keep the age bypass narrow and reproducible; drop an entry once
   # the resolved version is older than the age window (ws left 8.21.0).
   - esbuild@0.28.1
+  # First-party Electron Stagewright kit packages, published by the Lingua
+  # maintainer; adopted the day they shipped.
+  - '@electron-stagewright/origin-migration@0.1.0'
 
 # Handle owned delayed-task cancellation when Monaco navigation widgets dispose.
 patchedDependencies:
