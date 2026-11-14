@@ -46,6 +46,9 @@ importers:
       '@duckdb/node-api':
         specifier: 1.4.3-r.3
         version: 1.4.3-r.3
+      '@electron-stagewright/origin-migration':
+        specifier: 0.1.0
+        version: 0.1.0(electron@44.9.1)
       '@modelcontextprotocol/node':
         specifier: 2.1.2
         version: 2.1.2(@modelcontextprotocol/server@2.4.0)
@@ -598,6 +601,15 @@ packages:
   '@electron-internal/extract-zip@1.0.6':
     resolution: {integrity: sha512-/aQLgFDdCSnwChfUwqekSmE1q2dCTzhUy5saIHBb5vyYn5LzWaKPaIz1wM0lDMCZYBoIG4svJNvAJb6vkI8BuA==}
     engines: {node: '>=22.12.0'}
+
+  '@electron-stagewright/origin-migration@0.1.0':
+    resolution: {integrity: sha512-YlfgVykdvr9xB3krsNGoZG6w0mdAGaByffzB6DIHd+4Z+43x50Q7dpnkJSLkMLaclt8OEs7p7LtqGk0IEeKGEQ==}
+    engines: {node: '>=24.0.0'}
+    peerDependencies:
+      electron: '>=42.0.0'
+    peerDependenciesMeta:
+      electron:
+        optional: true
 
   '@electron/asar@3.4.1':
     resolution: {integrity: sha512-i4/rNPRS84t0vSRa2HorerGRXWyF4vThfHesw0dmcWHp+cspK743UanA0suA5Q5y8kzY2y6YKrvbIUn69BCAiA==}
@@ -5111,6 +5123,10 @@ snapshots:
       '@duckdb/node-bindings-win32-x64': 1.4.3-r.3
 
   '@electron-internal/extract-zip@1.0.6': {}
+
+  '@electron-stagewright/origin-migration@0.1.0(electron@44.9.1)':
+    optionalDependencies:
+      electron: 44.9.1
 
   '@electron/asar@3.4.1':
     dependencies:

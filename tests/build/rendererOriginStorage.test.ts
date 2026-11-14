@@ -1,6 +1,6 @@
 // The origin migration copies localStorage and the origin private file system
 // only. Storage of another kind on the desktop renderer must extend
-// src/main/originMigration.ts first, or upgraded users lose it.
+// src/main/rendererStorageMigration.ts first, or upgraded users lose it.
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
