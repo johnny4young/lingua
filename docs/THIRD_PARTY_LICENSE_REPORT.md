@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 132.
+Packages reviewed: 133.
 Policy result: pass.
 
 ## License Summary
@@ -15,7 +15,7 @@ Policy result: pass.
 | `BlueOak-1.0.0` | 1 |
 | `BSD-3-Clause` | 4 |
 | `ISC` | 6 |
-| `MIT` | 112 |
+| `MIT` | 113 |
 | `Python-2.0` | 1 |
 | `Unlicense` | 1 |
 
@@ -70,6 +70,7 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `@duckdb/node-bindings-linux-arm64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-linux-arm64` |
 | `@duckdb/node-bindings-linux-x64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-linux-x64` |
 | `@duckdb/node-bindings-win32-x64` | `1.4.3-r.3` | `MIT` | `node_modules/@duckdb/node-bindings-win32-x64` |
+| `@electron-stagewright/origin-migration` | `0.1.0` | `MIT` | `.vite/build/main.js` |
 | `@hono/node-server` | `2.1.6` | `MIT` | `node_modules/@hono/node-server` |
 | `@js-joda/core` | `6.3.0` | `BSD-3-Clause` | `node_modules/@js-joda/core` |
 | `@modelcontextprotocol/core` | `2.4.0` | `Apache-2.0` | `node_modules/@modelcontextprotocol/core` |

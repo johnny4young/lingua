@@ -71,12 +71,10 @@ import { installDirtyCloseGuard } from './windowCloseGuard';
 import {
   installRendererProtocol,
   registerRendererScheme,
-  RENDERER_BLANK_URL,
   RENDERER_ENTRY_URL,
 } from './rendererProtocol';
-import { migrateRendererOrigin, storageMigrationNoticeFor } from './originMigration';
+import { migrateRendererStorage, storageMigrationNoticeFor } from './rendererStorageMigration';
 import type { StorageMigrationNotice } from '../shared/ipcContract';
-import { openLegacyOriginPage, openTargetOriginPage } from './originMigrationPages';
 import {
   readBuildChannel,
   resolveUserDataOverride,
@@ -205,11 +203,10 @@ function migrateRendererStorageOnce(
   const progress = (fraction: number) => {
     if (!window.isDestroyed()) window.setProgressBar(fraction);
   };
-  rendererStorageMigration ??= migrateRendererOrigin({
+  rendererStorageMigration ??= migrateRendererStorage({
     userDataDir: app.getPath('userData'),
-    openLegacy: () => openLegacyOriginPage(BrowserWindow, signal),
-    openTarget: () => openTargetOriginPage(BrowserWindow, RENDERER_BLANK_URL, signal),
-    flush: () => session.defaultSession.flushStorageData(),
+    BrowserWindow,
+    session: session.defaultSession,
     onProgress: (done, total) => progress(total > 0 ? done / total : -1),
     signal,
   })
