@@ -7,8 +7,8 @@ import { createSqlDbService } from '../../src/main/sqlDbService';
 import { createConnectionCatalog } from '../../src/main/sqlConnectionCatalog';
 import { createSqlHost } from '../../src/main/sqlHost/host';
 import { openSqlite } from '../../src/main/sqlHost/sqlite';
-import { SqlHostError, type SqlHostSupervisor } from '../../src/main/sqlHostSupervisor';
-import type { HostRequest } from '../../src/main/sqlHost/protocol';
+import { createHost, inProcessTransport } from '@electron-stagewright/host-supervisor';
+import { SQL_HOST_OPERATIONS, type SqlHostOps } from '../../src/main/sqlHost/protocol';
 import type { SecretStore } from '../../src/main/secretStore';
 
 let directory: string;
@@ -24,17 +24,13 @@ beforeEach(async () => {
   database.close();
   const unexpected = async () => { throw new Error('Only the synthetic SQLite fixture is allowed'); };
   const host = createSqlHost({ sqlite: openSqlite, postgres: unexpected, mysql: unexpected, sqlserver: unexpected, clickhouse: unexpected, libsql: unexpected, neon: unexpected, d1: unexpected });
-  disposeHost = () => host.dispose();
-  let requestId = 0;
-  const supervisor: SqlHostSupervisor = {
-    async request<T>(body: Parameters<SqlHostSupervisor['request']>[0]): Promise<T> {
-      const response = await host.handle({ id: ++requestId, ...body } as HostRequest);
-      if (!response.ok) throw new SqlHostError(response.error);
-      return response.result as T;
-    },
-    restart: () => { throw new Error('Unexpected restart in a cursor fixture'); },
-    isRunning: () => true,
-    dispose: async () => { await host.dispose(); },
+  const supervisor = createHost<SqlHostOps>({
+    operations: SQL_HOST_OPERATIONS,
+    transport: inProcessTransport<SqlHostOps>({ operations: SQL_HOST_OPERATIONS, start: () => host.handlers }),
+  });
+  disposeHost = async () => {
+    await supervisor.close();
+    await host.dispose();
   };
   const catalog = createConnectionCatalog(path.join(directory, 'connections.json'));
   const saved = await catalog.save({ name: 'Synthetic read-only', engine: 'sqlite', path: file, readOnly: true, passwordMode: 'none' });
