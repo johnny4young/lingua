@@ -7,7 +7,7 @@ import type { StorageMigrationNotice } from '../shared/ipcContract';
 import { RENDERER_BLANK_URL } from './rendererProtocol';
 
 /** The marker name builds before the package wrote; renaming it would copy again. */
-export const ORIGIN_MIGRATION_MARKER = 'renderer-origin-migration.json';
+export const RENDERER_MIGRATION_MARKER = 'renderer-origin-migration.json';
 
 export function migrateRendererStorage(options: {
   userDataDir: string;
@@ -19,7 +19,7 @@ export function migrateRendererStorage(options: {
   return migrateOrigin({
     ...options,
     targetUrl: RENDERER_BLANK_URL,
-    markerFile: ORIGIN_MIGRATION_MARKER,
+    markerFile: RENDERER_MIGRATION_MARKER,
   });
 }
 

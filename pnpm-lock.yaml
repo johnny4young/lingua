@@ -46,12 +46,6 @@ importers:
       '@duckdb/node-api':
         specifier: 1.4.3-r.3
         version: 1.4.3-r.3
-      '@electron-stagewright/host-supervisor':
-        specifier: 0.1.0
-        version: 0.1.0(electron@44.9.1)
-      '@electron-stagewright/origin-migration':
-        specifier: 0.1.0
-        version: 0.1.0(electron@44.9.1)
       '@modelcontextprotocol/node':
         specifier: 2.1.2
         version: 2.1.2(@modelcontextprotocol/server@2.4.0)
@@ -101,6 +95,12 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: ^1.32.0
         version: 1.32.0
+      '@electron-stagewright/host-supervisor':
+        specifier: 0.1.0
+        version: 0.1.0(electron@44.9.1)
+      '@electron-stagewright/origin-migration':
+        specifier: 0.1.0
+        version: 0.1.0(electron@44.9.1)
       '@electron/fuses':
         specifier: 1.8.0
         version: 1.8.0

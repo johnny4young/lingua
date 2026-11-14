@@ -2278,7 +2278,9 @@ moved database before WAL, an orphan WAL never copied, progress recorded group b
 group, and three attempts at most, the first spent before any page opens. A
 marker the package cannot read counts as done. Earlier builds staged under
 `.lingua-migrating` and set WALs aside as `.lingua-previous`; a failed attempt of
-theirs can leave such files on the new origin, where they are inert. The Dock or
+theirs can leave such files on the new origin, where they are inert. Clearing
+the SQL database removes those and the package's `.origin-migration-staging` and
+`.origin-migration-previous` leftovers too. The Dock or
 taskbar shows the copy's progress, and five minutes bound the whole attempt. A
 failure is logged by its error name, the app opens anyway, and the renderer
 shows a warning that says whether the next launch retries (`result.final`).

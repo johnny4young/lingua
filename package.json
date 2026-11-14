@@ -96,6 +96,8 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@duckdb/duckdb-wasm": "^1.32.0",
+    "@electron-stagewright/host-supervisor": "0.1.0",
+    "@electron-stagewright/origin-migration": "0.1.0",
     "@electron/fuses": "1.8.0",
     "@electron/windows-sign": "2.1.0",
     "@jridgewell/trace-mapping": "^0.3.31",
@@ -175,8 +177,6 @@
   "dependencies": {
     "@clickhouse/client": "1.24.1",
     "@duckdb/node-api": "1.4.3-r.3",
-    "@electron-stagewright/host-supervisor": "0.1.0",
-    "@electron-stagewright/origin-migration": "0.1.0",
     "@modelcontextprotocol/node": "2.1.2",
     "@modelcontextprotocol/server": "2.4.0",
     "electron-updater": "^6.8.9",
