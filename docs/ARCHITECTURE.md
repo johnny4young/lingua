@@ -506,9 +506,11 @@ failure, or Local's `engine-gone` code) crosses as the error's `data` and is
 rebuilt in main by `errors.revive` (`src/main/sqlHost/hostError.ts`). Cancel
 aborts the call with `abortGraceMs`: the call settles with the engine's own
 answer, an engine that cannot stop the statement answers `restart`, and a host
-that does not settle within three seconds fails it with
-`HOST_ABORT_UNSETTLED`; both restart the host. Local SQL keeps Cancel as an
-operation, because the renderer decides when to force a restart there. The host
+that does not settle within the grace fails it with `HOST_ABORT_UNSETTLED`;
+both restart the host. The grace is three seconds for a SQLite file, whose
+statement blocks the host, and thirty for every other engine, libSQL and D1
+included: an HTTP engine answers at once, and a server may roll back before
+the statement stops. Local SQL keeps Cancel as an operation, because the renderer decides when to force a restart there. The host
 starts without the `PG*` and `MYSQL_*` environment variables, and Postgres
 never falls back to a `.pgpass` file, so a driver can only use the password
 main gives it. The host holds one session per connection and serializes the

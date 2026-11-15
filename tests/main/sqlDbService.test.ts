@@ -61,8 +61,13 @@ function fakeHost(respond: Respond = () => ({})) {
       const body = bodies[op]!(args);
       sent.push(body);
       const answer = Promise.resolve().then(() => host.respond(body, options));
-      const { signal, abortGraceMs } = options ?? {};
-      if (!signal || abortGraceMs === undefined) return answer;
+      const { signal, abortGraceMs, timeoutMs } = options ?? {};
+      if (!signal || abortGraceMs === undefined) {
+        if (timeoutMs === undefined) return answer;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const late = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new HostError('HOST_CALL_TIMEOUT', 'timeout')), timeoutMs)));
+        return Promise.race([answer, late]).finally(() => clearTimeout(timer));
+      }
       // As the supervisor does: an aborted call waits for the host's answer, within the grace.
       const unsettled = new Promise<never>((_, reject) =>
         signal.addEventListener('abort', () => setTimeout(() => reject(new HostError('HOST_ABORT_UNSETTLED', 'unsettled')), abortGraceMs), { once: true })
@@ -421,6 +426,63 @@ describe('estimates and cancel', () => {
       await vi.advanceTimersByTimeAsync(3_000);
       expect(await running).toMatchObject({ status: 'cancelled' });
       expect(host.kill).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives a server statement longer than SQLite to stop before restarting the host', async () => {
+    vi.useFakeTimers();
+    try {
+      const { svc, host } = service((body) => (body.type === 'execute' ? new Promise(() => undefined) : undefined));
+      const id = ((await svc.save(pg, undefined, 'hunter2')) as { connection: { id: string } }).connection.id;
+      const running = svc.execute(1, 'r1', id, 'SELECT pg_sleep(60)', { timeoutMs: 120_000 });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(host.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(27_000);
+      expect(await running).toMatchObject({ status: 'cancelled' });
+      expect(host.kill).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives a cancelled page read on a server the same grace as its statement', async () => {
+    vi.useFakeTimers();
+    try {
+      const { svc, host } = service((body) =>
+        body.type === 'execute' ? { columns: [], rows: [], rowCount: 0, hasMore: true } : body.type === 'fetch' ? new Promise(() => undefined) : undefined
+      );
+      const id = ((await svc.save(pg, undefined, 'hunter2')) as { connection: { id: string } }).connection.id;
+      expect(await svc.execute(1, 'r1', id, 'SELECT * FROM orders', { timeoutMs: 60_000 })).toMatchObject({ hasMore: true });
+      const reading = svc.fetch(1, 'r1', 100, 1_000_000);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(host.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(27_000);
+      expect(await reading).toMatchObject({ done: true });
+      expect(host.kill).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('answers a cancel within three seconds when closing an idle server result hangs', async () => {
+    vi.useFakeTimers();
+    try {
+      const { svc } = service((body) =>
+        body.type === 'execute' ? { columns: [], rows: [], rowCount: 0, hasMore: true } : body.type === 'close-run' ? new Promise(() => undefined) : undefined
+      );
+      const id = ((await svc.save(pg, undefined, 'hunter2')) as { connection: { id: string } }).connection.id;
+      expect(await svc.execute(1, 'r1', id, 'SELECT * FROM orders', { timeoutMs: 60_000 })).toMatchObject({ hasMore: true });
+      let answered = false;
+      const cancelling = svc.cancel(1, 'r1').then((result) => ((answered = true), result));
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(answered).toBe(true);
+      expect(await cancelling).toEqual({ cancelled: true });
     } finally {
       vi.useRealTimers();
     }
