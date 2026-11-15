@@ -426,6 +426,24 @@ describe('estimates and cancel', () => {
     }
   });
 
+  it('gives a server statement longer than SQLite to stop before restarting the host', async () => {
+    vi.useFakeTimers();
+    try {
+      const { svc, host } = service((body) => (body.type === 'execute' ? new Promise(() => undefined) : undefined));
+      const id = ((await svc.save(pg, undefined, 'hunter2')) as { connection: { id: string } }).connection.id;
+      const running = svc.execute(1, 'r1', id, 'SELECT pg_sleep(60)', { timeoutMs: 120_000 });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(host.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(27_000);
+      expect(await running).toMatchObject({ status: 'cancelled' });
+      expect(host.kill).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('releases the host run when a cancelled statement finished anyway', async () => {
     const { svc, sent } = service((body, options) =>
       body.type === 'execute'
