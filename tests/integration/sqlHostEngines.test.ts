@@ -396,11 +396,11 @@ for (const [engine, url] of [
 
     it('cancels a long statement from a side connection', async () => {
       const sleep = engine === 'postgres' ? 'SELECT pg_sleep(30)' : 'SELECT SLEEP(30)';
-      const running = send({ type: 'execute', config, runId: 'long', sql: sleep, readWrite: false, window });
+      const abort = new AbortController();
+      const running = host.handle({ type: 'execute', config, runId: 'long', sql: sleep, readWrite: false, window }, abort.signal);
       await new Promise((resolve) => setTimeout(resolve, 500));
-      // The run is registered once the statement starts streaming; cancel through the session either way.
       const started = performance.now();
-      await send({ type: 'cancel', runId: 'long' });
+      abort.abort();
       const outcome = await running;
       expect(performance.now() - started).toBeLessThan(10_000);
       if (engine === 'postgres') expect(outcome).toMatchObject({ ok: false, error: { message: expect.stringMatching(/cancel/i) } });

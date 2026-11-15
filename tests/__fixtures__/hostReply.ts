@@ -12,10 +12,10 @@ export async function asReply<T>(call: Promise<T>): Promise<Reply<T>> {
   }
 }
 
-type Handler = { handle: (request: never) => Promise<unknown> };
+type Handler = { handle: (request: never, signal?: AbortSignal) => Promise<unknown> };
 
-export type Replying<H extends Handler> = Omit<H, 'handle'> & { handle: <T = unknown>(request: Parameters<H['handle']>[0]) => Promise<Reply<T>> };
+export type Replying<H extends Handler> = Omit<H, 'handle'> & { handle: <T = unknown>(request: Parameters<H['handle']>[0], signal?: AbortSignal) => Promise<Reply<T>> };
 
 export function withReplies<H extends Handler>(handler: H): Replying<H> {
-  return { ...handler, handle: <T = unknown>(request: Parameters<H['handle']>[0]) => asReply(handler.handle(request) as Promise<T>) };
+  return { ...handler, handle: <T = unknown>(request: Parameters<H['handle']>[0], signal?: AbortSignal) => asReply(handler.handle(request, signal) as Promise<T>) };
 }

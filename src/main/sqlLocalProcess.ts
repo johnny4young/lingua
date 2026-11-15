@@ -29,6 +29,6 @@ export function createSqlLocalHost() {
     }),
     stop: { graceMs: SQL_LOCAL_STOP_GRACE_MS },
     onExit: () => 'on-demand',
-  errors: { revive: reviveSqlHostError },
+    errors: { revive: reviveSqlHostError },
   });
 }

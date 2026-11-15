@@ -38,7 +38,7 @@ import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
 import { isHostError, type ArgsOf, type CallOperation, type CallOptions, type Host } from '@electron-stagewright/host-supervisor';
 import { settle, SqlHostError } from './sqlHostClient';
-import type { HostError, HostSessionConfig, HostSshConfig, SqlHostOps } from './sqlHost/protocol';
+import { QUERY_CANCELLED_MESSAGE, type HostError, type HostSessionConfig, type HostSshConfig, type SqlHostOps } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { exportText } from './sqlImport/linguaExport';
 import { ROW_EDIT_BUDGET_MS, rowEditProblem, rowEditStatements, rowEditTableFrom, type RowEditChanges } from '../shared/sqlRowEdits';
@@ -75,6 +75,13 @@ class GuardError extends Error {
 const defaultLookup: LookupImpl = async (hostname) => dns.lookup(hostname, { all: true, verbatim: true });
 
 const MAX_ADHOC = 20;
+
+interface OpenRun {
+  owner: number;
+  connectionId: string;
+  abort?: AbortController;
+}
+
 /** How long a cancelled statement may take to stop before the host restarts. */
 const CANCEL_GRACE_MS = 3_000;
 
@@ -116,7 +123,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     settle(
       (deps.host.call(op, args, options) as Promise<unknown>).catch((error: unknown) => {
         // Cancelled before the call reached the host.
-        if (isHostError(error, 'HOST_CALL_ABORTED')) throw new SqlHostError<HostError>({ message: 'The query was cancelled.', cancelled: true });
+        if (isHostError(error, 'HOST_CALL_ABORTED')) throw new SqlHostError<HostError>({ message: QUERY_CANCELLED_MESSAGE, cancelled: true });
         // A host busy in a SQLite statement cannot even read the cancel.
         if (isHostError(error, 'HOST_ABORT_UNSETTLED')) throw new SqlHostError<HostError>({ message: 'The query was cancelled, but the SQL host did not stop it.', cancelled: true, restart: true });
         throw error;
@@ -133,7 +140,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
   const keepOnSuccess = new Set<string>();
   const adhoc = new Map<string, SqlConnectionV1>();
   /** Open runs; `abort` cancels the call in flight on one, if any. */
-  const runs = new Map<string, { owner: number; connectionId: string; abort?: AbortController }>();
+  const runs = new Map<string, OpenRun>();
 
   const hostRunId = (owner: number, runId: string) => `${owner}:${runId}`;
 
@@ -567,7 +574,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       const key = hostRunId(owner, runId);
       for (const [other, run] of runs) if (run.owner === owner && run.connectionId === connectionId) runs.delete(other);
       const abort = new AbortController();
-      const run: { owner: number; connectionId: string; abort?: AbortController } = { owner, connectionId, abort };
+      const run: OpenRun = { owner, connectionId, abort };
       runs.set(key, run);
       let timedOut = false;
       try {
@@ -578,9 +585,10 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           signal: abort.signal,
           abortGraceMs: CANCEL_GRACE_MS,
         });
+        // Aborts its own call, even once a newer run on the connection has taken its place in `runs`.
         const timer = setTimeout(() => {
           timedOut = true;
-          void service.cancel(owner, runId);
+          abort.abort();
         }, options.timeoutMs);
         let result: Awaited<typeof request>;
         try {
@@ -590,6 +598,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           delete run.abort;
         }
         if (!result.hasMore) runs.delete(key);
+        // Cancelled as it finished: nothing will page or close this run on the host.
+        else if (runs.get(key) !== run) void ask('closeRun', [key]).catch(() => undefined);
         await keepAsked(entry, config);
         return {
           status: result.tooLarge ? 'too-large' : 'success',
@@ -641,7 +651,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       runs.delete(key);
       // The call settles with the engine's answer, or restarts the host when the statement does not stop.
       if (run.abort) run.abort.abort();
-      else await ask('closeRun', [key]).catch(() => undefined);
+      else await ask('closeRun', [key], { timeoutMs: CANCEL_GRACE_MS }).catch(() => undefined);
       return { cancelled: true };
     },
 

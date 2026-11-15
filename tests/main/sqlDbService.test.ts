@@ -425,4 +425,293 @@ describe('estimates and cancel', () => {
       vi.useRealTimers();
     }
   });
+
+  it('releases the host run when a cancelled statement finished anyway', async () => {
+    const { svc, sent } = service((body, options) =>
+      body.type === 'execute'
+        ? new Promise((resolve) => options?.signal?.addEventListener('abort', () => resolve({ columns: [], rows: [], rowCount: 0, hasMore: true })))
+        : undefined
+    );
+    const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
+      connection: { id: string };
+    }).connection.id;
+    const running = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 60_000 });
+    await vi.waitFor(() => expect(sent.some((body) => body.type === 'execute')).toBe(true));
+    expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+    await running;
+    await vi.waitFor(() => expect(sent).toContainEqual({ type: 'close-run', runId: '1:r1' }));
+  });
+
+  it('times out a run even after a newer run on the same connection replaced it', async () => {
+    const { svc } = service((body, options) =>
+      body.type === 'execute' && body.runId === '1:r1'
+        ? new Promise((_, reject) => options?.signal?.addEventListener('abort', () => reject(new HostError('HOST_CALL_ABORTED', 'The call was aborted'))))
+        : {}
+    );
+    const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
+      connection: { id: string };
+    }).connection.id;
+    const first = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 50 });
+    expect(await svc.execute(1, 'r2', id, 'SELECT 2', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
+    expect(await first).toMatchObject({ status: 'timeout' });
+  });
+});
+
+
+describe('testing a connection', () => {
+  it('lists resolve, policy, TCP, TLS, auth and server with timings', async () => {
+    const { svc } = service((body) =>
+      body.type === 'test' ? { tcpMs: 9, connectMs: 35, serverMs: 4, serverVersion: 'PostgreSQL 16.4', tls: { subject: 'db.internal', validTo: 'Feb  1 2027' } } : {}
+    );
+    const result = await svc.test({ draft: pg, password: 'pw' });
+    expect(result.ok).toBe(true);
+    expect(result.steps.map((step) => `${step.id}:${step.status}`)).toEqual(['resolve:ok', 'policy:ok', 'tcp:ok', 'tls:ok', 'auth:ok', 'server:ok']);
+    expect(result.steps.find((step) => step.id === 'policy')?.detail).toBe('private');
+    expect(result.steps.find((step) => step.id === 'tls')?.detail).toBe('verify-full · CN db.internal · expires Feb  1 2027');
+    expect(result.serverVersion).toBe('PostgreSQL 16.4');
+  });
+
+  it('shows TLS as skipped whenever the driver reports a plain session, whatever the engine', async () => {
+    const { svc } = service((body) => (body.type === 'test' ? { tcpMs: 2, connectMs: 5, serverMs: 1, serverVersion: 'ClickHouse 24.8', encrypted: false } : {}));
+    const result = await svc.test({ draft: { ...pg, engine: 'clickhouse', port: 8123, ssl: { mode: 'prefer' } }, password: 'pw' });
+    expect(result.steps.find((step) => step.id === 'tls')).toMatchObject({ status: 'skipped', detail: 'prefer' });
+  });
+
+  it('names the step that failed and the fix', async () => {
+    const { svc } = service(() => {
+      throw new SqlHostError({ message: 'self-signed certificate in certificate chain', step: 'tls', fix: 'tls-untrusted' });
+    });
+    const result = await svc.test({ draft: pg, password: 'pw' });
+    expect(result.ok).toBe(false);
+    expect(result.steps.at(-1)).toMatchObject({ id: 'tls', status: 'failed', fix: 'tls-untrusted' });
+  });
+});
+
+describe('SSH tunnels and safety switches', () => {
+  const tunnelled: SqlConnectionDraft = {
+    ...pg,
+    ssh: { host: 'bastion.example.net', port: 22, user: 'deploy', auth: 'password', secretMode: 'keychain', jumps: undefined },
+  };
+
+  it('resolves and checks the first hop, keeps the SSH password apart, and lets the bastion resolve the database', async () => {
+    const { svc, sent, secrets, looked } = service(() => ({ connectMs: 1, serverMs: 1, serverVersion: 'PostgreSQL 16', tcpMs: 1, sshMs: 2 }));
+    const saved = (await svc.save(tunnelled, undefined, 'db-pw', 'ssh-pw')) as { connection: { id: string; hasSshSecret: boolean } };
+    expect(saved.connection.hasSshSecret).toBe(true);
+    expect(await secrets.get(`db.${saved.connection.id}.ssh`)).toBe('ssh-pw');
+    const result = await svc.test({ connectionId: saved.connection.id });
+    expect(looked).toEqual(['bastion.example.net']);
+    expect(result.steps.map((step) => step.id)).toEqual(['resolve', 'policy', 'tcp', 'ssh', 'tls', 'auth', 'server']);
+    expect(result.steps.find((step) => step.id === 'ssh')?.detail).toBe('bastion.example.net → db.internal:5432');
+    const config = sent.at(-1)!.config as Record<string, unknown>;
+    expect(config).not.toHaveProperty('address');
+    expect(config.ssh).toMatchObject({ auth: 'password', password: 'ssh-pw', target: { host: 'db.internal', port: 5432 }, hops: [{ host: '10.0.4.12', label: { host: 'bastion.example.net' } }] });
+  });
+
+  it('refuses a private first hop when the connection does not allow one', async () => {
+    const { svc, sent } = service(() => ({}), { lookupAddress: '192.168.1.20' });
+    const id = ((await svc.save({ ...tunnelled, allowPrivateHost: false }, undefined, 'pw', 'ssh')) as { connection: { id: string } }).connection.id;
+    const result = await svc.test({ connectionId: id });
+    expect(result.steps.at(-1)).toMatchObject({ id: 'policy', status: 'failed', fix: 'blocked-host' });
+    expect(sent.filter((body) => body.type === 'test')).toHaveLength(0);
+  });
+
+  it('asks for a session SSH password, and again after the bastion refused it', async () => {
+    const { svc } = service((body) => {
+      if (body.type === 'execute') throw new SqlHostError({ message: 'All configured authentication methods failed', step: 'ssh', fix: 'ssh-auth' });
+      return {};
+    });
+    const draft = { ...tunnelled, ssh: { ...tunnelled.ssh!, secretMode: 'session' as const } };
+    const id = ((await svc.save(draft, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1000 })).toMatchObject({ fix: 'ssh-password-needed' });
+    expect(await svc.sessionPassword(id, 'wrong', 'ssh')).toEqual({ ok: true });
+    expect(await svc.execute(1, 'r2', id, 'SELECT 1', { timeoutMs: 1000 })).toMatchObject({ status: 'connection-failed', fix: 'ssh-password-needed' });
+    // The refused password was dropped.
+    expect(await svc.execute(1, 'r3', id, 'SELECT 1', { timeoutMs: 1000 })).toMatchObject({ errorMessage: expect.stringMatching(/SSH sign-in needs/) });
+  });
+
+  it('forgets both secrets when the bastion changes without new ones, since another machine answers for the database', async () => {
+    const { svc, secrets } = service();
+    const id = ((await svc.save(tunnelled, undefined, 'pw', 'ssh-pw')) as { connection: { id: string } }).connection.id;
+    await svc.save({ ...tunnelled, ssh: { ...tunnelled.ssh!, host: 'other-bastion' } }, id, undefined);
+    expect(await secrets.get(`db.${id}.ssh`)).toBeNull();
+    expect(await secrets.get(`db.${id}`)).toBeNull();
+  });
+
+  it('forgets the database password when a tunnel is added, and the SSH secret when the jump chain changes', async () => {
+    const { svc, secrets } = service();
+    const direct = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    await svc.save(tunnelled, direct, undefined, 'ssh-pw');
+    expect(await secrets.get(`db.${direct}`)).toBeNull();
+    const keyed = { ...pg, ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: '/home/me/.ssh/id_ed25519', secretMode: 'keychain' as const, jumps: [{ host: 'jump-a', port: 22, user: 'deploy' }] } };
+    svc.chooseSshKey('/home/me/.ssh/id_ed25519');
+    const id = ((await svc.save(keyed, undefined, 'pw', 'passphrase')) as { connection: { id: string } }).connection.id;
+    await svc.save({ ...keyed, ssh: { ...keyed.ssh, jumps: [{ host: 'jump-b', port: 22, user: 'deploy' }] } }, id, 'pw');
+    expect(await secrets.get(`db.${id}.ssh`)).toBeNull();
+    // Same chain, nothing forgotten.
+    await svc.save({ ...keyed, ssh: { ...keyed.ssh, jumps: [{ host: 'jump-b', port: 22, user: 'deploy' }] } }, id, undefined, 'passphrase');
+    await svc.save({ ...keyed, name: 'renamed', ssh: { ...keyed.ssh, jumps: [{ host: 'jump-b', port: 22, user: 'deploy' }] } }, id, undefined);
+    expect(await secrets.get(`db.${id}.ssh`)).toBe('passphrase');
+    expect(await secrets.get(`db.${id}`)).toBe('pw');
+  });
+
+  it('asks for the typed name before any write when Confirm every write is on', async () => {
+    const { svc, sent } = service(() => ({ columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false, affectedRows: 1 }));
+    const id = ((await svc.save({ ...pg, confirmWrites: true }, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.execute(1, 'w1', id, 'DELETE FROM t', { timeoutMs: 1000 })).toMatchObject({ fix: 'confirm-needed' });
+    expect(await svc.execute(1, 'w2', id, 'SELECT 1', { timeoutMs: 1000 })).toMatchObject({ status: 'success' });
+    expect(await svc.execute(1, 'w3', id, 'DELETE FROM t', { timeoutMs: 1000, readWrite: { confirmName: 'orders-dev' } })).toMatchObject({ status: 'success' });
+    expect(sent.filter((body) => body.type === 'execute')).toHaveLength(2);
+  });
+
+  it('offers a key no one trusts in the test report, and trusts exactly that key once', async () => {
+    const fingerprint = `SHA256:${'k'.repeat(43)}`;
+    const { svc } = service((body) => {
+      if (body.type === 'test') throw new SqlHostError({ message: 'unknown key', step: 'ssh', fix: 'ssh-host-unknown', hostKey: { host: 'bastion.example.net', port: 22, type: 'ssh-ed25519', fingerprint } });
+      return {};
+    });
+    const id = ((await svc.save(tunnelled, undefined, 'pw', 'ssh-pw')) as { connection: { id: string } }).connection.id;
+    const result = await svc.test({ connectionId: id });
+    expect(result.steps.at(-1)).toEqual({ id: 'ssh', status: 'failed', detail: 'unknown key', fix: 'ssh-host-unknown', hostKey: { host: 'bastion.example.net', port: 22, fingerprint } });
+    expect(await svc.trustHostKey('bastion.example.net', 22, `SHA256:${'x'.repeat(43)}`)).toBe(false);
+    expect(await svc.trustHostKey('bastion.example.net', 22, fingerprint)).toBe(true);
+  });
+
+  it('takes a key inside ~/.ssh only once the user chose it, and keeps one already saved', async () => {
+    const { svc, sent } = service();
+    const keyed = { ...pg, ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: '/home/me/.ssh/id_work', secretMode: 'none' as const } };
+    expect(await svc.save(keyed, undefined, 'pw')).toEqual({ ok: false, reason: 'invalid' });
+    const test = await svc.test({ draft: keyed });
+    expect(test.steps).toEqual([{ id: 'ssh', status: 'failed', detail: 'Choose the key file again with Choose key.', fix: 'ssh-key' }]);
+    expect(sent.filter((body) => body.type === 'test')).toHaveLength(0);
+    svc.chooseSshKey('/home/me/.ssh/id_work');
+    const saved = (await svc.save(keyed, undefined, 'pw')) as { ok: boolean; connection: { id: string } };
+    expect(saved.ok).toBe(true);
+    // The next launch still takes the saved key, and not another one inside ~/.ssh.
+    const later = service();
+    expect(await later.svc.save(keyed, undefined, 'pw')).toMatchObject({ ok: true });
+    expect(await later.svc.save({ ...keyed, ssh: { ...keyed.ssh, keyPath: '/home/me/.ssh/id_other' } }, undefined, 'pw')).toEqual({ ok: false, reason: 'invalid' });
+  });
+});
+
+
+describe('staged edits', () => {
+  const detail = (primaryKey: boolean) => ({
+    detail: {
+      columns: [
+        { name: 'id', type: 'integer', nullable: false, primaryKey },
+        { name: 'city', type: 'text', nullable: true },
+      ],
+    },
+  });
+  const changes = { updates: [{ key: { id: '7' }, values: { city: "O'Hare" } }], deletes: [], inserts: [] };
+  const respond = (primaryKey = true) => (body: Record<string, unknown>) => (body.type === 'introspect' ? detail(primaryKey) : body.type === 'apply-edits' ? { applied: 1 } : {});
+
+  it('binds SQL Server values as @p1, @p2… and never edits a ClickHouse table, whose sorting key is not unique', async () => {
+    const { svc, sent } = service(respond());
+    const erp = ((await svc.save({ ...pg, name: 'erp', engine: 'sqlserver', port: 1433 }, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(erp, { schema: 'dbo', name: 'orders' }, changes)).toEqual({ ok: true, applied: 1 });
+    expect(sent.find((body) => body.type === 'apply-edits')).toMatchObject({ statements: [{ sql: 'UPDATE [dbo].[orders] SET [city] = @p1 WHERE [id] = @p2' }] });
+    sent.length = 0;
+    const events = ((await svc.save({ ...pg, name: 'events', engine: 'clickhouse', port: 8443 }, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(events, { schema: 'analytics', name: 'events' }, changes)).toEqual({ ok: false, reason: 'not-editable' });
+    expect(sent.some((body) => body.type === 'introspect' || body.type === 'apply-edits')).toBe(false);
+  });
+
+  it('builds the SQL in main from its own read of the primary key and applies it on its own request', async () => {
+    const { svc, sent } = service(respond());
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: true, applied: 1 });
+    expect(sent.find((body) => body.type === 'introspect')).toMatchObject({ request: { level: 'detail', schema: 'public', name: 'orders', kind: 'table' } });
+    expect(sent.find((body) => body.type === 'apply-edits')).toMatchObject({
+      statements: [{ sql: 'UPDATE "public"."orders" SET "city" = $1 WHERE "id" = $2', params: ["O'Hare", '7'] }],
+      config: { password: 'pw' },
+    });
+  });
+
+  it('never edits read-only or production connections, and asks the typed name when every write must be confirmed', async () => {
+    const { svc, sent } = service(respond());
+    const save = async (draft: typeof pg) => ((await svc.save(draft, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(await save({ ...pg, readOnly: true }), { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'read-only' });
+    expect(await svc.applyEdits(await save({ ...pg, name: 'p', env: 'prod' }), { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'production' });
+    const careful = await save({ ...pg, name: 'careful', confirmWrites: true });
+    expect(await svc.applyEdits(careful, { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'confirm-needed' });
+    expect(sent.some((body) => body.type === 'apply-edits')).toBe(false);
+    expect(await svc.applyEdits(careful, { schema: 'public', name: 'orders' }, changes, 'careful')).toEqual({ ok: true, applied: 1 });
+  });
+
+  it('refuses a table without a primary key and a change keyed by anything but the whole key', async () => {
+    const keyless = service(respond(false));
+    const id = ((await keyless.svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await keyless.svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'not-editable' });
+    const keyed = service(respond());
+    const other = ((await keyed.svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await keyed.svc.applyEdits(other, { schema: 'public', name: 'orders' }, { ...changes, updates: [{ key: { city: 'x' }, values: { city: 'y' } }] })).toEqual({ ok: false, reason: 'invalid' });
+    expect(keyed.sent.some((body) => body.type === 'apply-edits')).toBe(false);
+  });
+
+  it('says why when the transaction rolled back', async () => {
+    const { svc } = service((body) => {
+      if (body.type === 'introspect') return detail(true);
+      throw new SqlHostError({ message: 'Change 1 would touch 0 rows instead of one.', edit: { kind: 'conflict', change: 1, touched: 0 } });
+    });
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toMatchObject({ ok: false, reason: 'failed', edit: { kind: 'conflict', change: 1, touched: 0 } });
+  });
+});
+
+describe('HTTP engines', () => {
+  const neon: SqlConnectionDraft = { name: 'shop', engine: 'neon', host: 'ep-cool-1.us-east-2.aws.neon.tech', port: 443, database: 'shop', user: 'app', ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' };
+  const d1: SqlConnectionDraft = { name: 'edge', engine: 'd1', d1: { accountId: 'a'.repeat(32), databaseId: '0f0e0d0c-1111-2222-3333-444455556666' }, readOnly: true, passwordMode: 'keychain' };
+  const rows = { columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false };
+
+  it("resolves and pins Neon's API host, and names the database host for the connection string", async () => {
+    const { svc, sent, looked } = service(() => rows, { lookupAddress: '3.3.3.3' });
+    const saved = await svc.save(neon, undefined, 'pw');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    await svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1_000 });
+    expect(looked).toEqual(['api.us-east-2.aws.neon.tech']);
+    expect(sent[sent.length - 1]).toMatchObject({
+      type: 'execute',
+      config: { engine: 'neon', address: '3.3.3.3', servername: 'api.us-east-2.aws.neon.tech', port: 443, ssl: { mode: 'verify-full' }, host: 'ep-cool-1.us-east-2.aws.neon.tech', database: 'shop', user: 'app', password: 'pw' },
+    });
+  });
+
+  it("sends D1 to Cloudflare's API, and runs only proven reads on a read-only D1 connection", async () => {
+    const { svc, sent, looked } = service(() => rows, { lookupAddress: '104.16.0.1' });
+    const saved = await svc.save(d1, undefined, 'cf-token');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    await svc.execute(1, 'r1', id, 'SELECT * FROM users', { timeoutMs: 1_000 });
+    expect(looked).toEqual(['api.cloudflare.com']);
+    expect(sent[sent.length - 1]).toMatchObject({ config: { engine: 'd1', servername: 'api.cloudflare.com', port: 443, d1: d1.d1, password: 'cf-token', readOnly: true } });
+    const before = sent.length;
+    expect(await svc.execute(1, 'r2', id, 'PRAGMA table_list', { timeoutMs: 1_000 })).toMatchObject({ status: 'sql-error', fix: 'confirm-needed' });
+    expect(sent.length).toBe(before);
+    expect(await svc.applyEdits(id, { schema: 'main', name: 'users' }, { updates: [], deletes: [], inserts: [] })).toEqual({ ok: false, reason: 'read-only' });
+  });
+
+  it('asks for the D1 token again once the database id changes', async () => {
+    const { svc, secrets } = service();
+    const saved = await svc.save({ ...d1, readOnly: false }, undefined, 'cf-token');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    await svc.save({ ...d1, readOnly: false, d1: { ...d1.d1!, databaseId: '0f0e0d0c-1111-2222-3333-999999999999' } }, id, undefined);
+    expect(await secrets.get(`db.${id}`)).toBeNull();
+  });
+});
+
+describe('libSQL over plain HTTP', () => {
+  const local: SqlConnectionDraft = { name: 'sqld', engine: 'libsql', host: 'db.example.com', port: 8080, ssl: { mode: 'disable' }, readOnly: false, passwordMode: 'keychain' };
+
+  it('sends a token over plain HTTP only to a private or local address', async () => {
+    const publicHost = service(() => ({ columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false }), { lookupAddress: '93.184.216.34' });
+    const saved = await publicHost.svc.save(local, undefined, 'token');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    expect(await publicHost.svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'blocked-target', fix: 'blocked-host' });
+    expect(publicHost.sent.some((body) => body.type === 'execute')).toBe(false);
+    const test = await publicHost.svc.test({ draft: local, password: 'token' });
+    expect(test.steps.at(-1)).toMatchObject({ id: 'policy', status: 'failed' });
+
+    const privateHost = service(() => ({ columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false }), { lookupAddress: '10.0.4.12' });
+    const kept = await privateHost.svc.save(local, undefined, 'token');
+    expect(await privateHost.svc.execute(1, 'r1', (kept as { connection: { id: string } }).connection.id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
+  });
 });

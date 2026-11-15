@@ -87,6 +87,8 @@ export type HostRequest =
   | { type: 'apply-edits'; config: HostSessionConfig; statements: RowEditStatement[] }
   | { type: 'disconnect'; connectionId: string };
 
+export const QUERY_CANCELLED_MESSAGE = 'The query was cancelled.';
+
 export const SQL_HOST_OPERATIONS = [
   'test',
   'execute',

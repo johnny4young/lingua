@@ -13,7 +13,7 @@ import { classifyConnectError, EditFailedError, readRowPage, type DriverRows, ty
 import { toJsonCell, type DriverFactory } from './driver';
 import { SqlHostError } from './hostError';
 import { createTunnelPool, TunnelError, type Tunnel, type TunnelPool } from './tunnel';
-import type { HostError, HostExecuteResult, HostFetchResult, HostRequest, HostSessionConfig, HostTestResult, SqlHostOps } from './protocol';
+import { QUERY_CANCELLED_MESSAGE, type HostError, type HostExecuteResult, type HostFetchResult, type HostRequest, type HostSessionConfig, type HostTestResult, type SqlHostOps } from './protocol';
 
 const TCP_PROBE_MS = 10_000;
 
@@ -166,7 +166,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
         throw fail(connectError(config, err));
       }
       // Cancelled while it waited for its connection: the statement never runs.
-      if (signal?.aborted) throw fail({ message: 'The query was cancelled.', cancelled: true });
+      if (signal?.aborted) throw fail({ message: QUERY_CANCELLED_MESSAGE, cancelled: true });
       inflight.set(runId, driver);
       let rows: DriverRows;
       try {
@@ -217,7 +217,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       onAbort = () => {
         const target = inflight.get(runId) ?? runs.get(runId)?.session;
         // Nothing runs yet: the statement is still waiting for its connection.
-        if (!target) return reject(fail({ message: 'The query was cancelled.', cancelled: true }));
+        if (!target) return reject(fail({ message: QUERY_CANCELLED_MESSAGE, cancelled: true }));
         void target.cancel().then(cancelled => cancelled || stuck(), stuck);
       };
     });

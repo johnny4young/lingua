@@ -164,9 +164,10 @@ describe.skipIf(!mssql)('sqlserver host', () => {
     await ok({ type: 'close-run', runId: 'm-big' });
     expect(Date.now() - started).toBeLessThan(10_000);
     expect((await run('SELECT 1 AS one')).rows).toEqual([{ one: 1 }]);
-    const slow = send({ type: 'execute', config, runId: 'm-slow', sql: "WAITFOR DELAY '00:00:30'", readWrite: false, window });
+    const abort = new AbortController();
+    const slow = host.handle({ type: 'execute', config, runId: 'm-slow', sql: "WAITFOR DELAY '00:00:30'", readWrite: false, window }, abort.signal);
     await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(await ok({ type: 'cancel', runId: 'm-slow' })).toEqual({ cancelled: true });
+    abort.abort();
     expect(await slow).toMatchObject({ ok: false });
   }, 30_000);
 
@@ -337,10 +338,11 @@ describe.skipIf(!clickhouse)('clickhouse host', () => {
   }, 30_000);
 
   it('cancels a long statement', async () => {
-    const slow = send({ type: 'execute', config, runId: 'c-slow', sql: 'SELECT sleepEachRow(0.5) FROM numbers(60) SETTINGS max_block_size = 1', readWrite: false, window });
+    const abort = new AbortController();
+    const slow = host.handle({ type: 'execute', config, runId: 'c-slow', sql: 'SELECT sleepEachRow(0.5) FROM numbers(60) SETTINGS max_block_size = 1', readWrite: false, window }, abort.signal);
     await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(await ok({ type: 'cancel', runId: 'c-slow' })).toEqual({ cancelled: true });
-    await slow;
+    abort.abort();
+    expect(await slow).toMatchObject({ ok: false });
   }, 30_000);
 
   it('under prefer, falls back to plain HTTP only when the server answers in plain HTTP, never on a reset', async () => {
