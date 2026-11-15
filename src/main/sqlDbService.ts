@@ -88,8 +88,22 @@ interface OpenRun {
  * until a restart; a server keeps it responsive, and a restart would not stop its rollback.
  */
 const cancelGraceMs = (engine: SqlConnectionV1['engine']) => (engine === 'sqlite' ? 3_000 : 30_000);
-/** How long a cancel waits to close a result with no call in flight; a timeout stops nothing. */
-const CANCEL_CLOSE_MS = 3_000;
+/** How long a cancel or timeout waits for the host before it answers; the host keeps its own grace. */
+const CANCEL_ANSWER_MS = 3_000;
+
+/** The call's answer, or a cancellation once the call was aborted and has not answered within `CANCEL_ANSWER_MS`. */
+function answerOrRelease<T>(call: Promise<T>, signal: AbortSignal, graceMs: number): Promise<T> {
+  if (graceMs <= CANCEL_ANSWER_MS) return call;
+  return new Promise<T>((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const release = () => (timer = setTimeout(() => reject(new SqlHostError<HostError>({ message: QUERY_CANCELLED_MESSAGE, cancelled: true })), CANCEL_ANSWER_MS));
+    signal.addEventListener('abort', release, { once: true });
+    call.then(resolve, reject).finally(() => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', release);
+    });
+  });
+}
 
 /** The resolved file, so a symlink cannot point a checked path into a protected folder; a missing file resolves through its folder. */
 function realFile(file: string): string {
@@ -598,7 +612,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         }, options.timeoutMs);
         let result: Awaited<typeof request>;
         try {
-          result = await request;
+          result = await answerOrRelease(request, abort.signal, run.graceMs);
+        } catch (err) {
+          // Released before the server stopped: a result it still returns is closed on the host.
+          void request.then((late) => late.hasMore && ask('closeRun', [key]), () => undefined).catch(() => undefined);
+          throw err;
         } finally {
           clearTimeout(timer);
           delete run.abort;
@@ -639,7 +657,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       const abort = new AbortController();
       run.abort = abort;
       try {
-        const page = await ask('fetch', [key, limit, maxBytes], { signal: abort.signal, abortGraceMs: run.graceMs });
+        const request = ask('fetch', [key, limit, maxBytes], { signal: abort.signal, abortGraceMs: run.graceMs });
+        const page = await answerOrRelease(request, abort.signal, run.graceMs).catch((err: unknown) => {
+          void request.then((late) => !late.done && ask('closeRun', [key]), () => undefined).catch(() => undefined);
+          throw err;
+        });
         if (page.done) runs.delete(key);
         return page;
       } catch (err) {
@@ -655,9 +677,9 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       const run = runs.get(key);
       if (!run) return { cancelled: false };
       runs.delete(key);
-      // The call settles with the engine's answer, or restarts the host when the statement does not stop.
+      // The call settles with the engine's answer, or as cancelled while the host waits out the grace.
       if (run.abort) run.abort.abort();
-      else await ask('closeRun', [key], { timeoutMs: CANCEL_CLOSE_MS }).catch(() => undefined);
+      else await ask('closeRun', [key], { timeoutMs: CANCEL_ANSWER_MS }).catch(() => undefined);
       return { cancelled: true };
     },
 

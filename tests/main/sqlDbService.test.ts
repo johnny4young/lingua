@@ -440,9 +440,9 @@ describe('estimates and cancel', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
       await vi.advanceTimersByTimeAsync(3_000);
+      expect(await running).toMatchObject({ status: 'cancelled' });
       expect(host.kill).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(27_000);
-      expect(await running).toMatchObject({ status: 'cancelled' });
       expect(host.kill).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
@@ -461,10 +461,46 @@ describe('estimates and cancel', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
       await vi.advanceTimersByTimeAsync(3_000);
+      expect(await reading).toMatchObject({ done: true });
       expect(host.kill).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(27_000);
-      expect(await reading).toMatchObject({ done: true });
       expect(host.kill).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reports a server timeout on time while the statement is still stopping', async () => {
+    vi.useFakeTimers();
+    try {
+      const { svc, host } = service((body) => (body.type === 'execute' ? new Promise(() => undefined) : undefined));
+      const id = ((await svc.save(pg, undefined, 'hunter2')) as { connection: { id: string } }).connection.id;
+      let settled = false;
+      const running = svc.execute(1, 'r1', id, 'SELECT pg_sleep(60)', { timeoutMs: 10_000 }).finally(() => (settled = true));
+      await vi.advanceTimersByTimeAsync(12_999);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await running).toMatchObject({ status: 'timeout' });
+      expect(host.kill).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('closes a result a server returns after the cancel was answered', async () => {
+    vi.useFakeTimers();
+    try {
+      let finish: (value: unknown) => void = () => undefined;
+      const { svc, sent } = service((body) => (body.type === 'execute' ? new Promise((resolve) => (finish = resolve)) : undefined));
+      const id = ((await svc.save(pg, undefined, 'hunter2')) as { connection: { id: string } }).connection.id;
+      const running = svc.execute(1, 'r1', id, 'SELECT * FROM orders', { timeoutMs: 60_000 });
+      await vi.advanceTimersByTimeAsync(0);
+      await svc.cancel(1, 'r1');
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(await running).toMatchObject({ status: 'cancelled' });
+      finish({ columns: [], rows: [], rowCount: 0, hasMore: true });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(sent).toContainEqual({ type: 'close-run', runId: '1:r1' });
     } finally {
       vi.useRealTimers();
     }
