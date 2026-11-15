@@ -510,7 +510,10 @@ that does not settle within the grace fails it with `HOST_ABORT_UNSETTLED`;
 both restart the host. The grace is three seconds for a SQLite file, whose
 statement blocks the host, and thirty for every other engine, libSQL and D1
 included: an HTTP engine answers at once, and a server may roll back before
-the statement stops. Local SQL keeps Cancel as an operation, because the renderer decides when to force a restart there. The host
+the statement stops. Main answers a cancel or timeout after three seconds
+either way, so the tab is free while the host waits out the grace; the next
+statement on that connection queues behind the stopping one, and a result it
+still returns is closed. Local SQL keeps Cancel as an operation, because the renderer decides when to force a restart there. The host
 starts without the `PG*` and `MYSQL_*` environment variables, and Postgres
 never falls back to a `.pgpass` file, so a driver can only use the password
 main gives it. The host holds one session per connection and serializes the

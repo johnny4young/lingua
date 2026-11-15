@@ -14,6 +14,7 @@ The format follows Keep a Changelog and groups changes by release.
 ### Fixed
 - On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.
 - Cancel on a database connection that is still connecting stops the query. The statement used to run once the connection opened.
+- Cancel and query timeouts on a database server answer within three seconds. The tab used to stay busy until the server stopped the statement, up to 30 seconds; the next query on that connection still waits for it.
 
 ## [2.3.0] — 2026-11-09
 
