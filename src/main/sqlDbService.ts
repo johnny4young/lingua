@@ -88,6 +88,8 @@ interface OpenRun {
  * until a restart; a server keeps it responsive, and a restart would not stop its rollback.
  */
 const cancelGraceMs = (engine: SqlConnectionV1['engine']) => (engine === 'sqlite' ? 3_000 : 30_000);
+/** How long a cancel waits to close a result with no call in flight; a timeout stops nothing. */
+const CANCEL_CLOSE_MS = 3_000;
 
 /** The resolved file, so a symlink cannot point a checked path into a protected folder; a missing file resolves through its folder. */
 function realFile(file: string): string {
@@ -655,7 +657,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       runs.delete(key);
       // The call settles with the engine's answer, or restarts the host when the statement does not stop.
       if (run.abort) run.abort.abort();
-      else await ask('closeRun', [key], { timeoutMs: run.graceMs }).catch(() => undefined);
+      else await ask('closeRun', [key], { timeoutMs: CANCEL_CLOSE_MS }).catch(() => undefined);
       return { cancelled: true };
     },
 
