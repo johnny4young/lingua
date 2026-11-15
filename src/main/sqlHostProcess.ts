@@ -4,6 +4,7 @@ import path from 'node:path';
 import { utilityProcess } from 'electron';
 import { createHost } from '@electron-stagewright/host-supervisor';
 import { utilityProcessTransport } from '@electron-stagewright/host-supervisor/utility';
+import { reviveSqlHostError } from './sqlHost/hostError';
 import { SQL_HOST_OPERATIONS, type SqlHostOps } from './sqlHost/protocol';
 
 /** The app's environment without database client settings, so no driver picks up a password or host from it. */
@@ -24,6 +25,7 @@ export const sqlHost = createHost<SqlHostOps>({
     fork: (entry, args, options) => utilityProcess.fork(entry, args, options),
   }),
   onExit: () => 'on-demand',
+  errors: { revive: reviveSqlHostError },
 });
 
 export function disposeSqlHost(): Promise<void> {

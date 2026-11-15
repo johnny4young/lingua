@@ -5,6 +5,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { withReplies } from '../__fixtures__/hostReply';
 import { createSqlHost } from '../../src/main/sqlHost/host';
 import { openMysql } from '../../src/main/sqlHost/mysql';
 import { openPostgres } from '../../src/main/sqlHost/postgres';
@@ -15,7 +16,7 @@ import { cellText } from '../../src/renderer/components/SqlWorkspace/sqlRowEditM
 import { rowEditOriginal, rowEditRefusal, rowEditStatements, rowEditTableFrom, type RowEditTable } from '../../src/shared/sqlRowEdits';
 import { startBastion, type Bastion } from './sshBastion';
 
-const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite });
+const host = withReplies(createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite }));
 afterAll(() => host.dispose());
 
 let id = 0;

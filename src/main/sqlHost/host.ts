@@ -5,23 +5,15 @@
  */
 
 import net from 'node:net';
+import type { CallContext, Handlers } from '@electron-stagewright/host-supervisor';
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { RowEditStatement } from '../../shared/sqlRowEdits';
 import { classifyConnectError, EditFailedError, readRowPage, type DriverRows, type DriverSession, type RowPager } from '../../shared/sqlDriver';
 import { toJsonCell, type DriverFactory } from './driver';
+import { SqlHostError } from './hostError';
 import { createTunnelPool, TunnelError, type Tunnel, type TunnelPool } from './tunnel';
-import type {
-  HostCancelResult,
-  HostError,
-  HostExecuteResult,
-  HostFetchResult,
-  HostReply,
-  HostRequest,
-  HostSessionConfig,
-  SqlHostOps,
-  HostTestResult,
-} from './protocol';
+import type { HostError, HostExecuteResult, HostFetchResult, HostRequest, HostSessionConfig, HostTestResult, SqlHostOps } from './protocol';
 
 const TCP_PROBE_MS = 10_000;
 
@@ -44,11 +36,7 @@ const mapRow = (row: Record<string, unknown>) =>
 
 const fingerprintOf = (config: HostSessionConfig) => JSON.stringify(config);
 
-class HostRequestError extends Error {
-  constructor(readonly detail: HostError) {
-    super(detail.message);
-  }
-}
+const fail = (detail: HostError) => new SqlHostError<HostError>(detail);
 
 function fileError(err: unknown): HostError {
   const code = (err as { code?: string }).code;
@@ -165,7 +153,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
   const readPage = (run: Run, maxRows: number, maxBytes: number): Promise<HostFetchResult> =>
     readRowPage(run, maxRows, maxBytes, mapRow, (row) => Buffer.byteLength(JSON.stringify(row)));
 
-  async function execute(request: Extract<HostRequest, { type: 'execute' }>): Promise<HostExecuteResult> {
+  async function execute(request: Extract<HostRequest, { type: 'execute' }>, signal?: AbortSignal): Promise<HostExecuteResult> {
     const { config, runId, sql, readWrite, window } = request;
     for (const [id, run] of runs) if (run.connectionId === config.connectionId) await closeRun(id);
     const session = sessionFor(config);
@@ -175,8 +163,10 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
         driver = await session.ready;
       } catch (err) {
         // A failed connect names its step, so the renderer can tell it from a SQL error.
-        throw new HostRequestError(connectError(config, err));
+        throw fail(connectError(config, err));
       }
+      // Cancelled while it waited for its connection: the statement never runs.
+      if (signal?.aborted) throw fail({ message: 'The query was cancelled.', cancelled: true });
       inflight.set(runId, driver);
       let rows: DriverRows;
       try {
@@ -209,17 +199,31 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
   async function fetch(request: Extract<HostRequest, { type: 'fetch' }>): Promise<HostFetchResult> {
     const run = runs.get(request.runId);
     // A newer run on the connection closed it; an empty page would pass for the end of the result.
-    if (!run) throw new HostRequestError({ message: 'This result was closed by a newer run on the same connection.' });
+    if (!run) throw fail({ message: 'This result was closed by a newer run on the same connection.' });
     const page = await readPage(run, request.limit, request.maxBytes);
     if (page.done) await closeRun(request.runId);
     return page;
   }
 
-  async function cancel(runId: string): Promise<HostCancelResult> {
-    const target = inflight.get(runId) ?? runs.get(runId)?.session ?? null;
-    if (!target) return { cancelled: false };
-    const cancelled = await target.cancel();
-    return cancelled ? { cancelled } : { cancelled: false, restart: true };
+  /**
+   * Runs `work` until the caller aborts, then cancels the run's statement. The engine's own error
+   * answers a cancel it honoured; one it could not honour answers with `restart` at once.
+   */
+  function untilAborted<T>(runId: string, signal: AbortSignal | undefined, work: () => Promise<T>): Promise<T> {
+    if (!signal) return work();
+    let onAbort: () => void = () => undefined;
+    const refused = new Promise<never>((_, reject) => {
+      const stuck = () => reject(fail({ message: 'The query was cancelled, but the engine could not stop it.', cancelled: true, restart: true }));
+      onAbort = () => {
+        const target = inflight.get(runId) ?? runs.get(runId)?.session;
+        // Nothing runs yet: the statement is still waiting for its connection.
+        if (!target) return reject(fail({ message: 'The query was cancelled.', cancelled: true }));
+        void target.cancel().then(cancelled => cancelled || stuck(), stuck);
+      };
+    });
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+    return Promise.race([work(), refused]).finally(() => signal.removeEventListener('abort', onAbort));
   }
 
   async function test(config: HostSessionConfig): Promise<HostTestResult> {
@@ -231,7 +235,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       try {
         tcpMs = await probeTcp(probe.address, probe.port);
       } catch (err) {
-        throw new HostRequestError({ ...classifyConnectError(err), step: 'tcp', fix: first ? 'ssh-unreachable' : 'unreachable' });
+        throw fail({ ...classifyConnectError(err), step: 'tcp', fix: first ? 'ssh-unreachable' : 'unreachable' });
       }
     }
     let sshMs: number | undefined;
@@ -242,7 +246,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       try {
         tunnel = await tunnels.acquire(config.ssh);
       } catch (err) {
-        throw new HostRequestError(connectError(config, err));
+        throw fail(connectError(config, err));
       }
       sshMs = Math.round(performance.now() - sshStart);
       driverConfig = behindTunnel(config);
@@ -253,7 +257,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       driver = await drivers[config.engine](driverConfig, tunnel?.socket);
     } catch (err) {
       await tunnel?.release();
-      throw new HostRequestError(connectError(config, err));
+      throw fail(connectError(config, err));
     }
     const connectMs = Math.round(performance.now() - start);
     try {
@@ -289,7 +293,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       try {
         driver = await session.ready;
       } catch (err) {
-        throw new HostRequestError(connectError(config, err));
+        throw fail(connectError(config, err));
       }
       return driver.introspect(request);
     });
@@ -302,59 +306,41 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       try {
         driver = await session.ready;
       } catch (err) {
-        throw new HostRequestError(connectError(config, err));
+        throw fail(connectError(config, err));
       }
       try {
         await driver.applyEdits(statements);
       } catch (err) {
-        if (err instanceof EditFailedError) throw new HostRequestError({ message: err.message, edit: err.failure });
+        if (err instanceof EditFailedError) throw fail({ message: err.message, edit: err.failure });
         throw err;
       }
       return { applied: statements.length };
     });
   }
 
-  async function handle(request: HostRequest): Promise<HostReply<unknown>> {
-    try {
-      let result: unknown;
-      switch (request.type) {
-        case 'test':
-          result = await test(request.config);
-          break;
-        case 'execute':
-          result = await execute(request);
-          break;
-        case 'fetch':
-          result = await fetch(request);
-          break;
-        case 'close-run':
-          await closeRun(request.runId);
-          result = null;
-          break;
-        case 'cancel':
-          result = await cancel(request.runId);
-          break;
-        case 'estimate':
-          result = await estimate(request.config, request.sql);
-          break;
-        case 'introspect':
-          result = await introspect(request.config, request.request);
-          break;
-        case 'apply-edits':
-          result = await applyEdits(request.config, request.statements);
-          break;
-        case 'disconnect':
-          await dropSession(request.connectionId);
-          await dropSession(catalogSessionId(request.connectionId));
-          await dropSession(editsSessionId(request.connectionId));
-          result = null;
-          break;
-      }
-      return { ok: true, value: result };
-    } catch (err) {
-      const error: HostError =
-        err instanceof HostRequestError ? err.detail : { message: err instanceof Error ? err.message : String(err) };
-      return { ok: false, error };
+  /** One operation as data; a failure throws `SqlHostError`. */
+  async function handle(request: HostRequest, signal?: AbortSignal): Promise<unknown> {
+    switch (request.type) {
+      case 'test':
+        return test(request.config);
+      case 'execute':
+        return untilAborted(request.runId, signal, () => execute(request, signal));
+      case 'fetch':
+        return untilAborted(request.runId, signal, () => fetch(request));
+      case 'close-run':
+        await closeRun(request.runId);
+        return null;
+      case 'estimate':
+        return estimate(request.config, request.sql);
+      case 'introspect':
+        return introspect(request.config, request.request);
+      case 'apply-edits':
+        return applyEdits(request.config, request.statements);
+      case 'disconnect':
+        await dropSession(request.connectionId);
+        await dropSession(catalogSessionId(request.connectionId));
+        await dropSession(editsSessionId(request.connectionId));
+        return null;
     }
   }
 
@@ -363,18 +349,17 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
     tunnels.dispose();
   }
 
-  const reply = <T>(request: HostRequest) => handle(request) as Promise<HostReply<T>>;
+  const answer = <T>(request: HostRequest, context?: CallContext) => handle(request, context?.signal) as Promise<T>;
   /** The operations `serveHost` answers; each one is a request to `handle`. */
-  const handlers: SqlHostOps = {
-    test: config => reply({ type: 'test', config }),
-    execute: (config, runId, sql, readWrite, window) => reply({ type: 'execute', config, runId, sql, readWrite, window }),
-    fetch: (runId, limit, maxBytes) => reply({ type: 'fetch', runId, limit, maxBytes }),
-    closeRun: runId => reply({ type: 'close-run', runId }),
-    cancel: runId => reply({ type: 'cancel', runId }),
-    estimate: (config, sql) => reply({ type: 'estimate', config, sql }),
-    introspect: (config, request) => reply({ type: 'introspect', config, request }),
-    applyEdits: (config, statements) => reply({ type: 'apply-edits', config, statements }),
-    disconnect: connectionId => reply({ type: 'disconnect', connectionId }),
+  const handlers: Handlers<SqlHostOps> = {
+    test: config => answer({ type: 'test', config }),
+    execute: (config, runId, sql, readWrite, window, context) => answer({ type: 'execute', config, runId, sql, readWrite, window }, context),
+    fetch: (runId, limit, maxBytes, context) => answer({ type: 'fetch', runId, limit, maxBytes }, context),
+    closeRun: runId => answer({ type: 'close-run', runId }),
+    estimate: (config, sql) => answer({ type: 'estimate', config, sql }),
+    introspect: (config, request) => answer({ type: 'introspect', config, request }),
+    applyEdits: (config, statements) => answer({ type: 'apply-edits', config, statements }),
+    disconnect: connectionId => answer({ type: 'disconnect', connectionId }),
   };
 
   return { handle, handlers, dispose };

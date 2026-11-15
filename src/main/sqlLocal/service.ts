@@ -17,7 +17,7 @@ import { isHostError, type Host } from '@electron-stagewright/host-supervisor';
 import { settle, SqlHostError } from '../sqlHostClient';
 import { sizeOf } from './fileSize';
 import { withoutFolder } from './messages';
-import { ENGINE_GONE_MESSAGE, RESULT_CLOSED_MESSAGE, type LocalPaths, type LocalReply, type LocalStreamItem, type SqlLocalOps } from './protocol';
+import { ENGINE_GONE_MESSAGE, RESULT_CLOSED_MESSAGE, type LocalPaths, type LocalStreamItem, type SqlLocalOps } from './protocol';
 
 type SqlLocalHost = Pick<Host<SqlLocalOps>, 'call' | 'stream' | 'kill' | 'close' | 'state'>;
 
@@ -95,11 +95,11 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
   }
 
   const failure = (error: unknown): SqlLocalReply<never> => {
-    const detail: SqlLocalError = error instanceof SqlHostError ? (error.detail as SqlLocalError) : { message: String(error) };
+    const detail: SqlLocalError = error instanceof SqlHostError ? (error.detail as SqlLocalError) : { message: error instanceof Error ? error.message : String(error) };
     return { ok: false, error: { ...detail, message: home ? withoutFolder(detail.message, home, '~') : detail.message } };
   };
 
-  async function call<T>(owner: number, ask: (host: SqlLocalHost) => Promise<LocalReply<T>>): Promise<SqlLocalReply<T>> {
+  async function call<T>(owner: number, ask: (host: SqlLocalHost) => Promise<T>): Promise<SqlLocalReply<T>> {
     if (!deps.available()) return unavailable;
     try {
       await swept;
@@ -184,7 +184,7 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
         await stopping.get(owner);
         items = hostFor(owner).stream('rows', [owner, connectionId, sql])[Symbol.asyncIterator]();
         const first = await items.next();
-        if (!first.done && first.value.ok && 'columns' in first.value) {
+        if (!first.done && 'columns' in first.value) {
           const streamId = randomUUID();
           streams.set(streamId, { owner, connectionId, items });
           return { ok: true, value: { streamId, columns: first.value.columns } };
@@ -192,7 +192,6 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
         // An unread failure keeps the stream pending in the supervisor and the host.
         void items.return?.().catch(() => undefined);
         if (first.done) return { ok: false, error: { message: RESULT_CLOSED_MESSAGE } };
-        if (!first.value.ok) return failure(new SqlHostError(first.value.error));
         return failure(new Error('The SQL engine sent rows before columns.'));
       } catch (error) {
         void items?.return?.().catch(() => undefined);
@@ -214,10 +213,6 @@ export function createSqlLocalService(deps: SqlLocalServiceDeps) {
         if (item.done) {
           streams.delete(streamId);
           return { ok: true, value: null };
-        }
-        if (!item.value.ok) {
-          closeStream(streamId);
-          return failure(new SqlHostError(item.value.error));
         }
         return { ok: true, value: 'rows' in item.value ? item.value.rows : [] };
       } catch (error) {

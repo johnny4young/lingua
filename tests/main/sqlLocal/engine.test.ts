@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { withReplies, type Replying } from '../../__fixtures__/hostReply';
 import type { PointerReader } from '../../../src/main/sqlLocal/cells';
 import { createSqlLocalEngine, type SqlLocalEngine } from '../../../src/main/sqlLocal/engine';
 import type { LocalPaths, LocalRequest } from '../../../src/main/sqlLocal/protocol';
@@ -19,7 +20,7 @@ const readPointer = (requireApi('@duckdb/node-bindings') as { get_data_from_poin
 
 let root: string;
 let outside: string;
-let engine: SqlLocalEngine;
+let engine: Replying<SqlLocalEngine>;
 
 const pathsFor = (owner: number): LocalPaths => ({
   database: path.join(root, 'lingua-sql.duckdb'),
@@ -49,7 +50,7 @@ async function openEngine(owner = 1, persist = false) {
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'lingua-sql-local-'));
   outside = await mkdtemp(path.join(tmpdir(), 'lingua-sql-outside-'));
-  engine = createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer);
+  engine = withReplies(createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer));
 });
 
 afterEach(async () => {
@@ -242,23 +243,25 @@ describe('native Local SQL engine', () => {
   });
 
   it('serves a stream as columns, then batches, and lets go of it when the reader stops early', async () => {
+    const context = { signal: new AbortController().signal };
     const owner = 1;
     const { connectionId } = await openEngine(owner);
     const items: unknown[] = [];
-    for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT range AS n FROM range(5000)')) {
-      items.push('columns' in item ? item.columns : 'rows' in item ? item.rows.length : item.error);
+    for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT range AS n FROM range(5000)', context)) {
+      items.push('columns' in item ? item.columns : item.rows.length);
     }
     expect(items).toEqual([[{ name: 'n', type: 'Int64' }], 2048, 2048, 904]);
     // Each early stop frees the result, so the open-results cap is never reached.
     for (let index = 0; index < SQL_LOCAL_MAX_STREAMS + 1; index += 1) {
-      for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT range FROM range(5000)')) {
-        expect(item.ok).toBe(true);
+      for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT range FROM range(5000)', context)) {
+        expect(item).toHaveProperty('columns');
         break;
       }
     }
-    const failed: unknown[] = [];
-    for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT * FROM missing_table')) failed.push(item);
-    expect(failed[0]).toMatchObject({ ok: false, error: { message: expect.stringContaining('missing_table') } });
+    const failed = (async () => {
+      for await (const item of engine.handlers.rows(owner, connectionId, 'SELECT * FROM missing_table', context)) void item;
+    })();
+    await expect(failed).rejects.toMatchObject({ name: 'SqlHostError', detail: { message: expect.stringContaining('missing_table') } });
   });
 
   it('answers a closed id with an ordinary error and only a missing engine with engine-gone', async () => {
@@ -268,7 +271,7 @@ describe('native Local SQL engine', () => {
     expect(await failure({ type: 'query', owner, connectionId, sql: 'SELECT 1' })).toEqual({ message: 'The SQL connection is closed.' });
     expect(await failure({ type: 'stream', owner, connectionId, sql: 'SELECT 1' })).toEqual({ message: 'The SQL connection is closed.' });
     // A new process knows nothing of the owner: its engine is gone.
-    const fresh = createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer);
+    const fresh = withReplies(createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer));
     const reply = await fresh.handle({ type: 'query', owner, connectionId, sql: 'SELECT 1' });
     expect(reply).toMatchObject({ ok: false, error: { code: 'engine-gone' } });
     const next = await fresh.handle({ type: 'next', owner, streamId: connectionId });
@@ -278,7 +281,7 @@ describe('native Local SQL engine', () => {
   it('cuts huge text and blob cells to the preview window before building them', async () => {
     const reads: number[] = [];
     await engine.dispose();
-    engine = createSqlLocalEngine(() => import('@duckdb/node-api'), (buffer, offset, count) => (reads.push(count), readPointer(buffer, offset, count)));
+    engine = withReplies(createSqlLocalEngine(() => import('@duckdb/node-api'), (buffer, offset, count) => (reads.push(count), readPointer(buffer, offset, count))));
     const owner = 1;
     const { connectionId, query } = await openEngine(owner);
     const sql = "SELECT repeat('x', 50000000) AS big, repeat('ab', 4000000)::BLOB AS bin, 'short' AS s";
@@ -297,7 +300,7 @@ describe('native Local SQL engine', () => {
 
   it('cuts a huge cell even without the pointer reader', async () => {
     await engine.dispose();
-    engine = createSqlLocalEngine(() => import('@duckdb/node-api'));
+    engine = withReplies(createSqlLocalEngine(() => import('@duckdb/node-api')));
     const owner = 1;
     const { connectionId } = await openEngine(owner);
     const opened = await ok<SqlLocalStreamOpened>({ type: 'stream', owner, connectionId, sql: "SELECT repeat('é', 400000) AS big" });
@@ -366,7 +369,7 @@ describe('native Local SQL engine', () => {
     await first.query('CREATE TABLE kept AS SELECT 1 AS n');
     await ok({ type: 'dispose' });
     expect(existsSync(pathsFor(1).files)).toBe(false);
-    const other = createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer);
+    const other = withReplies(createSqlLocalEngine(() => import('@duckdb/node-api'), readPointer));
     const reply = await other.handle({ type: 'open', owner: 2, persist: true, paths: pathsFor(2) });
     expect(reply).toMatchObject({ ok: true, value: { storageMode: 'opfs' } });
     await other.dispose();
@@ -394,7 +397,7 @@ describe('native Local SQL engine races', () => {
       closeSync: vi.fn(),
     };
     const instance = { connect: async () => connection, closeSync: vi.fn() };
-    const fake = createSqlLocalEngine(async () => ({ DuckDBInstance: { create: async () => instance } }) as never);
+    const fake = withReplies(createSqlLocalEngine(async () => ({ DuckDBInstance: { create: async () => instance } }) as never));
     const send = (body: Body) => fake.handle(body);
     const opened = await send({ type: 'open', owner: 1, persist: false, paths: pathsFor(1) });
     const engineId = (opened as { value: SqlLocalOpened }).value.engineId;

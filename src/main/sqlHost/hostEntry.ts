@@ -3,6 +3,7 @@
 import { serveHost } from '@electron-stagewright/host-supervisor';
 import { openClickHouse } from './clickhouse';
 import { createSqlHost } from './host';
+import { SQL_HOST_ERROR_DETAIL } from './hostError';
 import { openD1Host, openLibsqlHost, openNeonHost } from './httpEngines';
 import { openMysql } from './mysql';
 import { openPostgres } from './postgres';
@@ -25,4 +26,5 @@ serveHost<SqlHostOps>({
   operations: SQL_HOST_OPERATIONS,
   start: () => host.handlers,
   stop: () => host.dispose(),
+  errors: SQL_HOST_ERROR_DETAIL,
 });

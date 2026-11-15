@@ -4,9 +4,8 @@
  * serves an id to the owner it was opened for.
  */
 
-import type { SqlLocalError, SqlLocalOpened, SqlLocalQueryResult } from '../../shared/sqlLocal';
+import type { SqlLocalOpened, SqlLocalQueryResult } from '../../shared/sqlLocal';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import type { HostReply } from '../sqlHost/protocol';
 
 export interface LocalPaths {
   /** The persisted database file, shared by every owner but held by one engine at a time. */
@@ -38,28 +37,26 @@ export type LocalRequest =
   | { type: 'clear-database'; database: string }
   | { type: 'database-bytes'; database: string };
 
-export type LocalReply<T> = HostReply<T, SqlLocalError>;
+/** A streamed result: its columns first, then batches of rows. A failure ends it with `SqlHostError`. */
+export type LocalStreamItem = { columns: SqlColumnMetadata[] } | { rows: Array<Record<string, unknown>> };
 
-/** A streamed result: its columns first, then batches of rows, or one failure that ends it. */
-export type LocalStreamItem = { ok: true; columns: SqlColumnMetadata[] } | { ok: true; rows: Array<Record<string, unknown>> } | { ok: false; error: SqlLocalError };
-
-/** The engine process's closed list of operations. */
+/** The engine process's closed list of operations. A failure throws `SqlHostError`, whose detail is a `SqlLocalError`. */
 export interface SqlLocalOps {
-  open(owner: number, persist: boolean, paths: LocalPaths): Promise<LocalReply<SqlLocalOpened>>;
-  connect(owner: number, engineId: string): Promise<LocalReply<string>>;
-  query(owner: number, connectionId: string, sql: string): Promise<LocalReply<SqlLocalQueryResult>>;
+  open(owner: number, persist: boolean, paths: LocalPaths): Promise<SqlLocalOpened>;
+  connect(owner: number, engineId: string): Promise<string>;
+  query(owner: number, connectionId: string, sql: string): Promise<SqlLocalQueryResult>;
   rows(owner: number, connectionId: string, sql: string): AsyncIterable<LocalStreamItem>;
-  cancel(owner: number, connectionId: string): Promise<LocalReply<boolean>>;
-  closeConnection(owner: number, connectionId: string): Promise<LocalReply<null>>;
-  registerFile(owner: number, engineId: string, name: string, bytes: Uint8Array): Promise<LocalReply<null>>;
-  registerEmptyFile(owner: number, engineId: string, name: string): Promise<LocalReply<null>>;
-  dropFile(owner: number, engineId: string, name: string): Promise<LocalReply<null>>;
-  readFile(owner: number, engineId: string, name: string): Promise<LocalReply<Uint8Array>>;
-  terminate(owner: number, engineId: string): Promise<LocalReply<null>>;
-  releaseOwner(owner: number): Promise<LocalReply<null>>;
-  dispose(): Promise<LocalReply<null>>;
-  clearDatabase(database: string): Promise<LocalReply<null>>;
-  databaseBytes(database: string): Promise<LocalReply<number | null>>;
+  cancel(owner: number, connectionId: string): Promise<boolean>;
+  closeConnection(owner: number, connectionId: string): Promise<null>;
+  registerFile(owner: number, engineId: string, name: string, bytes: Uint8Array): Promise<null>;
+  registerEmptyFile(owner: number, engineId: string, name: string): Promise<null>;
+  dropFile(owner: number, engineId: string, name: string): Promise<null>;
+  readFile(owner: number, engineId: string, name: string): Promise<Uint8Array>;
+  terminate(owner: number, engineId: string): Promise<null>;
+  releaseOwner(owner: number): Promise<null>;
+  dispose(): Promise<null>;
+  clearDatabase(database: string): Promise<null>;
+  databaseBytes(database: string): Promise<number | null>;
 }
 
 export const SQL_LOCAL_OPERATIONS = [

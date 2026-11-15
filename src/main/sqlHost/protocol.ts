@@ -63,20 +63,17 @@ interface HostWindow {
   maxBytes: number;
 }
 
-/** A reply as a value: errors keep their detail, which a thrown error would lose crossing the process boundary. */
-export type HostReply<T, Failure = HostError> = { ok: true; value: T } | { ok: false; error: Failure };
-
-/** The SQL host's closed list of operations. */
+/** The SQL host's closed list of operations. A failure throws `SqlHostError`, whose detail is a `HostError`. */
 export interface SqlHostOps {
-  test(config: HostSessionConfig): Promise<HostReply<HostTestResult>>;
-  execute(config: HostSessionConfig, runId: string, sql: string, readWrite: boolean, window: HostWindow): Promise<HostReply<HostExecuteResult>>;
-  fetch(runId: string, limit: number, maxBytes: number): Promise<HostReply<HostFetchResult>>;
-  closeRun(runId: string): Promise<HostReply<null>>;
-  cancel(runId: string): Promise<HostReply<HostCancelResult>>;
-  estimate(config: HostSessionConfig, sql: string): Promise<HostReply<number | null>>;
-  introspect(config: HostSessionConfig, request: SqlDbIntrospect): Promise<HostReply<SqlDbIntrospectResult>>;
-  applyEdits(config: HostSessionConfig, statements: RowEditStatement[]): Promise<HostReply<{ applied: number }>>;
-  disconnect(connectionId: string): Promise<HostReply<null>>;
+  test(config: HostSessionConfig): Promise<HostTestResult>;
+  /** Aborting it cancels the statement; an engine that cannot stop it answers with `restart`. */
+  execute(config: HostSessionConfig, runId: string, sql: string, readWrite: boolean, window: HostWindow): Promise<HostExecuteResult>;
+  fetch(runId: string, limit: number, maxBytes: number): Promise<HostFetchResult>;
+  closeRun(runId: string): Promise<null>;
+  estimate(config: HostSessionConfig, sql: string): Promise<number | null>;
+  introspect(config: HostSessionConfig, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
+  applyEdits(config: HostSessionConfig, statements: RowEditStatement[]): Promise<{ applied: number }>;
+  disconnect(connectionId: string): Promise<null>;
 }
 
 /** One operation as data, as the host's handler and its tests take it. */
@@ -85,7 +82,6 @@ export type HostRequest =
   | { type: 'execute'; config: HostSessionConfig; runId: string; sql: string; readWrite: boolean; window: HostWindow }
   | { type: 'fetch'; runId: string; limit: number; maxBytes: number }
   | { type: 'close-run'; runId: string }
-  | { type: 'cancel'; runId: string }
   | { type: 'estimate'; config: HostSessionConfig; sql: string }
   | { type: 'introspect'; config: HostSessionConfig; request: SqlDbIntrospect }
   | { type: 'apply-edits'; config: HostSessionConfig; statements: RowEditStatement[] }
@@ -96,7 +92,6 @@ export const SQL_HOST_OPERATIONS = [
   'execute',
   'fetch',
   'closeRun',
-  'cancel',
   'estimate',
   'introspect',
   'applyEdits',
@@ -131,16 +126,12 @@ export interface HostFetchResult {
   bytes: number;
 }
 
-/** `restart` asks main to restart the host: the engine cannot stop a statement any other way. */
-export interface HostCancelResult {
-  cancelled: boolean;
-  restart?: boolean;
-}
-
 export interface HostError extends SqlDriverError {
   /** The key a hop presented that no one trusts yet. */
   hostKey?: SqlDbHostKey & { type: string };
   cancelled?: boolean;
+  /** The engine could not stop a cancelled statement; main restarts the host. */
+  restart?: boolean;
   /** Why staged edits rolled back. */
   edit?: RowEditFailure;
 }

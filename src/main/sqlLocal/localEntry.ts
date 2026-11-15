@@ -3,6 +3,7 @@
 import { createRequire } from 'node:module';
 import { serveHost } from '@electron-stagewright/host-supervisor';
 import type { PointerReader } from './cells';
+import { SQL_HOST_ERROR_DETAIL } from '../sqlHost/hostError';
 import { createSqlLocalEngine } from './engine';
 import { SQL_LOCAL_OPERATIONS, SQL_LOCAL_STREAMS, type SqlLocalOps } from './protocol';
 
@@ -23,4 +24,5 @@ serveHost<SqlLocalOps>({
   streams: SQL_LOCAL_STREAMS,
   start: () => engine.handlers,
   stop: () => engine.dispose(),
+  errors: SQL_HOST_ERROR_DETAIL,
 });

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { app, utilityProcess } from 'electron';
 import { createHost, minimalEnvironment } from '@electron-stagewright/host-supervisor';
 import { utilityProcessTransport } from '@electron-stagewright/host-supervisor/utility';
+import { reviveSqlHostError } from './sqlHost/hostError';
 import { SQL_LOCAL_OPERATIONS, SQL_LOCAL_STREAMS, type SqlLocalOps } from './sqlLocal/protocol';
 
 /** Only what the runtime needs; HOME points at Lingua's own folder so DuckDB's ~/.duckdb defaults never reach the user's. */
@@ -28,5 +29,6 @@ export function createSqlLocalHost() {
     }),
     stop: { graceMs: SQL_LOCAL_STOP_GRACE_MS },
     onExit: () => 'on-demand',
+  errors: { revive: reviveSqlHostError },
   });
 }

@@ -40,7 +40,7 @@ const defaultStagewrightArgs = [
   defaultStagewrightNpxPrefix,
   '-y',
   '--package',
-  '@electron-stagewright/core@0.7.0',
+  '@electron-stagewright/core@0.10.0',
   '--package',
   'playwright@1.64.1',
   'electron-stagewright',

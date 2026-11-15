@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asReply, withReplies } from '../../__fixtures__/hostReply';
 import type { DriverSession } from '../../../src/shared/sqlDriver';
 import { classifyConnectError } from '../../../src/shared/sqlDriver';
 import { toJsonCell } from '../../../src/main/sqlHost/driver';
@@ -54,7 +55,7 @@ const req = (body: HostRequest) => body;
 describe('SQL host', () => {
   it('reads a window, keeps the run open for more rows, and maps bigints to text', async () => {
     const { open } = fakeDriver(25_000);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
     const first = await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
     expect(first).toMatchObject({ ok: true, value: { rowCount: 10_000, hasMore: true, rowCountIsLowerBound: true } });
     const rows = (first as { value: { rows: Array<{ n: string }> } }).value.rows;
@@ -72,7 +73,7 @@ describe('SQL host', () => {
     session.onLost = (listener) => {
       drop = listener;
     };
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
     expect(open).toHaveBeenCalledOnce();
     drop!();
@@ -90,7 +91,7 @@ describe('SQL host', () => {
       closes.push(rows.close as ReturnType<typeof vi.fn>);
       return rows;
     };
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
     expect(await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }))).toMatchObject({
       value: { hasMore: false },
     });
@@ -99,7 +100,7 @@ describe('SQL host', () => {
 
   it('stops a page at the byte budget and keeps the rest', async () => {
     const { open } = fakeDriver(1_000);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
     const first = await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window: { maxRows: 1_000, maxBytes: 100 } }));
     const rows = (first as { value: { rows: unknown[]; hasMore: boolean } }).value;
     expect(rows.rows.length).toBeGreaterThan(0);
@@ -110,7 +111,7 @@ describe('SQL host', () => {
   it('reuses one session per connection and closes the previous run when the next starts', async () => {
     const calls: string[] = [];
     const { open, session } = fakeDriver(20_000, calls);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT 1', readWrite: false, window }));
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r2', sql: 'SELECT 2', readWrite: false, window }));
     expect(open).toHaveBeenCalledOnce();
@@ -126,14 +127,42 @@ describe('SQL host', () => {
     expect(session.close).toHaveBeenCalled();
   });
 
-  it('cancels from a side connection, or asks for a restart when the engine cannot', async () => {
-    const { open, session } = fakeDriver(20_000);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
-    await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
-    expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ value: { cancelled: true } });
+  it('cancels an aborted statement from a side connection, or answers restart when the engine cannot', async () => {
+    const { open, session } = fakeDriver(1);
+    let stop = (_: Error) => undefined as void;
+    vi.mocked(session).run = vi.fn(() => new Promise<never>((_, reject) => (stop = reject)));
+    vi.mocked(session.cancel).mockImplementation(async () => (stop(new Error('canceling statement due to user request')), true));
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
+    const execute = (runId: string, signal: AbortSignal) => asReply(Promise.resolve(host.handlers.execute(pgConfig(), runId, 'SELECT pg_sleep(60)', false, window, { signal })));
+    const first = new AbortController();
+    const honoured = execute('r1', first.signal);
+    await vi.waitFor(() => expect(session.run).toHaveBeenCalledOnce());
+    first.abort();
+    // The engine's own error answers a cancel it honoured.
+    expect(await honoured).toMatchObject({ ok: false, error: { message: 'canceling statement due to user request' } });
     expect(session.cancel).toHaveBeenCalledOnce();
     vi.mocked(session.cancel).mockResolvedValueOnce(false);
-    expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ value: { cancelled: false, restart: true } });
+    const second = new AbortController();
+    const refused = execute('r2', second.signal);
+    await vi.waitFor(() => expect(session.run).toHaveBeenCalledTimes(2));
+    second.abort();
+    expect(await refused).toMatchObject({ ok: false, error: { cancelled: true, restart: true } });
+  });
+
+  it('never runs a statement cancelled while it waited for its connection', async () => {
+    const { session } = fakeDriver(1);
+    vi.mocked(session).run = vi.fn(session.run);
+    let connect!: () => void;
+    const open = vi.fn(() => new Promise<DriverSession>(resolve => (connect = () => resolve(session))));
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open });
+    const abort = new AbortController();
+    const running = asReply(Promise.resolve(host.handlers.execute(pgConfig(), 'r1', 'DELETE FROM t', true, window, { signal: abort.signal })));
+    await vi.waitFor(() => expect(open).toHaveBeenCalledOnce());
+    abort.abort();
+    expect(await running).toMatchObject({ ok: false, error: { cancelled: true } });
+    connect();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(session.run).not.toHaveBeenCalled();
   });
 
   it('hands the driver the tunnel sockets without the SSH settings, and lets the tunnel go with the session', async () => {
@@ -148,7 +177,7 @@ describe('SQL host', () => {
       connectors.push(connect);
       return session;
     });
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }, pool);
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }, pool));
     const ssh = { hops: [], auth: 'agent' as const, agent: '/tmp/agent.sock', target: { host: 'db.internal', port: 5432 } };
     await host.handle(req({ type: 'execute', config: pgConfig({ address: '10.0.0.9', port: 5432, ssh }), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
     expect(seen[0]).toMatchObject({ port: 5432 });
@@ -166,7 +195,7 @@ describe('SQL host', () => {
     const failing = vi.fn(async () => {
       throw Object.assign(new Error('password authentication failed for user "app"'), { code: '28P01' });
     });
-    const host = createSqlHost({ postgres: failing, mysql: failing, sqlite: failing, sqlserver: failing, clickhouse: failing, libsql: failing, neon: failing, d1: failing });
+    const host = withReplies(createSqlHost({ postgres: failing, mysql: failing, sqlite: failing, sqlserver: failing, clickhouse: failing, libsql: failing, neon: failing, d1: failing }));
     const result = await host.handle(req({ type: 'test', config: pgConfig() }));
     expect(result).toMatchObject({ ok: false, error: { step: 'auth', fix: 'auth' } });
   });
@@ -209,10 +238,10 @@ describe('SQLite driver (node:sqlite)', () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const sqliteConfig = (readOnly: boolean): HostSessionConfig => ({ connectionId: 's1', engine: 'sqlite', path: file, readOnly });
-  const createSqlHostSupervisorless = () => createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite });
+  const createSqlHostSupervisorless = () => withReplies(createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite }));
 
   it('reads rows with types the grid knows and keeps large integers exact', async () => {
-    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite });
+    const host = withReplies(createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite }));
     const result = await host.handle(req({ type: 'execute', config: sqliteConfig(false), runId: 'r', sql: 'SELECT * FROM t ORDER BY id', readWrite: false, window }));
     expect(result).toMatchObject({
       ok: true,
@@ -247,7 +276,7 @@ describe('SQLite driver (node:sqlite)', () => {
   });
 
   it('refuses writes on a read-only file, and lifts read-only for one run', async () => {
-    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite });
+    const host = withReplies(createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite }));
     const refused = await host.handle(req({ type: 'execute', config: sqliteConfig(true), runId: 'w', sql: "UPDATE t SET name = 'z'", readWrite: false, window }));
     expect(refused).toMatchObject({ ok: false, error: { message: expect.stringMatching(/readonly/i) } });
     const lifted = await host.handle(req({ type: 'execute', config: sqliteConfig(true), runId: 'w2', sql: "UPDATE t SET name = 'z'", readWrite: true, window }));
@@ -297,7 +326,7 @@ describe('SQLite driver (node:sqlite)', () => {
   });
 
   it('tests the file: version on success, file-missing when it is gone', async () => {
-    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite });
+    const host = withReplies(createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite, libsql: openSqlite, neon: openSqlite, d1: openSqlite }));
     expect(await host.handle(req({ type: 'test', config: sqliteConfig(true) }))).toMatchObject({ ok: true, value: { serverVersion: expect.stringMatching(/^SQLite 3\./) } });
     expect(await host.handle(req({ type: 'test', config: { ...sqliteConfig(true), path: path.join(dir, 'nope.db') } }))).toMatchObject({
       ok: false,

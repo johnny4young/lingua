@@ -6,6 +6,7 @@
 
 import net, { type AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { withReplies } from '../__fixtures__/hostReply';
 import { openClickHouse } from '../../src/main/sqlHost/clickhouse';
 import { createSqlHost } from '../../src/main/sqlHost/host';
 import { openMysql } from '../../src/main/sqlHost/mysql';
@@ -18,7 +19,7 @@ import { cellText } from '../../src/renderer/components/SqlWorkspace/sqlRowEditM
 import { rowEditOriginal, rowEditProblem, rowEditRefusal, rowEditStatements, type RowEditTable } from '../../src/shared/sqlRowEdits';
 import { startBastion, type Bastion } from './sshBastion';
 
-const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite, sqlserver: openSqlServer, clickhouse: openClickHouse });
+const host = withReplies(createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite, sqlserver: openSqlServer, clickhouse: openClickHouse }));
 afterAll(() => host.dispose());
 
 let id = 0;

@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHost, inProcessTransport } from '@electron-stagewright/host-supervisor';
+import { reviveSqlHostError, SQL_HOST_ERROR_DETAIL } from '../../src/main/sqlHost/hostError';
 import { createSqlLocalEngine, type SqlLocalEngine } from '../../src/main/sqlLocal/engine';
 import { SQL_LOCAL_OPERATIONS, SQL_LOCAL_STREAMS, type SqlLocalOps } from '../../src/main/sqlLocal/protocol';
 import { createSqlLocalService, type SqlLocalService } from '../../src/main/sqlLocal/service';
@@ -114,7 +115,8 @@ async function nativeHandle(): Promise<DuckDbEngineHandle> {
       createHost<SqlLocalOps>({
         operations: SQL_LOCAL_OPERATIONS,
         streams: SQL_LOCAL_STREAMS,
-        transport: inProcessTransport<SqlLocalOps>({ operations: SQL_LOCAL_OPERATIONS, streams: SQL_LOCAL_STREAMS, start: () => localEngine.handlers }),
+        transport: inProcessTransport<SqlLocalOps>({ operations: SQL_LOCAL_OPERATIONS, streams: SQL_LOCAL_STREAMS, start: () => localEngine.handlers, errors: SQL_HOST_ERROR_DETAIL }),
+        errors: { revive: reviveSqlHostError },
       }),
   });
   const owner = 1;

@@ -55,14 +55,7 @@ function fakeHosts(answer: (body: Record<string, unknown>, host: FakeHost) => un
       return body;
     };
     return {
-      call: vi.fn(async (op: string, args: unknown[]) => {
-        try {
-          return { ok: true, value: await answer(record(op, args), fake) };
-        } catch (error) {
-          if (error instanceof SqlHostError) return { ok: false, error: error.detail };
-          throw error;
-        }
-      }),
+      call: vi.fn(async (op: string, args: unknown[]) => answer(record(op, args), fake)),
       stream: vi.fn((op: string, args: unknown[]) => answer(record(op, args), fake)),
       kill: fake.kill,
       close: fake.close,
@@ -168,9 +161,9 @@ describe('native Local SQL service', () => {
       if (body.type !== 'rows') return null;
       return (async function* () {
         try {
-          yield { ok: true, columns: [{ name: 'n', type: 'INTEGER' }] };
-          yield { ok: true, rows: [{ n: 1 }, { n: 2 }] };
-          yield { ok: true, rows: [{ n: 3 }] };
+          yield { columns: [{ name: 'n', type: 'INTEGER' }] };
+          yield { rows: [{ n: 1 }, { n: 2 }] };
+          yield { rows: [{ n: 3 }] };
         } finally {
           finished = true;
         }
@@ -196,9 +189,9 @@ describe('native Local SQL service', () => {
       if (body.type !== 'rows') return null;
       return (async function* () {
         try {
-          yield { ok: true, columns: [] };
+          yield { columns: [] };
           if (body.sql === 'crash') throw new HostError('HOST_EXITED', 'The host exited before answering');
-          yield { ok: true, rows: [{ n: 1 }] };
+          yield { rows: [{ n: 1 }] };
         } finally {
           closed += 1;
         }
@@ -227,7 +220,7 @@ describe('native Local SQL service', () => {
         },
         next: () =>
           pulls++ === 0
-            ? Promise.resolve({ done: false, value: { ok: true, columns: [] } })
+            ? Promise.resolve({ done: false, value: { columns: [] } })
             : new Promise(resolve => (wake = () => resolve({ done: true, value: undefined }))),
         return: () => {
           wake?.();
@@ -251,12 +244,9 @@ describe('native Local SQL service', () => {
       if (body.type !== 'rows') return null;
       return (async function* () {
         try {
-          if (body.sql === 'bad') {
-            yield { ok: false, error: { message: 'Parser Error' } };
-            return;
-          }
-          yield { ok: true, columns: [] };
-          yield { ok: false, error: { message: 'Conversion Error' } };
+          if (body.sql === 'bad') throw new SqlHostError({ message: 'Parser Error' });
+          yield { columns: [] };
+          throw new SqlHostError({ message: 'Conversion Error' });
         } finally {
           closed += 1;
         }

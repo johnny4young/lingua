@@ -96,11 +96,11 @@ importers:
         specifier: ^1.32.0
         version: 1.32.0
       '@electron-stagewright/host-supervisor':
-        specifier: 0.1.0
-        version: 0.1.0(electron@44.9.1)
+        specifier: 0.2.0
+        version: 0.2.0
       '@electron-stagewright/origin-migration':
-        specifier: 0.1.0
-        version: 0.1.0(electron@44.9.1)
+        specifier: 0.2.0
+        version: 0.2.0
       '@electron/fuses':
         specifier: 1.8.0
         version: 1.8.0
@@ -605,23 +605,13 @@ packages:
     resolution: {integrity: sha512-/aQLgFDdCSnwChfUwqekSmE1q2dCTzhUy5saIHBb5vyYn5LzWaKPaIz1wM0lDMCZYBoIG4svJNvAJb6vkI8BuA==}
     engines: {node: '>=22.12.0'}
 
-  '@electron-stagewright/host-supervisor@0.1.0':
-    resolution: {integrity: sha512-gTOoQaMWQbI8b7yFEpjHWO/kkaf2jXSsupEx2H/d3n3KhO5mKJiKnH8glRK/BvIjNkqCmi11NSsbHBC+WJ2x/Q==}
-    engines: {node: '>=24.0.0'}
-    peerDependencies:
-      electron: '>=42.0.0'
-    peerDependenciesMeta:
-      electron:
-        optional: true
+  '@electron-stagewright/host-supervisor@0.2.0':
+    resolution: {integrity: sha512-ziSjDsb2qGK6QYE2UoVynGmQPJ5yEmfw9bPMlIf5O1dq3wUE6Cez7FN2Adevx4BrCSmDP33hEjOHk/ykHzmxKA==}
+    engines: {node: '>=26.13.1'}
 
-  '@electron-stagewright/origin-migration@0.1.0':
-    resolution: {integrity: sha512-YlfgVykdvr9xB3krsNGoZG6w0mdAGaByffzB6DIHd+4Z+43x50Q7dpnkJSLkMLaclt8OEs7p7LtqGk0IEeKGEQ==}
-    engines: {node: '>=24.0.0'}
-    peerDependencies:
-      electron: '>=42.0.0'
-    peerDependenciesMeta:
-      electron:
-        optional: true
+  '@electron-stagewright/origin-migration@0.2.0':
+    resolution: {integrity: sha512-gnecVVGDLCNJcKIA27Ph6ONpAOsFwdnCAq94FrZLYHrQazsLbPPe6CBEOBeEy/zBMG2cVSthE8LJhe6X51PdqA==}
+    engines: {node: '>=26.13.1'}
 
   '@electron/asar@3.4.1':
     resolution: {integrity: sha512-i4/rNPRS84t0vSRa2HorerGRXWyF4vThfHesw0dmcWHp+cspK743UanA0suA5Q5y8kzY2y6YKrvbIUn69BCAiA==}
@@ -5136,13 +5126,9 @@ snapshots:
 
   '@electron-internal/extract-zip@1.0.6': {}
 
-  '@electron-stagewright/host-supervisor@0.1.0(electron@44.9.1)':
-    optionalDependencies:
-      electron: 44.9.1
+  '@electron-stagewright/host-supervisor@0.2.0': {}
 
-  '@electron-stagewright/origin-migration@0.1.0(electron@44.9.1)':
-    optionalDependencies:
-      electron: 44.9.1
+  '@electron-stagewright/origin-migration@0.2.0': {}
 
   '@electron/asar@3.4.1':
     dependencies:

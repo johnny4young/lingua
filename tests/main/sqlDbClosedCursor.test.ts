@@ -8,6 +8,7 @@ import { createConnectionCatalog } from '../../src/main/sqlConnectionCatalog';
 import { createSqlHost } from '../../src/main/sqlHost/host';
 import { openSqlite } from '../../src/main/sqlHost/sqlite';
 import { createHost, inProcessTransport } from '@electron-stagewright/host-supervisor';
+import { reviveSqlHostError, SQL_HOST_ERROR_DETAIL } from '../../src/main/sqlHost/hostError';
 import { SQL_HOST_OPERATIONS, type SqlHostOps } from '../../src/main/sqlHost/protocol';
 import type { SecretStore } from '../../src/main/secretStore';
 
@@ -26,7 +27,8 @@ beforeEach(async () => {
   const host = createSqlHost({ sqlite: openSqlite, postgres: unexpected, mysql: unexpected, sqlserver: unexpected, clickhouse: unexpected, libsql: unexpected, neon: unexpected, d1: unexpected });
   const supervisor = createHost<SqlHostOps>({
     operations: SQL_HOST_OPERATIONS,
-    transport: inProcessTransport<SqlHostOps>({ operations: SQL_HOST_OPERATIONS, start: () => host.handlers }),
+    transport: inProcessTransport<SqlHostOps>({ operations: SQL_HOST_OPERATIONS, start: () => host.handlers, errors: SQL_HOST_ERROR_DETAIL }),
+    errors: { revive: reviveSqlHostError },
   });
   disposeHost = async () => {
     await supervisor.close();
