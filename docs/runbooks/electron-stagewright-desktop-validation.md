@@ -29,7 +29,7 @@ args = [
   "/tmp",
   "-y",
   "--package",
-  "@electron-stagewright/core@0.7.0",
+  "@electron-stagewright/core@0.10.0",
   "--package",
   "playwright@1.64.1",
   "electron-stagewright",
@@ -70,7 +70,7 @@ The script:
 1. Rebuilds Lingua's Electron main/preload bundles for `http://localhost:5174/`.
 2. Starts the renderer Vite server unless `--reuse-server` is passed.
 3. Starts the `electron-stagewright` MCP server over stdio, pinned to
-   `@electron-stagewright/core@0.7.0` and `playwright@1.64.1`.
+   `@electron-stagewright/core@0.10.0` and `playwright@1.64.1`.
 4. Launches Lingua through `electron_launch` with a mock credential store
    (`--use-mock-keychain` on macOS, `--password-store=basic` on Linux).
 5. Verifies `#root` is visible, takes an interactive accessibility snapshot,

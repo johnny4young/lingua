@@ -8,6 +8,7 @@ import { createSqlDbService, type SqlDbServiceDeps } from '../../src/main/sqlDbS
 import { createHostKeyStore } from '../../src/main/sqlSsh/hostKeyStore';
 import { createSshTargets } from '../../src/main/sqlSsh/sshTargets';
 import { SqlHostError } from '../../src/main/sqlHostClient';
+import { HostError, type CallOptions } from '@electron-stagewright/host-supervisor';
 import type { LicenseTier } from '../../src/shared/license';
 import type { SqlConnectionDraft } from '../../src/shared/sqlConnections';
 
@@ -38,7 +39,7 @@ function memorySecrets(): SecretStore {
   };
 }
 
-type Respond = (body: Record<string, unknown>, timeoutMs?: number) => unknown;
+type Respond = (body: Record<string, unknown>, options?: CallOptions) => unknown;
 
 /** Each host operation as the request body the tests match on. */
 const bodies: Record<string, (args: unknown[]) => Record<string, unknown>> = {
@@ -46,7 +47,6 @@ const bodies: Record<string, (args: unknown[]) => Record<string, unknown>> = {
   execute: ([config, runId, sql, readWrite, window]) => ({ type: 'execute', config, runId, sql, readWrite, window }),
   fetch: ([runId, limit, maxBytes]) => ({ type: 'fetch', runId, limit, maxBytes }),
   closeRun: ([runId]) => ({ type: 'close-run', runId }),
-  cancel: ([runId]) => ({ type: 'cancel', runId }),
   estimate: ([config, sql]) => ({ type: 'estimate', config, sql }),
   introspect: ([config, request]) => ({ type: 'introspect', config, request }),
   applyEdits: ([config, statements]) => ({ type: 'apply-edits', config, statements }),
@@ -57,15 +57,17 @@ function fakeHost(respond: Respond = () => ({})) {
   const sent: Array<Record<string, unknown>> = [];
   const host = {
     respond,
-    call: vi.fn(async (op: string, args: unknown[], options?: { timeoutMs?: number }) => {
+    call: vi.fn((op: string, args: unknown[], options?: CallOptions) => {
       const body = bodies[op]!(args);
       sent.push(body);
-      try {
-        return { ok: true, value: await host.respond(body, options?.timeoutMs) };
-      } catch (error) {
-        if (error instanceof SqlHostError) return { ok: false, error: error.detail };
-        throw error;
-      }
+      const answer = Promise.resolve().then(() => host.respond(body, options));
+      const { signal, abortGraceMs } = options ?? {};
+      if (!signal || abortGraceMs === undefined) return answer;
+      // As the supervisor does: an aborted call waits for the host's answer, within the grace.
+      const unsettled = new Promise<never>((_, reject) =>
+        signal.addEventListener('abort', () => setTimeout(() => reject(new HostError('HOST_ABORT_UNSETTLED', 'unsettled')), abortGraceMs), { once: true })
+      );
+      return Promise.race([answer, unsettled]);
     }),
     kill: vi.fn(async () => undefined),
     state: 'running' as const,
@@ -333,20 +335,19 @@ describe('running statements', () => {
   });
 
   it('cancels its own runs only, and restarts the host when the engine cannot stop', async () => {
-    let release!: () => void;
-    const { svc, host } = service((body) => {
-      if (body.type === 'execute') return new Promise((resolve) => (release = () => resolve(ok)));
-      if (body.type === 'cancel') return { cancelled: false, restart: true };
-      return {};
+    const { svc, host } = service((body, options) => {
+      if (body.type !== 'execute') return {};
+      return new Promise((_, reject) =>
+        options?.signal?.addEventListener('abort', () => reject(new SqlHostError({ message: 'The query was cancelled, but the engine could not stop it.', cancelled: true, restart: true })))
+      );
     });
     const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: '/data/app.db', readOnly: false, passwordMode: 'none' }, undefined, undefined)) as { connection: { id: string } }).connection.id;
     const running = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 60_000 });
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(await svc.cancel(2, 'r1')).toEqual({ cancelled: false });
     expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+    expect(await running).toMatchObject({ status: 'cancelled' });
     expect(host.kill).toHaveBeenCalledOnce();
-    release();
-    await running;
   });
 });
 
@@ -389,30 +390,73 @@ describe('estimates and cancel', () => {
     expect(await svc.introspect(id, { level: 'schemas' })).toEqual({ errorMessage: 'This connection needs its password.', fix: 'password-needed' });
   });
 
+  it('cancels a run whose host has not started yet, without restarting it', async () => {
+    const { svc, host } = service();
+    const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
+      connection: { id: string };
+    }).connection.id;
+    // As the supervisor does for a call no host has received: an abort fails it at once.
+    host.call.mockImplementationOnce(
+      (_op: string, _args: unknown[], options?: CallOptions) =>
+        new Promise((_, reject) => options?.signal?.addEventListener('abort', () => reject(new HostError('HOST_CALL_ABORTED', 'The call was aborted'))))
+    );
+    const running = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 60_000 });
+    await vi.waitFor(() => expect(host.call).toHaveBeenLastCalledWith('execute', expect.anything(), expect.anything()));
+    expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+    expect(await running).toMatchObject({ status: 'cancelled', errorMessage: 'The query was cancelled.' });
+    expect(host.kill).not.toHaveBeenCalled();
+  });
+
   it('restarts a host that does not answer a cancel', async () => {
     vi.useFakeTimers();
     try {
-      const { svc, host } = service((body) =>
-        body.type === 'cancel' || body.type === 'execute' ? new Promise(() => undefined) : { columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false }
-      );
-      host.respond = (body, timeoutMs) =>
-        body.type === 'cancel' || body.type === 'execute'
-          ? new Promise((_, reject) => (timeoutMs ? setTimeout(() => reject(new Error('timed out')), timeoutMs) : undefined))
-          : Promise.resolve(undefined);
+      const { svc, host } = service((body) => (body.type === 'execute' ? new Promise(() => undefined) : undefined));
       const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
         connection: { id: string };
       }).connection.id;
-      void svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 60_000 });
+      const running = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 60_000 });
       await vi.advanceTimersByTimeAsync(0);
-      const cancelled = svc.cancel(1, 'r1');
+      expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+      expect(host.kill).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(3_000);
-      expect(await cancelled).toEqual({ cancelled: true });
+      expect(await running).toMatchObject({ status: 'cancelled' });
       expect(host.kill).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
   });
+
+  it('releases the host run when a cancelled statement finished anyway', async () => {
+    const { svc, sent } = service((body, options) =>
+      body.type === 'execute'
+        ? new Promise((resolve) => options?.signal?.addEventListener('abort', () => resolve({ columns: [], rows: [], rowCount: 0, hasMore: true })))
+        : undefined
+    );
+    const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
+      connection: { id: string };
+    }).connection.id;
+    const running = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 60_000 });
+    await vi.waitFor(() => expect(sent.some((body) => body.type === 'execute')).toBe(true));
+    expect(await svc.cancel(1, 'r1')).toEqual({ cancelled: true });
+    await running;
+    await vi.waitFor(() => expect(sent).toContainEqual({ type: 'close-run', runId: '1:r1' }));
+  });
+
+  it('times out a run even after a newer run on the same connection replaced it', async () => {
+    const { svc } = service((body, options) =>
+      body.type === 'execute' && body.runId === '1:r1'
+        ? new Promise((_, reject) => options?.signal?.addEventListener('abort', () => reject(new HostError('HOST_CALL_ABORTED', 'The call was aborted'))))
+        : {}
+    );
+    const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
+      connection: { id: string };
+    }).connection.id;
+    const first = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 50 });
+    expect(await svc.execute(1, 'r2', id, 'SELECT 2', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
+    expect(await first).toMatchObject({ status: 'timeout' });
+  });
 });
+
 
 describe('testing a connection', () => {
   it('lists resolve, policy, TCP, TLS, auth and server with timings', async () => {

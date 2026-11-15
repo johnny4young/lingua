@@ -500,13 +500,15 @@ external) as the `Lingua SQL host` utility process, supervised by `createHost`
 from `@electron-stagewright/host-supervisor` with `utilityProcessTransport` and
 `onExit: 'on-demand'` (`src/main/sqlHostProcess.ts`): a call pending when the
 host exits fails, and the next call starts a new host once the old one has
-exited or five seconds have passed. A forced restart is `host.kill()`. Each
-operation answers with a `HostReply` value rather than throwing, because the
-package carries only an error's message and an upper-case code across the
-boundary and Lingua's failures carry a step, a fix, a host key or an edit
-failure (`src/main/sqlHostClient.ts` unwraps them). Cancel stays an operation
-of its own: an aborted call settles at once in main, but the renderer and the
-restart decision need to know whether the engine actually stopped. The host
+exited or five seconds have passed. A forced restart is `host.kill()`. A
+failure throws `SqlHostError`, whose detail (a step, a fix, a host key, an edit
+failure, or Local's `engine-gone` code) crosses as the error's `data` and is
+rebuilt in main by `errors.revive` (`src/main/sqlHost/hostError.ts`). Cancel
+aborts the call with `abortGraceMs`: the call settles with the engine's own
+answer, an engine that cannot stop the statement answers `restart`, and a host
+that does not settle within three seconds fails it with
+`HOST_ABORT_UNSETTLED`; both restart the host. Local SQL keeps Cancel as an
+operation, because the renderer decides when to force a restart there. The host
 starts without the `PG*` and `MYSQL_*` environment variables, and Postgres
 never falls back to a `.pgpass` file, so a driver can only use the password
 main gives it. The host holds one session per connection and serializes the
@@ -689,8 +691,8 @@ tedious hands over as numbers. Cancel uses `pg_cancel_backend` from a side
 connection on Postgres, `KILL QUERY` on MySQL, a TDS cancel on the SQL Server
 session and the dropped request plus `KILL QUERY` on ClickHouse, which also
 stops the server when a result is closed unread; SQLite cannot be interrupted and
-blocks the host while it runs, so a cancel the host does not answer within
-three seconds restarts it. Reading a run that a newer run on the same
+blocks the host while it runs, so a cancelled call the host does not settle
+within three seconds restarts it. Reading a run that a newer run on the same
 connection closed is an error, not an empty end. In the renderer,
 `sqlRemote.ts` runs the statements one at a time and wraps the pages in a
 `SqlResultCursor`. On desktop the bridge is `window.lingua.db`; on the web,

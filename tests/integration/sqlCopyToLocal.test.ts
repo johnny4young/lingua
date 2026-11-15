@@ -9,6 +9,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { withReplies } from '../__fixtures__/hostReply';
 import type { DriverFactory } from '../../src/main/sqlHost/driver';
 import { createSqlHost } from '../../src/main/sqlHost/host';
 import { openMysql } from '../../src/main/sqlHost/mysql';
@@ -23,7 +24,7 @@ const pgUrl = process.env.LINGUA_TEST_PG_URL;
 const myUrl = process.env.LINGUA_TEST_MYSQL_URL;
 
 const unused: DriverFactory = () => Promise.reject(new Error('not in this suite'));
-const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: unused, sqlserver: unused, clickhouse: unused, libsql: unused, neon: unused, d1: unused });
+const host = withReplies(createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: unused, sqlserver: unused, clickhouse: unused, libsql: unused, neon: unused, d1: unused }));
 let id = 0;
 async function ok<T>(body: HostRequest): Promise<T> {
   const response = await host.handle(body);

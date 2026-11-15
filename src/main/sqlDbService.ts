@@ -36,9 +36,9 @@ import { editGuard, runGuard } from '../shared/sqlRunGuard';
 import { MAX_RESULT_PREVIEW_BYTES, MAX_RESULT_ROWS } from '../shared/sqlWorkspace';
 import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
-import type { ArgsOf, CallOperation, Host } from '@electron-stagewright/host-supervisor';
+import { isHostError, type ArgsOf, type CallOperation, type CallOptions, type Host } from '@electron-stagewright/host-supervisor';
 import { settle, SqlHostError } from './sqlHostClient';
-import type { HostCancelResult, HostError, HostReply, HostSessionConfig, HostSshConfig, SqlHostOps } from './sqlHost/protocol';
+import { QUERY_CANCELLED_MESSAGE, type HostError, type HostSessionConfig, type HostSshConfig, type SqlHostOps } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { exportText } from './sqlImport/linguaExport';
 import { ROW_EDIT_BUDGET_MS, rowEditProblem, rowEditStatements, rowEditTableFrom, type RowEditChanges } from '../shared/sqlRowEdits';
@@ -75,7 +75,15 @@ class GuardError extends Error {
 const defaultLookup: LookupImpl = async (hostname) => dns.lookup(hostname, { all: true, verbatim: true });
 
 const MAX_ADHOC = 20;
-const CANCEL_TIMEOUT_MS = 3_000;
+
+interface OpenRun {
+  owner: number;
+  connectionId: string;
+  abort?: AbortController;
+}
+
+/** How long a cancelled statement may take to stop before the host restarts. */
+const CANCEL_GRACE_MS = 3_000;
 
 /** The resolved file, so a symlink cannot point a checked path into a protected folder; a missing file resolves through its folder. */
 function realFile(file: string): string {
@@ -108,20 +116,31 @@ function sameTarget(a: SqlConnectionDraft, b: SqlConnectionDraft): boolean {
   );
 }
 
-type ReplyOf<K extends keyof SqlHostOps> = SqlHostOps[K] extends (...args: never[]) => Promise<HostReply<infer T>> ? T : never;
-
 export function createSqlDbService(deps: SqlDbServiceDeps) {
   const lookup = deps.lookup ?? defaultLookup;
   /** One host operation; `timeoutMs` fails the call without stopping the host. */
-  const ask = <K extends CallOperation<SqlHostOps>>(op: K, args: ArgsOf<SqlHostOps[K]>, timeoutMs?: number) =>
-    settle(deps.host.call(op, args, timeoutMs === undefined ? undefined : { timeoutMs }) as Promise<HostReply<ReplyOf<K>>>);
+  const ask = <K extends CallOperation<SqlHostOps>>(op: K, args: ArgsOf<SqlHostOps[K]>, options?: CallOptions): ReturnType<SqlHostOps[K]> =>
+    settle(
+      (deps.host.call(op, args, options) as Promise<unknown>).catch((error: unknown) => {
+        // Cancelled before the call reached the host.
+        if (isHostError(error, 'HOST_CALL_ABORTED')) throw new SqlHostError<HostError>({ message: QUERY_CANCELLED_MESSAGE, cancelled: true });
+        // A host busy in a SQLite statement cannot even read the cancel.
+        if (isHostError(error, 'HOST_ABORT_UNSETTLED')) throw new SqlHostError<HostError>({ message: 'The query was cancelled, but the SQL host did not stop it.', cancelled: true, restart: true });
+        throw error;
+      })
+    ).catch((error: unknown) => {
+      // An engine that cannot stop a statement gets a new host; its sessions reconnect on the next run.
+      if (error instanceof SqlHostError && (error.detail as HostError).restart) void deps.host.kill();
+      throw error;
+    }) as ReturnType<SqlHostOps[K]>;
   /** Passwords asked at connect time (kept for the session, or until a keychain connection signs in), and those of URL connections nobody saved. */
   const sessionPasswords = new Map<string, string>();
   const sshSessionSecrets = new Map<string, string>();
   /** Secrets asked for a keychain connection that had none, kept there once they sign in. */
   const keepOnSuccess = new Set<string>();
   const adhoc = new Map<string, SqlConnectionV1>();
-  const runs = new Map<string, { owner: number; connectionId: string }>();
+  /** Open runs; `abort` cancels the call in flight on one, if any. */
+  const runs = new Map<string, OpenRun>();
 
   const hostRunId = (owner: number, runId: string) => `${owner}:${runId}`;
 
@@ -513,7 +532,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         steps.push({ id: 'policy', status: 'ok', ms: 0, detail: resolved.isPrivate ? 'private' : 'public' });
       }
       try {
-        const result = await ask('test', [config], 30_000);
+        const result = await ask('test', [config], { timeoutMs: 30_000 });
         if (entry.engine === 'sqlite') {
           steps.push({ id: 'file', status: 'ok', ms: result.connectMs, detail: entry.path! });
         } else {
@@ -554,23 +573,33 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (refusal) return fail('sql-error', refusal, 'confirm-needed');
       const key = hostRunId(owner, runId);
       for (const [other, run] of runs) if (run.owner === owner && run.connectionId === connectionId) runs.delete(other);
-      runs.set(key, { owner, connectionId });
+      const abort = new AbortController();
+      const run: OpenRun = { owner, connectionId, abort };
+      runs.set(key, run);
       let timedOut = false;
       try {
         const { config } = await configFor(entry);
         const window = { maxRows: MAX_RESULT_ROWS, maxBytes: MAX_RESULT_PREVIEW_BYTES };
-        const request = ask('execute', [config, key, sql, Boolean(options.readWrite) && writes, window], options.timeoutMs + 5_000);
+        const request = ask('execute', [config, key, sql, Boolean(options.readWrite) && writes, window], {
+          timeoutMs: options.timeoutMs + CANCEL_GRACE_MS + 5_000,
+          signal: abort.signal,
+          abortGraceMs: CANCEL_GRACE_MS,
+        });
+        // Aborts its own call, even once a newer run on the connection has taken its place in `runs`.
         const timer = setTimeout(() => {
           timedOut = true;
-          void service.cancel(owner, runId);
+          abort.abort();
         }, options.timeoutMs);
         let result: Awaited<typeof request>;
         try {
           result = await request;
         } finally {
           clearTimeout(timer);
+          delete run.abort;
         }
         if (!result.hasMore) runs.delete(key);
+        // Cancelled as it finished: nothing will page or close this run on the host.
+        else if (runs.get(key) !== run) void ask('closeRun', [key]).catch(() => undefined);
         await keepAsked(entry, config);
         return {
           status: result.tooLarge ? 'too-large' : 'success',
@@ -588,8 +617,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         runs.delete(key);
         if (err instanceof GuardError) return fail(err.status, err.message, err.fix);
         if (timedOut) return fail('timeout', 'Query exceeded timeout');
-        const detail = err instanceof SqlHostError ? err.detail : { message: String(err) };
-        if (/cancel|interrupt|query execution was interrupted/i.test(detail.message)) return fail('cancelled', detail.message);
+        const detail: HostError = err instanceof SqlHostError ? err.detail : { message: String(err) };
+        if (detail.cancelled || /cancel|interrupt|query execution was interrupted/i.test(detail.message)) return fail('cancelled', detail.message);
         const sshFix = sshFailure(entry, detail);
         if (sshFix) return fail('connection-failed', detail.message, sshFix);
         if (passwordRefused(entry, detail)) return fail('connection-failed', detail.message, 'password-needed');
@@ -599,26 +628,31 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     async fetch(owner: number, runId: string, limit: number, maxBytes: number): Promise<SqlDbFetchResult> {
       const key = hostRunId(owner, runId);
-      if (!runs.has(key)) return closedSqlResult();
+      const run = runs.get(key);
+      if (!run) return closedSqlResult();
+      const abort = new AbortController();
+      run.abort = abort;
       try {
-        const page = await ask('fetch', [key, limit, maxBytes]);
+        const page = await ask('fetch', [key, limit, maxBytes], { signal: abort.signal, abortGraceMs: CANCEL_GRACE_MS });
         if (page.done) runs.delete(key);
         return page;
       } catch (err) {
         runs.delete(key);
         return { rows: [], done: true, bytes: 0, errorMessage: err instanceof Error ? err.message : String(err) };
+      } finally {
+        if (run.abort === abort) delete run.abort;
       }
     },
 
     async cancel(owner: number, runId: string): Promise<{ cancelled: boolean }> {
       const key = hostRunId(owner, runId);
-      if (!runs.has(key)) return { cancelled: false };
-      // A host busy in a SQLite statement cannot even read the cancel, so silence restarts it too.
-      const result: HostCancelResult = await ask('cancel', [key], CANCEL_TIMEOUT_MS).catch(() => ({ cancelled: false, restart: true }));
-      // An engine that cannot stop a statement gets a new host; its sessions reconnect on the next run.
-      if (result.restart) void deps.host.kill();
+      const run = runs.get(key);
+      if (!run) return { cancelled: false };
       runs.delete(key);
-      return { cancelled: result.cancelled || Boolean(result.restart) };
+      // The call settles with the engine's answer, or restarts the host when the statement does not stop.
+      if (run.abort) run.abort.abort();
+      else await ask('closeRun', [key], { timeoutMs: CANCEL_GRACE_MS }).catch(() => undefined);
+      return { cancelled: true };
     },
 
     async closeRun(owner: number, runId: string): Promise<void> {
@@ -633,7 +667,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (!entry || !isEstimableSqlStatement(sql)) return null;
       try {
         const { config } = await configFor(entry);
-        return await ask('estimate', [config, sql], 15_000);
+        return await ask('estimate', [config, sql], { timeoutMs: 15_000 });
       } catch {
         return null;
       }
@@ -645,7 +679,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (!entry) return { errorMessage: 'Unknown connection.' };
       try {
         const { config } = await configFor(entry);
-        const result = await ask('introspect', [config, request], 30_000);
+        const result = await ask('introspect', [config, request], { timeoutMs: 30_000 });
         await keepAsked(entry, config);
         return result;
       } catch (err) {
@@ -670,11 +704,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (refused) return refused;
       try {
         const { config } = await configFor(entry);
-        const detail = await ask('introspect', [config, { level: 'detail', schema: target.schema, name: target.name, kind: 'table' }], 30_000);
+        const detail = await ask('introspect', [config, { level: 'detail', schema: target.schema, name: target.name, kind: 'table' }], { timeoutMs: 30_000 });
         const table = rowEditTableFrom(entry.engine, target.schema, target.name, detail.detail?.columns ?? [], detail.detail?.transactional);
         if (!table) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
         if (rowEditProblem(table, changes)) return { ok: false, reason: 'invalid' };
-        const result = await ask('applyEdits', [config, rowEditStatements(table, changes, false)], ROW_EDIT_BUDGET_MS * 2);
+        const result = await ask('applyEdits', [config, rowEditStatements(table, changes, false)], { timeoutMs: ROW_EDIT_BUDGET_MS * 2 });
         await keepAsked(entry, config);
         return { ok: true, applied: result.applied };
       } catch (err) {

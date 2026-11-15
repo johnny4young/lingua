@@ -5,6 +5,7 @@
  */
 
 import { afterAll, describe, expect, it } from 'vitest';
+import { withReplies } from '../__fixtures__/hostReply';
 import { createSqlHost } from '../../src/main/sqlHost/host';
 import type { DriverFactory } from '../../src/main/sqlHost/driver';
 import { openD1Host, openLibsqlHost, openNeonHost } from '../../src/main/sqlHost/httpEngines';
@@ -15,7 +16,7 @@ import { rowEditStatements, type RowEditTable } from '../../src/shared/sqlRowEdi
 import { fetchTransport } from '../../src/renderer/runtime/sqlWebDb';
 
 const unused: DriverFactory = () => Promise.reject(new Error('not in this suite'));
-const host = createSqlHost({ postgres: unused, mysql: unused, sqlite: unused, sqlserver: unused, clickhouse: unused, libsql: openLibsqlHost, neon: openNeonHost, d1: openD1Host });
+const host = withReplies(createSqlHost({ postgres: unused, mysql: unused, sqlite: unused, sqlserver: unused, clickhouse: unused, libsql: openLibsqlHost, neon: openNeonHost, d1: openD1Host }));
 afterAll(() => host.dispose());
 
 let id = 0;
