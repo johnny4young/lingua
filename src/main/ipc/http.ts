@@ -2,6 +2,7 @@
 
 import { parseHttpRequest } from '../../shared/httpWorkspacePersistence';
 import {
+  MAX_RESPONSE_BODY_BYTES,
   MAX_STREAM_MESSAGES_CEILING,
   type HttpDesktopRequestOptions,
   type HttpStreamProgress,
@@ -49,10 +50,26 @@ function parseOptions(value: unknown): HttpDesktopRequestOptions {
   ) {
     throw new Error('Invalid stream message cap');
   }
+  const maxResponseBodyBytes = record.maxResponseBodyBytes;
+  if (
+    maxResponseBodyBytes !== undefined &&
+    (!Number.isInteger(maxResponseBodyBytes) ||
+      (maxResponseBodyBytes as number) < 1 ||
+      (maxResponseBodyBytes as number) > MAX_RESPONSE_BODY_BYTES)
+  ) {
+    throw new Error('Invalid response body cap');
+  }
+  if (record.progress !== undefined && record.progress !== 'delta') {
+    throw new Error('Invalid progress mode');
+  }
   return {
     allowPrivateHosts: record.allowPrivateHosts,
     userSensitiveHeaders: headers,
     ...(maxStreamMessages !== undefined ? { maxStreamMessages: maxStreamMessages as number } : {}),
+    ...(maxResponseBodyBytes !== undefined
+      ? { maxResponseBodyBytes: maxResponseBodyBytes as number }
+      : {}),
+    ...(record.progress === 'delta' ? { progress: 'delta' as const } : {}),
   };
 }
 
@@ -70,8 +87,10 @@ export function registerHttpHandlers(): void {
       activeRuns.set(key, controller);
       const sender = event.sender;
       const stopObservingOwner = onOwnerReset(sender, () => controller.abort('renderer-destroyed'));
-      // Each update carries the whole body so far; coalescing bounds the IPC
-      // volume of a fast stream while the final response stays authoritative.
+      // Coalescing bounds the IPC volume of a fast stream while the final
+      // response stays authoritative. Delta runs send each appended span once.
+      const deltas = options.progress === 'delta';
+      let queuedLength = 0;
       let pending: HttpStreamProgress | null = null;
       let throttle: NodeJS.Timeout | null = null;
       const flushProgress = (): void => {
@@ -87,8 +106,16 @@ export function registerHttpHandlers(): void {
       const onProgress = (
         progress: Omit<HttpStreamProgress, 'runId' | 'requestId' | 'transport'>
       ): void => {
+        let body = progress.body;
+        if (deltas) {
+          // A body cut back to its message cap ends the run; the shorter text adds nothing.
+          const added = progress.body.length > queuedLength ? progress.body.slice(queuedLength) : '';
+          queuedLength = Math.max(queuedLength, progress.body.length);
+          body = (pending?.body ?? '') + added;
+        }
         pending = {
           ...progress,
+          body,
           runId,
           requestId: request.id,
           transport: request.transport === 'websocket' ? 'websocket' : 'sse',
@@ -121,6 +148,9 @@ export function registerHttpHandlers(): void {
           signal: controller.signal,
           ...(options.maxStreamMessages !== undefined
             ? { maxStreamMessages: options.maxStreamMessages }
+            : {}),
+          ...(options.maxResponseBodyBytes !== undefined
+            ? { maxResponseBodyBytes: options.maxResponseBodyBytes }
             : {}),
           ...(request.transport === 'sse' ? { onProgress } : {}),
         });

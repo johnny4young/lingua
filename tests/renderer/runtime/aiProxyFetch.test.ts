@@ -90,13 +90,15 @@ describe('createProxyAiFetch', () => {
     const { request: wire, options } = fake.calls[0]!;
     expect(wire).toMatchObject({ method: 'POST', transport: 'sse', url: config.endpoint, body: { kind: 'json' } });
     expect(wire.headers).toContainEqual({ name: 'authorization', value: 'Bearer sk-secret-key-value', enabled: true });
-    expect(options).toEqual({ allowPrivateHosts: false, userSensitiveHeaders: [], maxStreamMessages: 20_000 });
+    expect(options).toEqual({ allowPrivateHosts: false, userSensitiveHeaders: [], maxStreamMessages: 20_000, progress: 'delta' });
 
     fake.emit(delta('Hel'));
     await vi.waitFor(() => expect(chunks.at(-1)).toBe('Hel'));
-    fake.settle({ body: `${delta('Hel')}${delta('lo')}data: [DONE]\n\n` });
+    fake.emit(delta('lo'));
+    await vi.waitFor(() => expect(chunks.at(-1)).toBe('Hello'));
+    fake.settle({ body: `${delta('Hel')}${delta('lo')}${delta(', world')}data: [DONE]\n\n` });
 
-    await expect(pending).resolves.toEqual({ ok: true, content: 'Hello', model: 'gpt-4o-mini' });
+    await expect(pending).resolves.toEqual({ ok: true, content: 'Hello, world', model: 'gpt-4o-mini' });
     expect(fake.listeners.size).toBe(0);
   });
 
@@ -105,7 +107,7 @@ describe('createProxyAiFetch', () => {
     const pending = runChatCompletion(request, config, { fetchImpl: createProxyAiFetch(fake.bridge) });
     await vi.waitFor(() => expect(fake.calls).toHaveLength(1));
     expect(fake.calls[0]!.request.transport).toBe('http');
-    expect(fake.calls[0]!.options).not.toHaveProperty('maxStreamMessages');
+    expect(fake.calls[0]!.options).toEqual({ allowPrivateHosts: false, userSensitiveHeaders: [], maxResponseBodyBytes: 2 * 1024 * 1024 });
     fake.settle({ transport: 'http', contentType: 'application/json', body: '{"choices":[{"message":{"content":"Fix it."}}]}' });
     await expect(pending).resolves.toMatchObject({ ok: true, content: 'Fix it.' });
   });

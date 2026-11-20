@@ -1854,9 +1854,12 @@ and Capsules. Only the network transport varies by platform:
   `src/renderer/runtime/aiProxyFetch.ts`. It always sends
   `allowPrivateHosts: false`, raises the SSE message cap with
   `maxStreamMessages` (validated in the handler, at most
-  `MAX_STREAM_MESSAGES_CEILING`; the default stays `MAX_STREAM_MESSAGES`), and
-  opens its stream at the first progress event, which reports the final hop's
-  status and content type. The key travels to main in that run's request
+  `MAX_STREAM_MESSAGES_CEILING`; the default stays `MAX_STREAM_MESSAGES`),
+  asks for `progress: 'delta'` so each update carries only the appended text,
+  caps a non-streaming answer at the AI client's own response budget with
+  `maxResponseBodyBytes` (at most `MAX_RESPONSE_BODY_BYTES`), and opens its
+  stream at the first progress event, which reports the final hop's status and
+  content type. The final response still carries the whole body. The key travels to main in that run's request
   headers. See `docs/LOCAL_AI_ADR.md` § Modes and transport.
 - HTTP and SSE resolve and validate every redirect hop, remove authorization,
   cookie, proxy authorization, auth-injected, and user-sensitive headers when
