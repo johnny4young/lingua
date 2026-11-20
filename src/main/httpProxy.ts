@@ -99,7 +99,7 @@ export interface HttpProxyOptions extends NetworkTargetOptions {
   signal?: AbortSignal;
   /** Test seam: override the global `fetch`. Production passes undefined. */
   fetchImpl?: typeof fetch;
-  /** Test seam: override the response body cap. */
+  /** Response body cap; defaults to `MAX_RESPONSE_BODY_BYTES`. */
   maxResponseBodyBytes?: number;
   /** Test seam: override the redirect cap. */
   maxRedirects?: number;

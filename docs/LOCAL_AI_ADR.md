@@ -137,11 +137,13 @@ Local profile, any other host becomes My endpoint with its key.
 
 - **Streaming through main.** The renderer adapter
   (`src/renderer/runtime/aiProxyFetch.ts`) asks for SSE and opens the
-  response as soon as main's progress reports an event-stream status; each
-  progress update carries the whole body so far, coalesced to 100 ms, and the
-  adapter feeds only the new suffix. Token-per-event streams raise the SSE
-  message cap to 20 000 (validated in the IPC handler); main still caps the
-  body at 4 MiB. A run cut at either cap is a `limit` failure.
+  response as soon as main's progress reports an event-stream status. The run
+  asks for `progress: 'delta'`, so each update carries only the text appended
+  since the last one, coalesced to 100 ms, and the adapter feeds it as is.
+  Token-per-event streams raise the SSE message cap to 20 000 (validated in the
+  IPC handler); main still caps the body at 4 MiB. A non-streaming answer is
+  capped at the AI client's 2 MiB budget through `maxResponseBodyBytes`. A run
+  cut at any cap is a `limit` failure.
 - **Keys.** A server on this machine needs no key and gets no
   `Authorization` header. On desktop the key goes to main inside the request
   headers for that one run; main strips it on a cross-origin redirect.

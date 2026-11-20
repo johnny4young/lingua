@@ -422,6 +422,7 @@ export interface HttpStreamProgress {
   readonly runId: string;
   readonly requestId: string;
   readonly transport: 'sse' | 'websocket';
+  /** The whole body so far, or only the text added since the last update when the run asked for `progress: 'delta'`. */
   readonly body: string;
   readonly sizeBytes: number;
   readonly messageCount: number;
@@ -436,6 +437,10 @@ export interface HttpDesktopRequestOptions {
   userSensitiveHeaders: string[];
   /** SSE message cap for this run, between 1 and `MAX_STREAM_MESSAGES_CEILING`. */
   maxStreamMessages?: number;
+  /** Response body cap for this run, between 1 and `MAX_RESPONSE_BODY_BYTES`. */
+  maxResponseBodyBytes?: number;
+  /** `delta`: SSE progress carries only the appended text, so a long stream does not resend its body. */
+  progress?: 'delta';
 }
 
 export interface HttpDesktopAPI {

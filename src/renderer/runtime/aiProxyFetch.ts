@@ -1,7 +1,7 @@
 /**
  * Desktop transport for remote AI endpoints: a `fetch` that sends the chat
  * request through main's SSRF-guarded proxy, so no remote host needs CSP
- * room in the renderer. SSE bodies stream as main reports progress.
+ * room in the renderer. SSE bodies stream as the deltas main reports.
  */
 
 import {
@@ -11,7 +11,7 @@ import {
   type HttpRequestV1,
   type HttpResponseV1,
 } from '../../shared/httpWorkspaceSchema';
-import { AiResponseError } from './aiResponseBody';
+import { AI_RESPONSE_LIMITS, AiResponseError } from './aiResponseBody';
 
 const NULL_BODY_STATUSES = new Set([204, 205, 304]);
 
@@ -45,10 +45,10 @@ export function createProxyAiFetch(bridge: HttpDesktopAPI): typeof fetch {
       let opened = false;
       let finished = false;
       let sent = 0;
-      const push = (text: string): void => {
-        if (text.length <= sent) return;
-        streamController?.enqueue(encoder.encode(text.slice(sent)));
-        sent = text.length;
+      const push = (added: string): void => {
+        if (!added) return;
+        streamController?.enqueue(encoder.encode(added));
+        sent += added.length;
       };
       const fail = (error: unknown): void => {
         if (finished) return;
@@ -94,7 +94,9 @@ export function createProxyAiFetch(bridge: HttpDesktopAPI): typeof fetch {
         .execute(runId, request, {
           allowPrivateHosts: false,
           userSensitiveHeaders: [],
-          ...(stream ? { maxStreamMessages: MAX_STREAM_MESSAGES_CEILING } : {}),
+          ...(stream
+            ? { maxStreamMessages: MAX_STREAM_MESSAGES_CEILING, progress: 'delta' as const }
+            : { maxResponseBodyBytes: AI_RESPONSE_LIMITS.responseBytes }),
         })
         .then((response) => {
           if (finished) return;
@@ -105,7 +107,7 @@ export function createProxyAiFetch(bridge: HttpDesktopAPI): typeof fetch {
           }
           finished = true;
           if (opened) {
-            push(response.body);
+            push(response.body.slice(sent));
             streamController?.close();
           } else {
             resolve(toResponse(response));

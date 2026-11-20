@@ -88,4 +88,42 @@ describe('HTTP IPC owner lifecycle', () => {
     }
     expect(proxy.execute).toHaveBeenCalledTimes(1);
   });
+
+  it('sends each appended span once when a run asks for delta progress', async () => {
+    const sender = new FakeSender();
+    proxy.execute.mockImplementation(async (_request, proxyOptions: {
+      onProgress: (progress: { body: string; sizeBytes: number; messageCount: number; opened: boolean }) => void;
+    }) => {
+      let body = '';
+      for (let index = 1; index <= 1000; index += 1) {
+        body += `${index},`;
+        proxyOptions.onProgress({ body, sizeBytes: body.length, messageCount: index, opened: true });
+      }
+      proxyOptions.onProgress({ body: body.slice(0, 10), sizeBytes: 10, messageCount: 1, opened: true });
+      return { kind: 'success' };
+    });
+    await handlers.get('http:execute')?.({ sender }, 'run-5', sseRequest, { ...options, progress: 'delta' });
+
+    const bodies = sender.send.mock.calls.map(([, progress]) => (progress as { body: string }).body);
+    expect(bodies.length).toBeLessThanOrEqual(2);
+    expect(bodies.join('')).toBe(Array.from({ length: 1000 }, (_, index) => `${index + 1},`).join(''));
+  });
+
+  it('passes a bounded response body cap and refuses unknown progress modes', async () => {
+    const sender = new FakeSender();
+    proxy.execute.mockResolvedValue({ kind: 'success' });
+    const execute = handlers.get('http:execute');
+    await execute?.({ sender }, 'run-6', sseRequest, { ...options, maxResponseBodyBytes: 2_097_152 });
+    expect(proxy.execute.mock.calls[0]?.[1]).toMatchObject({ maxResponseBodyBytes: 2_097_152 });
+
+    for (const maxResponseBodyBytes of [0, 1.5, 4 * 1_048_576 + 1, '1024']) {
+      await expect(
+        Promise.resolve().then(() => execute?.({ sender }, 'run-7', sseRequest, { ...options, maxResponseBodyBytes }))
+      ).rejects.toThrow('Invalid response body cap');
+    }
+    await expect(
+      Promise.resolve().then(() => execute?.({ sender }, 'run-8', sseRequest, { ...options, progress: 'full' }))
+    ).rejects.toThrow('Invalid progress mode');
+    expect(proxy.execute).toHaveBeenCalledTimes(1);
+  });
 });
