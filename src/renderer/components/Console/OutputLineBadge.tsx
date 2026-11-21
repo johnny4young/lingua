@@ -5,30 +5,10 @@ import { trackOutputOriginClicked } from '../../utils/telemetry';
 import { emitCommand } from '../../stores/commandBus';
 
 /**
- * Clickable `L<n>` chip rendered on every
- * console row whose `RichOutputPayload` carries an `origin`. Click
- * emits the shared `file.open` command (reuses the file-open
- * handler in `useDefaultOpenFileConsumer`); hover emits the
- * new `editor.highlightLine` command consumed by `useEditorHighlightSync`
- * which applies a Monaco decoration class.
- *
- * The master/hover Settings toggles are gone; output→source
- * linking is a baseline affordance. The per-tab `// @origin off`
- * directive remains as the user-controlled escape hatch (the parent
- * `<ConsoleEntryRenderer>` suppresses the chip when the buffer
- * carries the directive).
- *
- * Telemetry: click emits `runtime.output_origin_clicked`,
- * burst-throttled at the helper level. Hover is intentionally
- * silent — see the comment on `OUTPUT_ORIGIN_SURFACES` in
- * `src/shared/telemetry.ts`.
- *
- * Deliberately NOT migrated to `<StatusBadge>`.
- * StatusBadge is a non-interactive uppercase status chip; this is an
- * interactive mono navigation affordance (click + hover bus commands +
- * telemetry). It already speaks the Signal-Slate mono-meta language
- * (`font-mono`, `text-fg-subtle`, `rounded`, `focus-visible:outline-accent`),
- * so no token change is needed.
+ * Source line in the console tape gutter. Click opens the line through the
+ * shared `file.open` command, hover highlights it in the editor; the row's
+ * `@origin off` check decides whether it renders at all. Click telemetry is
+ * burst-throttled; hover is silent.
  */
 export interface OutputLineBadgeProps {
   origin: RichOutputOrigin;
@@ -92,9 +72,9 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
       onMouseLeave={handleMouseLeave}
       title={t('console.outputBadge.tooltip')}
       aria-label={t('console.outputBadge.ariaLabel', { line: origin.line })}
-      className="inline-flex items-center rounded px-1.5 py-0 text-eyebrow font-mono font-medium leading-[14px] text-fg-subtle hover:text-foreground hover:bg-surface-strong/70 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className="rounded font-mono tabular-nums text-fg-subtle transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      L{origin.line}
+      {origin.line}
     </button>
   );
 }

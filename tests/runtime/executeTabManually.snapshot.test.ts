@@ -39,7 +39,7 @@ vi.mock('../../src/renderer/runners', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/consoleStore', () => {
-  const state = { addEntry: vi.fn(), addEntries: vi.fn(), clear: vi.fn() };
+  const state = { addEntry: vi.fn(), addEntries: vi.fn(), clear: vi.fn(), beginRun: vi.fn(), dropRunAnchor: vi.fn() };
   return { useConsoleStore: { getState: () => state } };
 });
 

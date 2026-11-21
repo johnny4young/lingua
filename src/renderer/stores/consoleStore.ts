@@ -3,14 +3,12 @@ import type {
   CollapsedConsoleRow,
   ConsoleState,
   ConsoleEntry,
-  ConsoleEntryType,
   ConsolePayloadKindFilter,
 } from '../types/console';
 import { progressIdOf } from '../../shared/richOutput';
+import { sourceLineForEntry } from '../utils/consoleTape';
 
 let entryCounter = 0;
-
-const ALL_TYPES: ConsoleEntryType[] = ['log', 'info', 'warn', 'error', 'result'];
 
 /**
  * Non-cryptographic equality hash for adjacent console rows. Keeping this tiny
@@ -81,11 +79,22 @@ function collapseConsoleEntries(
   return rows;
 }
 
+function clearedOutput(state: Pick<ConsoleState, 'clearVersion'>) {
+  return {
+    entries: [],
+    collapsedEntries: [],
+    hiddenPayloadKinds: new Set<ConsolePayloadKindFilter>(),
+    clearVersion: state.clearVersion + 1,
+  };
+}
+
 export const useConsoleStore = create<ConsoleState>((set, get) => ({
   clearVersion: 0,
   entries: [],
   collapsedEntries: [],
-  activeFilters: new Set<ConsoleEntryType>(ALL_TYPES),
+  level: 'all',
+  currentRun: null,
+  previousRun: null,
   // payload-kind chip filter. Empty by
   // default so users never lose visibility on payload kinds they
   // haven't explicitly chosen to hide.
@@ -156,14 +165,35 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
   },
 
   clear: () =>
-    // Clearing the console also resets any
-    // payload-kind filter chips the user had toggled off, so a fresh
-    // run never displays "No entries match the active filters" against
-    // stale filter state from a previous session.
+    // Clearing also resets payload-kind filters so a fresh run never shows
+    // "No entries match" against stale filters. Rows are gone, so the run
+    // offset anchor and the previous-run stand-ins go with them.
     set((state) => ({
-      entries: [], collapsedEntries: [], hiddenPayloadKinds: new Set(),
-      clearVersion: state.clearVersion + 1,
+      ...clearedOutput(state),
+      currentRun: state.currentRun && { ...state.currentRun, startedAt: null },
+      previousRun: null,
     })),
+
+  beginRun: ({ tabId, startedAt, keepPrevious = true }) =>
+    set((state) => {
+      const previous = state.currentRun?.tabId === tabId ? state.currentRun : null;
+      return {
+        ...clearedOutput(state),
+        // Only line-keyed rows can stand in for the next run; keep nothing heavier.
+        previousRun: previous && keepPrevious ? {
+          number: previous.number,
+          rows: state.collapsedEntries.filter((row) => sourceLineForEntry(row.entry) !== null),
+        } : null,
+        currentRun: { tabId, number: (previous?.number ?? 0) + 1, startedAt },
+      };
+    }),
+
+  dropRunAnchor: () =>
+    set((state) =>
+      state.currentRun?.startedAt == null
+        ? state
+        : { currentRun: { ...state.currentRun, startedAt: null } }
+    ),
 
   restore: (snapshot) =>
     // accessibility pass — Undo for a console clear. Copy the arrays /
@@ -187,17 +217,7 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
       };
     }),
 
-  toggleFilter: (type: ConsoleEntryType) =>
-    set((state) => {
-      const next = new Set(state.activeFilters);
-      if (next.has(type)) {
-        // Keep at least one filter active
-        if (next.size > 1) next.delete(type);
-      } else {
-        next.add(type);
-      }
-      return { activeFilters: next };
-    }),
+  setLevel: (level) => set({ level }),
 
   togglePayloadKindFilter: (kind: ConsolePayloadKindFilter) =>
     set((state) => {
