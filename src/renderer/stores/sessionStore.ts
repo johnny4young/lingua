@@ -18,7 +18,7 @@ import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import type { LastAnswer } from '../utils/lastAnswer';
 
-export interface SessionTab {
+interface SessionTab {
   name: string;
   language: Language;
   /** Content for in-memory tabs; empty string for disk-backed tabs (re-read on restore). */
