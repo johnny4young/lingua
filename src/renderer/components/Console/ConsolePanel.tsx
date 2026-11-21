@@ -56,6 +56,7 @@ type TapeItem =
 
 const WAITING_KEY = 'tape-waiting';
 const GHOST_LIMIT = 4;
+const TAPE_FONT_PX = 12.5;
 
 /** A search hit past the first line would sit behind the fold, so that row opens. */
 function matchIsFolded(content: string, needle: string): boolean {
@@ -708,17 +709,11 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
         ref={scrollRef}
         onScroll={handleScroll}
         data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
-        className="flex-1 overflow-y-auto pb-2 pt-2.5 font-mono text-[12.5px]"
-        style={
-          // Derive the +2px lift from the design token rather
-          // than hard-coding its current value; text-body-sm can evolve
-          // without changing presenter mode's promised delta.
-          presenterActive
-            ? {
-                fontSize: `calc(var(--text-body-sm-size) + ${PRESENTER_CONSOLE_FONT_LIFT}px)`,
-              }
-            : undefined
-        }
+        className="flex-1 overflow-y-auto pb-2 pt-2.5 font-mono"
+        style={{
+          // Presenter mode lifts from the tape size itself, so the promised delta holds.
+          fontSize: `${TAPE_FONT_PX + (presenterActive ? PRESENTER_CONSOLE_FONT_LIFT : 0)}px`,
+        }}
       >
         {tapeItems.length === 0 && quietEmpty && entries.length === 0 ? null : tapeItems.length === 0 ? (
           <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-16 text-center">
