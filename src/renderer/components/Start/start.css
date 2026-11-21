@@ -22,6 +22,117 @@
   font-size: 11.5px;
 }
 
+.start-prompt {
+  --start-prompt-wash: color-mix(in srgb, var(--color-pulse) 14%, transparent);
+  display: flex;
+  min-height: 112px;
+  margin-top: 10px;
+  padding: 12px 14px 12px 0;
+  flex-direction: column;
+  justify-content: center;
+  border: 1.5px solid var(--color-pulse-fg);
+  border-radius: 14px;
+  background: var(--color-bg-panel);
+  box-shadow: 0 0 0 4px var(--start-prompt-wash), 0 22px 40px -28px rgb(0 20 30 / 0.5);
+  cursor: text;
+}
+
+.start-prompt:focus-within {
+  --start-prompt-wash: color-mix(in srgb, var(--color-pulse) 30%, transparent);
+}
+
+.start-prompt-line {
+  display: flex;
+  height: 40px;
+  min-width: 0;
+  align-items: center;
+}
+
+.start-prompt-caret {
+  flex: none;
+  width: 26px;
+  margin-right: 10px;
+  color: var(--color-pulse-fg);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.start-prompt-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+}
+
+/* Sized to the typed text so the leader runs from the line's end to the answer. */
+.start-prompt-field[data-sized] {
+  flex: 0 1 auto;
+  min-width: min(30%, 12ch);
+}
+
+.start-prompt-field .monaco-editor {
+  --vscode-editor-background: transparent;
+  --vscode-editorGutter-background: transparent;
+}
+
+.start-prompt-answer {
+  display: flex;
+  max-width: 70%;
+  min-width: 0;
+  flex: 1 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.start-prompt-tag {
+  display: none;
+  flex: none;
+  color: var(--color-fg-muted);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.start-prompt-picture {
+  display: none;
+  flex: none;
+}
+
+.start-prompt-value {
+  min-width: 0;
+  color: var(--color-fg-base);
+  font-size: 20px;
+}
+
+.start-prompt-answer[data-kind='number'] .start-prompt-value,
+.start-prompt-answer[data-kind='array'] .start-prompt-value {
+  color: var(--color-value-number);
+}
+
+.start-prompt-answer[data-kind='string'] .start-prompt-value {
+  color: var(--color-value-string);
+}
+
+.start-prompt-answer[data-kind='boolean'] .start-prompt-value {
+  color: var(--color-value-boolean);
+}
+
+.start-prompt-answer:not([data-status='ok']) .start-prompt-value {
+  color: var(--color-value-error);
+}
+
+.start-prompt-hints {
+  display: flex;
+  min-height: 26px;
+  margin: 8px 0 0 36px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  white-space: nowrap;
+}
+
 .start-section {
   margin-top: 40px;
 }
@@ -188,6 +299,24 @@
 @media (min-width: 640px) {
   .start-inner {
     padding-inline: 48px;
+  }
+
+  .start-prompt {
+    padding-right: 22px;
+  }
+
+  .start-prompt-caret {
+    width: 34px;
+    margin-right: 12px;
+  }
+
+  .start-prompt-hints {
+    margin-left: 46px;
+  }
+
+  .start-prompt-picture,
+  .start-prompt-tag {
+    display: block;
   }
 
   .start-headline {

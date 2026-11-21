@@ -6,17 +6,17 @@ const BAR_HEIGHT = 22;
 const BAR_GAP = 2;
 const BARS_WIDTH = 94;
 
-function Bars({ values }: { values: number[] }) {
+function Bars({ values, height: barHeight = BAR_HEIGHT }: { values: number[]; height?: number }) {
   const width = (BARS_WIDTH - BAR_GAP * (values.length - 1)) / values.length;
   return (
-    <svg width={BARS_WIDTH} height={BAR_HEIGHT} viewBox={`0 0 ${BARS_WIDTH} ${BAR_HEIGHT}`} className="shrink-0" aria-hidden>
+    <svg width={BARS_WIDTH} height={barHeight} viewBox={`0 0 ${BARS_WIDTH} ${barHeight}`} className="shrink-0" aria-hidden>
       {values.map((value, index) => {
-        const height = Math.max(1.5, (value / 100) * BAR_HEIGHT);
+        const height = Math.max(1.5, (value / 100) * barHeight);
         return (
           <rect
             key={index}
             x={index * (width + BAR_GAP)}
-            y={BAR_HEIGHT - height}
+            y={barHeight - height}
             width={width}
             height={height}
             rx={1}
@@ -54,9 +54,9 @@ function Cells({ values }: { values: number[] }) {
 }
 
 /** The answer's shape: bar heights, HTTP phases or test cells. Decorative; the row text carries the value. */
-export function AnswerPicture({ picture }: { picture: Picture }) {
+export function AnswerPicture({ picture, barHeight }: { picture: Picture; barHeight?: number }) {
   if (picture.values.length === 0) return null;
-  if (picture.kind === 'bars') return <Bars values={picture.values} />;
+  if (picture.kind === 'bars') return <Bars values={picture.values} height={barHeight} />;
   if (picture.kind === 'phases') return <Phases values={picture.values} />;
   return <Cells values={picture.values} />;
 }
