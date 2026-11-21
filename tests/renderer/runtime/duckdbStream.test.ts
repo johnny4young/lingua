@@ -113,7 +113,10 @@ describe('executeQuery streaming and cancel', () => {
   });
 
   it('splits a streamed statement into execute and fetch', async () => {
-    engineWith({ stream: async () => stream(3, 10).result, cancel: async () => true });
+    const { result } = stream(3, 10);
+    // Batches that take whole milliseconds, since phases that all round to 0 ms are dropped.
+    const slow: DuckDbResultStream = { ...result, next: () => new Promise((resolve) => setTimeout(() => resolve(result.next()), 3)) };
+    engineWith({ stream: async () => slow, cancel: async () => true });
     const outcome = await executeQuery('SELECT * FROM range(30)');
     expect(Object.keys(outcome.phases ?? {})).toEqual(['execute', 'fetch']);
   });

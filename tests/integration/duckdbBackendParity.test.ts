@@ -149,12 +149,8 @@ async function onEach<T>(run: () => Promise<T>): Promise<{ wasm: T; native: T }>
 }
 
 /** What the grid reads from an outcome; the time it took differs by design. */
-// Timings differ run to run; the phases each engine measures must not.
-const seen = ({ durationMs: _durationMs, cursor, phases, ...outcome }: DuckDbExecuteOutcome) => ({
-  ...outcome,
-  hasCursor: cursor !== undefined,
-  phases: phases && Object.keys(phases),
-});
+// Timings differ run to run, and a sub-millisecond split is dropped on one engine and not the other.
+const seen = ({ durationMs: _durationMs, phases: _phases, cursor, ...outcome }: DuckDbExecuteOutcome) => ({ ...outcome, hasCursor: cursor !== undefined });
 
 async function same(sql: string) {
   const { wasm: onWasm, native: onNative } = await onEach(() => executeQuery(sql));

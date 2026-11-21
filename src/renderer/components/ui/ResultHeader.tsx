@@ -35,6 +35,8 @@ export interface ResultHeaderProps {
   meta?: string;
   /** Shown right after the meta on the same line, e.g. the change from the previous run. */
   metaTrailing?: ReactNode;
+  /** After the meta; gives up its width before anything else, e.g. a timing breakdown. */
+  detail?: ReactNode;
   /** Optional tab group, right-aligned. */
   tabs?: ReadonlyArray<ResultHeaderTab>;
   /** Currently-active tab id. */
@@ -50,6 +52,7 @@ export function ResultHeader({
   status,
   meta,
   metaTrailing,
+  detail,
   tabs,
   activeTab,
   onTabChange,
@@ -71,6 +74,7 @@ export function ResultHeader({
           {metaTrailing}
         </span>
       ) : null}
+      {detail ? <span className="flex min-w-0 shrink-[100] items-center">{detail}</span> : null}
       {tabs && tabs.length > 0 ? (
         <div className="ml-auto flex gap-1">
           {tabs.map((tab) => {

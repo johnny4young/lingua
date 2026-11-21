@@ -5,10 +5,9 @@
  */
 
 import { explainRowEstimate, introspectPostgres, postgresColumnType } from '../sqlCatalog/postgres';
-import { EDIT_LOCK_WAIT_S, EditFailedError, type DriverSession } from '../sqlDriver';
+import { EDIT_LOCK_WAIT_S, EditFailedError, wholeRows, type DriverSession } from '../sqlDriver';
 import { ROW_EDIT_BUDGET_MS, type RowEditStatement } from '../sqlRowEdits';
 import { HttpSqlError, inflight, parseJson, rowObject, send, summary, type HttpSqlTransport } from './transport';
-import { wholeRows } from '../sqlDriver';
 
 export interface NeonTarget {
   /** `https://api.<region>.neon.tech`, where Neon answers SQL over HTTP. */

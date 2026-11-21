@@ -121,6 +121,7 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
       const guarded = config.readOnly;
       if (guarded) await client.query('BEGIN READ ONLY');
       const end = () => (guarded ? client.query('ROLLBACK').then(() => undefined, () => undefined) : Promise.resolve());
+      const sentAt = performance.now();
       const cursor = client.query(new Cursor(sql, undefined, { types }));
       let first: { rows: Array<Record<string, unknown>>; result: QueryResult };
       try {
@@ -136,6 +137,7 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
       return {
         columns,
         ...(columns.length === 0 && first.result.rowCount != null ? { affectedRows: first.result.rowCount } : {}),
+        sentAt,
         async next(limit) {
           const rows = pending.slice(0, limit);
           pending = pending.slice(rows.length);

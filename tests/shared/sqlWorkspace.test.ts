@@ -169,6 +169,11 @@ describe('sqlPhaseTimings', () => {
     expect(sqlPhaseTimings({ execute: 31 })).toBeUndefined();
     expect(sqlPhaseTimings({})).toBeUndefined();
   });
+
+  it('answers undefined when every phase rounds to 0 ms', () => {
+    expect(sqlPhaseTimings({ execute: 0.2, fetch: 0.4 })).toBeUndefined();
+    expect(sqlPhaseTimings({ execute: 0.6, fetch: 0.1 })).toEqual({ execute: 1, fetch: 0 });
+  });
 });
 
 describe('parseSqlResponse', () => {

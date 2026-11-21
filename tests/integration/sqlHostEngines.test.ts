@@ -106,6 +106,9 @@ for (const [engine, url] of [
       const read = await ok<Timed>({ type: 'execute', config, runId: 'p-read', sql: `SELECT id, city FROM ${table} ORDER BY id`, readWrite: false, window });
       expect(Object.keys(read.phases ?? {})).toEqual(['execute', 'fetch']);
       expect(Object.values(read.phases ?? {}).every((ms) => Number.isInteger(ms) && ms >= 0)).toBe(true);
+      // A read-only run opens its transaction before the statement; both phases still come back.
+      const guarded = await ok<Timed>({ type: 'execute', config: readOnly, runId: 'p-guarded', sql: `SELECT id, city FROM ${table} ORDER BY id`, readWrite: false, window });
+      expect(Object.keys(guarded.phases ?? {})).toEqual(['execute', 'fetch']);
       const write = await ok<Timed>({ type: 'execute', config, runId: 'p-write', sql: `UPDATE ${table} SET city = city WHERE id = 3`, readWrite: false, window });
       expect(write.phases).toBeUndefined();
       // Lifting read-only for one run reads every row before answering.
