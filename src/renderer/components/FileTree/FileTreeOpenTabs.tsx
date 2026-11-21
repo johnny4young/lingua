@@ -10,10 +10,11 @@ interface FileTreeOpenTabsProps {
    * drawer / navigate. The store write (`setActiveTab`) is owned here.
    */
   onNavigate?: () => void;
+  className?: string;
 }
 
 /**
- * The open-tabs foot is the only part of the explorer that
+ * The open-tabs list is the only part of the explorer that
  * legitimately needs the tab list, but it only needs a *projection* of
  * it (id / name / language / isDirty + the active id), never the tab
  * `content`. Subscribing to a derived projection through `useShallow`
@@ -22,16 +23,9 @@ interface FileTreeOpenTabsProps {
  * shallow-equal), so editor typing no longer churns the explorer. The
  * recursive `FileTreeNode` body subscribes to none of this.
  *
- * Explorer (ADD.A). Shared "Pestañas abiertas" foot rendered
- * identically by BOTH the no-project empty state and the project view,
- * mirroring the proto (`proto-explorer.jsx`) where the open-tabs list
- * is present in every explorer state.
- *
- * Each row leads with the canonical colored mono glyph badge driven by
- * `languageBadgeTone` (same tone object the editor tab strip and the
- * action pill render), then the file name, then a dirty dot. Self-
- * renders to `null` when there are no open tabs so callers can mount it
- * unconditionally.
+ * Rendered above the tree in the project view and as the foot of the
+ * no-project state. Each row leads with the `languageBadgeTone` glyph,
+ * then the name and a dirty dot; renders `null` with no open tabs.
  */
 interface OpenTabSummary {
   readonly id: string;
@@ -69,7 +63,7 @@ function decodeOpenTab(encoded: string): OpenTabSummary {
   return { id, name, language, isDirty };
 }
 
-export function FileTreeOpenTabs({ onNavigate }: FileTreeOpenTabsProps) {
+export function FileTreeOpenTabs({ onNavigate, className = '' }: FileTreeOpenTabsProps) {
   const { t } = useTranslation();
   // Narrowed projection — only the fields the foot renders, encoded as
   // value-comparable strings so `useShallow` short-circuits on a
@@ -86,11 +80,12 @@ export function FileTreeOpenTabs({ onNavigate }: FileTreeOpenTabsProps) {
   if (tabs.length === 0) return null;
 
   return (
-    <div className="border-t border-border/70">
-      <div className="flex h-9 items-center gap-1.5 px-4">
+    <div className={`shrink-0 ${className}`} data-testid="file-tree-open-tabs">
+      <div className="flex h-8 items-center gap-1.5 px-4">
         <span className="panel-title">{t('fileTree.emptyState.openTabs')}</span>
+        <span className="ml-auto text-caption tabular-nums text-muted">{tabs.length}</span>
       </div>
-      <div className="p-1">
+      <div className="max-h-[11rem] overflow-y-auto px-1 pb-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}

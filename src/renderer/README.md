@@ -913,8 +913,8 @@ Primary task contracts:
 | --- | --- | --- | --- | --- |
 | Run the active tab | `Run active tab` | command bar Run action | `Mod+Enter` | 1 direct or 3 through the palette |
 | Change JS/TS runtime | `Switch runtime to …` | command bar Runtime menu | `Mod+Alt+M` cycles modes | 2 direct or 3 through the palette |
-| Open a project | `Open project folder…` | Explorer empty state / footer | Command Palette | 1 direct or 3 to the folder picker |
-| Run project tests | `Run project tests` | Explorer ⋯ menu | Command Palette | 3 direct: open the menu, choose Detect and run project tests, then Run all tests |
+| Open a project | `Open project folder…` | Explorer empty state / ⋯ menu | Command Palette | 1 direct or 3 to the folder picker |
+| Run project tests | `Run project tests` | Explorer Tests row | Command Palette | 2 direct: the Tests row, then Run all tests |
 | Apply a license | `Apply license token` | license badge / Settings → Account | Command Palette | 5 through the palette, including paste + Apply |
 | Restore a session | `Restore last session` when a snapshot exists | boot recovery notice | Command Palette | 1 direct or 3 through the palette |
 

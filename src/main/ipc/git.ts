@@ -11,6 +11,8 @@
  *     renderer debounces to keep the spawn rate sane.
  *   - `git:diff` accepts `repoRoot` + `filePath` and returns both
  *     diff sides as strings (Monaco diff editor input).
+ *   - `git:changes` accepts `repoRoot` + an approved folder and returns
+ *     the changed paths under it, for the explorer's marks.
  *
  * Input validation lives in `src/main/git.ts` (path-traversal guard
  * via `validateRepoRelativePath`); this module is a thin marshaling
@@ -27,11 +29,13 @@ import {
   detectGit,
   getFileDiff,
   getFileStatus,
+  getFolderChanges,
   revealRepo,
   watchRepoHead,
   type GitDetectResult,
   type GitFileDiff,
   type GitFileStatus,
+  type GitFolderChanges,
   type GitHeadChangePayload,
   type GitHeadWatcher,
   type GitHeadWatcherDiagnostic,
@@ -216,6 +220,22 @@ export function registerGitHandlers(): void {
         return { originalContent: '', modifiedContent: '', truncated: false };
       }
       return getFileDiff(rawRepoRoot, rawFilePath);
+    }
+  );
+
+  // Lists changed paths by name only, so the folder alone must be approved.
+  typedHandle(
+    'git:changes',
+    async (
+      _event,
+      rawRepoRoot: unknown,
+      rawFolderPath: unknown
+    ): Promise<GitFolderChanges | null> => {
+      if (typeof rawRepoRoot !== 'string' || rawRepoRoot.length === 0) return null;
+      if (typeof rawFolderPath !== 'string' || rawFolderPath.length === 0) return null;
+      if (!(await isApprovedGitScope(rawRepoRoot))) return null;
+      if (!(await isApprovedGitFile(rawRepoRoot, rawFolderPath))) return null;
+      return getFolderChanges(rawRepoRoot, rawFolderPath);
     }
   );
 

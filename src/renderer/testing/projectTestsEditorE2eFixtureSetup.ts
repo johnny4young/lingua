@@ -5,6 +5,7 @@ import type { ProjectTestCase, ProjectTestRunResult } from '../../shared/project
 import { useEditorStore } from '../stores/editorStore';
 import { useGitStore } from '../stores/gitStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useProjectTerminalStore } from '../stores/projectTerminalStore';
 import { useProjectTestStore } from '../stores/projectTestStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
@@ -54,7 +55,13 @@ const FILES: Record<string, { now: string; head: string }> = {
   'src/cart.test.ts': { now: TEST_FILE, head: TEST_FILE },
   'src/cart.ts': { now: CART, head: CART },
   'src/shipping.ts': { now: SHIPPING_NOW, head: SHIPPING_HEAD },
-  'src/coupons.ts': { now: 'export {};\n', head: 'export {};\n' },
+  'src/coupons.ts': { now: 'export const codes = [\'TEN\'];\n', head: 'export const codes = [];\n' },
+  'src/coupons.test.ts': { now: 'export {};\n', head: 'export {};\n' },
+  'src/shipping.test.ts': { now: 'export {};\n', head: 'export {};\n' },
+  'notebooks/q4-review.linguanb': { now: '{}\n', head: '{}\n' },
+  'package.json': { now: '{}\n', head: '{}\n' },
+  'vitest.config.ts': { now: 'export default {};\n', head: 'export default {};\n' },
+  'README.md': { now: '# checkout-api\n', head: '# checkout-api\n' },
 };
 
 const cases: ProjectTestCase[] = [
@@ -126,6 +133,12 @@ export function prepareProjectTestsEditorE2eFixture(): void {
         const file = FILES[relativeFrom(filePath)];
         return { status: !file ? 'unknown' : file.now === file.head ? 'clean' : 'modified', insertions: 1, deletions: 1 };
       },
+      changes: async () => ({
+        paths: Object.entries(FILES)
+          .filter(([, file]) => file.now !== file.head)
+          .map(([path]) => ({ path, status: 'modified' as const })),
+        truncated: false,
+      }),
       diff: async (_repoRoot: string, filePath: string) => {
         const file = FILES[relativeFrom(filePath)];
         return { originalContent: file?.head ?? '', modifiedContent: file?.now ?? '', truncated: false };
@@ -142,6 +155,14 @@ export function prepareProjectTestsEditorE2eFixture(): void {
       stop: async () => ({ stopped: true }),
       onOutput: () => () => undefined,
     },
+    projectTerminal: {
+      start: async () => ({ ok: true, sessionId: 'e2e-terminal', shellName: 'zsh' }),
+      write: async () => ({ written: true }),
+      resize: async () => ({ resized: true }),
+      stop: async () => ({ stopped: true }),
+      onData: () => () => undefined,
+      onExit: () => () => undefined,
+    },
   } as typeof window.lingua;
   window.addEventListener('e2e-open-test-file', () => void openProjectTestsEditorE2eFile());
 }
@@ -153,7 +174,9 @@ async function openProjectTestsEditorE2eFile(): Promise<void> {
     currentProject: { id: rootPath, name: 'checkout-api', rootPath, openedAt: 1, rootId },
   });
   await useProjectStore.getState().refreshTree();
+  await useProjectStore.getState().expandDirectory('src');
   await new Promise(resolve => setTimeout(resolve, 50));
+  useProjectTerminalStore.setState({ rootId, projectName: 'checkout-api', status: 'running', sessionId: 'e2e-terminal', shellName: 'zsh' });
   useGitStore.setState({ posture: { available: true, repoRoot: rootPath, branch: 'main', commit: 'e2e' }, lastDetectKey: rootPath, lastDetectAt: Date.now() });
   useProjectTestStore.setState({
     rootId,
@@ -171,6 +194,7 @@ async function openProjectTestsEditorE2eFile(): Promise<void> {
     activeRunId: null,
   });
 
+  await useEditorStore.getState().openFile(rootId, 'src/shipping.ts', 'shipping.ts', 'typescript', absolute('src/shipping.ts'));
   const relative = 'src/cart.test.ts';
   await useEditorStore.getState().openFile(rootId, relative, 'cart.test.ts', 'typescript', absolute(relative));
   useUIStore.setState({ activeBottomPanel: 'tests', consoleVisible: true, sidebarVisible: true });

@@ -28,6 +28,20 @@ export interface GitFileStatus {
   deletions?: number;
 }
 
+/** A changed path relative to the queried folder; untracked folders end in `/`, and `''` is the folder itself. */
+export type GitChangedStatus = Extract<GitFileStatusKind, 'modified' | 'untracked'>;
+
+export interface GitChangedPath {
+  path: string;
+  status: GitChangedStatus;
+}
+
+export interface GitFolderChanges {
+  paths: GitChangedPath[];
+  /** True when the list stopped at the entry cap. */
+  truncated: boolean;
+}
+
 export interface GitFileDiff {
   /** Content from HEAD, or empty for an untracked file or missing HEAD. */
   originalContent: string;

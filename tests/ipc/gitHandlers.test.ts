@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   detectGit: vi.fn(),
   getFileStatus: vi.fn(),
   getFileDiff: vi.fn(),
+  getFolderChanges: vi.fn(),
   revealRepo: vi.fn(),
   watchRepoHead: vi.fn(),
   pathIntersectsApprovedScope: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock('../../src/main/git', () => ({
   detectGit: mocks.detectGit,
   getFileStatus: mocks.getFileStatus,
   getFileDiff: mocks.getFileDiff,
+  getFolderChanges: mocks.getFolderChanges,
   revealRepo: mocks.revealRepo,
   watchRepoHead: mocks.watchRepoHead,
 }));
@@ -82,6 +84,7 @@ beforeEach(() => {
   mocks.detectGit.mockReset();
   mocks.getFileStatus.mockReset();
   mocks.getFileDiff.mockReset();
+  mocks.getFolderChanges.mockReset();
   mocks.revealRepo.mockReset();
   mocks.watchRepoHead.mockReset();
   mocks.pathIntersectsApprovedScope.mockReset();
@@ -102,6 +105,23 @@ beforeEach(() => {
 });
 
 describe('git IPC approved-scope gate', () => {
+  it('git:changes lists an approved folder and refuses one outside the approved scope', async () => {
+    const changes = handlerFor('git:changes');
+    const repoRoot = '/home/user/projects';
+    mocks.pathIntersectsApprovedScope.mockImplementation(async (candidate: string) => candidate !== UNAPPROVED);
+    mocks.getFolderChanges.mockResolvedValue({ paths: [{ path: 'a.ts', status: 'modified' }], truncated: false });
+    await expect(changes({}, repoRoot, APPROVED)).resolves.toEqual({ paths: [{ path: 'a.ts', status: 'modified' }], truncated: false });
+    expect(mocks.getFolderChanges).toHaveBeenCalledWith(repoRoot, APPROVED);
+
+    mocks.getFolderChanges.mockClear();
+    await expect(changes({}, repoRoot, '/home/user/projects/secrets')).resolves.toBeNull();
+    await expect(changes({}, UNAPPROVED, APPROVED)).resolves.toBeNull();
+    mocks.isPathBlocked.mockReturnValue(true);
+    await expect(changes({}, repoRoot, APPROVED)).resolves.toBeNull();
+    await expect(changes({}, repoRoot, 42)).resolves.toBeNull();
+    expect(mocks.getFolderChanges).not.toHaveBeenCalled();
+  });
+
   it('git:status short-circuits to unknown for an unapproved repoRoot', async () => {
     const status = handlerFor('git:status');
     await expect(status({}, UNAPPROVED, 'src/a.ts')).resolves.toEqual({

@@ -18,8 +18,10 @@ import { promisify } from 'node:util';
 import { shell } from 'electron';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import type {
+  GitChangedPath,
   GitDetectResult,
   GitFileDiff,
+  GitFolderChanges,
   GitFileStatus,
   GitHeadChangePayload,
   GitHeadWatcherDiagnostic,
@@ -27,6 +29,7 @@ import type {
 export type {
   GitDetectResult,
   GitFileDiff,
+  GitFolderChanges,
   GitFileStatus,
   GitHeadChangePayload,
   GitHeadWatcherDiagnostic,
@@ -490,6 +493,58 @@ export async function getFileStatus(
     return { status: 'modified', ...counts };
   } catch {
     return { status: 'unknown' };
+  }
+}
+
+/** Cap on changed paths per folder, so a huge untracked tree cannot flood IPC. */
+export const MAX_FOLDER_CHANGES = 2_000;
+
+/** Parse `git status --porcelain=v1 -z` into folder-relative paths. */
+export function parseFolderChanges(stdout: string, folderPrefix: string): GitFolderChanges {
+  const fields = stdout.split('\0');
+  const paths: GitChangedPath[] = [];
+  for (let index = 0; index < fields.length; index += 1) {
+    const field = fields[index] ?? '';
+    if (field.length < 4) continue;
+    const code = field.slice(0, 2);
+    // Renames and copies carry the original path as the next field.
+    if (code.includes('R') || code.includes('C')) index += 1;
+    const repoPath = field.slice(3);
+    if (!repoPath.startsWith(folderPrefix)) continue;
+    const relative = repoPath.slice(folderPrefix.length);
+    // An empty path means the folder itself is untracked.
+    if (relative.length === 0 && code !== '??') continue;
+    if (paths.length === MAX_FOLDER_CHANGES) return { paths, truncated: true };
+    paths.push({ path: relative, status: code === '??' ? 'untracked' : 'modified' });
+  }
+  return { paths, truncated: false };
+}
+
+/**
+ * Every changed path under `folderPath`, which must sit inside `repoRoot`.
+ * Untracked folders are reported once, not file by file.
+ */
+export async function getFolderChanges(
+  repoRoot: string,
+  folderPath: string
+): Promise<GitFolderChanges | null> {
+  const binary = await getGitBinary();
+  if (!binary || typeof repoRoot !== 'string' || typeof folderPath !== 'string') return null;
+  const [root, folder] = await Promise.all([realpathOrResolved(repoRoot), realpathOrResolved(folderPath)]);
+  const relative = path.relative(root, folder);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  const folderPrefix = relative.length === 0 ? '' : `${relative.split(path.sep).join('/')}/`;
+  try {
+    const filters = await repositoryFilterOverrides(binary, root);
+    if (!filters) return null;
+    const { stdout } = await runGit(
+      binary,
+      ['status', '--porcelain=v1', '-z', '--untracked-files=normal', '--ignore-submodules=all', '--', relative.length === 0 ? '.' : relative],
+      { cwd: root, timeout: GIT_INVOCATION_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, config: filters }
+    );
+    return parseFolderChanges(stdout, folderPrefix);
+  } catch {
+    return null;
   }
 }
 

@@ -117,10 +117,7 @@ try {
       const { useProjectTestStore } = await import('/src/renderer/stores/projectTestStore.ts');
       window.__projectTestStore = useProjectTestStore;
     });
-    // The Explorer header keeps the Tests entry either inline or behind its overflow menu.
-    const more = page.getByTestId('file-tree-more');
-    if (await more.isVisible()) await more.click();
-    await page.getByTestId('file-tree-project-tests').click();
+    await page.getByTestId('file-tree-footer-tests').click();
     const panel = page.getByTestId('tests-panel');
     const runAll = panel.getByTestId('tests-run-all');
     const output = panel.getByTestId('tests-output');

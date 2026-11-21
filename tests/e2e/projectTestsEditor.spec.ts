@@ -21,8 +21,8 @@ test.describe('test results on the line', () => {
   });
 
   for (const [locale, copy] of [
-    ['en', { suite: 'Suite2 of 3 passed', failed: 'Failed3 ms · at line 19', received: 'Received4.9expected0', open: 'Open shipping.ts:4', uncommitted: 'changed, not committed' }],
-    ['es', { suite: 'Grupo2 de 3 aprobadas', failed: 'Fallida3 ms · en la línea 19', received: 'Recibido4.9se esperaba0', open: 'Abrir shipping.ts:4', uncommitted: 'cambiado, sin confirmar' }],
+    ['en', { suite: 'Suite2 of 3 passed', failed: 'Failed3 ms · at line 19', received: 'Received4.9expected0', open: 'Open shipping.ts:4', uncommitted: 'changed, not committed', changed: 'main · 2 changed', tally: '2 / 32 of 3 tests passed', active: 'zsh · active' }],
+    ['es', { suite: 'Grupo2 de 3 aprobadas', failed: 'Fallida3 ms · en la línea 19', received: 'Recibido4.9se esperaba0', open: 'Abrir shipping.ts:4', uncommitted: 'cambiado, sin confirmar', changed: 'main · 2 cambios', tally: '2 / 32 de 3 pruebas aprobadas', active: 'zsh · activa' }],
   ] as const) {
     test(`${locale} answers on the test lines and the change under test${locale === 'es' ? ' in the light theme' : ''}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 1600, height: 1000 });
@@ -49,6 +49,15 @@ test.describe('test results on the line', () => {
       await expect(answer(18)).toHaveText(copy.failed);
       await expect(answer(19)).toContainText(copy.received);
 
+      // The explorer marks changed files and test results, and sums them under the tree.
+      await expect(page.getByTestId('file-tree-git-summary')).toHaveText(copy.changed);
+      await expect(page.getByTestId('file-tree-git-src/shipping.ts')).toHaveText('M');
+      await expect(page.getByTestId('file-tree-git-src/coupons.ts')).toHaveText('M');
+      await expect(page.getByTestId('file-tree-tests-src/cart.test.ts')).toHaveText(copy.tally);
+      await expect(page.getByTestId('file-tree-tests-src/cart.test.ts')).toHaveAttribute('data-tone', 'failed');
+      await expect(page.getByTestId('file-tree-footer-tests-tally')).toContainText('5 / 6');
+      await expect(page.getByTestId('file-tree-footer-terminal-state')).toHaveText(copy.active);
+
       // The Tests tab still opens the failure in the editor.
       await page.locator('[data-testid="tests-case"][data-status="failed"] button').first().click();
       const card = page.getByTestId('test-failure-card');
@@ -72,6 +81,12 @@ test.describe('test results on the line', () => {
       // Focusing inside the card must not scroll the code out of view.
       await expect(page.locator('.view-line', { hasText: 'expect(shipping(41.4))' })).toBeInViewport();
       expect(await page.locator('.monaco-editor .overflow-guard').first().evaluate(node => node.scrollLeft)).toBe(0);
+
+      await page.getByTestId('file-tree-footer-search').click();
+      const search = page.getByRole('dialog').filter({ has: page.locator('input') });
+      await expect(search).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(search).toHaveCount(0);
 
       await mouseClick(page.getByTestId('test-failure-explain'));
       await expect(page.getByTestId('ai-explain-panel')).toBeVisible();
