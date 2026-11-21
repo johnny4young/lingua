@@ -80,10 +80,8 @@ export function TestLineAnswers({ editor, monaco }: TestLineAnswersProps) {
 
 function LineAnswer({ answer, file, change }: { answer: TestLineAnswer; file: string; change: CodeChange | null }) {
   const { t } = useTranslation();
-  const focus = (test: ProjectTestDisplayCase) => {
-    if (test.failureFile === file) useProjectTestStore.getState().focusFailure(test);
-    else void openTestFailure(test);
-  };
+  // Opening also reveals the assertion line, which can be off screen in a long test.
+  const focus = (test: ProjectTestDisplayCase) => void openTestFailure(test);
   let tag: string;
   let tone: 'muted' | 'error' = 'muted';
   let body: React.ReactNode;

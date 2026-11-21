@@ -66,14 +66,16 @@ export function useAnswerColumnWidgets(
     // Measure every line first, then write: each measurement can flush Monaco's render.
     const layout = () => {
       const column = answerColumn(editor);
-      const ends = placed.map(entry => lineEnd(editor, entry.currentLine()));
+      const lines = placed.map(entry => entry.currentLine());
+      const ends = lines.map(line => lineEnd(editor, line));
       placed.forEach((entry, index) => {
         const end = ends[index];
         if (end === null || end === undefined) return;
         entry.measured = true;
         const leader = Math.max(MIN_LEADER, column.start - end - LEADER_MARGIN);
         const answer = Math.min(column.width, column.right - end - LEADER_MARGIN - leader);
-        const applied = answer < MIN_ANSWER ? 'hidden' : `${leader}:${answer}`;
+        // Monaco keeps a widget's model position until it is laid out again, so a moved line counts as a change.
+        const applied = answer < MIN_ANSWER ? 'hidden' : `${lines[index]}:${leader}:${answer}`;
         if (applied === entry.applied) return;
         entry.applied = applied;
         entry.node.style.display = applied === 'hidden' ? 'none' : '';

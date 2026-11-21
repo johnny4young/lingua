@@ -125,8 +125,11 @@ export async function findCodeUnderTestChange(
       const diff = diffs[index];
       if (!diff || !diff.modified) return;
       next.push({ file, source: diff.modified });
-      if (diff.original === '' || diff.original === diff.modified || isLikelyTestFile(file)) return;
-      const hunk = firstHunk(diff.original, diff.modified);
+      // A CRLF checkout of an LF blob (core.autocrlf) is not a change.
+      const original = diff.original.replace(/\r\n/gu, '\n');
+      const modified = diff.modified.replace(/\r\n/gu, '\n');
+      if (original === '' || original === modified || isLikelyTestFile(file)) return;
+      const hunk = firstHunk(original, modified);
       if (hunk) changes.push({ file, ...hunk });
     });
     frontier = next;

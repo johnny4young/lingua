@@ -87,7 +87,13 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
         fit();
       });
     };
-    const listeners = [editor.onDidLayoutChange(schedule), editor.onDidChangeModelContent(schedule)];
+    const listeners = [
+      editor.onDidLayoutChange(schedule),
+      editor.onDidChangeModelContent(schedule),
+      editor.onDidScrollChange(event => {
+        if (event.scrollLeftChanged) schedule();
+      }),
+    ];
     return () => {
       cancelAnimationFrame(frame);
       for (const listener of listeners) listener.dispose();

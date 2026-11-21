@@ -41,12 +41,12 @@ export function testLineAnswers(
 
   for (const test of current) {
     if (test.file === file && inRange(test.declarationLine)) {
-      byLine.set(test.declarationLine, { kind: 'test', line: test.declarationLine, key: `test:${test.path.join('\u0000')}`, test });
+      byLine.set(test.declarationLine, { kind: 'test', line: test.declarationLine, key: `test:${test.declarationLine}:${test.path.join('\u0000')}`, test });
     }
   }
   for (const test of current) {
     if (test.status === 'failed' && test.failureFile === file && inRange(test.failureLine)) {
-      byLine.set(test.failureLine, { kind: 'assertion', line: test.failureLine, key: `assert:${test.path.join('\u0000')}`, test });
+      byLine.set(test.failureLine, { kind: 'assertion', line: test.failureLine, key: `assert:${test.failureLine}:${test.path.join('\u0000')}`, test });
     }
   }
 

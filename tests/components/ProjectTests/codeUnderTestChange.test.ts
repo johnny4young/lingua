@@ -13,6 +13,7 @@ const FILES: Record<string, { head: string; now: string }> = {
   'src/coupons/index.ts': { head: 'x\n', now: 'y\n' },
   'src/new.ts': { head: '', now: 'fresh\n' },
   'src/helper.test.ts': { head: '1\n', now: '2\n' },
+  'src/crlf.ts': { head: 'a\nb\n', now: 'a\r\nb\r\n' },
 };
 
 function sources(): CodeChangeSources & { diff: ReturnType<typeof vi.fn> } {
@@ -82,6 +83,11 @@ describe('findCodeUnderTestChange', () => {
     );
     expect(found).toBeNull();
     expect(lookup.diff).not.toHaveBeenCalledWith(expect.stringContaining('outside'));
+  });
+
+  it('does not count a CRLF checkout of an LF file as a change', async () => {
+    const found = await findCodeUnderTestChange({ testFile: 'src/cart.test.ts', testSource: "import './crlf';", failingLine: '' }, sources());
+    expect(found).toBeNull();
   });
 
   it('does nothing for files that are not JavaScript or TypeScript', async () => {

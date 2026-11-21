@@ -79,6 +79,19 @@ describe('testLineAnswers', () => {
     expect(helper.map(answer => [answer.kind, answer.line])).toEqual([['assertion', 2]]);
   });
 
+  it('keeps a distinct key for tests that share a title', () => {
+    const answers = testLineAnswers(
+      [
+        { file: 'a.test.ts', path: ['works'], status: 'passed', declarationLine: 1 },
+        { file: 'a.test.ts', path: ['works'], status: 'passed', declarationLine: 2 },
+      ],
+      'a.test.ts',
+      "it('works', () => {});\nit('works', () => {});",
+      { suites: false }
+    );
+    expect(new Set(answers.map(answer => answer.key)).size).toBe(2);
+  });
+
   it('returns nothing before a readable report', () => {
     expect(testLineAnswers(null, 'a.test.ts', '', { suites: true })).toEqual([]);
   });
