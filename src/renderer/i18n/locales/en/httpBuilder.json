@@ -135,5 +135,8 @@
   "httpWorkspace.editor.assert.results.actual": "got {{actual}}",
   "httpWorkspace.editor.assert.results.miss": "no value",
   "httpWorkspace.editor.openAsTab": "Open as JS tab",
-  "httpWorkspace.editor.openAsTabFillIn": "Fill these in to run it; what you put here is saved with this tab and its run history."
+  "httpWorkspace.editor.openAsTabFillIn": "Fill these in to run it; what you put here is saved with this tab and its run history.",
+  "httpWorkspace.environment.selector.variables_one": "{{count}} variable",
+  "httpWorkspace.environment.selector.variables_other": "{{count}} variables",
+  "httpWorkspace.editor.copyAs.item": "Copy as {{format}}"
 }

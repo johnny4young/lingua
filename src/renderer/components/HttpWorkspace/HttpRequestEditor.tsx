@@ -60,11 +60,11 @@ import { writeToClipboard } from '../../utils/clipboard';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { tryParseCurl } from './curlImport';
-import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
 import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpRequestBuilderTabs';
 import { HttpTransportSelect } from './HttpTransportSelect';
-import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
+import { useHttpCopyAsItems, type HttpCopyFormat } from './useHttpCopyAsItems';
+import { CommandBarSlot } from '../Chrome/CommandBarSlot';
 import { HttpSendButton, type HttpSendQueue } from './HttpSendButton';
 import { HttpChainSection } from './HttpChainSection';
 import { requestLabel } from '../../../shared/httpChain';
@@ -101,15 +101,14 @@ export interface HttpRequestEditorProps {
   onStop?: () => void;
   isExecuting: boolean;
   /**
-   * Environment wiring. The selector renders in the
-   * header; the resolution preview renders beneath the URL. The active
+   * Environment wiring. The selector lives in the command bar (the panel
+   * owns it); the resolution preview renders beneath the URL. The active
    * environment also drives the secret-safe Copy-as-cURL. Optional with
    * empty/no-op defaults so the editor still renders standalone (e.g. in
    * a focused unit test) without the environment surfaces.
    */
   environments?: ReadonlyArray<HttpEnvironmentV1>;
   activeEnvironmentId?: string | null;
-  onSelectEnvironment?: (id: string | null) => void;
   /** Open the environment manager, optionally on one row to fill in. */
   onManageEnvironment?: (focus?: HttpEnvironmentFocus) => void;
   /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
@@ -130,7 +129,6 @@ export function HttpRequestEditor({
   isExecuting,
   environments = NO_ENVIRONMENTS,
   activeEnvironmentId = null,
-  onSelectEnvironment,
   onManageEnvironment,
   captureTargetRef,
   assertionTargetRef,
@@ -138,6 +136,7 @@ export function HttpRequestEditor({
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
   const sendCombo = useShortcutLabel('run-toggle');
+  const stopCombo = useShortcutLabel('run-stop');
 
   // Local draft state. Auto-save debounce flushes to the store via
   // `onPatch` after `AUTO_SAVE_DEBOUNCE_MS` of quiet. Local state
@@ -408,6 +407,8 @@ export function HttpRequestEditor({
     },
     [maskedDraft]
   );
+  const copyDisabled = url.trim().length === 0 || transport !== 'http';
+  const copyItems = useHttpCopyAsItems({ disabled: copyDisabled, onCopy: copyAs, maskedRequest: maskedDraft });
 
   // Flush on unmount so an edit typed <500 ms before the editor
   // unmounts (tab close, panel teardown) still lands on its request.
@@ -655,18 +656,6 @@ export function HttpRequestEditor({
       onKeyDown={handleKeyDown}
       className="flex h-full min-w-0 flex-col gap-2 overflow-hidden p-3"
     >
-      {/* Environment selector slot, above the
-          method/URL row so it reads as request-wide context. */}
-      <div className="flex shrink-0 items-center justify-end">
-        <HttpEnvironmentSelector
-          environments={environments}
-          activeEnvironmentId={activeEnvironmentId}
-          onSelect={onSelectEnvironment ?? (() => undefined)}
-          onManage={() => onManageEnvironment?.()}
-          {...(tint ? { tint } : {})}
-        />
-      </div>
-
       {/* Method + URL row */}
       <div className="flex shrink-0 items-center gap-2">
         <HttpTransportSelect
@@ -715,17 +704,21 @@ export function HttpRequestEditor({
           onPaste={handleUrlPaste}
           {...(tags.length > 0 ? { chain: { tags, openTag, onOpenTag: setOpenTag } } : {})}
         />
-        <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} maskedRequest={maskedDraft} />
-        <HttpSendButton
-          isExecuting={isExecuting}
-          disabled={!urlState.ok}
-          {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
-          combo={sendCombo}
-          {...(queue ? { queue } : {})}
-          onSend={() => sendCurrentDraft()}
-          {...(onStop ? { onStop } : {})}
-          {...(tint ? { tint } : {})}
-        />
+        <CommandBarSlot slot="verb">
+          <HttpSendButton
+            isExecuting={isExecuting}
+            disabled={!urlState.ok}
+            {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
+            combo={sendCombo}
+            stopCombo={stopCombo}
+            {...(queue ? { queue } : {})}
+            onSend={() => sendCurrentDraft()}
+            {...(onStop ? { onStop } : {})}
+            {...(tint ? { tint } : {})}
+            copyItems={copyItems}
+            copyDisabled={copyDisabled}
+          />
+        </CommandBarSlot>
       </div>
 
       {urlState.ok ? null : (

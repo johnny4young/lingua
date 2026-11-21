@@ -17,8 +17,10 @@
  *                      `run-pulse` while `isRunning === true`.
  *   5. Autosave dot  — static indicator (Lingua saves on every keystroke).
  *
- * On SQL, HTTP and Utilities tabs only the workspace chip stays: Run and
- * Send live inside those tabs. The run history lives in the results dock.
+ * Surfaces with their own context and verb (SQL connection + Run statement,
+ * HTTP environment + Send, notebook cell + Run cell, Run pipeline) fill the
+ * bar's slots through `CommandBarSlot`; an empty slot shows the code
+ * controls. The run history lives in the results dock.
  *
  * AppLayout mounts the pill as its only execution chrome. Toolbar.tsx
  * remains a standalone fallback for focused smoke coverage, but it is
@@ -43,6 +45,8 @@ import { FloatingActionPillLanguageSegment } from './FloatingActionPillLanguageS
 import { FloatingActionPillRuntimeSegment } from './FloatingActionPillRuntimeSegment';
 import { FloatingActionPillRunGroup } from './FloatingActionPillRunGroup';
 import { FloatingActionPillCommandActions } from './FloatingActionPillCommandActions';
+import { CommandBarSlotHost } from '../Chrome/CommandBarSlotHost';
+import { useCommandBarSlotClaimed } from '../../stores/commandBarSlotStore';
 
 interface FloatingActionPillProps {
   onOpenPalette?: () => void;
@@ -116,7 +120,10 @@ export function FloatingActionPill({
     setTabWorkflowMode,
     workspaceTab,
     autoSaveEnabled,
+    testFileRun,
   } = useFloatingActionPill(t);
+  const contextClaimed = useCommandBarSlotClaimed('context');
+  const verbClaimed = useCommandBarSlotClaimed('verb');
 
   const hasToolbarActions = Boolean(
     onOpenQuickOpen || onOpenPalette || onOpenSnippets || onOpenUtilities || onOpenRecipes
@@ -135,82 +142,63 @@ export function FloatingActionPill({
         </button>
       )}
 
-      {/* Runtime control — language · runtime · run read as ONE
-          structured segmented group (Signal-Slate RuntimeSelector
-          recipe): a single inset shell (rounded-lg border-border-subtle
-          bg-bg-inset) with hairline `.action-pill-divider` separators
-          between segments and an accent run segment at the end. The shell
-          is NOT `overflow-hidden` so the run group's resting glow + the
-          `data-running` run-pulse box-shadow still escape its bounds.
-          The drag handle, meta cluster, command actions, and settings
-          cog stay OUTSIDE this group — they are not part of the runtime
-          control. */}
+      {/* Context · verb as one segmented group. A surface (SQL, HTTP,
+          notebook, pipelines) fills either slot through CommandBarSlot; an
+          empty slot falls back to the code controls. The shell is not
+          overflow-hidden so the verb's glow and run-pulse escape it. */}
       <div className="action-pill-runtime-group inline-flex items-stretch self-stretch rounded-lg border border-border-subtle bg-bg-inset">
-        {/* 1. Language chip */}
-        <FloatingActionPillLanguageSegment
-          language={language}
-          openMenu={openMenu}
-          setOpenMenu={setOpenMenu}
-          effectiveTier={effectiveTier}
-          isWebBuild={isWebBuild}
-          onPickLanguage={handleLanguagePick}
-          addNotebookTab={addNotebookTab}
-        />
-
-        {workspaceTab ? null : <span className="action-pill-divider" />}
-
-        {/* Runtime chip stays separate (orthogonal to
-            workflow). The old "Workflow" chip + separate "Run" split
-            button were merged into a single mode-aware action button at
-            the end of the pill (see "Mode-aware action button" below). */}
-
-        {/* 2. Runtime chip — "what engine": Worker / Node / Browser preview /
-                Deno / Bun. Only visible for languages that have runtime modes
-                (JS/TS). */}
-        {supportsRuntimeModes && !workspaceTab ? (
-          <FloatingActionPillRuntimeSegment
+        {contextClaimed ? null : (
+          <FloatingActionPillLanguageSegment
+            language={language}
             openMenu={openMenu}
             setOpenMenu={setOpenMenu}
-            runtimeChip={runtimeChip}
-            activeRuntimeMode={activeRuntimeMode}
+            effectiveTier={effectiveTier}
             isWebBuild={isWebBuild}
-            language={language}
-            ensureTabForLanguage={ensureTabForLanguage}
-            setTabRuntimeMode={setTabRuntimeMode}
+            onPickLanguage={handleLanguagePick}
+            addNotebookTab={addNotebookTab}
           />
+        )}
+        <CommandBarSlotHost slot="context" />
+
+        {verbClaimed || !workspaceTab ? <span className="action-pill-divider" /> : null}
+
+        {/* Runtime chip: the engine for languages with runtime modes (JS/TS). */}
+        {supportsRuntimeModes && !workspaceTab && !contextClaimed ? (
+            <FloatingActionPillRuntimeSegment
+              openMenu={openMenu}
+              setOpenMenu={setOpenMenu}
+              runtimeChip={runtimeChip}
+              activeRuntimeMode={activeRuntimeMode}
+              isWebBuild={isWebBuild}
+              language={language}
+              ensureTabForLanguage={ensureTabForLanguage}
+              setTabRuntimeMode={setTabRuntimeMode}
+            />
         ) : null}
 
-        {/* 3. Mode-aware action button .
-                Replaces the previous "Workflow chip + separate Run
-                split-button" pair. The main button:
-                  · Colours itself by the active workflow (accent for run,
-                    red-soft for debug, accent for scratchpad).
-                  · Shows that workflow's label and icon, with a kbd hint.
-                  · Fires the workflow on click. When `isRunning`, fires
-                    `stop()` instead (same as the previous Run button).
-                The chevron opens a dropdown that LETS THE USER PICK a
-                different workflow; selecting one switches the per-tab
-                workflow mode AND fires it immediately, so "switch and
-                run" stays a single click. */}
-        {workspaceTab ? null : (
-        <FloatingActionPillRunGroup
-          openMenu={openMenu}
-          setOpenMenu={setOpenMenu}
-          currentWorkflow={currentWorkflow}
-          isRunning={isRunning}
-          isInitializing={isInitializing}
-          loadingMessage={loadingMessage}
-          runDisabled={runDisabled}
-          runDisabledTooltip={runDisabledTooltip}
-          workflowChip={workflowChip}
-          handleRunClick={handleRunClick}
-          run={run}
-          workflowAvailability={workflowAvailability}
-          noActiveTab={noActiveTab}
-          language={language}
-          ensureTabForLanguage={ensureTabForLanguage}
-          setTabWorkflowMode={setTabWorkflowMode}
-        />
+        <CommandBarSlotHost slot="verb" />
+        {/* Mode-aware run: fires the tab's workflow, or stops a running task;
+            the chevron switches workflow and fires it in one click. */}
+        {verbClaimed || workspaceTab ? null : (
+          <FloatingActionPillRunGroup
+            openMenu={openMenu}
+            setOpenMenu={setOpenMenu}
+            currentWorkflow={currentWorkflow}
+            isRunning={isRunning}
+            isInitializing={isInitializing}
+            loadingMessage={loadingMessage}
+            runDisabled={runDisabled}
+            runDisabledTooltip={runDisabledTooltip}
+            workflowChip={workflowChip}
+            handleRunClick={handleRunClick}
+            run={run}
+            workflowAvailability={workflowAvailability}
+            noActiveTab={noActiveTab}
+            language={language}
+            ensureTabForLanguage={ensureTabForLanguage}
+            setTabWorkflowMode={setTabWorkflowMode}
+            testFileRun={testFileRun}
+          />
         )}
       </div>
       {/* end runtime segmented group (language · runtime · run) */}

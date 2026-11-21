@@ -158,6 +158,7 @@ test('resolves collection, environment and request variables and copies a missin
   });
   await page.getByTestId('http-request-editor-url').fill('{{base}}/repos/{{owner}}?per_page={{pageSize}}&t={{token}}');
 
+  await page.getByTestId('http-environment-selector').click();
   await page.getByTestId('http-environment-manage').click();
   await page.getByTestId('http-environment-collection-tab').click();
   const collection = page.getByTestId('http-environment-collection');

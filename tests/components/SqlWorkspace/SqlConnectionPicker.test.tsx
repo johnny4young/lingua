@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { SqlConnectionBar, type SqlConnectionPickerRemote } from '../../../src/renderer/components/SqlWorkspace/SqlConnectionBar';
+import { SqlConnectionPicker, type SqlConnectionPickerRemote } from '../../../src/renderer/components/SqlWorkspace/SqlConnectionPicker';
 import type { SqlDbCatalogView, SqlDbConnectionView } from '../../../src/shared/sqlDb';
 
 const view = (overrides: Partial<SqlDbConnectionView>): SqlDbConnectionView => ({
@@ -33,10 +33,10 @@ function remote(overrides: Partial<SqlConnectionPickerRemote> = {}): SqlConnecti
   return { desktop: true, catalog, activeId: undefined, onSelect: vi.fn(), onNew: vi.fn(), onOpenUrl: vi.fn(), onEdit: vi.fn(), onManage: vi.fn(), ...overrides };
 }
 
-describe('SqlConnectionBar', () => {
+describe('SqlConnectionPicker', () => {
   it('names Local DuckDB on the pill and lists it first in the picker', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar remote={remote({ catalog: null })} actions={<button type="button">Import data</button>} />);
+    render(<SqlConnectionPicker remote={remote({ catalog: null })} />);
     const pill = screen.getByTestId('sql-connection-pill');
     expect(pill.getAttribute('aria-label')).toBe('Connection: Local DuckDB');
     expect(pill.getAttribute('aria-haspopup')).toBe('listbox');
@@ -49,7 +49,7 @@ describe('SqlConnectionBar', () => {
 
   it('filters the picker and closes on Escape, back on the pill', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar remote={remote({ catalog: null })} />);
+    render(<SqlConnectionPicker remote={remote({ catalog: null })} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     await user.type(screen.getByTestId('sql-connection-search'), 'postgres');
     expect(screen.queryByTestId('sql-connection-option-local')).toBeNull();
@@ -61,7 +61,7 @@ describe('SqlConnectionBar', () => {
 
   it('moves from the search into the option with ArrowDown and returns to the pill on pick', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar remote={remote({ catalog: null })} />);
+    render(<SqlConnectionPicker remote={remote({ catalog: null })} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     await user.keyboard('{ArrowDown}');
     expect(document.activeElement).toBe(screen.getByTestId('sql-connection-option-local'));
@@ -73,7 +73,7 @@ describe('SqlConnectionBar', () => {
   it('lists saved and session connections with the Free count, and picks one', async () => {
     const user = userEvent.setup();
     const props = remote();
-    render(<SqlConnectionBar remote={props} />);
+    render(<SqlConnectionPicker remote={props} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     expect(screen.getByTestId('sql-connection-saved-count').textContent).toBe('Saved · 3 of 3 on Free');
     const names = screen.getAllByTestId('sql-connection-option').map((option) => option.getAttribute('data-connection-id'));
@@ -84,21 +84,21 @@ describe('SqlConnectionBar', () => {
   });
 
   it('colours the pill by environment and marks a read-only connection', () => {
-    render(<SqlConnectionBar remote={remote({ activeId: 'c_2' })} />);
+    render(<SqlConnectionPicker remote={remote({ activeId: 'c_2' })} />);
     const pill = screen.getByTestId('sql-connection-pill');
     expect(pill.getAttribute('data-env')).toBe('prod');
     expect(pill.getAttribute('aria-label')).toBe('Connection: orders-prod Postgres · RO');
   });
 
   it('says when the query points at a connection that no longer exists', () => {
-    render(<SqlConnectionBar remote={remote({ activeId: 'c_gone' })} />);
+    render(<SqlConnectionPicker remote={remote({ activeId: 'c_gone' })} />);
     expect(screen.getByTestId('sql-connection-pill').textContent).toContain('Missing connection');
   });
 
   it('opens the sheet from New, Open from URL and the row menu', async () => {
     const user = userEvent.setup();
     const props = remote();
-    render(<SqlConnectionBar remote={props} />);
+    render(<SqlConnectionPicker remote={props} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     await user.click(screen.getByTestId('sql-connection-new'));
     expect(props.onNew).toHaveBeenCalledTimes(1);
@@ -116,7 +116,7 @@ describe('SqlConnectionBar', () => {
 
   it('lists only Local on web before the catalog is read, with the reason the other engines need desktop', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar remote={remote({ desktop: false, catalog: null })} />);
+    render(<SqlConnectionPicker remote={remote({ desktop: false, catalog: null })} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     expect(screen.getByTestId('sql-connection-desktop-only')).toBeTruthy();
     expect(screen.queryByTestId('sql-connection-option')).toBeNull();
@@ -126,7 +126,7 @@ describe('SqlConnectionBar', () => {
   it('lists the tab-only connections on web, with New connection and no saved count or manager', async () => {
     const user = userEvent.setup();
     const tab = { ...catalog, connections: [], used: 0, limit: null, vault: 'session' as const, sessionOnly: true, adhoc: [{ ...catalog.connections[0]!, id: 'adhoc_1', name: 'notes', engine: 'libsql' as const }] };
-    render(<SqlConnectionBar remote={remote({ desktop: false, catalog: tab })} />);
+    render(<SqlConnectionPicker remote={remote({ desktop: false, catalog: tab })} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     expect(screen.getByTestId('sql-connection-desktop-only').textContent).toContain('Turso and Neon work here for this tab');
     expect(screen.getByText('This tab only')).toBeTruthy();

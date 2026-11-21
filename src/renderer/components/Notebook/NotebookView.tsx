@@ -36,11 +36,12 @@ import { pickNotebookExportLanguage } from './notebookExportToScript';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 import { useNotebookCommandMode } from './useNotebookCommandMode';
 import { NotebookToolbar } from './NotebookToolbar';
+import { NotebookCommandBar } from './NotebookCommandBar';
 import { NotebookReactivityBanner } from './NotebookReactivityBanner';
 import { NotebookCellList } from './NotebookCellList';
 import { useNotebookExportActions } from './useNotebookExportActions';
 import { coerceNotebookCellLanguage, notebookTitleFromTabName } from './notebookViewModel';
-import { useDismissibleNotebookPopover } from './useDismissibleNotebookPopover';
+import { useDismissible } from '../../hooks/useDismissible';
 import { languageLabel } from '../../utils/languageMeta';
 
 export interface NotebookViewProps {
@@ -196,8 +197,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     createNotebookForTab(tabId, notebookTitleFromTabName(backingTabName));
   }, [backingTabName, createNotebookForTab, notebook, tabId]);
 
-  useDismissibleNotebookPopover(shortcutsOpen, shortcutsAnchorRef, setShortcutsOpen);
-  useDismissibleNotebookPopover(exportMenuOpen, exportMenuAnchorRef, setExportMenuOpen);
+  useDismissible(shortcutsOpen, shortcutsAnchorRef, setShortcutsOpen);
+  useDismissible(exportMenuOpen, exportMenuAnchorRef, setExportMenuOpen);
 
   const handleAddMarkdown = useCallback(() => {
     if (!notebook) return;
@@ -653,6 +654,21 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       data-notebook-id={notebook.id}
       className="grid h-full min-h-0 grid-rows-[auto_auto_1fr] bg-background"
     >
+      <NotebookCommandBar
+        cells={notebook.cells}
+        activeCellId={activeCellId}
+        isAnyCellRunning={isAnyCellRunning}
+        canRunAll={lastCodeCellId !== null}
+        canRunAbove={canRunThroughActiveCell}
+        canRunFromHere={canRunFromActiveCell}
+        onRunCell={handleRunCell}
+        onRunAll={handleRunAll}
+        onRunAbove={() => {
+          if (activeCellId) runAbove(tabId, activeCellId);
+        }}
+        onRunFromHere={handleRunFromHere}
+        onStop={stop}
+      />
       <NotebookToolbar
         notebook={notebook}
         titleDraft={titleDraft}

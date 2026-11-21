@@ -35,6 +35,7 @@ import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
 import { sendOutputToNewPipeline } from '../../stores/utilityPipelineSend';
 import type { UtilityAdapterId } from '../../../shared/utilities/types';
 import { useTelemetry } from '../../hooks/useTelemetry';
+import { CommandBarSlotScope } from '../Chrome/commandBarSlotScope';
 
 /**
  * Developer utilities migrated onto the Signal-Slate
@@ -571,11 +572,13 @@ export function DeveloperUtilitiesModal({
       footerLegend={footerLegend}
       bodyClassName="h-[min(70vh,640px)] overflow-hidden"
     >
-      <DeveloperUtilitiesWorkspaceBody
-        selectedUtilityId={selectedUtilityId}
-        onSelectUtility={setSelectedUtilityId}
-        testId="developer-utilities-modal"
-      />
+      <CommandBarSlotScope value="inline">
+        <DeveloperUtilitiesWorkspaceBody
+          selectedUtilityId={selectedUtilityId}
+          onSelectUtility={setSelectedUtilityId}
+          testId="developer-utilities-modal"
+        />
+      </CommandBarSlotScope>
     </ModalShell>
   );
 }

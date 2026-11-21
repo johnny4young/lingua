@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
@@ -15,6 +16,7 @@ import {
   languageLabel,
 } from '../../utils/languageMeta';
 import { Kbd } from '../ui/chrome';
+import { CommandBarSlot, CommandBarVerb } from '../Chrome/CommandBarSlot';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
 
@@ -72,6 +74,14 @@ export function EditorEmptyState() {
     // hue 210, semantic bg-/fg- variables). The gradient now reads as a
     // soft slate halo that matches the rest of the chrome.
     <div className="relative flex h-full flex-col overflow-auto bg-bg-base">
+      <CommandBarSlot slot="verb">
+        <CommandBarVerb
+          label={t('actionPill.newScratch')}
+          icon={<Plus size={12} />}
+          onClick={() => quickStart('javascript')}
+          testId="action-pill-new-scratch"
+        />
+      </CommandBarSlot>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-accent)_22%,transparent),transparent_68%)]" />
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-16 px-5 py-16 sm:px-16 lg:gap-10">
