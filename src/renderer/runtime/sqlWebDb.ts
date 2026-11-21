@@ -7,7 +7,7 @@
 
 import { parseConnectionDraft, httpEndpoint, WEB_SQL_ENGINES, type SqlConnectionDraft, type SqlConnectionV1 } from '../../shared/sqlConnections';
 import { closedSqlResult, failedRun, type SqlDbBridge, type SqlDbCatalogView, type SqlDbConnectionView, type SqlDbRunResult, type SqlDbSaveResult, type SqlDbTestStep } from '../../shared/sqlDb';
-import { classifyConnectError, EditFailedError, readRowPage, SqlConnectError, type DriverSession, type RowPager, type SqlDriverError } from '../../shared/sqlDriver';
+import { classifyConnectError, EditFailedError, readRowPage, runClock, SqlConnectError, type DriverSession, type RowPager, type SqlDriverError } from '../../shared/sqlDriver';
 import { openLibsql } from '../../shared/sqlHttp/libsql';
 import { openNeon } from '../../shared/sqlHttp/neon';
 import { MAX_HTTP_SQL_RESPONSE_BYTES, responseTooLarge, type HttpSqlTransport } from '../../shared/sqlHttp/transport';
@@ -262,10 +262,13 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
         }, options.timeoutMs);
         try {
           // Once the statement is sent, a late Cancel cannot unsend it: keep its result.
+          const clock = runClock();
           const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
+          clock.ran();
           const run: Run = { connectionId, session, rows, pending: [], done: false };
           runs.set(runId, run);
           const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
+          const phases = clock.phases(rows);
           const hasMore = !page.done;
           if (!hasMore) await closeRun(runId);
           return {
@@ -278,6 +281,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
             rowCountIsLowerBound: hasMore,
             hasMore,
             durationMs: Math.round(performance.now() - started),
+            ...(phases ? { phases } : {}),
             ...(rows.affectedRows !== undefined ? { affectedRows: rows.affectedRows } : {}),
           };
         } catch (err) {

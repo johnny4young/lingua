@@ -8,7 +8,7 @@ import Cursor from 'pg-cursor';
 import type { FieldDef, QueryResult } from 'pg';
 import { ROW_EDIT_BUDGET_MS } from '../../shared/sqlRowEdits';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, wholeRows, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
 import { explainRowEstimate, introspectPostgres, postgresColumnType } from '../../shared/sqlCatalog/postgres';
 import type { HostSessionConfig } from './protocol';
 
@@ -212,15 +212,5 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
 
 function wholeResult(result: QueryResult): DriverRows {
   const columns: SqlColumnMetadata[] = (result.fields ?? []).map((field) => ({ name: field.name, type: columnType(field) }));
-  let rows = result.rows as Array<Record<string, unknown>>;
-  return {
-    columns,
-    ...(columns.length === 0 && result.rowCount != null ? { affectedRows: result.rowCount } : {}),
-    async next(limit) {
-      const page = rows.slice(0, limit);
-      rows = rows.slice(page.length);
-      return { rows: page, done: rows.length === 0 };
-    },
-    close: async () => undefined,
-  };
+  return wholeRows(columns, result.rows as Array<Record<string, unknown>>, columns.length === 0 && result.rowCount != null ? result.rowCount : undefined);
 }

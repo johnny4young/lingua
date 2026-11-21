@@ -3,8 +3,6 @@
  * to the address main pinned; the browser sends it with fetch.
  */
 
-import type { SqlColumnMetadata } from '../sqlWorkspace';
-import type { DriverRows } from '../sqlDriver';
 import { SqlConnectError } from '../sqlDriver';
 
 export interface HttpSqlRequest {
@@ -66,23 +64,6 @@ export function parseJson<T>(response: HttpSqlResponse): T {
   } catch {
     throw new HttpSqlError(`The server answered HTTP ${response.status} with something other than JSON: ${summary(response.body)}`);
   }
-}
-
-/** Rows an engine already sent in full, read in pages. */
-export function wholeRows(columns: SqlColumnMetadata[], rows: Array<Record<string, unknown>>, affectedRows?: number): DriverRows {
-  let left = rows;
-  return {
-    columns,
-    ...(affectedRows !== undefined ? { affectedRows } : {}),
-    async next(limit) {
-      const page = left.slice(0, limit);
-      left = left.slice(page.length);
-      return { rows: page, done: left.length === 0 };
-    },
-    async close() {
-      left = [];
-    },
-  };
 }
 
 /** Requests in flight on one session, so Cancel can abort them. */

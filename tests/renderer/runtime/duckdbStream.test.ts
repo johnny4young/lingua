@@ -112,11 +112,19 @@ describe('executeQuery streaming and cancel', () => {
     expect(query).not.toHaveBeenCalled();
   });
 
+  it('splits a streamed statement into execute and fetch', async () => {
+    engineWith({ stream: async () => stream(3, 10).result, cancel: async () => true });
+    const outcome = await executeQuery('SELECT * FROM range(30)');
+    expect(Object.keys(outcome.phases ?? {})).toEqual(['execute', 'fetch']);
+  });
+
   it('keeps several statements on the query path', async () => {
     const stream = vi.fn();
     const query = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, tooLarge: false }));
     engineWith({ query, stream });
-    await executeQuery('SELECT 1; SELECT 2;');
+    const outcome = await executeQuery('SELECT 1; SELECT 2;');
+    // One call answers for every statement, so there is nothing to split.
+    expect(outcome.phases).toBeUndefined();
     expect(query).toHaveBeenCalledOnce();
     expect(stream).not.toHaveBeenCalled();
   });

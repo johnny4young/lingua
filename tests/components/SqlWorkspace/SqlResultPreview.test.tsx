@@ -48,6 +48,22 @@ describe('SqlResultPreview', () => {
     });
   });
 
+  it('shows the measured phases beside the total, and nothing when the engine reports the total only', () => {
+    const { rerender } = render(
+      <SqlResultPreview response={response({ durationMs: 38, phases: { plan: 2, execute: 31, fetch: 5 } })} isExecuting={false} rowDisplayLimit={1000} />
+    );
+    const meter = screen.getByTestId('sql-result-phases');
+    expect(screen.getByTestId('sql-result-phases-label').textContent).toBe('plan 2 ms · execute 31 ms · fetch 5 ms');
+    expect(meter.getAttribute('title')).toBe('plan 2 ms · execute 31 ms · fetch 5 ms');
+    expect([...meter.querySelectorAll('[data-phase]')].map((segment) => segment.getAttribute('data-phase'))).toEqual(['plan', 'execute', 'fetch']);
+
+    rerender(<SqlResultPreview response={response({ durationMs: 38, phases: { execute: 31, fetch: 5 } })} isExecuting={false} rowDisplayLimit={1000} />);
+    expect(screen.getByTestId('sql-result-phases-label').textContent).toBe('execute 31 ms · fetch 5 ms');
+
+    rerender(<SqlResultPreview response={response({ durationMs: 38 })} isExecuting={false} rowDisplayLimit={1000} />);
+    expect(screen.queryByTestId('sql-result-phases')).toBeNull();
+  });
+
   it('labels columns with DuckDB type names and keeps the Arrow name as a tooltip', () => {
     render(
       <SqlResultPreview

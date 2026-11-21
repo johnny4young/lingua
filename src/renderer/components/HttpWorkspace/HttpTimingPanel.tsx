@@ -2,8 +2,8 @@ import { useTranslation } from 'react-i18next';
 import '../../i18n/httpBuilderCatalog';
 import type { HttpResponseTiming, HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
+import { PhaseBar } from '../ui/PhaseBar';
 
-// Colours come from theme variables inline, which adds no class to the boot stylesheet.
 const PHASES = [
   { key: 'dnsMs', label: 'dns', color: 'var(--color-border-strong)' },
   { key: 'connectMs', label: 'connect', color: 'var(--color-border-strong)' },
@@ -37,15 +37,7 @@ export function HttpTimingPanel({ response, desktop }: { response: HttpResponseV
       <p data-testid="http-timing-summary" className="font-mono text-caption tabular-nums text-fg-subtle">
         {phases.map((phase) => `${phase.name} ${phase.ms}`).join(' · ')} ms
       </p>
-      <div
-        role="img"
-        aria-label={t('httpWorkspace.response.timing.waterfall')}
-        className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-bg-inset"
-      >
-        {phases.map((phase) =>
-          phase.ms > 0 ? <span key={phase.key} style={{ flexGrow: phase.ms, minWidth: 2, background: phase.color }} /> : null
-        )}
-      </div>
+      <PhaseBar role="img" aria-label={t('httpWorkspace.response.timing.waterfall')} segments={phases} className="h-2" />
       <dl className="flex flex-col gap-1 font-mono text-caption tabular-nums">
         {phases.map((phase) => (
           <div key={phase.key} className="flex gap-x-4">

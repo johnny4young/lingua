@@ -5,7 +5,7 @@
 
 import { accessSync, constants } from 'node:fs';
 import { constants as sqlite, DatabaseSync, type StatementSync } from 'node:sqlite';
-import { expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
+import { expectOneRow, wholeRows, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
 import type { HostSessionConfig } from './protocol';
 import { introspectSqlite, sqliteColumnType } from '../../shared/sqlCatalog/sqlite';
 
@@ -19,15 +19,20 @@ function open(path: string, readOnly: boolean): DatabaseSync {
   return db;
 }
 
-function rowsOf(statement: StatementSync): DriverRows {
+/** Steps to the first row now, so the run's execute time covers the work before any row exists. */
+function rowsOf(statement: StatementSync, planMs: number): DriverRows {
   statement.setReadBigInts(true);
   const columns = statement.columns().map((column) => ({ name: column.name, type: sqliteColumnType(column.type) }));
   const iterator = statement.iterate() as Iterator<Record<string, unknown>>;
-  let done = false;
+  const head = iterator.next();
+  let done = head.done === true;
+  let first: Record<string, unknown> | undefined = done ? undefined : { ...head.value };
   return {
     columns,
+    planMs,
     async next(limit) {
-      const rows: Array<Record<string, unknown>> = [];
+      const rows = first ? [first] : [];
+      first = undefined;
       while (rows.length < limit && !done) {
         const step = iterator.next();
         if (step.done) done = true;
@@ -37,6 +42,7 @@ function rowsOf(statement: StatementSync): DriverRows {
     },
     async close() {
       done = true;
+      first = undefined;
       iterator.return?.();
     },
   };
@@ -58,25 +64,18 @@ export async function openSqlite(config: HostSessionConfig): Promise<DriverSessi
       const own = readWrite && config.readOnly;
       const target = own ? open(path, false) : db;
       try {
+        const planStart = performance.now();
         const statement = target.prepare(sql);
+        const planMs = performance.now() - planStart;
         if (statement.columns().length > 0) {
-          const rows = rowsOf(statement);
+          const rows = rowsOf(statement, planMs);
           // Its own handle closes now, so read everything first.
           if (!own) return rows;
           const all = await rows.next(Number.MAX_SAFE_INTEGER);
-          let left = all.rows;
-          return {
-            columns: rows.columns,
-            async next(limit) {
-              const page = left.slice(0, limit);
-              left = left.slice(page.length);
-              return { rows: page, done: left.length === 0 };
-            },
-            close: async () => undefined,
-          };
+          return { ...wholeRows(rows.columns, all.rows), planMs };
         }
         const result = statement.run();
-        return { columns: [], affectedRows: Number(result.changes), next: async () => ({ rows: [], done: true }), close: async () => undefined };
+        return { columns: [], affectedRows: Number(result.changes), planMs, next: async () => ({ rows: [], done: true }), close: async () => undefined };
       } finally {
         if (own) target.close();
       }

@@ -12,7 +12,7 @@ import type { Connection, ConnectionConfiguration, Request } from 'tedious';
 import type { ColumnMetadata } from 'tedious/lib/token/colmetadata-token-parser';
 import { ROW_EDIT_BUDGET_MS } from '../../shared/sqlRowEdits';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, wholeRows, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
 import type { HostSessionConfig } from './protocol';
 import { introspectSqlServer } from './sqlserverCatalog';
 
@@ -362,16 +362,7 @@ export async function openSqlServer(config: HostSessionConfig, socket?: () => Du
   };
 }
 
-function whole(result: Array<Record<string, unknown>>): DriverRows {
-  let rows = result;
+function whole(rows: Array<Record<string, unknown>>): DriverRows {
   const names = Object.keys(rows[0] ?? {});
-  return {
-    columns: names.map((name) => ({ name, type: typeof rows[0]?.[name] === 'number' ? 'DOUBLE' : 'VARCHAR' })),
-    async next(limit) {
-      const page = rows.slice(0, limit);
-      rows = rows.slice(page.length);
-      return { rows: page, done: rows.length === 0 };
-    },
-    close: async () => undefined,
-  };
+  return wholeRows(names.map((name) => ({ name, type: typeof rows[0]?.[name] === 'number' ? 'DOUBLE' : 'VARCHAR' })), rows);
 }
