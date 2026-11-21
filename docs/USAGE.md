@@ -49,7 +49,7 @@ Go to Symbol reads the active JavaScript or TypeScript file's declaration tree a
 
 With no tab open, Lingua shows Start.
 
-- **Pick up where it answered** lists the tabs of your last session that left an answer, with that answer, how long the run took and how long ago it ran, plus the last folder you tested when no folder is open. Click a row, or press its number, to reopen that tab next to any you already have; the rest stay listed. **Reopen all** brings back the whole session, the same as the restore prompt. With session restore set to Never, Start leaves the list out.
+- **Pick up where it answered** lists the tabs of your last session that left an answer, with that answer, how long the run took and how long ago it ran, plus the last folder you tested when no folder is open. Click a row, or press its number, to reopen that tab next to any you already have; the rest stay listed. **Reopen all** brings back the rest of the session, the same as the restore prompt, and keeps the tabs you already have. The list shows the session the restore prompt offers, so it appears with session restore set to Ask.
 - **New** opens a scratch file in any runnable language, each tile saying how it runs here (offline, in the browser, Go found, not installed), and opens a Notebook, SQL, HTTP, Utilities, Open… or Capsules with the shortcut shown on its tile.
 - **Templates** lists the built-in templates, one row per title with a badge per language; the language filter narrows the list.
 - **or try** opens welcome.js, a sample table in the SQL workspace, or a sample request in the HTTP workspace.

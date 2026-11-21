@@ -87,9 +87,8 @@ export function answerUnit(answer: LastAnswer, t: TFunction): string | undefined
     case 'items':
       return t('start.answer.items', { count: answer.total ?? 0 });
     case 'failed':
-      return t('start.answer.failed', { count: answer.total ?? 0 });
     case 'passed':
-      return t('start.answer.passed', { count: answer.total ?? 0 });
+      return t(`start.answer.${answer.unit}`, { count: Number(answer.numeral) || 0, total: answer.total ?? 0 });
     default:
       return answer.label;
   }

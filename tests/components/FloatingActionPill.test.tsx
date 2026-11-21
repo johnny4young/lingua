@@ -130,7 +130,7 @@ describe('FloatingActionPill', () => {
     const verb = screen.getByTestId('action-pill-run') as HTMLButtonElement;
     expect(verb.disabled).toBe(false);
     expect(verb.getAttribute('data-verb')).toBe('new-scratch');
-    expect(verb.textContent).toBe('New scratch');
+    expect(verb.getAttribute('aria-label')).toBe('New scratch');
     expect(verb.querySelector('kbd')).toBeNull();
 
     await userEvent.setup().click(verb);

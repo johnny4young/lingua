@@ -555,8 +555,26 @@ describe('sessionStore', () => {
     expect(useEditorStore.getState().tabs).toHaveLength(2);
 
     await useSessionStore.getState().restoreSession();
-    expect(useEditorStore.getState().tabs.map(tab => tab.name)).toEqual(['first.js', 'third.ts']);
+    const restored = useEditorStore.getState().tabs;
+    expect(restored.map(tab => tab.name)).toEqual(['open.js', 'second.py', 'first.js', 'third.ts']);
+    expect(useEditorStore.getState().activeTabId).toBe(restored[2]?.id);
     expect(getPendingSessionRestoreSnapshot()).toBeNull();
+    expect(useSessionStore.getState().pendingRestoreTabs).toBe(0);
+  });
+
+  it('runs one restore at a time, so a double click opens one copy', async () => {
+    useSessionStore.setState({
+      savedTabs: [{ name: 'only.js', language: 'javascript', content: '1', lastAnswer: { kind: 'code', status: 'ok', numeral: '1', ranAt: 1_700_000_000_000 } }],
+      savedActiveIndex: 0,
+    });
+    armPendingSessionRestoreSnapshot();
+
+    await Promise.all([
+      useSessionStore.getState().restoreSession({ only: 0 }),
+      useSessionStore.getState().restoreSession({ only: 0 }),
+    ]);
+
+    expect(useEditorStore.getState().tabs.map(tab => tab.name)).toEqual(['only.js']);
   });
 
   it('restores the Recipe panel when the active restored tab has a recipe binding', async () => {

@@ -475,7 +475,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     canLeave: canLeaveTable,
   });
   const { activeConnection } = remote;
-  useSqlSampleRequest(catalogLoaded && !activeConnection, handleTrySample);
+  useSqlSampleRequest(catalogLoaded, activeConnection ? null : handleTrySample);
   const instantSql = useInstantSqlChannel(!activeConnection);
 
   const explorer = (

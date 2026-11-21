@@ -92,41 +92,28 @@ export function FloatingActionPillRunGroup({
       className="action-pill-run-group relative inline-flex items-stretch"
       data-workflow={currentWorkflow}
     >
-      {newScratch ? (
-        <button
-          type="button"
-          onClick={() => {
-            setOpenMenu(null);
-            ensureTabForLanguage(language);
-          }}
-          data-workflow={currentWorkflow}
-          data-verb="new-scratch"
-          data-tour-id="run-button"
-          data-testid="action-pill-run"
-          className="action-pill-run action-pill-run-main rounded-l-none"
-        >
-          <Plus size={13} aria-hidden />
-          <span className="max-w-[260px] truncate">{t('actionPill.newScratch')}</span>
-        </button>
-      ) : (
       <button
         type="button"
         onClick={() => {
           setOpenMenu(null);
-          handleRunClick();
+          if (newScratch) ensureTabForLanguage(language);
+          else handleRunClick();
         }}
-        disabled={runDisabled}
+        disabled={!newScratch && runDisabled}
         data-running={isRunning ? 'true' : 'false'}
         data-stale={stale && !isRunning ? 'true' : undefined}
         data-workflow={currentWorkflow}
+        data-verb={newScratch ? 'new-scratch' : undefined}
         data-tour-id="run-button"
         data-testid="action-pill-run"
-        aria-label={isRunning ? t('toolbar.run.stop') : workflowChip.label}
-        title={runDisabledTooltip}
+        aria-label={isRunning ? t('toolbar.run.stop') : newScratch ? t('actionPill.newScratch') : workflowChip.label}
+        title={newScratch ? undefined : runDisabledTooltip}
         className="action-pill-run action-pill-run-main rounded-l-none"
       >
         {isRunning ? (
           <Square size={11} fill="currentColor" aria-hidden />
+        ) : newScratch ? (
+          <Plus size={13} aria-hidden />
         ) : bootstrapLabel !== null || isInitializing ? (
           <Loader2 size={11} className="animate-spin" aria-hidden />
         ) : (
@@ -135,7 +122,9 @@ export function FloatingActionPillRunGroup({
         <span className="max-w-[260px] truncate">
           {isRunning
             ? t('toolbar.run.stop')
-            : (bootstrapLabel ??
+            : newScratch
+              ? t('actionPill.newScratch')
+              : (bootstrapLabel ??
               (isInitializing && loadingMessage ? loadingMessage : workflowChip.label))}
         </span>
         {isRunning && (bootstrapLabel ?? (isInitializing ? loadingMessage : null)) ? (
@@ -143,9 +132,8 @@ export function FloatingActionPillRunGroup({
             {bootstrapLabel ?? loadingMessage}
           </span>
         ) : null}
-        {!isRunning && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
+        {!isRunning && !newScratch && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
       </button>
-      )}
       <button
         type="button"
         aria-haspopup="menu"

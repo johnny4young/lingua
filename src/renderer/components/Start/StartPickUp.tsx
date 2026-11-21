@@ -4,7 +4,6 @@ import { Folder } from 'lucide-react';
 import { getSessionTabAnswers, projectLastAnswer, type SessionTabAnswer } from '../../stores/lastAnswerSelectors';
 import { useProjectStore, type RecentProject } from '../../stores/projectStore';
 import { useSessionStore } from '../../stores/sessionStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import type { Language } from '../../types/language';
 import type { LastAnswer } from '../../utils/lastAnswer';
 import { languageLabel } from '../../utils/languageMeta';
@@ -109,14 +108,14 @@ function AnswerDetail({ answer }: { answer: LastAnswer }) {
 /** Last session's tabs, and the last tested folder, each with the answer it left. */
 export function StartPickUp() {
   const { t, i18n } = useTranslation();
-  const restoreMode = useSettingsStore(state => state.restoreSessionMode);
   const recentProjects = useProjectStore(state => state.recentProjects);
   const hasProject = useProjectStore(state => state.currentProject !== null);
+  // Only the session the restore prompt pinned is a last session; autosave never rewrites it.
+  const pendingTabs = useSessionStore(state => state.pendingRestoreTabs);
   // Ages read from when Start opened; Start unmounts as soon as a tab opens.
   const [now] = useState(Date.now);
 
-  const { rows, tested } = useMemo(() => {
-    if (restoreMode === 'never') return { rows: [], tested: undefined };
+  const { rows, tested, sessionCount } = useMemo(() => {
     let tested: RecentProject | undefined;
     let testedAnswer: LastAnswer | undefined;
     for (const project of hasProject ? [] : recentProjects) {
@@ -127,9 +126,10 @@ export function StartPickUp() {
       }
     }
     const project = tested && testedAnswer ? [projectRow(tested, testedAnswer, t)] : [];
-    const tabs = getSessionTabAnswers().slice(0, MAX_ROWS - project.length).map(tab => tabRow(tab, t));
-    return { rows: [...tabs, ...project], tested };
-  }, [restoreMode, recentProjects, hasProject, t]);
+    const answered = pendingTabs > 0 ? getSessionTabAnswers() : [];
+    const tabs = answered.slice(0, MAX_ROWS - project.length).map(tab => tabRow(tab, t));
+    return { rows: [...tabs, ...project], tested, sessionCount: pendingTabs + project.length };
+  }, [pendingTabs, recentProjects, hasProject, t]);
 
   // Digits reopen a row while nothing else holds the keyboard.
   useEffect(() => {
@@ -169,7 +169,7 @@ export function StartPickUp() {
             className="rounded-md px-1 text-[12.5px] text-fg-muted transition-colors hover:text-fg-base focus-ring"
             data-testid="start-reopen-all"
           >
-            {t('start.pickUp.reopenAll', { count: rows.length })}
+            {t('start.pickUp.reopenAll', { count: sessionCount })}
           </button>
         }
       />

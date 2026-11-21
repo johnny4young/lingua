@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { EditorEmptyState } from '@/components/Editor/EditorEmptyState';
 import { consumeSqlSampleRequest } from '@/components/SqlWorkspace/pendingSqlSample';
 import { useEditorStore } from '@/stores/editorStore';
 import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/stores/nativeToolchainStore';
-import { clearPendingSessionRestoreSnapshot, useSessionStore } from '@/stores/sessionStore';
+import { armPendingSessionRestoreSnapshot, clearPendingSessionRestoreSnapshot, useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { SEEDED_SCRATCHPAD_NAME, SEEDED_SCRATCHPAD_SOURCE } from '@/onboarding/seedScratchpad';
@@ -44,6 +44,7 @@ function seedSession(): void {
     ],
     savedActiveIndex: 0,
   });
+  armPendingSessionRestoreSnapshot();
 }
 
 describe('Start page', () => {
@@ -103,6 +104,16 @@ describe('Start page', () => {
     expect(screen.queryByTestId('start-pick-up-row-2')).toBeNull();
   });
 
+  it('opens one copy when a row is triggered twice before its restore lands', async () => {
+    seedSession();
+    render(<EditorEmptyState />);
+
+    fireEvent.keyDown(window, { key: '1' });
+    fireEvent.keyDown(window, { key: '1' });
+
+    await waitFor(() => expect(useEditorStore.getState().tabs.map(tab => tab.name)).toEqual(['latencies.py']));
+  });
+
   it('reopens the whole session from Reopen all', async () => {
     seedSession();
     const user = userEvent.setup();
@@ -115,11 +126,32 @@ describe('Start page', () => {
     );
   });
 
-  it('keeps the last session hidden when restore is set to never', () => {
+  it('lists only a pinned last session, never the autosave of this one', () => {
     seedSession();
-    useSettingsStore.setState({ restoreSessionMode: 'never' });
+    clearPendingSessionRestoreSnapshot();
     render(<EditorEmptyState />);
     expect(screen.queryByTestId('start-pick-up')).toBeNull();
+
+    act(() => void armPendingSessionRestoreSnapshot());
+    expect(screen.getByTestId('start-pick-up')).toBeTruthy();
+  });
+
+  it('reads a test answer with the verb agreeing with its numeral in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'cart.test.ts',
+          language: 'typescript',
+          content: '',
+          lastAnswer: { kind: 'tests', status: 'error', numeral: '1', unit: 'failed', total: 6, ranAt: Date.now() - HOUR },
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+    armPendingSessionRestoreSnapshot();
+    render(<EditorEmptyState />);
+    expect(screen.getByTestId('start-pick-up-row-1').textContent).toContain('de 6 falló');
   });
 
   it('says how each language runs on the web build and opens a scratch tab in it', async () => {
@@ -190,7 +222,7 @@ describe('Start page', () => {
 
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Di algo en código.');
     expect(screen.getByText('Retoma donde respondió')).toBeTruthy();
-    expect(screen.getByTestId('start-reopen-all').textContent).toBe('Reabrir las 2');
+    expect(screen.getByTestId('start-reopen-all').textContent).toBe('Reabrir las 3');
     expect(screen.getByText('Plantillas')).toBeTruthy();
     expect(screen.getByTestId('start-try-sample-table').textContent).toBe('una tabla de ejemplo');
   });

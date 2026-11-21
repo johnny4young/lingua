@@ -13,9 +13,9 @@ export function consumeSqlSampleRequest(): boolean {
   return was;
 }
 
-/** Runs `create` once the panel is `ready` if a sample was asked for. */
-export function useSqlSampleRequest(ready: boolean, create: () => Promise<void>): void {
+/** Once the panel is `ready`, answers a pending ask with `create`; a null `create` drops the ask. */
+export function useSqlSampleRequest(ready: boolean, create: (() => Promise<void>) | null): void {
   useEffect(() => {
-    if (ready && consumeSqlSampleRequest()) void create();
+    if (ready && consumeSqlSampleRequest()) void create?.();
   }, [ready, create]);
 }
