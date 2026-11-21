@@ -65,6 +65,8 @@ import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
 import { appPlatform } from '../../utils/appPlatform';
+import { recordTabLastAnswer } from '../../stores/tabLastAnswer';
+import { HTTP_WORKSPACE_TAB_ID } from '../../stores/editorTabUtils';
 
 export interface HttpWorkspacePanelProps {
   /**
@@ -573,6 +575,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         } catch {
           capsule = undefined;
         }
+        // A token this response introduced was not a known secret when it was masked.
+        const answered = maskSecretValuesInResponse(response, secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env)));
+        void recordTabLastAnswer(HTTP_WORKSPACE_TAB_ID, ({ httpLastAnswer }, ranAt) => httpLastAnswer(answered, requestToSend.method, ranAt));
         useExecutionHistoryStore.getState().record({
           language: 'http',
           status: response.kind === 'success' ? 'ok' : 'error',

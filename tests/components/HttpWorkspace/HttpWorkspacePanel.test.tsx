@@ -289,6 +289,8 @@ describe('HttpWorkspacePanel', () => {
       screen.getByTestId('http-request-editor-url'),
       'https://api.example.com/users'
     );
+    useEditorStore.setState({ tabs: [], activeTabId: null });
+    useEditorStore.getState().addHttpTab();
     const record = vi.spyOn(useExecutionHistoryStore.getState(), 'record');
     await user.click(screen.getByTestId('http-request-editor-send'));
     await waitFor(() => {
@@ -297,6 +299,10 @@ describe('HttpWorkspacePanel', () => {
       );
     });
     record.mockRestore();
+    await waitFor(() => expect(useEditorStore.getState().tabs[0]?.lastAnswer).toMatchObject({
+      kind: 'http', status: 'ok', numeral: '200', unit: 'status', subject: 'GET /users',
+    }));
+    useEditorStore.setState({ tabs: [], activeTabId: null });
 
     await waitFor(() => {
       const latestCapsule = useExecutionHistoryStore.getState().latestCapsule();

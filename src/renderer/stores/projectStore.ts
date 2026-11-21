@@ -21,6 +21,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getActiveAppLanguage } from '../i18n';
 import { createMigrate } from './persistence/migrationRegistry';
+import type { LastAnswer } from '../utils/lastAnswer';
 import { languageFromPath } from '../utils/language';
 import {
   asRelativePath,
@@ -72,6 +73,8 @@ export interface RecentProject {
   openedAt: number;
   /** The test runner last detected in this project, for the Tests tab's recents. */
   testRunner?: ProjectTestFramework;
+  /** Summary of the last whole-project test run; read it through `projectLastAnswer` in lastAnswerSelectors. */
+  lastAnswer?: LastAnswer;
 }
 
 /**
@@ -127,6 +130,7 @@ interface ProjectState {
   closeProject: () => void;
   /** Remember the test runner a project uses, so its recent row can name it. */
   setRecentTestRunner: (projectId: string, framework: ProjectTestFramework) => void;
+  setRecentTestAnswer: (projectId: string, answer: LastAnswer) => void;
   refreshTree: () => Promise<void>;
   /**
    * Delta refresh for a coalesced burst of watch
@@ -204,13 +208,14 @@ function withNodeIndex(nodes: FileTreeNode[]): {
 // ----------------------------------------------------------------- store
 
 function recentEntryFor(project: RecentProject, recents: readonly RecentProject[]): RecentProject {
-  const testRunner = recents.find((entry) => entry.id === project.id)?.testRunner;
+  const { testRunner, lastAnswer } = recents.find((entry) => entry.id === project.id) ?? {};
   return {
     id: project.id,
     name: project.name,
     rootPath: project.rootPath,
     openedAt: project.openedAt,
     ...(testRunner ? { testRunner } : {}),
+    ...(lastAnswer ? { lastAnswer } : {}),
   };
 }
 
@@ -375,6 +380,13 @@ export const useProjectStore = create<ProjectState>()(
         set((s) => ({
           recentProjects: s.recentProjects.map((entry) =>
             entry.id === projectId && entry.testRunner !== framework ? { ...entry, testRunner: framework } : entry
+          ),
+        })),
+
+      setRecentTestAnswer: (projectId, answer) =>
+        set((s) => ({
+          recentProjects: s.recentProjects.map((entry) =>
+            entry.id === projectId ? { ...entry, lastAnswer: answer } : entry
           ),
         })),
 
