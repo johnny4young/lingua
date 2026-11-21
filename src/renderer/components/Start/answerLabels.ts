@@ -16,7 +16,7 @@ export function answerIdentity(
 }
 
 /** The small word after the numeral: `rows`, `OK`, `of 6 failed`, `s`. */
-export function answerUnit(answer: LastAnswer, t: TFunction): string | undefined {
+function answerUnit(answer: LastAnswer, t: TFunction): string | undefined {
   switch (answer.unit) {
     case 'rows':
       return t('start.answer.rows', { count: Number(answer.numeral.replace(/\D/g, '')) || 0 });
