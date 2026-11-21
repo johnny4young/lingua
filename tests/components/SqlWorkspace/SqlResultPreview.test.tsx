@@ -55,6 +55,9 @@ describe('SqlResultPreview', () => {
     const meter = screen.getByTestId('sql-result-phases');
     expect(screen.getByTestId('sql-result-phases-label').textContent).toBe('plan 2 ms · execute 31 ms · fetch 5 ms');
     expect(meter.getAttribute('title')).toBe('plan 2 ms · execute 31 ms · fetch 5 ms');
+    // The breakdown gives up its width before the tabs do, so a narrow pane truncates it.
+    expect(meter.parentElement?.className).toContain('shrink-[100]');
+    expect(screen.getByTestId('sql-result-phases-label').className).toContain('truncate');
     expect([...meter.querySelectorAll('[data-phase]')].map((segment) => segment.getAttribute('data-phase'))).toEqual(['plan', 'execute', 'fetch']);
 
     rerender(<SqlResultPreview response={response({ durationMs: 38, phases: { execute: 31, fetch: 5 } })} isExecuting={false} rowDisplayLimit={1000} />);

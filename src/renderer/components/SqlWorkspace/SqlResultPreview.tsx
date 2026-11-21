@@ -412,7 +412,7 @@ export function SqlResultPreview({
             </span>
           }
           meta={meta}
-          metaTrailing={hasResultBody && response.phases ? <SqlPhaseTimingsMeter phases={response.phases} /> : undefined}
+          detail={hasResultBody && response.phases ? <SqlPhaseTimingsMeter phases={response.phases} /> : undefined}
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={(id) => {

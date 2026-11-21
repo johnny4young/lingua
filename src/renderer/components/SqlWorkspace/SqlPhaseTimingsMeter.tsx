@@ -17,9 +17,9 @@ export function SqlPhaseTimingsMeter({ phases }: { phases: SqlPhaseTimings }) {
   });
   const label = segments.map(({ key, ms }) => t(`sqlWorkspace.response.phase.${key}`, { ms })).join(' · ');
   return (
-    <span data-testid="sql-result-phases" title={label} className="ml-2.5 inline-flex items-center gap-2.5 align-middle">
-      <PhaseBar aria-hidden="true" segments={segments} className="h-1.5 w-[120px]" />
-      <span data-testid="sql-result-phases-label" className="sr-only lg:not-sr-only">
+    <span data-testid="sql-result-phases" title={label} className="flex min-w-0 items-center gap-2.5">
+      <PhaseBar aria-hidden="true" segments={segments} className="h-1.5 w-[120px] shrink-0" />
+      <span data-testid="sql-result-phases-label" className="truncate font-mono text-caption tabular-nums text-fg-subtle">
         {label}
       </span>
     </span>

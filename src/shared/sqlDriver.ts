@@ -61,6 +61,8 @@ export interface DriverRows {
   planMs?: number;
   /** Every row was read before `run` resolved, so reading pages measures no engine time. */
   buffered?: true;
+  /** `performance.now()` when the statement went out, for a `run` that opens a transaction first. */
+  sentAt?: number;
   /** Reads up to `limit` more rows in engine order; `done` when there are none left. */
   next(limit: number): Promise<{ rows: Array<Record<string, unknown>>; done: boolean }>;
   close(): Promise<void>;
@@ -114,7 +116,8 @@ export function wholeRows(columns: SqlColumnMetadata[], rows: Array<Record<strin
 
 /**
  * Times one run: start it before `run`, call `ran` once `run` returns, and
- * `phases` once the first page is read. Execute is `run` less any plan time;
+ * `phases` once the first page is read. Execute is `run` from the statement's
+ * send, less any plan time;
  * a buffered result or one without columns has no fetch.
  */
 export function runClock() {
@@ -124,10 +127,10 @@ export function runClock() {
     ran: () => {
       ran = performance.now();
     },
-    phases: (rows: Pick<DriverRows, 'columns' | 'planMs' | 'buffered'>): SqlPhaseTimings | undefined =>
+    phases: (rows: Pick<DriverRows, 'columns' | 'planMs' | 'buffered' | 'sentAt'>): SqlPhaseTimings | undefined =>
       sqlPhaseTimings({
         plan: rows.planMs,
-        execute: Math.max(0, ran - start - (rows.planMs ?? 0)),
+        execute: Math.max(0, ran - (rows.sentAt ?? start) - (rows.planMs ?? 0)),
         fetch: rows.buffered || rows.columns.length === 0 ? undefined : performance.now() - ran,
       }),
   };

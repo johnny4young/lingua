@@ -100,7 +100,13 @@ describe('SQL host', () => {
 
   it('reports execute and fetch for a streamed result, plan when the driver prepares apart, and total only otherwise', async () => {
     const { open, session } = fakeDriver(3);
-    const run = session.run.bind(session);
+    const fast = session.run.bind(session);
+    // A few milliseconds of statement time, since phases that all round to 0 ms are dropped.
+    const run: typeof fast = async (sql, options) => {
+      await new Promise((resolve) => setTimeout(resolve, 4));
+      return fast(sql, options);
+    };
+    session.run = run;
     const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
     const phasesOf = async (runId: string) =>
       ((await host.handle(req({ type: 'execute', config: pgConfig(), runId, sql: 'SELECT n', readWrite: false, window }))) as { value: { phases?: Record<string, number> } }).value.phases;
@@ -115,6 +121,14 @@ describe('SQL host', () => {
     // Rows read in full before run resolves leave a single phase, so only the total stands.
     session.run = async (sql, options) => ({ ...(await run(sql, options)), buffered: true });
     expect(await phasesOf('buffered')).toBeUndefined();
+
+    // Setup before the statement, such as opening a read-only transaction, is not execute time.
+    session.run = async (sql, options) => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      const sentAt = performance.now();
+      return { ...(await run(sql, options)), sentAt };
+    };
+    expect((await phasesOf('setup'))!.execute).toBeLessThan(30);
 
     // A write has no rows to fetch.
     session.run = async () => ({ columns: [], affectedRows: 1, next: async () => ({ rows: [], done: true }), close: async () => undefined });
@@ -290,9 +304,13 @@ describe('SQLite driver (node:sqlite)', () => {
     const host = createSqlHostSupervisorless();
     const phasesOf = async (sql: string, readOnly: boolean, readWrite: boolean) =>
       ((await host.handle(req({ type: 'execute', config: sqliteConfig(readOnly), runId: sql, sql, readWrite, window }))) as { value: { phases?: Record<string, number> } }).value.phases;
-    expect(Object.keys((await phasesOf('SELECT * FROM t', false, false))!)).toEqual(['plan', 'execute', 'fetch']);
-    expect(Object.keys((await phasesOf("UPDATE t SET name = 'z'", false, false))!)).toEqual(['plan', 'execute']);
-    expect(Object.keys((await phasesOf('SELECT * FROM t', true, true))!)).toEqual(['plan', 'execute']);
+    // Enough rows to take whole milliseconds, since phases that all round to 0 ms are dropped.
+    const counted = 'WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 300000) SELECT count(*) AS n FROM c';
+    expect(Object.keys((await phasesOf(counted, false, false))!)).toEqual(['plan', 'execute', 'fetch']);
+    expect(Object.keys((await phasesOf(`CREATE TABLE big AS ${counted}`, false, false))!)).toEqual(['plan', 'execute']);
+    expect(Object.keys((await phasesOf(counted, true, true))!)).toEqual(['plan', 'execute']);
+    // A statement too quick to measure reports its total only.
+    expect(await phasesOf('SELECT 1', false, false)).toBeUndefined();
     await host.dispose();
   });
 

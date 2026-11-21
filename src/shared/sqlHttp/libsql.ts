@@ -6,10 +6,9 @@
  */
 
 import { introspectSqlite, sqliteColumnType } from '../sqlCatalog/sqlite';
-import { editDeadline, expectOneRow, type DriverSession } from '../sqlDriver';
+import { editDeadline, expectOneRow, wholeRows, type DriverSession } from '../sqlDriver';
 import type { RowEditStatement, RowEditValue } from '../sqlRowEdits';
 import { HttpSqlError, inflight, parseJson, rowObject, send, summary, type HttpSqlTransport } from './transport';
-import { wholeRows } from '../sqlDriver';
 
 export interface LibsqlTarget {
   /** `https://host[:port]`, or `http://` for a local server. */

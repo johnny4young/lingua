@@ -230,6 +230,7 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
       // read-only transaction, so an earlier statement cannot have made the session writable.
       await query(connection, 'SET SESSION TRANSACTION READ ONLY');
       await query(connection, 'START TRANSACTION READ ONLY');
+      const sentAt = performance.now();
       let rows: DriverRows;
       try {
         rows = await stream(connection, sql, killQuery);
@@ -239,6 +240,7 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
       }
       return {
         ...rows,
+        sentAt,
         async close() {
           await rows.close();
           await query(connection, 'ROLLBACK').catch(() => undefined);

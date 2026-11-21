@@ -421,7 +421,9 @@ export function sqlPhaseTimings(measured: Partial<Record<SqlPhase, unknown>>): S
     const ms = measured[phase];
     if (typeof ms === 'number' && Number.isFinite(ms) && ms >= 0) timings[phase] = Math.round(ms);
   }
-  return Object.keys(timings).length >= 2 ? timings : undefined;
+  const values = Object.values(timings);
+  // Two phases split the total; all of them under half a millisecond split nothing.
+  return values.length >= 2 && values.some((ms) => ms > 0) ? timings : undefined;
 }
 
 /**

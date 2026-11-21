@@ -290,6 +290,7 @@ export async function openSqlServer(config: HostSessionConfig, socket?: () => Du
       const guarded = config.readOnly && !readWrite;
       if (guarded) await run('BEGIN TRANSACTION');
       const end = () => (guarded ? run('IF @@TRANCOUNT > 0 ROLLBACK').then(() => undefined, () => undefined) : Promise.resolve());
+      const sentAt = performance.now();
       let rows: DriverRows;
       try {
         rows = await stream(lib, connection, sql);
@@ -300,6 +301,7 @@ export async function openSqlServer(config: HostSessionConfig, socket?: () => Du
       if (!guarded) return rows;
       return {
         ...rows,
+        sentAt,
         async close() {
           await rows.close();
           await end();
