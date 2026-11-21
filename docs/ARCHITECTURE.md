@@ -1332,6 +1332,24 @@ runs at a time, and any restore of the pinned snapshot closes the prompt. The
 translator from saved tabs to editor tabs lives in `stores/sessionRestore.ts`
 and loads on the first restore, so it stays off the startup graph.
 
+### Start prompt
+
+Start's one-line prompt (`components/Start/StartPrompt.tsx`) is a satellite
+Monaco built on `getSatelliteEditorOptions`, with the gutter, scrollbars,
+folding and line highlight off; Enter submits and pasted line breaks become
+spaces. Start renders inside the lazy `CodeEditor` chunk, which already holds
+Monaco, so the prompt adds no download to first paint and nothing to the boot
+graph. `useStartPromptRun` calls `runnerManager.execute` with auto-log and keeps
+the answer in its own state: it never calls `executeAutoRun`, so the global
+`resultStore`, the console and the execution history never see it. JS and TS
+run in the worker once `isLikelyComplete` passes and the line pauses for
+`AUTO_RUN_DEBOUNCE_MS`, unless the jsTs run policy is Manual; other languages
+run on Enter. A run waits while a notebook cell owns the runner
+(`notebookRunnerLockStore`) or a manual run is going, starts once that owner
+lets go, and drops its answer if a notebook claims the runner mid-run. Enter on
+an answered line, or on any JS or TS line, opens it as a scratch tab, whose own
+auto-run takes over the runner.
+
 ### Run state
 
 Each run records the code and the stdin and arguments it started from in

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -11,6 +11,24 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { SEEDED_SCRATCHPAD_NAME, SEEDED_SCRATCHPAD_SOURCE } from '@/onboarding/seedScratchpad';
 import { BUILT_IN_TEMPLATES } from '@/data/templates';
+import type { StartPromptEditorProps } from '@/components/Start/StartPromptEditor';
+
+// Monaco does not run in jsdom; the stand-in keeps the props contract and the editor's class.
+vi.mock('@/components/Start/StartPromptEditor', () => ({
+  StartPromptEditor: ({ value, ariaLabel, placeholder, onChange, onSubmit }: StartPromptEditorProps) => (
+    <div className="monaco-editor" tabIndex={0} data-testid="start-prompt-surface">
+      <input
+        aria-label={ariaLabel}
+        placeholder={placeholder}
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        onKeyDown={event => {
+          if (event.key === 'Enter') onSubmit();
+        }}
+      />
+    </div>
+  ),
+}));
 
 interface LinguaWindow extends Window {
   lingua?: { platform: string };
@@ -202,9 +220,39 @@ describe('Start page', () => {
     expect(useEditorStore.getState().tabs[0]).toMatchObject({ name: 'Hello World.py', language: 'python' });
   });
 
-  it('offers the starters as or-try chips', async () => {
+  it('keeps the prompt line as a scratch tab on Enter', async () => {
     const user = userEvent.setup();
     render(<EditorEmptyState />);
+    const prompt = screen.getByTestId('start-prompt');
+    const field = within(prompt).getByRole('textbox', { name: 'Run a line of code' });
+    expect(field.getAttribute('placeholder')).toBe('[1, 2, 3].map(n => n * n)');
+    expect(screen.queryByTestId('start-prompt-hint')).toBeNull();
+    expect(screen.queryByTestId('start-prompt-enter')).toBeNull();
+
+    await user.type(field, '6 * 7');
+    expect(screen.getByTestId('start-prompt-enter').textContent).toBe('↵keep it as a scratch file');
+    await user.keyboard('{Enter}');
+
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({ language: 'javascript', content: '6 * 7' });
+  });
+
+  it('leaves digits typed into the prompt to the prompt', async () => {
+    seedSession();
+    render(<EditorEmptyState />);
+    const surface = screen.getByTestId('start-prompt-surface');
+    surface.focus();
+    fireEvent.keyDown(surface, { key: '1' });
+    // A reopen restores asynchronously; give it the time the row test waits for.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+    expect(useEditorStore.getState().tabs).toHaveLength(0);
+  });
+
+  it('offers the starters as or-try chips inside the prompt', async () => {
+    const user = userEvent.setup();
+    render(<EditorEmptyState />);
+    expect(within(screen.getByTestId('start-prompt')).getByTestId('start-try-welcome')).toBeTruthy();
 
     await user.click(screen.getByTestId('start-try-welcome'));
     expect(useEditorStore.getState().tabs[0]).toMatchObject({ name: SEEDED_SCRATCHPAD_NAME, content: SEEDED_SCRATCHPAD_SOURCE });
@@ -225,5 +273,6 @@ describe('Start page', () => {
     expect(screen.getByTestId('start-reopen-all').textContent).toBe('Reabrir las 3');
     expect(screen.getByText('Plantillas')).toBeTruthy();
     expect(screen.getByTestId('start-try-sample-table').textContent).toBe('una tabla de ejemplo');
+    expect(screen.getByRole('textbox', { name: 'Ejecuta una línea de código' })).toBeTruthy();
   });
 });

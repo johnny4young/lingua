@@ -8,7 +8,8 @@ import type { LineResult } from '../stores/resultStore';
 import type { ExecutionResult } from '../types/execution';
 import { redactSecretsFromOutput } from '../../shared/ai/explainError';
 import { describeError } from './describeError';
-import { executionKind } from './executionOutcome';
+import { executionKind, primaryExecutionError } from './executionOutcome';
+import { isHiddenUndefinedLineResult } from '../hooks/inlineResultVisibility';
 import { truncateText } from './truncateText';
 import type { HttpResponseV1 } from '../../shared/httpWorkspaceSchema';
 import type { ProjectTestRunResult } from '../../shared/projectTests';
@@ -153,13 +154,18 @@ export function answerFromValue(value: string): AnswerFields {
 const VALUE_TYPES = new Set<LineResult['type']>(['result', 'magic', 'watch', 'autoLog']);
 const PRINT_TYPES = new Set<LineResult['type']>(['log', 'info']);
 
-/** The row furthest down the file wins; output order breaks ties. */
+/** The row furthest down the file wins; output order breaks ties. Undefined values stay hidden, as in the editor. */
 function lastOnPage(lineResults: readonly LineResult[], types: ReadonlySet<LineResult['type']>): LineResult | undefined {
   let found: LineResult | undefined;
   for (const entry of lineResults) {
-    if (types.has(entry.type) && (!found || entry.line >= found.line)) found = entry;
+    if (types.has(entry.type) && !isHiddenUndefinedLineResult(entry) && (!found || entry.line >= found.line)) found = entry;
   }
   return found;
+}
+
+/** The value a code run answers with, before falling back to printed output. */
+export function lastValueOnPage(lineResults: readonly LineResult[]): LineResult | undefined {
+  return lastOnPage(lineResults, VALUE_TYPES);
 }
 
 function lastOutputLine(text: string): string | undefined {
@@ -188,10 +194,11 @@ export function codeLastAnswer(input: {
   const { result, lineResults, fullOutput, ranAt } = input;
   const status = codeStatus(result);
   const shown =
-    lastOnPage(lineResults, VALUE_TYPES)?.value ??
+    lastValueOnPage(lineResults)?.value ??
     lastOnPage(lineResults, PRINT_TYPES)?.value ??
     lastOutputLine(fullOutput);
-  const errorName = result.error ? (describeError(result.error).name ?? 'Error') : undefined;
+  const error = primaryExecutionError(result);
+  const errorName = error ? (describeError(error).name ?? 'Error') : undefined;
   const fields: AnswerFields =
     status === 'error' && errorName
       ? { numeral: '', label: clip(errorName, LAST_ANSWER_LABEL_MAX) }

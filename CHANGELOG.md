@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- Start opens with a one-line prompt: type a line of JavaScript, pause, and its answer appears at the end of the line without touching the Console. Enter keeps the line as a scratch file.
 - With no tab open, Start shows the last session's tabs with the answer each one left, a scratch file in any language with how it runs here, every workspace with its shortcut, and the templates as a list you can filter by language. A row's number reopens that tab alone. The command bar verb reads New scratch there, and the dock waits for a tab unless a folder is open.
 - The interface uses Recursive and titles use Fraunces, both bundled with the app so they render the same offline. Inter and JetBrains Mono stay bundled, and the editor font is still yours to choose.
 - On desktop, TypeScript that only needs its types removed runs without loading the esbuild compiler, so the first TypeScript run starts sooner. Code with enums, namespaces, decorators or JSX still goes through esbuild.

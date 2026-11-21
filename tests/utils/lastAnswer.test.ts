@@ -101,6 +101,26 @@ describe('codeLastAnswer', () => {
     expect(answer).toMatchObject({ status: 'error', numeral: '', label: 'TypeError' });
   });
 
+  it('names the error a captured expression threw', () => {
+    const answer = codeLastAnswer({
+      result: run({ magicResults: [{ line: 1, value: 'ReferenceError: x is not defined', kind: 'autoLog', isError: true }] }),
+      lineResults: [value(1, 'ReferenceError: x is not defined', 'error')],
+      fullOutput: '',
+      ranAt: RAN_AT,
+    });
+    expect(answer).toMatchObject({ status: 'error', numeral: '', label: 'ReferenceError' });
+  });
+
+  it('answers a print with what it printed, as the editor hides the undefined it evaluated to', () => {
+    const answer = codeLastAnswer({
+      result: run(),
+      lineResults: [value(1, '42', 'log'), value(1, 'undefined')],
+      fullOutput: '42',
+      ranAt: RAN_AT,
+    });
+    expect(answer.numeral).toBe('42');
+  });
+
   it('reports timeouts and stops by their kind', () => {
     expect(codeLastAnswer({ result: run({ kind: 'timeout' }), lineResults: [], fullOutput: '', ranAt: RAN_AT }).status).toBe('timeout');
     expect(codeLastAnswer({ result: run({ cancelled: true }), lineResults: [], fullOutput: '', ranAt: RAN_AT }).status).toBe('stopped');

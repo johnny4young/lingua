@@ -138,7 +138,7 @@ export function StartPickUp() {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       if (document.activeElement && document.activeElement !== document.body) {
         if (!document.activeElement.closest('[data-testid="start-page"]')) return;
-        if (document.activeElement.matches('input, textarea, [contenteditable="true"]')) return;
+        if (document.activeElement.closest('input, textarea, [contenteditable="true"], .monaco-editor')) return;
       }
       const row = rows[Number(event.key) - 1];
       if (!/^[1-9]$/.test(event.key) || !row) return;
