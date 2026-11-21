@@ -54,6 +54,7 @@ let mockState: Omit<
   | 'clear'
   | 'setLevel'
   | 'beginRun'
+  | 'dropRunAnchor'
   | 'addEntries'
   | 'restore'
   | 'toggleTimestamps'
@@ -1097,7 +1098,7 @@ describe('ConsolePanel', () => {
         ],
         showTimestamps: true,
         currentRun: { tabId: 'tab', number: 7, startedAt: 1_000 },
-        previousRun: { tabId: 'tab', number: 6, rows: [...previousRows, summaryRow] },
+        previousRun: { number: 6, rows: [...previousRows, summaryRow] },
       });
       useResultStore.setState({
         isManualRunning: true,
@@ -1122,7 +1123,7 @@ describe('ConsolePanel', () => {
       resetState({
         entries: [{ id: 'now-1', type: 'log', content: 'api', timestamp: 0, line: 5 }],
         currentRun: { tabId: 'tab', number: 7, startedAt: 0 },
-        previousRun: { tabId: 'tab', number: 6, rows: [...previousRows, summaryRow] },
+        previousRun: { number: 6, rows: [...previousRows, summaryRow] },
       });
       render(<ConsolePanel />);
       expect(screen.queryByTestId('console-waiting-row')).toBeNull();
@@ -1130,10 +1131,32 @@ describe('ConsolePanel', () => {
     });
 
     it('shows a waiting row on the first run with nothing to compare against', () => {
+      resetState({ currentRun: { tabId: 'tab', number: 1, startedAt: 0 } });
       useResultStore.setState({ isManualRunning: true, manualRunMode: 'run' });
       render(<ConsolePanel />);
       expect(screen.getByTestId('console-waiting-row').textContent).toContain('waiting for output');
       expect(screen.queryByText('Output will appear here...')).toBeNull();
+    });
+
+    it('shows no waiting row while a run has no timeline, such as a validation', () => {
+      resetState({ currentRun: { tabId: 'tab', number: 1, startedAt: null } });
+      useResultStore.setState({ isManualRunning: true, manualRunMode: 'run' });
+      render(<ConsolePanel />);
+      expect(screen.queryByTestId('console-waiting-row')).toBeNull();
+    });
+
+    it('caps the ghost rows so live output stays in view', () => {
+      const many = Array.from({ length: 12 }, (_, index) => ({
+        entry: { id: `g-${index}`, type: 'log' as const, content: `row ${index}`, timestamp: 0, line: 10 + index },
+        repeatCount: 1,
+      }));
+      resetState({
+        currentRun: { tabId: 'tab', number: 2, startedAt: 0 },
+        previousRun: { number: 1, rows: many },
+      });
+      useResultStore.setState({ isManualRunning: true, manualRunMode: 'run' });
+      render(<ConsolePanel />);
+      expect(screen.getAllByTestId('console-ghost-row')).toHaveLength(4);
     });
 
     it('folds a multi-line call to its first line', async () => {

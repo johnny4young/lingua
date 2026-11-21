@@ -240,6 +240,21 @@ describe('consoleStore', () => {
     expect(state.currentRun).toEqual({ tabId: 'a', number: 2, startedAt: null });
   });
 
+  it('beginRun without keepPrevious keeps the count but no stand-ins', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000 });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'kept', line: 3 });
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 2_000, keepPrevious: false });
+    const state = useConsoleStore.getState();
+    expect(state.previousRun).toBeNull();
+    expect(state.currentRun?.number).toBe(2);
+  });
+
+  it('dropRunAnchor turns offsets back into clock time', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000 });
+    useConsoleStore.getState().dropRunAnchor();
+    expect(useConsoleStore.getState().currentRun).toEqual({ tabId: 'a', number: 1, startedAt: null });
+  });
+
   it('beginRun on another tab drops the previous run and restarts the count', () => {
     useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000 });
     useConsoleStore.getState().addEntry({ type: 'log', content: 'from a' });

@@ -56,13 +56,31 @@ function displayFor(
   }
 }
 
-/** `repr` is the JSON form of the string, possibly clamped mid-way by the runner. */
+const SIMPLE_ESCAPES: Record<string, string> = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', '0': '\0' };
+
+/**
+ * `repr` is the JSON form (JS) or Python `repr` of the string, possibly
+ * clamped mid-way by the runner; a clamped one keeps its truncation marker.
+ */
 function unquote(repr: string): string {
   try {
     const value: unknown = JSON.parse(repr);
     if (typeof value === 'string') return value;
   } catch {
-    // Clamped: drop the opening quote and keep the runner's truncation marker.
+    // Python quoting or a clamped repr: decode by hand below.
   }
-  return repr.startsWith('"') ? repr.slice(1) : repr;
+  const quote = repr[0];
+  if (quote !== '"' && quote !== "'") return repr;
+  // The closing quote counts only when an even run of backslashes precedes it.
+  const backslashes = repr.length - 1 - repr.slice(0, -1).replace(/\\+$/, '').length;
+  const closed = repr.length > 1 && repr.endsWith(quote) && backslashes % 2 === 0;
+  const body = repr.slice(1, closed ? -1 : undefined);
+  return body.replace(
+    /\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[\s\S])/g,
+    (match, code: string) => {
+      if (code.length === 1) return SIMPLE_ESCAPES[code] ?? code;
+      const point = Number.parseInt(code.slice(1), 16);
+      return point <= 0x10ffff ? String.fromCodePoint(point) : match;
+    }
+  );
 }

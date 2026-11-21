@@ -151,7 +151,11 @@ export function publishRunStart(
     setIsManualRunning,
   } = useResultStore.getState();
   const { name } = activeTab;
-  useConsoleStore.getState().beginRun({ tabId: activeTab.id, startedAt: Date.now() });
+  useConsoleStore.getState().beginRun({
+    tabId: activeTab.id,
+    startedAt: Date.now(),
+    keepPrevious: !plan.region,
+  });
   if (showsResults()) {
     clearVisibleResults();
     setExecutionSource('manual');
@@ -216,6 +220,7 @@ export function publishCancelledRun(
     setExecutionTime(result.executionTime);
   }
   const cancelledOutputs = streamedConsoleCount > 0 ? [] : orderedConsoleOutputs(result);
+  if (streamedConsoleCount === 0 && showsResults()) useConsoleStore.getState().dropRunAnchor();
   for (const output of cancelledOutputs) {
     runConsole.add(toConsoleEntry(output, language));
   }
@@ -306,6 +311,7 @@ export async function publishCompletedRun(
   }
 
   const entriesToAdd = toConsoleEntries(result, language, { streamed: streamedConsoleCount > 0 });
+  if (streamedConsoleCount === 0 && isCurrent()) useConsoleStore.getState().dropRunAnchor();
   for (const entry of entriesToAdd) {
     runConsole.add(entry);
   }

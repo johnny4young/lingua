@@ -130,8 +130,10 @@ export interface ConsoleState {
    */
   addEntries: (entries: ReadonlyArray<NewConsoleEntry>) => void;
   clear: () => void;
-  /** Clear for a run of `tabId`; the outgoing run becomes `previousRun` on the same tab. */
-  beginRun: (run: { tabId: string; startedAt: number | null }) => void;
+  /** Clear for a run of `tabId`; the outgoing run becomes `previousRun` unless `keepPrevious` is false. */
+  beginRun: (run: { tabId: string; startedAt: number | null; keepPrevious?: boolean }) => void;
+  /** Rows that landed all at once have no timeline: show clock time instead of offsets. */
+  dropRunAnchor: () => void;
   /**
    * accessibility pass — re-instate a {@link ConsoleClearSnapshot} that
    * `clear()` previously wiped, for the Undo toast. Rows emitted after the

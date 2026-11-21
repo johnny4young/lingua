@@ -55,6 +55,14 @@ type TapeItem =
   | { kind: 'ghost'; row: CollapsedConsoleRow };
 
 const WAITING_KEY = 'tape-waiting';
+const GHOST_LIMIT = 4;
+
+/** A search hit past the first line would sit behind the fold, so that row opens. */
+function matchIsFolded(content: string, needle: string): boolean {
+  if (needle === '') return false;
+  const firstBreak = content.indexOf('\n');
+  return firstBreak >= 0 && !content.slice(0, firstBreak).toLowerCase().includes(needle);
+}
 
 function tapeItemKey(item: TapeItem): string {
   if (item.kind === 'waiting') return WAITING_KEY;
@@ -163,9 +171,9 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
     }))
   );
   // Ghost and waiting rows only make sense while a streamed, non-paused run is live.
-  const runLive = useResultStore(
-    state => state.isManualRunning && state.manualRunMode !== 'debug'
-  );
+  const runLive =
+    useResultStore(state => state.isManualRunning && state.manualRunMode !== 'debug') &&
+    currentRun?.startedAt != null;
   const ranCode = useResultStore(state => state.ranCode);
   const [query, setQuery] = useState('');
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -283,8 +291,9 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
     const items: TapeItem[] = visibleEntries.map(row => ({ kind: 'live', row }));
     if (!runLive) return items;
     items.push({ kind: 'waiting' });
-    for (const row of pending.ghosts) {
-      if (rowVisible(row)) items.push({ kind: 'ghost', row });
+    // A few upcoming rows are enough; more would push live output off a pinned view.
+    for (const row of pending.ghosts.filter(rowVisible).slice(0, GHOST_LIMIT)) {
+      items.push({ kind: 'ghost', row });
     }
     return items;
   }, [visibleEntries, runLive, pending, rowVisible]);
@@ -749,7 +758,9 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
                       sourceLine={sourceLineForEntry(item.row.entry)}
                       pulseTargetLine={renderedPulseLine}
                       originSuppressed={originSuppressed}
-                      expanded={expandedIds.has(item.row.entry.id)}
+                      expanded={
+                        expandedIds.has(item.row.entry.id) || matchIsFolded(item.row.entry.content, needle)
+                      }
                       onToggleExpanded={toggleExpanded}
                       ghostRun={item.kind === 'ghost' ? previousRun?.number : undefined}
                     />

@@ -17,6 +17,30 @@ describe('RichValueText', () => {
     expect(container.textContent).toBe('long text…');
   });
 
+  it('prints a Python string repr as its text', () => {
+    const cases: Array<[string, string]> = [
+      ["'user'", 'user'],
+      ['"it\'s"', "it's"],
+      ["'a\\nb\\x1b'", 'a\nb\x1b'],
+      ["'ends\\\\'", 'ends\\'],
+      ["'clamped...", 'clamped...'],
+    ];
+    for (const [repr, text] of cases) {
+      const { container, unmount } = render(
+        <RichValueText payload={{ kind: 'primitive', type: 'string', repr }} fallbackText="" />
+      );
+      expect(container.textContent).toBe(text);
+      unmount();
+    }
+  });
+
+  it('decodes escapes in a clamped JSON string', () => {
+    const { container } = render(
+      <RichValueText payload={{ kind: 'primitive', type: 'string', repr: '"a\\tb…' }} fallbackText="" />
+    );
+    expect(container.textContent).toBe('a\tb…');
+  });
+
   it('leaves other primitives as their repr', () => {
     const { container } = render(
       <RichValueText payload={{ kind: 'primitive', type: 'number', repr: '41.2' }} fallbackText="" />

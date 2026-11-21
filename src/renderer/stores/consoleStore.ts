@@ -174,19 +174,26 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
       previousRun: null,
     })),
 
-  beginRun: ({ tabId, startedAt }) =>
+  beginRun: ({ tabId, startedAt, keepPrevious = true }) =>
     set((state) => {
       const previous = state.currentRun?.tabId === tabId ? state.currentRun : null;
       return {
         ...clearedOutput(state),
         // Only line-keyed rows can stand in for the next run; keep nothing heavier.
-        previousRun: previous && {
+        previousRun: previous && keepPrevious ? {
           number: previous.number,
           rows: state.collapsedEntries.filter((row) => sourceLineForEntry(row.entry) !== null),
-        },
+        } : null,
         currentRun: { tabId, number: (previous?.number ?? 0) + 1, startedAt },
       };
     }),
+
+  dropRunAnchor: () =>
+    set((state) =>
+      state.currentRun?.startedAt == null
+        ? state
+        : { currentRun: { ...state.currentRun, startedAt: null } }
+    ),
 
   restore: (snapshot) =>
     // accessibility pass — Undo for a console clear. Copy the arrays /
