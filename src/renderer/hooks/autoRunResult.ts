@@ -11,6 +11,7 @@ import { bucketAutoLogCount } from './autoRunModel';
 import { preserveStickyLineResults } from './autoRunStickyResults';
 import { toConsoleEntries } from './runnerOutput';
 import { withE2eExecutionTime } from '../testing/e2eDurations';
+import { recordCodeLastAnswer } from '../stores/tabLastAnswer';
 
 interface ApplyAutoRunResultOptions {
   autoLogEnabled?: boolean;
@@ -41,6 +42,7 @@ export function applyAutoRunResult({
     setScopeSnapshot,
   } = useResultStore.getState();
   const presentation = toExecutionPresentation(language, code, result);
+  recordCodeLastAnswer(tabId, result, presentation);
 
   // Preserve watch and auto-log rows only when their exact source line still
   // exists and the failure happened elsewhere. Type + line alone is not a

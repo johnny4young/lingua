@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyAutoRunResult } from '@/hooks/autoRunResult';
 import { useConsoleStore } from '@/stores/consoleStore';
 import { useResultStore } from '@/stores/resultStore';
+import { useEditorStore } from '@/stores/editorStore';
 import type { ExecutionResult } from '@/types/execution';
 
 const watchCode = 'const total = 50;\ntotal; // @watch total';
@@ -55,6 +56,18 @@ describe('applyAutoRunResult', () => {
     expect(useResultStore.getState().lastSuccessfulSnapshot).toBe(snapshot);
     expect(useResultStore.getState().error?.message).toBe('SyntaxError: bad JSON');
     expect(useConsoleStore.getState().entries.filter(entry => entry.type === 'error')).toHaveLength(1);
+  });
+
+  it('keeps the run answer on its tab', async () => {
+    useEditorStore.setState({ tabs: [{ id: 'tab-a', name: 'a.js', language: 'javascript', content: '', isDirty: false }], activeTabId: 'tab-a' });
+    applyAutoRunResult({
+      code: '[1, 2, 3].map(n => n * n)', language: 'javascript', tabId: 'tab-a',
+      result: executionResult({ magicResults: [{ line: 1, value: '[1,4,9]', kind: 'autoLog' }] }),
+    });
+    await vi.waitFor(() => expect(useEditorStore.getState().tabs[0]?.lastAnswer).toMatchObject({
+      kind: 'code', status: 'ok', numeral: '1 – 9', unit: 'items', total: 3, picture: { kind: 'bars', values: [11, 44, 100] }, durationMs: 2,
+    }));
+    useEditorStore.setState({ tabs: [], activeTabId: null });
   });
 
   it('replaces the variable scope from a failed run that still captured one', () => {

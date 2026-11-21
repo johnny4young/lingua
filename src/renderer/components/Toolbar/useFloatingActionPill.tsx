@@ -29,7 +29,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { getActiveTab, useEditorStore, createDefaultTab } from '../../stores/editorStore';
-import { isWorkspaceTab } from '../../stores/editorTabUtils';
+import { isWorkspaceTab, NEW_SCRATCH_LANGUAGE } from '../../stores/editorTabUtils';
 import { useEmptyWorkspace } from '../../stores/workspaceRunReadyStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useRunner } from '../../hooks/useRunner';
@@ -121,7 +121,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
       .filter((breakpoint) => breakpoint.enabled !== false).length;
   });
   const isNotebookTab = activeTab?.kind === 'notebook';
-  const language = activeTab?.language ?? 'javascript';
+  const language = activeTab?.language ?? NEW_SCRATCH_LANGUAGE;
   const supportsRuntimeModes = languageHasRuntimeModes(language);
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';

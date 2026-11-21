@@ -15,7 +15,7 @@ import { getInitializationMessage } from '../../hooks/runnerOutput';
 import { useRunStale } from '../../hooks/useRunStale';
 import { RecordRunMenuItem } from './RecordRunMenuItem';
 import { useTranslation } from 'react-i18next';
-import { Bug, ChevronDown, FlaskConical, Loader2, Play, Sparkles, Square } from 'lucide-react';
+import { Bug, ChevronDown, FlaskConical, Loader2, Play, Plus, Sparkles, Square } from 'lucide-react';
 import type { EditorState, FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import type { WorkflowMode } from '../../../shared/workflowMode';
@@ -83,6 +83,8 @@ export function FloatingActionPillRunGroup({
   const bootstrapProgress = useBootstrapProgressStore(state =>
     state.progress?.language === language ? state.progress : null
   );
+  // Start has nothing to run, so the verb makes the scratch file instead.
+  const newScratch = noActiveTab && !isRunning;
   const bootstrapLabel = bootstrapProgress && (isRunning || isInitializing || isAutoRunning)
     ? formatBootstrapProgress(
         getInitializationMessage(bootstrapProgress.language),
@@ -99,20 +101,24 @@ export function FloatingActionPillRunGroup({
         type="button"
         onClick={() => {
           setOpenMenu(null);
-          handleRunClick();
+          if (newScratch) ensureTabForLanguage(language);
+          else handleRunClick();
         }}
-        disabled={runDisabled}
+        disabled={!newScratch && runDisabled}
         data-running={isRunning ? 'true' : 'false'}
         data-stale={stale && !isRunning ? 'true' : undefined}
         data-workflow={currentWorkflow}
+        data-verb={newScratch ? 'new-scratch' : undefined}
         data-tour-id="run-button"
         data-testid="action-pill-run"
-        aria-label={isRunning ? t('toolbar.run.stop') : workflowChip.label}
-        title={runDisabledTooltip}
+        aria-label={isRunning ? t('toolbar.run.stop') : newScratch ? t('actionPill.newScratch') : workflowChip.label}
+        title={newScratch ? undefined : runDisabledTooltip}
         className="action-pill-run action-pill-run-main rounded-l-none"
       >
         {isRunning ? (
           <Square size={11} fill="currentColor" aria-hidden />
+        ) : newScratch ? (
+          <Plus size={13} aria-hidden />
         ) : bootstrapLabel !== null || isInitializing ? (
           <Loader2 size={11} className="animate-spin" aria-hidden />
         ) : (
@@ -121,7 +127,9 @@ export function FloatingActionPillRunGroup({
         <span className="max-w-[260px] truncate">
           {isRunning
             ? t('toolbar.run.stop')
-            : (bootstrapLabel ??
+            : newScratch
+              ? t('actionPill.newScratch')
+              : (bootstrapLabel ??
               (isInitializing && loadingMessage ? loadingMessage : workflowChip.label))}
         </span>
         {isRunning && (bootstrapLabel ?? (isInitializing ? loadingMessage : null)) ? (
@@ -129,7 +137,7 @@ export function FloatingActionPillRunGroup({
             {bootstrapLabel ?? loadingMessage}
           </span>
         ) : null}
-        {isRunning ? (stopShortcut ? <Kbd>{stopShortcut}</Kbd> : null) : runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
+        {isRunning ? (stopShortcut ? <Kbd>{stopShortcut}</Kbd> : null) : !newScratch && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
       </button>
       <button
         type="button"

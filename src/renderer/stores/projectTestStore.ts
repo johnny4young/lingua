@@ -17,6 +17,7 @@ import type { RootId } from '../../shared/fs/brandedIds';
 import { useSettingsStore } from './settingsStore';
 import { useNativeExecutionGateStore } from './nativeExecutionGateStore';
 import { useProjectStore } from './projectStore';
+import { loadLastAnswer } from './tabLastAnswer';
 
 /**
  * Renderer-only markers; never runner-reported outcomes or persisted state.
@@ -58,6 +59,17 @@ interface ProjectTestState {
   stop: (binding: ProjectTestBinding) => Promise<void>;
   setFilter: (filter: 'all' | 'failed') => void;
   focusFailure: (test: Pick<ProjectTestCase, 'file' | 'path'> | null) => void;
+}
+
+const ANSWERING_RUNS = new Set<ProjectTestRunResult['kind']>(['success', 'failed', 'timed-out', 'stopped']);
+
+async function recordProjectTestAnswer(projectId: string, result: ProjectTestRunResult): Promise<void> {
+  const ranAt = Date.now();
+  const answers = await loadLastAnswer().catch(() => null);
+  if (!answers) return;
+  const { testsLastAnswer, withDelta, sanitizeLastAnswer } = answers;
+  const previous = useProjectStore.getState().recentProjects.find(entry => entry.id === projectId)?.lastAnswer;
+  useProjectStore.getState().setRecentTestAnswer(projectId, withDelta(testsLastAnswer(result, ranAt), sanitizeLastAnswer(previous)));
 }
 
 const sameTest = (a: Pick<ProjectTestCase, 'file' | 'path'>, b: Pick<ProjectTestCase, 'file' | 'path'>) =>
@@ -230,7 +242,11 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       const result = await bridge.run(binding.rootId, framework, runId, scope);
       if (get().activeRunId !== runId) return;
       const project = useProjectStore.getState().currentProject;
-      if (project?.rootId === binding.rootId) useProjectStore.getState().setRecentTestRunner(project.id, framework);
+      if (project?.rootId === binding.rootId) {
+        useProjectStore.getState().setRecentTestRunner(project.id, framework);
+        // A scoped run answers for part of the project, not the folder.
+        if (scope.kind === 'all' && ANSWERING_RUNS.has(result.kind)) void recordProjectTestAnswer(project.id, result);
+      }
       set(state => {
         if (!result.cases) return { status: 'ready', activeRunId: null, runningScope: null, result };
         const cases = mergeProjectTestCases(state.cases, scope, result.cases);

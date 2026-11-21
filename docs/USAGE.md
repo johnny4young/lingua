@@ -45,6 +45,16 @@ The bar reads as a context chip followed by one filled verb, and each surface fi
 
 Go to Symbol reads the active JavaScript or TypeScript file's declaration tree and lists functions, classes, methods, and other named declarations in source order. Other languages currently show the unsupported state instead of a partial outline.
 
+## Start page
+
+With no tab open, Lingua shows Start.
+
+- **Pick up where it answered** lists the tabs of your last session that left an answer, with that answer, how long the run took and how long ago it ran, plus the last folder you tested when no folder is open. Click a row, or press its number, to reopen that tab next to any you already have; the rest stay listed. **Reopen all** brings back the rest of the session, the same as the restore prompt, and keeps the tabs you already have. The list shows the session the restore prompt offers, so it appears with session restore set to Ask.
+- **New** opens a scratch file in any runnable language, each tile saying how it runs here (offline, in the browser, Go found, not installed), and opens a Notebook, SQL, HTTP, Utilities, Open… or Capsules with the shortcut shown on its tile.
+- **Templates** lists the built-in templates, one row per title with a badge per language; the language filter narrows the list.
+- **or try** opens welcome.js, a sample table in the SQL workspace, or a sample request in the HTTP workspace.
+- The command bar verb reads **New scratch** and opens a JavaScript scratch file. The dock stays hidden until a tab opens, unless a folder is open, so its Terminal and Tests stay reachable.
+
 ## Sharing a selected code reference
 
 Select code in the editor, then choose **Copy reference** or **Copy with

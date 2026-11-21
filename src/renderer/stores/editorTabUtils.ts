@@ -5,6 +5,9 @@ import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { sqlQueryTabCount } from './sqlQueryTabCount';
 
+/** What New scratch opens when no tab sets the command bar's language. */
+export const NEW_SCRATCH_LANGUAGE: Language = 'javascript';
+
 /**
  * Pure tab helpers extracted verbatim from `editorStore.ts`.
  *

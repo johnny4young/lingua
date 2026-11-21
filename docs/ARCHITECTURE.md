@@ -1306,6 +1306,32 @@ metadata-only contract. Removing a run's capsule, or Clear everything in
 Settings › Privacy, drops the record too. Restore as new tab opens the earlier run's code in Run mode, never
 running it.
 
+### Last answer
+
+Each finished run leaves a small summary on its tab (`FileTab.lastAnswer`,
+`utils/lastAnswer.ts`) for Start and the palette: a numeral of up to 24
+characters, its unit, a picture of up to 24 numbers, the duration, the change
+from the previous duration, and when it ran. Bar pictures hold heights from 0
+to 100, never the values behind them. Printed text passes through
+`redactSecretsFromOutput` before it is clipped. Code runs answer with their last value,
+SQL runs with the row count of the SQL tab, and HTTP runs with the status of the
+HTTP tab. A whole-project test run answers on the recent project entry in
+`lingua-project-store`. Region runs and runs that throw before a result keep the
+previous answer. The summary persists through `lingua-session` as an optional
+field: older sessions restore without it, and restore rebuilds it through
+`sanitizeLastAnswer`, so a malformed or oversized entry is dropped or clipped. If
+the summary chunk fails to load, restore keeps the tabs and drops their answers.
+The execution history stays in memory.
+
+Start lists these answers from the boot snapshot the restore prompt pins in
+ask mode (`pendingRestoreTabs` in the session store follows it), never from
+this session's autosave. Reopening one row calls `restoreSession({ only })`:
+the tab joins the open tabs (`restoreTabs` with `append`) and the snapshot
+keeps the rest, marked partial so a later full restore appends too. One restore
+runs at a time, and any restore of the pinned snapshot closes the prompt. The
+translator from saved tabs to editor tabs lives in `stores/sessionRestore.ts`
+and loads on the first restore, so it stays off the startup graph.
+
 ### Run state
 
 Each run records the code and the stdin and arguments it started from in

@@ -16,6 +16,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { SqlQueryV1, SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { buildSampleTable } from '../../../shared/sqlSampleTable';
+import { useSqlSampleRequest } from './pendingSqlSample';
 import { splitSqlStatements } from '../../../shared/sqlStatements';
 import {
   executeQuery,
@@ -475,6 +476,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     canLeave: canLeaveTable,
   });
   const { activeConnection } = remote;
+  useSqlSampleRequest(catalogLoaded, activeConnection ? null : handleTrySample);
   const instantSql = useInstantSqlChannel(!activeConnection);
 
   // Stays mounted while the explorer is folded: the rail's Import clicks its input.

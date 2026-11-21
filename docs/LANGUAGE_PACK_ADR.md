@@ -136,10 +136,11 @@ descriptor only when one of the triggers below is hit.
 - `SnippetsModal` surfaces every `run` / `compile` pack in registry
   order and appends a localized desktop-only suffix on web builds for
   host-toolchain packs.
-- `EditorEmptyState` surfaces runnable packs that also ship starter
-  templates; Lua intentionally stays out of the quick-start row until
-  it gains a starter template, but it is available in the snippet
-  picker.
+- `EditorEmptyState` (the Start page) lists every `run` / `compile`
+  pack under New, self-contained runtimes first, each with how it runs
+  on this build: offline on desktop, in the browser on web, and the
+  detected toolchain state for Go and Rust. Lua has no starter template,
+  so it appears under New but not in the template list.
 - The original Settings capability-matrix note was speculative. Lingua
   has no per-language Settings surface today; if one is added later, it
   should consume `getLanguagePackById()` / `LANGUAGE_PACKS` from the

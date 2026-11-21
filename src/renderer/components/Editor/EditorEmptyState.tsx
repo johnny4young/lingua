@@ -1,188 +1,72 @@
-import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
-import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
-import {
-  BUILT_IN_TEMPLATES,
-  resolveTemplateDescription,
-  resolveTemplateFileStem,
-  resolveTemplateLabel,
-} from '../../data/templates';
-import type { Language } from '../../types/language';
-import {
-  extensionForLanguage,
-  languageBadgeClass,
-  languageCapabilityBadgeKey,
-  languageLabel,
-} from '../../utils/languageMeta';
-import { Kbd } from '../ui/chrome';
-import { CommandBarSlot, CommandBarVerb } from '../Chrome/CommandBarSlot';
-import { useShortcutLabel } from '../../hooks/useShortcutLabel';
-import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
+import '../../i18n/startCatalog';
+import '../Start/start.css';
+import { useEditorStore } from '../../stores/editorStore';
+import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../../runtime/openWorkspaceTab';
+import { SEEDED_SCRATCHPAD_NAME, seededScratchpadTab } from '../../onboarding/seedScratchpad';
+import { requestSqlSample } from '../SqlWorkspace/pendingSqlSample';
+import { StartNew } from '../Start/StartNew';
+import { StartPickUp } from '../Start/StartPickUp';
+import { StartTemplates } from '../Start/StartTemplates';
 
-// The quick-start row used to be a hardcoded
-// `['javascript', 'typescript', 'go', 'python', 'rust']`. Walking
-// `LANGUAGE_PACKS` with the runnable + has-templates predicate keeps
-// the list in sync with the registry: future runnable packs that ship
-// with starter templates land here automatically; Lua stays out until
-// it gains a starter (its `templateIds` is empty per the
-// language-pack guard test).
-const QUICK_START_PACKS = LANGUAGE_PACKS.filter(
-  (pack) =>
-    (pack.execution === 'run' || pack.execution === 'compile') &&
-    pack.templateIds.length > 0
-);
+const SAMPLE_REQUEST_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 
-const FEATURED_TEMPLATES = BUILT_IN_TEMPLATES.slice(0, 6);
-const TOTAL_TEMPLATE_COUNT = BUILT_IN_TEMPLATES.length;
+function openSampleTable(): void {
+  requestSqlSample();
+  openSqlWorkspaceTab();
+}
 
-export function EditorEmptyState() {
-  const addTab = useEditorStore((state) => state.addTab);
+async function openSampleRequest(name: string): Promise<void> {
+  const [{ useWorkspaceToolStore }, { createBlankHttpRequest }] = await Promise.all([
+    import('../../stores/workspaceToolStore'),
+    import('../../../shared/httpWorkspaceSchema'),
+  ]);
+  useWorkspaceToolStore.getState().createRequest({
+    ...createBlankHttpRequest({ id: crypto.randomUUID(), name }),
+    url: SAMPLE_REQUEST_URL,
+  });
+  openHttpWorkspaceTab();
+}
+
+function StarterChips() {
   const { t } = useTranslation();
-  const paletteCombo = useShortcutLabel('overlay-command-palette');
-  const sidebarCombo = useShortcutLabel('view-toggle-sidebar');
-  const runCombo = useShortcutLabel('run-toggle');
-  // Mirror the platform-gate idiom used elsewhere (Toolbar, FileTree).
-  // The "Desktop only" pill only makes sense on the web build —
-  // packaged Electron actually runs Go / Rust, so a pill there would
-  // mislead the user.
-  const isWebBuild =
-    typeof window !== 'undefined' && window.lingua?.platform === 'web';
-
-  const openTemplate = (templateId: string) => {
-    const template = BUILT_IN_TEMPLATES.find((item) => item.id === templateId);
-    if (!template) {
-      return;
-    }
-
-    const tab = createDefaultTab(template.language);
-    addTab({
-      ...tab,
-      content: template.code,
-      name: `${resolveTemplateFileStem(template)}.${extensionForLanguage(template.language)}`,
-    });
-  };
-
-  const quickStart = (language: Language) => {
-    addTab(createDefaultTab(language));
-  };
-
+  const starters = [
+    { id: 'welcome', label: SEEDED_SCRATCHPAD_NAME, open: () => useEditorStore.getState().addTab(seededScratchpadTab()) },
+    { id: 'sample-table', label: t('start.try.sampleTable'), open: openSampleTable },
+    { id: 'sample-request', label: t('start.try.sampleRequest'), open: () => void openSampleRequest(t('start.try.sampleRequestName')) },
+  ];
   return (
-    // Welcome screen migrated from the legacy
-    // purple-gradient + `text-foreground` / `text-muted` palette to the
-    // Signal-Slate tokens shipping with the v2 design (slate accent at
-    // hue 210, semantic bg-/fg- variables). The gradient now reads as a
-    // soft slate halo that matches the rest of the chrome.
-    <div className="relative flex h-full flex-col overflow-auto bg-bg-base">
-      <CommandBarSlot slot="verb">
-        <CommandBarVerb
-          label={t('actionPill.newScratch')}
-          icon={<Plus size={12} />}
-          onClick={() => quickStart('javascript')}
-          testId="action-pill-new-scratch"
-        />
-      </CommandBarSlot>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-accent)_22%,transparent),transparent_68%)]" />
+    <div className="start-small mt-4 flex flex-wrap items-center gap-2 text-fg-muted">
+      <span>{t('start.try.label')}</span>
+      {starters.map(starter => (
+        <button
+          key={starter.id}
+          type="button"
+          onClick={starter.open}
+          data-testid={`start-try-${starter.id}`}
+          className="start-chip focus-ring inline-flex items-center rounded-md bg-bg-panel-alt text-fg-muted transition-colors hover:text-fg-base"
+        >
+          {starter.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-16 px-5 py-16 sm:px-16 lg:gap-10">
-        <div className="flex flex-col justify-center gap-16 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
-        <section className="animate-rise-in space-y-7">
-          <div className="inline-flex items-center gap-3">
-            <div className="relative flex h-14 w-14 items-center justify-center rounded-3xl border border-border-strong/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]">
-              <span className="font-display text-h2 font-semibold tracking-[0.14em] text-accent-fg">
-                LG
-              </span>
-              <span className="absolute inset-1 rounded-2xl border border-border-subtle/60" />
-            </div>
-            <div>
-              <h1 className="font-display text-display font-semibold tracking-[-0.04em] text-fg-base sm:text-display-lg">
-                Lingua
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {QUICK_START_PACKS.map((pack) => {
-              const language = pack.id as Language;
-              const isDesktopOnly =
-                languageCapabilityBadgeKey(language) ===
-                'language.capability.desktopOnly';
-              const showDesktopOnlyBadge = isWebBuild && isDesktopOnly;
-              return (
-                <button
-                  key={language}
-                  type="button"
-                  onClick={() => quickStart(language)}
-                  data-testid={`empty-state-quick-start-${language}`}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-body-sm font-semibold transition-transform hover:-translate-y-0.5 ${languageBadgeClass(language)}`}
-                >
-                  <span>{languageLabel(language)}</span>
-                  {showDesktopOnlyBadge ? (
-                    <span
-                      data-testid={`empty-state-desktop-only-${language}`}
-                      // Bumped from `text-muted` to `text-foreground` so the
-                      // 10px badge passes WCAG 2.1 AA contrast (>=4.5:1) on top of the
-                      // language button's tinted background. axe-core flagged the
-                      // previous combo at 4.35:1.
-                      className="rounded-full bg-foreground/15 px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.14em] text-foreground"
-                    >
-                      {t('language.capability.desktopOnly')}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-caption text-fg-muted">
-            <span>
-              <Kbd>{paletteCombo}</Kbd> {t('emptyState.shortcut.commands')}
-            </span>
-            <span>
-              <Kbd>{sidebarCombo}</Kbd> {t('emptyState.shortcut.sidebar')}
-            </span>
-            <span>
-              <Kbd>{runCombo}</Kbd> {t('emptyState.shortcut.run')}
-            </span>
-          </div>
-        </section>
-
-        <section className="animate-rise-in overflow-hidden rounded-4xl border border-border-subtle/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_8%,transparent)]">
-          <div className="flex items-center justify-between border-b border-border-subtle/60 bg-bg-panel-alt/60 px-5 py-4">
-            <div>
-              <p className="panel-title">{t('emptyState.startingPoints.title')}</p>
-            </div>
-            <div className="status-pill">
-              {t('emptyState.templatesCount', { count: TOTAL_TEMPLATE_COUNT })}
-            </div>
-          </div>
-
-          <div className="grid gap-2 p-3 sm:grid-cols-2">
-            {FEATURED_TEMPLATES.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => openTemplate(template.id)}
-                className="group flex flex-col gap-2 rounded-2xl border border-border-subtle/70 bg-bg-panel-alt/65 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-panel"
-              >
-                <span
-                  className={`self-start rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.16em] ${languageBadgeClass(template.language)}`}
-                >
-                  {template.language}
-                </span>
-                <span className="font-display text-h3 font-semibold tracking-[-0.03em] text-fg-base">
-                  {resolveTemplateLabel(template, t)}
-                </span>
-                <span className="text-body-sm leading-6 text-fg-muted">
-                  {resolveTemplateDescription(template, t)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-        </div>
-
-        <ProjectTemplatesPanel />
+/** Start: what last answered, a new scratch file or workspace, and the templates. */
+export function EditorEmptyState() {
+  const { t } = useTranslation();
+  return (
+    <div className="h-full overflow-auto bg-bg-base" data-testid="start-page">
+      <div className="start-inner">
+        <h1 className="start-headline font-display italic tracking-[-0.03em] text-fg-base">
+          {t('start.headline')}
+          <span className="start-headline-dot">.</span>
+        </h1>
+        <StarterChips />
+        <StartPickUp />
+        <StartNew />
+        <StartTemplates />
       </div>
     </div>
   );

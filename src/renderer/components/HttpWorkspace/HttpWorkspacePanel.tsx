@@ -69,6 +69,8 @@ import { ENVIRONMENT_TINTS } from './httpScopeColors';
 import { CommandBarSlot } from '../Chrome/CommandBarSlot';
 import { HttpPipelineManager } from './HttpPipelineManager';
 import { appPlatform } from '../../utils/appPlatform';
+import { recordTabLastAnswer } from '../../stores/tabLastAnswer';
+import { HTTP_WORKSPACE_TAB_ID } from '../../stores/editorTabUtils';
 
 export interface HttpWorkspacePanelProps {
   /**
@@ -557,6 +559,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         } else {
           announce(t('httpWorkspace.run.announceError'));
         }
+        // A token this response introduced was not a known secret when it was masked.
+        const answered = maskSecretValuesInResponse(response, secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env)));
         let capsule;
         try {
           const appInfo = getBundledAppInfo();
@@ -568,17 +572,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             appVersion: appInfo.version,
             requestName: requestToSend.name,
             request: capsuleSafe,
-            // A token this response introduced was not a known secret when it was masked.
-            response: maskSecretValuesInResponse(
-              response,
-              secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env))
-            ),
+            response: answered,
             platform,
             userSensitiveHeaders: sensitiveHttpHeaders,
           });
         } catch {
           capsule = undefined;
         }
+        void recordTabLastAnswer(HTTP_WORKSPACE_TAB_ID, ({ httpLastAnswer }, ranAt) => httpLastAnswer(answered, requestToSend.method, ranAt));
         useExecutionHistoryStore.getState().record({
           language: 'http',
           status: response.kind === 'success' ? 'ok' : 'error',
