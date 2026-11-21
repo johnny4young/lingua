@@ -4,13 +4,13 @@ import { Folder } from 'lucide-react';
 import { getSessionTabAnswers, projectLastAnswer, type SessionTabAnswer } from '../../stores/lastAnswerSelectors';
 import { useProjectStore, type RecentProject } from '../../stores/projectStore';
 import { useSessionStore } from '../../stores/sessionStore';
-import type { Language } from '../../types/language';
 import type { LastAnswer } from '../../utils/lastAnswer';
 import { languageLabel } from '../../utils/languageMeta';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { AnswerPicture } from './AnswerPicture';
 import { LanguageSquare, SectionHeading, DottedLeader } from './StartParts';
-import { answerFallback, answerUnit, startTimeAgo } from './startModel';
+import { answerDisplay, answerIdentity } from './answerLabels';
+import { startTimeAgo } from './startModel';
 
 const MAX_ROWS = 9;
 
@@ -29,9 +29,7 @@ function reopenTab(index: number): void {
 
 function tabRow(tab: SessionTabAnswer, t: (key: string) => string): PickUpRow {
   const { lastAnswer } = tab;
-  const workspace = tab.kind === 'sql' || tab.kind === 'http';
-  const badgeLanguage = (workspace ? tab.kind : tab.language) as Language;
-  const name = workspace && lastAnswer.subject ? lastAnswer.subject : tab.name;
+  const { badge: badgeLanguage, name, workspace } = answerIdentity(tab, lastAnswer);
   const detail = workspace
     ? undefined
     : tab.filePath
@@ -65,8 +63,7 @@ function projectRow(project: RecentProject, answer: LastAnswer, t: (key: string)
 
 function AnswerValue({ answer }: { answer: LastAnswer }) {
   const { t } = useTranslation();
-  const failed = answer.status !== 'ok' || answer.unit === 'failed';
-  const unit = answer.numeral ? answerUnit(answer, t) : undefined;
+  const { value, unit, failed } = answerDisplay(answer, t);
   return (
     <span className="flex min-w-0 shrink-0 items-baseline gap-1.5 whitespace-nowrap">
       <span
@@ -74,7 +71,7 @@ function AnswerValue({ answer }: { answer: LastAnswer }) {
         data-empty={answer.numeral ? undefined : ''}
         data-failed={failed ? '' : undefined}
       >
-        {answer.numeral || answerFallback(answer, t)}
+        {value}
       </span>
       {unit ? <span className="start-unit font-display italic text-fg-muted">{unit}</span> : null}
     </span>

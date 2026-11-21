@@ -262,6 +262,9 @@ group jump. Keep shortcuts out of command descriptions; add the command id to
 that map instead, so the keycap follows the user's overrides. A combo outside
 the remappable catalog (paste as plain text) sets `CommandEntry.shortcut`.
 While filtering, groups follow their best-ranked match so Enter runs the top hit.
+On the empty query the Recent group holds the newest open tabs and recent files
+with their `lastAnswer` (`commandPaletteRecentFiles.ts`); executed commands go
+to `commandHistoryStore` and show only in the Cmd+; stack.
 `usePaletteAutodetect.ts` reads the query with
 `shared/paletteIntent.ts` and puts one Autodetected row above the groups (a
 question for Explain this code, or a file for Quick Open); that row is not a

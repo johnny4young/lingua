@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Tooltip } from '../ui/chrome';
 import { ContextualHint } from '../ContextualHints/ContextualHint';
 import { ModalShell } from '../ui/ModalShell';
-import { ModalFooterLegend } from '../ui/ModalFooterLegend';
+import { LegendPair, ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { CommandPaletteResults } from './CommandPaletteResults';
 import { filterCommandPaletteCommands } from './commandPaletteModel';
 import { adjacentGroupStart, groupCommands } from './commandPaletteGroups';
@@ -12,6 +12,12 @@ import { useCommandPaletteCommands } from './useCommandPaletteCommands';
 import { usePaletteAutodetect } from './usePaletteAutodetect';
 import { Kbd } from '../ui/ModalShell';
 import { useCommandHistoryStore } from '../../stores/commandHistoryStore';
+import { useEditorStore } from '../../stores/editorStore';
+import { lastAnswerForPath } from '../../stores/lastAnswerSelectors';
+import { useRecentFilesStore } from '../../stores/recentFilesStore';
+import { reopenRecentFile } from '../../utils/reopenRecentFile';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { buildRecentFileEntries } from './commandPaletteRecentFiles';
 import type { CommandPaletteProps } from './commandPaletteTypes';
 
 export type { CommandPaletteProps } from './commandPaletteTypes';
@@ -34,6 +40,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   const builtCommands = useCommandPaletteCommands(props);
   const recentEntries = useCommandHistoryStore(state => state.entries);
   const { t } = useTranslation();
+  const recentCommandsCombo = useShortcutLabel('overlay-recent-commands');
   const autodetect = usePaletteAutodetect(query, { enabled: !isRecentVariant, onOpenQuickOpen: props.onOpenQuickOpen, onClose });
   const search = autodetect.intent.query;
 
@@ -75,16 +82,34 @@ export function CommandPalette(props: CommandPaletteProps) {
     return filterCommandPaletteCommands(allCommands, search);
   }, [allCommands, isRecentVariant, search, recentEntries]);
   const isEmptyQuery = search.trim().length === 0;
+  // Read once: the rows describe the workspace as it was when the palette opened.
+  const [recentFileEntries] = useState(() =>
+    isRecentVariant
+      ? []
+      : buildRecentFileEntries({
+          tabs: useEditorStore.getState().tabs,
+          recentFiles: useRecentFilesStore.getState().recentFiles,
+          answerForPath: lastAnswerForPath,
+          openTab: id => {
+            onClose();
+            useEditorStore.getState().setActiveTab(id);
+          },
+          reopenFile: file => {
+            onClose();
+            void reopenRecentFile(file, useEditorStore.getState().openFile);
+          },
+        })
+  );
   // Rows read top to bottom by group, so selection and Enter follow the
   // grouped order rather than the raw ranking.
   const detected = autodetect.entry;
   const groups = useMemo(() => {
     if (isRecentVariant) return null;
     const grouped = isEmptyQuery
-      ? groupCommands(filtered, recentEntries.map(entry => entry.id))
+      ? groupCommands(filtered, recentFileEntries)
       : groupCommands(filtered, [], { ranked: true });
     return detected ? [{ id: 'autodetected' as const, commands: [detected] }, ...grouped] : grouped;
-  }, [detected, filtered, isEmptyQuery, isRecentVariant, recentEntries]);
+  }, [detected, filtered, isEmptyQuery, isRecentVariant, recentFileEntries]);
   const ordered = useMemo(
     () => (groups ? groups.flatMap(group => group.commands) : filtered),
     [filtered, groups]
@@ -208,7 +233,14 @@ export function CommandPalette(props: CommandPaletteProps) {
         </div>
       }
       footerLegend={
-        <ModalFooterLegend navigate select nextGroup={groups !== null} close={false} />
+        <div className="flex flex-wrap items-center gap-[14px]">
+          <ModalFooterLegend navigate select nextGroup={groups !== null} close={false} />
+          {isRecentVariant || !recentCommandsCombo ? null : (
+            <span data-testid="command-palette-recent-commands-hint">
+              <LegendPair glyph={recentCommandsCombo} label={t('start.palette.recentCommands')} />
+            </span>
+          )}
+        </div>
       }
       trailing={
         // accessibility pass — polite live region announcing the result count as

@@ -28,7 +28,7 @@ interface LegendPairProps {
   label: string;
 }
 
-function LegendPair({ glyph, label }: LegendPairProps) {
+export function LegendPair({ glyph, label }: LegendPairProps) {
   return (
     <span className="flex items-center gap-[6px] text-caption text-fg-subtle">
       <Kbd>{glyph}</Kbd>

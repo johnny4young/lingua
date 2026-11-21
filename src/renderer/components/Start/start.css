@@ -150,20 +150,6 @@
   border-top: 1.5px solid var(--color-fg-base);
 }
 
-.start-leader {
-  flex: 1;
-  min-width: 30px;
-  height: 2px;
-  margin: 0 6px;
-  background: radial-gradient(circle, var(--color-border-strong) 1px, transparent 1.2px) 0 0 / 8px 2px repeat-x;
-}
-
-.start-lang {
-  min-width: 20px;
-  padding: 0 3px;
-  font-size: 9.5px;
-}
-
 .start-row-name {
   font-size: 15px;
 }

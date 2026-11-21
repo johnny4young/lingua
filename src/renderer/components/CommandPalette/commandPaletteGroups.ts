@@ -22,7 +22,7 @@ const COMMAND_GROUP_ORDER: readonly CommandGroupId[] = [
 
 export const COMMAND_GROUP_LABEL_KEY: Record<CommandGroupId, string> = {
   autodetected: 'commandPalette.scope.autodetected',
-  recent: 'commandPalette.scope.recent',
+  recent: 'start.palette.recent',
   workspaces: 'commandPalette.scope.workspaces',
   commands: 'commandPalette.scope.actions',
   utilities: 'commandPalette.scope.utilities',
@@ -91,23 +91,17 @@ export interface CommandGroup {
 
 /**
  * Buckets ranked results into the palette's groups, keeping rank order inside
- * each group. Recent leads only on the empty query, and a command listed
- * there does not repeat in its own group. With `ranked`, groups follow their
- * best match, so the first row (what Enter runs) stays the top-ranked command.
+ * each group. Recent files lead only on the empty query. With `ranked`, groups
+ * follow their best match, so the first row (what Enter runs) stays the
+ * top-ranked command.
  */
 export function groupCommands(
   commands: readonly CommandEntry[],
-  recentIds: readonly string[] = [],
+  recent: readonly CommandEntry[] = [],
   { ranked = false }: { ranked?: boolean } = {}
 ): CommandGroup[] {
-  const byId = new Map(commands.map(command => [command.id, command]));
-  const recent = recentIds
-    .map(id => byId.get(id))
-    .filter((command): command is CommandEntry => command !== undefined);
-  const shown = new Set(recent.map(command => command.id));
-  const buckets = new Map<CommandGroupId, CommandEntry[]>([['recent', recent]]);
+  const buckets = new Map<CommandGroupId, CommandEntry[]>([['recent', [...recent]]]);
   for (const command of commands) {
-    if (shown.has(command.id)) continue;
     const group = commandGroupFor(command);
     buckets.set(group, [...(buckets.get(group) ?? []), command]);
   }

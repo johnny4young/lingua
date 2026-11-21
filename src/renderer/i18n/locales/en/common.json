@@ -1688,7 +1688,6 @@
   "commandPalette.autodetect.ask.label": "Ask AI: {{query}}",
   "commandPalette.autodetect.ask.description": "Explain this code",
   "commandPalette.autodetect.file.label": "Find {{query}} in Quick Open",
-  "commandPalette.scope.recent": "Recent",
   "commandPalette.scope.workspaces": "Workspaces",
   "commandPalette.scope.utilities": "Utilities",
   "commandPalette.results.countOf": "{{shown}} of {{total}} results",

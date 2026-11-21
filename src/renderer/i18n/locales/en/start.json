@@ -38,6 +38,8 @@
   "start.answer.noValue": "no value",
   "start.answer.faster": "{{duration}} faster than the run before",
   "start.answer.slower": "{{duration}} slower than the run before",
+  "start.palette.recent": "Recent — with its last answer",
+  "start.palette.recentCommands": "recent commands",
   "start.new.title": "New",
   "start.new.scratch": "New {{language}} scratch file, {{availability}}",
   "start.availability.offline": "offline",

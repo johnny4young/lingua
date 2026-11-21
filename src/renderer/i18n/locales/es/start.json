@@ -38,6 +38,8 @@
   "start.answer.noValue": "sin valor",
   "start.answer.faster": "{{duration}} más rápido que la corrida anterior",
   "start.answer.slower": "{{duration}} más lento que la corrida anterior",
+  "start.palette.recent": "Recientes — con su última respuesta",
+  "start.palette.recentCommands": "comandos recientes",
   "start.new.title": "Nuevo",
   "start.new.scratch": "Nuevo archivo borrador de {{language}}, {{availability}}",
   "start.availability.offline": "sin red",
