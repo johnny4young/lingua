@@ -34,11 +34,11 @@ beforeAll(async () => {
   await i18next.changeLanguage('en');
 });
 
-describe('column rail and sort', () => {
+describe('column stats and sort', () => {
   it('keeps its stats when the grid is only re-sorted', async () => {
     const user = userEvent.setup();
     render(<SqlResultPreview response={response} isExecuting={false} rowDisplayLimit={1_000} />);
-    expect(screen.getByTestId('sql-column-rail')).toBeTruthy();
+    expect(screen.getByTestId('sql-result-head-spark')).toBeTruthy();
     const before = calls.count;
     await user.click(screen.getByTestId('sql-result-preview-sort'));
     await user.click(screen.getByTestId('sql-result-preview-sort'));

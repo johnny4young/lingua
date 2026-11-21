@@ -5,6 +5,8 @@ import { filterSqlHistory, type SqlHistoryEntryV1 } from '../../../shared/sqlHis
 import { cn } from '../../utils/cn';
 import { toneForSqlStatus } from './sqlStatusTone';
 import { formatClock } from './sqlResultFormatters';
+import { SqlLatencyBar } from './SqlLatencyBar';
+import { maxDuration } from './sqlLatency';
 
 const DOT_CLASS: Partial<Record<ReturnType<typeof toneForSqlStatus>, string>> = {
   success: 'bg-success-fg',
@@ -39,6 +41,7 @@ export function SqlHistorySection({
   const [search, setSearch] = useState('');
   const entries = useMemo(() => filterSqlHistory(allEntries, '', connectionId), [allEntries, connectionId]);
   const visible = useMemo(() => filterSqlHistory(entries, search, connectionId), [entries, search, connectionId]);
+  const slowest = useMemo(() => maxDuration(visible.map((entry) => entry.durationMs)), [visible]);
 
   return (
     <div data-testid="sql-history-section" className="flex flex-col border-t border-border-subtle bg-bg-panel">
@@ -96,7 +99,9 @@ export function SqlHistorySection({
                 {t(entries.length === 0 ? 'sqlWorkspace.history.empty' : 'sqlWorkspace.history.noMatch')}
               </li>
             ) : null}
-            {visible.map((entry) => (
+            {visible.map((entry) => {
+              const tone = toneForSqlStatus(entry.status);
+              return (
               <li key={entry.id}>
                 <button
                   type="button"
@@ -109,23 +114,27 @@ export function SqlHistorySection({
                   <span className="flex w-full min-w-0 items-center gap-1.5">
                     <span
                       aria-hidden="true"
-                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', DOT_CLASS[toneForSqlStatus(entry.status)] ?? 'bg-fg-subtle')}
+                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', DOT_CLASS[tone] ?? 'bg-fg-subtle')}
                     />
                     <span className="min-w-0 flex-1 truncate font-mono text-caption text-fg-base">
                       {entry.sql.replace(/\s+/g, ' ').trim()}
                     </span>
                   </span>
-                  <span className="truncate pl-3 font-mono text-micro tabular-nums text-fg-subtle">
-                    {t('sqlWorkspace.history.meta', {
-                      time: formatClock(entry.recordedAt),
-                      duration: Math.round(entry.durationMs),
-                      status: t(`sqlWorkspace.statusPill.${entry.status}`),
-                      count: entry.rowCount,
-                    })}
+                  <span className="flex w-full min-w-0 items-center gap-1.5 pl-3">
+                    <SqlLatencyBar durationMs={entry.durationMs} maxMs={slowest} failed={tone === 'error'} />
+                    <span className="truncate font-mono text-micro tabular-nums text-fg-subtle">
+                      {t('sqlWorkspace.history.meta', {
+                        time: formatClock(entry.recordedAt),
+                        duration: Math.round(entry.durationMs),
+                        status: t(`sqlWorkspace.statusPill.${entry.status}`),
+                        count: entry.rowCount,
+                      })}
+                    </span>
                   </span>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       ) : null}

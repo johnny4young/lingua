@@ -23,12 +23,13 @@ describe('planColumns', () => {
     expect(widthOf('漢'.repeat(40))).toBe(widthOf('x'.repeat(80)));
   });
 
-  it('reserves room for a bar and for a foreign key arrow', () => {
+  it('reserves room for a bar, a scale bar and a foreign key arrow', () => {
     const typed = column('c', 'DOUBLE', true);
     const rows = [{ c: 1.234567890123456 }];
     const plain = planColumns([typed], rows, new Set(), undefined).widths[0]!;
     expect(planColumns([typed], rows, new Set(['c']), undefined).widths[0]).toBe(plain + 56);
     expect(planColumns([typed], rows, new Set(), new Set(['c'])).widths[0]).toBeGreaterThan(plain);
+    expect(planColumns([typed], rows, new Set(), undefined, new Map([['c', 2]])).widths[0]).toBe(plain + 98);
   });
 
   it('leaves images and BLOBs at the minimum, since they draw as thumbnails', () => {

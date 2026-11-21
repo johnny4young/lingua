@@ -7,6 +7,7 @@ import type { SqlForeignKey } from '../../../src/renderer/runtime/sqlForeignKeys
 import { useSnippetsStore } from '../../../src/renderer/stores/snippetsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
+import { showColumnRail } from './columnRail.helpers';
 
 const png = btoa(String.fromCharCode(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a));
 
@@ -179,6 +180,7 @@ describe('value viewer', () => {
   it('opens on Enter with JSON pretty-printed, and shows a BLOB image with hex', async () => {
     const user = userEvent.setup();
     render(<SqlResultPreview response={response(rows.slice(0, 3))} isExecuting={false} rowDisplayLimit={1_000} />);
+    showColumnRail();
     const metaCell = screen.getAllByTestId('sql-result-preview-row')[0]!.querySelector('td[data-column="meta"]')!;
     await user.click(metaCell);
     fireEvent.keyDown(screen.getByTestId('sql-result-preview-table-container'), { key: 'Enter' });
@@ -230,6 +232,7 @@ describe('column rail', () => {
     render(
       <SqlResultPreview response={response(rows.slice(0, 9))} isExecuting={false} rowDisplayLimit={1_000} onInsertPredicate={onInsertPredicate} />
     );
+    showColumnRail();
     const rail = screen.getByTestId('sql-column-rail');
     expect(within(rail).getByTestId('sql-column-rail-sample').textContent).toBe('of the 9 rows loaded');
     const city = within(rail).getAllByTestId('sql-rail-column').find((node) => node.dataset.column === 'city')!;
@@ -241,6 +244,5 @@ describe('column rail', () => {
     expect(onInsertPredicate).toHaveBeenLastCalledWith('id BETWEEN 0 AND 1');
     await user.click(screen.getByTestId('sql-column-rail-toggle'));
     expect(screen.queryByTestId('sql-column-rail')).toBeNull();
-    await user.click(screen.getByTestId('sql-column-rail-toggle'));
   });
 });

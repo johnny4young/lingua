@@ -13,6 +13,7 @@ import type { SqlTablePreview } from '../../../src/renderer/hooks/useSqlTablePre
 import { useSqlConnectionsStore } from '../../../src/renderer/stores/sqlConnectionsStore';
 import type { SqlDbConnectionView } from '../../../src/shared/sqlDb';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
+import { showColumnRail } from './columnRail.helpers';
 
 const response: SqlResponseV1 = {
   version: 1,
@@ -108,6 +109,7 @@ describe('staged row edits', () => {
     expect(screen.getAllByTestId('sql-result-preview-row')).toHaveLength(4);
     expect(cell(2, 'city').dataset.edit).toBe('inserted');
     expect(cell(3, 'total').textContent).toBe('default');
+    showColumnRail();
     expect(screen.getByTestId('sql-column-rail-sample').textContent).toBe('of the 2 rows loaded');
     expect(screen.getByTestId('sql-edit-count').textContent).toBe('4 staged changes');
     await user.click(screen.getByTestId('sql-edit-review'));

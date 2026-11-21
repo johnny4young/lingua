@@ -58,6 +58,7 @@ import { toneOf } from './sqlConnectionStyle';
 import { SqlSaveQueryPopover } from './SqlSaveQueryPopover';
 import { ENGINE_LABEL } from './sqlConnectionStyle';
 import { SqlHistorySection } from './SqlHistorySection';
+import { lastDurationByQuery } from './sqlLatency';
 import { SqlPlanView } from './SqlPlanView';
 import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -100,6 +101,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const tableSources = useWorkspaceSqlStore((state) => state.tableSources);
   const openQueryIds = useWorkspaceSqlStore((state) => state.openQueryIds);
   const history = useWorkspaceSqlStore((state) => state.history);
+  const lastDurations = useMemo(() => lastDurationByQuery(history), [history]);
 
   // The editor is never blank while a query tab is open.
   useEffect(() => {
@@ -506,6 +508,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onDuplicate={tabActions.duplicate}
         filter={explorerFilter}
         connectionLabel={remote.connectionLabel}
+        lastDurations={lastDurations}
       />
       <SqlHistorySection
         entries={history}

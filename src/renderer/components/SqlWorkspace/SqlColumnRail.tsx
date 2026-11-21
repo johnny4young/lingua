@@ -1,11 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
 import {
   betweenPredicate,
-  columnStats,
   equalsPredicate,
   statsRowLimit,
   type SqlColumnStats,
@@ -51,20 +49,20 @@ function Histogram({ stats, onInsert }: { stats: SqlColumnStats; onInsert?: (pre
   );
 }
 
-/** Always-on column summary beside the grid, from the rows already loaded. */
+/** Column summary beside the grid, from the rows already loaded; opened from the Columns toggle. */
 export function SqlColumnRail({
-  columns,
-  rows,
+  stats,
+  rowCount,
   onInsert,
 }: {
-  columns: ReadonlyArray<SqlColumnMetadata>;
-  rows: ReadonlyArray<Record<string, unknown>>;
+  /** `columnStats` of the shown columns over the loaded rows. */
+  stats: ReadonlyArray<SqlColumnStats>;
+  rowCount: number;
   /** Inserts a predicate at the editor cursor; absent when no query is open. */
   onInsert?: (predicate: string) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const stats = useMemo(() => columnStats(columns, rows), [columns, rows]);
-  const sampled = Math.min(rows.length, statsRowLimit(columns.length));
+  const sampled = Math.min(rowCount, statsRowLimit(stats.length));
   return (
     <aside
       data-testid="sql-column-rail"
@@ -74,13 +72,13 @@ export function SqlColumnRail({
       <header className="flex h-[34px] shrink-0 items-center gap-2 border-b border-border-subtle px-3">
         <span className="font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t('sqlWorkspace.rail.label')}</span>
         <span data-testid="sql-column-rail-sample" className="min-w-0 truncate font-mono text-micro text-fg-subtle">
-          {rows.length > sampled
+          {rowCount > sampled
             ? t('sqlWorkspace.rail.sampleFirst', {
                 count: sampled,
                 formatted: formatNumber(sampled, i18n.language),
-                total: formatNumber(rows.length, i18n.language),
+                total: formatNumber(rowCount, i18n.language),
               })
-            : t('sqlWorkspace.rail.sample', { count: rows.length, formatted: formatNumber(rows.length, i18n.language) })}
+            : t('sqlWorkspace.rail.sample', { count: rowCount, formatted: formatNumber(rowCount, i18n.language) })}
         </span>
       </header>
       <ul className="min-h-0 flex-1 overflow-auto">

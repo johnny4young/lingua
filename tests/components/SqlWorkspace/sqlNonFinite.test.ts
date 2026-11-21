@@ -1,6 +1,7 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { cellMagic, fractionColumns } from '../../../src/renderer/components/SqlWorkspace/sqlCellMagic';
+import { cellMagic } from '../../../src/renderer/components/SqlWorkspace/sqlCellMagic';
+import { resultInstruments } from '../../../src/renderer/components/SqlWorkspace/sqlColumnInstruments';
 import { viewCell } from '../../../src/renderer/components/SqlWorkspace/sqlCellValue';
 import { betweenPredicate, columnStats } from '../../../src/renderer/components/SqlWorkspace/sqlColumnStats';
 import { compareNumbers, nonFiniteNumber, quoteNonFiniteJson } from '../../../src/renderer/components/SqlWorkspace/sqlNonFinite';
@@ -230,8 +231,8 @@ describe('grid cells', () => {
 
   it('draws no magic, and a column holding one stays numbers rather than 0 to 1 bars', () => {
     expect(cellMagic('NaN', 'DOUBLE', true)).toBeNull();
-    const numeric = [{ name: 'x', numeric: true }];
-    expect(fractionColumns(numeric, [{ x: 0.5 }, { x: 'NaN' }])).toEqual(new Set());
-    expect(fractionColumns(numeric, [{ x: 0.5 }, { x: null }])).toEqual(new Set(['x']));
+    const fractions = (rows: Array<Record<string, unknown>>) => resultInstruments([{ name: 'x', type: 'Float64' }], rows, new Set(), 100).fractions;
+    expect(fractions([{ x: 0.5 }, { x: 'NaN' }])).toEqual(new Set());
+    expect(fractions([{ x: 0.5 }, { x: null }])).toEqual(new Set(['x']));
   });
 });

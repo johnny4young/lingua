@@ -4,6 +4,7 @@
  */
 
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
+import { BIN_COUNT } from './sqlColumnStats';
 import { renderCell } from './sqlResultFormatters';
 
 /** More shown columns than this mounts only those on screen; fewer keeps the table's auto layout. */
@@ -14,8 +15,14 @@ const SAMPLE_ROWS = 200;
 const CELL_CHAR_PX = 6.6;
 const TYPE_CHAR_PX = 5.76;
 const CELL_PADDING_PX = 21;
-const HEADER_PADDING_PX = 26;
 const BAR_PX = 56;
+/** A numeric cell's scale bar: its track and the gap after the number. */
+export const SCALE_BAR_TRACK_PX = 88;
+export const SCALE_BAR_GAP_PX = 10;
+/** The header spark: one tick per histogram bin, 1 px apart; the name sits on its own line below. */
+export const SPARK_TICK_PX = 3;
+export const SPARK_HEIGHT_PX = 9;
+const SPARK_WIDTH_PX = BIN_COUNT * (SPARK_TICK_PX + 1);
 const FK_ARROW_CHARS = 2;
 const MAX_CELL_PX = 512;
 const MIN_NUMERIC_PX = 130;
@@ -59,7 +66,8 @@ export function planColumns(
   typed: ReadonlyArray<TypedColumn>,
   rows: ReadonlyArray<Record<string, unknown>>,
   fractions: ReadonlySet<string>,
-  linkedColumns: ReadonlySet<string> | undefined
+  linkedColumns: ReadonlySet<string> | undefined,
+  scales?: ReadonlyMap<string, number>
 ): ColumnPlan {
   const longest = typed.map(() => 0);
   const step = Math.max(1, Math.floor(rows.length / SAMPLE_ROWS));
@@ -74,10 +82,12 @@ export function planColumns(
   }
   const widths = typed.map(({ col, duckType, numeric }, c) => {
     const linked = linkedColumns?.has(col.name) === true;
-    const decoration = (linked ? FK_ARROW_CHARS * CELL_CHAR_PX : 0) + (fractions.has(col.name) ? BAR_PX : 0);
+    const decoration =
+      (linked ? FK_ARROW_CHARS * CELL_CHAR_PX : 0) + (fractions.has(col.name) ? BAR_PX : scales?.has(col.name) ? SCALE_BAR_TRACK_PX + SCALE_BAR_GAP_PX : 0);
     const cell = Math.min(MAX_CELL_PX, longest[c]! * CELL_CHAR_PX + CELL_PADDING_PX + decoration);
     const typeLabel = linked ? `${duckType} · FK` : duckType;
-    const header = col.name.length * CELL_CHAR_PX + typeLabel.length * TYPE_CHAR_PX + HEADER_PADDING_PX;
+    const typeLine = typeLabel.length * TYPE_CHAR_PX + (numeric ? SPARK_WIDTH_PX : 0);
+    const header = Math.max(col.name.length * CELL_CHAR_PX, typeLine) + CELL_PADDING_PX;
     return Math.ceil(Math.max(numeric ? MIN_NUMERIC_PX : MIN_TEXT_PX, cell, header));
   });
   const offsets = [0];

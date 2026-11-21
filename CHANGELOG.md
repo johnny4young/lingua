@@ -6,7 +6,11 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+- SQL results read as instruments: each number has a bar scaled to its column, each header shows the column type over its name with its distribution, distinct count or sort, and a Σ row under the rows sums each numeric column, averaging rates, ratios and 0–1 fractions. SQL history and saved queries show a bar for each run's duration.
+
 ### Changed
+- The SQL column rail starts closed, since the headers carry each column's distribution; the Columns button opens it.
 - The interface uses Recursive and titles use Fraunces, both bundled with the app so they render the same offline. Inter and JetBrains Mono stay bundled, and the editor font is still yours to choose.
 - On desktop, TypeScript that only needs its types removed runs without loading the esbuild compiler, so the first TypeScript run starts sooner. Code with enums, namespaces, decorators or JSX still goes through esbuild.
 - On desktop, the window paints sooner at startup: the shell loads its small startup modules as one file, so it fetches 14 files before its first paint instead of 41.

@@ -17,34 +17,6 @@ const DISGUISING_CHARS = /[\p{Cc}\p{Cf}\u2028\u2029]/u;
 const HTTP_URL = /^https?:\/\/[^\s<>"]+$/i;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
-/**
- * Numeric columns drawn as 0–1 bars: every loaded value is a number from 0
- * to 1 and at least one has a fraction, so a column of 0s and 1s stays numbers.
- */
-export function fractionColumns(
-  columns: ReadonlyArray<{ name: string; numeric: boolean }>,
-  rows: ReadonlyArray<Record<string, unknown>>
-): ReadonlySet<string> {
-  // Row by row: rows are hash tables scattered over the heap, so a column at a time misses the cache on every cell.
-  const open = columns.filter(({ numeric }) => numeric).map(({ name }) => ({ name, fractional: false }));
-  let openCount = open.length;
-  for (const row of rows) {
-    if (openCount === 0) break;
-    let kept = 0;
-    for (let index = 0; index < openCount; index++) {
-      const column = open[index]!;
-      const value = row[column.name];
-      if (value !== null && value !== undefined) {
-        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) continue;
-        if (!Number.isInteger(value)) column.fractional = true;
-      }
-      open[kept++] = column;
-    }
-    openCount = kept;
-  }
-  return new Set(open.slice(0, openCount).filter(({ fractional }) => fractional).map(({ name }) => name));
-}
-
 /** Width and height from the image's header, or null when the header does not state them. */
 function imageSize(bytes: Uint8Array, mime: string): { width: number; height: number } | null {
   const u16le = (at: number) => bytes[at]! | (bytes[at + 1]! << 8);

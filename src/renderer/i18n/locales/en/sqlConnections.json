@@ -335,5 +335,13 @@
   "sqlWorkspace.edits.menu.duplicate": "Duplicate row",
   "sqlWorkspace.edits.menu.delete": "Delete row",
   "sqlWorkspace.edits.menu.restore": "Restore row",
-  "sqlWorkspace.grid.magic.openLink": "Cmd/Ctrl+click to open {{host}}"
+  "sqlWorkspace.grid.magic.openLink": "Cmd/Ctrl+click to open {{host}}",
+  "sqlWorkspace.grid.head.sorted": "sorted",
+  "sqlWorkspace.grid.summary.rows_one": "Profile of {{formatted}} row",
+  "sqlWorkspace.grid.summary.rows_other": "Profile of {{formatted}} rows",
+  "sqlWorkspace.grid.summary.rowsFirst_one": "Profile of the first {{formatted}} of {{total}} rows",
+  "sqlWorkspace.grid.summary.rowsFirst_other": "Profile of the first {{formatted}} of {{total}} rows",
+  "sqlWorkspace.grid.summary.sum": "sum",
+  "sqlWorkspace.grid.summary.avg": "avg",
+  "sqlWorkspace.queryList.lastRun": "Last run: {{duration}}"
 }
