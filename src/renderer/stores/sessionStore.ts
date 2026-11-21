@@ -335,9 +335,11 @@ export const useSessionStore = create<SessionState>()(
         }
 
         // Older sessions carry no answers, so the summary module loads only when one does.
+        // A chunk that fails to load costs the answers, never the restore.
+        const dropAnswer = (): undefined => undefined;
         const sanitizeLastAnswer = savedTabs.some(tab => tab.lastAnswer !== undefined)
-          ? (await loadLastAnswer()).sanitizeLastAnswer
-          : () => undefined;
+          ? await loadLastAnswer().then(module => module.sanitizeLastAnswer, () => dropAnswer)
+          : dropAnswer;
 
         const restored: Array<
           Parameters<ReturnType<typeof useEditorStore.getState>['restoreTabs']>[0][number] & {

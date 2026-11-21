@@ -46,6 +46,15 @@ describe('answerFromValue', () => {
     expect(answer.numeral.endsWith('…')).toBe(true);
     expect(answerFromValue('[{"a":1}]')).toEqual({ numeral: '[{"a":1}]' });
   });
+
+  it('masks a printed secret before it is stored', () => {
+    expect(answerFromValue('sk-live-51Habcdefghijklmnop')).toEqual({ numeral: '<redacted>' });
+    expect(answerFromValue('API_KEY=supersecretvalue123').numeral).toBe('API_KEY=<redacted>');
+  });
+
+  it('keeps the integer part of a large fractional bound', () => {
+    expect(answerFromValue('[1.5, 123456.7]').numeral).toBe('1.5 – 123457');
+  });
 });
 
 describe('barHeights', () => {
@@ -211,6 +220,13 @@ describe('testsLastAnswer', () => {
     expect(answer).toMatchObject({ status: 'ok', numeral: '40', unit: 'passed', total: 40 });
     expect(answer.picture?.values).toHaveLength(LAST_ANSWER_PICTURE_MAX);
   });
+
+  it('keeps a lone failure visible when the cells are bucketed', () => {
+    const cases = Array.from({ length: 500 }, (_, index) => testCase(`t${index}.test.ts`, index === 250 ? 'failed' : 'passed'));
+    const values = testsLastAnswer(result(cases), RAN_AT).picture?.values ?? [];
+    expect(values).toHaveLength(LAST_ANSWER_PICTURE_MAX);
+    expect(values.filter(value => value === 1)).toHaveLength(1);
+  });
 });
 
 describe('withDelta', () => {
@@ -259,6 +275,9 @@ describe('sanitizeLastAnswer', () => {
     expect(clipped?.subject).toHaveLength(LAST_ANSWER_SUBJECT_MAX);
     expect(clipped?.picture?.values).toHaveLength(LAST_ANSWER_PICTURE_MAX);
     expect(clipped).not.toHaveProperty('unit');
+    expect(
+      sanitizeLastAnswer({ kind: 'code', status: 'ok', numeral: '1', picture: { kind: 'bars', values: [-5, 50, 1e9] }, durationMs: -3, ranAt: RAN_AT })
+    ).toEqual({ kind: 'code', status: 'ok', numeral: '1', picture: { kind: 'bars', values: [0, 50, 100] }, ranAt: RAN_AT });
     expect(sanitizeLastAnswer({ kind: 'code', status: 'ok', numeral: '1', picture: { kind: 'bars', values: ['x'] }, ranAt: RAN_AT })).not.toHaveProperty(
       'picture'
     );

@@ -553,6 +553,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         } else {
           announce(t('httpWorkspace.run.announceError'));
         }
+        // A token this response introduced was not a known secret when it was masked.
+        const answered = maskSecretValuesInResponse(response, secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env)));
         let capsule;
         try {
           const appInfo = getBundledAppInfo();
@@ -564,19 +566,13 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             appVersion: appInfo.version,
             requestName: requestToSend.name,
             request: capsuleSafe,
-            // A token this response introduced was not a known secret when it was masked.
-            response: maskSecretValuesInResponse(
-              response,
-              secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env))
-            ),
+            response: answered,
             platform,
             userSensitiveHeaders: sensitiveHttpHeaders,
           });
         } catch {
           capsule = undefined;
         }
-        // A token this response introduced was not a known secret when it was masked.
-        const answered = maskSecretValuesInResponse(response, secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env)));
         void recordTabLastAnswer(HTTP_WORKSPACE_TAB_ID, ({ httpLastAnswer }, ranAt) => httpLastAnswer(answered, requestToSend.method, ranAt));
         useExecutionHistoryStore.getState().record({
           language: 'http',

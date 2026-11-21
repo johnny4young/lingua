@@ -24,7 +24,8 @@ export async function recordTabLastAnswer(
   build: (answers: LastAnswerModule, ranAt: number) => LastAnswer
 ): Promise<void> {
   const ranAt = Date.now();
-  const answers = await loadLastAnswer();
+  const answers = await loadLastAnswer().catch(() => null);
+  if (!answers) return;
   const answer = build(answers, ranAt);
   useEditorStore.setState(state => {
     const tab = state.tabs.find(candidate => candidate.id === tabId);

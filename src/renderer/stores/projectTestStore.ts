@@ -65,7 +65,9 @@ const ANSWERING_RUNS = new Set<ProjectTestRunResult['kind']>(['success', 'failed
 
 async function recordProjectTestAnswer(projectId: string, result: ProjectTestRunResult): Promise<void> {
   const ranAt = Date.now();
-  const { testsLastAnswer, withDelta, sanitizeLastAnswer } = await loadLastAnswer();
+  const answers = await loadLastAnswer().catch(() => null);
+  if (!answers) return;
+  const { testsLastAnswer, withDelta, sanitizeLastAnswer } = answers;
   const previous = useProjectStore.getState().recentProjects.find(entry => entry.id === projectId)?.lastAnswer;
   useProjectStore.getState().setRecentTestAnswer(projectId, withDelta(testsLastAnswer(result, ranAt), sanitizeLastAnswer(previous)));
 }

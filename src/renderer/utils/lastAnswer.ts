@@ -6,6 +6,7 @@
 
 import type { LineResult } from '../stores/resultStore';
 import type { ExecutionResult } from '../types/execution';
+import { redactSecretsFromOutput } from '../../shared/ai/explainError';
 import { describeError } from './describeError';
 import { executionKind } from './executionOutcome';
 import { truncateText } from './truncateText';
@@ -98,7 +99,7 @@ export function barHeights(values: readonly number[]): number[] {
 
 /** Locale-free on purpose: the string is stored and read back in any locale. */
 function formatSeriesNumber(value: number): string {
-  if (Number.isInteger(value)) return String(value);
+  if (Number.isInteger(value) || Math.abs(value) >= 1000) return String(Math.round(value));
   return String(Number(value.toPrecision(3)));
 }
 
@@ -145,7 +146,8 @@ export function answerFromValue(value: string): AnswerFields {
       picture: { kind: 'bars', values: barHeights(series) },
     };
   }
-  return { numeral: clip(text, LAST_ANSWER_NUMERAL_MAX) };
+  // Printed text is persisted, so secrets are masked before it is clipped.
+  return { numeral: clip(redactSecretsFromOutput(text).code, LAST_ANSWER_NUMERAL_MAX) };
 }
 
 const VALUE_TYPES = new Set<LineResult['type']>(['result', 'magic', 'watch', 'autoLog']);
@@ -273,6 +275,19 @@ export function httpLastAnswer(response: HttpResponseV1, method: string, ranAt: 
   };
 }
 
+// Cell codes ranked so a bucket shows its worst test: failed, then skipped, then passed.
+const CELL_RANK = [0, 2, 1];
+
+/** Buckets a long run into the picture cap; a bucket with a failure stays a failed cell. */
+function testCells(codes: readonly number[]): number[] {
+  if (codes.length <= LAST_ANSWER_PICTURE_MAX) return [...codes];
+  return Array.from({ length: LAST_ANSWER_PICTURE_MAX }, (_, index) => {
+    const start = Math.floor((index * codes.length) / LAST_ANSWER_PICTURE_MAX);
+    const end = Math.floor(((index + 1) * codes.length) / LAST_ANSWER_PICTURE_MAX);
+    return codes.slice(start, end).reduce((worst, code) => (CELL_RANK[code]! > CELL_RANK[worst]! ? code : worst), 0);
+  });
+}
+
 export function testsLastAnswer(result: ProjectTestRunResult, ranAt: number): LastAnswer {
   const cases = result.cases ?? [];
   const failed = cases.filter(entry => entry.status === 'failed');
@@ -296,7 +311,7 @@ export function testsLastAnswer(result: ProjectTestRunResult, ranAt: number): La
     ...(failed[0] ? { subject: clip(failed[0].file, LAST_ANSWER_SUBJECT_MAX) } : {}),
     picture: {
       kind: 'cells',
-      values: sample(cases.map(entry => (entry.status === 'passed' ? 0 : entry.status === 'failed' ? 1 : 2))),
+      values: testCells(cases.map(entry => (entry.status === 'passed' ? 0 : entry.status === 'failed' ? 1 : 2))),
     },
     ...timing,
   };
@@ -312,6 +327,11 @@ function boundedString(value: unknown, max: number): string | undefined {
   return typeof value === 'string' ? clip(value, max) : undefined;
 }
 
+const PICTURE_RANGE: Record<LastAnswerPicture['kind'], readonly [number, number]> = {
+  bars: [0, 100],
+  phases: [0, Number.MAX_SAFE_INTEGER],
+  cells: [0, 2],
+};
 
 /** Rebuilds a stored answer, dropping anything malformed or over its cap. */
 export function sanitizeLastAnswer(value: unknown): LastAnswer | undefined {
@@ -323,14 +343,19 @@ export function sanitizeLastAnswer(value: unknown): LastAnswer | undefined {
   const total = finiteNumber(raw.total) && raw.total >= 0 ? Math.round(raw.total) : undefined;
   const label = boundedString(raw.label, LAST_ANSWER_LABEL_MAX);
   const subject = boundedString(raw.subject, LAST_ANSWER_SUBJECT_MAX);
-  const durationMs = boundedMs(raw.durationMs);
+  const durationMs = finiteNumber(raw.durationMs) && raw.durationMs >= 0 ? Math.round(raw.durationMs) : undefined;
   const deltaMs = boundedMs(raw.deltaMs);
   const rawPicture = (raw.picture ?? {}) as Record<string, unknown>;
+  const pictureKind = rawPicture.kind;
   const pictureValues = rawPicture.values;
-  const picture =
-    includes(PICTURES, rawPicture.kind) && Array.isArray(pictureValues) && pictureValues.every(finiteNumber)
-      ? { kind: rawPicture.kind, values: pictureValues.slice(0, LAST_ANSWER_PICTURE_MAX).map(Math.round) }
-      : undefined;
+  let picture: LastAnswerPicture | undefined;
+  if (includes(PICTURES, pictureKind) && Array.isArray(pictureValues) && pictureValues.every(finiteNumber)) {
+    const [low, high] = PICTURE_RANGE[pictureKind];
+    picture = {
+      kind: pictureKind,
+      values: pictureValues.slice(0, LAST_ANSWER_PICTURE_MAX).map(value => Math.min(high, Math.max(low, Math.round(value)))),
+    };
+  }
   return {
     kind: raw.kind as LastAnswerKind,
     status: raw.status as LastAnswerStatus,
