@@ -619,6 +619,17 @@ describe('projectTestStore focused failure', () => {
     expect(useProjectTestStore.getState().focusedFailure).toBeNull();
   });
 
+  it('opens the card on the first failure of a file run, but not after a full run', async () => {
+    const failing = { ...test, status: 'failed' as const, failureFile: test.file, failureLine: 10 };
+    const result = { ...runResult('failed'), cases: [{ file: test.file, path: ['cartTotal', 'adds'], status: 'passed' as const }, failing] };
+    installBridge({ run: vi.fn().mockResolvedValue(result) });
+    useProjectTestStore.setState({ rootId: rootA, projectName: 'a', status: 'ready', selectedFramework: 'vitest', cases: null, focusedFailure: null });
+    await useProjectTestStore.getState().run({ rootId: rootA, projectName: 'a' });
+    expect(useProjectTestStore.getState().focusedFailure).toBeNull();
+    await useProjectTestStore.getState().run({ rootId: rootA, projectName: 'a' }, { kind: 'file', file: test.file });
+    expect(useProjectTestStore.getState().focusedFailure).toEqual(test);
+  });
+
   it('forgets the card when the project or runner changes', async () => {
     useProjectTestStore.setState({ focusedFailure: test });
     useProjectTestStore.getState().selectFramework('jest');

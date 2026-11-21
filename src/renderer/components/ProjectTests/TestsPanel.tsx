@@ -17,9 +17,9 @@ import {
 import '../../i18n/testsCatalog';
 import type { ProjectTestCaseStatus, ProjectTestScope } from '../../../shared/projectTests';
 import { useProjectStore } from '../../stores/projectStore';
-import { useProjectTestStore, isProjectTestRunFailure, type ProjectTestDisplayCase, type ProjectTestBinding } from '../../stores/projectTestStore';
+import { useProjectTestStore, isProjectTestRunFailure, opensInEditor, type ProjectTestDisplayCase, type ProjectTestBinding } from '../../stores/projectTestStore';
 import { cn } from '../../utils/cn';
-import { openTestFailure, opensInEditor } from './openTestFailure';
+import { openTestFailure } from './openTestFailure';
 
 const MAX_RECENTS = 3;
 

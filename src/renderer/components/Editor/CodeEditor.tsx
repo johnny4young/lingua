@@ -47,7 +47,7 @@ import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
 import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
-import { TestFailureCardHost } from '../ProjectTests/TestFailureCardHost';
+import { TestLineAnswersHost } from '../ProjectTests/TestLineAnswersHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 import { useRunStale, useRunStaleAgeProperty } from '../../hooks/useRunStale';
 import { bindStopRunKey } from './stopRunKeybinding';
@@ -544,7 +544,7 @@ export function CodeEditor() {
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
-        <TestFailureCardHost editor={editorInstance} monaco={monacoInstance} />
+        <TestLineAnswersHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}
           monaco={monacoInstance}
