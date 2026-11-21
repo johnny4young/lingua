@@ -42,5 +42,6 @@ export const tintPill = (tint: HttpTint): CSSProperties => ({ color: tint.fg, ba
 /** Send in the environment's colour, darkened so its white label stays readable. */
 export const tintedSend = (tint: HttpTint): CSSProperties => {
   const fill = `color-mix(in oklab, ${tint.line} 78%, black)`;
-  return { backgroundColor: fill, borderColor: fill };
+  // White ink: the darkened fill is too dark for the dark theme's near-black on-accent text.
+  return { backgroundColor: fill, borderColor: fill, color: 'oklch(1 0 0)' };
 };

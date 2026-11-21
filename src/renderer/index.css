@@ -1905,7 +1905,8 @@
 
   @media (max-width: 900px) {
     .action-pill .action-pill-direct-actions,
-    .action-pill .action-pill-direct-settings {
+    .action-pill .action-pill-direct-settings,
+    .action-pill .action-pill-context-detail {
       display: none;
     }
 
@@ -1917,7 +1918,8 @@
     }
 
     .action-pill-language-label,
-    .action-pill-runtime-label {
+    .action-pill-runtime-label,
+    .action-pill-context[data-has-badge='true'] .action-pill-context-name {
       display: none;
     }
   }

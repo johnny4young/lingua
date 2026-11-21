@@ -13,11 +13,13 @@ The format follows Keep a Changelog and groups changes by release.
 - On desktop, the window paints sooner at startup: the shell loads its small startup modules as one file, so it fetches 14 files before its first paint instead of 41.
 - When a model server on this machine does not answer, the AI error names its address and says LM Studio needs Enable CORS on, instead of Failed to fetch.
 - On desktop, each update of a streamed answer from your own AI endpoint carries only the new text instead of the whole answer so far, and a non-streaming answer stops at 2 MiB, the size the AI client accepts.
+- The command bar shows what you are working on and the one action for it on every surface: the SQL connection with Run statement, the HTTP environment and its variable count with Send, the notebook's active cell with Run cell, Run pipeline on pipelines, and New scratch when no tab is open. On a test file of the open project the Run menu adds Run tests in file. SQL Import data moved to the foot of the explorer, and HTTP Copy as moved into the Send menu.
 - The Console reads as a tape: each row shows the line that printed it and its time into the run, multi-line output folds behind +N lines, and one All / Log / Warn / Error segment with counts plus a search replace the per-type chips. While a run is going, the previous run's rows stay dimmed until this run reaches their line, and a waiting row shows where the next output is expected. Plain strings print without quotes and with their line breaks.
 
 ### Fixed
 - On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.
 - Cancel on a database connection that is still connecting stops the query. The statement used to run once the connection opened.
+- Send to an environment coloured red or another custom colour keeps readable white text in the dark theme.
 - Cancel and query timeouts on a database server answer within three seconds. The tab used to stay busy until the server stopped the statement, up to 30 seconds; the next query on that connection still waits for it.
 
 ## [2.3.0] — 2026-11-09

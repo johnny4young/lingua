@@ -149,6 +149,20 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/SqlWorkspace/SqlInstantPreview.tsx'), 'utf8')).toContain("import '../../i18n/sqlInstantCatalog'");
   });
 
+  it('keeps the capsule import copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('capsuleImport.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/capsuleImport.json');
+    expect(rendererI18n).toContain("import('./locales/es/capsuleImport.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/capsuleImportCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/capsuleImport.json'");
+    for (const file of ['CapsuleImport/CapsuleImportOverlay.tsx', 'CapsuleImport/CapsuleImportPreview.tsx', 'CapsuleList/CapsuleListOverlay.tsx']) {
+      expect(readFileSync(resolve(__dirname, `../../src/renderer/components/${file}`), 'utf8')).toContain("import '../../i18n/capsuleImportCatalog'");
+    }
+  });
+
   it('keeps the Settings privacy copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')

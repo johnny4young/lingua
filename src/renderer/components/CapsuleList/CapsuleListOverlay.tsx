@@ -52,6 +52,7 @@ import {
   type CapsuleBrowserRow,
   type CapsuleResultFilter,
 } from './capsuleBrowserRows';
+import '../../i18n/capsuleImportCatalog';
 
 export interface CapsuleListOverlayProps {
   onClose: () => void;

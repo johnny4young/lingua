@@ -533,15 +533,9 @@ describe('HttpRequestEditor', () => {
           },
         ]}
         activeEnvironmentId="e1"
-        onSelectEnvironment={vi.fn()}
         onManageEnvironment={vi.fn()}
       />
     );
-    // The selector renders with the active env selected.
-    expect(
-      (screen.getByTestId('http-environment-selector') as HTMLSelectElement)
-        .value
-    ).toBe('e1');
     // The resolved URL shows host resolved, missing token kept.
     const previewUrl = screen.getByTestId('http-environment-preview-url');
     expect(previewUrl.textContent).toBe('https://api.example.com/{{missing}}');
@@ -577,7 +571,6 @@ describe('HttpRequestEditor', () => {
           },
         ]}
         activeEnvironmentId="e1"
-        onSelectEnvironment={vi.fn()}
         onManageEnvironment={vi.fn()}
       />
     );
@@ -622,7 +615,6 @@ describe('HttpRequestEditor', () => {
           },
         ]}
         activeEnvironmentId="e1"
-        onSelectEnvironment={vi.fn()}
         onManageEnvironment={vi.fn()}
       />
     );
@@ -666,7 +658,6 @@ describe('HttpRequestEditor', () => {
           },
         ]}
         activeEnvironmentId="e1"
-        onSelectEnvironment={vi.fn()}
         onManageEnvironment={vi.fn()}
       />
     );

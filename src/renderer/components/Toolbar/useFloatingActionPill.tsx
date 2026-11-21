@@ -49,6 +49,7 @@ import {
   resolveExecutionControlPolicy,
 } from './executionControlPolicy';
 import { isStorageEphemeral } from '../../utils/ephemeralStorage';
+import { useCommandBarSlotStore } from '../../stores/commandBarSlotStore';
 
 export type ActionPillMenu = 'lang' | 'workflow' | 'runtime' | 'run' | 'actions';
 export type ActionPillMenuSetter = Dispatch<SetStateAction<ActionPillMenu | null>>;
@@ -112,6 +113,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
 
   const activeTab = useActiveTab();
   const emptyWorkspace = useEmptyWorkspace(activeTab?.kind);
+  const testFileRun = useCommandBarSlotStore((s) => s.testFileRun);
   const enabledBreakpointCount = useDebuggerStore((state) => {
     if (!activeTab) return 0;
     return state
@@ -313,5 +315,6 @@ export function useFloatingActionPill(t: (k: string) => string) {
     setTabWorkflowMode,
     workspaceTab,
     autoSaveEnabled,
+    testFileRun,
   };
 }

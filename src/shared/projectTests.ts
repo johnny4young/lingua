@@ -140,3 +140,11 @@ export function parseProjectTestScope(value: unknown): ProjectTestScope | null {
   }
   return null;
 }
+
+// Runner naming conventions: Vitest/Jest/Mocha, Go, pytest.
+const TEST_FILE = /(\.(test|spec)\.[cm]?[jt]sx?$)|(_test\.(go|py)$)|(^test_[^/]*\.py$)/;
+
+/** Whether a project-relative path is named like a test file. */
+export function isLikelyTestFile(relativePath: string): boolean {
+  return TEST_FILE.test(relativePath.slice(relativePath.lastIndexOf('/') + 1));
+}

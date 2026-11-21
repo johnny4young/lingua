@@ -73,9 +73,14 @@ Commit goes through the same bridge's `applyEdits` on a connection and
 
 The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`
 and keeps its `app-chrome` landmarks: brand and file on the left, then
-language · engine · mode-aware action, autosave, the command icons, the license
-badge and Settings. On SQL, HTTP and Utilities tabs only the workspace chip
-stays, because Run and Send live inside those tabs. **Undock** in the More
+a context chip and one filled verb, autosave, the command icons, the license
+badge and Settings. Surfaces fill the context and verb from where their state
+lives: `<CommandBarSlot slot="context" | "verb">` (`components/Chrome/CommandBarSlot.tsx`)
+portals into the bar's hosts, the highest-priority, latest claim wins, and an
+empty slot falls back to the code controls (language, runtime, Run). The SQL
+connection picker and Run statement, the HTTP environment and Send, the notebook
+cell and Run cell, and Run pipeline all render this way; a modal scope keeps a
+slot inline and a hidden workspace scope drops it. **Undock** in the More
 actions menu brings back the draggable `FloatingActionPill` (persisted in
 `uiStore.commandBarDocked`); `AppLayout` then restores `AppChrome` and reserves a
 row below it so the pill never covers the editor tab strip, and **Dock** puts the
@@ -184,7 +189,7 @@ The renderer is intentionally split by feature instead of by component type.
 | Feature folder                                                                                                    | Main files                                            | Notes                                                          |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`, `BottomPanel.tsx`, `dockTabs.ts`     | Owns shell composition, panel layout, sidebar/drawer behavior; the results dock stays behind a lazy boundary so its feature tree stays out of the initial bundle |
-| [`components/Chrome/`](components/Chrome)                 | `CommandBar.tsx`, `AppChrome.tsx`                     | The 48 px command bar (default) and the undocked title row     |
+| [`components/Chrome/`](components/Chrome)                 | `CommandBar.tsx`, `CommandBarSlot.tsx`, `AppChrome.tsx` | The 48 px command bar (default) and the undocked title row     |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
 | [`components/ErrorBoundary.tsx`](components/ErrorBoundary.tsx) | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
@@ -803,6 +808,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors, Compare runs records |
 | [importedCapsuleStore.ts](stores/importedCapsuleStore.ts) | capsules opened from Import this session, listed by the capsule browser as not run; memory only |
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
+| [commandBarSlotStore.ts](stores/commandBarSlotStore.ts) | the command bar's context and verb hosts and the surfaces claiming them |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |
 | [explainPanelStore.ts](stores/explainPanelStore.ts) | the anchored explain panel's error, its pin and, per tab, one in-memory conversation per endpoint for the current error (never persisted, so code stays off storage); a new error or a closed tab drops them, and a failed first request is never kept, so Retry and a reopened panel start from the current preview |

@@ -52,6 +52,8 @@ export interface SqlExplorerProps {
   onFilterChange: (value: string) => void;
   /** The Queries section, rendered under the tree. */
   children?: ReactNode;
+  /** Pinned under the scrolling tree (Import data). */
+  footer?: ReactNode;
   /** A database connection's tree, shown instead of Local; the signal changes on Collapse all. */
   renderRemoteTree?: (collapseSignal: number) => ReactNode;
 }
@@ -74,6 +76,7 @@ export function SqlExplorer({
   filter,
   onFilterChange,
   children,
+  footer,
   renderRemoteTree,
 }: SqlExplorerProps) {
   const { t, i18n } = useTranslation();
@@ -456,6 +459,7 @@ export function SqlExplorer({
         </div>
         {children}
       </div>
+      {footer ? <div className="shrink-0 border-t border-border-subtle">{footer}</div> : null}
     </section>
   );
 }

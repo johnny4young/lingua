@@ -40,6 +40,7 @@ import {
   collectSecretKeys,
   maskSecretsForCapsule,
   maskSecretValuesInResponse,
+  environmentColor,
 } from '../../../shared/httpEnvironment';
 import { executeHttpRequest } from '../../runtime/httpClient';
 import { buildHttpResponseCapsule } from '../../runtime/httpResponseCapsule';
@@ -63,6 +64,9 @@ import {
 import { chainedOrigin, chainOrder, chainPasses, chainTags, latestFor, requestLabel, sourceNeedsSend } from '../../../shared/httpChain';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
+import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
+import { ENVIRONMENT_TINTS } from './httpScopeColors';
+import { CommandBarSlot } from '../Chrome/CommandBarSlot';
 import { HttpPipelineManager } from './HttpPipelineManager';
 import { appPlatform } from '../../utils/appPlatform';
 import { recordTabLastAnswer } from '../../stores/tabLastAnswer';
@@ -162,6 +166,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // selector, the resolution preview, and send-time interpolation.
   const environments = useWorkspaceToolStore(state => state.environments);
   const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
+  const environmentColorName = environmentColor(environments.find(env => env.id === activeEnvironmentId));
+  const environmentTint = environmentColorName ? ENVIRONMENT_TINTS[environmentColorName] : undefined;
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
   const [managerFocus, setManagerFocus] = useState<HttpEnvironmentFocus | null>(null);
   const [isPipelineManagerOpen, setIsPipelineManagerOpen] = useState(false);
@@ -744,6 +750,15 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
 
   return (
     <div data-testid="http-workspace-panel" className="relative flex h-full min-w-0 flex-col">
+      <CommandBarSlot slot="context">
+        <HttpEnvironmentSelector
+          environments={environments}
+          activeEnvironmentId={activeEnvironmentId}
+          onSelect={handleSelectEnvironment}
+          onManage={() => handleManageEnvironment()}
+          {...(environmentTint ? { tint: environmentTint } : {})}
+        />
+      </CommandBarSlot>
       <Group
         orientation="horizontal"
         defaultLayout={layout.defaultLayout}
@@ -775,7 +790,6 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               isExecuting={isExecuting}
               environments={environments}
               activeEnvironmentId={activeEnvironmentId}
-              onSelectEnvironment={handleSelectEnvironment}
               onManageEnvironment={handleManageEnvironment}
               captureTargetRef={captureTargetRef}
               assertionTargetRef={assertionTargetRef}
