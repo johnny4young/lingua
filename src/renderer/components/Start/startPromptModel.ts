@@ -1,4 +1,5 @@
 import { isJavaScriptFamily } from '../../../shared/languageFamilies';
+import { runPolicyDelayMs, type RunPolicyByGroup } from '../../../shared/runPolicy';
 import { inferKind } from '../Editor/inlineResultWidgetDom';
 import type { ExecutionResult } from '../../types/execution';
 import { toFullOutput, toLineResults } from '../../utils/executionPresentation';
@@ -6,9 +7,10 @@ import type { LastAnswer } from '../../utils/lastAnswer';
 
 type LastAnswerModule = typeof import('../../utils/lastAnswer');
 
-/** JS and TS run in the worker once the line pauses; Pyodide warm-up and native toolchains wait for Enter. */
-export function runsOnPause(language: string): boolean {
-  return isJavaScriptFamily(language);
+/** JS and TS run in the worker once the line pauses, unless their run policy is Manual; the rest wait for Enter. */
+export function runsOnPause(language: string, policies?: RunPolicyByGroup): boolean {
+  if (!isJavaScriptFamily(language)) return false;
+  return !policies || runPolicyDelayMs(language, policies) !== null;
 }
 
 /** Paste and drop can carry line breaks; the prompt keeps a single line. */

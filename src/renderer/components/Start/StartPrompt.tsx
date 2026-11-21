@@ -5,6 +5,7 @@ import { isJavaScriptFamily } from '../../../shared/languageFamilies';
 import { SEEDED_SCRATCHPAD_NAME, seededScratchpadTab } from '../../onboarding/seedScratchpad';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../../runtime/openWorkspaceTab';
 import { useEditorStore } from '../../stores/editorStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { NEW_SCRATCH_LANGUAGE } from '../../stores/editorTabUtils';
 import { requestSqlSample } from '../SqlWorkspace/pendingSqlSample';
 import { Kbd } from '../ui/ModalShell';
@@ -92,8 +93,7 @@ function PromptAnswerView({ shown }: { shown: PromptAnswer }) {
 function hintKey(run: PromptRun, onPause: boolean, current: boolean): string | undefined {
   if (run.phase === 'busy') return 'start.prompt.busy';
   if (run.phase === 'running') return 'start.prompt.running';
-  if (!onPause) return undefined;
-  return current ? 'start.prompt.ranOnPause' : 'start.prompt.runsOnPause';
+  return onPause && current ? 'start.prompt.ranOnPause' : undefined;
 }
 
 /** One line that answers as you pause; Enter keeps it as a scratch file. */
@@ -104,7 +104,8 @@ export function StartPrompt() {
   const [textWidth, setTextWidth] = useState(0);
   const focusRef = useRef<(() => void) | null>(null);
   const { run, shown, edit, submit } = useStartPromptRun(language);
-  const onPause = runsOnPause(language);
+  const runPolicies = useSettingsStore(state => state.runPolicyByGroup);
+  const onPause = runsOnPause(language, runPolicies);
   const current = run.phase === 'answered' && run.code === value;
   const hint = hintKey(run, onPause, current);
 

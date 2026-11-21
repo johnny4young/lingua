@@ -2,7 +2,6 @@
   "start.headline": "Di algo en código",
   "start.prompt.label": "Ejecuta una línea de código",
   "start.prompt.placeholder": "[1, 2, 3].map(n => n * n)",
-  "start.prompt.runsOnPause": "Se ejecuta cuando haces una pausa.",
   "start.prompt.ranOnPause": "Se ejecutó cuando hiciste una pausa.",
   "start.prompt.running": "Ejecutando…",
   "start.prompt.busy": "Otra ejecución está usando este runtime.",

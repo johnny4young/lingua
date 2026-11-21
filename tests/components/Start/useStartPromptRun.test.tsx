@@ -10,6 +10,8 @@ import { useStartPromptRun } from '@/components/Start/useStartPromptRun';
 import { useEditorStore } from '@/stores/editorStore';
 import { claimNotebookRunner, resetNotebookRunnerLocksForTests } from '@/stores/notebookRunnerLockStore';
 import { useResultStore } from '@/stores/resultStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { DEFAULT_RUN_POLICY_BY_GROUP } from '../../../src/shared/runPolicy';
 
 function valueResult(value: string): ExecutionResult {
   return { stdout: [], stderr: [], executionTime: 2, magicResults: [{ line: 1, value, kind: 'autoLog' }] };
@@ -31,6 +33,7 @@ describe('useStartPromptRun', () => {
     resetNotebookRunnerLocksForTests();
     useEditorStore.setState({ tabs: [], activeTabId: null });
     useResultStore.setState({ isManualRunning: false, lineResults: [], fullOutput: '' });
+    useSettingsStore.setState({ runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP } });
   });
 
   afterEach(() => {
@@ -85,6 +88,7 @@ describe('useStartPromptRun', () => {
     const { result } = renderHook(() => useStartPromptRun('javascript'));
     act(() => result.current.edit('1 + 1'));
     act(() => vi.advanceTimersByTime(1200));
+    await settle();
     act(() => result.current.edit('6 * 7'));
     act(() => vi.advanceTimersByTime(1200));
     await settle();
@@ -111,6 +115,41 @@ describe('useStartPromptRun', () => {
     await settle();
     expect(mockExecute).not.toHaveBeenCalled();
     expect(result.current.run.phase).toBe('busy');
+  });
+
+  it('starts a waiting run once the manual run lets go of the runner', async () => {
+    useResultStore.setState({ isManualRunning: true });
+    const { result } = renderHook(() => useStartPromptRun('javascript'));
+    act(() => result.current.edit('6 * 7'));
+    act(() => vi.advanceTimersByTime(1200));
+    await settle();
+    expect(result.current.run.phase).toBe('busy');
+    act(() => useResultStore.setState({ isManualRunning: false }));
+    await settle();
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(result.current.run).toMatchObject({ phase: 'answered', code: '6 * 7' });
+  });
+
+  it('never starts a run that Enter overtook while the runner loaded', async () => {
+    const { result } = renderHook(() => useStartPromptRun('javascript'));
+    act(() => result.current.edit('6 * 7'));
+    act(() => vi.advanceTimersByTime(1200));
+    act(() => result.current.submit('6 * 7'));
+    await settle();
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().tabs).toHaveLength(1);
+  });
+
+  it('waits for Enter when the JS run policy is Manual', async () => {
+    useSettingsStore.setState({ runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP, jsTs: 'manual' } });
+    const { result } = renderHook(() => useStartPromptRun('javascript'));
+    act(() => result.current.edit('6 * 7'));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(mockExecute).not.toHaveBeenCalled();
+    act(() => result.current.submit('6 * 7'));
+    await settle();
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(useEditorStore.getState().tabs).toHaveLength(0);
   });
 
   it('drops the answer when a notebook claimed the runner mid-run', async () => {

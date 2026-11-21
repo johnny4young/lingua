@@ -3,8 +3,14 @@ import { isLikelyComplete } from '../../../shared/autoRunGating';
 import { AUTO_RUN_DEBOUNCE_MS } from '../../hooks/autoRunModel';
 import { useEditorStore } from '../../stores/editorStore';
 import { createDefaultTab } from '../../stores/editorTabUtils';
-import { editorRunnerKey, notebookRunnerClaimEpoch, notebookRunnerOwner } from '../../stores/notebookRunnerLockStore';
+import {
+  editorRunnerKey,
+  notebookRunnerClaimEpoch,
+  notebookRunnerOwner,
+  useNotebookRunnerLockStore,
+} from '../../stores/notebookRunnerLockStore';
 import { useResultStore } from '../../stores/resultStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { loadLastAnswer } from '../../stores/tabLastAnswer';
 import type { Language } from '../../types/language';
 import { promptAnswer, runsOnPause, type PromptAnswer } from './startPromptModel';
@@ -28,6 +34,11 @@ function loadRunnerManager() {
     }
   );
   return runnerManagerLoad;
+}
+
+/** A notebook cell or a manual run holds the shared runner; starting would terminate it. */
+function runnerHeld(key: ReturnType<typeof editorRunnerKey>): boolean {
+  return Boolean(notebookRunnerOwner(key)) || useResultStore.getState().isManualRunning;
 }
 
 function lastAnswerOf(run: PromptRun): PromptAnswer | undefined {
@@ -61,18 +72,21 @@ export function useStartPromptRun(language: Language) {
       cancelPending();
       const token = ++tokenRef.current;
       const key = editorRunnerKey(language, undefined);
-      // Starting would terminate whatever holds the runner.
-      if (notebookRunnerOwner(key) || useResultStore.getState().isManualRunning) {
+      if (runnerHeld(key)) {
         setRun({ phase: 'busy', code });
         return;
       }
       const epoch = notebookRunnerClaimEpoch(key);
       setRun(previous => ({ phase: 'running', code, previous: lastAnswerOf(previous) }));
       try {
-        const [result, answers] = await Promise.all([
-          loadRunnerManager().then(runnerManager => runnerManager.execute(language, code, { language, autoLog: true })),
-          loadLastAnswer(),
-        ]);
+        const [runnerManager, answers] = await Promise.all([loadRunnerManager(), loadLastAnswer()]);
+        // Enter, unmount or a new owner may have come while the runner loaded.
+        if (token !== tokenRef.current) return;
+        if (runnerHeld(key) || notebookRunnerClaimEpoch(key) !== epoch) {
+          setRun({ phase: 'busy', code });
+          return;
+        }
+        const result = await runnerManager.execute(language, code, { language, autoLog: true });
         if (token !== tokenRef.current) return;
         if (notebookRunnerClaimEpoch(key) !== epoch) {
           setRun({ phase: 'busy', code });
@@ -101,7 +115,7 @@ export function useStartPromptRun(language: Language) {
         return;
       }
       cancelPending();
-      if (!runsOnPause(language) || !isLikelyComplete(language, code).ready) return;
+      if (!runsOnPause(language, useSettingsStore.getState().runPolicyByGroup) || !isLikelyComplete(language, code).ready) return;
       timerRef.current = setTimeout(() => void execute(code), AUTO_RUN_DEBOUNCE_MS);
     },
     [cancelPending, execute, invalidate, language]
@@ -112,7 +126,7 @@ export function useStartPromptRun(language: Language) {
     (code: string) => {
       if (!code.trim()) return;
       const answered = run.phase === 'answered' && run.code === code;
-      if (!runsOnPause(language) && !answered) {
+      if (!runsOnPause(language, useSettingsStore.getState().runPolicyByGroup) && !answered) {
         void execute(code);
         return;
       }
@@ -121,6 +135,27 @@ export function useStartPromptRun(language: Language) {
     },
     [execute, invalidate, language, run]
   );
+
+  // A run that waited for the runner starts once its owner lets go.
+  const runRef = useRef(run);
+  useEffect(() => {
+    runRef.current = run;
+  }, [run]);
+  useEffect(() => {
+    const key = editorRunnerKey(language, undefined);
+    const resume = () => {
+      const waiting = runRef.current;
+      if (waiting.phase === 'busy' && !runnerHeld(key)) void execute(waiting.code);
+    };
+    const unsubscribeLock = useNotebookRunnerLockStore.subscribe(resume);
+    const unsubscribeManual = useResultStore.subscribe((state, previous) => {
+      if (state.isManualRunning !== previous.isManualRunning) resume();
+    });
+    return () => {
+      unsubscribeLock();
+      unsubscribeManual();
+    };
+  }, [execute, language]);
 
   return { run, shown: lastAnswerOf(run), edit, submit };
 }

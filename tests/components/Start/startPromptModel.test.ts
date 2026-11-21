@@ -13,6 +13,8 @@ describe('startPromptModel', () => {
     expect(runsOnPause('typescript')).toBe(true);
     expect(runsOnPause('python')).toBe(false);
     expect(runsOnPause('go')).toBe(false);
+    expect(runsOnPause('javascript', { jsTs: 'manual', pythonRuby: 'pause', goRust: 'manual' })).toBe(false);
+    expect(runsOnPause('typescript', { jsTs: 'pause', pythonRuby: 'pause', goRust: 'manual' })).toBe(true);
   });
 
   it('turns pasted line breaks into single spaces and drops a trailing one', () => {

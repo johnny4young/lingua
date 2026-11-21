@@ -226,7 +226,7 @@ describe('Start page', () => {
     const prompt = screen.getByTestId('start-prompt');
     const field = within(prompt).getByRole('textbox', { name: 'Run a line of code' });
     expect(field.getAttribute('placeholder')).toBe('[1, 2, 3].map(n => n * n)');
-    expect(screen.getByTestId('start-prompt-hint').textContent).toBe('It runs when you pause.');
+    expect(screen.queryByTestId('start-prompt-hint')).toBeNull();
     expect(screen.queryByTestId('start-prompt-enter')).toBeNull();
 
     await user.type(field, '6 * 7');
@@ -273,7 +273,6 @@ describe('Start page', () => {
     expect(screen.getByTestId('start-reopen-all').textContent).toBe('Reabrir las 3');
     expect(screen.getByText('Plantillas')).toBeTruthy();
     expect(screen.getByTestId('start-try-sample-table').textContent).toBe('una tabla de ejemplo');
-    expect(screen.getByTestId('start-prompt-hint').textContent).toBe('Se ejecuta cuando haces una pausa.');
     expect(screen.getByRole('textbox', { name: 'Ejecuta una línea de código' })).toBeTruthy();
   });
 });

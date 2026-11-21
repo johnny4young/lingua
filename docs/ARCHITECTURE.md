@@ -1343,9 +1343,10 @@ graph. `useStartPromptRun` calls `runnerManager.execute` with auto-log and keeps
 the answer in its own state: it never calls `executeAutoRun`, so the global
 `resultStore`, the console and the execution history never see it. JS and TS
 run in the worker once `isLikelyComplete` passes and the line pauses for
-`AUTO_RUN_DEBOUNCE_MS`; other languages run on Enter. A run waits while a
-notebook cell owns the runner (`notebookRunnerLockStore`) or a manual run is
-going, and drops its answer if a notebook claims the runner mid-run. Enter on
+`AUTO_RUN_DEBOUNCE_MS`, unless the jsTs run policy is Manual; other languages
+run on Enter. A run waits while a notebook cell owns the runner
+(`notebookRunnerLockStore`) or a manual run is going, starts once that owner
+lets go, and drops its answer if a notebook claims the runner mid-run. Enter on
 an answered line, or on any JS or TS line, opens it as a scratch tab, whose own
 auto-run takes over the runner.
 
