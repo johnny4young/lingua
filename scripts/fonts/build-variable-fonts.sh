@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Rebuilds the bundled Fraunces and Recursive woff2 files in public/fonts/.
 # Needs fonttools with brotli: python3 -m pip install 'fonttools[woff]'
+# The web service worker caches fonts by URL: bump CACHE_VERSION in public/sw.js
+# when a rebuild changes these files.
 set -euo pipefail
 # Fixed head.modified timestamp so a rebuild is byte-identical.
 export SOURCE_DATE_EPOCH=1767225600

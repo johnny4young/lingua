@@ -40,7 +40,7 @@ missing (fresh clone) or if the kit gains files:
    bundle, so only the `modal.*` and `ui.*` prefixes ship.
 5. `ln -sfn "$PWD/.design-sync/docs" .design-sync/pkgroot/docs`
 6. Symlink `pkgroot/styles.css` at the compiled web CSS (see below), and copy
-   the Inter and JetBrains Mono woff2 files from `public/fonts/` next to `pkgroot/fonts.css`.
+   every woff2 file from `public/fonts/` next to `pkgroot/fonts.css`.
 
 ## cssEntry points at a content-hashed file
 

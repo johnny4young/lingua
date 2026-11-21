@@ -131,7 +131,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
           data-testid="notebook-title"
           spellCheck={false}
           aria-label={t('notebook.titleLabel')}
-          className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 font-display text-body font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
+          className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 text-body font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
         />
         <span className="hidden text-eyebrow uppercase tracking-wider text-muted 2xl:inline">
           {t('notebook.toolbar.summary', {

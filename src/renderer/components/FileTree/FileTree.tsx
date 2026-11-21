@@ -327,7 +327,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         <FolderOpen size={14} className="shrink-0 text-warning" />
         <div className="min-w-0 flex-1">
           <span
-            className="block truncate font-display text-body font-semibold text-foreground"
+            className="block truncate text-body font-semibold text-foreground"
             title={`${currentProject.name}\n${truncatedRootPath}`}
             data-testid="file-tree-root-tooltip"
           >

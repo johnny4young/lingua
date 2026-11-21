@@ -84,4 +84,16 @@ describe('bundled fonts', () => {
       expect(normalize(declared)).toBe(subset);
     }
   });
+
+  it('keeps Fraunces, a 144pt optical cut, off body-size text', () => {
+    const rendererDir = path.join(root, 'src/renderer');
+    const offenders = readdirSync(rendererDir, { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.tsx'))
+      .filter((file) =>
+        /font-display\b[^"'`]*\btext-(?:body|caption|eyebrow|micro|control)\b/u.test(
+          readFileSync(path.join(rendererDir, file), 'utf8'),
+        ),
+      );
+    expect(offenders).toEqual([]);
+  });
 });
