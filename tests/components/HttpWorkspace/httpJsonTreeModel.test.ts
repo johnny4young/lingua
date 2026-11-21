@@ -13,7 +13,7 @@ import {
 import { looksSecret } from '../../../src/shared/httpEnvironment';
 import { extractCaptureValue } from '../../../src/shared/httpWorkspaceCaptures';
 import type { HttpCaptureRule, HttpResponseV1 } from '../../../src/shared/httpWorkspaceSchema';
-import { truncateText } from '../../../src/renderer/utils/truncateText';
+import { truncateText } from '../../../src/shared/truncateText';
 
 const body = {
   items: [

@@ -12,6 +12,7 @@ process.env.NODE_ENV ??= 'test';
 const ctx = await createVitest('test', {
   run: true, watch: false,
   reporters: ['default', 'json'], outputFile: { json: report },
+  includeTaskLocation: true,
   ...(pattern ? { testNamePattern: pattern } : {}),
 });
 try {

@@ -59,7 +59,7 @@ function fakeEditor() {
   };
 }
 
-function seed(overrides: { tabFile?: string; stale?: true; message?: string } = {}) {
+function seed(overrides: { tabFile?: string; stale?: true; message?: string; compared?: false } = {}) {
   useEditorStore.setState({
     tabs: [{ id: 'tab', name: 'total.test.ts', language: 'typescript', content: '', isDirty: false, rootId: 'root-1', relativePath: overrides.tabFile ?? 'cart/total.test.ts' }],
     activeTabId: 'tab',
@@ -78,6 +78,7 @@ function seed(overrides: { tabFile?: string; stale?: true; message?: string } = 
         failureFile: 'cart/total.test.ts',
         failureLine: 10,
         failureMessage: overrides.message ?? 'AssertionError: expected 1211 to be 1210.5 // Object.is equality',
+        ...(overrides.compared === false ? {} : { expected: '1210.5', received: '1211' }),
         ...(overrides.stale ? { stale: true as const } : {}),
       },
     ],
@@ -106,7 +107,7 @@ describe('TestFailureCard', () => {
   });
 
   it('shows the headline when the runner gives no comparison', () => {
-    seed({ message: 'total_test.go:15: two failed' });
+    seed({ message: 'total_test.go:15: two failed', compared: false });
     const fake = fakeEditor();
     render(<TestFailureCard editor={fake.editor} monaco={fake.monaco} />);
     expect(screen.getByTestId('test-failure-summary').textContent).toBe('two failed');

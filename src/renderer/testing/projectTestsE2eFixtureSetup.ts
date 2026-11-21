@@ -33,6 +33,8 @@ export function prepareProjectTestsE2eFixture(): void {
       failureFile: 'cart/total.test.ts',
       failureLine: 10,
       failureMessage: 'AssertionError: expected 1211 to be 1210.5 // Object.is equality',
+      expected: '1210.5',
+      received: '1211',
     },
     { file: 'cart/total.test.ts', path: ['cartTotal', 'applies tax rate'], status: 'passed' },
     { file: 'cart/tax.test.ts', path: ['tax', 'uses the region rate'], status: 'passed' },

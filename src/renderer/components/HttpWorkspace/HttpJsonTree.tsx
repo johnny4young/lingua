@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { truncateText } from '../../utils/truncateText';
+import { truncateText } from '../../../shared/truncateText';
 import { cn } from '../../utils/cn';
 import '../../i18n/httpBuilderCatalog';
 import {

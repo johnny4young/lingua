@@ -71,7 +71,10 @@
      ],
      "fullName": "cartTotal rounds cents",
      "invocations": 1,
-     "location": null,
+     "location": {
+      "column": 3,
+      "line": 3
+     },
      "numPassingAsserts": 0,
      "retryMessages": [],
      "retryReasons": [],

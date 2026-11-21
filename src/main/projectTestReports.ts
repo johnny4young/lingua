@@ -9,6 +9,7 @@ import {
   type ProjectTestCase,
   type ProjectTestCaseStatus,
 } from '../shared/projectTests';
+import { assertionValues, type AssertionFamily } from './projectTestAssertions';
 
 const MESSAGE_LIMIT = 2_000;
 
@@ -52,11 +53,17 @@ function lineAfter(text: string, prefix: string): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
-function failureFields(file: string | undefined, line: number | undefined, message: string | undefined) {
+function failureFields(family: AssertionFamily, file: string | undefined, line: number | undefined, text: string) {
+  const message = clip(text);
   return {
     ...(file && line ? { failureFile: file, failureLine: line } : {}),
     ...(message ? { failureMessage: message } : {}),
+    ...assertionValues(family, message),
   };
+}
+
+function positiveLine(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
 /** Vitest's JSON reporter writes the same shape as Jest's `--json`. */
@@ -77,7 +84,7 @@ export function parseJestStyleReport(json: string, rootPath: string): ParsedProj
     const assertions = Array.isArray(suite.assertionResults) ? (suite.assertionResults as Array<Record<string, unknown>>) : [];
     if (assertions.length === 0 && suite.status === 'failed') {
       const message = typeof suite.message === 'string' ? suite.message : '';
-      list.push({ file, path: [], status: 'failed', runnable: false, ...failureFields(undefined, undefined, clip(message)) });
+      list.push({ file, path: [], status: 'failed', runnable: false, ...failureFields('jest', undefined, undefined, message) });
       continue;
     }
     for (const assertion of assertions) {
@@ -86,13 +93,16 @@ export function parseJestStyleReport(json: string, rootPath: string): ParsedProj
       const status: ProjectTestCaseStatus =
         assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped';
       const raw = Array.isArray(assertion.failureMessages) && typeof assertion.failureMessages[0] === 'string' ? assertion.failureMessages[0] : '';
+      // Vitest with includeTaskLocation and Jest with --testLocationInResults.
+      const declarationLine = positiveLine((assertion.location as { line?: unknown } | null | undefined)?.line);
       list.push({
         file,
         path: [...titles, title],
         status,
         ...(typeof assertion.duration === 'number' ? { durationMs: assertion.duration } : {}),
+        ...(declarationLine ? { declarationLine } : {}),
         ...(status === 'failed'
-          ? failureFields(file, lineAfter(raw, `${absolute}:`), clip(raw.split(/\n\s+at /u)[0] ?? ''))
+          ? failureFields('jest', file, lineAfter(raw, `${absolute}:`), raw.split(/\n\s+at /u)[0] ?? '')
           : {}),
       });
     }
@@ -185,12 +195,15 @@ export function parsePytestJunit(xml: string): ParsedProjectTestCases | null {
     const body = failure ? decodeXml(failure.body) : '';
     const lines = [...body.matchAll(new RegExp(`^${file.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}:(\\d+):`, 'gmu'))];
     const line = lines.length > 0 ? Number(lines[lines.length - 1]![1]) : undefined;
+    // pytest writes the 0-based line of the test function (or its first decorator).
+    const declarationLine = /^\d+$/u.test(testcase.attributes.line ?? '') ? Number(testcase.attributes.line) + 1 : undefined;
     list.push({
       file,
       path: [...classes, name],
       status,
       ...(Number.isFinite(seconds) ? { durationMs: Math.round(seconds * 1000) } : {}),
-      ...(failure ? failureFields(file, line, clip(failure.attributes.message ?? body)) : {}),
+      ...(declarationLine ? { declarationLine } : {}),
+      ...(failure ? failureFields('pytest', file, line, failure.attributes.message ?? body) : {}),
     });
   }
   return list.done();
@@ -301,7 +314,7 @@ export function createGoTestCollector(modulePath: string) {
           path: state.path,
           status: state.status,
           ...(state.durationMs !== undefined ? { durationMs: state.durationMs } : {}),
-          ...(state.status === 'failed' ? failureFields(failureFile, failureLine, clip(state.output.join('\n'))) : {}),
+          ...(state.status === 'failed' ? failureFields('go', failureFile, failureLine, state.output.join('\n')) : {}),
         });
       }
       // A package that failed without a failing test did not build or could not start.
@@ -315,7 +328,7 @@ export function createGoTestCollector(modulePath: string) {
           path: [],
           status: 'failed',
           runnable: false,
-          ...failureFields(at?.[1], at ? Number(at[2]) : undefined, clip(lines.join('\n'))),
+          ...failureFields('go', at?.[1], at ? Number(at[2]) : undefined, lines.join('\n')),
         });
       }
       if (overflow) list.truncated = true;
@@ -387,7 +400,7 @@ export function parseCargoTestOutput(text: string): ParsedProjectTestCases {
   for (const [key, failure] of failures) {
     const entry = byKey.get(key);
     if (!entry) continue;
-    Object.assign(entry, failureFields(failure.file, failure.line, clip(failure.message.join('\n'))));
+    Object.assign(entry, failureFields('cargo', failure.file, failure.line, failure.message.join('\n')));
   }
   return list.done();
 }
