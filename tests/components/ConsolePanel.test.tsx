@@ -1,10 +1,11 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
+import type { ConsoleState, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 import {
   _resetCommandBusForTesting,
   emitCommand,
@@ -17,7 +18,8 @@ import {
 
 const mockClear = vi.fn();
 const mockRestore = vi.fn();
-const mockToggleFilter = vi.fn();
+const mockSetLevel = vi.fn();
+const mockBeginRun = vi.fn();
 const mockToggleTimestamps = vi.fn();
 const mockAddEntry = vi.fn();
 const mockRun = vi.fn().mockResolvedValue(undefined);
@@ -50,14 +52,21 @@ let mockState: Omit<
   ConsoleState,
   | 'addEntry'
   | 'clear'
-  | 'toggleFilter'
+  | 'setLevel'
+  | 'beginRun'
+  | 'dropRunAnchor'
+  | 'addEntries'
+  | 'restore'
   | 'toggleTimestamps'
   | 'togglePayloadKindFilter'
   | 'clearPayloadKindFilters'
   | 'collapsedEntries'
 > = {
+  clearVersion: 0,
   entries: [],
-  activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'warn', 'error', 'result']),
+  level: 'all',
+  currentRun: null,
+  previousRun: null,
   hiddenPayloadKinds: new Set(),
   showTimestamps: false,
 };
@@ -100,7 +109,8 @@ function consoleStoreSnapshot() {
     collapsedEntries: collapseForMock(mockState.entries),
     clear: mockClear,
     restore: mockRestore,
-    toggleFilter: mockToggleFilter,
+    setLevel: mockSetLevel,
+    beginRun: mockBeginRun,
     togglePayloadKindFilter: mockTogglePayloadKind,
     clearPayloadKindFilters: vi.fn(),
     toggleTimestamps: mockToggleTimestamps,
@@ -178,6 +188,7 @@ vi.mock('lucide-react', () => ({
   Check: () => null,
   Clock: () => null,
   ListFilter: () => null,
+  Search: () => null,
   Trash2: () => null,
   History: () => null,
   // `<ConsoleEntryRenderer>` now uses Maximize2
@@ -205,8 +216,11 @@ import { ConsolePanel } from '../../src/renderer/components/Console/ConsolePanel
 
 function resetState(partial: Partial<typeof mockState> = {}) {
   mockState = {
+    clearVersion: 0,
     entries: [],
-    activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'warn', 'error', 'result']),
+    level: 'all',
+    currentRun: null,
+    previousRun: null,
     // payload-kind filter; empty Set means
     // every kind is visible. Without this default the ConsolePanel
     // throws in the new chip-row + filter loops.
@@ -531,9 +545,9 @@ describe('ConsolePanel', () => {
     });
     render(<ConsolePanel />);
     expect(screen.getByText('hello world')).toBeTruthy();
-    // "LOG" appears twice: once in the filter bar button, once in the entry row badge
-    const logLabels = screen.getAllByText('LOG');
-    expect(logLabels.length).toBeGreaterThanOrEqual(2);
+    // The severity is read out, not painted: the tape row carries only the line and the text.
+    expect(screen.getByTestId('console-entry-row').querySelector('.sr-only')?.textContent).toBe('Log');
+    expect(screen.getByTestId('console-level-log').textContent).toBe('Log1');
   });
 
   it('renders plain source-line entries with a clickable output badge', async () => {
@@ -557,7 +571,7 @@ describe('ConsolePanel', () => {
       render(<ConsolePanel />);
 
       const badge = screen.getByTestId('output-line-badge');
-      expect(badge.textContent).toBe('L12');
+      expect(badge.textContent).toBe('12');
       await user.click(badge);
 
       expect(openSpy).toHaveBeenCalledTimes(1);
@@ -603,15 +617,14 @@ describe('ConsolePanel', () => {
     );
   });
 
-  it('renders an error entry with ERR badge', () => {
+  it('renders an error entry in the error colour and counts it under Error', () => {
     resetState({
       entries: [{ id: '2', type: 'error', content: 'something blew up', timestamp: Date.now() }],
     });
     render(<ConsolePanel />);
-    expect(screen.getByText('something blew up')).toBeTruthy();
-    // "ERR" appears in both the filter bar button and the entry row badge
-    const errLabels = screen.getAllByText('ERR');
-    expect(errLabels.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('something blew up').className).toContain('text-error');
+    expect(screen.getByTestId('console-level-error').textContent).toBe('Error1');
+    expect(screen.getByTestId('console-level-warn').textContent).toBe('Warn');
   });
 
   // `outputSourceMappingEnabled` was removed; the cursor
@@ -719,8 +732,7 @@ describe('ConsolePanel', () => {
   it('shows "No entries match the active filters" when entries exist but all filtered out', () => {
     resetState({
       entries: [{ id: '3', type: 'warn', content: 'a warning', timestamp: Date.now() }],
-      // activeFilters does NOT include 'warn'
-      activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'error', 'result']),
+      level: 'error',
     });
     render(<ConsolePanel />);
     expect(screen.getByText('No entries match the active filters.')).toBeTruthy();
@@ -923,14 +935,21 @@ describe('ConsolePanel', () => {
     expect(within(dialog).getByText('"banana"')).toBeTruthy();
   });
 
-  it('clicking a filter pill calls toggleFilter with its type', async () => {
+  it('selects one severity from the All / Log / Warn / Error segment', async () => {
     const user = userEvent.setup();
+    resetState({ level: 'warn' });
     render(<ConsolePanel />);
-    const logButton = screen.getByRole('button', { name: 'LOG' });
-    await user.hover(logButton);
-    expect(screen.getByRole('tooltip').textContent).toContain('Toggle log output');
-    await user.click(logButton);
-    expect(mockToggleFilter).toHaveBeenCalledWith('log');
+    const group = screen.getByRole('group', { name: 'Show output' });
+    expect(within(group).getAllByRole('button').map(button => button.textContent)).toEqual([
+      'All',
+      'Log',
+      'Warn',
+      'Error',
+    ]);
+    expect(screen.getByTestId('console-level-warn').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('console-level-all').getAttribute('aria-pressed')).toBe('false');
+    await user.click(screen.getByTestId('console-level-log'));
+    expect(mockSetLevel).toHaveBeenCalledWith('log');
   });
 
   it('clicking clear on an empty console clears without an undo toast', async () => {
@@ -1055,5 +1074,150 @@ describe('ConsolePanel', () => {
         messageKey: 'upsell.freeCeilingReached',
       })
     );
+  });
+
+  describe('tape', () => {
+    afterEach(() => {
+      useResultStore.setState({ isManualRunning: false, manualRunMode: null, ranCode: null });
+    });
+
+    const previousRows = ['api', 'worker', 'db'].map((name, index) => ({
+      entry: { id: `prev-${index}`, type: 'log' as const, content: name, timestamp: 0, line: 5 },
+      repeatCount: 1,
+    }));
+    const summaryRow = {
+      entry: { id: 'prev-9', type: 'log' as const, content: 'slowest path: db', timestamp: 0, line: 9 },
+      repeatCount: 1,
+    };
+
+    it('stands in the previous run until reached and waits on the next line', () => {
+      resetState({
+        entries: [
+          { id: 'now-1', type: 'log', content: 'api', timestamp: 1_440, line: 5 },
+          { id: 'now-2', type: 'log', content: 'worker', timestamp: 1_840, line: 5 },
+        ],
+        showTimestamps: true,
+        currentRun: { tabId: 'tab', number: 7, startedAt: 1_000 },
+        previousRun: { number: 6, rows: [...previousRows, summaryRow] },
+      });
+      useResultStore.setState({
+        isManualRunning: true,
+        manualRunMode: 'run',
+        ranCode: { tabId: 'tab', code: 'a\nb\nc\nd\n  print(name)\n', input: '', at: 0 },
+      });
+      render(<ConsolePanel />);
+
+      expect(
+        screen.getAllByTestId('console-row-stamp').map(stamp => stamp.textContent)
+      ).toEqual(['+0.44 s', '+0.84 s']);
+      const waiting = screen.getByTestId('console-waiting-row');
+      expect(waiting.getAttribute('data-line')).toBe('5');
+      expect(waiting.textContent).toContain('waiting on print(name)');
+      const ghosts = screen.getAllByTestId('console-ghost-row');
+      expect(ghosts).toHaveLength(1);
+      expect(ghosts[0]?.textContent).toContain('slowest path: db');
+      expect(ghosts[0]?.textContent).toContain('run 6');
+    });
+
+    it('drops ghost and waiting rows once the run is over', () => {
+      resetState({
+        entries: [{ id: 'now-1', type: 'log', content: 'api', timestamp: 0, line: 5 }],
+        currentRun: { tabId: 'tab', number: 7, startedAt: 0 },
+        previousRun: { number: 6, rows: [...previousRows, summaryRow] },
+      });
+      render(<ConsolePanel />);
+      expect(screen.queryByTestId('console-waiting-row')).toBeNull();
+      expect(screen.queryByTestId('console-ghost-row')).toBeNull();
+    });
+
+    it('shows a waiting row on the first run with nothing to compare against', () => {
+      resetState({ currentRun: { tabId: 'tab', number: 1, startedAt: 0 } });
+      useResultStore.setState({ isManualRunning: true, manualRunMode: 'run' });
+      render(<ConsolePanel />);
+      expect(screen.getByTestId('console-waiting-row').textContent).toContain('waiting for output');
+      expect(screen.queryByText('Output will appear here...')).toBeNull();
+    });
+
+    it('shows no waiting row while a run has no timeline, such as a validation', () => {
+      resetState({ currentRun: { tabId: 'tab', number: 1, startedAt: null } });
+      useResultStore.setState({ isManualRunning: true, manualRunMode: 'run' });
+      render(<ConsolePanel />);
+      expect(screen.queryByTestId('console-waiting-row')).toBeNull();
+    });
+
+    it('caps the ghost rows so live output stays in view', () => {
+      const many = Array.from({ length: 12 }, (_, index) => ({
+        entry: { id: `g-${index}`, type: 'log' as const, content: `row ${index}`, timestamp: 0, line: 10 + index },
+        repeatCount: 1,
+      }));
+      resetState({
+        currentRun: { tabId: 'tab', number: 2, startedAt: 0 },
+        previousRun: { number: 1, rows: many },
+      });
+      useResultStore.setState({ isManualRunning: true, manualRunMode: 'run' });
+      render(<ConsolePanel />);
+      expect(screen.getAllByTestId('console-ghost-row')).toHaveLength(4);
+    });
+
+    it('folds a multi-line call to its first line', async () => {
+      const user = userEvent.setup();
+      resetState({
+        entries: [{ id: 'multi', type: 'log', content: 'report\n  api ok\n  db slow', timestamp: 0 }],
+      });
+      render(<ConsolePanel />);
+      const toggle = screen.getByTestId('console-fold-toggle');
+      expect(toggle.textContent).toBe('+2 lines');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByText(/db slow/)).toBeNull();
+      await user.click(toggle);
+      expect(screen.getByText(/db slow/)).toBeTruthy();
+      expect(screen.getByTestId('console-fold-toggle').textContent).toBe('Fold');
+    });
+
+    it('keeps error output unfolded', () => {
+      resetState({
+        entries: [{ id: 'err', type: 'error', content: 'Error: boom\n    at main', timestamp: 0 }],
+      });
+      render(<ConsolePanel />);
+      expect(screen.queryByTestId('console-fold-toggle')).toBeNull();
+      expect(screen.getByText(/at main/)).toBeTruthy();
+    });
+
+    it('prints plain string payloads as text instead of quoted values', () => {
+      resetState({
+        entries: [
+          {
+            id: 'str',
+            type: 'log',
+            content: 'api     μ 41.2 ms',
+            timestamp: 0,
+            payload: [{ kind: 'primitive', type: 'string', repr: '"api     μ 41.2 ms"' }],
+          },
+        ],
+      });
+      render(<ConsolePanel />);
+      expect(screen.getByTestId('console-entry-row').textContent).toContain('api     μ 41.2 ms');
+      expect(screen.getByTestId('console-entry-row').textContent).not.toContain('"api');
+    });
+
+    it('filters rows by search text and closes on Escape', async () => {
+      const user = userEvent.setup();
+      resetState({
+        entries: [
+          { id: 'a', type: 'log', content: 'alpha', timestamp: 0 },
+          { id: 'b', type: 'log', content: 'beta', timestamp: 0 },
+        ],
+      });
+      render(<ConsolePanel />);
+      await user.click(screen.getByTestId('console-search-toggle'));
+      const input = screen.getByTestId('console-search-input');
+      await user.type(input, 'BET');
+      expect(screen.getAllByTestId('console-entry-row').map(row => row.textContent)).toEqual([
+        expect.stringContaining('beta'),
+      ]);
+      await user.keyboard('{Escape}');
+      expect(screen.queryByTestId('console-search-input')).toBeNull();
+      expect(screen.getAllByTestId('console-entry-row')).toHaveLength(2);
+    });
   });
 });
