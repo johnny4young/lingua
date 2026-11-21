@@ -331,6 +331,8 @@ export function SqlResultPreview({
   const hasRows = displayRows.length > 0;
   const railOpen = showRail && hasRows && activeTab !== 'profile';
   const tableShown = hasRows && activeTab === 'table';
+  // The value viewer takes the rail's place, so the heads carry the distribution meanwhile.
+  const viewerShown = activeTab === 'table' && viewerOpen && selected !== null && displayRows[selected.row] !== undefined;
   const statsShown = railOpen || tableShown;
   const shownStats = useMemo(
     () => (statsShown ? columnStats(shownColumns, railRows) : null),
@@ -638,7 +640,7 @@ export function SqlResultPreview({
                     ? { onFollowLink: (column: string, value: unknown) => foreignKeys.onFollow(outgoingByColumn.get(column)!, value) }
                     : {})}
                   {...(gridEditing ? { editing: gridEditing } : {})}
-                  {...(shownStats && !railOpen ? { stats: shownStats } : {})}
+                  {...(shownStats && (!railOpen || viewerShown) ? { stats: shownStats } : {})}
                   {...(instruments ? { instruments } : {})}
                 />
               )

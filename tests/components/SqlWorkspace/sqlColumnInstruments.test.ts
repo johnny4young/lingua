@@ -38,16 +38,28 @@ describe('resultInstruments', () => {
     expect(result.scales.has('share')).toBe(false);
   });
 
-  it('draws no bar for keys, linked columns, negatives or a single value, and never sums a key', () => {
+  it('draws no bar for keys, negatives or a single value, and never sums a key', () => {
     const rows = [
-      { id: 1, user_id: 7, delta: -3, flat: 5, linked: 1 },
-      { id: 2, user_id: 9, delta: 4, flat: 5, linked: 3 },
+      { id: 1, user_id: 7, delta: -3, flat: 5 },
+      { id: 2, user_id: 9, delta: 4, flat: 5 },
     ];
-    const result = resultInstruments(numeric('id', 'user_id', 'delta', 'flat', 'linked'), rows, new Set(['linked']), 1_000);
+    const result = resultInstruments(numeric('id', 'user_id', 'delta', 'flat'), rows, new Set(), 1_000);
     expect(result.scales.size).toBe(0);
     expect(result.summaries.has('id')).toBe(false);
     expect(result.summaries.has('user_id')).toBe(false);
     expect(result.summaries.get('delta')?.value).toBe(1);
+  });
+
+  it('gives foreign keys neither a bar nor a sum', () => {
+    const rows = [{ author: 1 }, { author: 9 }];
+    const result = resultInstruments(numeric('author'), rows, new Set(['author']), 1_000);
+    expect(result.scales.size).toBe(0);
+    expect(result.summaries.size).toBe(0);
+  });
+
+  it('leaves out an integer sum too large to be exact', () => {
+    const rows = [{ bytes: '9007199254740993' }, { bytes: '2' }];
+    expect(resultInstruments(numeric('bytes'), rows, new Set(), 1_000).summaries.has('bytes')).toBe(false);
   });
 
   it('skips nulls, text in numeric columns and staged deletions', () => {

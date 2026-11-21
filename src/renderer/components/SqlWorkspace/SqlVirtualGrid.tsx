@@ -226,7 +226,9 @@ const GridRow = memo(function GridRow({
         const cellSelected = selectedColumn === col.name;
         const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
         const tone = cellTone(row, col.name);
-        const magic = !linked ? cachedMagic(row, col.name, value, duckType, fractions.has(col.name)) : null;
+        // The fraction scan reads a sample, so a value past it can still fall outside 0–1.
+        const fraction = fractions.has(col.name) && typeof value === 'number' && value >= 0 && value <= 1;
+        const magic = !linked ? cachedMagic(row, col.name, value, duckType, fraction) : null;
         const share = !linked && !magic ? barShare(value, scales.get(col.name)) : null;
         if (editor?.column === col.name) {
           return (
@@ -520,7 +522,7 @@ export function SqlVirtualGrid({
 
   // Only the column set: a sort, filter or Load more must not move columns.
   const plan = useMemo(
-    () => (typed.length > MAX_AUTO_LAYOUT_COLUMNS ? planColumns(typed, rows, fractions, linkedColumns, scales) : null),
+    () => (typed.length > MAX_AUTO_LAYOUT_COLUMNS ? planColumns(typed, rows, fractions, linkedColumns) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [typed]
   );

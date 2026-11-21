@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import i18next from 'i18next';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
+import { SqlVirtualGrid } from '../../../src/renderer/components/SqlWorkspace/SqlVirtualGrid';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
 
 function response(): SqlResponseV1 {
@@ -90,6 +91,39 @@ describe('SQL grid instruments', () => {
     expect(screen.queryAllByTestId('sql-result-head-meta')).toHaveLength(0);
     fireEvent.click(screen.getByTestId('sql-column-rail-toggle'));
     expect(screen.getAllByTestId('sql-result-head-meta').length).toBeGreaterThan(0);
+  });
+
+  it('gives the heads the distribution back while the value viewer takes the rail place', () => {
+    render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
+    const toggle = screen.getByTestId('sql-column-rail-toggle');
+    if (toggle.getAttribute('aria-pressed') !== 'true') fireEvent.click(toggle);
+    expect(screen.queryAllByTestId('sql-result-head-meta')).toHaveLength(0);
+    fireEvent.click(cell(0, 'city'));
+    fireEvent.keyDown(screen.getByTestId('sql-result-preview-table-container'), { key: 'Enter' });
+    expect(screen.queryByTestId('sql-column-rail')).toBeNull();
+    expect(within(head('city')).getByTestId('sql-result-head-meta').textContent).toBe('· 3 distinct');
+    fireEvent.click(screen.getByTestId('sql-value-viewer-close'));
+    fireEvent.click(screen.getByTestId('sql-column-rail-toggle'));
+  });
+
+  it('draws the 0–1 bar only for values in 0–1, even past the sampled rows', () => {
+    render(
+      <SqlVirtualGrid
+        columns={[{ name: 'share', type: 'Float64' }]}
+        rows={[{ share: 0.5 }, { share: 37 }]}
+        sort={{ column: null, direction: 'asc' }}
+        onSort={vi.fn()}
+        selected={null}
+        onSelect={vi.fn()}
+        onCellAction={vi.fn()}
+        onCopyRow={vi.fn()}
+        instruments={{ fractions: new Set(['share']), scales: new Map(), summaries: new Map(), labelColumn: null, rowCount: 1, skipped: 1 }}
+      />
+    );
+    const rows = screen.getAllByTestId('sql-result-preview-row');
+    expect(within(rows[0]!).queryByTestId('sql-cell-bar')).not.toBeNull();
+    expect(within(rows[1]!).queryByTestId('sql-cell-bar')).toBeNull();
+    expect(rows[1]!.textContent).toBe('37');
   });
 
   it('localizes the Σ row and the heads in Spanish', async () => {

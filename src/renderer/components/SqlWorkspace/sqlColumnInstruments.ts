@@ -59,6 +59,7 @@ function decimalsOf(raw: unknown, value: number): number {
 
 interface Tally {
   name: string;
+  /** A key by name: no bar, no sum. */
   key: boolean;
   min: number;
   max: number;
@@ -73,13 +74,13 @@ interface Tally {
 /**
  * One pass over the rows in load order, within `rowLimit`. A numeric column
  * with two or more values, none negative, gets a scale bar unless it is a
- * fraction, a key or in `noBars`; every numeric column but a key gets a sum,
- * or an average for ratios by name and fractions.
+ * fraction; every numeric column gets a sum, or an average for ratios by name
+ * and fractions. Keys and foreign keys get neither.
  */
 export function resultInstruments(
   columns: ReadonlyArray<SqlColumnMetadata>,
   rows: ReadonlyArray<Record<string, unknown>>,
-  noBars: ReadonlySet<string>,
+  foreignKeys: ReadonlySet<string>,
   rowLimit: number
 ): SqlResultInstruments {
   const open = columns
@@ -129,13 +130,16 @@ export function resultInstruments(
     if (column.count === 0) continue;
     const fraction = column.unit && column.fractional;
     if (fraction) fractions.add(column.name);
-    if (column.key) continue;
-    if (!fraction && !noBars.has(column.name) && column.count >= 2 && column.min >= 0 && column.max > column.min) {
+    if (column.key || foreignKeys.has(column.name)) continue;
+    if (!fraction && column.count >= 2 && column.min >= 0 && column.max > column.min) {
       scales.set(column.name, column.max);
     }
+    const average = fraction || isAverageColumn(column.name);
+    // Past 2^53 an integer sum is no longer exact; no Σ beats a wrong one.
+    if (!average && column.digits === 0 && !Number.isSafeInteger(column.sum)) continue;
     summaries.set(
       column.name,
-      fraction || isAverageColumn(column.name)
+      average
         ? { kind: 'avg', value: column.sum / column.count, digits: Math.max(2, column.digits) }
         : { kind: 'sum', value: column.sum, digits: column.digits }
     );

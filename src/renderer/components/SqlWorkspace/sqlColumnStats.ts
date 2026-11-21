@@ -37,7 +37,7 @@ export interface SqlColumnStats {
   top: Array<{ value: string; count: number }>;
 }
 
-const isTemporal = (duckType: string) => /^(DATE|TIMESTAMP|TIME)/.test(duckType);
+export const isTemporal = (duckType: string) => /^(DATE|TIMESTAMP|TIME)/.test(duckType);
 
 /** A finite number from a cell, BIGINT and DECIMAL strings included; null otherwise. */
 export function numberOf(value: unknown): number | null {

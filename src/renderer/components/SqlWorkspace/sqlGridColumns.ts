@@ -4,7 +4,8 @@
  */
 
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
-import { BIN_COUNT } from './sqlColumnStats';
+import { isIdentifierColumn } from './sqlColumnInstruments';
+import { BIN_COUNT, isTemporal } from './sqlColumnStats';
 import { renderCell } from './sqlResultFormatters';
 
 /** More shown columns than this mounts only those on screen; fewer keeps the table's auto layout. */
@@ -23,6 +24,10 @@ export const SCALE_BAR_GAP_PX = 10;
 export const SPARK_TICK_PX = 3;
 export const SPARK_HEIGHT_PX = 9;
 const SPARK_WIDTH_PX = BIN_COUNT * (SPARK_TICK_PX + 1);
+// The type line's second half, after a 6 px gap: the spark or "· sorted ↑" (localized, with its arrow), and a text column's "· 10,000+ distinct".
+const SORTED_META_PX = Math.max(SPARK_WIDTH_PX, 12 * TYPE_CHAR_PX + 14);
+const DISTINCT_META_PX = 20 * TYPE_CHAR_PX;
+const META_GAP_PX = 6;
 const FK_ARROW_CHARS = 2;
 const MAX_CELL_PX = 512;
 const MIN_NUMERIC_PX = 130;
@@ -61,13 +66,16 @@ function cellChars(value: unknown, duckType: string): number {
   return text.length + (text.match(WIDE_CHARS)?.length ?? 0);
 }
 
-/** Widths from evenly spaced rows and the header text, within the limits the table's auto layout reaches. */
+/**
+ * Widths from evenly spaced rows and the header text, within the limits the
+ * table's auto layout reaches. Every column that may draw a scale bar gets its
+ * room up front, since the plan holds while Load more changes the scales.
+ */
 export function planColumns(
   typed: ReadonlyArray<TypedColumn>,
   rows: ReadonlyArray<Record<string, unknown>>,
   fractions: ReadonlySet<string>,
-  linkedColumns: ReadonlySet<string> | undefined,
-  scales?: ReadonlyMap<string, number>
+  linkedColumns: ReadonlySet<string> | undefined
 ): ColumnPlan {
   const longest = typed.map(() => 0);
   const step = Math.max(1, Math.floor(rows.length / SAMPLE_ROWS));
@@ -83,10 +91,10 @@ export function planColumns(
   const widths = typed.map(({ col, duckType, numeric }, c) => {
     const linked = linkedColumns?.has(col.name) === true;
     const decoration =
-      (linked ? FK_ARROW_CHARS * CELL_CHAR_PX : 0) + (fractions.has(col.name) ? BAR_PX : scales?.has(col.name) ? SCALE_BAR_TRACK_PX + SCALE_BAR_GAP_PX : 0);
+      (linked ? FK_ARROW_CHARS * CELL_CHAR_PX : 0) + (fractions.has(col.name) ? BAR_PX : numeric && !linked && !isIdentifierColumn(col.name) ? SCALE_BAR_TRACK_PX + SCALE_BAR_GAP_PX : 0);
     const cell = Math.min(MAX_CELL_PX, longest[c]! * CELL_CHAR_PX + CELL_PADDING_PX + decoration);
     const typeLabel = linked ? `${duckType} · FK` : duckType;
-    const typeLine = typeLabel.length * TYPE_CHAR_PX + (numeric ? SPARK_WIDTH_PX : 0);
+    const typeLine = typeLabel.length * TYPE_CHAR_PX + META_GAP_PX + (numeric || isTemporal(duckType) ? SORTED_META_PX : DISTINCT_META_PX);
     const header = Math.max(col.name.length * CELL_CHAR_PX, typeLine) + CELL_PADDING_PX;
     return Math.ceil(Math.max(numeric ? MIN_NUMERIC_PX : MIN_TEXT_PX, cell, header));
   });

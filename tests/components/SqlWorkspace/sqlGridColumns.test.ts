@@ -7,7 +7,8 @@ const widthOf = (value: unknown, typed = column('c')) => planColumns([typed], [{
 describe('planColumns', () => {
   it('holds the table minimums for short values', () => {
     expect(widthOf('a')).toBe(200);
-    expect(widthOf(1, column('c', 'BIGINT', true))).toBe(130);
+    // A numeric head reserves its type line: the type, then the spark or the sort.
+    expect(widthOf(1, column('c', 'BIGINT', true))).toBe(145);
   });
 
   it('fits a value the way auto layout does, then stops at the cell cap', () => {
@@ -23,13 +24,18 @@ describe('planColumns', () => {
     expect(widthOf('漢'.repeat(40))).toBe(widthOf('x'.repeat(80)));
   });
 
-  it('reserves room for a bar, a scale bar and a foreign key arrow', () => {
-    const typed = column('c', 'DOUBLE', true);
-    const rows = [{ c: 1.234567890123456 }];
-    const plain = planColumns([typed], rows, new Set(), undefined).widths[0]!;
-    expect(planColumns([typed], rows, new Set(['c']), undefined).widths[0]).toBe(plain + 56);
-    expect(planColumns([typed], rows, new Set(), new Set(['c'])).widths[0]).toBeGreaterThan(plain);
-    expect(planColumns([typed], rows, new Set(), undefined, new Map([['c', 2]])).widths[0]).toBe(plain + 98);
+  it('reserves room for a scale bar on every measure, a 0–1 bar and a foreign key arrow', () => {
+    const width = (name: string, fractions = new Set<string>(), linked?: Set<string>) =>
+      planColumns([column(name, 'DOUBLE', true)], [{ [name]: '12345678901234567890.123' }], fractions, linked).widths[0]!;
+    // A key draws no bar, so it is the plain width.
+    const plain = width('c_id');
+    expect(width('c')).toBe(plain + 98);
+    expect(width('c', new Set(['c']))).toBe(plain + 56);
+    expect(width('c', new Set(), new Set(['c']))).toBe(plain + 13);
+  });
+
+  it('reserves the type line of a text head with its distinct count', () => {
+    expect(widthOf('a', column('c', 'TIMESTAMP WITH TIME ZONE'))).toBe(Math.ceil(24 * 5.76 + 6 + 12 * 5.76 + 14 + 21));
   });
 
   it('leaves images and BLOBs at the minimum, since they draw as thumbnails', () => {
@@ -51,7 +57,7 @@ describe('planColumns', () => {
 
   it('accumulates offsets ending at the table width', () => {
     const plan = planColumns([column('a'), column('b', 'BIGINT', true)], [{ a: 'x', b: 1 }], new Set(), undefined);
-    expect(plan.offsets).toEqual([0, 200, 330]);
+    expect(plan.offsets).toEqual([0, 200, 345]);
   });
 });
 
