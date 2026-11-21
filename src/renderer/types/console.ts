@@ -14,10 +14,10 @@ export type ConsoleEntryType = 'log' | 'warn' | 'error' | 'info' | 'result';
 export type ConsoleLevel = 'all' | 'log' | 'warn' | 'error';
 
 /** The run the console holds; `startedAt` anchors row offsets, null when output landed at once. */
-export interface ConsoleRun { tabId: string; number: number; startedAt: number | null }
+interface ConsoleRun { tabId: string; number: number; startedAt: number | null }
 
 /** The run before it, whose line-keyed rows stand in until the current run reaches them. */
-export interface ConsolePreviousRun { number: number; rows: CollapsedConsoleRow[] }
+interface ConsolePreviousRun { number: number; rows: CollapsedConsoleRow[] }
 
 export interface ConsoleEntry {
   id: string;
