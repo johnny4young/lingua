@@ -150,4 +150,27 @@ describe('CommandBarVerb', () => {
     expect(screen.getByTestId('verb').getAttribute('data-running')).toBe('true');
     expect(screen.queryByTestId('verb-menu')).toBeNull();
   });
+
+  it('moves through enabled entries with the arrow keys and starts on the first one', async () => {
+    const user = userEvent.setup();
+    const items = [
+      { id: 'a', label: 'A', testId: 'item-a', onSelect: vi.fn() },
+      { id: 'b', label: 'B', disabled: true, testId: 'item-b', onSelect: vi.fn() },
+      { id: 'c', label: 'C', testId: 'item-c', onSelect: vi.fn() },
+    ];
+    render(<CommandBarVerb label="Run" icon={null} onClick={vi.fn()} testId="verb" menu={{ label: 'More', testId: 'more', listTestId: 'list', items }} />);
+    await user.click(screen.getByTestId('more'));
+    expect(document.activeElement).toBe(screen.getByTestId('item-a'));
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(screen.getByTestId('item-c'));
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(screen.getByTestId('item-a'));
+    await user.keyboard('{End}');
+    expect(document.activeElement).toBe(screen.getByTestId('item-c'));
+  });
+
+  it('keeps the split menu while running when its entries do not start a run', () => {
+    render(<CommandBarVerb running menuWhileRunning label="Stop" icon={null} onClick={vi.fn()} testId="verb" menu={{ label: 'More', testId: 'more', listTestId: 'list', items: [] }} />);
+    expect(screen.getByTestId('more')).toBeTruthy();
+  });
 });

@@ -7,6 +7,7 @@ import { CommandBarContextChip, CommandBarSlot, CommandBarVerb } from '../Chrome
 
 /** The notebook's context (active cell · language) and verb (Run cell) in the command bar. */
 export function NotebookCommandBar({
+  title,
   cells,
   activeCellId,
   isAnyCellRunning,
@@ -19,6 +20,8 @@ export function NotebookCommandBar({
   onRunFromHere,
   onStop,
 }: {
+  /** Names the context when no cell is selected. */
+  title: string;
   cells: readonly NotebookCellV1[];
   activeCellId: string | null;
   isAnyCellRunning: boolean;
@@ -33,7 +36,6 @@ export function NotebookCommandBar({
 }) {
   const { t } = useTranslation();
   const runShortcut = useShortcutLabel('run-toggle');
-  const stopShortcut = useShortcutLabel('run-stop');
   const index = activeCellId === null ? -1 : cells.findIndex((cell) => cell.id === activeCellId);
   const cell = index >= 0 ? cells[index] : undefined;
   const codeCell = cell && isNotebookCodeCell(cell) ? cell : undefined;
@@ -44,7 +46,7 @@ export function NotebookCommandBar({
         <CommandBarContextChip
           testId="notebook-command-bar-cell"
           {...(codeCell ? { badge: codeCell.language, detail: languageLabel(codeCell.language) } : {})}
-          name={cell ? t('notebook.cell.indexLabel', { index: index + 1 }) : t('notebook.toolbar.runAll')}
+          name={cell ? t('notebook.cell.indexLabel', { index: index + 1 }) : title}
         />
       </CommandBarSlot>
       <CommandBarSlot slot="verb">
@@ -53,7 +55,6 @@ export function NotebookCommandBar({
             running
             label={t('notebook.toolbar.stop')}
             icon={<Square size={11} fill="currentColor" />}
-            {...(stopShortcut ? { shortcut: stopShortcut } : {})}
             onClick={onStop}
             testId="notebook-command-bar-stop"
           />

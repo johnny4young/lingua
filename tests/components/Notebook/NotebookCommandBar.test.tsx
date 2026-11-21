@@ -26,7 +26,7 @@ describe('NotebookCommandBar', () => {
   it('names the active cell and its language and runs it', async () => {
     const user = userEvent.setup();
     const props = handlers();
-    render(<NotebookCommandBar cells={cells} activeCellId="c1" isAnyCellRunning={false} canRunAll canRunAbove canRunFromHere {...props} />);
+    render(<NotebookCommandBar title="Latencies" cells={cells} activeCellId="c1" isAnyCellRunning={false} canRunAll canRunAbove canRunFromHere {...props} />);
     expect(screen.getByTestId('notebook-command-bar-cell').textContent).toContain('Cell 2');
     expect(screen.getByTestId('notebook-command-bar-cell').textContent).toContain('Python');
     await user.click(screen.getByTestId('notebook-command-bar-run-cell'));
@@ -38,10 +38,17 @@ describe('NotebookCommandBar', () => {
 
   it('cannot run a markdown cell, and offers Stop while a cell runs', async () => {
     const props = handlers();
-    const { rerender } = render(<NotebookCommandBar cells={cells} activeCellId="m1" isAnyCellRunning={false} canRunAll canRunAbove={false} canRunFromHere {...props} />);
+    const { rerender } = render(<NotebookCommandBar title="Latencies" cells={cells} activeCellId="m1" isAnyCellRunning={false} canRunAll canRunAbove={false} canRunFromHere {...props} />);
     expect((screen.getByTestId('notebook-command-bar-run-cell') as HTMLButtonElement).disabled).toBe(true);
-    rerender(<NotebookCommandBar cells={cells} activeCellId="c1" isAnyCellRunning canRunAll canRunAbove canRunFromHere {...props} />);
+    rerender(<NotebookCommandBar title="Latencies" cells={cells} activeCellId="c1" isAnyCellRunning canRunAll canRunAbove canRunFromHere {...props} />);
     await userEvent.setup().click(screen.getByTestId('notebook-command-bar-stop'));
     expect(props.onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it('names the notebook when no cell is selected, and keeps a badge-less name visible', () => {
+    render(<NotebookCommandBar title="Latencies" cells={cells} activeCellId={null} isAnyCellRunning={false} canRunAll canRunAbove={false} canRunFromHere={false} {...handlers()} />);
+    const chip = screen.getByTestId('notebook-command-bar-cell');
+    expect(chip.textContent).toBe('Latencies');
+    expect(chip.hasAttribute('data-has-badge')).toBe(false);
   });
 });

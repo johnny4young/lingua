@@ -24,6 +24,7 @@ import {
 } from '../../stores/commandBarSlotStore';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useDismissible } from '../../hooks/useDismissible';
+import { useMenuKeyboard } from '../../hooks/useMenuKeyboard';
 import { useCommandBarSlotScope } from './commandBarSlotScope';
 import { SurfaceBadge } from './CommandBarSlotHost';
 import type { Language } from '../../types/language';
@@ -105,9 +106,10 @@ export function CommandBarContextChip({
     </>
   );
   const className = 'focus-ring action-pill-segment action-pill-lang action-pill-context rounded-l-lg rounded-r-none';
+  const badgeAttr = badge ? { 'data-has-badge': 'true' } : {};
   if (!onClick) {
     return (
-      <span data-testid={testId} className={className} {...data}>
+      <span data-testid={testId} className={className} {...badgeAttr} {...data}>
         {body}
       </span>
     );
@@ -123,6 +125,7 @@ export function CommandBarContextChip({
       aria-controls={controls}
       onClick={onClick}
       className={className}
+      {...badgeAttr}
       {...data}
     >
       {body}
@@ -157,6 +160,8 @@ interface VerbProps {
   /** Extra classes on the verb and its chevron. */
   className?: string;
   data?: Record<`data-${string}`, string>;
+  /** Keep the split menu while running, for entries that do not start a run. */
+  menuWhileRunning?: boolean;
   menu?: {
     label: string;
     testId: string;
@@ -181,12 +186,14 @@ export function CommandBarVerb({
   style,
   className,
   data,
+  menuWhileRunning = false,
   menu,
 }: VerbProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
-  const showMenu = Boolean(menu) && !running;
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const showMenu = Boolean(menu) && (!running || menuWhileRunning);
   // A run that starts while the menu is open closes it for good.
   const [menuShown, setMenuShown] = useState(showMenu);
   if (menuShown !== showMenu) {
@@ -196,6 +203,7 @@ export function CommandBarVerb({
   const menuOpen = open && showMenu;
 
   useDismissible(menuOpen, rootRef, setOpen, toggleRef);
+  useMenuKeyboard(menuOpen, menuRef);
 
   return (
     <div ref={rootRef} className="action-pill-run-group relative inline-flex items-stretch">
@@ -239,6 +247,7 @@ export function CommandBarVerb({
       ) : null}
       {menuOpen && menu ? (
         <div
+          ref={menuRef}
           role="menu"
           aria-label={menu.label}
           data-testid={menu.listTestId}

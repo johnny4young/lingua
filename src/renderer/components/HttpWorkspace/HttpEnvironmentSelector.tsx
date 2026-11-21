@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import type { HttpEnvironmentV1 } from '../../../shared/httpEnvironment';
 import '../../i18n/httpBuilderCatalog';
 import { useDismissible } from '../../hooks/useDismissible';
+import { useMenuKeyboard } from '../../hooks/useMenuKeyboard';
 import { CommandBarContextChip } from '../Chrome/CommandBarSlot';
 import type { HttpTint } from './httpScopeColors';
 
@@ -38,11 +39,13 @@ export function HttpEnvironmentSelector({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const chipRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const active = environments.find((env) => env.id === activeEnvironmentId) ?? null;
   const nameOf = (env: HttpEnvironmentV1) => (env.name.length > 0 ? env.name : t('httpWorkspace.environment.unnamed'));
   const name = active ? nameOf(active) : t('httpWorkspace.environment.selector.none');
 
   useDismissible(open, rootRef, setOpen, chipRef);
+  useMenuKeyboard(open, menuRef);
 
   const choose = (id: string | null) => {
     setOpen(false);
@@ -92,6 +95,7 @@ export function HttpEnvironmentSelector({
       />
       {open ? (
         <div
+          ref={menuRef}
           role="menu"
           aria-label={t('httpWorkspace.environment.selector.label')}
           data-testid="http-environment-menu"

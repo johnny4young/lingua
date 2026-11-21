@@ -56,4 +56,13 @@ describe('HttpEnvironmentSelector', () => {
     await user.click(screen.getByTestId('http-environment-manage'));
     expect(onManage).toHaveBeenCalledTimes(1);
   });
+
+  it('focuses the active environment when the menu opens and moves with the arrow keys', async () => {
+    const user = userEvent.setup();
+    render(<HttpEnvironmentSelector environments={environments} activeEnvironmentId="stg" onSelect={vi.fn()} onManage={vi.fn()} />);
+    await user.click(screen.getByTestId('http-environment-selector'));
+    expect(document.activeElement).toBe(screen.getByTestId('http-environment-option-stg'));
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(screen.getByTestId('http-environment-option-dev'));
+  });
 });

@@ -22,7 +22,6 @@ export function HttpSendButton({
   disabled,
   describedBy,
   combo,
-  stopCombo,
   queue,
   onSend,
   onStop,
@@ -34,7 +33,6 @@ export function HttpSendButton({
   disabled: boolean;
   describedBy?: string;
   combo: string;
-  stopCombo?: string;
   queue?: HttpSendQueue;
   onSend: () => void;
   onStop?: () => void;
@@ -44,6 +42,15 @@ export function HttpSendButton({
   copyDisabled?: boolean;
 }) {
   const { t } = useTranslation();
+  const copyMenu = copyItems
+    ? {
+        label: t('httpWorkspace.editor.copyAs.label'),
+        testId: 'http-request-editor-copy-menu',
+        listTestId: 'http-request-editor-copy-menu-list',
+        items: copyItems,
+        disabled: copyDisabled,
+      }
+    : undefined;
   if (isExecuting) {
     // In flight, the verb becomes Stop; the previous response stays on screen.
     return (
@@ -51,9 +58,9 @@ export function HttpSendButton({
         running
         label={t('httpWorkspace.editor.stop.label')}
         icon={<Loader2 size={12} className="animate-spin" />}
-        {...(stopCombo ? { shortcut: stopCombo } : {})}
         onClick={() => onStop?.()}
         testId="http-request-editor-stop"
+        {...(copyMenu ? { menu: copyMenu, menuWhileRunning: true } : {})}
       />
     );
   }
@@ -99,17 +106,7 @@ export function HttpSendButton({
         ...(tint ? { 'data-tinted': 'true' } : {}),
       }}
       {...(tint ? { style: tintedSend(tint), className: 'hover:brightness-110' } : {})}
-      {...(copyItems
-        ? {
-            menu: {
-              label: t('httpWorkspace.editor.copyAs.label'),
-              testId: 'http-request-editor-copy-menu',
-              listTestId: 'http-request-editor-copy-menu-list',
-              items: copyItems,
-              disabled: copyDisabled,
-            },
-          }
-        : {})}
+      {...(copyMenu ? { menu: copyMenu } : {})}
     />
   );
 }

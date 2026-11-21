@@ -262,4 +262,10 @@ describe('HttpSendButton', () => {
     rerender(<HttpSendButton {...base} />);
     expect(screen.getByTestId('http-request-editor-send').getAttribute('aria-label')).toBe('Send');
   });
+
+  it('keeps Copy as reachable while the request is in flight', () => {
+    render(<HttpSendButton {...base} isExecuting copyItems={[{ id: 'curl', label: 'Copy as cURL', testId: 'copy-curl', onSelect: vi.fn() }]} />);
+    expect(screen.getByTestId('http-request-editor-stop')).toBeTruthy();
+    expect(screen.getByTestId('http-request-editor-copy-menu')).toBeTruthy();
+  });
 });

@@ -1898,7 +1898,7 @@
 
     .action-pill-language-label,
     .action-pill-runtime-label,
-    .action-pill-context-name {
+    .action-pill-context[data-has-badge='true'] .action-pill-context-name {
       display: none;
     }
   }

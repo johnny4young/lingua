@@ -136,7 +136,6 @@ export function HttpRequestEditor({
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
   const sendCombo = useShortcutLabel('run-toggle');
-  const stopCombo = useShortcutLabel('run-stop');
 
   // Local draft state. Auto-save debounce flushes to the store via
   // `onPatch` after `AUTO_SAVE_DEBOUNCE_MS` of quiet. Local state
@@ -710,7 +709,6 @@ export function HttpRequestEditor({
             disabled={!urlState.ok}
             {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
             combo={sendCombo}
-            stopCombo={stopCombo}
             {...(queue ? { queue } : {})}
             onSend={() => sendCurrentDraft()}
             {...(onStop ? { onStop } : {})}
