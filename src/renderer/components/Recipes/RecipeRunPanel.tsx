@@ -144,7 +144,7 @@ export function RecipeRunPanel() {
     >
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-2.5">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-display text-body-lg font-semibold tracking-[-0.01em] text-fg-base">
+          <h3 className="truncate text-body-lg font-semibold tracking-[-0.01em] text-fg-base">
             {pickProse(recipe.title, locale)}
           </h3>
           <p className="mt-0.5 truncate font-mono text-eyebrow uppercase tracking-[0.08em] text-fg-subtle">

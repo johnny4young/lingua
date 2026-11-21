@@ -128,7 +128,7 @@ export function ProjectTemplatesPanel() {
                   })}
                 </span>
               </div>
-              <h3 className="font-display text-body-lg font-semibold tracking-[-0.02em] text-fg-base">
+              <h3 className="text-body-lg font-semibold tracking-[-0.02em] text-fg-base">
                 {t(template.labelKey)}
               </h3>
               <p className="text-body-sm leading-6 text-fg-muted">

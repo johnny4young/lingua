@@ -136,7 +136,7 @@ describe('performance-report', () => {
     expect([...initial]).toEqual(['assets/index.js', 'assets/app.css']);
   });
 
-  it('classifies initial, worker, runtime, utility, lazy, and other assets', () => {
+  it('classifies initial, worker, runtime, utility, lazy, fonts, and other assets', () => {
     const initial = new Set(['assets/index.js']);
 
     expect(classifyAsset('assets/index.js', initial)).toBe('initial');
@@ -144,6 +144,8 @@ describe('performance-report', () => {
     expect(classifyAsset('pyodide/pyodide.asm.wasm', initial)).toBe('runtime');
     expect(classifyAsset('assets/marked.esm.js', initial)).toBe('utility');
     expect(classifyAsset('assets/feature.js', initial)).toBe('lazy');
+    expect(classifyAsset('fonts/recursive-latin-variable.woff2', initial)).toBe('fonts');
+    expect(classifyAsset('fonts/Recursive-OFL.txt', initial)).toBe('fonts');
     expect(classifyAsset('manifest.json', initial)).toBe('other');
   });
 
@@ -454,6 +456,7 @@ describe('performance-report', () => {
             worker: { files: 0, bytes: 0, gzipBytes: 0 },
             utility: { files: 0, bytes: 0, gzipBytes: 0 },
             lazy: { files: 0, bytes: 0, gzipBytes: 0 },
+            fonts: { files: 0, bytes: 0, gzipBytes: 0 },
             other: { files: 0, bytes: 0, gzipBytes: 0 },
           },
         },

@@ -1044,16 +1044,27 @@ If you add a new global class, place it in the closest subsection instead of app
   palette, on `⌘⇧P`.
 - Tab order follows reading order. The 44px target belongs to iOS and menu-bar
   apps in this family, not to this desktop app.
-- Type and radius come from the tokens: Inter and JetBrains Mono, with radii
-  4, 6, 10 and 14.
+- Type and radius come from the tokens, with radii 4, 6, 10 and 14. Fonts are
+  bundled in `public/fonts/` (rebuilt by `scripts/fonts/build-variable-fonts.sh`):
+  `font-sans` is Recursive (MONO 0, weights 420–720), `font-display` is Fraunces
+  (weights 340–520, no synthetic bold), `font-mono` stays JetBrains Mono, and
+  `font-code-recursive` is Recursive with MONO 1 for the theme packs that use it.
+  Inter stays bundled as the UI fallback; the editor font is a user setting.
 
   | Role | Size / weight | Font |
   | --- | --- | --- |
-  | Page title | 28 / 700 | Inter |
-  | Tool name | 17 / 600 | Inter |
-  | Body | 13 / 400 | Inter |
+  | Page title | 28 / 700 | Recursive |
+  | Tool name | 17 / 600 | Recursive |
+  | Display title, result numeral | 26–88 / 340–520 | Fraunces |
+  | Body | 13 / 420 | Recursive |
   | Code | 13 / 400 | JetBrains Mono |
-  | Eyebrow | 10.5 / 700 | Inter, uppercase |
+  | Eyebrow | 10.5 / 700 | Recursive, uppercase |
+
+- Value colours: `--color-value-{number,string,boolean,error,date,none}` and
+  `--color-pulse-fg` follow the shell theme (Ink in dark, Paper in light);
+  `--color-pulse` is a fill under `--color-pulse-on`. The fixed Ink and Paper
+  palettes (`--color-ink-*`, `--color-paper-*`) hold ground, panel, raised,
+  select and text 1–3 for the theme packs built on them.
 
 - `tests/build/themeTokenContrast.test.ts` measures every text pair in both
   themes and `tests/shared/languagePackContrast.test.ts` every language chip;

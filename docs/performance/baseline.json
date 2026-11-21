@@ -44,12 +44,19 @@
         "maxBytes": 13426881,
         "maxGzipBytes": 3516039
       },
+      "fonts": {
+        "files": 12,
+        "baselineBytes": 455835,
+        "baselineGzipBytes": 446257,
+        "maxBytes": 478627,
+        "maxGzipBytes": 468570
+      },
       "other": {
-        "files": 16,
-        "baselineBytes": 364327,
-        "baselineGzipBytes": 271894,
-        "maxBytes": 400760,
-        "maxGzipBytes": 299084
+        "files": 9,
+        "baselineBytes": 242668,
+        "baselineGzipBytes": 153068,
+        "maxBytes": 266935,
+        "maxGzipBytes": 168375
       }
     },
     "renderer": {
@@ -88,12 +95,19 @@
         "maxBytes": 13750753,
         "maxGzipBytes": 3568707
       },
+      "fonts": {
+        "files": 12,
+        "baselineBytes": 455835,
+        "baselineGzipBytes": 446257,
+        "maxBytes": 478627,
+        "maxGzipBytes": 468570
+      },
       "other": {
-        "files": 16,
-        "baselineBytes": 363643,
-        "baselineGzipBytes": 271636,
-        "maxBytes": 400008,
-        "maxGzipBytes": 298800
+        "files": 9,
+        "baselineBytes": 238748,
+        "baselineGzipBytes": 152037,
+        "maxBytes": 262623,
+        "maxGzipBytes": 167241
       }
     }
   },

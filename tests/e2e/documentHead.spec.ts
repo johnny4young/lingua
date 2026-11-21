@@ -3,7 +3,7 @@
  *
  * Locks the boot hints: the color-scheme meta, the
  * preconnect links to the two first-party hosts, the vendored
- * JetBrains Mono preloads + inline @font-face, and the theme
+ * Recursive and JetBrains Mono preloads + inline @font-face, and the theme
  * bootstrap ported from the desktop entry. The static-HTML
  * assertions read the served document text instead of the live DOM so
  * a regression in the entry HTML fails even if React later patches
@@ -86,8 +86,10 @@ test.describe('Document head — boot hints', () => {
     expect(
       preloads.some((tag) => tag.includes('jetbrains-mono-latin-700-normal.woff2'))
     ).toBe(true);
-    expect(preloads.some((tag) => tag.includes('inter-latin-400-normal.woff2'))).toBe(true);
-    expect(preloads.some((tag) => tag.includes('inter-latin-500-normal.woff2'))).toBe(true);
+    expect(preloads.some((tag) => tag.includes('recursive-latin-variable.woff2'))).toBe(true);
+    // Display and fallback faces load on demand, not on first paint.
+    expect(preloads.some((tag) => tag.includes('inter-latin-'))).toBe(false);
+    expect(preloads.some((tag) => tag.includes('fraunces-latin-'))).toBe(false);
     for (const tag of preloads) {
       expect(tag).toContain('crossorigin');
     }
@@ -98,7 +100,7 @@ test.describe('Document head — boot hints', () => {
     expect(html).toMatch(/#0c1017/);
   });
 
-  test('defaults to dark pre-hydration and loads the vendored editor font', async ({ page }) => {
+  test('defaults to dark pre-hydration and loads the vendored fonts', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     const probe = await page.evaluate(() => ({
@@ -123,12 +125,37 @@ test.describe('Document head — boot hints', () => {
     });
     expect(fontLoaded).toBe(true);
 
-    const uiFontLoaded = await page.evaluate(async () => {
-      const weights = [400, 500, 600];
-      const loaded = await Promise.all(weights.map((w) => document.fonts.load(`${w} 13px Inter`, 'abc')));
-      return loaded.every((faces) => faces.length > 0);
+    const faceLoads = await page.evaluate(async () => {
+      const specs = [
+        '420 13px Recursive',
+        '720 13px Recursive',
+        'oblique 15deg 13px Recursive',
+        '340 26px Fraunces',
+        'italic 520 26px Fraunces',
+        ...[400, 500, 600].map((w) => `${w} 13px Inter`),
+      ];
+      const loaded = await Promise.all(specs.map((spec) => document.fonts.load(spec, 'abc')));
+      return Object.fromEntries(specs.map((spec, i) => [spec, loaded[i].length > 0]));
     });
-    expect(uiFontLoaded).toBe(true);
+    expect(Object.values(faceLoads).every(Boolean), JSON.stringify(faceLoads)).toBe(true);
+
+    await page.waitForFunction(() => getComputedStyle(document.body).fontFamily.startsWith('Recursive'));
+    const families = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.className = 'font-display';
+      document.body.append(probe);
+      const display = getComputedStyle(probe);
+      const result = {
+        ui: getComputedStyle(document.body).fontFamily,
+        display: display.fontFamily,
+        displaySynthesis: display.getPropertyValue('font-synthesis-weight'),
+      };
+      probe.remove();
+      return result;
+    });
+    expect(families.ui).toMatch(/^Recursive,/);
+    expect(families.display).toMatch(/^Fraunces,/);
+    expect(families.displaySynthesis).toBe('none');
   });
 
   test('applies a persisted light editor theme before hydration (theme bootstrap)', async ({

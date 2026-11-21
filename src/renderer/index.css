@@ -72,13 +72,60 @@
   --icon-button-sm: 24px;
   --icon-glyph-md: 16px;
   --icon-glyph-sm: 14px;
+
+  /* Ink (dark) and Paper (light) palettes. Fixed values for the theme packs
+     that use them; the --color-pulse and --color-value-* roles below follow
+     the shell theme. */
+  --color-ink-ground: #05090a;
+  --color-ink-panel: #0a1012;
+  --color-ink-raised: #111a1c;
+  --color-ink-select: #1b282b;
+  --color-ink-text-1: #f3f7f8;
+  --color-ink-text-2: #a9b7ba;
+  --color-ink-text-3: #7f8f92;
+  --color-ink-pulse-fg: var(--color-pulse);
+  --color-ink-value-number: #f6b669;
+  --color-ink-value-string: #63d18f;
+  --color-ink-value-boolean: #b8b2ff;
+  --color-ink-value-error: #ff8a8a;
+  --color-ink-value-date: #f2a3cc;
+  --color-ink-value-none: #8a9a9d;
+  --color-paper-ground: #ffffff;
+  --color-paper-panel: #f5f8f9;
+  --color-paper-raised: #ebf0f1;
+  --color-paper-select: #dfe7e9;
+  --color-paper-text-1: #0e1517;
+  --color-paper-text-2: #46575a;
+  --color-paper-text-3: #5e6e71;
+  --color-paper-pulse-fg: #007a9c;
+  --color-paper-value-number: #955800;
+  --color-paper-value-string: #12703f;
+  --color-paper-value-boolean: #5b4bc4;
+  --color-paper-value-error: #c2333b;
+  --color-paper-value-date: #a8327a;
+  --color-paper-value-none: var(--color-paper-text-3);
+  /* Pulse is a fill under dark text on both grounds; text and lines use -fg. */
+  --color-pulse: #00bfdf;
+  --color-pulse-on: #041014;
+
+  /* Recursive's MONO axis turns the UI face into the code face. */
+  --font-code-recursive: 'Recursive', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-code-recursive-axes: 'MONO' 1;
 }
 
 :root,
 .light {
-  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-  --font-display-stack: 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-ui: 'Recursive', 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-display-stack: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
   --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --color-pulse-fg: var(--color-paper-pulse-fg);
+  --color-value-number: var(--color-paper-value-number);
+  --color-value-string: var(--color-paper-value-string);
+  --color-value-boolean: var(--color-paper-value-boolean);
+  --color-value-error: var(--color-paper-value-error);
+  --color-value-date: var(--color-paper-value-date);
+  --color-value-none: var(--color-paper-value-none);
 
   /* ===== DS canonical tokens — light ===== */
 
@@ -351,6 +398,14 @@
 
 .dark,
 [data-theme='dark'] {
+  --color-pulse-fg: var(--color-ink-pulse-fg);
+  --color-value-number: var(--color-ink-value-number);
+  --color-value-string: var(--color-ink-value-string);
+  --color-value-boolean: var(--color-ink-value-boolean);
+  --color-value-error: var(--color-ink-value-error);
+  --color-value-date: var(--color-ink-value-date);
+  --color-value-none: var(--color-ink-value-none);
+
   /* ===== DS canonical tokens — dark ===== */
 
   --color-neutral-0: oklch(0.12 0.005 210);
@@ -472,6 +527,16 @@
   --font-sans: var(--font-ui);
   --font-display: var(--font-display-stack);
   --font-mono: var(--font-code);
+
+  --color-pulse: var(--color-pulse);
+  --color-pulse-on: var(--color-pulse-on);
+  --color-pulse-fg: var(--color-pulse-fg);
+  --color-value-number: var(--color-value-number);
+  --color-value-string: var(--color-value-string);
+  --color-value-boolean: var(--color-value-boolean);
+  --color-value-error: var(--color-value-error);
+  --color-value-date: var(--color-value-date);
+  --color-value-none: var(--color-value-none);
 
   /* Legacy color names — Tailwind classes that existed before the DS
      migration (e.g. `text-foreground`, `bg-primary-soft`). They keep
@@ -811,7 +876,17 @@
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
+@utility font-code-recursive {
+  font-family: var(--font-code-recursive);
+  font-variation-settings: var(--font-code-recursive-axes);
+}
+
 @layer components {
+  /* Fraunces stops at 520; without this, font-semibold titles render a faux bold. */
+  .font-display {
+    font-synthesis-weight: none;
+  }
+
   /* Layout shells */
   .app-shell {
     @apply relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground;

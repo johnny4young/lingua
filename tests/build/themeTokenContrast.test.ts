@@ -95,6 +95,32 @@ describe('run pulse', () => {
   });
 });
 
+describe('Ink and Paper palettes', () => {
+  const palette = readCssBlock(css, /^:root\s*\{/m);
+  const hex = (token: string) => parseColor(resolveToken(token, palette));
+  const ROLES = ['text-1', 'text-2', 'text-3', 'pulse-fg', ...['number', 'string', 'boolean', 'error', 'date', 'none'].map((v) => `value-${v}`)];
+
+  it.each(['ink', 'paper'])('%s text and value colours clear 4.5:1 on ground and panel', (set) => {
+    for (const role of ROLES) {
+      for (const surface of ['ground', 'panel']) {
+        const r = contrastRatio(hex(`--color-${set}-${role}`), hex(`--color-${set}-${surface}`));
+        expect(r, `${set} ${role} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('labels on the pulse fill use the dark ink', () => {
+    expect(contrastRatio(hex('--color-pulse-on'), hex('--color-pulse'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('switches the value and pulse text roles with the shell theme', () => {
+    for (const role of ['pulse-fg', 'value-number', 'value-error', 'value-none']) {
+      expect(light.get(`--color-${role}`)).toBe(`var(--color-paper-${role})`);
+      expect(dark.get(`--color-${role}`)).toBe(`var(--color-ink-${role})`);
+    }
+  });
+});
+
 describe('contrast helper', () => {
   it.each([
     ['#0080A1', '#FFFFFF', 4.56],

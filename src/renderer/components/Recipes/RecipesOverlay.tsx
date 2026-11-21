@@ -205,7 +205,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
           <div>
             <h2
               id={titleId}
-              className="font-display text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
+              className="text-body-lg font-semibold tracking-[-0.01em] text-fg-base"
             >
               {t('recipes.overlay.title')}
             </h2>
@@ -333,7 +333,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="flex-1 font-display text-body font-semibold tracking-tight text-fg-base">
+                      <span className="flex-1 text-body font-semibold tracking-tight text-fg-base">
                         {pickProse(recipe.title, locale)}
                       </span>
                       {isPassed ? (
