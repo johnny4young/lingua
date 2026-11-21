@@ -331,10 +331,10 @@ Use this order when automating:
 | ✅ | `TC-014` | `BOTH` | `developer` | Open multiple tabs and switch active tab | Active tab changes correctly |
 | ✅ | `TC-015` | `BOTH` | `developer` | Edit tab content | Dirty indicator appears |
 | ✅ | `TC-016` | `BOTH` | `developer` | Close inactive tab | Tab disappears without breaking selection |
-| ✅ | `TC-017` | `BOTH` | `developer` | Close active tab | Focus moves to another tab or empty state |
-| ✅ | `TC-018` | `BOTH` | `developer` | Open template from welcome state | Tab opens with expected code |
-| ✅ | `TC-019` | `BOTH` | `developer` | Use quick-start language button | Tab opens in selected language |
-| ✅ | `TC-020` | `BOTH` | `developer` | Inspect empty-state shortcut hints | `Cmd+Shift+P`, `Cmd+B`, `Cmd+Enter` hints are visible |
+| ✅ | `TC-017` | `BOTH` | `developer` | Close active tab | Focus moves to another tab or Start |
+| ✅ | `TC-018` | `BOTH` | `developer` | Open template from Start | Tab opens with expected code |
+| ✅ | `TC-019` | `BOTH` | `developer` | Use a Start New language tile | Tab opens in selected language |
+| ✅ | `TC-020` | `BOTH` | `developer` | Inspect Start workspace tiles | Notebook, SQL, HTTP, Utilities, Open and Capsules show their shortcuts |
 
 ## Command Palette / Quick Open
 

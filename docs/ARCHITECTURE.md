@@ -1323,6 +1323,12 @@ field: older sessions restore without it, and restore rebuilds it through
 the summary chunk fails to load, restore keeps the tabs and drops their answers.
 The execution history stays in memory.
 
+Start reads these answers through `getSessionTabAnswers`, from the boot
+snapshot the restore prompt pins in ask mode, or from `lingua-session`.
+Reopening one row calls `restoreSession({ only })`: the tab joins the open
+tabs (`restoreTabs` with `append`) and the pinned snapshot keeps the rest, so
+autosave cannot drop them. Reopen all is the same full restore the prompt runs.
+
 ### Run state
 
 Each run records the code and the stdin and arguments it started from in

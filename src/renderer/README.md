@@ -231,7 +231,8 @@ a failed refresh cannot display another tab's preview.
 | [`components/Snippets/`](components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
 | [`components/StatusBar/`](components/StatusBar)           | `StatusBar.tsx`, `useStatusBarModel.ts`              | Persistent 24px bottom bar: language, lint, cursor, indent, Git |
 | [`components/StatusNotice/`](components/StatusNotice)     | `StatusNoticeBanner.tsx`                              | Global status-notice banner rendering                          |
-| [`components/Welcome/`](components/Welcome)               | welcome/project template overlays                     | Empty-state entry points and project template launcher          |
+| [`components/Start/`](components/Start)                   | `StartPickUp.tsx`, `StartNew.tsx`, `StartTemplates.tsx`, `startModel.ts` | Start sections that `Editor/EditorEmptyState.tsx` composes when no tab is open; copy lives in the lazy `start.json` catalog |
+| [`components/Welcome/`](components/Welcome)               | `ProjectTemplatesPanel.tsx`, `ProjectTemplatesOverlay.tsx` | Project template launcher, opened from the palette              |
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
 | [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
 

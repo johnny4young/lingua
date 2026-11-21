@@ -15,6 +15,8 @@ export function selectTabLastAnswer(tabId: string): (state: Pick<EditorState, 't
 }
 
 export interface SessionTabAnswer {
+  /** Position in the saved session, the key `restoreSession({ only })` takes. */
+  index: number;
   name: string;
   language: Language;
   kind?: 'notebook' | 'sql' | 'http' | 'utilities';
@@ -25,11 +27,12 @@ export interface SessionTabAnswer {
 /** Tabs of the session a restore would bring back that carry an answer, in tab order. */
 export function getSessionTabAnswers(): SessionTabAnswer[] {
   const { savedTabs } = getPendingSessionRestoreSnapshot() ?? useSessionStore.getState();
-  return savedTabs.flatMap(tab => {
+  return savedTabs.flatMap((tab, index) => {
     const lastAnswer = sanitizeLastAnswer(tab.lastAnswer);
     if (!lastAnswer) return [];
     return [
       {
+        index,
         name: tab.name,
         language: tab.language,
         ...(tab.kind ? { kind: tab.kind } : {}),

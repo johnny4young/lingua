@@ -15,7 +15,7 @@ import { getInitializationMessage } from '../../hooks/runnerOutput';
 import { useRunStale } from '../../hooks/useRunStale';
 import { RecordRunMenuItem } from './RecordRunMenuItem';
 import { useTranslation } from 'react-i18next';
-import { Bug, ChevronDown, Loader2, Play, Sparkles, Square } from 'lucide-react';
+import { Bug, ChevronDown, Loader2, Play, Plus, Sparkles, Square } from 'lucide-react';
 import type { EditorState, FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import type { WorkflowMode } from '../../../shared/workflowMode';
@@ -78,6 +78,8 @@ export function FloatingActionPillRunGroup({
   const bootstrapProgress = useBootstrapProgressStore(state =>
     state.progress?.language === language ? state.progress : null
   );
+  // Start has nothing to run, so the verb makes the scratch file instead.
+  const newScratch = noActiveTab && !isRunning;
   const bootstrapLabel = bootstrapProgress && (isRunning || isInitializing || isAutoRunning)
     ? formatBootstrapProgress(
         getInitializationMessage(bootstrapProgress.language),
@@ -90,6 +92,23 @@ export function FloatingActionPillRunGroup({
       className="action-pill-run-group relative inline-flex items-stretch"
       data-workflow={currentWorkflow}
     >
+      {newScratch ? (
+        <button
+          type="button"
+          onClick={() => {
+            setOpenMenu(null);
+            ensureTabForLanguage(language);
+          }}
+          data-workflow={currentWorkflow}
+          data-verb="new-scratch"
+          data-tour-id="run-button"
+          data-testid="action-pill-run"
+          className="action-pill-run action-pill-run-main rounded-l-none"
+        >
+          <Plus size={13} aria-hidden />
+          <span className="max-w-[260px] truncate">{t('actionPill.newScratch')}</span>
+        </button>
+      ) : (
       <button
         type="button"
         onClick={() => {
@@ -126,6 +145,7 @@ export function FloatingActionPillRunGroup({
         ) : null}
         {!isRunning && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
       </button>
+      )}
       <button
         type="button"
         aria-haspopup="menu"

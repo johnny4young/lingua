@@ -140,9 +140,10 @@ export function createTabActions(
       }));
     },
 
-    restoreTabs: (tabs, activeTabId) =>
-      set({
-        tabs: tabs.map(tab =>
+    restoreTabs: (tabs, activeTabId, options) =>
+      set(state => {
+        const kept = options?.append ? state.tabs : [];
+        const restored = tabs.filter(tab => !kept.some(open => open.id === tab.id)).map(tab =>
           dropStdinIfUnsupported(
             dropAutoLogIfUnsupported({
               ...tab,
@@ -159,8 +160,8 @@ export function createTabActions(
                   : workflowModeForRestoredTab(tab.language, tab.workflowMode),
             })
           )
-        ),
-        activeTabId: activeTabId ?? null,
+        );
+        return { tabs: [...kept, ...restored], activeTabId: activeTabId ?? null };
       }),
 
     removeTab: id =>

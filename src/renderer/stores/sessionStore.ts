@@ -123,7 +123,8 @@ interface SessionState {
   savedTabs: SessionTab[];
   savedActiveIndex: number;
   saveSession: () => void;
-  restoreSession: () => Promise<void>;
+  /** `only` reopens one saved tab beside the open ones; the rest stay offered. */
+  restoreSession: (options?: { only?: number }) => Promise<void>;
 }
 
 interface PendingSessionRestoreSnapshot {
@@ -132,6 +133,9 @@ interface PendingSessionRestoreSnapshot {
 }
 
 let pendingSessionRestoreSnapshot: PendingSessionRestoreSnapshot | null = null;
+
+/** The ask-mode prompt that offers the pinned snapshot; any restore of it answers the prompt. */
+export const RESTORE_SESSION_PROMPT_KEY = 'editor.restoreSession.prompt';
 
 function cloneSessionTabs(tabs: readonly SessionTab[]): SessionTab[] {
   return tabs.map(tab => ({ ...tab }));
@@ -324,9 +328,15 @@ export const useSessionStore = create<SessionState>()(
         set({ savedTabs, savedActiveIndex: activeIndex });
       },
 
-      restoreSession: async () => {
+      restoreSession: async (options = {}) => {
+        const { only } = options;
+        // Pin the session first so reopening one tab keeps the others offered after autosave.
+        if (only !== undefined && !pendingSessionRestoreSnapshot) armPendingSessionRestoreSnapshot();
         const pendingSnapshot = pendingSessionRestoreSnapshot;
-        const { savedTabs, savedActiveIndex } = pendingSnapshot ?? get();
+        const snapshot = pendingSnapshot ?? get();
+        const picked = only === undefined ? snapshot : { savedTabs: snapshot.savedTabs.slice(only, only + 1), savedActiveIndex: 0 };
+        const { savedTabs, savedActiveIndex } = picked;
+        if (only !== undefined && savedTabs.length === 0) return;
         if (savedTabs.length === 0) {
           if (pendingSnapshot) {
             clearPendingSessionRestoreSnapshot();
@@ -589,7 +599,7 @@ export const useSessionStore = create<SessionState>()(
           savedActiveIndex >= 0 && savedActiveIndex < savedIndexToRestoredId.length
             ? (savedIndexToRestoredId[savedActiveIndex] ?? null)
             : null;
-        useEditorStore.getState().restoreTabs(restored, activeId);
+        useEditorStore.getState().restoreTabs(restored, activeId, { append: only !== undefined });
         const recipeStore = useRecipeStore.getState();
         for (const tab of restored) {
           if (tab.recipeBindingId !== undefined) {
@@ -600,7 +610,12 @@ export const useSessionStore = create<SessionState>()(
         if (activeRestoredTab?.recipeBindingId !== undefined) {
           useUIStore.getState().openBottomPanel('recipe');
         }
-        if (pendingSnapshot) {
+        const ui = useUIStore.getState();
+        if (pendingSnapshot && ui.statusNotice?.messageKey === RESTORE_SESSION_PROMPT_KEY) ui.dismissStatusNotice('cta');
+        if (pendingSnapshot && only !== undefined) {
+          const rest = pendingSnapshot.savedTabs.filter((_, index) => index !== only);
+          pendingSessionRestoreSnapshot = rest.length > 0 ? { savedTabs: rest, savedActiveIndex: -1 } : null;
+        } else if (pendingSnapshot) {
           clearPendingSessionRestoreSnapshot();
         }
       },

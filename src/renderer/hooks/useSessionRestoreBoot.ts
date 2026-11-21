@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   armPendingSessionRestoreSnapshot,
+  RESTORE_SESSION_PROMPT_KEY,
   useSessionStore,
 } from '../stores/sessionStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -81,7 +82,7 @@ export function useSessionRestoreBoot(smokeEnabled: boolean): boolean {
       if (tabCount > 0) {
         useUIStore.getState().pushStatusNotice({
           tone: 'info',
-          messageKey: 'editor.restoreSession.prompt',
+          messageKey: RESTORE_SESSION_PROMPT_KEY,
           values: { count: tabCount },
           priority: 'high',
           sticky: true,
