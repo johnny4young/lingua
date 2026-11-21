@@ -24,6 +24,7 @@ import {
 } from '../../../shared/capsuleWorkspace';
 import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
+import '../../i18n/capsuleImportCatalog';
 
 export interface CapsuleImportPreviewProps {
   capsule: RunCapsuleV1;
