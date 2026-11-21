@@ -6,7 +6,7 @@ export function LanguageSquare({ language }: { language: Language }) {
   const tone = languageBadgeTone(language);
   return (
     <span
-      className="start-lang inline-flex h-5 shrink-0 items-center justify-center rounded-md font-mono font-bold leading-none tracking-[0.02em]"
+      className="inline-flex h-5 min-w-5 shrink-0 px-[3px] text-[9.5px] items-center justify-center rounded-md font-mono font-bold leading-none tracking-[0.02em]"
       style={{ background: tone.background, color: tone.foreground }}
       aria-hidden
     >
@@ -15,13 +15,13 @@ export function LanguageSquare({ language }: { language: Language }) {
   );
 }
 
+const LEADER_DOTS = {
+  background: 'radial-gradient(circle, var(--color-border-strong) 1px, transparent 1.2px) 0 0 / 8px 2px repeat-x',
+};
+
+/** Styled inline so the palette can draw it without loading the Start stylesheet. */
 export function DottedLeader() {
-  return (
-    <span
-      className="start-leader"
-      aria-hidden
-    />
-  );
+  return <span className="mx-1.5 h-0.5 min-w-[30px] flex-1" style={LEADER_DOTS} aria-hidden />;
 }
 
 export function SectionHeading({

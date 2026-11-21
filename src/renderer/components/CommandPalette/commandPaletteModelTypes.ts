@@ -12,6 +12,7 @@ import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { Snippet } from '../../stores/snippetsStore';
 import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
+import type { LastAnswer } from '../../utils/lastAnswer';
 import type { LayoutPreset } from '../../types/settings';
 import type { RuntimeMode } from '../../../shared/runtimeModes';
 import type {
@@ -20,7 +21,8 @@ import type {
 } from '../../utils/nativeJsRuntimeStatus';
 import type { NativeLanguageToolchainAvailability } from '../../utils/nativeLanguageToolchainStatus';
 
-export type CommandCategory = 'template' | 'snippet' | 'action';
+/** `file`: a recent file row, built apart from the searchable model. */
+export type CommandCategory = 'template' | 'snippet' | 'action' | 'file';
 
 export interface CommandEntry {
   id: string;
@@ -35,6 +37,8 @@ export interface CommandEntry {
   showDescription?: boolean;
   /** Keycap for a shortcut outside the remappable catalog; catalog ones resolve by id. */
   shortcut?: string;
+  /** What a recent file's last run answered. */
+  answer?: LastAnswer;
   action: () => void;
 }
 

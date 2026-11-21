@@ -1688,7 +1688,6 @@
   "commandPalette.autodetect.ask.label": "Preguntar a la IA: {{query}}",
   "commandPalette.autodetect.ask.description": "Explica este código",
   "commandPalette.autodetect.file.label": "Buscar {{query}} en Apertura rápida",
-  "commandPalette.scope.recent": "Recientes",
   "commandPalette.scope.workspaces": "Espacios de trabajo",
   "commandPalette.scope.utilities": "Utilidades",
   "commandPalette.results.countOf": "{{shown}} de {{total}} resultados",

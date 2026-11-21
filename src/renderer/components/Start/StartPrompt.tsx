@@ -12,7 +12,7 @@ import { Kbd } from '../ui/ModalShell';
 import { AnswerPicture } from './AnswerPicture';
 import { DottedLeader } from './StartParts';
 import { StartPromptEditor } from './StartPromptEditor';
-import { answerFallback } from './startModel';
+import { answerFallback } from './answerLabels';
 import { runsOnPause, type PromptAnswer } from './startPromptModel';
 import { useStartPromptRun, type PromptRun } from './useStartPromptRun';
 

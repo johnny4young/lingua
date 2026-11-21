@@ -46,11 +46,7 @@ export function filterCommandPaletteCommands(
   );
 }
 
-const CATEGORY_RANK: Record<CommandCategory, number> = {
-  action: 0,
-  snippet: 1,
-  template: 2,
-};
+const CATEGORY_RANK: Record<CommandCategory, number> = { action: 0, snippet: 1, template: 2, file: 3 };
 
 function rankCommand(command: CommandEntry, normalizedQuery: string): number {
   const labelHit = command.label.toLowerCase().includes(normalizedQuery) ? 0 : 1;
