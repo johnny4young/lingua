@@ -11,6 +11,7 @@ The format follows Keep a Changelog and groups changes by release.
 - On desktop, the window paints sooner at startup: the shell loads its small startup modules as one file, so it fetches 14 files before its first paint instead of 41.
 - When a model server on this machine does not answer, the AI error names its address and says LM Studio needs Enable CORS on, instead of Failed to fetch.
 - On desktop, each update of a streamed answer from your own AI endpoint carries only the new text instead of the whole answer so far, and a non-streaming answer stops at 2 MiB, the size the AI client accepts.
+- The Console reads as a tape: each row shows the line that printed it and its time into the run, multi-line output folds behind +N lines, and one All / Log / Warn / Error segment with counts plus a search replace the per-type chips. While a run is going, the previous run's rows stay dimmed until this run reaches their line, and a waiting row shows where the next output is expected. Plain strings print without quotes and with their line breaks.
 
 ### Fixed
 - On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.

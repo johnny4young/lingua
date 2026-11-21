@@ -395,6 +395,8 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Settings › Editor › **Run policy** sets when Scratchpad runs, per language group: **On keystroke** (500 ms after you type), **On pause** (1 s without typing) or **Manual** (only Run). The defaults are On keystroke for JavaScript and TypeScript, On pause for Python and Ruby, and Manual for Go and Rust. Ruby tabs only run with Run today, so that row applies to Python. Browser preview keeps its own auto-refresh setting. Run and Debug tabs, SQL and HTTP never run on their own; Instant SQL only samples a read on Local (see Instant SQL (Labs) above).
 - `Cmd/Ctrl+.` stops a run you started with Run or `Cmd/Ctrl+Enter`. Otherwise, including while Scratchpad runs on its own, the editor keeps it for Quick Fix; `Cmd/Ctrl+Enter` also stops a run.
 - Saving never runs code, and the dot on a tab means unsaved, not stale.
+- The Console reads as a tape: one row per output call, led by the line that printed it and ended with its time into the run (`+0.44 s`; Scratchpad runs that publish at once show the clock time). A call that prints several lines shows its first line and folds the rest behind `+N lines`; errors stay unfolded. **All / Log / Warn / Error** picks a severity (Log includes info and result rows), and the search button filters rows by text.
+- While a run you started with Run is going, rows the previous run of the same tab printed on lines this run has not reached yet stay dimmed and tagged with that run's number, and a waiting row names the line the next output is expected from. Debug runs and Scratchpad runs that publish at once skip both.
 
 ## Compare runs
 

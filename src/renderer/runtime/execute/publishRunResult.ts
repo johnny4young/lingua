@@ -151,7 +151,7 @@ export function publishRunStart(
     setIsManualRunning,
   } = useResultStore.getState();
   const { name } = activeTab;
-  useConsoleStore.getState().clear();
+  useConsoleStore.getState().beginRun({ tabId: activeTab.id, startedAt: Date.now() });
   if (showsResults()) {
     clearVisibleResults();
     setExecutionSource('manual');

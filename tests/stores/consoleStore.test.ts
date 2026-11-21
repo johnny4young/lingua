@@ -6,7 +6,9 @@ describe('consoleStore', () => {
     useConsoleStore.setState({
       entries: [],
       collapsedEntries: [],
-      activeFilters: new Set(['log', 'info', 'warn', 'error', 'result']),
+      level: 'all',
+      currentRun: null,
+      previousRun: null,
       hiddenPayloadKinds: new Set(),
       showTimestamps: true,
     });
@@ -200,36 +202,51 @@ describe('consoleStore', () => {
 
   // --- Filter tests ---
 
-  it('should start with all types in activeFilters', () => {
-    const { activeFilters } = useConsoleStore.getState();
-    expect(activeFilters.has('log')).toBe(true);
-    expect(activeFilters.has('info')).toBe(true);
-    expect(activeFilters.has('warn')).toBe(true);
-    expect(activeFilters.has('error')).toBe(true);
-    expect(activeFilters.has('result')).toBe(true);
+  it('starts on the All segment and switches level', () => {
+    expect(useConsoleStore.getState().level).toBe('all');
+    useConsoleStore.getState().setLevel('warn');
+    expect(useConsoleStore.getState().level).toBe('warn');
   });
 
-  it('should remove a filter when toggled off', () => {
-    useConsoleStore.getState().toggleFilter('warn');
-    expect(useConsoleStore.getState().activeFilters.has('warn')).toBe(false);
+  // --- Run tests ---
+
+  it('beginRun clears output and numbers runs per tab', () => {
+    const store = useConsoleStore.getState();
+    store.beginRun({ tabId: 'a', startedAt: 1_000 });
+    store.addEntry({ type: 'log', content: 'first', line: 2 });
+    const firstVersion = useConsoleStore.getState().clearVersion;
+
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 2_000 });
+    const state = useConsoleStore.getState();
+    expect(state.entries).toEqual([]);
+    expect(state.clearVersion).toBe(firstVersion + 1);
+    expect(state.currentRun).toEqual({ tabId: 'a', number: 2, startedAt: 2_000 });
+    expect(state.previousRun?.number).toBe(1);
+    expect(state.previousRun?.rows.map(row => row.entry.content)).toEqual(['first']);
   });
 
-  it('should add a filter back when toggled on again', () => {
-    useConsoleStore.getState().toggleFilter('warn');
-    useConsoleStore.getState().toggleFilter('warn');
-    expect(useConsoleStore.getState().activeFilters.has('warn')).toBe(true);
+  it('keeps only line-keyed rows of the previous run, and clear drops them with the anchor', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000 });
+    useConsoleStore.getState().addEntries([
+      { type: 'info', content: 'Running main.js...' },
+      { type: 'log', content: 'kept', line: 3 },
+    ]);
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 2_000 });
+    expect(useConsoleStore.getState().previousRun?.rows.map(row => row.entry.content)).toEqual(['kept']);
+
+    useConsoleStore.getState().clear();
+    const state = useConsoleStore.getState();
+    expect(state.previousRun).toBeNull();
+    expect(state.currentRun).toEqual({ tabId: 'a', number: 2, startedAt: null });
   });
 
-  it('should not remove the last active filter', () => {
-    const types = ['log', 'info', 'warn', 'error', 'result'] as const;
-    // Toggle off all but one
-    for (const t of types.slice(0, 4)) {
-      useConsoleStore.getState().toggleFilter(t);
-    }
-    // Now only 'result' is left — trying to remove it should be a no-op
-    useConsoleStore.getState().toggleFilter('result');
-    expect(useConsoleStore.getState().activeFilters.has('result')).toBe(true);
-    expect(useConsoleStore.getState().activeFilters.size).toBe(1);
+  it('beginRun on another tab drops the previous run and restarts the count', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000 });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'from a' });
+    useConsoleStore.getState().beginRun({ tabId: 'b', startedAt: null });
+    const state = useConsoleStore.getState();
+    expect(state.previousRun).toBeNull();
+    expect(state.currentRun).toEqual({ tabId: 'b', number: 1, startedAt: null });
   });
 
   // --- Timestamp tests ---

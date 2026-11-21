@@ -10,6 +10,15 @@ import type { Language } from './language';
 
 export type ConsoleEntryType = 'log' | 'warn' | 'error' | 'info' | 'result';
 
+/** Console severity segment; `log` also covers info and result rows. */
+export type ConsoleLevel = 'all' | 'log' | 'warn' | 'error';
+
+/** The run the console holds; `startedAt` anchors row offsets, null when output landed at once. */
+export interface ConsoleRun { tabId: string; number: number; startedAt: number | null }
+
+/** The run before it, whose line-keyed rows stand in until the current run reaches them. */
+export interface ConsolePreviousRun { number: number; rows: CollapsedConsoleRow[] }
+
 export interface ConsoleEntry {
   id: string;
   type: ConsoleEntryType;
@@ -18,7 +27,7 @@ export interface ConsoleEntry {
   line?: number;
   /** Source language for telemetry on payload-level interactions. */
   language?: Language;
-  /** Execution time in ms — shown as a badge when set (only on the last entry) */
+  /** Execution time in ms on the run summary entry; marks the run as finished. */
   executionTime?: number;
   /**
    * Rich payload aligned with the legacy `content` string.
@@ -101,8 +110,10 @@ export interface ConsoleState {
    * filtering the raw entries first.
    */
   collapsedEntries: CollapsedConsoleRow[];
-  /** Which entry types are currently visible */
-  activeFilters: Set<ConsoleEntryType>;
+  level: ConsoleLevel;
+  /** Set by `beginRun`; null until the first run of the session. */
+  currentRun: ConsoleRun | null;
+  previousRun: ConsolePreviousRun | null;
   /**
    * Which payload-kind chips are dimmed-out.
    * Empty set = all visible. We track *hidden* kinds so the default
@@ -119,6 +130,8 @@ export interface ConsoleState {
    */
   addEntries: (entries: ReadonlyArray<NewConsoleEntry>) => void;
   clear: () => void;
+  /** Clear for a run of `tabId`; the outgoing run becomes `previousRun` on the same tab. */
+  beginRun: (run: { tabId: string; startedAt: number | null }) => void;
   /**
    * accessibility pass — re-instate a {@link ConsoleClearSnapshot} that
    * `clear()` previously wiped, for the Undo toast. Rows emitted after the
@@ -127,7 +140,7 @@ export interface ConsoleState {
    * restoring an empty snapshot keeps any current rows.
    */
   restore: (snapshot: ConsoleClearSnapshot) => void;
-  toggleFilter: (type: ConsoleEntryType) => void;
+  setLevel: (level: ConsoleLevel) => void;
   togglePayloadKindFilter: (kind: ConsolePayloadKindFilter) => void;
   clearPayloadKindFilters: () => void;
   toggleTimestamps: () => void;

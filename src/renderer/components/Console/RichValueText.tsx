@@ -37,7 +37,8 @@ function displayFor(
   if (summary) return summary.display;
   switch (payload.kind) {
     case 'primitive':
-      return payload.repr;
+      // A logged string prints as its text, as in any console; quotes belong to nested values.
+      return payload.type === 'string' ? unquote(payload.repr) : payload.repr;
     case 'function':
       return `ƒ ${payload.name}`;
     case 'error':
@@ -53,4 +54,15 @@ function displayFor(
       // summary helper. Fall back to the legacy stringified text.
       return fallbackText;
   }
+}
+
+/** `repr` is the JSON form of the string, possibly clamped mid-way by the runner. */
+function unquote(repr: string): string {
+  try {
+    const value: unknown = JSON.parse(repr);
+    if (typeof value === 'string') return value;
+  } catch {
+    // Clamped: drop the opening quote and keep the runner's truncation marker.
+  }
+  return repr.startsWith('"') ? repr.slice(1) : repr;
 }

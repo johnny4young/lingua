@@ -90,14 +90,6 @@ export const isContainer = (value: unknown): value is Record<string, unknown> | 
 export const jsonEntries = (node: Record<string, unknown> | unknown[]): Array<readonly [JsonSegment, unknown]> =>
   Array.isArray(node) ? node.map((child, index) => [index, child] as const) : Object.entries(node);
 
-/** `text` cut to `max` UTF-16 units with an ellipsis, never splitting a surrogate pair. */
-export function truncateText(text: string, max: number): string {
-  if (text.length <= max) return text;
-  let end = max - 1;
-  if (/[\uD800-\uDBFF]/.test(text[end - 1] ?? '')) end -= 1;
-  return `${text.slice(0, end)}…`;
-}
-
 /** Whether the document nests deeper than `limit`; checked without recursion, so a hostile body cannot overflow the stack. */
 export function nestsDeeperThan(value: unknown, limit: number): boolean {
   const stack: Array<{ node: unknown; depth: number }> = [{ node: value, depth: 0 }];

@@ -3,7 +3,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useShallow } from 'zustand/react/shallow';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types/console';
+import type {
+  CollapsedConsoleRow,
+  ConsoleEntry,
+  ConsoleEntryType,
+  ConsolePayloadKindFilter,
+} from '../../types/console';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
@@ -30,34 +35,30 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRow } from './ConsoleEntryRow';
+import { ConsoleWaitingRow } from './ConsoleWaitingRow';
+import { ConsoleLevelSegment, ConsoleSearch } from './ConsoleTapeFilters';
+import {
+  entryMatchesLevel,
+  formatRunOffset,
+  pendingFromPreviousRun,
+  sourceLineForEntry,
+  sourceSnippet,
+} from '../../utils/consoleTape';
 import { PausedConsoleSummary } from './PausedConsoleSummary';
 import { richKindBucket } from './richConsoleFormat';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useCommandListener } from '../../hooks/useCommandListener';
 
-const TYPE_BADGE: Record<ConsoleEntryType, string> = {
-  log: 'text-muted',
-  info: 'text-info',
-  warn: 'text-warning',
-  error: 'text-error',
-  result: 'text-primary',
-};
+type TapeItem =
+  | { kind: 'live'; row: CollapsedConsoleRow }
+  | { kind: 'waiting' }
+  | { kind: 'ghost'; row: CollapsedConsoleRow };
 
-const FILTER_TYPES: ConsoleEntryType[] = ['log', 'info', 'warn', 'error'];
+const WAITING_KEY = 'tape-waiting';
 
-// `nextReplayTabId` and `replayTabName` moved to
-// `src/renderer/utils/replayHistoryEntry.ts` so the command-palette
-// per-entry Replay surface can share the same helper as this popover.
-
-function sourceLineForEntry(entry: ConsoleEntry): number | null {
-  const payload = Array.isArray(entry.payload) ? entry.payload : null;
-  const payloadLine = payload?.find(p => p.origin)?.origin?.line;
-  if (typeof payloadLine === 'number' && Number.isFinite(payloadLine) && payloadLine > 0) {
-    return payloadLine;
-  }
-  return typeof entry.line === 'number' && Number.isFinite(entry.line) && entry.line > 0
-    ? entry.line
-    : null;
+function tapeItemKey(item: TapeItem): string {
+  if (item.kind === 'waiting') return WAITING_KEY;
+  return item.kind === 'ghost' ? `ghost-${item.row.entry.id}` : item.row.entry.id;
 }
 
 /**
@@ -133,30 +134,48 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
   const {
     entries,
     collapsedEntries,
-    activeFilters,
+    level,
     hiddenPayloadKinds,
     showTimestamps,
+    currentRun,
+    previousRun,
     addEntry,
     clear,
     restore,
-    toggleFilter,
+    setLevel,
     togglePayloadKindFilter,
     toggleTimestamps,
   } = useConsoleStore(
     useShallow(state => ({
       entries: state.entries,
       collapsedEntries: state.collapsedEntries,
-      activeFilters: state.activeFilters,
+      level: state.level,
       hiddenPayloadKinds: state.hiddenPayloadKinds,
       showTimestamps: state.showTimestamps,
+      currentRun: state.currentRun,
+      previousRun: state.previousRun,
       addEntry: state.addEntry,
       clear: state.clear,
       restore: state.restore,
-      toggleFilter: state.toggleFilter,
+      setLevel: state.setLevel,
       togglePayloadKindFilter: state.togglePayloadKindFilter,
       toggleTimestamps: state.toggleTimestamps,
     }))
   );
+  // Ghost and waiting rows only make sense while a streamed, non-paused run is live.
+  const runLive = useResultStore(
+    state => state.isManualRunning && state.manualRunMode !== 'debug'
+  );
+  const ranCode = useResultStore(state => state.ranCode);
+  const [query, setQuery] = useState('');
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds(previous => {
+      const next = new Set(previous);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }, []);
   const presenterActive = usePresenterModeStore(state => state.active);
   const activeTab = useEditorStore(state => getActiveTab(state));
   // Offer "Explain this error" when the active tab's run left an error
@@ -238,22 +257,45 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
   }, [addEntry, track]);
-  // Entries are already collapsed store-side
-  // (consecutive identical → one ×N row, computed once per push). Here we
-  // only apply the legacy type filter AND the payload-kind chip filter
-  // to those rows. Collapsed groups are homogeneous, so filtering
-  // after the collapse yields the same visible set as the previous
-  // filter-then-collapse. Memoised so a flooded console only re-pays the
-  // filter cost when entries or filters change.
-  const visibleEntries = useMemo(
-    () =>
-      collapsedEntries.filter(
-        row =>
-          activeFilters.has(row.entry.type) &&
-          !entryFilteredByPayloadKind(row.entry, hiddenPayloadKinds)
-      ),
-    [collapsedEntries, activeFilters, hiddenPayloadKinds]
+  // Rows are collapsed store-side; collapsed groups are homogeneous, so
+  // filtering after the collapse matches filter-then-collapse.
+  const needle = query.trim().toLowerCase();
+  const rowVisible = useCallback(
+    (row: CollapsedConsoleRow) =>
+      entryMatchesLevel(row.entry.type, level) &&
+      !entryFilteredByPayloadKind(row.entry, hiddenPayloadKinds) &&
+      (needle === '' || row.entry.content.toLowerCase().includes(needle)),
+    [level, hiddenPayloadKinds, needle]
   );
+  const filtering = level !== 'all' || hiddenPayloadKinds.size > 0 || needle !== '';
+  const visibleEntries = useMemo(
+    () => (filtering ? collapsedEntries.filter(rowVisible) : collapsedEntries),
+    [filtering, collapsedEntries, rowVisible]
+  );
+  const pending = useMemo(
+    () =>
+      runLive && previousRun
+        ? pendingFromPreviousRun(collapsedEntries, previousRun.rows)
+        : { waitingLine: null, ghosts: [] },
+    [runLive, previousRun, collapsedEntries]
+  );
+  const tapeItems = useMemo<TapeItem[]>(() => {
+    const items: TapeItem[] = visibleEntries.map(row => ({ kind: 'live', row }));
+    if (!runLive) return items;
+    items.push({ kind: 'waiting' });
+    for (const row of pending.ghosts) {
+      if (rowVisible(row)) items.push({ kind: 'ghost', row });
+    }
+    return items;
+  }, [visibleEntries, runLive, pending, rowVisible]);
+  const waitingSnippet = useMemo(
+    () =>
+      pending.waitingLine !== null && ranCode && ranCode.tabId === currentRun?.tabId
+        ? sourceSnippet(ranCode.code, pending.waitingLine)
+        : null,
+    [pending.waitingLine, ranCode, currentRun?.tabId]
+  );
+  const runStartedAt = currentRun?.startedAt ?? null;
   const visibleSourceLines = useMemo(() => {
     const lines = new Set<number>();
     if (originSuppressed) return lines;
@@ -328,7 +370,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
   const lastPinned = useRef<{ top: number; height: number; viewport: number } | null>(null);
-  const rowKeys = useMemo(() => visibleEntries.map(row => row.entry.id), [visibleEntries]);
+  const rowKeys = useMemo(() => tapeItems.map(tapeItemKey), [tapeItems]);
   // Window the (already collapsed + filtered) rows so only
   // the viewport band mounts. Off-window rows unmount, releasing their
   // RichValueChart Vega canvases for free.
@@ -533,32 +575,8 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
           count, and its hide button carries the shortcut. */}
       <div className="flex min-h-9 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
         <div className="ml-auto flex items-center gap-1.5">
-          {FILTER_TYPES.map(type => {
-            const active = activeFilters.has(type);
-            const count = entries.filter(entry => entry.type === type).length;
-
-            return (
-              <Tooltip
-                key={type}
-                content={t('console.filters.toggle', {
-                  type: t(`console.filters.type.${type}`).toLowerCase(),
-                })}
-              >
-                <button
-                  onClick={() => toggleFilter(type)}
-                  data-active={active ? 'true' : 'false'}
-                  className={`console-filter-chip focus-ring rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
-                    active
-                      ? `border-border-strong/90 bg-bg-panel-alt ${TYPE_BADGE[type]}`
-                      : 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
-                  }`}
-                >
-                  {typeLabel[type]}
-                  {count > 0 && <span className="ml-1 opacity-70">{count}</span>}
-                </button>
-              </Tooltip>
-            );
-          })}
+          <ConsoleLevelSegment entries={entries} level={level} onSelect={setLevel} />
+          <ConsoleSearch query={query} onQueryChange={setQuery} />
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
           {/* Payload-kind filters live in a menu rather than a second chip
               row. Two reasons. Width: the ten chips took 48% of a 1280px
@@ -681,7 +699,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
         ref={scrollRef}
         onScroll={handleScroll}
         data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
-        className="flex-1 overflow-y-auto px-3 py-2 font-mono text-body-sm leading-6"
+        className="flex-1 overflow-y-auto pb-2 pt-2.5 font-mono text-[12.5px]"
         style={
           // Derive the +2px lift from the design token rather
           // than hard-coding its current value; text-body-sm can evolve
@@ -693,7 +711,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
             : undefined
         }
       >
-        {visibleEntries.length === 0 && quietEmpty && entries.length === 0 ? null : visibleEntries.length === 0 ? (
+        {tapeItems.length === 0 && quietEmpty && entries.length === 0 ? null : tapeItems.length === 0 ? (
           <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-16 text-center">
             <p className="font-sans text-body font-medium text-foreground">
               {entries.length === 0 ? t('console.empty.output') : t('console.empty.filtered')}
@@ -705,28 +723,40 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
             {/* Top spacer reserves the height of the rows
                 above the window so the scrollbar matches the full list. */}
             <div aria-hidden style={{ height: listWindow.topSpacer }} />
-            {visibleEntries
-              .slice(listWindow.startIndex, listWindow.endIndex + 1)
-              .map(({ entry, repeatCount }) => (
-                // The measure wrapper feeds each row's real height back to the
-                // windower; content-visibility lets the browser skip painting
-                // overscan rows that drift just outside the viewport.
+            {tapeItems.slice(listWindow.startIndex, listWindow.endIndex + 1).map(item => {
+              const key = tapeItemKey(item);
+              // The measure wrapper feeds each row's real height back to the
+              // windower; content-visibility skips painting overscan rows.
+              return (
                 <div
-                  key={entry.id}
-                  ref={measureRef(entry.id)}
-                  className="[contain-intrinsic-size:auto_28px] [content-visibility:auto]"
+                  key={key}
+                  ref={measureRef(key)}
+                  className="[contain-intrinsic-size:auto_22px] [content-visibility:auto]"
                 >
-                  <ConsoleEntryRow
-                    entry={entry}
-                    showTimestamps={showTimestamps}
-                    typeLabel={typeLabel}
-                    repeatCount={repeatCount}
-                    sourceLine={sourceLineForEntry(entry)}
-                    pulseTargetLine={renderedPulseLine}
-                    originSuppressed={originSuppressed}
-                  />
+                  {item.kind === 'waiting' ? (
+                    <ConsoleWaitingRow line={pending.waitingLine} snippet={waitingSnippet} />
+                  ) : (
+                    <ConsoleEntryRow
+                      entry={item.row.entry}
+                      runOffset={
+                        item.kind === 'live' && runStartedAt !== null
+                          ? formatRunOffset(item.row.entry.timestamp, runStartedAt)
+                          : null
+                      }
+                      showTimestamps={showTimestamps}
+                      typeLabel={typeLabel}
+                      repeatCount={item.row.repeatCount}
+                      sourceLine={sourceLineForEntry(item.row.entry)}
+                      pulseTargetLine={renderedPulseLine}
+                      originSuppressed={originSuppressed}
+                      expanded={expandedIds.has(item.row.entry.id)}
+                      onToggleExpanded={toggleExpanded}
+                      ghostRun={item.kind === 'ghost' ? previousRun?.number : undefined}
+                    />
+                  )}
                 </div>
-              ))}
+              );
+            })}
             {/* Bottom spacer reserves the height of the rows below the window. */}
             <div aria-hidden style={{ height: listWindow.bottomSpacer }} />
           </>
