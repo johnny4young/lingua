@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GitFolderChanges } from '../../../shared/gitTypes';
-import { useGitStore } from '../../stores/gitStore';
+import { gitDetectKey, useGitStore } from '../../stores/gitStore';
 import type { RootId } from '../../../shared/fs/brandedIds';
 
 const REFRESH_DEBOUNCE_MS = 400;
@@ -24,7 +24,12 @@ interface ProjectRef {
  * and window focus. Null while Git is unavailable or has not answered.
  */
 export function useGitChanges(project: ProjectRef | null): GitFolderChanges | null {
-  const repoRoot = useGitStore(state => (state.posture?.available ? state.posture.repoRoot ?? null : null));
+  // Until this project's detect lands, the posture may still be the previous project's.
+  const repoRoot = useGitStore(state =>
+    state.posture?.available && project && state.lastDetectKey === gitDetectKey(project.rootPath, project.rootId)
+      ? state.posture.repoRoot ?? null
+      : null
+  );
   const commit = useGitStore(state => state.posture?.commit ?? null);
   const branch = useGitStore(state => state.posture?.branch ?? null);
   const rootId = project?.rootId ?? null;
@@ -41,6 +46,8 @@ export function useGitChanges(project: ProjectRef | null): GitFolderChanges | nu
     let inFlight = false;
     let again = false;
     let answeredAt = 0;
+    // After a failed query (a status slower than the timeout), only focus or a commit asks again.
+    let failed = false;
 
     const query = async (): Promise<void> => {
       if (inFlight) {
@@ -63,6 +70,7 @@ export function useGitChanges(project: ProjectRef | null): GitFolderChanges | nu
     };
     const keep = (next: GitFolderChanges | null): void => {
       answeredAt = Date.now();
+      failed = next === null;
       setAnswer(previous =>
         previous?.key === key && sameChanges(previous.changes, next) ? previous : { key, changes: next }
       );
@@ -77,7 +85,7 @@ export function useGitChanges(project: ProjectRef | null): GitFolderChanges | nu
 
     void query();
     const unsubscribe = window.lingua.fs?.onChanged?.(event => {
-      if (event.rootId === rootId && !IGNORED_GIT_PATHS.test(event.relativePath)) schedule();
+      if (!failed && event.rootId === rootId && !IGNORED_GIT_PATHS.test(event.relativePath)) schedule();
     });
     const onFocus = (): void => {
       if (Date.now() - answeredAt >= FOCUS_REFRESH_MIN_AGE_MS) schedule();

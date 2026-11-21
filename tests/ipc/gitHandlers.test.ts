@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   watchRepoHead: vi.fn(),
   pathIntersectsApprovedScope: vi.fn(),
   pathInsideApprovedScope: vi.fn(),
+  realPathInsideApprovedScope: vi.fn(),
   isPathBlocked: vi.fn(),
 }));
 
@@ -47,6 +48,7 @@ vi.mock('../../src/main/git', () => ({
 vi.mock('../../src/main/ipc/fileSystem', () => ({
   pathIntersectsApprovedScope: mocks.pathIntersectsApprovedScope,
   pathInsideApprovedScope: mocks.pathInsideApprovedScope,
+  realPathInsideApprovedScope: mocks.realPathInsideApprovedScope,
 }));
 
 vi.mock('../../src/main/ipc/permissions', () => ({
@@ -89,6 +91,7 @@ beforeEach(() => {
   mocks.watchRepoHead.mockReset();
   mocks.pathIntersectsApprovedScope.mockReset();
   mocks.pathInsideApprovedScope.mockReset();
+  mocks.realPathInsideApprovedScope.mockReset();
   mocks.isPathBlocked.mockReset();
   // Default: nothing blocked, approval decided per-test.
   mocks.isPathBlocked.mockReturnValue(false);
@@ -107,6 +110,8 @@ beforeEach(() => {
 describe('git IPC approved-scope gate', () => {
   it('git:changes lists an approved folder and refuses one outside the approved scope', async () => {
     const changes = handlerFor('git:changes');
+    // Real-path containment: a symlink out of the root is outside.
+    mocks.realPathInsideApprovedScope.mockImplementation(async (candidate: string) => candidate === APPROVED);
     const repoRoot = '/home/user/projects';
     mocks.pathIntersectsApprovedScope.mockImplementation(async (candidate: string) => candidate !== UNAPPROVED);
     mocks.getFolderChanges.mockResolvedValue({ paths: [{ path: 'a.ts', status: 'modified' }], truncated: false });
@@ -115,6 +120,8 @@ describe('git IPC approved-scope gate', () => {
 
     mocks.getFolderChanges.mockClear();
     await expect(changes({}, repoRoot, '/home/user/projects/secrets')).resolves.toBeNull();
+    // Lexically inside the root, but a symlink out of it.
+    await expect(changes({}, repoRoot, `${APPROVED}/link`)).resolves.toBeNull();
     await expect(changes({}, UNAPPROVED, APPROVED)).resolves.toBeNull();
     mocks.isPathBlocked.mockReturnValue(true);
     await expect(changes({}, repoRoot, APPROVED)).resolves.toBeNull();

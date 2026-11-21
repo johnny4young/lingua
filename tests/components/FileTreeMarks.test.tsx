@@ -114,9 +114,9 @@ describe('FileTree marks and project rows', () => {
       projectTests: {} as NonNullable<typeof window.lingua.projectTests>,
       projectTerminal: {} as NonNullable<typeof window.lingua.projectTerminal>,
     };
-    useGitStore.setState({ posture: { available: true, repoRoot: '/', branch: 'main' } });
+    useGitStore.setState({ posture: { available: true, repoRoot: '/', branch: 'main' }, lastDetectKey: '/project::root-proj' });
     useProjectTestStore.setState({ rootId: 'root-proj' as RootId, cases });
-    useProjectTerminalStore.setState({ status: 'running', shellName: 'zsh' });
+    useProjectTerminalStore.setState({ rootId: 'root-proj' as RootId, status: 'running', shellName: 'zsh' });
   });
 
   afterEach(() => {
@@ -124,7 +124,7 @@ describe('FileTree marks and project rows', () => {
     window.lingua = originalLingua;
     useGitStore.getState().clear();
     useProjectTestStore.setState({ rootId: null, cases: null });
-    useProjectTerminalStore.setState({ status: 'idle', shellName: null });
+    useProjectTerminalStore.setState({ rootId: null, status: 'idle', shellName: null });
   });
 
   it('marks changed files and folders and sums the changes beside the branch', async () => {
@@ -146,6 +146,35 @@ describe('FileTree marks and project rows', () => {
       act(() => fsListener?.({ rootId: 'root-proj' }));
       act(() => fsListener?.({ rootId: 'other-root' }));
       await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      expect(changes).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits for this project detect before asking Git', () => {
+    useGitStore.setState({ lastDetectKey: '/previous::root-previous' });
+    render(<FileTree />);
+    expect(changes).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('file-tree-git-summary')).toBeNull();
+  });
+
+  it('stops following file changes after a failed query until focus', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      changes.mockResolvedValue(null);
+      render(<FileTree />);
+      await waitFor(() => expect(changes).toHaveBeenCalledTimes(1));
+      act(() => fsListener?.({ rootId: 'root-proj' }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      expect(changes).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+        window.dispatchEvent(new Event('focus'));
         await vi.advanceTimersByTimeAsync(500);
       });
       expect(changes).toHaveBeenCalledTimes(2);
@@ -177,6 +206,19 @@ describe('FileTree marks and project rows', () => {
     render(<FileTree />);
     expect(screen.queryByTestId('file-tree-tests-src/cart.test.ts')).toBeNull();
     expect(screen.queryByTestId('file-tree-footer-tests-tally')).toBeNull();
+  });
+
+  it('leaves a shell running for another project off the Terminal row', () => {
+    useProjectTerminalStore.setState({ rootId: 'root-other' as RootId });
+    render(<FileTree />);
+    expect(screen.getByTestId('file-tree-footer-terminal')).toBeTruthy();
+    expect(screen.queryByTestId('file-tree-footer-terminal-state')).toBeNull();
+  });
+
+  it('flags a run that failed before any test ran', () => {
+    useProjectTestStore.setState({ cases: [{ file: 'src/cart.test.ts', path: [], status: 'failed', runnable: false }] });
+    render(<FileTree />);
+    expect(screen.getByTestId('file-tree-footer-tests-tally').getAttribute('data-tone')).toBe('failed');
   });
 
   it('opens search, the Tests tab and the terminal from the rows under the tree', () => {

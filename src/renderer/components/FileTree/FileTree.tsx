@@ -488,7 +488,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         )}
       </div>
 
-      <FileTreeFooter tests={tests?.all ?? null} />
+      <FileTreeFooter rootId={currentProject.rootId} tests={tests?.all ?? null} />
 
       {pendingDelete ? (
         <ConfirmDialog

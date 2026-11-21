@@ -3,7 +3,7 @@
 import { asRootId, type RelativePath, type RootId } from '../../shared/fs/brandedIds';
 import type { ProjectTestCase, ProjectTestRunResult } from '../../shared/projectTests';
 import { useEditorStore } from '../stores/editorStore';
-import { useGitStore } from '../stores/gitStore';
+import { gitDetectKey, useGitStore } from '../stores/gitStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useProjectTerminalStore } from '../stores/projectTerminalStore';
 import { useProjectTestStore } from '../stores/projectTestStore';
@@ -177,7 +177,7 @@ async function openProjectTestsEditorE2eFile(): Promise<void> {
   await useProjectStore.getState().expandDirectory('src');
   await new Promise(resolve => setTimeout(resolve, 50));
   useProjectTerminalStore.setState({ rootId, projectName: 'checkout-api', status: 'running', sessionId: 'e2e-terminal', shellName: 'zsh' });
-  useGitStore.setState({ posture: { available: true, repoRoot: rootPath, branch: 'main', commit: 'e2e' }, lastDetectKey: rootPath, lastDetectAt: Date.now() });
+  useGitStore.setState({ posture: { available: true, repoRoot: rootPath, branch: 'main', commit: 'e2e' }, lastDetectKey: gitDetectKey(rootPath, rootId), lastDetectAt: Date.now() });
   useProjectTestStore.setState({
     rootId,
     projectName: 'checkout-api',

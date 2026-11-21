@@ -237,6 +237,11 @@ export const useGitStore = create<GitStateShape>((set) => ({
  */
 export const GIT_DETECT_CACHE_TTL_MS = 30_000;
 
+/** Folder key of a detect, so readers can tell whose posture the store holds. */
+export function gitDetectKey(rootPath: string, rootId: string | null): string {
+  return `${rootPath}::${rootId ?? ''}`;
+}
+
 /**
  * Convenience selector — `true` when the posture has resolved AND
  * reports a usable repo. Used by `<EditorTabs>` to decide whether

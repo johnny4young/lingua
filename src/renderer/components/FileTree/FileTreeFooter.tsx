@@ -8,6 +8,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { Kbd } from '../ui/chrome';
 import { TestTallyMark } from './TestTallyMark';
 import type { TestTally } from './fileTreeMarks';
+import type { RootId } from '../../../shared/fs/brandedIds';
 
 function FooterRow({ icon, label, testId, onClick, children }: { icon: ReactNode; label: string; testId: string; onClick: () => void; children?: ReactNode }) {
   return (
@@ -27,10 +28,11 @@ function FooterRow({ icon, label, testId, onClick, children }: { icon: ReactNode
 }
 
 /** Project-wide entry points under the tree: search, the Tests tab and the terminal. */
-export function FileTreeFooter({ tests }: { tests: TestTally | null }) {
+export function FileTreeFooter({ rootId, tests }: { rootId: RootId; tests: TestTally | null }) {
   const { t } = useTranslation();
   const searchShortcut = useShortcutLabel('nav-project-search');
-  const terminalActive = useProjectTerminalStore(state => state.status === 'running');
+  // A shell left running for another project is not this project's terminal.
+  const terminalActive = useProjectTerminalStore(state => state.status === 'running' && state.rootId === rootId);
   const shellName = useProjectTerminalStore(state => state.shellName);
   const hasTests = Boolean(window.lingua?.projectTests);
   const hasTerminal = Boolean(window.lingua?.projectTerminal);
@@ -52,7 +54,7 @@ export function FileTreeFooter({ tests }: { tests: TestTally | null }) {
           testId="file-tree-footer-tests"
           onClick={() => useUIStore.getState().openBottomPanel('tests')}
         >
-          {tests && tests.total > 0 ? <TestTallyMark tally={tests} testId="file-tree-footer-tests-tally" /> : null}
+          {tests && (tests.total > 0 || tests.tone === 'failed') ? <TestTallyMark tally={tests} testId="file-tree-footer-tests-tally" /> : null}
         </FooterRow>
       ) : null}
       {hasTerminal ? (

@@ -43,6 +43,7 @@ import {
 import {
   pathInsideApprovedScope,
   pathIntersectsApprovedScope,
+  realPathInsideApprovedScope,
 } from './fileSystem';
 import { isPathBlocked } from './permissions';
 
@@ -234,8 +235,10 @@ export function registerGitHandlers(): void {
       if (typeof rawRepoRoot !== 'string' || rawRepoRoot.length === 0) return null;
       if (typeof rawFolderPath !== 'string' || rawFolderPath.length === 0) return null;
       if (!(await isApprovedGitScope(rawRepoRoot))) return null;
-      if (!(await isApprovedGitFile(rawRepoRoot, rawFolderPath))) return null;
-      return getFolderChanges(rawRepoRoot, rawFolderPath);
+      // git status follows the folder's real path, so the gate checks that path too.
+      const folder = path.resolve(rawRepoRoot, rawFolderPath);
+      if (isPathBlocked(folder, 'read') || !(await realPathInsideApprovedScope(folder))) return null;
+      return getFolderChanges(rawRepoRoot, folder);
     }
   );
 

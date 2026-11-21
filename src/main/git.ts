@@ -530,9 +530,12 @@ export async function getFolderChanges(
 ): Promise<GitFolderChanges | null> {
   const binary = await getGitBinary();
   if (!binary || typeof repoRoot !== 'string' || typeof folderPath !== 'string') return null;
-  const [root, folder] = await Promise.all([realpathOrResolved(repoRoot), realpathOrResolved(folderPath)]);
+  // Porcelain paths are relative to the toplevel, so the claimed root must be it.
+  const toplevel = await validateGitRepoRoot(binary, repoRoot);
+  if (!toplevel) return null;
+  const [root, folder] = await Promise.all([realpathOrResolved(toplevel), realpathOrResolved(folderPath)]);
   const relative = path.relative(root, folder);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
   const folderPrefix = relative.length === 0 ? '' : `${relative.split(path.sep).join('/')}/`;
   try {
     const filters = await repositoryFilterOverrides(binary, root);
@@ -543,8 +546,12 @@ export async function getFolderChanges(
       { cwd: root, timeout: GIT_INVOCATION_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, config: filters }
     );
     return parseFolderChanges(stdout, folderPrefix);
-  } catch {
-    return null;
+  } catch (error) {
+    // Past the buffer, keep the complete records instead of dropping every mark.
+    const { code, stdout } = (error ?? {}) as { code?: unknown; stdout?: unknown };
+    if (code !== 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || typeof stdout !== 'string') return null;
+    const complete = stdout.slice(0, stdout.lastIndexOf('\0') + 1);
+    return { paths: parseFolderChanges(complete, folderPrefix).paths, truncated: true };
   }
 }
 
