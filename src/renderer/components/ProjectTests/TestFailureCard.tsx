@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import '../../i18n/testsCatalog';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useProjectTestStore } from '../../stores/projectTestStore';
-import { summarizeProjectTestFailure } from '../../utils/projectTestFailure';
+import { projectTestFailureHeadline } from '../../utils/projectTestFailure';
 import { useLineWidget } from '../Editor/useLineWidget';
 import { opensInEditor } from './openTestFailure';
 
@@ -82,7 +82,15 @@ export function TestFailureCard({ editor, monaco }: TestFailureCardProps) {
   useLineWidget(editor, monaco, line, node, { id: CARD_ID, placement: 'below' });
 
   if (line === null || !entry || !rootId || !projectName) return null;
-  const summary = summarizeProjectTestFailure(entry.failureMessage);
+  const summary =
+    entry.expected !== undefined && entry.received !== undefined ? (
+      <>
+        {t('projectTests.card.expected')} <span className="text-success-fg">{entry.expected}</span> {t('projectTests.card.received')}{' '}
+        <span className="text-error-fg">{entry.received}</span>
+      </>
+    ) : (
+      projectTestFailureHeadline(entry.failureMessage)
+    );
   const runAgain = () =>
     void useProjectTestStore.getState().run({ rootId, projectName }, { kind: 'test', file: entry.file, path: entry.path });
   return createPortal(
@@ -100,14 +108,7 @@ export function TestFailureCard({ editor, monaco }: TestFailureCardProps) {
         <span className="shrink-0 font-semibold">{t('projectTests.card.title')}</span>
         {summary ? (
           <span className="min-w-0 truncate font-mono text-caption text-fg-muted" data-testid="test-failure-summary">
-            {summary.expected !== undefined ? (
-              <>
-                {t('projectTests.card.expected')} <span className="text-success-fg">{summary.expected}</span> {t('projectTests.card.received')}{' '}
-                <span className="text-error-fg">{summary.received}</span>
-              </>
-            ) : (
-              summary.headline
-            )}
+            {summary}
           </span>
         ) : null}
         <span className="flex-1" />

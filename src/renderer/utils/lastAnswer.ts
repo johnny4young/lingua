@@ -10,7 +10,7 @@ import { redactSecretsFromOutput } from '../../shared/ai/explainError';
 import { describeError } from './describeError';
 import { executionKind, primaryExecutionError } from './executionOutcome';
 import { isHiddenUndefinedLineResult } from '../hooks/inlineResultVisibility';
-import { truncateText } from './truncateText';
+import { truncateText } from '../../shared/truncateText';
 import type { HttpResponseV1 } from '../../shared/httpWorkspaceSchema';
 import type { ProjectTestRunResult } from '../../shared/projectTests';
 import type { SqlResponseV1 } from '../../shared/sqlWorkspace';

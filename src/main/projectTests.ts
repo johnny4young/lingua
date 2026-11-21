@@ -332,6 +332,9 @@ async function executionSpecs(
   if (vitestEvidence.length > 0) {
     const entry = path.join(rootPath, 'node_modules', 'vitest', 'vitest.mjs');
     const installed = await fileExists(entry);
+    // Vitest 2 and older reject the flag as an unknown option and run nothing.
+    const version = installed ? (await packageManifest(path.join(rootPath, 'node_modules', 'vitest')))?.version : undefined;
+    const locations = typeof version === 'string' && Number(/^(\d+)\./u.exec(version)?.[1]) >= 3;
     const node = installed ? await getNode() : null;
     const available = installed && node !== null;
     const env = buildNativeRunnerEnv(
@@ -361,6 +364,7 @@ async function executionSpecs(
         '--reporter=default',
         '--reporter=json',
         `--outputFile.json=${reportFile}`,
+        ...(locations ? ['--includeTaskLocation'] : []),
       ],
     });
   }
@@ -400,6 +404,7 @@ async function executionSpecs(
       scopedArgs: (scope, reportFile) => [
         '--json',
         `--outputFile=${reportFile}`,
+        '--testLocationInResults',
         ...(scope.kind === 'all' ? [] : ['--runTestsByPath', scope.file]),
         ...(scope.kind === 'test' ? ['-t', exactPattern(scope.path.join(' '))] : []),
       ],

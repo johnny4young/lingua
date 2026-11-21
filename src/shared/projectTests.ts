@@ -56,10 +56,15 @@ export interface ProjectTestCase {
   path: string[];
   status: ProjectTestCaseStatus;
   durationMs?: number;
+  /** 1-based line of the test's declaration in `file`, when the runner reports it. */
+  declarationLine?: number;
   /** Where the failing assertion is, project-relative, when the runner says. */
   failureFile?: string;
   failureLine?: number;
   failureMessage?: string;
+  /** The compared values of the failing assertion, set together and capped in length. */
+  expected?: string;
+  received?: string;
   /** False for cases the runner cannot select on their own (Rust doc tests). */
   runnable?: boolean;
 }
@@ -70,6 +75,8 @@ export type ProjectTestScope =
   | { kind: 'test'; file: string; path: string[] };
 
 export const PROJECT_TEST_MAX_CASES = 5_000;
+/** Length cap for a case's `expected` and `received` values. */
+export const PROJECT_TEST_VALUE_LIMIT = 120;
 
 export interface ProjectTestRunResult {
   kind: ProjectTestRunKind;

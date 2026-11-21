@@ -56,6 +56,10 @@
      "fullName": "cartTotal sums quantities",
      "status": "passed",
      "title": "sums quantities",
+     "location": {
+      "line": 4,
+      "column": 3
+     },
      "duration": 0.6117909999999966,
      "failureMessages": [],
      "meta": {},
@@ -69,6 +73,10 @@
      "fullName": "cartTotal rounds cents",
      "status": "failed",
      "title": "rounds cents",
+     "location": {
+      "line": 7,
+      "column": 3
+     },
      "duration": 2.2595000000000027,
      "failureMessages": [
       "AssertionError: expected 1211 to be 1210.5 // Object.is equality\n    at /project/src/total.test.ts:8:18\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:1628:35\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:2783:26\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3319:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3314:10)\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3299:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3257:10)\n    at file:///project/node_modules/vitest/dist/chunks/run.CQOUYP-x.js:3876:64"

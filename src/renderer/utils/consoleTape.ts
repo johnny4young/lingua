@@ -4,7 +4,7 @@ import type {
   ConsoleEntryType,
   ConsoleLevel,
 } from '../types/console';
-import { truncateText } from './truncateText';
+import { truncateText } from '../../shared/truncateText';
 
 /** True when a row of `type` shows under the `level` segment. */
 export function entryMatchesLevel(type: ConsoleEntryType, level: ConsoleLevel): boolean {
