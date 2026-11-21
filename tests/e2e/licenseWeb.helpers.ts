@@ -700,15 +700,19 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 // -----------------------------------------------------------------------------
 
 /**
- * Make sure a JavaScript tab is open, clicking the empty-state quick start only
+ * Make sure a JavaScript tab is open, clicking the Start page's JavaScript tile only
  * when no tab is coming. A tab that is already open, usually the seeded
  * `welcome.js`, is reused.
  */
 export async function createJavaScriptTab(page: Page): Promise<void> {
-  const existingJsTab = page.getByRole('button', { name: /JS .*\.js/i }).first();
-  const emptyStateQuickStart = page.getByTestId('empty-state-quick-start-javascript');
+  // Scoped to the tab strip: Start lists files and templates by name too.
+  const existingJsTab = page
+    .getByTestId('editor-tab-activation')
+    .and(page.getByRole('button', { name: /JS .*\.js/i }))
+    .first();
+  const startJavaScriptTile = page.getByTestId('start-new-javascript');
 
-  // The welcome seed comes from a lazy chunk, so the empty state can render first
+  // The welcome seed comes from a lazy chunk, so the Start page can render first
   // and then vanish. It is only final once the seed has been decided.
   const welcomeSeedDecided = () =>
     page.evaluate(
@@ -716,12 +720,12 @@ export async function createJavaScriptTab(page: Page): Promise<void> {
         JSON.parse(localStorage.getItem(key) ?? '{}').state?.hasCompletedOnboardingWelcome === true,
       SETTINGS_KEY
     );
-  await expect(existingJsTab.or(emptyStateQuickStart)).toBeVisible();
+  await expect(existingJsTab.or(startJavaScriptTile)).toBeVisible();
   await expect
     .poll(async () => (await existingJsTab.isVisible()) || (await welcomeSeedDecided()))
     .toBe(true);
   if (await existingJsTab.isVisible()) return;
-  await emptyStateQuickStart.click();
+  await startJavaScriptTile.click();
   await expect(existingJsTab).toBeVisible();
 }
 
