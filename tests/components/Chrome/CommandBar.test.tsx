@@ -44,6 +44,12 @@ describe('CommandBar', () => {
     expect(screen.getByTestId('command-bar-controls').querySelector('[data-testid="license-badge"]')).toBeTruthy();
   });
 
+  it('names Start when no tab is open', () => {
+    act(() => useEditorStore.setState({ tabs: [], activeTabId: null }));
+    render(<CommandBar showControls />);
+    expect(screen.getByTestId('app-chrome-filename').textContent).toBe('Start');
+  });
+
   it('leaves room for the macOS traffic lights only on macOS', () => {
     window.lingua = { ...(initialLingua ?? {}), platform: 'darwin' } as never;
     const { unmount } = render(<CommandBar showControls />);

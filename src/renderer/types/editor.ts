@@ -222,8 +222,13 @@ export interface EditorState {
    * Grandfather an array of tabs into the store without consulting the
    * tier ceiling. Only the session-restore path should use this
    * so users' prior workspaces are never truncated by a Free downgrade.
+   * `append` keeps the open tabs and skips restored ids already open.
    */
-  restoreTabs: (tabs: Array<Omit<FileTab, 'isDirty'>>, activeTabId?: string | null) => void;
+  restoreTabs: (
+    tabs: Array<Omit<FileTab, 'isDirty'>>,
+    activeTabId?: string | null,
+    options?: { append?: boolean }
+  ) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   /**

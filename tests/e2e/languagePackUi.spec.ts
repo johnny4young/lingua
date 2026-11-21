@@ -15,21 +15,25 @@ import {
 test.describe.configure({ mode: 'parallel' });
 
 test.describe('Language-pack capability UI', () => {
-  test('empty-state quick starts and Snippets picker read registry capabilities on web', async ({
+  test('Start language tiles and Snippets picker read registry capabilities on web', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await closeActiveEditorTab(page);
 
-    await expect(page.getByTestId('empty-state-quick-start-javascript')).toBeVisible();
-    await expect(page.getByTestId('empty-state-quick-start-typescript')).toBeVisible();
-    await expect(page.getByTestId('empty-state-quick-start-go')).toBeVisible();
-    await expect(page.getByTestId('empty-state-quick-start-python')).toBeVisible();
-    await expect(page.getByTestId('empty-state-quick-start-rust')).toBeVisible();
-    await expect(page.getByTestId('empty-state-desktop-only-go')).toHaveText('Desktop only');
-    await expect(page.getByTestId('empty-state-desktop-only-rust')).toHaveText('Desktop only');
-    await expect(page.getByTestId('empty-state-quick-start-lua')).toHaveCount(0);
+    for (const language of ['javascript', 'typescript', 'python', 'lua']) {
+      await expect(page.getByTestId(`start-new-${language}`)).toBeVisible();
+      await expect(page.getByTestId(`start-new-${language}-availability`)).toHaveText(
+        'in the browser'
+      );
+    }
+    for (const language of ['go', 'rust']) {
+      await expect(page.getByTestId(`start-new-${language}`)).toBeVisible();
+      await expect(page.getByTestId(`start-new-${language}-availability`)).toHaveText(
+        'Desktop only'
+      );
+    }
 
     await openSnippets(page);
     const options = await page
@@ -57,12 +61,8 @@ test.describe('Language-pack capability UI', () => {
     await gotoApp(page);
     await closeActiveEditorTab(page);
 
-    await expect(page.getByTestId('empty-state-desktop-only-go')).toHaveText(
-      'Solo escritorio'
-    );
-    await expect(page.getByTestId('empty-state-desktop-only-rust')).toHaveText(
-      'Solo escritorio'
-    );
+    await expect(page.getByTestId('start-new-go-availability')).toHaveText('Solo escritorio');
+    await expect(page.getByTestId('start-new-rust-availability')).toHaveText('Solo escritorio');
 
     await openSnippets(page);
     const options = await page

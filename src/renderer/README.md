@@ -231,7 +231,8 @@ a failed refresh cannot display another tab's preview.
 | [`components/Snippets/`](components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
 | [`components/StatusBar/`](components/StatusBar)           | `StatusBar.tsx`, `useStatusBarModel.ts`              | Persistent 24px bottom bar: language, lint, cursor, indent, Git |
 | [`components/StatusNotice/`](components/StatusNotice)     | `StatusNoticeBanner.tsx`                              | Global status-notice banner rendering                          |
-| [`components/Welcome/`](components/Welcome)               | welcome/project template overlays                     | Empty-state entry points and project template launcher          |
+| [`components/Start/`](components/Start)                   | `StartPickUp.tsx`, `StartNew.tsx`, `StartTemplates.tsx`, `startModel.ts` | Start sections that `Editor/EditorEmptyState.tsx` composes when no tab is open; copy lives in the lazy `start.json` catalog |
+| [`components/Welcome/`](components/Welcome)               | `ProjectTemplatesPanel.tsx`, `ProjectTemplatesOverlay.tsx` | Project template launcher, opened from the palette              |
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
 | [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
 
@@ -824,7 +825,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [nativeToolchainStore.ts](stores/nativeToolchainStore.ts) | session-only Go and Rust availability plus the folders searched; feeds the disabled Run reason and the Dock empty state, and asks main to pick a binary |
 | [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
-| [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot and restore translation          |
+| [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot, the pinned ask-mode snapshot and the one-at-a-time restore guard |
+| [sessionRestore.ts](stores/sessionRestore.ts) | restore translation from saved tabs to editor tabs, loaded on the first restore |
 | [tabLastAnswer.ts](stores/tabLastAnswer.ts), [lastAnswerSelectors.ts](stores/lastAnswerSelectors.ts) | writes each run's answer summary onto its tab (`utils/lastAnswer.ts`, loaded on the first run) and reads it for Start and the palette |
 | [settingsStore.ts](stores/settingsStore.ts) | sanitized persisted preferences, theme/keymap packs, consent and onboarding flags — thin `create(persist(...))` assembly point that composes the focused settings\* modules below |
 | settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsPolicySanitizer.ts](stores/settingsPolicySanitizer.ts) (network and run policy), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |

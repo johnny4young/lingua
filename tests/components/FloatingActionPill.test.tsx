@@ -124,12 +124,19 @@ describe('FloatingActionPill', () => {
     expect(run.getAttribute('data-tour-id')).toBe('run-button');
   });
 
-  it('disables Run on the start page, where no tab is open', () => {
+  it('turns the verb into New scratch on the start page, where no tab is open', async () => {
     useEditorStore.setState({ tabs: [], activeTabId: null });
     renderPill();
-    const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
-    expect(run.disabled).toBe(true);
-    expect(run.closest('[title]')?.getAttribute('title') ?? run.getAttribute('aria-label') ?? '').toContain('Open a file to run it.');
+    const verb = screen.getByTestId('action-pill-run') as HTMLButtonElement;
+    expect(verb.disabled).toBe(false);
+    expect(verb.getAttribute('data-verb')).toBe('new-scratch');
+    expect(verb.getAttribute('aria-label')).toBe('New scratch');
+    expect(verb.querySelector('kbd')).toBeNull();
+
+    await userEvent.setup().click(verb);
+
+    expect(useEditorStore.getState().tabs).toHaveLength(1);
+    expect(useEditorStore.getState().tabs[0]?.language).toBe('javascript');
   });
 
   it('pulses Run while the results are stale, but not while it runs', () => {

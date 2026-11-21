@@ -1,11 +1,6 @@
-import {
-  SEEDED_SCRATCHPAD_LANGUAGE,
-  SEEDED_SCRATCHPAD_NAME,
-  SEEDED_SCRATCHPAD_SOURCE,
-  SEEDED_SCRATCHPAD_VERSION,
-} from '../onboarding/seedScratchpad';
+import { SEEDED_SCRATCHPAD_VERSION, seededScratchpadTab } from '../onboarding/seedScratchpad';
 import { useConsoleStore } from '../stores/consoleStore';
-import { createDefaultTab, getActiveTab, useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { getPendingSessionRestoreTabCount, useSessionStore } from '../stores/sessionStore';
@@ -15,7 +10,6 @@ import {
   type StatusNoticeAction,
   type StatusNoticeDismissMode,
 } from '../stores/uiStore';
-import type { Language } from '../types/language';
 import { emitCommand } from '../stores/commandBus';
 import { formatShortcutLabel } from '../data/keyboardShortcuts';
 import type { TelemetryTrack } from './useTelemetry';
@@ -152,12 +146,7 @@ function seedWelcomeIfNeeded(): void {
     return;
   }
 
-  const base = createDefaultTab(SEEDED_SCRATCHPAD_LANGUAGE as Language);
-  editor.addTab({
-    ...base,
-    name: SEEDED_SCRATCHPAD_NAME,
-    content: SEEDED_SCRATCHPAD_SOURCE,
-  });
+  editor.addTab(seededScratchpadTab());
   settings.markOnboardingWelcomeCompleted(SEEDED_SCRATCHPAD_VERSION);
 }
 
