@@ -29,9 +29,11 @@ const jest: Pattern = message => {
 };
 
 // pytest assertion rewriting: assert actual == expected
+const balanced = (value: string) => [`'`, '"'].every(quote => value.split(quote).length % 2 === 1);
 const pytest: Pattern = message => {
   const match = /^(?:\w*Error:\s*)?assert (.+?) == (.+)$/mu.exec(message);
-  return match ? { received: match[1]!, expected: match[2]! } : null;
+  // An unbalanced quote means the split landed inside a string literal.
+  return match && balanced(match[1]!) && balanced(match[2]!) ? { received: match[1]!, expected: match[2]! } : null;
 };
 
 // testify: expected: 1210.5 / actual  : 1211
@@ -48,11 +50,13 @@ const goText: Pattern = message => {
   return gotFirst ? { received: gotFirst[1]!, expected: gotFirst[2]! } : null;
 };
 
-// Rust assert_eq!(actual, expected): left / right
+// Rust assert_eq!(actual, expected): left / right, each value quoted in backticks before Rust 1.73
+const rustValue = (value: string) => /^`(.*)`,?$/u.exec(value.trim())?.[1] ?? value;
 const cargo: Pattern = message => {
+  if (/left != right/u.test(message)) return null;
   const left = /^\s*left:\s*(.+)$/mu.exec(message);
   const right = /^\s*right:\s*(.+)$/mu.exec(message);
-  return left && right ? { received: left[1]!, expected: right[1]! } : null;
+  return left && right ? { received: rustValue(left[1]!), expected: rustValue(right[1]!) } : null;
 };
 
 const PATTERNS: Record<AssertionFamily, Pattern[]> = {

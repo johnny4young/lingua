@@ -10,6 +10,7 @@ describe('assertionValues', () => {
     ['pytest', 'pytest', 'assert 1211 == 1210.5', '1211', '1210.5'],
     ['pytest with the exception name', 'pytest', 'AssertionError: assert 1211 == 1210.5', '1211', '1210.5'],
     ['Cargo', 'cargo', 'assertion `left == right` failed: rounding\n  left: 4\n right: 5', '4', '5'],
+    ['Cargo before Rust 1.73', 'cargo', 'assertion failed: `(left == right)`\n  left: `4`,\n right: `5`', '4', '5'],
     ['Go', 'go', 'total_test.go:9: expected 1210.5 but got 1000.42', '1000.42', '1210.5'],
     ['Go got/want', 'go', 'total_test.go:9: got 3, want 4', '3', '4'],
     ['testify', 'go', 'Error:      \tNot equal: \n\t\t\texpected: 1210.5\n\t\t\tactual  : 1211', '1211', '1210.5'],
@@ -23,6 +24,8 @@ describe('assertionValues', () => {
     expect(assertionValues('jest', 'AssertionError: expected 3 to be a string')).toBeNull();
     expect(assertionValues('jest', 'assert 1211 == 1210.5')).toBeNull();
     expect(assertionValues('cargo', 'Expected: 1\nReceived: 2')).toBeNull();
+    expect(assertionValues('cargo', 'assertion `left != right` failed\n  left: 3\n right: 3')).toBeNull();
+    expect(assertionValues('pytest', "assert 'a == b' == 'c'")).toBeNull();
     expect(assertionValues('pytest', undefined)).toBeNull();
   });
 
