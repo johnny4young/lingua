@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
+import { useRegisterProjectTestFileRun } from './useRegisterProjectTestFileRun';
 import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { pausedLineResults } from '../../utils/debuggerLocals';
@@ -131,6 +132,7 @@ export function CodeEditor() {
   );
 
   const activeTab = useActiveTab();
+  useRegisterProjectTestFileRun(activeTab ?? null);
   // While paused here, the frame's values join what the run has logged so far.
   const inlineLineResults = useMemo(
     () =>

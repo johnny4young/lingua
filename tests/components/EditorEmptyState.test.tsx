@@ -100,6 +100,12 @@ describe('EditorEmptyState', () => {
     );
   });
 
+  it('fills the command bar verb with New scratch', async () => {
+    render(<EditorEmptyState />);
+    await userEvent.setup().click(screen.getByTestId('action-pill-new-scratch'));
+    expect(mockAddTab).toHaveBeenCalledWith(expect.objectContaining({ language: 'javascript' }));
+  });
+
   it('keeps template-generated filenames stable when labels are localized', async () => {
     const user = userEvent.setup();
     render(<EditorEmptyState />);

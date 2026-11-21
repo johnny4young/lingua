@@ -252,14 +252,20 @@ describe('HttpSendButton', () => {
   it('labels each queue state', () => {
     const onRemove = vi.fn();
     const { rerender } = render(<HttpSendButton {...base} queue={{ willQueue: true, state: null, onRemove }} />);
-    expect(screen.getByTestId('http-request-editor-send').textContent).toBe('Queue and send when online');
+    expect(screen.getByTestId('http-request-editor-send').getAttribute('aria-label')).toBe('Queue and send when online');
     rerender(<HttpSendButton {...base} queue={{ willQueue: false, state: 'ready', onRemove }} />);
-    expect(screen.getByTestId('http-request-editor-send').textContent).toBe('Send now');
+    expect(screen.getByTestId('http-request-editor-send').getAttribute('aria-label')).toBe('Send now');
     rerender(<HttpSendButton {...base} queue={{ willQueue: true, state: 'queued', onRemove }} />);
     expect(screen.getByTestId('http-request-editor-queued').textContent).toContain('Queued');
     fireEvent.click(screen.getByRole('button', { name: 'Remove from the queue' }));
     expect(onRemove).toHaveBeenCalled();
     rerender(<HttpSendButton {...base} />);
-    expect(screen.getByTestId('http-request-editor-send').textContent).toBe('Send');
+    expect(screen.getByTestId('http-request-editor-send').getAttribute('aria-label')).toBe('Send');
+  });
+
+  it('keeps Copy as reachable while the request is in flight', () => {
+    render(<HttpSendButton {...base} isExecuting copyItems={[{ id: 'curl', label: 'Copy as cURL', testId: 'copy-curl', onSelect: vi.fn() }]} />);
+    expect(screen.getByTestId('http-request-editor-stop')).toBeTruthy();
+    expect(screen.getByTestId('http-request-editor-copy-menu')).toBeTruthy();
   });
 });
