@@ -28,6 +28,8 @@ import type { WorkflowMode } from '../../shared/workflowMode';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import type { RelativePath, RootId } from '../../shared/fs/brandedIds';
 import { MAX_INPUT_ARGS_PER_SET, sanitizeInputSets } from './editorTabUtils';
+import type { LastAnswer } from '../utils/lastAnswer';
+import { loadLastAnswer } from './tabLastAnswer';
 
 interface SessionTab {
   name: string;
@@ -113,6 +115,8 @@ interface SessionTab {
    * `kind === 'utilities'`.
    */
   workspaceTabId?: string;
+  /** Last run's answer summary; absent in older sessions and for tabs that never ran. */
+  lastAnswer?: LastAnswer;
 }
 
 interface SessionState {
@@ -165,6 +169,11 @@ export function clearPendingSessionRestoreSnapshot(): void {
   pendingSessionRestoreSnapshot = null;
 }
 
+/** The boot snapshot an explicit restore would bring back, if one is armed. */
+export function getPendingSessionRestoreSnapshot(): Readonly<PendingSessionRestoreSnapshot> | null {
+  return pendingSessionRestoreSnapshot;
+}
+
 /**
  * Per-tab arm of {@link sessionSnapshotEqual}. Compares only the
  * fields `saveSession()` serializes into a `SessionTab`, with the
@@ -194,6 +203,7 @@ function sessionTabEqual(a: FileTab, b: FileTab): boolean {
     a.activeInputSetId === b.activeInputSetId &&
     stringArrayEqual(a.inputArgs, b.inputArgs) &&
     a.recipeBindingId === b.recipeBindingId &&
+    a.lastAnswer === b.lastAnswer &&
     a.kind === b.kind
   );
 }
@@ -285,6 +295,7 @@ export const useSessionStore = create<SessionState>()(
           activeInputSetId: tab.activeInputSetId,
           inputArgs: tab.inputArgs,
           recipeBindingId: tab.recipeBindingId,
+          lastAnswer: tab.lastAnswer,
           // Preserve the notebook discriminator + the
           // original tabId so the per-tab notebook payload in
           // `useNotebookStore` survives a reload (the store is keyed
@@ -323,6 +334,13 @@ export const useSessionStore = create<SessionState>()(
           return;
         }
 
+        // Older sessions carry no answers, so the summary module loads only when one does.
+        // A chunk that fails to load costs the answers, never the restore.
+        const dropAnswer = (): undefined => undefined;
+        const sanitizeLastAnswer = savedTabs.some(tab => tab.lastAnswer !== undefined)
+          ? await loadLastAnswer().then(module => module.sanitizeLastAnswer, () => dropAnswer)
+          : dropAnswer;
+
         const restored: Array<
           Parameters<ReturnType<typeof useEditorStore.getState>['restoreTabs']>[0][number] & {
             id: string;
@@ -356,6 +374,8 @@ export const useSessionStore = create<SessionState>()(
           let content = saved.content;
           let rootId: RootId | undefined;
           let relativePath: RelativePath | undefined;
+          const restoredLastAnswer = sanitizeLastAnswer(saved.lastAnswer);
+          const lastAnswerField = restoredLastAnswer ? { lastAnswer: restoredLastAnswer } : {};
 
           if (saved.filePath) {
             // re-mint a single-file capability for the
@@ -477,6 +497,7 @@ export const useSessionStore = create<SessionState>()(
               language: 'sql',
               content: '',
               kind: 'sql' as const,
+              ...lastAnswerField,
             });
             savedIndexToRestoredId.push(SQL_WORKSPACE_TAB_ID);
             continue;
@@ -494,6 +515,7 @@ export const useSessionStore = create<SessionState>()(
               language: 'http',
               content: '',
               kind: 'http' as const,
+              ...lastAnswerField,
             });
             savedIndexToRestoredId.push(HTTP_WORKSPACE_TAB_ID);
             continue;
@@ -511,6 +533,7 @@ export const useSessionStore = create<SessionState>()(
               language: 'utilities',
               content: '',
               kind: 'utilities' as const,
+              ...lastAnswerField,
             });
             savedIndexToRestoredId.push(UTILITIES_WORKSPACE_TAB_ID);
             continue;
@@ -551,6 +574,7 @@ export const useSessionStore = create<SessionState>()(
               ? { recipeBindingId: restoredRecipeBindingId }
               : {}),
             ...(restoredAsNotebook ? { kind: 'notebook' as const, notebookDocumentHash } : {}),
+            ...lastAnswerField,
           });
           savedIndexToRestoredId.push(restoredId);
         }

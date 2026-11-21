@@ -20,6 +20,7 @@ import {
   useWorkspaceToolStore,
 } from '@/stores/workspaceToolStore';
 import { createBlankSqlQuery } from '#src/shared/sqlWorkspace';
+import { getSessionTabAnswers, lastAnswerForPath } from '@/stores/lastAnswerSelectors';
 import { createBlankHttpRequest } from '#src/shared/httpWorkspace';
 
 describe('sessionStore', () => {
@@ -491,6 +492,46 @@ describe('sessionStore', () => {
     expect(useRecipeStore.getState().getBindingForTab(tabs[0].id)).toBe('js-sort-objects');
   });
 
+  it('restores each tab with its last answer and drops a malformed one', async () => {
+    const answer = { kind: 'code', status: 'ok', numeral: '1 – 64', unit: 'items', total: 8, ranAt: 1_700_000_000_000 } as const;
+    useSessionStore.setState({
+      savedTabs: [
+        { name: 'squares.js', language: 'javascript', content: '[1, 2].map(n => n * n)', lastAnswer: answer },
+        { name: 'SQL', language: 'sql', content: '', kind: 'sql', workspaceTabId: SQL_WORKSPACE_TAB_ID, lastAnswer: { ...answer, kind: 'sql', numeral: '12', unit: 'rows' } },
+        { name: 'legacy.py', language: 'python', content: 'print(1)' },
+        { name: 'tampered.js', language: 'javascript', content: '', lastAnswer: { kind: 'shell', numeral: 1 } as never },
+      ],
+      savedActiveIndex: 0,
+    });
+
+    await useSessionStore.getState().restoreSession();
+
+    const tabs = useEditorStore.getState().tabs;
+    expect(tabs.map(tab => tab.lastAnswer?.numeral)).toEqual(['1 – 64', '12', undefined, undefined]);
+    expect(tabs[0]?.lastAnswer).toEqual(answer);
+    expect(tabs[2]).not.toHaveProperty('lastAnswer');
+    expect(tabs[3]).not.toHaveProperty('lastAnswer');
+  });
+
+  it('lists the answers a restore would bring back and finds one by file path', () => {
+    const answer = { kind: 'code', status: 'ok', numeral: '1.24', label: 's', ranAt: 1_700_000_000_000 } as const;
+    useSessionStore.setState({
+      savedTabs: [
+        { name: 'latencies.py', language: 'python', content: '', filePath: '/work/latencies.py', lastAnswer: answer },
+        { name: 'never-ran.js', language: 'javascript', content: '' },
+      ],
+      savedActiveIndex: 0,
+    });
+    armPendingSessionRestoreSnapshot();
+    useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
+
+    expect(getSessionTabAnswers()).toEqual([
+      { name: 'latencies.py', language: 'python', filePath: '/work/latencies.py', lastAnswer: answer },
+    ]);
+    expect(lastAnswerForPath('/work/latencies.py')).toEqual(answer);
+    expect(lastAnswerForPath('/work/other.py')).toBeUndefined();
+  });
+
   it('restores the Recipe panel when the active restored tab has a recipe binding', async () => {
     useSessionStore.setState({
       savedTabs: [
@@ -888,6 +929,7 @@ describe('sessionStore', () => {
       ['activeInputSetId', { activeInputSetId: 'set-1' }],
       ['inputArgs', { inputArgs: ['--fast'] }],
       ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
+      ['lastAnswer', { lastAnswer: { kind: 'code', status: 'ok', numeral: '64', ranAt: 1_700_000_000_000 } }],
       ['kind', { kind: 'notebook' }],
     ] as const)('flips on persisted tab field: %s', (_label, override) => {
       const a = snapshot([baseTab()]);
@@ -941,6 +983,7 @@ describe('sessionStore', () => {
       ['activeInputSetId', { activeInputSetId: 'set-1' }],
       ['inputArgs', { inputArgs: ['--fast'] }],
       ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
+      ['lastAnswer', { lastAnswer: { kind: 'code', status: 'ok', numeral: '64', ranAt: 1_700_000_000_000 } }],
       ['kind (notebook, also feeds notebookTabId)', { kind: 'notebook' }],
       ['kind (sql, also feeds workspaceTabId)', { kind: 'sql' }],
     ] as const)(

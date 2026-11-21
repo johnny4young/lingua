@@ -24,6 +24,7 @@ import { toExecutionPresentation } from '../../utils/executionPresentation';
 import { trackEvent } from '../../utils/telemetry';
 import { validateDocument } from '../../validation';
 import { recordCompletedRun, recordFailedRun, type GitSnapshot } from './recordRunHistory';
+import { recordCodeLastAnswer } from '../../stores/tabLastAnswer';
 import type { RunPlan } from './resolveRunPlan';
 import type { CollectedRun, RunConsole } from './runAndCollect';
 import type { ManualExecutionSummary } from './types';
@@ -285,6 +286,9 @@ export async function publishCompletedRun(
       diagnosticsCount: 0,
       message: '',
     };
+  if (plan.recordHistory) {
+    recordCodeLastAnswer(activeTab.id, result, presentation);
+  }
   if (showsResults()) {
     setLineResults(presentation.lineResults);
     setLineTimings(result.lineTimings ?? []);
