@@ -9,7 +9,7 @@ import type { CallContext, Handlers } from '@electron-stagewright/host-superviso
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { RowEditStatement } from '../../shared/sqlRowEdits';
-import { classifyConnectError, EditFailedError, readRowPage, type DriverRows, type DriverSession, type RowPager } from '../../shared/sqlDriver';
+import { classifyConnectError, EditFailedError, readRowPage, runClock, type DriverRows, type DriverSession, type RowPager } from '../../shared/sqlDriver';
 import { toJsonCell, type DriverFactory } from './driver';
 import { SqlHostError } from './hostError';
 import { createTunnelPool, TunnelError, type Tunnel, type TunnelPool } from './tunnel';
@@ -169,15 +169,18 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       if (signal?.aborted) throw fail({ message: QUERY_CANCELLED_MESSAGE, cancelled: true });
       inflight.set(runId, driver);
       let rows: DriverRows;
+      const clock = runClock();
       try {
         rows = await driver.run(sql, { readWrite });
       } finally {
         inflight.delete(runId);
       }
+      clock.ran();
       const run: Run = { connectionId: config.connectionId, session: driver, rows, pending: [], done: false };
       runs.set(runId, run);
       try {
         const page = await readPage(run, window.maxRows, window.maxBytes);
+        const phases = clock.phases(rows);
         const hasMore = !page.done;
         if (!hasMore) await closeRun(runId);
         return {
@@ -188,6 +191,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
           rowCountIsLowerBound: hasMore,
           hasMore,
           ...(rows.affectedRows !== undefined ? { affectedRows: rows.affectedRows } : {}),
+          ...(phases ? { phases } : {}),
         };
       } catch (err) {
         await closeRun(runId);

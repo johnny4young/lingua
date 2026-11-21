@@ -52,6 +52,13 @@ describe('executeRemoteScript', () => {
     expect(outcome).toMatchObject({ columns: [{ name: 'Count', type: 'BIGINT' }], rows: [{ Count: '10' }], rowCount: 1 });
   });
 
+  it('carries the phases the host measured, and none when it reported the total only', async () => {
+    const db = bridge([{ ...base, phases: { execute: 2, fetch: 1 } }, base]);
+    const outcomes = await executeRemoteScript(db, 'c_1', ['SELECT 1', 'SELECT 2'], { timeoutMs: 1_000 });
+    expect(outcomes[0]?.phases).toEqual({ execute: 2, fetch: 1 });
+    expect(outcomes[1]).not.toHaveProperty('phases');
+  });
+
   it('stops at the first statement that fails and passes the typed name on every run', async () => {
     const db = bridge([base, { ...base, status: 'sql-error', columns: [], rows: [], errorMessage: 'boom' }, base]);
     const outcomes = await executeRemoteScript(db, 'c_1', ['SELECT 1', 'SELECT x', 'SELECT 3'], { timeoutMs: 1_000, confirmName: 'orders-prod' });

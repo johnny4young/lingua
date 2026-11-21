@@ -5,7 +5,7 @@
  */
 
 import type { SqlDbFixHint, SqlDbIntrospect, SqlDbIntrospectResult } from './sqlDb';
-import type { SqlColumnMetadata } from './sqlWorkspace';
+import { sqlPhaseTimings, type SqlColumnMetadata, type SqlPhaseTimings } from './sqlWorkspace';
 import { ROW_EDIT_BUDGET_MS, type RowEditFailure, type RowEditStatement } from './sqlRowEdits';
 
 /** A failure the renderer can act on: the step a connect failed at and the fix to show. */
@@ -57,6 +57,12 @@ export interface DriverRows {
   columns: SqlColumnMetadata[];
   /** Rows a write touched, when the statement returned no result set. */
   affectedRows?: number;
+  /** Time `run` spent preparing the statement, for an engine that prepares apart from running it. */
+  planMs?: number;
+  /** Every row was read before `run` resolved, so reading pages measures no engine time. */
+  buffered?: true;
+  /** `performance.now()` when the statement went out, for a `run` that opens a transaction first. */
+  sentAt?: number;
   /** Reads up to `limit` more rows in engine order; `done` when there are none left. */
   next(limit: number): Promise<{ rows: Array<Record<string, unknown>>; done: boolean }>;
   close(): Promise<void>;
@@ -89,6 +95,46 @@ export interface RowPager {
 }
 
 const READ_BATCH = 500;
+
+/** Rows read in full before `run` returns, served in pages. */
+export function wholeRows(columns: SqlColumnMetadata[], rows: Array<Record<string, unknown>>, affectedRows?: number): DriverRows {
+  let left = rows;
+  return {
+    columns,
+    ...(affectedRows !== undefined ? { affectedRows } : {}),
+    buffered: true,
+    async next(limit) {
+      const page = left.slice(0, limit);
+      left = left.slice(page.length);
+      return { rows: page, done: left.length === 0 };
+    },
+    async close() {
+      left = [];
+    },
+  };
+}
+
+/**
+ * Times one run: start it before `run`, call `ran` once `run` returns, and
+ * `phases` once the first page is read. Execute is `run` from the statement's
+ * send, less any plan time;
+ * a buffered result or one without columns has no fetch.
+ */
+export function runClock() {
+  const start = performance.now();
+  let ran = start;
+  return {
+    ran: () => {
+      ran = performance.now();
+    },
+    phases: (rows: Pick<DriverRows, 'columns' | 'planMs' | 'buffered' | 'sentAt'>): SqlPhaseTimings | undefined =>
+      sqlPhaseTimings({
+        plan: rows.planMs,
+        execute: Math.max(0, ran - (rows.sentAt ?? start) - (rows.planMs ?? 0)),
+        fetch: rows.buffered || rows.columns.length === 0 ? undefined : performance.now() - ran,
+      }),
+  };
+}
 
 /** Fills a page within `maxRows` and `maxBytes`, keeping what did not fit for the next one. */
 export async function readRowPage(

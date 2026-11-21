@@ -404,6 +404,28 @@ export interface SqlQueryV1 {
 /** Longest folder name a saved query may carry. */
 export const MAX_SQL_FOLDER_LENGTH = 64;
 
+/** The phases of one statement, in the order they run. */
+export const SQL_PHASES = ['plan', 'execute', 'fetch'] as const;
+export type SqlPhase = (typeof SQL_PHASES)[number];
+
+/** Milliseconds per phase of one statement: only the phases its engine measured apart. */
+export type SqlPhaseTimings = Partial<Record<SqlPhase, number>>;
+
+/**
+ * Rounds measured phases and drops the rest. Fewer than two phases split
+ * nothing, so they come back undefined and the total stands alone.
+ */
+export function sqlPhaseTimings(measured: Partial<Record<SqlPhase, unknown>>): SqlPhaseTimings | undefined {
+  const timings: SqlPhaseTimings = {};
+  for (const phase of SQL_PHASES) {
+    const ms = measured[phase];
+    if (typeof ms === 'number' && Number.isFinite(ms) && ms >= 0) timings[phase] = Math.round(ms);
+  }
+  const values = Object.values(timings);
+  // Two phases split the total; all of them under half a millisecond split nothing.
+  return values.length >= 2 && values.some((ms) => ms > 0) ? timings : undefined;
+}
+
 /**
  * The execution result. Mirrors `HttpResponseV1` shape; the
  * `status` field is the SqlQueryStatus closed enum.
@@ -454,6 +476,8 @@ export interface SqlResponseV1 {
   errorMessage?: string;
   /** Engine that produced the response; absent means Local DuckDB. */
   engine?: SqlEngineKind;
+  /** Plan, execute and fetch milliseconds, when the engine measured them apart. */
+  phases?: SqlPhaseTimings;
 }
 
 /** A result that came from a database connection rather than the local engine. */
@@ -596,6 +620,7 @@ export function parseSqlResponse(value: unknown): SqlResponseV1 | null {
     if (typeof value.errorMessage !== 'string') return null;
     errorMessage = value.errorMessage;
   }
+  const phases = isRecord(value.phases) ? sqlPhaseTimings(value.phases) : undefined;
   return {
     version: 1,
     status: value.status,
@@ -609,6 +634,7 @@ export function parseSqlResponse(value: unknown): SqlResponseV1 | null {
     recordedAt: value.recordedAt,
     ...(errorMessage !== undefined ? { errorMessage } : {}),
     ...(isSqlRemoteEngine(value.engine) ? { engine: value.engine } : {}),
+    ...(phases ? { phases } : {}),
   };
 }
 

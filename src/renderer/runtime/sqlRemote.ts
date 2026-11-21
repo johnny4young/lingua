@@ -56,6 +56,7 @@ function toOutcome(result: SqlDbRunResult): RemoteOutcome {
     columns: counted ? [{ name: 'Count', type: 'BIGINT' }] : result.columns,
     rowCount: counted ? 1 : result.rowCount,
     durationMs: result.durationMs,
+    ...(result.phases ? { phases: result.phases } : {}),
     tooLarge: result.tooLarge,
     ...(result.rowCountIsLowerBound ? { rowCountIsLowerBound: true } : {}),
     statementCount: 1,
