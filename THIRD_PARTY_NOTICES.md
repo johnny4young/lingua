@@ -59,6 +59,11 @@ pnpm run compliance:release
 | --- | --- | --- |
 | Inter (latin 400, 500, 600) | OFL-1.1 | `public/fonts/inter-latin-*-normal.woff2`, `public/fonts/Inter-OFL.txt` |
 | JetBrains Mono (latin 400, 700) | OFL-1.1 | `public/fonts/jetbrains-mono-latin-*-normal.woff2`, `public/fonts/OFL.txt` |
+| Fraunces (latin, variable roman and italic) | OFL-1.1 | `public/fonts/fraunces-latin-variable.woff2`, `public/fonts/fraunces-latin-variable-italic.woff2`, `public/fonts/Fraunces-OFL.txt` |
+| Recursive (latin, variable) | OFL-1.1 | `public/fonts/recursive-latin-variable.woff2`, `public/fonts/Recursive-OFL.txt` |
+
+Fraunces and Recursive are subset and axis-instanced from the google/fonts
+sources by `scripts/fonts/build-variable-fonts.sh`.
 
 ## Public-Release Notes
 

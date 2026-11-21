@@ -45,7 +45,7 @@ const DEFAULT_TARGETS = [
   },
 ];
 
-const CATEGORY_ORDER = ['initial', 'runtime', 'worker', 'utility', 'lazy', 'other'];
+const CATEGORY_ORDER = ['initial', 'runtime', 'worker', 'utility', 'lazy', 'fonts', 'other'];
 // The GPU process follows the frames being painted (100 to 650 MB within seconds), so the
 // memory budget counts every other process.
 const FOOTPRINT_EXCLUDED_PROCESS_TYPES = new Set(['GPU']);
@@ -56,6 +56,7 @@ const BUDGET_HEADROOM_BY_CATEGORY = {
   utility: 1.15,
   worker: 1.1,
   runtime: 1,
+  fonts: 1.05,
   other: 1.1,
 };
 
@@ -154,6 +155,7 @@ export function classifyAsset(relativePath, initialAssets = new Set()) {
   if (normalized.startsWith('assets/') && /\.(?:js|css)$/iu.test(baseName)) {
     return 'lazy';
   }
+  if (normalized.startsWith('fonts/')) return 'fonts';
   return 'other';
 }
 

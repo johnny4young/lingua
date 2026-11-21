@@ -28,7 +28,8 @@ Assets are grouped into:
 - `utility` — known heavy Developer Utilities dependencies such as
   Markdown, HTML, PostCSS, Babel, TypeScript, and hashing chunks.
 - `lazy` — other lazy JS/CSS chunks.
-- `other` — manifests, icons, fonts, and uncategorized files.
+- `fonts` — the bundled `fonts/` directory (font files and their licence texts).
+- `other` — manifests, icons, and uncategorized files.
 
 Vendor code is split into named chunks by rolldown `codeSplitting`
 groups in `vite.web.config.mts` and `vite.renderer.config.mts`
