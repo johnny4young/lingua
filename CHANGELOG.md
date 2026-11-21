@@ -12,6 +12,7 @@ The format follows Keep a Changelog and groups changes by release.
 - On desktop, the window paints sooner at startup: the shell loads its small startup modules as one file, so it fetches 14 files before its first paint instead of 41.
 - When a model server on this machine does not answer, the AI error names its address and says LM Studio needs Enable CORS on, instead of Failed to fetch.
 - On desktop, each update of a streamed answer from your own AI endpoint carries only the new text instead of the whole answer so far, and a non-streaming answer stops at 2 MiB, the size the AI client accepts.
+- A SQL result shows how its time split into plan, execute and fetch beside the total, with a bar for each phase. Postgres, MySQL, SQL Server, ClickHouse and Local SQL report execute and fetch, SQLite files add plan, and engines that answer over HTTP show the total only.
 
 ### Fixed
 - On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.

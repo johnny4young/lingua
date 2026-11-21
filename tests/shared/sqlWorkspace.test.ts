@@ -24,6 +24,7 @@ import {
   parseSqlResponse,
   queryChangesSchema,
   sanitizeTableName,
+  sqlPhaseTimings,
   utf8ByteLength,
   type SqlQueryV1,
   type SqlResponseV1,
@@ -157,7 +158,27 @@ describe('parseSqlQuery', () => {
   });
 });
 
+describe('sqlPhaseTimings', () => {
+  it('rounds the measured phases and drops the rest', () => {
+    expect(sqlPhaseTimings({ plan: 1.6, execute: 30.2, fetch: 4.5 })).toEqual({ plan: 2, execute: 30, fetch: 5 });
+    expect(sqlPhaseTimings({ plan: undefined, execute: 12, fetch: 0.2 })).toEqual({ execute: 12, fetch: 0 });
+    expect(sqlPhaseTimings({ plan: -1, execute: 12, fetch: Number.NaN, other: 3 } as never)).toBeUndefined();
+  });
+
+  it('answers undefined for a single phase, which splits nothing', () => {
+    expect(sqlPhaseTimings({ execute: 31 })).toBeUndefined();
+    expect(sqlPhaseTimings({})).toBeUndefined();
+  });
+});
+
 describe('parseSqlResponse', () => {
+  it('keeps measured phases and drops malformed ones', () => {
+    expect(parseSqlResponse({ ...validResponse(), phases: { plan: 2, execute: 31, fetch: 5 } })?.phases).toEqual({ plan: 2, execute: 31, fetch: 5 });
+    expect(parseSqlResponse({ ...validResponse(), phases: { execute: '31', fetch: 5 } })).not.toHaveProperty('phases');
+    expect(parseSqlResponse({ ...validResponse(), phases: [2, 31] })).not.toHaveProperty('phases');
+    expect(parseSqlResponse(validResponse())).not.toHaveProperty('phases');
+  });
+
   it('round-trips a valid response', () => {
     const parsed = parseSqlResponse(validResponse());
     expect(parsed?.status).toBe('success');

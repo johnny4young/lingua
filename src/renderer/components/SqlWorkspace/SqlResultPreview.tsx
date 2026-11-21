@@ -39,6 +39,7 @@ import type { SqlRowEdits } from '../../hooks/useSqlRowEdits';
 import { renderCell } from './sqlResultFormatters';
 import { SqlResultToolbar } from './SqlResultToolbar';
 import { SqlColumnRail } from './SqlColumnRail';
+import { SqlPhaseTimingsMeter } from './SqlPhaseTimingsMeter';
 import { SqlValueViewer } from './SqlValueViewer';
 import { DEFAULT_EXPORT_OPTIONS, serializeRows } from './sqlResultExport';
 import { useSqlResultPaneLayout } from './useSqlResultPaneLayout';
@@ -411,6 +412,7 @@ export function SqlResultPreview({
             </span>
           }
           meta={meta}
+          metaTrailing={hasResultBody && response.phases ? <SqlPhaseTimingsMeter phases={response.phases} /> : undefined}
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={(id) => {

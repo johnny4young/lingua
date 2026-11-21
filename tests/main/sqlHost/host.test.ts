@@ -98,6 +98,29 @@ describe('SQL host', () => {
     expect(closes[0]).toHaveBeenCalledOnce();
   });
 
+  it('reports execute and fetch for a streamed result, plan when the driver prepares apart, and total only otherwise', async () => {
+    const { open, session } = fakeDriver(3);
+    const run = session.run.bind(session);
+    const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
+    const phasesOf = async (runId: string) =>
+      ((await host.handle(req({ type: 'execute', config: pgConfig(), runId, sql: 'SELECT n', readWrite: false, window }))) as { value: { phases?: Record<string, number> } }).value.phases;
+
+    expect(Object.keys((await phasesOf('streamed'))!)).toEqual(['execute', 'fetch']);
+
+    session.run = async (sql, options) => ({ ...(await run(sql, options)), planMs: 3.4 });
+    const planned = await phasesOf('planned');
+    expect(Object.keys(planned!)).toEqual(['plan', 'execute', 'fetch']);
+    expect(planned!.plan).toBe(3);
+
+    // Rows read in full before run resolves leave a single phase, so only the total stands.
+    session.run = async (sql, options) => ({ ...(await run(sql, options)), buffered: true });
+    expect(await phasesOf('buffered')).toBeUndefined();
+
+    // A write has no rows to fetch.
+    session.run = async () => ({ columns: [], affectedRows: 1, next: async () => ({ rows: [], done: true }), close: async () => undefined });
+    expect(await phasesOf('write')).toBeUndefined();
+  });
+
   it('stops a page at the byte budget and keeps the rest', async () => {
     const { open } = fakeDriver(1_000);
     const host = withReplies(createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open, libsql: open, neon: open, d1: open }));
@@ -260,6 +283,16 @@ describe('SQLite driver (node:sqlite)', () => {
         hasMore: false,
       },
     });
+    await host.dispose();
+  });
+
+  it('splits a run into plan, execute and fetch, without a fetch for a write or a run on its own handle', async () => {
+    const host = createSqlHostSupervisorless();
+    const phasesOf = async (sql: string, readOnly: boolean, readWrite: boolean) =>
+      ((await host.handle(req({ type: 'execute', config: sqliteConfig(readOnly), runId: sql, sql, readWrite, window }))) as { value: { phases?: Record<string, number> } }).value.phases;
+    expect(Object.keys((await phasesOf('SELECT * FROM t', false, false))!)).toEqual(['plan', 'execute', 'fetch']);
+    expect(Object.keys((await phasesOf("UPDATE t SET name = 'z'", false, false))!)).toEqual(['plan', 'execute']);
+    expect(Object.keys((await phasesOf('SELECT * FROM t', true, true))!)).toEqual(['plan', 'execute']);
     await host.dispose();
   });
 

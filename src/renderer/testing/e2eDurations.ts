@@ -27,6 +27,16 @@ export function e2eFixedDurationMs(measuredMs: number): number {
   return typeof fixed === 'number' ? fixed : measuredMs;
 }
 
+/** Same override for a SQL result; a pinned total drops the phases it no longer adds up with. */
+export function withE2eSqlDuration<T extends { durationMs: number; phases?: unknown }>(result: T): T {
+  if (!__LINGUA_E2E_HOOKS__) return result;
+  const durationMs = e2eFixedDurationMs(result.durationMs);
+  if (durationMs === result.durationMs) return result;
+  const pinned = { ...result, durationMs };
+  delete pinned.phases;
+  return pinned;
+}
+
 /** Same override for a run result's measured `executionTime`. */
 export function withE2eExecutionTime<T extends { executionTime: number }>(result: T): T {
   if (!__LINGUA_E2E_HOOKS__) return result;

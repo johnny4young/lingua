@@ -8,7 +8,8 @@
 import { introspectSqlite } from '../sqlCatalog/sqlite';
 import { SqlConnectError, type DriverSession } from '../sqlDriver';
 import { isWriteSqlStatementOn } from '../sqlStatements';
-import { HttpSqlError, inflight, parseJson, rowObject, send, summary, wholeRows, type HttpSqlTransport } from './transport';
+import { HttpSqlError, inflight, parseJson, rowObject, send, summary, type HttpSqlTransport } from './transport';
+import { wholeRows } from '../sqlDriver';
 
 export interface D1Target {
   /** `https://api.cloudflare.com`. */
