@@ -1501,20 +1501,9 @@
     color: var(--color-warning-fg);
   }
 
-  /* The paused line takes the accent, not the breakpoint red, with an arrow beside the line numbers. */
+  /* The paused line takes the accent, not the breakpoint red; the run rail holds its ring. */
   .monaco-editor .lingua-debugger-paused-line {
     background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important;
-  }
-
-  .monaco-editor .lingua-debugger-paused-line-marker::before {
-    content: '';
-    display: block;
-    width: 0;
-    height: 0;
-    margin: 0.3rem 0 0 0.1rem;
-    border-left: 0.45rem solid var(--color-accent);
-    border-top: 0.32rem solid transparent;
-    border-bottom: 0.32rem solid transparent;
   }
 
   /*

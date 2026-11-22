@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { replaceUnsafeText } from '../../utils/unsafeText';
 import type { AnswerDelta } from './answerDelta';
+import { cn } from '../../utils/cn';
 import '../../i18n/answersCatalog';
 import './answerObject.css';
 
@@ -48,6 +49,20 @@ export function AnswerDeltaChip({ delta, since }: { readonly delta: AnswerDelta;
         was(change.before)
       )}
       {delta.edited ? ` · ${t('answers.delta.edited')}` : null}
+    </span>
+  );
+}
+
+/** A value the answer replaced, struck through; long values end in an ellipsis and keep the full text as a tooltip. */
+export function AnswerWasChip({ value, className }: { readonly value: string; readonly className?: string }) {
+  const { t } = useTranslation();
+  const text = replaceUnsafeText(value);
+  return (
+    <span className={cn('answer-delta answer-was', className)} data-testid="answer-was" title={text}>
+      <s className="answer-delta-before">
+        <span className="sr-only">{`${t('answers.delta.was')} `}</span>
+        {text}
+      </s>
     </span>
   );
 }

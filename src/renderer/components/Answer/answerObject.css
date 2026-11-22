@@ -63,6 +63,17 @@
     -webkit-line-clamp: 3;
   }
 
+  .answer-object[data-one-line] > * { flex: none; }
+
+  .answer-object[data-one-line] > .answer-object-value {
+    display: block;
+    flex: 0 1 auto;
+    white-space: nowrap;
+  }
+
+  .answer-object[data-muted] .answer-object-value { --answer-tone: var(--color-fg-muted); }
+  .answer-object[data-muted] .answer-object-value[data-pill] { background: transparent; }
+
   .answer-object-value[data-tone='number'] { --answer-tone: var(--color-value-number); font-variant-numeric: tabular-nums; }
   .answer-object-value[data-tone='string'] { --answer-tone: var(--color-value-string); }
   .answer-object-value[data-tone='boolean'] { --answer-tone: var(--color-value-boolean); }
@@ -358,5 +369,18 @@
   .answer-delta-before {
     color: var(--color-fg-subtle);
     text-decoration-thickness: 1px;
+  }
+
+  .answer-was {
+    max-width: 220px;
+    min-width: 0;
+  }
+
+  .answer-was .answer-delta-before {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

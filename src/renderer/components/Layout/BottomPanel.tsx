@@ -101,6 +101,10 @@ const TestsMeter = lazy(async () => {
   return { default: module.TestsMeter };
 });
 
+const DebuggerDockControls = lazy(async () => {
+  const module = await import('../Debugger/DebuggerDockControls');
+  return { default: module.DebuggerDockControls };
+});
 const TestsDockControls = lazy(async () => {
   const module = await import('../ProjectTests/TestsDockControls');
   return { default: module.TestsDockControls };
@@ -358,6 +362,11 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
               {testsOnScreen ? (
                 <Suspense fallback={null}>
                   <TestsDockControls />
+                </Suspense>
+              ) : null}
+              {shown('debugger') && debuggerLive ? (
+                <Suspense fallback={null}>
+                  <DebuggerDockControls tabId={activeTabId ?? null} />
                 </Suspense>
               ) : null}
               <DockHeaderControls />

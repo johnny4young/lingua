@@ -1,3 +1,5 @@
+import { useDebuggerStore } from '../../stores/debuggerStore';
+import { DEBUGGER_HUD_HEIGHT } from '../Debugger/debuggerHudGeometry';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
@@ -160,7 +162,9 @@ function sameAnswers(a: readonly LineResult[], b: readonly LineResult[]): boolea
 }
 
 function answerSignature(items: readonly LineResult[]): string {
-  return items.map(item => `${item.type}\u0000${item.name ?? ''}\u0000${item.value}`).join('\u0001');
+  return items
+    .map(item => `${item.type}\u0000${item.name ?? ''}\u0000${item.value}\u0000${item.previous ?? ''}\u0000${item.depth ?? ''}`)
+    .join('\u0001');
 }
 
 function newlineCount(text: string): number {
@@ -215,6 +219,7 @@ function useInlineResultWidgets(
   const widgetsRef = useRef<Map<number, InlineWidget>>(new Map());
   const [mounted, setMounted] = useState<readonly InlineWidget[]>([]);
   const lineEndReserveRef = useRef(lineEndReserve);
+  const tabIdRef = useRef(tabId);
   const repositioningRef = useRef(false);
   const scheduledFrameRef = useRef<number | null>(null);
   const measurementGenerationRef = useRef(0);
@@ -466,11 +471,14 @@ function useInlineResultWidgets(
       }
       // Adding a zone moves subsequent lines; read positions after the batch.
       const scrollTop = editor.getScrollTop();
+      // The step HUD's row comes first under the paused line.
+      const paused = useDebuggerStore.getState().pausedFrame;
+      const hudLine = paused && paused.tabId === tabIdRef.current ? paused.line : null;
       for (const widget of widgetsRef.current.values()) {
         if (widget.domNode.style.visibility === 'hidden') continue;
         const top =
           widget.zone && widget.below
-            ? editor.getBottomForLineNumber(widget.zone.line)
+            ? editor.getBottomForLineNumber(widget.zone.line) + (widget.zone.line === hudLine ? DEBUGGER_HUD_HEIGHT : 0)
             : editor.getTopForLineNumber(widget.line);
         widget.domNode.style.top = `${top - scrollTop}px`;
       }
@@ -504,6 +512,10 @@ function useInlineResultWidgets(
     lineEndReserveRef.current = lineEndReserve;
     scheduleReposition();
   }, [lineEndReserve?.line, lineEndReserve?.width, scheduleReposition]);
+
+  useEffect(() => {
+    tabIdRef.current = tabId;
+  }, [tabId]);
 
   // Wire scroll + layout listeners. Disposed on unmount / tab swap.
   useEffect(() => {

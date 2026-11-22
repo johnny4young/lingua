@@ -70,17 +70,19 @@ for (const locale of ['en', 'es'] as const) {
     await openConsole(page);
     await page.getByTestId('bottom-panel-debugger-tab').click();
 
+    await page.getByTestId('debugger-breakpoint-edit-2').click();
     await page.getByTestId('debugger-breakpoint-mode-2').selectOption('logpoint');
     await page.getByTestId('debugger-breakpoint-log-2').fill('before increment {count}');
+    await page.getByTestId('debugger-breakpoint-edit-3').click();
     await page.getByTestId('debugger-breakpoint-mode-3').selectOption('conditional');
     await page.getByTestId('debugger-breakpoint-condition-3').fill('count === 2');
     await page.getByTestId('debugger-watch-input').fill('count * 2');
     await page.getByTestId('debugger-watch-add').click();
 
     await selectWorkflowMode(page, 'debug');
-    await expect(page.getByTestId('debugger-drawer')).toContainText(
-      locale === 'es' ? /Pausado en línea 3/u : /Paused at line 3/u
-    );
+    await expect(page.getByTestId('run-meter-paused-line')).toHaveAttribute('data-line', '3');
+    await expect(page.getByTestId('run-meter-state')).toContainText(locale === 'es' ? /En pausa/u : /Paused/u);
+    await expect(page.getByTestId('debugger-breakpoint-count-3')).toContainText(locale === 'es' ? '1 parada' : 'hit 1');
     await expect(page.getByTestId('debugger-watches')).toContainText('count * 2');
     await expect(page.getByTestId('debugger-watches')).toContainText('4');
     await expect(page.locator('.lingua-inline-result [data-testid="answer-object-value"]')).toContainText(['before increment 1']);
@@ -113,6 +115,6 @@ for (const locale of ['en', 'es'] as const) {
     });
     expect(errors).toEqual([]);
 
-    await page.getByTestId('debugger-continue').click();
+    await page.getByTestId('debugger-hud-continue').click();
   });
 }

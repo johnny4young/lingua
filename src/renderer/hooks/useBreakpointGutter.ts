@@ -90,7 +90,6 @@ export function useBreakpointGutter(
         options: {
           isWholeLine: true,
           className: 'lingua-debugger-paused-line',
-          linesDecorationsClassName: 'lingua-debugger-paused-line-marker',
         },
       });
       editor.revealLineInCenterIfOutsideViewport(pausedLine);

@@ -146,19 +146,58 @@ describe('RunMeter', () => {
     expect(screen.getByTestId('dock-execution-time').textContent).toBe('1.00s');
   });
 
-  it('holds the numeral and names the line while the debugger is paused', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(10_000);
+  it('shows the paused line as the numeral with its frame, visit and call stack', () => {
     seedRuns([ok(1, 5)]);
     useResultStore.setState({ isManualRunning: true, ranCode: { tabId: 'tab-js', code: '', input: '', at: 9_000 } });
-    useDebuggerStore.setState({ pausedFrame: { tabId: 'tab-js', line: 2, reason: 'breakpoint', locals: {}, callStack: [], watchResults: {} } } as never);
-    render(<RunMeter tabId="tab-js" />);
-    expect(screen.getByTestId('run-meter-state').textContent).toBe('Paused· run 2· line 2 of 4');
-    const before = screen.getByTestId('dock-execution-time').textContent;
-    act(() => {
-      vi.advanceTimersByTime(2000);
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-js', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-js',
+        line: 2,
+        reason: 'user-breakpoint',
+        locals: {},
+        callStack: [{ functionName: 'sort', line: 1 }, { functionName: 'sort', line: 1 }],
+        watchResults: {},
+      },
+      pauseVisits: { 'tab-js:2': 2 },
     });
-    expect(screen.getByTestId('dock-execution-time').textContent).toBe(before);
+    render(<RunMeter tabId="tab-js" />);
+    expect(screen.getByTestId('run-meter-state').textContent).toBe('Paused· breakpoint');
+    expect(screen.getByTestId('run-meter-paused-line').dataset.line).toBe('2');
+    expect(screen.getByTestId('run-meter-paused-line').querySelector('.result-numeral-unit')?.textContent).toBe('line');
+    expect(screen.getByTestId('run-meter-paused-line').textContent).toContain('in sort');
+    expect(screen.getByTestId('run-meter-visit').textContent).toBe('second visit');
+    expect(screen.queryByTestId('dock-execution-time')).toBeNull();
+    expect(screen.queryByTestId('run-meter-bars')).toBeNull();
+    const stack = screen.getByTestId('debugger-callstack');
+    expect(stack.textContent).toContain('Call stack · 3 deep');
+    const rows = within(stack).getAllByRole('listitem');
+    expect(rows.map(row => row.textContent)).toEqual(['(top level)', 'sort:1', 'sort:1']);
+    expect(rows[2]!.getAttribute('aria-current')).toBe('step');
+  });
+
+  it('reads Python module pauses as the top level and folds deep stacks', () => {
+    useDebuggerStore.setState({
+      session: { runtime: 'python', tabId: 'tab-js', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-js',
+        line: 3,
+        reason: 'step',
+        locals: {},
+        callStack: [...Array.from({ length: 7 }, (_, index) => ({ functionName: `f${index}`, line: index + 1 })), { functionName: '<module>', line: 9 }],
+        watchResults: {},
+      },
+      pauseVisits: { 'tab-js:3': 5 },
+    });
+    render(<RunMeter tabId="tab-js" />);
+    expect(screen.getByTestId('run-meter-visit').textContent).toBe('visit 5');
+    expect(screen.getByTestId('debugger-callstack-more').textContent).toBe('+3 outer calls');
+    act(() =>
+      useDebuggerStore.setState({
+        pausedFrame: { tabId: 'tab-js', line: 3, reason: 'step', locals: {}, callStack: [{ functionName: '<module>', line: 3 }], watchResults: {} },
+      })
+    );
+    expect(screen.getByTestId('run-meter-paused-line').textContent).toContain('at the top level');
   });
 
   it('counts down to the limit when the setting is on', () => {

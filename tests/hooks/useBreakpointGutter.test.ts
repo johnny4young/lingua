@@ -93,7 +93,7 @@ describe('breakpoint gutter', () => {
       useDebuggerStore.getState().setPausedFrame({ tabId: 't1', line: 5, reason: 'user-breakpoint', locals: {}, callStack: [], watchResults: {} })
     );
     const paused = gutter.latest().find((decoration) => decoration.options.className === 'lingua-debugger-paused-line');
-    expect(paused?.options.linesDecorationsClassName).toBe('lingua-debugger-paused-line-marker');
+    expect(paused?.options.linesDecorationsClassName).toBeUndefined();
   });
 
   it('leaves the values of a step to the inline pills', () => {

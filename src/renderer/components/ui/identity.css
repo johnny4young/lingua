@@ -19,6 +19,35 @@
   }
 
   /* Small caps for labels only, never for values or counts. */
+  /* The track of a tag-styled switch; --switch-on colours it when aria-checked. */
+  .switch-track {
+    position: relative;
+    width: 22px;
+    height: 12px;
+    flex: none;
+    border-radius: 6px;
+    background: var(--color-border-strong);
+  }
+
+  .switch-track::after {
+    content: '';
+    position: absolute;
+    top: 1.5px;
+    left: 1.5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--color-bg-panel);
+  }
+
+  [aria-checked='true'] > .switch-track { background: var(--switch-on, var(--color-pulse)); }
+
+  [aria-checked='true'] > .switch-track::after {
+    left: auto;
+    right: 1.5px;
+    background: var(--switch-on-knob, var(--color-pulse-on));
+  }
+
   .type-tag {
     font-family: var(--font-ui);
     font-size: 10px;

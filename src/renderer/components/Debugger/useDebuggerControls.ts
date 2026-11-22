@@ -5,7 +5,7 @@ import {
 } from '../../runtime/debuggerControlBridge';
 import { useTelemetry } from '../../hooks/useTelemetry';
 
-/** The paused frame and the step actions shared by the Debugger tab and the step HUD. */
+/** The paused frame and the step actions of the step HUD. */
 export function useDebuggerControls() {
   const { track } = useTelemetry();
   const session = useDebuggerStore((state) => state.session);
@@ -42,5 +42,5 @@ export function useDebuggerControls() {
     useDebuggerStore.getState().detachSession();
   };
 
-  return { session, pausedFrame, isPaused, canStepOut, resume, step, runToEnd };
+  return { pausedFrame, canStepOut, resume, step, runToEnd };
 }

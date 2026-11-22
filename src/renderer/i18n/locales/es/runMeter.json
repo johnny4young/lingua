@@ -20,5 +20,20 @@
   "runMeter.bar.timeout": "Ejecución {{number}}, tiempo agotado",
   "runMeter.bar.stopped": "Ejecución {{number}}, detenida",
   "runMeter.bar.live": "Ejecución {{number}}, en curso",
-  "runMeter.bar.open": "{{label}}. Abrir en ejecuciones recientes"
+  "runMeter.bar.open": "{{label}}. Abrir en ejecuciones recientes",
+  "runMeter.reason.user-breakpoint": "interrupción",
+  "runMeter.reason.step": "paso",
+  "runMeter.reason.exception": "excepción",
+  "runMeter.pausedLineUnit": "línea",
+  "runMeter.inFunction": "en {{name}}",
+  "runMeter.topLevel": "en el nivel superior",
+  "runMeter.visit.1": "primera visita",
+  "runMeter.visit.2": "segunda visita",
+  "runMeter.visit.3": "tercera visita",
+  "runMeter.visit.n": "visita {{count}}",
+  "runMeter.callStack_one": "Pila de llamadas · 1 nivel",
+  "runMeter.callStack_other": "Pila de llamadas · {{count}} niveles",
+  "runMeter.callStackMore_one": "+{{count}} llamada externa",
+  "runMeter.callStackMore_other": "+{{count}} llamadas externas",
+  "runMeter.topLevelFrame": "(nivel superior)"
 }

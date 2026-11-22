@@ -112,8 +112,10 @@ export function CodeEditor() {
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const [answerHeaderSlot, setAnswerHeaderSlot] = useState<HTMLDivElement | null>(null);
   const { applyDiagnostics, clearMarkers } = useExecutionMarkers();
-  const pausedFrame = useDebuggerStore(state => state.pausedFrame);
+  // The snapshot of the pause on screen: the frame's values with its depth.
+  const pause = useDebuggerStore(state => (state.pausedFrame ? state.lastPause : null));
   const previousPause = useDebuggerStore(state => state.previousPause);
+  const showPauseChanges = useDebuggerStore(state => state.showPauseChanges);
   const visibleLineResults = useMemo(
     () => lineResults.filter(result => !isHiddenUndefinedLineResult(result)),
     [lineResults]
@@ -140,12 +142,26 @@ export function CodeEditor() {
   const activeTab = useActiveTab();
   useRegisterProjectTestFileRun(activeTab ?? null);
   // While paused here, the frame's values join what the run has logged so far.
+  // Keyed on the pause's fields: a watch sync replaces the snapshot without moving any value.
+  const pauseTabId = pause?.tabId;
+  const pauseLine = pause?.line;
+  const pauseLocals = pause?.locals;
+  const pauseDepth = pause?.depth;
   const inlineLineResults = useMemo(
     () =>
-      activeTab && pausedFrame?.tabId === activeTab.id
-        ? [...visibleLineResults, ...pausedLineResults(pausedFrame, previousPause, activeTab.content, activeTab.language)]
+      activeTab && pauseTabId === activeTab.id && pauseLine !== undefined && pauseLocals && pauseDepth !== undefined
+        ? [
+            ...visibleLineResults,
+            ...pausedLineResults(
+              { tabId: pauseTabId, line: pauseLine, locals: pauseLocals, depth: pauseDepth },
+              previousPause,
+              activeTab.content,
+              activeTab.language,
+              showPauseChanges
+            ),
+          ]
         : visibleLineResults,
-    [activeTab, pausedFrame, previousPause, visibleLineResults]
+    [activeTab, pauseTabId, pauseLine, pauseLocals, pauseDepth, previousPause, showPauseChanges, visibleLineResults]
   );
 
   // "Explain with AI" over a selection (or the whole buffer) is

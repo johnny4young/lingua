@@ -1,47 +1,22 @@
-import {
-  Bug,
-  ChevronsRight,
-  ChevronUp,
-  ChevronDown,
-  CirclePause,
-  CirclePlay,
-  LogOut,
-  Trash2,
-} from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { dispatchDebuggerControl } from '../../runtime/debuggerControlBridge';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
+import { type LocalChange, localsChanges, orderedLocals } from '../../utils/debuggerLocals';
+import { pausedFunctionName, stackRows } from '../../utils/debuggerStack';
 import type { Language } from '../../types/language';
-import { Tooltip } from '../ui/chrome';
+import { AnswerObject } from '../Answer/AnswerObject';
+import { AnswerWasChip } from '../Answer/AnswerDeltaChip';
+import { RunMeterStack } from '../RunMeter/RunMeterStack';
 import { DebuggerBreakpointList } from './DebuggerBreakpointList';
 import { DebuggerWatchList } from './DebuggerWatchList';
-import { useDebuggerControls } from './useDebuggerControls';
-import { localsChanges, orderedLocals } from '../../utils/debuggerLocals';
+import { DrawerColumn } from './DrawerColumn';
+import '../ui/identity.css';
+import './debugger.css';
 
-const debuggerButtonBase =
-  'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-e1 shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40';
-const debuggerActionButton =
-  `${debuggerButtonBase} text-foreground hover:border-primary/50 hover:bg-surface-strong/65`;
-const debuggerDangerButton =
-  `${debuggerButtonBase} text-muted hover:border-danger/50 hover:bg-danger/5 hover:text-danger`;
-
-/**
- * Debugger panel orchestration for controls, breakpoint configuration,
- * watches, locals, and call stack. Focused breakpoint/watch components keep
- * editable collections independent from paused-frame presentation.
- *
- * Mounts whenever:
- *   1. The active language supports the renderer debugger.
- *   2. There is at least one breakpoint in the active tab OR an
- *      attached session.
- *
- * Hides itself otherwise so the existing layout is undisturbed.
- *
- * Reference: docs/DEBUGGER_ADR.md.
- */
+/** The Debugger tab inspects and never steps: the step HUD is the only step bar, the run meter holds the pause. */
 export interface DebuggerDrawerProps {
   activeTabId: string | null;
   activeLanguage: Language | null | undefined;
@@ -50,39 +25,30 @@ export interface DebuggerDrawerProps {
 export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerProps) {
   const { t } = useTranslation();
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
-  const { session, pausedFrame, isPaused, canStepOut, resume: sendResume, step: sendStep, runToEnd: detach } =
-    useDebuggerControls();
-  const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
-  const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
+  const session = useDebuggerStore((state) => state.session);
+  const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
   const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
   const previousLocals = useDebuggerStore((state) => state.previousPause?.locals);
+  const compare = useDebuggerStore((state) => state.showPauseChanges);
   const watches = useDebuggerStore((state) => state.watches);
-  // Toolbar actions are global, even though drawer visibility and the
-  // summary pill stay scoped to the active editor tab.
-  const allBreakpointCount = Object.keys(allBreakpoints).length;
-  const allBreakpointsDisabled =
-    allBreakpointCount > 0 &&
-    Object.values(allBreakpoints).every((bp) => bp.enabled === false);
-  const clearAllBreakpoints = useDebuggerStore((state) => state.clearAllBreakpoints);
-  const setAllBreakpointsEnabled = useDebuggerStore(
-    (state) => state.setAllBreakpointsEnabled
+  const isPaused = pausedFrame !== null;
+  const tabBreakpointCount = useDebuggerStore(
+    (state) => Object.values(state.breakpoints).filter((bp) => bp.tabId === activeTabId).length
   );
-  const breakpointCount = useDebuggerStore((state) => {
-    if (!activeTabId) return 0;
-    let count = 0;
-    for (const bp of Object.values(state.breakpoints)) {
-      if (bp.tabId === activeTabId) count += 1;
-    }
-    return count;
-  });
-  const enabledBreakpointCount = useDebuggerStore((state) => {
-    if (!activeTabId) return 0;
-    let count = 0;
-    for (const bp of Object.values(state.breakpoints)) {
-      if (bp.tabId === activeTabId && bp.enabled !== false) count += 1;
-    }
-    return count;
-  });
+  const enabledBreakpointCount = useDebuggerStore(
+    (state) => Object.values(state.breakpoints).filter((bp) => bp.tabId === activeTabId && bp.enabled !== false).length
+  );
+  const callStack = pausedFrame?.callStack;
+  const locals = pausedFrame?.locals;
+  const stack = useMemo(() => (callStack ? stackRows(callStack, session?.runtime) : []), [callStack, session?.runtime]);
+  const changes = useMemo(
+    () => (locals && compare ? localsChanges(previousLocals, locals) : new Map<string, LocalChange>()),
+    [locals, compare, previousLocals]
+  );
+  const rows = useMemo(
+    () => (locals ? orderedLocals(compare ? previousLocals : undefined, locals) : []),
+    [locals, compare, previousLocals]
+  );
 
   useEffect(() => {
     if (!session) return;
@@ -110,346 +76,66 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
   // Keep unsupported languages and tabs with no debugger state from
   // resizing the editor layout.
   if (!supportsDebugger) return null;
-  if (!session && breakpointCount === 0) return null;
+  if (!session && tabBreakpointCount === 0) return null;
 
-  const reasonKey = pausedFrame
-    ? `debugger.paused.reason.${pausedFrame.reason}`
-    : '';
-  const idleCopyKey =
-    breakpointCount > 0 && enabledBreakpointCount === 0
-      ? 'debugger.empty.noEnabled'
-      : 'debugger.empty.ready';
-  const breakpointSummary =
-    breakpointCount > 0
-      ? t('debugger.breakpoints.summary', {
-          enabled: enabledBreakpointCount,
-          count: breakpointCount,
-        })
-      : t('debugger.breakpoints.empty');
-  const breakpointSummaryHint =
-    breakpointCount > 0
-      ? t('debugger.breakpoints.summaryHint', {
-          enabled: enabledBreakpointCount,
-          count: breakpointCount,
-          global: allBreakpointCount,
-        })
-      : t('debugger.breakpoints.emptyHint');
-  const statusHint = isPaused
-    ? t('debugger.status.pausedHint')
-    : t('debugger.status.readyHint');
-  const toggleBreakpointsHint =
-    allBreakpointCount === 0
-      ? t('debugger.breakpoints.emptyHint')
-      : allBreakpointsDisabled
-        ? t('debugger.breakpoints.enableAll.hint')
-        : t('debugger.breakpoints.disableAll.hint');
-  const clearBreakpointsHint =
-    allBreakpointCount === 0
-      ? t('debugger.breakpoints.emptyHint')
-      : t('debugger.breakpoints.clearAll.hint');
-
-  const toggleAllBreakpoints = () => {
-    // Bulk enable/disable intentionally spans every tab so a hidden
-    // breakpoint cannot keep surprising future runs.
-    setAllBreakpointsEnabled(allBreakpointsDisabled);
-  };
-  const clearBreakpoints = () => {
-    if (window.confirm(t('debugger.breakpoints.clearAll.confirm'))) {
-      clearAllBreakpoints();
-    }
-  };
+  const frameName = pausedFunctionName(stack);
 
   return (
-    <section
-      data-testid="debugger-drawer"
-      className={`flex h-full min-h-0 flex-col bg-background/55 ${
-        isPaused ? 'border-accent/45' : 'border-border/80'
-      }`}
-    >
-      <header className="flex flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 text-body font-semibold text-foreground">
-          <Tooltip
-            content={
-              drawerCollapsed
-                ? t('debugger.drawer.expandHint')
-                : t('debugger.drawer.collapseHint')
-            }
-          >
-            <button
-              type="button"
-              data-testid="debugger-collapse"
-              onClick={toggleDrawerCollapsed}
-              aria-label={
-                drawerCollapsed ? t('debugger.drawer.expand') : t('debugger.drawer.collapse')
-              }
-              aria-expanded={!drawerCollapsed}
-              aria-controls="debugger-drawer-body"
-              className="inline-flex h-5 w-5 items-center justify-center rounded-md text-muted hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            >
-              {drawerCollapsed ? (
-                <ChevronUp size={11} aria-hidden="true" />
-              ) : (
-                <ChevronDown size={11} aria-hidden="true" />
-              )}
-            </button>
-          </Tooltip>
-          <Bug size={14} aria-hidden="true" />
-          <span>{t('debugger.title')}</span>
-          <Tooltip content={breakpointSummaryHint}>
-            <span
-              data-testid="debugger-breakpoint-summary"
-              className={`status-pill border-transparent px-2 py-0.5 text-eyebrow ${
-                enabledBreakpointCount > 0 ? 'bg-danger/10 text-danger' : 'bg-surface text-muted'
-              }`}
-            >
-              {breakpointSummary}
-            </span>
-          </Tooltip>
-          <Tooltip content={statusHint}>
-            <span
-              className={`status-pill border-transparent px-2 py-0.5 text-eyebrow ${
-                isPaused ? 'bg-accent-tint text-accent-fg' : 'bg-surface text-muted'
-              }`}
-            >
-              {isPaused ? t('debugger.status.paused') : t('debugger.status.ready')}
-            </span>
-          </Tooltip>
-          {isPaused && pausedFrame ? (
-            <span className="text-body-sm font-normal text-muted">
-              ·{' '}
-              {t('debugger.paused.heading', {
-                line: pausedFrame.line,
-                reason: t(reasonKey),
-              })}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <Tooltip content={toggleBreakpointsHint}>
-            <button
-              type="button"
-              data-testid="debugger-toggle-all-breakpoints"
-              onClick={toggleAllBreakpoints}
-              disabled={allBreakpointCount === 0}
-              className={debuggerDangerButton}
-            >
-              {allBreakpointsDisabled ? (
-                <CirclePlay size={11} aria-hidden="true" />
-              ) : (
-                <CirclePause size={11} aria-hidden="true" />
-              )}
-              {allBreakpointsDisabled
-                ? t('debugger.breakpoints.enableAll.button')
-                : t('debugger.breakpoints.disableAll.button')}
-            </button>
-          </Tooltip>
-          <Tooltip content={clearBreakpointsHint}>
-            <button
-              type="button"
-              data-testid="debugger-clear-all-breakpoints"
-              onClick={clearBreakpoints}
-              disabled={allBreakpointCount === 0}
-              className={debuggerDangerButton}
-            >
-              <Trash2 size={11} aria-hidden="true" />
-              {t('debugger.breakpoints.clearAll.button')}
-            </button>
-          </Tooltip>
-          <Tooltip content={t('debugger.actions.continueHint')}>
-            <button
-              type="button"
-              data-testid="debugger-continue"
-              onClick={sendResume}
-              disabled={!isPaused}
-              className={debuggerActionButton}
-            >
-              <ChevronsRight size={11} aria-hidden="true" />
-              {t('debugger.actions.continue')}
-            </button>
-          </Tooltip>
-          <Tooltip content={t('debugger.actions.stepOverHint')}>
-            <button
-              type="button"
-              data-testid="debugger-step-over"
-              onClick={() => sendStep('over')}
-              disabled={!isPaused}
-              className={debuggerActionButton}
-            >
-              <ChevronDown size={11} aria-hidden="true" />
-              {t('debugger.actions.stepOver')}
-            </button>
-          </Tooltip>
-          <Tooltip content={t('debugger.actions.stepIntoHint')}>
-            <button
-              type="button"
-              data-testid="debugger-step-into"
-              onClick={() => sendStep('into')}
-              disabled={!isPaused}
-              className={debuggerActionButton}
-            >
-              <ChevronDown size={11} aria-hidden="true" />
-              {t('debugger.actions.stepInto')}
-            </button>
-          </Tooltip>
-          <Tooltip
-            content={
-              canStepOut
-                ? t('debugger.actions.stepOutHint')
-                : t('debugger.actions.stepOut.disabledHint')
-            }
-          >
-            <button
-              type="button"
-              data-testid="debugger-step-out"
-              onClick={() => sendStep('out')}
-              disabled={!canStepOut}
-              className={debuggerActionButton}
-            >
-              <ChevronUp size={11} aria-hidden="true" />
-              {t('debugger.actions.stepOut')}
-            </button>
-          </Tooltip>
-          <Tooltip content={t('debugger.actions.detachHint')}>
-            <button
-              type="button"
-              data-testid="debugger-detach"
-              onClick={detach}
-              disabled={!session}
-              className={debuggerDangerButton}
-            >
-              <LogOut size={11} aria-hidden="true" />
-              {t('debugger.actions.detach')}
-            </button>
-          </Tooltip>
-        </div>
-      </header>
-      {drawerCollapsed ? null : (
-        <div id="debugger-drawer-body" className="grid min-h-0 flex-1 gap-2 overflow-auto px-4 pb-3">
-          {!isPaused ? (
-            <p className="text-body-sm text-muted" data-testid="debugger-empty">
-              {t(idleCopyKey)}
-            </p>
-          ) : pausedFrame?.conditionError ? (
-            <p
-              className="rounded-lg border border-warning/35 bg-warning/8 px-3 py-2 text-caption text-warning"
-              data-testid="debugger-condition-error"
-            >
-              {t('debugger.breakpoints.conditionError', {
-                message: pausedFrame.conditionError,
-              })}
-            </p>
-          ) : null}
-          <div
-            className={`grid min-h-0 gap-3 ${
-              isPaused
-                ? 'xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)]'
-                : 'lg:grid-cols-2'
-            }`}
-          >
-            <DrawerSection
-              title={t('debugger.breakpoints.panel.title')}
-              testid="debugger-breakpoints"
-            >
-              <DebuggerBreakpointList
-                activeTabId={activeTabId}
-                activeLanguage={activeLanguage}
-              />
-            </DrawerSection>
-            <DrawerSection title={t('debugger.paused.watches')} testid="debugger-watches">
-              <DebuggerWatchList runtime={session?.runtime ?? null} />
-            </DrawerSection>
-            {isPaused ? (
-              // The branch is guarded by `isPaused`, so the non-null frame reads
-              // below reflect the runtime contract instead of optional UI state.
-              <>
-          <DrawerSection
-            title={t('debugger.paused.locals')}
-            testid="debugger-locals"
-          >
-            {Object.keys(pausedFrame!.locals).length === 0 ? (
-              <p className="text-caption text-muted">
-                {t('debugger.paused.locals.empty')}
-              </p>
-            ) : (
-              <LocalsList previous={previousLocals} current={pausedFrame!.locals} />
-            )}
-          </DrawerSection>
-          <DrawerSection
-            title={t('debugger.paused.callstack')}
-            testid="debugger-callstack"
-          >
-            {pausedFrame!.callStack.length === 0 ? (
-              <p className="text-caption text-muted">
-                {t('debugger.paused.callstack.empty')}
-              </p>
-            ) : (
-              <ol className="grid gap-1">
-                {pausedFrame!.callStack.map((frame, index) => (
-                  <li
-                    key={`${frame.functionName}-${frame.line}-${index}`}
-                    className="font-mono text-caption text-foreground"
-                  >
-                    {frame.functionName} <span className="text-muted">:{frame.line}</span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </DrawerSection>
-              </>
-            ) : null}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/** Locals in a stable order; new or changed ones since the last pause are tinted and say so. */
-function LocalsList({ previous, current }: { previous: Record<string, string> | undefined; current: Record<string, string> }) {
-  const { t } = useTranslation();
-  const changes = localsChanges(previous, current);
-  return (
-    <ul className="grid gap-1">
-      {orderedLocals(previous, current).map(([name, value]) => {
-        const change = changes.get(name);
-        return (
-          <li
-            key={name}
-            data-change={change?.kind}
-            title={change?.kind === 'changed' ? t('debugger.paused.locals.before', { value: change.before }) : undefined}
-            className={`font-mono text-caption text-foreground ${change ? '-mx-1 rounded-sm bg-accent-tint px-1' : ''}`}
-          >
-            <span className="text-muted">{name}: </span>
-            {value}
-            {change ? (
-              <span className="ml-1.5 inline-flex items-center gap-1 font-sans text-micro font-semibold text-accent-fg">
-                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
-                {t(`debugger.paused.locals.${change.kind}`)}
+    <section data-testid="debugger-drawer" data-paused={isPaused || undefined} className="debugger-drawer">
+      {pausedFrame?.conditionError ? (
+        <p className="debugger-condition-error" data-testid="debugger-condition-error">
+          {t('debugger.breakpoints.conditionError', { message: pausedFrame.conditionError })}
+        </p>
+      ) : null}
+      <div className="debugger-columns">
+        <DrawerColumn
+          testid="debugger-locals"
+          className="debugger-column--locals"
+          title={
+            frameName
+              ? t('debugger.locals.titleIn', { name: frameName })
+              : t('debugger.paused.locals')
+          }
+          aside={
+            changes.size > 0 ? (
+              <span className="type-tag debugger-changed-count" data-testid="debugger-locals-changed">
+                {t('debugger.locals.changed', { count: changes.size })}
               </span>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function DrawerSection({
-  title,
-  testid,
-  children,
-}: {
-  title: string;
-  testid: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      data-testid={testid}
-      className="rounded-xl border border-border/80 bg-background/35 px-3 py-2"
-    >
-      <h4 className="mb-1 text-eyebrow uppercase tracking-[0.2em] text-muted">{title}</h4>
-      {children}
-    </div>
+            ) : null
+          }
+        >
+          {!pausedFrame ? (
+            <p className="debugger-muted" data-testid="debugger-empty">
+              {t(tabBreakpointCount > 0 && enabledBreakpointCount === 0 ? 'debugger.empty.noEnabled' : 'debugger.empty.ready')}
+            </p>
+          ) : Object.keys(pausedFrame.locals).length === 0 ? (
+            <p className="debugger-muted">{t('debugger.paused.locals.empty')}</p>
+          ) : (
+            <ul className="debugger-rows">
+              {rows.map(([name, value]) => {
+                const change = changes.get(name);
+                return (
+                  <li key={name} className="debugger-row debugger-local" data-local={name} data-change={change?.kind}>
+                    <span className="debugger-local-name">{name}</span>
+                    <span className="debugger-row-value">
+                      <AnswerObject text={value} role="value" language={activeLanguage ?? undefined} oneLine />
+                    </span>
+                    {change?.kind === 'changed' ? <AnswerWasChip value={change.before} /> : null}
+                    {change?.kind === 'new' ? (
+                      <span className="answer-delta debugger-new">{t('debugger.paused.locals.new')}</span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {stack.length > 0 ? (
+            <RunMeterStack rows={stack} className="debugger-stack-fallback" testid="debugger-callstack-narrow" />
+          ) : null}
+        </DrawerColumn>
+        <DebuggerWatchList runtime={session?.runtime ?? null} language={activeLanguage ?? undefined} />
+        <DebuggerBreakpointList activeTabId={activeTabId} activeLanguage={activeLanguage} />
+      </div>
+    </section>
   );
 }

@@ -103,4 +103,28 @@ describe('InlineAnswerLine', () => {
     expect(chip.textContent).toContain('20.8');
     expect(chip.textContent).toContain('· edited');
   });
+
+  it('holds paused values with the value each replaced, and dims values read at another depth', () => {
+    const { container, rerender } = render(
+      <InlineAnswerLine
+        items={[
+          { line: 4, value: '1', type: 'log', name: 'pivot', held: true, previous: '10' },
+          { line: 4, value: '6', type: 'log', name: 'size', held: true },
+        ]}
+      />
+    );
+    expect(screen.getAllByTestId('lingua-inline-result-held')).toHaveLength(1);
+    expect(screen.getByTestId('answer-was').textContent).toBe('was 10');
+    rerender(
+      <InlineAnswerLine
+        items={[
+          { line: 6, value: '10', type: 'log', name: 'pivot', depth: 1 },
+          { line: 6, value: '[]', type: 'log', name: 'right', depth: 1 },
+        ]}
+      />
+    );
+    expect(screen.queryByTestId('lingua-inline-result-held')).toBeNull();
+    expect(screen.getAllByTestId('lingua-inline-result-depth').map(chip => chip.textContent)).toEqual(['depth 1']);
+    expect(container.querySelectorAll('[data-depth="1"]')).toHaveLength(2);
+  });
 });
