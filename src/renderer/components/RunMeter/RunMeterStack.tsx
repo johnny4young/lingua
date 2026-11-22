@@ -3,8 +3,8 @@ import '../../i18n/runMeterCatalog';
 import type { StackRow } from '../../utils/debuggerStack';
 import { cn } from '../../utils/cn';
 
-/** Rows drawn before the outer frames fold into one count. */
-const MAX_ROWS = 5;
+/** Rows that fit the meter column at the default dock height; outer frames fold into one count. */
+const MAX_ROWS = 3;
 
 /**
  * The paused call stack as a staircase: the outermost frame at the left, each

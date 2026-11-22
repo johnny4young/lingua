@@ -7,7 +7,7 @@ import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import type { ShortcutId } from '../../data/keyboardShortcuts';
 import { useDebuggerControls } from './useDebuggerControls';
 import { useLineWidget } from '../Editor/useLineWidget';
-import { DEBUGGER_HUD_HEIGHT } from './debuggerHudGeometry';
+import { DEBUGGER_HUD_HEIGHT, setStepHudLine } from './debuggerHudGeometry';
 import { Glyph } from '../ui/Glyph';
 import type { GlyphName } from '../ui/glyphSet';
 
@@ -37,7 +37,13 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
       // Ordinal 0 keeps this row above an answer's row under the same line.
       zoneId = accessor.addZone({ afterLineNumber: line, ordinal: 0, heightInPx: DEBUGGER_HUD_HEIGHT, domNode: document.createElement('div'), suppressMouseDown: true });
     });
-    return () => editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
+    const tracker = editor.createDecorationsCollection([{ range: new monaco.Range(line, 1, line, 1), options: {} }]);
+    setStepHudLine(editor, () => tracker.getRange(0)?.startLineNumber ?? line);
+    return () => {
+      setStepHudLine(editor, null);
+      tracker.clear();
+      editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
+    };
   }, [editor, monaco, line]);
   // Edits move the reserved row, so the toolbar follows the line.
   useLineWidget(editor, monaco, line, node, { id: HUD_ID, placement: 'below' });

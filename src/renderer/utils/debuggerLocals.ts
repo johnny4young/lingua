@@ -93,6 +93,7 @@ interface Pause {
   readonly line: number;
   readonly locals: Locals;
   readonly depth: number;
+  readonly frame?: string;
 }
 
 /**
@@ -106,10 +107,12 @@ export function pausedLineResults(frame: Pause, previous: Pause | null, code: st
   const inRange = (line: number) => Number.isInteger(line) && line >= 1 && line <= lines.length;
   const results: LineResult[] = [];
   const before = previous?.tabId === frame.tabId ? previous : null;
-  const sameFrame = before !== null && before.depth === frame.depth;
+  const sameFrame = before !== null && before.depth === frame.depth && before.frame === frame.frame;
+  // Only the same function's locals can be compared; a recursive call of it can.
+  const comparable = compare && before !== null && before.frame === frame.frame;
   const withPrevious = (name: string, value: string): Pick<LineResult, 'previous'> => {
-    const old = before?.locals[name];
-    return compare && old !== undefined && old !== value ? { previous: old } : {};
+    const old = comparable ? before.locals[name] : undefined;
+    return old !== undefined && old !== value ? { previous: old } : {};
   };
   const shown = new Set<string>();
   if (inRange(frame.line)) {
@@ -128,6 +131,7 @@ export function pausedLineResults(frame: Pause, previous: Pause | null, code: st
       }
     } else {
       for (const name of localsOnLine(lines[before.line - 1]!, before.locals, language)) {
+        if (shown.has(`${before.line}:${name}`)) continue;
         results.push({ line: before.line, name, value: before.locals[name]!, type: 'log', depth: before.depth });
       }
     }

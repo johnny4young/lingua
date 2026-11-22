@@ -191,7 +191,8 @@ describe('RunMeter', () => {
     });
     render(<RunMeter tabId="tab-js" />);
     expect(screen.getByTestId('run-meter-visit').textContent).toBe('visit 5');
-    expect(screen.getByTestId('debugger-callstack-more').textContent).toBe('+3 outer calls');
+    expect(screen.getByTestId('debugger-callstack-more').textContent).toBe('+5 outer calls');
+    expect(within(screen.getByTestId('debugger-callstack')).getAllByRole('listitem')).toHaveLength(4);
     act(() =>
       useDebuggerStore.setState({
         pausedFrame: { tabId: 'tab-js', line: 3, reason: 'step', locals: {}, callStack: [{ functionName: '<module>', line: 3 }], watchResults: {} },

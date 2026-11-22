@@ -148,7 +148,25 @@ export function PulseRailHost({
     else decorations.current = editor.createDecorationsCollection(next);
   }, [editor, monaco, rail, travelRun, stale]);
 
-  useEffect(() => () => decorations.current?.clear(), []);
+  // The held ring follows the pause even while the rail is stale, so it always marks the line the debugger holds.
+  const hold = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
+  useEffect(() => {
+    if (!editor || !monaco) return;
+    const next =
+      pausedLine === null
+        ? []
+        : [{ range: new monaco.Range(pausedLine, 1, pausedLine, 1), options: { linesDecorationsClassName: 'lingua-rail-hold' } }];
+    if (hold.current) hold.current.set(next);
+    else hold.current = editor.createDecorationsCollection(next);
+  }, [editor, monaco, pausedLine, model]);
+
+  useEffect(
+    () => () => {
+      decorations.current?.clear();
+      hold.current?.clear();
+    },
+    []
+  );
 
   return null;
 }

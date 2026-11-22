@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
-import { useDebuggerStore } from '../../stores/debuggerStore';
+import { comparablePreviousPause, useDebuggerStore } from '../../stores/debuggerStore';
 import { dispatchDebuggerControl } from '../../runtime/debuggerControlBridge';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
 import { type LocalChange, localsChanges, orderedLocals } from '../../utils/debuggerLocals';
@@ -28,8 +28,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
   const session = useDebuggerStore((state) => state.session);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
   const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
-  const previousLocals = useDebuggerStore((state) => state.previousPause?.locals);
-  const compare = useDebuggerStore((state) => state.showPauseChanges);
+  const previousLocals = useDebuggerStore((state) => comparablePreviousPause(state)?.locals);
   const watches = useDebuggerStore((state) => state.watches);
   const isPaused = pausedFrame !== null;
   const tabBreakpointCount = useDebuggerStore(
@@ -42,12 +41,12 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
   const locals = pausedFrame?.locals;
   const stack = useMemo(() => (callStack ? stackRows(callStack, session?.runtime) : []), [callStack, session?.runtime]);
   const changes = useMemo(
-    () => (locals && compare ? localsChanges(previousLocals, locals) : new Map<string, LocalChange>()),
-    [locals, compare, previousLocals]
+    () => (locals ? localsChanges(previousLocals, locals) : new Map<string, LocalChange>()),
+    [locals, previousLocals]
   );
   const rows = useMemo(
-    () => (locals ? orderedLocals(compare ? previousLocals : undefined, locals) : []),
-    [locals, compare, previousLocals]
+    () => (locals ? orderedLocals(previousLocals, locals) : []),
+    [locals, previousLocals]
   );
 
   useEffect(() => {

@@ -28,7 +28,7 @@ export function DebuggerBreakpointList({
   activeLanguage?: Language | null;
 }) {
   const { t } = useTranslation();
-  const [editing, setEditing] = useState<number | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const allBreakpoints = useDebuggerStore(state => state.breakpoints);
   const breakpoints = activeTabId
     ? Object.values(allBreakpoints)
@@ -92,8 +92,9 @@ export function DebuggerBreakpointList({
             const { line } = breakpoint;
             const mode = supportsAdvancedBreakpoints ? breakpoint.mode : 'pause';
             const { icon: ModeIcon, className: modeClass } = modeIcon[mode];
-            const open = editing === line;
-            const hitCount = hits[bpKey(breakpoint.tabId, line)] ?? 0;
+            const key = bpKey(breakpoint.tabId, line);
+            const open = editing === key;
+            const hitCount = hits[key] ?? 0;
             const summary =
               mode === 'conditional' && breakpoint.condition.trim()
                 ? t('debugger.breakpoints.ifCondition', { condition: breakpoint.condition.trim() })
@@ -134,7 +135,7 @@ export function DebuggerBreakpointList({
                     aria-expanded={open}
                     aria-controls={`debugger-breakpoint-editor-${line}`}
                     aria-label={t('debugger.breakpoints.edit', { line, summary })}
-                    onClick={() => setEditing(open ? null : line)}
+                    onClick={() => setEditing(open ? null : key)}
                   >
                     {summary}
                   </button>

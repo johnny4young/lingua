@@ -274,9 +274,9 @@ describe('debuggerStore ', () => {
     expect(useDebuggerStore.getState().previousPause).toBeNull();
     store.setPausedFrame(null);
     store.setPausedFrame(frame('a', 3));
-    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' }, watches: {}, depth: 0 });
+    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' }, watches: {}, depth: 0, frame: '' });
     store.setPausedFrame({ ...frame('a', 3), watchResults: { x: { value: '1' } } });
-    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' }, watches: {}, depth: 0 });
+    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' }, watches: {}, depth: 0, frame: '' });
     expect(useDebuggerStore.getState().lastPause?.watches).toEqual({ x: '1' });
     store.setPausedFrame(frame('b', 1));
     expect(useDebuggerStore.getState().previousPause).toBeNull();

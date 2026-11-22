@@ -6,6 +6,7 @@ import {
   type DebuggerRuntime,
   MAX_WATCHES,
   MAX_WATCH_EXPRESSION_LENGTH,
+  comparablePreviousPause,
   useDebuggerStore,
 } from '../../stores/debuggerStore';
 import { AnswerObject } from '../Answer/AnswerObject';
@@ -24,7 +25,7 @@ export function DebuggerWatchList({
   const inputRef = useRef<HTMLInputElement>(null);
   const watches = useDebuggerStore(state => state.watches);
   const pausedFrame = useDebuggerStore(state => state.pausedFrame);
-  const previous = useDebuggerStore(state => (state.showPauseChanges ? state.previousPause?.watches : undefined));
+  const previous = useDebuggerStore(state => comparablePreviousPause(state)?.watches);
   const addWatch = useDebuggerStore(state => state.addWatch);
   const removeWatch = useDebuggerStore(state => state.removeWatch);
   const atLimit = watches.length >= MAX_WATCHES;

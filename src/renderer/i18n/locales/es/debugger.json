@@ -48,7 +48,7 @@
   "debugger.watches.nativeExpressionHint": "Las expresiones nativas se ejecutan dentro del proceso local de depuración y pueden producir efectos secundarios. Evalúa solo expresiones en las que confíes.",
   "debugger.hud.label": "Controles del depurador",
   "debugger.paused.locals.new": "nueva",
-  "debugger.locals.titleIn": "Locales · {{name}}",
+  "debugger.locals.titleIn": "Variables · {{name}}",
   "debugger.locals.changed_one": "{{count}} cambió",
   "debugger.locals.changed_other": "{{count}} cambiaron",
   "debugger.breakpoints.ifCondition": "si {{condition}}",

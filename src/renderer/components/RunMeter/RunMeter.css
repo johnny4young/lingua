@@ -307,15 +307,6 @@ button.run-meter-bar:focus-visible {
 
 .run-meter-stack-line { flex: none; }
 
-/* Short meters keep the innermost frames. */
-@container meter (max-height: 280px) {
-  .run-meter-stack-rows > :nth-last-child(n + 4) { display: none; }
-}
-
-@container meter (max-height: 220px) {
-  .run-meter-stack-rows > :nth-last-child(n + 3) { display: none; }
-}
-
 /* Mid-width docks keep Compare as its glyph; the label stays its accessible name. */
 @container dock (max-width: 900px) {
   .run-meter { width: 220px; padding-inline: 14px; }

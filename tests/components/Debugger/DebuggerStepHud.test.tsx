@@ -1,4 +1,4 @@
-import { DEBUGGER_HUD_HEIGHT } from '@/components/Debugger/debuggerHudGeometry';
+import { DEBUGGER_HUD_HEIGHT, stepHudLine } from '@/components/Debugger/debuggerHudGeometry';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -115,6 +115,10 @@ describe('step HUD', () => {
     act(() => fake.edit.current?.());
     expect(fake.editor.layoutContentWidget).toHaveBeenCalledTimes(1);
     expect(fake.widgets[0]?.getPosition()?.position).toEqual({ lineNumber: 4, column: 1 });
+    // Answers placed under a line read where the HUD row sits now, not the paused frame's line.
+    expect(stepHudLine(fake.editor)).toBe(4);
+    act(() => useDebuggerStore.getState().setPausedFrame(null));
+    expect(stepHudLine(fake.editor)).toBeNull();
   });
 
   it('stays away from another tab', () => {

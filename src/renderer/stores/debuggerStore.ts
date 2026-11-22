@@ -124,6 +124,8 @@ interface PauseSnapshot {
   watches: Record<string, string>;
   /** Calls deep, outermost frame 0. */
   depth: number;
+  /** The paused function's name, so a sibling call at the same depth is not the same frame. */
+  frame: string;
 }
 
 interface DebuggerSession {
@@ -195,6 +197,12 @@ export interface DebuggerState {
   ) => void;
 
   setShowPauseChanges: (show: boolean) => void;
+}
+
+/** The previous pause when its values can be compared with the one on screen: changes on, same function. */
+export function comparablePreviousPause(state: DebuggerState): PauseSnapshot | null {
+  const { previousPause, lastPause, showPauseChanges } = state;
+  return showPauseChanges && previousPause && lastPause && previousPause.frame === lastPause.frame ? previousPause : null;
 }
 
 export function bpKey(tabId: string, line: number): string {
@@ -498,6 +506,7 @@ export const useDebuggerStore = create<DebuggerState>()(
             locals: frame.locals,
             watches: watchValues(frame.watchResults),
             depth: pauseDepth(frame.callStack, state.session?.runtime),
+            frame: frame.callStack[0]?.functionName ?? '',
           };
           // A refresh of the pause on screen (a watch sync) keeps the pause it is compared with.
           const current = state.pausedFrame;

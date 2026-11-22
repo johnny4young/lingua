@@ -97,8 +97,14 @@
 }
 
 /* Held where the debugger paused: a still ring with the pause bars, never a beat. */
-.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--paused::after {
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail-hold {
+  pointer-events: none;
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail-hold::after {
   --hold: var(--color-value-number);
+  content: '';
+  position: absolute;
   top: calc(50% - 7px);
   right: calc(var(--rail-center) - 7px);
   box-sizing: border-box;

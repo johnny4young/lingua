@@ -79,6 +79,26 @@ describe('paused line results', () => {
     ]);
   });
 
+  it('treats a sibling call at the same depth as another frame, and does not repeat a line the pause holds', () => {
+    const inF = { ...pause(2, { count: '1', doubled: '9' }, 't1', 1), frame: 'f' };
+    const inG = { ...pause(1, { count: '5' }, 't1', 1), frame: 'g' };
+    expect(pausedLineResults(inG, inF, code, 'javascript', false)).toEqual([
+      { line: 1, name: 'count', value: '5', type: 'log', held: true },
+      { line: 2, name: 'doubled', value: '9', type: 'log', depth: 1 },
+      { line: 2, name: 'count', value: '1', type: 'log', depth: 1 },
+    ]);
+    expect(pausedLineResults(pause(2, { count: '2' }, 't1', 2), pause(2, { count: '3' }, 't1', 1), code, 'javascript')).toEqual([
+      { line: 2, name: 'count', value: '2', type: 'log', held: true, previous: '3' },
+    ]);
+  });
+
+  it('strikes a previous value only from the same function', () => {
+    const inF = { ...pause(1, { count: '2' }, 't1', 1), frame: 'f' };
+    const inG = { ...pause(1, { count: '5' }, 't1', 1), frame: 'g' };
+    expect(pausedLineResults(inG, inF, code, 'javascript')).toEqual([{ line: 1, name: 'count', value: '5', type: 'log', held: true }]);
+    expect(pausedLineResults({ ...inF, depth: 2 }, { ...inF, locals: { count: '1' } }, code, 'javascript')[0]).toMatchObject({ previous: '1' });
+  });
+
   it('ignores another tab and lines that are not lines', () => {
     expect(pausedLineResults(pause(2, { count: '2' }), pause(1, { count: '1' }, 't2'), code, 'javascript')).toEqual([
       { line: 2, name: 'count', value: '2', type: 'log', held: true },

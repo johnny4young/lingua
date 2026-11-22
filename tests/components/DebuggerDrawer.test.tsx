@@ -210,6 +210,36 @@ describe('DebuggerDrawer', () => {
     expect(document.activeElement).toBe(screen.getByTestId('debugger-watch-input'));
   });
 
+  it('keeps a breakpoint editor to its own tab', async () => {
+    const user = userEvent.setup();
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 5);
+    useDebuggerStore.getState().toggleBreakpoint('tab-2', 5);
+    const { rerender } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    await user.click(screen.getByTestId('debugger-breakpoint-edit-5'));
+    expect(screen.getByTestId('debugger-breakpoint-line-5').dataset.open).toBe('true');
+    rerender(<DebuggerDrawer activeTabId="tab-2" activeLanguage="javascript" />);
+    expect(screen.getByTestId('debugger-breakpoint-line-5').dataset.open).toBeUndefined();
+  });
+
+  it('compares locals and watches only with a pause in the same function', () => {
+    useDebuggerStore.getState().addWatch('count');
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    const pause = (fn: string, count: string) =>
+      useDebuggerStore.getState().setPausedFrame({
+        tabId: 'tab-1',
+        line: fn === 'f' ? 2 : 6,
+        reason: 'user-breakpoint',
+        locals: { count },
+        callStack: [{ functionName: fn, line: 1 }],
+        watchResults: { count: { value: count } },
+      });
+    pause('f', '1');
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    act(() => pause('g', '5'));
+    expect(screen.queryByTestId('answer-was')).toBeNull();
+    expect(screen.getByTestId('debugger-locals').querySelectorAll('[data-change]')).toHaveLength(0);
+  });
+
   it('surfaces conditional evaluation errors as a fail-safe pause', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
     useDebuggerStore.setState({

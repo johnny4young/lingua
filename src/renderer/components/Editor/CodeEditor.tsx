@@ -147,13 +147,14 @@ export function CodeEditor() {
   const pauseLine = pause?.line;
   const pauseLocals = pause?.locals;
   const pauseDepth = pause?.depth;
+  const pauseFrame = pause?.frame;
   const inlineLineResults = useMemo(
     () =>
       activeTab && pauseTabId === activeTab.id && pauseLine !== undefined && pauseLocals && pauseDepth !== undefined
         ? [
             ...visibleLineResults,
             ...pausedLineResults(
-              { tabId: pauseTabId, line: pauseLine, locals: pauseLocals, depth: pauseDepth },
+              { tabId: pauseTabId, line: pauseLine, locals: pauseLocals, depth: pauseDepth, frame: pauseFrame },
               previousPause,
               activeTab.content,
               activeTab.language,
@@ -161,7 +162,7 @@ export function CodeEditor() {
             ),
           ]
         : visibleLineResults,
-    [activeTab, pauseTabId, pauseLine, pauseLocals, pauseDepth, previousPause, showPauseChanges, visibleLineResults]
+    [activeTab, pauseTabId, pauseLine, pauseLocals, pauseDepth, pauseFrame, previousPause, showPauseChanges, visibleLineResults]
   );
 
   // "Explain with AI" over a selection (or the whole buffer) is

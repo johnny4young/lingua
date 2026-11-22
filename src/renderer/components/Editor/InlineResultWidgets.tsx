@@ -1,5 +1,4 @@
-import { useDebuggerStore } from '../../stores/debuggerStore';
-import { DEBUGGER_HUD_HEIGHT } from '../Debugger/debuggerHudGeometry';
+import { DEBUGGER_HUD_HEIGHT, stepHudLine } from '../Debugger/debuggerHudGeometry';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
@@ -219,7 +218,6 @@ function useInlineResultWidgets(
   const widgetsRef = useRef<Map<number, InlineWidget>>(new Map());
   const [mounted, setMounted] = useState<readonly InlineWidget[]>([]);
   const lineEndReserveRef = useRef(lineEndReserve);
-  const tabIdRef = useRef(tabId);
   const repositioningRef = useRef(false);
   const scheduledFrameRef = useRef<number | null>(null);
   const measurementGenerationRef = useRef(0);
@@ -471,9 +469,8 @@ function useInlineResultWidgets(
       }
       // Adding a zone moves subsequent lines; read positions after the batch.
       const scrollTop = editor.getScrollTop();
-      // The step HUD's row comes first under the paused line.
-      const paused = useDebuggerStore.getState().pausedFrame;
-      const hudLine = paused && paused.tabId === tabIdRef.current ? paused.line : null;
+      // The step HUD's row comes first under the line it holds.
+      const hudLine = stepHudLine(editor);
       for (const widget of widgetsRef.current.values()) {
         if (widget.domNode.style.visibility === 'hidden') continue;
         const top =
@@ -513,9 +510,6 @@ function useInlineResultWidgets(
     scheduleReposition();
   }, [lineEndReserve?.line, lineEndReserve?.width, scheduleReposition]);
 
-  useEffect(() => {
-    tabIdRef.current = tabId;
-  }, [tabId]);
 
   // Wire scroll + layout listeners. Disposed on unmount / tab swap.
   useEffect(() => {
