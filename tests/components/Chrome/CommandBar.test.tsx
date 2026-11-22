@@ -44,6 +44,16 @@ describe('CommandBar', () => {
     expect(screen.getByTestId('command-bar-controls').querySelector('[data-testid="license-badge"]')).toBeTruthy();
   });
 
+  it('sets the wordmark from the bundled font with the drawn pulse dot', () => {
+    render(<CommandBar showControls />);
+    const wordmark = screen.getByRole('img', { name: 'Lingua' });
+    expect(wordmark.getAttribute('data-testid')).toBe('app-wordmark');
+    expect(wordmark.textContent).toBe('l\u0131ngua');
+    expect(wordmark.className).toContain('font-display');
+    expect(wordmark.className).toContain('italic');
+    expect(screen.getByTestId('app-wordmark-dot').className).toContain('bg-pulse');
+  });
+
   it('names Start when no tab is open', () => {
     act(() => useEditorStore.setState({ tabs: [], activeTabId: null }));
     render(<CommandBar showControls />);

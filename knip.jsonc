@@ -85,10 +85,9 @@
         // name at build time rather than through a source import.
         "@iconify-json/lucide",
         // The image regression intentionally resolves Astro's installed
-        // transitive copies. Separate direct copies would qualify the wrong
+        // transitive copy. A separate direct copy would qualify the wrong
         // graph instead of the code Astro actually executes.
-        "svgo",
-        "sharp"
+        "svgo"
       ]
     },
     "license-server": {

@@ -1,35 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="1024" height="1024">
   <defs>
-    <linearGradient id="bg" x1="144" y1="88" x2="880" y2="936" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#101820"/>
-      <stop offset="0.55" stop-color="#0B1117"/>
-      <stop offset="1" stop-color="#111827"/>
-    </linearGradient>
-    <linearGradient id="mark" x1="274" y1="238" x2="790" y2="786" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#79C0FF"/>
-      <stop offset="0.48" stop-color="#38D6C5"/>
-      <stop offset="1" stop-color="#2ECC71"/>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16292D"/>
+      <stop offset="1" stop-color="#04090A"/>
     </linearGradient>
   </defs>
-  <rect width="1024" height="1024" rx="236" fill="url(#bg)"/>
-  <path
-    d="M310 246c0-34 28-62 62-62s62 28 62 62v407h198c34 0 62 28 62 62s-28 62-62 62H372c-34 0-62-28-62-62V246Z"
-    fill="url(#mark)"
-  />
-  <path
-    d="M562 321 724 512 562 703"
-    fill="none"
-    stroke="#F8FAFC"
-    stroke-width="72"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    opacity="0.96"
-  />
-  <path
-    d="M310 246c0-34 28-62 62-62s62 28 62 62v407h198c34 0 62 28 62 62s-28 62-62 62H372c-34 0-62-28-62-62V246Z"
-    fill="none"
-    stroke="#FFFFFF"
-    stroke-opacity="0.10"
-    stroke-width="16"
-  />
+  <rect width="160" height="160" rx="36" fill="url(#ground)"/>
+  <path d="M70.64 34.76Q74.75 34.76 76.83 36.77Q78.92 38.78 78.92 41.39Q78.92 44.48 76.91 46.22Q74.9 47.96 72.32 47.96Q71.09 47.96 70.1 47.59Q69.11 47.21 68.24 46.76Q67.37 46.31 66.49 45.93Q65.6 45.56 64.58 45.56Q63.41 45.56 62.49 46.01Q61.58 46.46 60.93 47.29Q60.29 48.11 59.84 49.25Q59.48 50.54 59.66 51.75Q59.84 52.97 60.2 54.27Q60.56 55.58 60.86 57.15Q61.16 58.73 61.09 60.69Q61.01 62.66 60.26 65.21L48.59 104.66Q47.27 109.07 47.61 110.6Q47.96 112.13 49.37 112.13Q50.33 112.13 51.38 111.59Q52.43 111.05 53.81 109.49Q54.41 108.89 54.92 108.67Q55.43 108.44 56 108.59Q57.11 108.71 57.49 110.15Q57.86 111.59 56.63 113.96Q54.98 116.87 52.73 118.91Q50.48 120.95 47.73 122Q44.99 123.05 41.75 123.05Q38.15 123.05 36.32 121.35Q34.49 119.66 34.33 116.37Q34.16 113.09 35.51 108.38L51.71 52.31Q54.35 43.19 59.31 38.97Q64.28 34.76 70.64 34.76Z" fill="#F3F7F8"/>
+    <circle cx="80" cy="113" r="2.6" fill="#5E7377"/>
+    <circle cx="93" cy="113" r="2.6" fill="#5E7377"/>
+    <circle cx="106" cy="113" r="2.6" fill="#5E7377"/>
+    <circle cx="132" cy="113" r="11" fill="#00BFDF"/>
 </svg>

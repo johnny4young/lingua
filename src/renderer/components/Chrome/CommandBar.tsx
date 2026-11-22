@@ -6,6 +6,7 @@ import { LicenseBadge } from '../Toolbar/LicenseBadge';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { requestSettingsTab } from '../Settings/pendingSettingsTab';
 import { UpdateReadyChip } from './AppChrome';
+import { Wordmark } from './Wordmark';
 
 interface CommandBarProps {
   /** Presenter mode keeps the window title and drops the controls. */
@@ -60,16 +61,9 @@ export function CommandBar({
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <span
-          aria-label={t('chrome.mark.aria')}
-          className="inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-fg-on-accent"
-        >
-          L
-        </span>
-        <span className="hidden text-[12.5px] font-semibold text-fg-muted min-[1000px]:inline" aria-hidden="true">
-          {t('chrome.appName').toLowerCase()}
-        </span>
-        <span className="hidden text-border-strong min-[1000px]:inline" aria-hidden="true">
+        {/* Below 480 px the docked controls need the whole row. */}
+        <Wordmark className="max-[479px]:hidden" />
+        <span className="hidden text-border-strong min-[760px]:inline" aria-hidden="true">
           ·
         </span>
         <span

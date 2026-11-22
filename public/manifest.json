@@ -1,15 +1,15 @@
 {
   "name": "Lingua",
   "short_name": "Lingua",
-  "description": "Run code in multiple languages — JS, TS, Go, Python, Rust",
+  "description": "Run code in multiple languages — JS, TS, Python, Ruby, Go, Rust",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#1e1e2e",
-  "theme_color": "#1e1e2e",
+  "background_color": "#0c1017",
+  "theme_color": "#0c1017",
   "icons": [
     {
       "src": "./favicon.svg",
-      "sizes": "any",
+      "sizes": "32x32",
       "type": "image/svg+xml"
     },
     {
@@ -21,6 +21,12 @@
       "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "./icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

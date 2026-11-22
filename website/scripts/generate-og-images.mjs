@@ -7,7 +7,7 @@
  *   node scripts/generate-og-images.mjs --check  # exit 1 when a card is missing
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
@@ -17,17 +17,28 @@ const websiteRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = join(websiteRoot, 'public');
 const seoDir = join(websiteRoot, 'src', 'content', 'seo');
 const checkOnly = process.argv.includes('--check');
+// Outlined wordmark written by the repo's scripts/brand/generate-brand-assets.mjs.
+const wordmark = readFileSync(join(websiteRoot, 'scripts', 'og-wordmark.svg'), 'utf8');
+const wordmarkViewBox = wordmark.match(/viewBox="([^"]+)"/u)[1].split(' ').map(Number);
+const wordmarkShapes = wordmark.replace(/^[\s\S]*?<\/title>|<\/svg>\s*$/gu, '').trim();
+
+/** Places the wordmark with its top-left corner at (x, y), `height` px tall. */
+function wordmarkAt(x, y, height) {
+  const [minX, minY, , boxHeight] = wordmarkViewBox;
+  const scale = height / boxHeight;
+  return `<g transform="translate(${x} ${y}) scale(${scale.toFixed(4)}) translate(${-minX} ${-minY})">${wordmarkShapes}</g>`;
+}
 
 const DEFAULTS = {
   en: {
     output: '/assets/og/default.png',
-    title: 'Lingua',
+    hero: true,
     subtitle: 'Multi-language code runner for your desktop',
     tag: 'JS · TS · Python · Go · Rust · Ruby',
   },
   es: {
     output: '/assets/og/es/default.png',
-    title: 'Lingua',
+    hero: true,
     subtitle: 'Ejecutor de código multilenguaje para tu escritorio',
     tag: 'JS · TS · Python · Go · Rust · Ruby',
   },
@@ -68,11 +79,12 @@ function wrap(text, maxChars, maxLines) {
   return lines;
 }
 
-function cardSvg({ title, subtitle, tag }) {
-  const titleLines = wrap(title, 26, 2);
+/** A hero card (the locale default) sets the wordmark large in place of a title. */
+function cardSvg({ hero = false, title = '', subtitle, tag }) {
+  const titleLines = hero ? [] : wrap(title, 26, 2);
   const subtitleLines = wrap(subtitle, 58, 3);
   const titleY = 300 - (titleLines.length - 1) * 40;
-  const subtitleY = titleY + titleLines.length * 84 + 8;
+  const subtitleY = hero ? 360 : titleY + titleLines.length * 84 + 8;
   const sans = "Helvetica Neue, Helvetica, Arial, sans-serif";
   const mono = 'Menlo, Consolas, monospace';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
@@ -83,10 +95,7 @@ function cardSvg({ title, subtitle, tag }) {
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
-  <g transform="translate(80, 60)">
-    <path d="M0 40 L32 72 L0 104" stroke="#67e8f9" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <line x1="50" y1="108" x2="120" y2="108" stroke="#67e8f9" stroke-width="10" stroke-linecap="round"/>
-  </g>
+  ${hero ? wordmarkAt(80, 170, 132) : wordmarkAt(80, 84, 56)}
   ${tag ? `<text x="1120" y="130" text-anchor="end" font-family="${mono}" font-size="24" fill="#67e8f9">${escapeXml(tag)}</text>` : ''}
   ${titleLines
     .map(

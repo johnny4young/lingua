@@ -3056,7 +3056,6 @@
   "recovery.safeMode.button": "Reload in safe mode",
   "recovery.factoryNotice.title": "Factory recovery active",
   "recovery.factoryNotice.body": "Lingua detected three crashes within a minute and started with risky restore paths skipped. Your license is intact. Reload normally once you finish recovering.",
-  "chrome.appName": "Lingua",
   "chrome.actions.aria": "Toolbar shortcuts",
   "chrome.quickOpen.tooltip": "Quick Open · {{combo}}",
   "chrome.quickOpen.aria": "Open Quick Open",

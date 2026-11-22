@@ -3080,7 +3080,6 @@
   "recovery.safeMode.button": "Recargar en modo seguro",
   "recovery.factoryNotice.title": "Recuperación de fábrica activa",
   "recovery.factoryNotice.body": "Lingua detectó tres fallas en menos de un minuto y arrancó omitiendo rutas de restauración riesgosas. Tu licencia está intacta. Recarga normalmente cuando termines de recuperarte.",
-  "chrome.appName": "Lingua",
   "chrome.actions.aria": "Accesos del toolbar",
   "chrome.quickOpen.tooltip": "Búsqueda rápida · {{combo}}",
   "chrome.quickOpen.aria": "Abrir búsqueda rápida",
