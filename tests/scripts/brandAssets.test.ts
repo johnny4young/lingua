@@ -2,11 +2,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  ICNS_ARGB_TYPES,
   ICNS_TYPES,
   ICO_SIZES,
   appIconSvg,
   driftedSvgs,
   encodeIco,
+  packBits,
   wordmarkGeometry,
 } from '../../scripts/brand/generate-brand-assets.mjs';
 
@@ -29,6 +31,21 @@ function icnsEntries(icns: Buffer): Map<string, Buffer> {
     offset += length;
   }
   return entries;
+}
+
+function unpackBits(packed: Buffer): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < packed.length; ) {
+    const control = packed[i]!;
+    if (control < 128) {
+      out.push(...packed.subarray(i + 1, i + 2 + control));
+      i += control + 2;
+    } else {
+      out.push(...Array<number>(control - 125).fill(packed[i + 1]!));
+      i += 2;
+    }
+  }
+  return out;
 }
 
 function icoEntries(ico: Buffer): Array<[number, Buffer]> {
@@ -58,7 +75,20 @@ describe('brand assets', () => {
   it('packs the macOS sizes 16-1024 with @2x into icon.icns', () => {
     const entries = icnsEntries(read('assets/icon.icns'));
     expect([...entries.keys()]).toEqual(ICNS_TYPES.map(([type]) => type));
-    for (const [type, px] of ICNS_TYPES) expect(pngSize(entries.get(type)!)).toEqual([px, px]);
+    for (const [type, px] of ICNS_TYPES) {
+      const payload = entries.get(type)!;
+      if (ICNS_ARGB_TYPES.has(type)) {
+        expect(payload.subarray(0, 4).toString('latin1')).toBe('ARGB');
+        expect(unpackBits(payload.subarray(4))).toHaveLength(px * px * 4);
+      } else {
+        expect(pngSize(payload)).toEqual([px, px]);
+      }
+    }
+  });
+
+  it('round-trips ICNS PackBits runs and literals', () => {
+    const bytes = [...Array<number>(200).fill(7), 1, 2, 3, 3, 4, ...Array<number>(300).keys()].map(n => n % 256);
+    expect(unpackBits(packBits(Uint8Array.from(bytes)))).toEqual(bytes);
   });
 
   it('packs the Windows sizes into icon.ico', () => {
@@ -104,6 +134,8 @@ describe('brand assets', () => {
     };
     const maskable = manifest.icons.find(icon => icon.purpose === 'maskable');
     expect(maskable).toMatchObject({ src: './icon-maskable-512.png', sizes: '512x512' });
+    // The SVG is the lite mark, so larger launcher sizes must come from the full-mark PNGs.
+    expect(manifest.icons.find(icon => icon.src === './favicon.svg')?.sizes).toBe('32x32');
     for (const icon of manifest.icons) expect(existsSync(path.join(root, 'public', icon.src))).toBe(true);
     for (const file of ['public/icon-192.png', 'public/icon-512.png', 'public/icon-maskable-512.png']) {
       const px = Number(file.match(/(\d+)\.png$/u)?.[1]);

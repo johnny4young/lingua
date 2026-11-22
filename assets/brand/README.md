@@ -1,6 +1,6 @@
 # Lingua brand assets
 
-Every file here, the app icons in `assets/` and the favicons are written by
+Every SVG here, the app icons in `assets/` and the favicons are written by
 `scripts/brand/generate-brand-assets.mjs`. Don't edit them by hand.
 
 | File | Use |
@@ -36,7 +36,7 @@ lite mark).
 
 | Platform | File | Corner radius |
 | --- | --- | --- |
-| macOS | `assets/icon.icns`, 16–1024 with @2x | 22.5 % squircle |
+| macOS | `assets/icon.icns`, 16–1024 with @2x | 22.5 % |
 | Windows | `assets/icon.ico`, 16, 24, 32, 48, 64, 256 | 6 % |
 | Linux, web | `assets/icon.png` (1024), `public/icon-192.png`, `public/icon-512.png`, favicons | 18 % |
 | PWA maskable | `public/icon-maskable-512.png` | full bleed, mark inside the 80 % safe circle |

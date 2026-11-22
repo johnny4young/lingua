@@ -213,11 +213,11 @@ function rasters() {
   };
 }
 
-/** ICNS PNG slots for 16-512 pt at 1x and @2x, as iconutil names them. */
+/** ICNS slots for 16-512 pt at 1x and @2x, as iconutil writes them: ARGB below 64 px, PNG above. */
 export const ICNS_TYPES = [
-  ['icp4', 16],
+  ['ic04', 16],
   ['ic11', 32],
-  ['icp5', 32],
+  ['ic05', 32],
   ['ic12', 64],
   ['ic07', 128],
   ['ic13', 256],
@@ -227,7 +227,48 @@ export const ICNS_TYPES = [
   ['ic10', 1024],
 ];
 
+/** The 1x 16 and 32 px slots only decode as ARGB planes, never PNG. */
+export const ICNS_ARGB_TYPES = new Set(['ic04', 'ic05']);
+
 export const ICO_SIZES = [16, 24, 32, 48, 64, 256];
+
+/** ICNS PackBits: a byte n < 128 copies n + 1 literals; n >= 128 repeats the next byte n - 125 times. */
+export function packBits(bytes) {
+  const out = [];
+  let literals = [];
+  const flush = () => {
+    for (let i = 0; i < literals.length; i += 128) {
+      const chunk = literals.slice(i, i + 128);
+      out.push(chunk.length - 1, ...chunk);
+    }
+    literals = [];
+  };
+  for (let i = 0; i < bytes.length; ) {
+    let run = 1;
+    while (i + run < bytes.length && run < 130 && bytes[i + run] === bytes[i]) run += 1;
+    if (run >= 3) {
+      flush();
+      out.push(run + 125, bytes[i]);
+      i += run;
+    } else {
+      literals.push(bytes[i]);
+      i += 1;
+    }
+  }
+  flush();
+  return Buffer.from(out);
+}
+
+/** ARGB payload from straight RGBA pixels: the magic, then each channel plane packed. */
+export function encodeArgb(rgba) {
+  const pixels = rgba.length / 4;
+  const planes = [3, 0, 1, 2].map(channel => {
+    const plane = new Uint8Array(pixels);
+    for (let i = 0; i < pixels; i += 1) plane[i] = rgba[i * 4 + channel];
+    return packBits(plane);
+  });
+  return Buffer.concat([Buffer.from('ARGB', 'latin1'), ...planes]);
+}
 
 export function encodeIcns(entries) {
   const chunks = entries.map(([type, png]) => {
@@ -282,7 +323,13 @@ async function writeAll() {
     return cache.get(key);
   };
   const icns = [];
-  for (const [type, px] of ICNS_TYPES) icns.push([type, await png(RADIUS.mac, px)]);
+  for (const [type, px] of ICNS_TYPES) {
+    if (!ICNS_ARGB_TYPES.has(type)) icns.push([type, await png(RADIUS.mac, px)]);
+    else {
+      const raw = await sharp(Buffer.from(appIconSvg({ radius: RADIUS.mac, px }))).ensureAlpha().raw().toBuffer();
+      icns.push([type, encodeArgb(raw)]);
+    }
+  }
   await write('assets/icon.icns', encodeIcns(icns));
   const ico = [];
   for (const px of ICO_SIZES) ico.push([px, await png(RADIUS.windows, px)]);

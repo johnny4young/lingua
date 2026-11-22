@@ -23,10 +23,11 @@ export function Wordmark({ className }: { className?: string }) {
           ı
           <span
             data-testid="app-wordmark-dot"
-            className="absolute left-1/2 top-[0.265em] ml-[0.15em] size-[0.175em] rounded-full bg-pulse"
+            className="absolute left-1/2 top-[0.307em] ml-[0.15em] size-[0.175em] rounded-full bg-pulse"
           />
         </span>
-        ngua
+        {/* Brand letters, not copy: the wordmark never translates. */}
+        {'ngua'}
       </span>
     </span>
   );
