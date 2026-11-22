@@ -186,7 +186,7 @@ async function executeOwnedTab(
       return publishCancelledRun(runTab, run, runConsole, showsResults);
     }
     if (plan.recordRequested && run.result.timeline) {
-      useTimelineStore.getState().publish(activeTab.id, run.result.timeline);
+      useTimelineStore.getState().publish(activeTab.id, run.result.timeline, activeTab.content);
     }
     const summary = await publishCompletedRun(
       runTab,

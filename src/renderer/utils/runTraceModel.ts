@@ -1,5 +1,6 @@
 import type { TimelineStep } from '../../shared/timeline';
 import { timelineDepth } from './timelineModel';
+import type { TimelineRecording } from '../stores/timelineStore';
 
 export interface SlowestLine {
   line: number;
@@ -145,4 +146,15 @@ export function sampleSteps(steps: readonly TimelineStep[], current: number, max
   return steps.flatMap((step, index) =>
     index % every === 0 || index === last || index === current || step.log || step.error ? [index] : []
   );
+}
+
+/** A paid recording of `tabId` with enough steps to draw as the Console's trace. */
+export function traceShown(recording: TimelineRecording | null, tabId: string | null | undefined): recording is TimelineRecording {
+  return recording !== null && recording.entitled && recording.steps.length >= 2 && recording.tabId === tabId;
+}
+
+/** Trimmed source of a line, cut by code point so an emoji is never split; importing the tape helper would split the startup chunk. */
+export function lineSnippet(source: string, line: number, max: number): string {
+  const chars = Array.from(source.split('\n')[line - 1]?.trim() ?? '');
+  return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : chars.join('');
 }

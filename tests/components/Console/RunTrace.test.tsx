@@ -23,7 +23,7 @@ const SOURCE = 'const a = 1;\nlet i = 0;\nwhile (i < 3) {\n  await sleep(0.4);\n
 type Recording = NonNullable<ReturnType<typeof useTimelineStore.getState>['recording']>;
 const record = (extra: Partial<Recording> = {}, current = 8) =>
   useTimelineStore.setState({
-    recording: { tabId: 't1', steps, total: steps.length, truncated: false, limited: false, entitled: true, ms: 1080, ...extra },
+    recording: { tabId: 't1', steps, total: steps.length, truncated: false, limited: false, entitled: true, ms: 1080, code: SOURCE, ...extra },
     current,
   });
 
@@ -136,5 +136,11 @@ describe('run trace', () => {
     await i18next.changeLanguage('es');
     render(<RunTrace />);
     expect(screen.getAllByTestId('run-trace-loop')[0]!.textContent).toBe('vuelta 1');
+  });
+
+  it('labels the slowest line from the recorded code, not later edits', () => {
+    useEditorStore.setState({ tabs: [{ id: 't1', name: 'a.js', language: 'javascript', content: 'edited\n'.repeat(9) } as never] });
+    render(<RunTrace />);
+    expect(screen.getByTestId('run-trace-slowest').textContent).not.toContain('edited');
   });
 });

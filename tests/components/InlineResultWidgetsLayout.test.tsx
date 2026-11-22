@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as monacoTypes from 'monaco-editor';
 import { InlineResultWidgets } from '@/components/Editor/InlineResultWidgets';
 import { useResultStore } from '@/stores/resultStore';
+import { useEditorStore } from '@/stores/editorStore';
 
 let nextFrame = 0;
 const frames = new Map<number, FrameRequestCallback>();
@@ -753,6 +754,16 @@ describe('changes since the previous run', () => {
     slot.remove();
   });
 
+  it('drops a closed tab\'s answers once the overlay is loaded', () => {
+    const h = harness();
+    useEditorStore.setState({ tabs: [{ id: 'tab' }, { id: 'gone' }] as never });
+    const answers = { latest: { number: 1, results: [], sources: {} } };
+    useResultStore.setState({ tabAnswers: { tab: answers, gone: answers } });
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    act(() => useEditorStore.setState({ tabs: [{ id: 'tab' }] as never }));
+    expect(Object.keys(useResultStore.getState().tabAnswers)).toEqual(['tab']);
+  });
+
   it('marks nothing when the answers on screen are not the latest run', () => {
     const h = harness();
     useResultStore.setState({
@@ -763,9 +774,13 @@ describe('changes since the previous run', () => {
         },
       },
     });
-    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: '3' }]} editor={h.editor} />);
+    const slot = document.createElement('div');
+    document.body.append(slot);
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: '3' }]} editor={h.editor} headerSlot={slot} />);
     flushFrames();
     expect(document.querySelector('[data-testid="answer-delta"]')).toBeNull();
+    expect(slot.querySelector('[data-testid="answer-column-header-changes"]')).toBeNull();
+    slot.remove();
   });
 });
 

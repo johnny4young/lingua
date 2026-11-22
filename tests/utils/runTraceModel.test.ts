@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectLoops, lineTimes, pickLoops, pickTicks, sampleSteps, slowestLine } from '@/utils/runTraceModel';
+import { detectLoops, lineSnippet, lineTimes, pickLoops, pickTicks, sampleSteps, slowestLine } from '@/utils/runTraceModel';
 import type { TimelineStep } from '@/../shared/timeline';
 
 const at = (line: number, extra: Partial<TimelineStep> = {}): TimelineStep => ({ line, frames: [], vars: [], call: 0, depth: 0, ...extra });
@@ -78,5 +78,11 @@ describe('ticks and sampling', () => {
     const drawn = sampleSteps(steps, 41, 10);
     expect(drawn).toEqual([0, 10, 13, 20, 27, 30, 40, 41, 50, 60, 70, 80, 90, 99]);
     expect(sampleSteps(steps, 0, 100)).toHaveLength(100);
+  });
+
+  it('trims a line and cuts it without splitting an emoji', () => {
+    expect(lineSnippet('a\n   sleep(0.4)  \n', 2, 20)).toBe('sleep(0.4)');
+    expect(lineSnippet('xxx😀😀😀', 1, 5)).toBe('xxx😀…');
+    expect(lineSnippet('a', 9, 20)).toBe('');
   });
 });

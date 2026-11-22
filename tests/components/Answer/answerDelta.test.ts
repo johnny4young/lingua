@@ -27,6 +27,7 @@ describe('answerChange', () => {
     expect(answerChange('slowest path: api', 'slowest path: db')).toEqual({ kind: 'text', before: 'slowest path: api' });
     expect(answerChange('[1, 2]', '[1,2]')).toBeNull();
     expect(answerChange(' 4 ', '4')).toBeNull();
+    expect(answerChange('0.30000000000000004', '0.3')).toEqual({ kind: 'text', before: '0.30000000000000004' });
   });
 
   it('keeps the struck text to one short line', () => {

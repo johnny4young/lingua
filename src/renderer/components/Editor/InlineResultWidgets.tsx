@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
 import { useResultStore, type LineResult } from '../../stores/resultStore';
+import { useEditorStore } from '../../stores/editorStore';
 import { lineAnswerDelta, type AnswerDelta } from '../Answer/answerDelta';
 import type { LineTimingEntry } from '../../types/execution';
 import { AnswerColumnHeader } from './AnswerColumnHeader';
@@ -16,6 +17,22 @@ const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
 const LEADER_MARGIN = 14;
 const MIN_LEADER = 26;
 const NO_TIMINGS: readonly LineTimingEntry[] = [];
+
+let watchingTabs = false;
+
+/** Answers go with their tab; watched from here so the startup bundle does not carry it. */
+function dropAnswersWithTheirTab(): void {
+  if (watchingTabs) return;
+  watchingTabs = true;
+  useEditorStore.subscribe(state => {
+    const kept = useResultStore.getState().tabAnswers;
+    const closed = Object.keys(kept).filter(tabId => !state.tabs.some(tab => tab.id === tabId));
+    if (closed.length === 0) return;
+    const next = { ...kept };
+    for (const tabId of closed) delete next[tabId];
+    useResultStore.setState({ tabAnswers: next });
+  });
+}
 
 export interface InlineResultWidgetsProps {
   readonly editor: monacoTypes.editor.IStandaloneCodeEditor | null;
@@ -56,11 +73,14 @@ export function InlineResultWidgets({
   const [header, setHeader] = useState(false);
   const showHeader = answering || (running && header);
   if (showHeader !== header) setHeader(showHeader);
+  useEffect(dropAnswersWithTheirTab, []);
   const answers = useResultStore(state => (tabId ? state.tabAnswers[tabId] : undefined));
   const showChanges = useResultStore(state => state.showRunChanges);
   // A region run or a restored snapshot is not the run the previous one is compared with.
   const onScreen = useMemo(() => answers !== undefined && sameAnswers(lineResults, answers.latest.results), [answers, lineResults]);
   const previous = showChanges && onScreen ? answers?.previous : undefined;
+  // A run clears the answers before it publishes, so the switch holds through it.
+  const since = onScreen || lineResults.length === 0 ? (answers?.previous?.number ?? null) : null;
   const changes = useMemo(() => {
     const byLine = new Map<number, { delta: AnswerDelta; since: number }>();
     if (!answers || !previous) return byLine;
@@ -72,7 +92,7 @@ export function InlineResultWidgets({
   }, [answers, previous, widgets]);
   return (
     <>
-      {header && editor && headerSlot ? createPortal(<AnswerColumnHeader editor={editor} tabId={tabId} />, headerSlot) : null}
+      {header && editor && headerSlot ? createPortal(<AnswerColumnHeader editor={editor} tabId={tabId} since={since} />, headerSlot) : null}
       {widgets.map(widget =>
         createPortal(
           <InlineAnswerLine

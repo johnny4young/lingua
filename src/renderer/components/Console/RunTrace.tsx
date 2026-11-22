@@ -3,12 +3,10 @@ import { useTranslation } from 'react-i18next';
 import '../../i18n/timelineCatalog';
 import './runTrace.css';
 import type { TimelineStep } from '../../../shared/timeline';
-import { traceShown, useTimelineStore } from '../../stores/timelineStore';
+import { useTimelineStore } from '../../stores/timelineStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { getActiveTab } from '../../stores/editorSelectors';
 import { useUIStore } from '../../stores/uiStore';
-import { detectLoops, pickLoops, pickTicks, sampleSteps, slowestLine } from '../../utils/runTraceModel';
-import { sourceSnippet } from '../../utils/consoleTape';
+import { detectLoops, lineSnippet, pickLoops, pickTicks, sampleSteps, slowestLine, traceShown } from '../../utils/runTraceModel';
 import { formatRunDuration } from '../../utils/timeLabels';
 
 const HEIGHT = 132;
@@ -59,8 +57,10 @@ export function RunTrace() {
     () => (shown && !recording.truncated ? slowestLine(steps, recording.ms) : null),
     [shown, recording, steps]
   );
-  const content = useEditorStore(state => (slowest ? (getActiveTab(state)?.content ?? '') : ''));
-  const slowestCode = useMemo(() => (slowest ? (sourceSnippet(content, slowest.line, 20) ?? '') : ''), [content, slowest]);
+  const slowestCode = useMemo(
+    () => (slowest && recording ? lineSnippet(recording.code, slowest.line, 20) : ''),
+    [recording, slowest]
+  );
   // Loops and ticks depend on the steps only, so resizing the dock redraws without re-reading them.
   const loopsFound = useMemo(() => pickLoops(detectLoops(steps)), [steps]);
   const logs = useMemo(() => steps.reduce((sum, item) => sum + (item.log ? 1 : 0), 0), [steps]);

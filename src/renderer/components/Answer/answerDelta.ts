@@ -1,4 +1,3 @@
-import { truncateText } from '../../../shared/truncateText';
 import type { LineResult, RunAnswers } from '../../stores/resultStore';
 import { readLiteral, type Literal } from './answerLiteral';
 import { formatAnswerNumber } from './answerObjectModel';
@@ -20,7 +19,9 @@ export interface AnswerDelta {
 const MAX_SHOWN = 24;
 
 function shorten(text: string): string {
-  return truncateText(text.trim().split('\n')[0] ?? '', MAX_SHOWN);
+  // Array.from counts code points, so an emoji is never cut in half.
+  const chars = Array.from(text.trim().split('\n')[0] ?? '');
+  return chars.length > MAX_SHOWN ? `${chars.slice(0, MAX_SHOWN - 1).join('')}…` : chars.join('');
 }
 
 type Primitive = Extract<Literal, { t: 'num' | 'str' | 'bool' | 'none' }>;
@@ -47,7 +48,10 @@ function numberStep(before: number, after: number): { up: boolean; by: string } 
 function literalChange(before: Literal, after: Literal): AnswerChange | null {
   if (before.t === 'num' && after.t === 'num') {
     if (before.v === after.v || !Number.isFinite(after.v - before.v)) return null;
-    return { kind: 'number', before: formatAnswerNumber(before.v, before.raw), ...numberStep(before.v, after.v) };
+    const was = formatAnswerNumber(before.v, before.raw);
+    // Below the shown precision the struck value would read like the new one.
+    if (was === formatAnswerNumber(after.v, after.raw)) return null;
+    return { kind: 'number', before: was, ...numberStep(before.v, after.v) };
   }
   if (before.t === 'list' && after.t === 'list') {
     if (before.items.length !== after.items.length) return { kind: 'size', before: before.items.length, after: after.items.length };

@@ -17,12 +17,14 @@ export interface TimelineRecording {
   entitled: boolean;
   /** Run time when recording ended; see `ExecutionTimeline.ms`. */
   ms?: number;
+  /** The tab's code when the recording arrived, so line labels survive later edits. */
+  code: string;
 }
 
 interface TimelineState {
   recording: TimelineRecording | null;
   current: number;
-  publish: (tabId: string, timeline: ExecutionTimeline) => void;
+  publish: (tabId: string, timeline: ExecutionTimeline, code?: string) => void;
   select: (index: number) => void;
   /** Moves by `delta` steps; at the first or last step it bumps `blocked` instead, as `go` does. */
   step: (delta: number) => boolean;
@@ -31,11 +33,6 @@ interface TimelineState {
   /** Counts moves that had nowhere to go, so the editor can flash the line. */
   blocked: number;
   clearTab: (tabId: string) => void;
-}
-
-/** A paid recording of `tabId` with enough steps to draw as the Console's trace. */
-export function traceShown(recording: TimelineRecording | null, tabId: string | null | undefined): recording is TimelineRecording {
-  return recording !== null && recording.entitled && recording.steps.length >= 2 && recording.tabId === tabId;
 }
 
 /** The latest Record run, in memory only. It opens on the step where the run ended. */
@@ -55,7 +52,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
   recording: null,
   current: 0,
   blocked: 0,
-  publish: (tabId, timeline) => {
+  publish: (tabId, timeline, code = '') => {
     let entitled: boolean;
     try {
       entitled = isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY');
@@ -73,6 +70,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
         truncated: timeline.truncated,
         limited: steps.length < total,
         entitled,
+        code,
         ...(timeline.ms !== undefined ? { ms: timeline.ms } : {}),
       },
       current: Math.max(0, steps.length - 1),

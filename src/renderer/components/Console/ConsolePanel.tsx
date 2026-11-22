@@ -15,7 +15,8 @@ import { useTelemetry } from '../../hooks/useTelemetry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useExplainPanelStore } from '../../stores/explainPanelStore';
 import { useResultStore } from '../../stores/resultStore';
-import { traceShown, useTimelineStore } from '../../stores/timelineStore';
+import { useTimelineStore } from '../../stores/timelineStore';
+import { traceShown } from '../../utils/runTraceModel';
 import { describeError } from '../../utils/describeError';
 import { useUIStore } from '../../stores/uiStore';
 import {

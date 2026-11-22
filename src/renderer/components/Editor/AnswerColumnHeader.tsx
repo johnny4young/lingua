@@ -21,9 +21,12 @@ function readLayout(editor: monacoTypes.editor.IStandaloneCodeEditor): string {
 export function AnswerColumnHeader({
   editor,
   tabId,
+  since,
 }: {
   readonly editor: monacoTypes.editor.IStandaloneCodeEditor;
   readonly tabId: string | null;
+  /** The run the answers on screen compare with, or null when there is none. */
+  readonly since: number | null;
 }) {
   const { t } = useTranslation();
   const subscribe = useCallback(
@@ -36,7 +39,6 @@ export function AnswerColumnHeader({
   const layout = useSyncExternalStore(subscribe, () => readLayout(editor));
   const run = useConsoleStore(state => (state.currentRun && state.currentRun.tabId === tabId ? state.currentRun.number : null));
   const live = useResultStore(state => state.executionSource === 'auto');
-  const since = useResultStore(state => (tabId ? (state.tabAnswers[tabId]?.previous?.number ?? null) : null));
   const showChanges = useResultStore(state => state.showRunChanges);
   const setShowChanges = useResultStore(state => state.setShowRunChanges);
 
