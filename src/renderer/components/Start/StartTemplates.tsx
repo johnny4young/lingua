@@ -5,7 +5,8 @@ import { BUILT_IN_TEMPLATES, resolveTemplateDescription, resolveTemplateFileStem
 import type { Language } from '../../types/language';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
-import { DottedLeader, LanguageSquare, SectionHeading } from './StartParts';
+import { LanguageSquare, SectionHeading } from './StartParts';
+import { DotLeader } from '../ui/answer';
 import { templateLanguages, templateRows } from './startModel';
 
 const FILTER_LANGUAGES = templateLanguages(BUILT_IN_TEMPLATES);
@@ -64,7 +65,7 @@ export function StartTemplates() {
             <span className="min-w-0 truncate font-medium text-fg-base" title={resolveTemplateDescription(row.templates[0]!, t)}>
               {row.label}
             </span>
-            <DottedLeader />
+            <DotLeader />
             <span className="flex shrink-0 gap-1">
               {row.templates.map(template => (
                 <button

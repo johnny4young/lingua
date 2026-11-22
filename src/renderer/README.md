@@ -239,7 +239,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/Start/`](components/Start)                   | `StartPrompt.tsx`, `StartPickUp.tsx`, `StartNew.tsx`, `StartTemplates.tsx`, `startModel.ts` | Start sections that `Editor/EditorEmptyState.tsx` composes when no tab is open; copy lives in the lazy `start.json` catalog |
 | [`components/Welcome/`](components/Welcome)               | `ProjectTemplatesPanel.tsx`, `ProjectTemplatesOverlay.tsx` | Project template launcher, opened from the palette              |
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
-| [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
+| [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`, `Glyph.tsx`, `RunStateGlyph.tsx`, `answer.tsx` | Shared presentational primitives only; the v6 glyphs, run states, motion tokens and answer typography load `identity.css` lazily; the keycap is `Kbd` in `ModalShell.tsx` |
 
 Keyboard shortcuts use two data layers with different activation costs:
 
@@ -1003,6 +1003,15 @@ Examples already in the codebase:
 | Global tokens, shell classes, repeated primitives | [index.css](index.css) |
 | One-off component layout/detail styling           | inline Tailwind classes in the owning component                                |
 | Shared visual primitives                          | `components/ui` plus a matching class in `index.css` if reused widely          |
+| Answer identity (motion tokens, leaders, numerals, run states) | `components/ui/identity.css`, imported by its primitives so it stays out of the initial bundle |
+
+### Answer identity rules
+
+- The pulse colour fills one control per screen; the run rail and the tab dot are its only other uses.
+- Counts stay neutral (`ResultNumeral` tone `neutral`); `error` is the only value tone a numeral takes.
+- Small caps (`TypeTag`) are for labels, never for values or counts.
+- No left accent bars: show state with a tint, weight, icon, full border or elevation. `tests/build/identityGlyphsMotion.test.ts` fails on a leading-edge strip.
+- Motion: the pulse lights each line in 120 ms and the tick stays lit; an answer takes 160 ms (the leader draws, the value rises 4 px). Reduced motion removes the travel and values appear in place.
 
 ### How `index.css` is organized
 

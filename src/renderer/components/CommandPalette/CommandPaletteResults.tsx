@@ -20,7 +20,8 @@ import {
   type CommandGroupId,
 } from './commandPaletteGroups';
 import { formatRunAge } from '../../utils/timeLabels';
-import { DottedLeader, LanguageSquare } from '../Start/StartParts';
+import { LanguageSquare } from '../Start/StartParts';
+import { DotLeader, ResultNumeral } from '../ui/answer';
 import { answerDisplay } from '../Start/answerLabels';
 import '../../i18n/startCatalog';
 
@@ -157,18 +158,15 @@ function RecentFileContent({ command, isActive }: { command: CommandEntry; isAct
       <span className="min-w-0 truncate font-mono text-body text-fg-base">{command.label}</span>
       {value ? (
         <>
-          <DottedLeader />
-          <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap" data-testid="command-palette-recent-answer">
-            <span
-              className={cn(
-                'font-display text-[19px] leading-none tracking-[-0.02em]',
-                value.failed ? 'text-value-error' : 'text-fg-base'
-              )}
-            >
-              {value.value}
-            </span>
-            {value.unit ? <span className="text-body-sm italic text-fg-muted">{value.unit}</span> : null}
-          </span>
+          <DotLeader />
+          <ResultNumeral
+            size="sm"
+            className="shrink-0"
+            value={value.value}
+            unit={value.unit}
+            tone={value.failed ? 'error' : 'neutral'}
+            data-testid="command-palette-recent-answer"
+          />
         </>
       ) : (
         <span className="flex-1" />

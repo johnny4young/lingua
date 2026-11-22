@@ -45,6 +45,7 @@ import { editorFontVariations } from '../../utils/editorFontVariations';
 import { VimStatusBar } from '../Editor/VimStatusBar';
 import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
 import { createLocalizedStatusBarClass } from '../Editor/vimStatusBarFactory';
+import '../ui/identity.css';
 
 // Ensure the worker environment + JS/TS contribution are registered before
 // any editor mounts or `useMonaco()` colorizes (idempotent; shared with
@@ -226,7 +227,7 @@ function NotebookCellStaticView({
           aria-hidden="true"
           data-testid="notebook-cell-answer-leader"
           data-tone={leader.tone}
-          className="notebook-answer-leader font-mono text-body-sm"
+          className="dot-leader notebook-answer-leader font-mono text-body-sm"
           style={{
             top: STATIC_VIEW_PADDING + (leader.line - 1) * lineHeight + lineHeight / 2 - 1,
             left: `calc(${STATIC_VIEW_PADDING + LEADER_GAP}px + ${leader.chars}ch)`,

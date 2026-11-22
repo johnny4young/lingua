@@ -20,11 +20,6 @@
   width: var(--test-answer-leader, 26px);
   height: 2px;
   margin: 0 12px 0 14px;
-  background: radial-gradient(circle, var(--color-border-strong) 0.9px, transparent 1.1px) 0 0 / 7px 2px repeat-x;
-}
-
-.test-answer-leader[data-tone='error'] {
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--color-value-error) 60%, transparent) 0.9px, transparent 1.1px);
 }
 
 .test-answer-body {
