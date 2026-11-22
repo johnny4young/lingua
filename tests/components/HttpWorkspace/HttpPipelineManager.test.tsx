@@ -189,6 +189,50 @@ describe('HttpPipelineManager', () => {
       expect(screen.getByTestId('http-pipeline-stop')).not.toBeNull();
       expect(within(steps()[0]!).getByRole('button', { name: 'Remove step' }).hasAttribute('disabled')).toBe(true);
       expect((within(steps()[0]!).getByRole('checkbox') as HTMLInputElement).disabled).toBe(true);
+      // The runner holds the pipeline it started: edits made now would not reach it.
+      expect((screen.getByRole('switch', { name: 'Stop after a failure' }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole('combobox', { name: 'Add request' }) as HTMLSelectElement).disabled).toBe(true);
+    });
+
+    it('keys repeated variables and captures by position, and reads a whole-ms total', () => {
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const store = useWorkspaceToolStore.getState();
+      store.createRequest({
+        ...createBlankHttpRequest({ id: 'twice', name: 'Twice' }),
+        url: '{{baseUrl}}/orgs/{{id}}/users/{{id}}',
+        captures: [
+          { id: 'c1', source: 'header', path: 'x-token', targetVariable: 'tag', enabled: true },
+          { id: 'c2', source: 'body-json', path: 'tag', targetVariable: 'tag', enabled: true },
+        ],
+      });
+      store.createHttpPipeline({ version: 1, id: 'p3', name: 'twice', steps: [{ id: 't1', requestId: 'twice', enabled: true }], stopOnFailure: true, createdAt: NOW, updatedAt: NOW });
+      store.setActiveHttpPipeline('p3');
+      renderManager({
+        pipelineId: 'p3',
+        startedAt: NOW,
+        phase: 'completed',
+        results: [
+          {
+            stepId: 't1',
+            requestId: 'twice',
+            status: 'passed',
+            httpStatus: 200,
+            report: {
+              durationMs: 1240,
+              statusText: 'OK',
+              captures: [
+                { variable: 'tag', from: 'header x-token', value: '"a"' },
+                { variable: 'tag', from: 'body.tag', value: '"b"' },
+              ],
+            },
+          },
+        ],
+      });
+      expect(screen.getAllByTestId('http-pipeline-variable').map((token) => token.textContent)).toEqual(['{{id}}', '{{id}}', '{{tag}}', '{{tag}}']);
+      expect(screen.getAllByTestId('http-pipeline-step-capture')).toHaveLength(2);
+      expect(screen.getByTestId('result-header').textContent).toContain('1.2 s');
+      expect(errors).not.toHaveBeenCalled();
+      errors.mockRestore();
     });
   });
 });

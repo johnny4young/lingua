@@ -1025,4 +1025,27 @@ describe('UtilityPipelineResults, read as a run', () => {
     expect(rows()[1]!.hasAttribute('data-dim')).toBe(true);
     expect(screen.getByTestId('utility-pipeline-run-summary').textContent).toBe('1 of 2 steps ran');
   });
+
+  it('counts an incompatible step as not run, since its adapter never starts', () => {
+    render(
+      <UtilityPipelineResults
+        {...props}
+        runState={settled([
+          { stepId: 'a', utilityId: 'url-encode', status: 'ok', output: 'x', durationMs: 1 },
+          { stepId: 'b', utilityId: 'json-format', status: 'incompatible', durationMs: 0 },
+        ])}
+      />
+    );
+    expect(screen.getByTestId('utility-pipeline-run-summary').textContent).toBe('1 of 2 steps ran');
+  });
+
+  it('closes opened outputs when a new run arrives', async () => {
+    const user = userEvent.setup();
+    const first = [{ stepId: 'a', utilityId: 'url-encode', status: 'ok', output: 'x', durationMs: 1 }];
+    const { rerender } = render(<UtilityPipelineResults {...props} runState={settled(first)} />);
+    await user.click(screen.getByTestId('utility-pipeline-result-toggle'));
+    expect(screen.getByTestId('utility-pipeline-result-toggle').getAttribute('aria-expanded')).toBe('true');
+    rerender(<UtilityPipelineResults {...props} runState={settled([{ ...first[0]!, output: 'y' }])} />);
+    expect(screen.getByTestId('utility-pipeline-result-toggle').getAttribute('aria-expanded')).toBe('false');
+  });
 });

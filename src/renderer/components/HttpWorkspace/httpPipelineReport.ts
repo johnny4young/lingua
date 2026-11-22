@@ -74,8 +74,9 @@ export function readPipelineStep(
   if (shown && result) {
     const body = shown.source === 'body-json' ? parseJsonBodyOnce(response) : null;
     const answer = answerAssertion(response, body, shown, result);
-    // A token this step just captured is not a known secret yet, so the mask catches it here.
-    const secret = typeof answer.value === 'string' && secretCaptureValues(response, request.captures ?? [], secretKeys).includes(answer.value);
+    // A token this step just captured is not a known secret yet, so the mask catches it here, also inside an object.
+    const raw = typeof answer.value === 'string' ? answer.value : (JSON.stringify(answer.value) ?? '');
+    const secret = secretCaptureValues(response, request.captures ?? [], secretKeys).some(value => raw.includes(value));
     check = {
       expression: assertionExpression(shown),
       pass: result.pass,

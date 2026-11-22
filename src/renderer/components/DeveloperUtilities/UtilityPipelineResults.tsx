@@ -46,8 +46,10 @@ const TONE_TEXT = { error: 'text-value-error', warning: 'text-warning-fg' } as c
 /** `readLiteral` reads up to 20 000 characters; past that the head classifies the same. */
 const ANSWER_TEXT_MAX = 20_001;
 
+const EMPTY_IDS: ReadonlySet<string> = new Set();
+
 /** Statuses where the step's adapter actually ran. */
-const RAN = new Set<PipelineStepResult['status']>(['ok', 'error', 'timeout', 'incompatible']);
+const RAN = new Set<PipelineStepResult['status']>(['ok', 'error', 'timeout']);
 
 interface UtilityPipelineResultsProps {
   readonly runState: PipelineRunState;
@@ -66,9 +68,10 @@ export function UtilityPipelineResults({
 }: UtilityPipelineResultsProps) {
   const { t } = useTranslation();
   const asideRef = useRef<HTMLElement>(null);
-  // Rows whose full output (and, at a breakpoint, input) is open.
-  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
   const results = runState.stepResults;
+  // Rows whose full output (and, at a breakpoint, input) is open, for these results only: a new run closes them.
+  const [openedFor, setOpenedFor] = useState<{ results: readonly PipelineStepResult[]; ids: ReadonlySet<string> }>(() => ({ results, ids: new Set() }));
+  const opened = openedFor.results === results ? openedFor.ids : EMPTY_IDS;
   const firstPaused = results.findIndex((result) => result.status === 'paused');
   const paused = firstPaused !== -1;
   const breakpointStepId = results.find((result) => typeof result.input === 'string')?.stepId;
@@ -81,13 +84,12 @@ export function UtilityPipelineResults({
   const next = lastOutput ? suggestedNext(lastOutput) : null;
   // These controls unmount when the run starts, so keyboard focus moves to their region first.
   const keepFocus = () => asideRef.current?.focus();
-  const toggle = (stepId: string, open: boolean) =>
-    setOpened((current) => {
-      const nextSet = new Set(current);
-      if (open) nextSet.add(stepId);
-      else nextSet.delete(stepId);
-      return nextSet;
-    });
+  const toggle = (stepId: string, open: boolean) => {
+    const ids = new Set(opened);
+    if (open) ids.add(stepId);
+    else ids.delete(stepId);
+    setOpenedFor({ results, ids });
+  };
 
   return (
     <aside

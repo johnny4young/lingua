@@ -158,7 +158,7 @@ export function HttpPipelineStepRow({
           <span className="pipeline-step-path" title={name ? `${name} · ${request?.url ?? ''}` : request?.url}>
             {path ? (
               splitVariableTokens(path).map((piece, position) =>
-                piece.key === undefined ? <Fragment key={position}>{piece.text}</Fragment> : token(piece.key)
+                <Fragment key={position}>{piece.key === undefined ? piece.text : token(piece.key)}</Fragment>
               )
             ) : (
               name || t('httpWorkspace.requestList.rename.placeholder')
@@ -207,8 +207,8 @@ export function HttpPipelineStepRow({
               </span>
             ) : null}
             {report?.snapshotChanged ? <span className="text-value-error">{t('httpWorkspace.pipeline.snapshotChanged')}</span> : null}
-            {captures.map(capture => (
-              <span key={capture.variable} data-testid="http-pipeline-step-capture" className="flex min-w-0 items-center gap-2 font-mono">
+            {captures.map((capture, position) => (
+              <span key={position} data-testid="http-pipeline-step-capture" className="flex min-w-0 items-center gap-2 font-mono">
                 <TypeTag className={check ? 'ml-2.5' : undefined}>{t('httpWorkspace.pipeline.captures')}</TypeTag>
                 <VariableToken name={capture.variable} chained />
                 <span className="pipeline-step-from">← {capture.from}</span>

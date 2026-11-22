@@ -12,7 +12,7 @@ import {
 import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import '../../i18n/httpBuilderCatalog';
-import { formatRunDuration } from '../../utils/timeLabels';
+import { formatWholeDuration } from '../../utils/latencyScale';
 import { OverlayBackdrop } from '../ui/chrome';
 import { TypeTag } from '../ui/answer';
 import { ResultHeader } from '../ui/ResultHeader';
@@ -42,6 +42,8 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
   const isRunning = run?.phase === 'running';
   // A run belongs to the pipeline that started it; another selection reads as not run.
   const shownRun = run && active && run.pipelineId === active.id ? run : null;
+  // The runner holds the pipeline it started, so edits to it mid-run would not apply.
+  const runningHere = shownRun?.phase === 'running';
   const summary = useMemo(
     () => (shownRun && active ? summarizePipelineRun(active, shownRun) : null),
     [shownRun, active]
@@ -88,7 +90,7 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
   const halt = summary?.halt;
   const meta = summary
     ? [
-        summary.segments.length > 0 ? formatRunDuration(summary.totalMs) : null,
+        summary.segments.length > 0 ? formatWholeDuration(summary.totalMs) : null,
         halt ? t(`httpWorkspace.pipeline.${halt.key}`, { index: halt.index }) : null,
       ]
         .filter(Boolean)
@@ -277,6 +279,7 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
                     type="button"
                     role="switch"
                     aria-checked={active.stopOnFailure}
+                    disabled={runningHere}
                     onClick={() =>
                       store().updateHttpPipeline(active.id, {
                         stopOnFailure: !active.stopOnFailure,
@@ -334,7 +337,7 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
                     <span aria-hidden>{t('httpWorkspace.pipeline.addStep')}</span>
                     <select
                       value=""
-                      disabled={active.steps.length >= HTTP_PIPELINE_MAX_STEPS}
+                      disabled={runningHere || active.steps.length >= HTTP_PIPELINE_MAX_STEPS}
                       onChange={event => {
                         const requestId = event.target.value;
                         if (!requestId) return;

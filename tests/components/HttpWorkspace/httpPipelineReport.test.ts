@@ -81,7 +81,7 @@ describe('readPipelineStep', () => {
           capture('c3', 'body-json', 'jwt', 'session'),
         ],
       }),
-      response({ body: JSON.stringify({ id: 'dep_1234', token: 'tok_live_9f8e7d', jwt }) }),
+      response({ body: JSON.stringify({ id: 'dep_1234', token: 'fake-token-value', jwt }) }),
       new Set(['deployId'])
     );
     expect(step.report.captures).toEqual([
@@ -115,10 +115,19 @@ describe('readPipelineStep', () => {
         captures: [capture('c', 'body-json', 'token', 'accessToken')],
         assertions: [{ id: 'a', source: 'body-json', path: 'token', comparator: 'equals', expected: 'x', enabled: true }],
       }),
-      response({ body: JSON.stringify({ token: 'tok_live_9f8e7d6c' }) }),
+      response({ body: JSON.stringify({ token: 'fake-token-for-tests' }) }),
       new Set()
     );
     expect(step.report.check?.received).toBe('••••••');
+    const inside = readPipelineStep(
+      request({
+        captures: [capture('c', 'body-json', 'auth.token', 'accessToken')],
+        assertions: [{ id: 'a', source: 'body-json', path: 'auth', comparator: 'not-exists', expected: '', enabled: true }],
+      }),
+      response({ body: JSON.stringify({ auth: { token: 'fake-token-for-tests' } }) }),
+      new Set()
+    );
+    expect(inside.report.check?.received).toBe('••••••');
     expect(step.report.captures).toEqual([{ variable: 'accessToken', from: 'body.token' }]);
   });
 
