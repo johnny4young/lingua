@@ -1,19 +1,7 @@
-/** Accessible editor and live status surface for bounded HTTP pipelines. */
+/** Bounded HTTP pipelines, read as a run: a result header over each step's answer. */
 
-import {
-  ArrowDown,
-  ArrowUp,
-  Copy,
-  GitBranch,
-  Loader2,
-  Play,
-  Plus,
-  Square,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { ChevronLeft, Copy, Play, Plus, Square, Trash2 } from 'lucide-react';
 import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { OverlayBackdrop } from '../ui/chrome';
 import { useTranslation } from 'react-i18next';
 import {
   HTTP_PIPELINE_MAX_STEPS,
@@ -23,6 +11,14 @@ import {
 } from '../../../shared/httpPipeline';
 import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
+import '../../i18n/httpBuilderCatalog';
+import { formatWholeDuration } from '../../utils/latencyScale';
+import { OverlayBackdrop } from '../ui/chrome';
+import { TypeTag } from '../ui/answer';
+import { ResultHeader } from '../ui/ResultHeader';
+import { enabledCaptures, summarizePipelineRun } from './httpPipelineReport';
+import { HttpPipelineStepRow } from './HttpPipelineStepRow';
+import '../ui/pipelineRun.css';
 
 interface HttpPipelineManagerProps {
   readonly onClose: () => void;
@@ -31,25 +27,41 @@ interface HttpPipelineManagerProps {
   readonly onStop: () => void;
 }
 
-export function HttpPipelineManager({
-  onClose,
-  run,
-  onRun,
-  onStop,
-}: HttpPipelineManagerProps) {
+const SEGMENT_TONES = ['var(--color-fg-subtle)', 'var(--color-fg-muted)'] as const;
+
+export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelineManagerProps) {
   const { t } = useTranslation();
-  const pipelines = useWorkspaceToolStore((state) => state.httpPipelines);
-  const activeId = useWorkspaceToolStore((state) => state.activeHttpPipelineId);
-  const requests = useWorkspaceToolStore((state) => state.requests);
+  const pipelines = useWorkspaceToolStore(state => state.httpPipelines);
+  const activeId = useWorkspaceToolStore(state => state.activeHttpPipelineId);
+  const requests = useWorkspaceToolStore(state => state.requests);
   const active = useMemo(
-    () => pipelines.find((pipeline) => pipeline.id === activeId),
+    () => pipelines.find(pipeline => pipeline.id === activeId),
     [pipelines, activeId]
   );
   const store = useWorkspaceToolStore.getState;
   const isRunning = run?.phase === 'running';
+  // A run belongs to the pipeline that started it; another selection reads as not run.
+  const shownRun = run && active && run.pipelineId === active.id ? run : null;
+  // The runner holds the pipeline it started, so edits to it mid-run would not apply.
+  const runningHere = shownRun?.phase === 'running';
+  const summary = useMemo(
+    () => (shownRun && active ? summarizePipelineRun(active, shownRun) : null),
+    [shownRun, active]
+  );
+  // Each step's request, and what it can use from the steps before it: the variables they capture.
+  const stepRows = useMemo(() => {
+    const byId = new Map(requests.map(request => [request.id, request]));
+    const seen = new Set<string>();
+    return (active?.steps ?? []).map(step => {
+      const request = byId.get(step.requestId);
+      const captured: ReadonlySet<string> = new Set(seen);
+      if (step.enabled) for (const rule of enabledCaptures(request)) seen.add(rule.targetVariable.trim());
+      return { step, request, captured };
+    });
+  }, [active, requests]);
   const resultByStep = useMemo(
-    () => new Map(run?.results.map((result) => [result.stepId, result]) ?? []),
-    [run]
+    () => new Map(shownRun?.results.map(result => [result.stepId, result]) ?? []),
+    [shownRun]
   );
 
   const create = (): void => {
@@ -75,6 +87,16 @@ export function HttpPipelineManager({
     onClose();
   };
 
+  const halt = summary?.halt;
+  const meta = summary
+    ? [
+        summary.segments.length > 0 ? formatWholeDuration(summary.totalMs) : null,
+        halt ? t(`httpWorkspace.pipeline.${halt.key}`, { index: halt.index }) : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+
   return (
     <OverlayBackdrop portal onKeyDown={handleEscape}>
       <div
@@ -82,63 +104,130 @@ export function HttpPipelineManager({
         aria-modal="true"
         aria-labelledby="http-pipeline-title"
         data-testid="http-pipeline-manager"
-        className="flex h-[min(88vh,760px)] min-h-0 w-[min(96vw,1100px)] overflow-hidden rounded-xl border border-border-strong bg-bg-base shadow-e3"
+        className="flex h-[min(88vh,760px)] min-h-0 w-[min(96vw,1100px)] flex-col overflow-hidden rounded-xl border border-border-strong bg-bg-base shadow-e3"
       >
-        <aside className="flex w-56 shrink-0 flex-col border-r border-border-subtle bg-bg-panel">
-          <header className="flex items-center justify-between border-b border-border-subtle px-3 py-2.5">
-            <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
-              {t('httpWorkspace.pipeline.library')}
-            </span>
-            <button
-              type="button"
-              onClick={create}
-              aria-label={t('httpWorkspace.pipeline.create')}
-              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-subtle"
-            >
-              <Plus size={13} aria-hidden="true" />
-            </button>
-          </header>
-          <div className="flex-1 overflow-y-auto p-1.5">
-            {pipelines.length === 0 ? (
-              <p className="px-2 py-3 text-body-sm text-fg-subtle">
-                {t('httpWorkspace.pipeline.empty')}
-              </p>
-            ) : null}
-            {pipelines.map((pipeline) => (
+        <header className="pipeline-titlebar">
+          <h2 id="http-pipeline-title" className="shrink-0 text-body-sm text-fg-subtle">
+            {t('httpWorkspace.pipeline.library')}
+          </h2>
+          {active ? (
+            <>
+              <span aria-hidden className="text-fg-subtle opacity-50">
+                /
+              </span>
+              <input
+                value={active.name}
+                onChange={event =>
+                  store().updateHttpPipeline(active.id, { name: event.target.value })
+                }
+                aria-label={t('httpWorkspace.pipeline.name')}
+                className="focus-ring h-7 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-body-sm font-medium text-fg-base hover:border-border-subtle focus:border-border-strong"
+              />
               <button
-                key={pipeline.id}
                 type="button"
-                onClick={() => store().setActiveHttpPipeline(pipeline.id)}
-                data-active={pipeline.id === activeId}
-                className="focus-ring mb-1 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-body-sm data-[active=true]:bg-bg-inset"
+                onClick={() =>
+                  store().duplicateHttpPipeline(
+                    active.id,
+                    crypto.randomUUID(),
+                    t('httpWorkspace.pipeline.copySuffix')
+                  )
+                }
+                aria-label={t('httpWorkspace.pipeline.duplicate')}
+                title={t('httpWorkspace.pipeline.duplicate')}
+                className="pipeline-titlebar-icon focus-ring"
               >
-                <GitBranch size={13} aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{pipeline.name}</span>
-                <span className="text-caption text-fg-subtle">{pipeline.steps.length}</span>
+                <Copy size={13} aria-hidden="true" />
               </button>
-            ))}
-          </div>
-        </aside>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(t('httpWorkspace.pipeline.deleteConfirm')))
+                    store().deleteHttpPipeline(active.id);
+                }}
+                aria-label={t('httpWorkspace.pipeline.delete')}
+                title={t('httpWorkspace.pipeline.delete')}
+                className="pipeline-titlebar-icon focus-ring"
+                data-tone="danger"
+              >
+                <Trash2 size={13} aria-hidden="true" />
+              </button>
+              {isRunning ? (
+                <button
+                  type="button"
+                  onClick={onStop}
+                  data-testid="http-pipeline-stop"
+                  className="button-secondary pipeline-verb"
+                >
+                  <Square size={12} aria-hidden="true" />
+                  <span className="pipeline-verb-label">{t('httpWorkspace.pipeline.stop')}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onRun(active)}
+                  disabled={!active.steps.some(step => step.enabled)}
+                  data-testid="http-pipeline-run"
+                  className="button-primary pipeline-verb"
+                >
+                  <Play size={12} aria-hidden="true" fill="currentColor" />
+                  <span className="pipeline-verb-label">{t('httpWorkspace.pipeline.run')}</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <span className="flex-1" />
+          )}
+        </header>
 
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
-            <h2 id="http-pipeline-title" className="panel-title flex-1">
-              {t('httpWorkspace.pipeline.title')}
-            </h2>
+        <div className="pipeline-body">
+          <aside className="pipeline-library">
+            <div className="flex items-center justify-between px-3 pb-1.5">
+              <TypeTag>{t('httpWorkspace.pipeline.library')}</TypeTag>
+              <button
+                type="button"
+                onClick={create}
+                aria-label={t('httpWorkspace.pipeline.create')}
+                title={t('httpWorkspace.pipeline.create')}
+                className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-subtle hover:bg-bg-inset hover:text-fg-base"
+              >
+                <Plus size={13} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {pipelines.length === 0 ? (
+                <p className="px-3 py-2 text-body-sm text-fg-subtle">
+                  {t('httpWorkspace.pipeline.empty')}
+                </p>
+              ) : null}
+              {pipelines.map(pipeline => (
+                <button
+                  key={pipeline.id}
+                  type="button"
+                  onClick={() => store().setActiveHttpPipeline(pipeline.id)}
+                  aria-current={pipeline.id === activeId ? 'true' : undefined}
+                  className="pipeline-library-item focus-ring"
+                >
+                  <span className="min-w-0 flex-1 truncate">{pipeline.name}</span>
+                  <span className="font-mono text-caption tabular-nums text-fg-subtle">
+                    {pipeline.steps.length}
+                  </span>
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               onClick={onClose}
-              aria-label={t('httpWorkspace.environment.manager.close')}
-              className="focus-ring inline-flex h-7 w-7 items-center justify-center rounded-md"
+              data-testid="http-pipeline-back"
+              className="pipeline-library-item focus-ring"
             >
-              <X size={15} aria-hidden="true" />
+              <ChevronLeft size={12} aria-hidden="true" />
+              {t('httpWorkspace.pipeline.back')}
             </button>
-          </header>
+          </aside>
 
           {!active ? (
             <div className="grid flex-1 place-items-center p-16 text-center">
               <div>
-                <GitBranch className="mx-auto mb-3 text-fg-subtle" aria-hidden="true" />
                 <p className="text-body text-fg-muted">{t('httpWorkspace.pipeline.empty')}</p>
                 <button type="button" onClick={create} className="button-primary mt-4">
                   {t('httpWorkspace.pipeline.create')}
@@ -146,201 +235,137 @@ export function HttpPipelineManager({
               </div>
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  value={active.name}
-                  onChange={(event) =>
-                    store().updateHttpPipeline(active.id, { name: event.target.value })
-                  }
-                  aria-label={t('httpWorkspace.pipeline.name')}
-                  className="h-8 min-w-[220px] flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 text-body text-fg-base"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    store().duplicateHttpPipeline(
-                      active.id,
-                      crypto.randomUUID(),
-                      t('httpWorkspace.pipeline.copySuffix')
-                    )
-                  }
-                  aria-label={t('httpWorkspace.pipeline.duplicate')}
-                  className="button-secondary h-8 px-2"
-                >
-                  <Copy size={13} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm(t('httpWorkspace.pipeline.deleteConfirm'))) {
-                      store().deleteHttpPipeline(active.id);
+            <section className="flex min-w-0 flex-1 flex-col">
+              <ResultHeader
+                workspace="pipe"
+                numeral={
+                  summary
+                    ? {
+                        value: summary.passed,
+                        unit: t('httpWorkspace.pipeline.passedOf', { count: summary.total }),
+                        attributes: {
+                          'data-testid': 'http-pipeline-passed',
+                          'data-phase': shownRun?.phase,
+                        },
+                      }
+                    : undefined
+                }
+                status={
+                  summary ? undefined : (
+                    <span className="text-body-sm text-fg-muted">
+                      {t('httpWorkspace.pipeline.ready')}
+                    </span>
+                  )
+                }
+                meta={meta || undefined}
+                phases={
+                  summary && summary.segments.length > 0
+                    ? {
+                        segments: summary.segments.map((segment, index) => ({
+                          key: segment.key,
+                          ms: segment.ms,
+                          color: segment.failed
+                            ? 'var(--color-value-error)'
+                            : SEGMENT_TONES[index % 2]!,
+                        })),
+                        label: meta,
+                        testId: 'http-pipeline-phases',
+                        hideLabel: true,
+                      }
+                    : undefined
+                }
+                trailing={
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={active.stopOnFailure}
+                    disabled={runningHere}
+                    onClick={() =>
+                      store().updateHttpPipeline(active.id, {
+                        stopOnFailure: !active.stopOnFailure,
+                      })
                     }
-                  }}
-                  aria-label={t('httpWorkspace.pipeline.delete')}
-                  className="button-secondary h-8 px-2 text-error-fg"
-                >
-                  <Trash2 size={13} aria-hidden="true" />
-                </button>
-              </div>
-
-              <label className="flex items-center gap-2 text-body-sm text-fg-muted">
-                <input
-                  type="checkbox"
-                  checked={active.stopOnFailure}
-                  onChange={(event) =>
-                    store().updateHttpPipeline(active.id, {
-                      stopOnFailure: event.target.checked,
-                    })
-                  }
-                />
-                {t('httpWorkspace.pipeline.stopOnFailure')}
-              </label>
-
-              <div className="rounded-lg border border-border-subtle bg-bg-panel">
-                <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
-                  <span className="text-caption font-semibold text-fg-base">
-                    {t('httpWorkspace.pipeline.steps')}
-                  </span>
-                  <select
-                    value=""
-                    disabled={active.steps.length >= HTTP_PIPELINE_MAX_STEPS}
-                    onChange={(event) => {
-                      const requestId = event.target.value;
-                      if (!requestId) return;
-                      updateSteps([
-                        ...active.steps,
-                        { id: crypto.randomUUID(), requestId, enabled: true },
-                      ]);
-                    }}
-                    aria-label={t('httpWorkspace.pipeline.addStep')}
-                    className="h-7 rounded-md border border-border-subtle bg-bg-inset px-2 text-caption"
+                    title={t('httpWorkspace.pipeline.stopOnFailure')}
+                    data-testid="http-pipeline-stop-on-failure"
+                    className="pipeline-switch focus-ring flex items-center gap-2 rounded-md px-1 py-0.5 text-body-sm text-fg-muted"
                   >
-                    <option value="">{t('httpWorkspace.pipeline.addStep')}</option>
-                    {requests
-                      .filter((request) => (request.transport ?? 'http') === 'http')
-                      .map((request) => (
-                        <option key={request.id} value={request.id}>
-                          {requestLabel(request)}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <ol className="divide-y divide-border-subtle">
+                    <span className="switch-track" aria-hidden />
+                    {t('httpWorkspace.pipeline.stopAfterFailure')}
+                  </button>
+                }
+              />
+              <p role="status" aria-live="polite" className="sr-only">
+                {shownRun ? t(`httpWorkspace.pipeline.phase.${shownRun.phase}`) : ''}
+              </p>
+
+              <div className="@container min-h-0 flex-1 overflow-y-auto">
+                <ol data-testid="http-pipeline-steps">
                   {active.steps.length === 0 ? (
-                    <li className="px-3 py-5 text-center text-body-sm text-fg-subtle">
+                    <li className="px-5 py-6 text-center text-body-sm text-fg-subtle">
                       {t('httpWorkspace.pipeline.noSteps')}
                     </li>
                   ) : null}
-                  {active.steps.map((step, index) => {
-                    const request = requests.find((entry) => entry.id === step.requestId);
-                    const result = resultByStep.get(step.id);
-                    const running = run?.activeStepId === step.id && isRunning;
-                    return (
-                      <li key={step.id} className="flex items-center gap-2 px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={step.enabled}
-                          onChange={(event) =>
-                            updateSteps(
-                              active.steps.map((entry) =>
-                                entry.id === step.id
-                                  ? { ...entry, enabled: event.target.checked }
-                                  : entry
-                              )
-                            )
-                          }
-                          aria-label={t('httpWorkspace.pipeline.enableStep', {
-                            index: index + 1,
-                          })}
-                        />
-                        <span className="w-5 text-right font-mono text-caption text-fg-subtle">
-                          {index + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-body-sm text-fg-base">
-                          {requestLabel(request)}
-                        </span>
-                        {running ? <Loader2 size={13} className="animate-spin" /> : null}
-                        {result ? (
-                          <span
-                            className={
-                              result.status === 'passed'
-                                ? 'text-caption text-success-fg'
-                                : result.status === 'failed'
-                                  ? 'text-caption text-error-fg'
-                                  : 'text-caption text-fg-subtle'
-                            }
-                          >
-                            {t(`httpWorkspace.pipeline.status.${result.status}`)}
-                          </span>
-                        ) : null}
-                        <button
-                          type="button"
-                          disabled={index === 0 || isRunning}
-                          onClick={() => {
-                            const next = active.steps.slice();
-                            [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
-                            updateSteps(next);
-                          }}
-                          aria-label={t('httpWorkspace.pipeline.moveUp')}
-                          className="focus-ring p-1 disabled:opacity-40"
-                        >
-                          <ArrowUp size={12} aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={index === active.steps.length - 1 || isRunning}
-                          onClick={() => {
-                            const next = active.steps.slice();
-                            [next[index], next[index + 1]] = [next[index + 1]!, next[index]!];
-                            updateSteps(next);
-                          }}
-                          aria-label={t('httpWorkspace.pipeline.moveDown')}
-                          className="focus-ring p-1 disabled:opacity-40"
-                        >
-                          <ArrowDown size={12} aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isRunning}
-                          onClick={() =>
-                            updateSteps(active.steps.filter((entry) => entry.id !== step.id))
-                          }
-                          aria-label={t('httpWorkspace.pipeline.removeStep')}
-                          className="focus-ring p-1 text-error-fg disabled:opacity-40"
-                        >
-                          <Trash2 size={12} aria-hidden="true" />
-                        </button>
-                      </li>
-                    );
-                  })}
+                  {stepRows.map(({ step, request, captured }, index) => (
+                    <HttpPipelineStepRow
+                      key={step.id}
+                      index={index}
+                      count={active.steps.length}
+                      enabled={step.enabled}
+                      request={request}
+                      result={resultByStep.get(step.id)}
+                      running={isRunning && shownRun?.activeStepId === step.id}
+                      stoppedAt={halt?.key === 'stoppedAt' ? halt.index : null}
+                      maxMs={summary?.maxMs ?? 0}
+                      locked={isRunning}
+                      captured={captured}
+                      onToggle={enabled =>
+                        updateSteps(active.steps.map(entry => (entry.id === step.id ? { ...entry, enabled } : entry)))
+                      }
+                      onMove={offset => {
+                        const next = active.steps.slice();
+                        const target = index + offset;
+                        [next[index], next[target]] = [next[target]!, next[index]!];
+                        updateSteps(next);
+                      }}
+                      onRemove={() => updateSteps(active.steps.filter(entry => entry.id !== step.id))}
+                    />
+                  ))}
                 </ol>
+                <div className="pipeline-footer">
+                  <label className="pipeline-add">
+                    <Plus size={13} aria-hidden="true" />
+                    <span aria-hidden>{t('httpWorkspace.pipeline.addStep')}</span>
+                    <select
+                      value=""
+                      disabled={runningHere || active.steps.length >= HTTP_PIPELINE_MAX_STEPS}
+                      onChange={event => {
+                        const requestId = event.target.value;
+                        if (!requestId) return;
+                        updateSteps([
+                          ...active.steps,
+                          { id: crypto.randomUUID(), requestId, enabled: true },
+                        ]);
+                      }}
+                      aria-label={t('httpWorkspace.pipeline.addStep')}
+                      data-testid="http-pipeline-add-step"
+                      className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                    >
+                      <option value="">{t('httpWorkspace.pipeline.addStep')}</option>
+                      {requests
+                        .filter(request => (request.transport ?? 'http') === 'http')
+                        .map(request => (
+                          <option key={request.id} value={request.id}>
+                            {requestLabel(request)}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <span>{t('httpWorkspace.pipeline.footer')}</span>
+                </div>
               </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <p role="status" aria-live="polite" className="text-body-sm text-fg-muted">
-                  {run ? t(`httpWorkspace.pipeline.phase.${run.phase}`) : t('httpWorkspace.pipeline.ready')}
-                </p>
-                {isRunning ? (
-                  <button type="button" onClick={onStop} className="button-secondary">
-                    <Square size={13} aria-hidden="true" />
-                    {t('httpWorkspace.pipeline.stop')}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onRun(active)}
-                    disabled={!active.steps.some((step) => step.enabled)}
-                    className="button-primary"
-                  >
-                    <Play size={13} aria-hidden="true" />
-                    {t('httpWorkspace.pipeline.run')}
-                  </button>
-                )}
-              </div>
-            </div>
+            </section>
           )}
-        </section>
+        </div>
       </div>
     </OverlayBackdrop>
   );

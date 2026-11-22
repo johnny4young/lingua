@@ -26,6 +26,9 @@ type HttpPipelineStepStatus =
   | 'failed'
   | 'skipped';
 
+/** Why a step has no response: the runner's closed vocabulary, read by the step row. */
+type HttpPipelineStepMessage = 'missing-request' | 'live-transport' | 'no-response' | 'cancelled' | 'stopped-on-failure';
+
 export interface HttpPipelineStepResult {
   readonly stepId: string;
   readonly requestId: string;
@@ -33,7 +36,35 @@ export interface HttpPipelineStepResult {
   readonly responseKind?: string;
   readonly httpStatus?: number;
   readonly assertionFailures?: number;
-  readonly message?: string;
+  readonly message?: HttpPipelineStepMessage;
+  /** What a run read off the response; set only where the response arrived. */
+  readonly report?: HttpPipelineStepReport;
+}
+
+/** One value a step wrote into a variable; `value` is absent when it looks secret. */
+export interface HttpPipelineCapture {
+  readonly variable: string;
+  /** Where it came from, written as code: `body.id`, `header etag`, `status`. */
+  readonly from: string;
+  readonly value?: string;
+}
+
+/** The check a step row reads out: the first failing assertion, else the first one. */
+interface HttpPipelineCheck {
+  readonly expression: string;
+  readonly pass: boolean;
+  /** The value the response gave, as a literal; absent when it had none. */
+  readonly received?: string;
+  /** Enabled assertions on the step, this one included. */
+  readonly count: number;
+}
+
+export interface HttpPipelineStepReport {
+  readonly durationMs: number;
+  readonly statusText: string;
+  readonly captures: ReadonlyArray<HttpPipelineCapture>;
+  readonly check?: HttpPipelineCheck;
+  readonly snapshotChanged?: boolean;
 }
 
 export interface HttpPipelineRunSnapshot {

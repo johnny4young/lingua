@@ -445,7 +445,8 @@ export async function runPipeline(
       const held: PipelineStepResult = {
         stepId: step.id,
         utilityId: step.utilityId,
-        status: upstreamFailed ? 'skipped' : paused ? 'paused' : 'disabled',
+        // A step that is off passes its input through whether or not a breakpoint held the run.
+        status: upstreamFailed ? 'skipped' : step.disabled === true ? 'disabled' : 'paused',
         durationMs: 0,
       };
       results.push(held);

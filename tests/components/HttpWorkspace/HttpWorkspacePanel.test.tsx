@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpWorkspacePanel } from '../../../src/renderer/components/HttpWorkspace';
@@ -214,6 +214,13 @@ describe('HttpWorkspacePanel', () => {
     await waitFor(() => expect(executeHttpRequestMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByText('Skipped')).not.toBeNull());
     expect(screen.getByText('Pipeline finished with failures.')).not.toBeNull();
+    expect(screen.getByTestId('http-pipeline-passed').textContent).toBe('1of 3 passed');
+    expect(within(screen.getByTestId('http-pipeline-manager')).getByTestId('result-header').textContent).toContain('stopped at step 2');
+    const numerals = screen.getAllByTestId('http-pipeline-step-numeral');
+    expect(numerals.map((numeral) => [numeral.textContent, numeral.getAttribute('data-tone')])).toEqual([
+      ['200ok', 'neutral'],
+      ['500error', 'error'],
+    ]);
   });
 
   it('lays out request list, editor, and response as columns', () => {
@@ -1442,6 +1449,7 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
     await user.click(screen.getByRole('button', { name: 'Run pipeline' }));
     await waitFor(() => expect(screen.getByText('Pipeline finished with failures.')).not.toBeNull());
     expect(executeHttpRequestMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('snapshot changed')).not.toBeNull();
   });
 });
 

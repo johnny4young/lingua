@@ -963,3 +963,89 @@ describe('UtilityPipelinePanel', () => {
     ).toBe(true);
   });
 });
+
+describe('UtilityPipelineResults, read as a run', () => {
+  const props = { canSaveCapsule: false, onSaveCapsule: vi.fn(), onSendOutput: vi.fn(), onContinue: vi.fn() };
+  const settled = (stepResults: unknown[]) => ({ phase: 'settled', stepResults }) as unknown as PipelineRunState;
+  const decoded = '{"sub":"user_42","role":"admin"}';
+  const paused = [
+    { stepId: 'a', utilityId: 'base64-decode', status: 'ok', output: decoded, durationMs: 1 },
+    { stepId: 'b', utilityId: 'json-format', status: 'ok', output: decoded, input: decoded, durationMs: 1 },
+    { stepId: 'c', utilityId: 'hash', status: 'paused', durationMs: 0 },
+    { stepId: 'd', utilityId: 'url-decode', status: 'paused', durationMs: 0 },
+    { stepId: 'e', utilityId: 'base64-encode', status: 'disabled', durationMs: 0 },
+  ];
+  const rows = () => screen.getAllByTestId('utility-pipeline-result-row');
+
+  it('holds the breakpoint inline: marker on the step that stopped, Continue on the first held step', async () => {
+    const user = userEvent.setup();
+    const onContinue = vi.fn();
+    render(<UtilityPipelineResults {...props} onContinue={onContinue} runState={settled(paused)} />);
+    const [, stopped, held, later, off] = rows();
+    expect(stopped!.querySelector('[data-testid="utility-pipeline-result-breakpoint"]')?.getAttribute('aria-label')).toBe('Breakpoint');
+    expect(held!.textContent).toContain('pausedWaiting at the breakpoint.Continue');
+    expect(held!.hasAttribute('data-dim')).toBe(false);
+    expect(later!.hasAttribute('data-dim')).toBe(true);
+    expect(later!.textContent).not.toContain('Waiting');
+    expect(off!.textContent).toContain('DisabledDisabled: its input passes through.');
+    expect(screen.getAllByTestId('utility-pipeline-continue')).toHaveLength(1);
+    await user.click(screen.getByTestId('utility-pipeline-continue'));
+    expect(onContinue).toHaveBeenCalledWith('b');
+    expect(screen.getByTestId('utility-pipeline-run-summary').textContent).toBe('2 of 5 steps ran · paused at step 3');
+  });
+
+  it('reads each output as an answer and opens the full output, with the breakpoint input, on demand', async () => {
+    const user = userEvent.setup();
+    render(<UtilityPipelineResults {...props} runState={settled(paused)} />);
+    expect(screen.getAllByTestId('utility-pipeline-result-answer')).toHaveLength(2);
+    const toggles = screen.getAllByTestId('utility-pipeline-result-toggle');
+    expect(toggles[1]!.getAttribute('aria-label')).toBe('Show the full output of step 2');
+    const detail = document.getElementById(toggles[1]!.getAttribute('aria-controls')!)!;
+    expect(detail.hidden).toBe(true);
+    await user.click(toggles[1]!);
+    expect(toggles[1]!.getAttribute('aria-expanded')).toBe('true');
+    expect(detail.hidden).toBe(false);
+    expect(detail.querySelector('[data-testid="utility-pipeline-result-input"]')?.textContent).toBe(decoded);
+    await user.click(toggles[1]!);
+    expect(detail.hidden).toBe(true);
+  });
+
+  it('tags a failure with its status and message, and counts a finished run without a pause', () => {
+    render(
+      <UtilityPipelineResults
+        {...props}
+        runState={settled([
+          { stepId: 'a', utilityId: 'jwt-decode', status: 'error', errorMessage: 'Not a JWT', durationMs: 1 },
+          { stepId: 'b', utilityId: 'json-format', status: 'skipped', durationMs: 0 },
+        ])}
+      />
+    );
+    expect(screen.getByTestId('utility-pipeline-result-error').textContent).toBe('Not a JWT');
+    expect(rows()[0]!.textContent).toContain('Error');
+    expect(rows()[1]!.hasAttribute('data-dim')).toBe(true);
+    expect(screen.getByTestId('utility-pipeline-run-summary').textContent).toBe('1 of 2 steps ran');
+  });
+
+  it('counts an incompatible step as not run, since its adapter never starts', () => {
+    render(
+      <UtilityPipelineResults
+        {...props}
+        runState={settled([
+          { stepId: 'a', utilityId: 'url-encode', status: 'ok', output: 'x', durationMs: 1 },
+          { stepId: 'b', utilityId: 'json-format', status: 'incompatible', durationMs: 0 },
+        ])}
+      />
+    );
+    expect(screen.getByTestId('utility-pipeline-run-summary').textContent).toBe('1 of 2 steps ran');
+  });
+
+  it('closes opened outputs when a new run arrives', async () => {
+    const user = userEvent.setup();
+    const first = [{ stepId: 'a', utilityId: 'url-encode', status: 'ok', output: 'x', durationMs: 1 }];
+    const { rerender } = render(<UtilityPipelineResults {...props} runState={settled(first)} />);
+    await user.click(screen.getByTestId('utility-pipeline-result-toggle'));
+    expect(screen.getByTestId('utility-pipeline-result-toggle').getAttribute('aria-expanded')).toBe('true');
+    rerender(<UtilityPipelineResults {...props} runState={settled([{ ...first[0]!, output: 'y' }])} />);
+    expect(screen.getByTestId('utility-pipeline-result-toggle').getAttribute('aria-expanded')).toBe('false');
+  });
+});

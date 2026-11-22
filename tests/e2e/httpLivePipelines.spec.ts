@@ -114,7 +114,7 @@ test('shows live transports, the browser safety boundary, and pipelines in Engli
   await page.getByRole('combobox', { name: 'Add request' }).selectOption({
     label: 'Health check',
   });
-  await expect(page.getByTestId('http-pipeline-manager')).toContainText('Health check');
+  await expect(page.getByTestId('http-pipeline-manager')).toContainText('/health');
 
   const pipelinePath = path.join(screenshotDir, 'http-pipeline-en.png');
   // Park the pointer and drop focus before capturing: Playwright leaves the

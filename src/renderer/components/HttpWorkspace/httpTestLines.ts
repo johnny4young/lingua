@@ -20,7 +20,15 @@ const OPERATOR: Record<HttpAssertionComparator, string> = {
 
 const NUMERIC = /^-?\d+(?:\.\d+)?$/;
 
-function subject(assertion: Pick<HttpAssertion, 'source' | 'path'>): string {
+/** How a literal's text reads: bare numbers, booleans and null, anything else a string. */
+export function literalKind(text: string): 'number' | 'boolean' | 'none' | 'string' {
+  if (NUMERIC.test(text)) return 'number';
+  if (text === 'true' || text === 'false') return 'boolean';
+  return text === 'null' ? 'none' : 'string';
+}
+
+/** Where a value is read from, written as code: `status`, `header etag`, `body.id`. */
+export function sourceExpression(assertion: Pick<HttpAssertion, 'source' | 'path'>): string {
   const path = assertion.path.trim();
   switch (assertion.source) {
     case 'status':
@@ -36,10 +44,10 @@ function subject(assertion: Pick<HttpAssertion, 'source' | 'path'>): string {
 
 /** The check as one line of code: `status == 200`, `duration < 300 ms`, `body.items[0].status == "healthy"`. */
 export function assertionExpression(assertion: Pick<HttpAssertion, 'source' | 'path' | 'comparator' | 'expected'>): string {
-  const head = `${subject(assertion)} ${OPERATOR[assertion.comparator]}`;
+  const head = `${sourceExpression(assertion)} ${OPERATOR[assertion.comparator]}`;
   if (assertion.comparator === 'exists' || assertion.comparator === 'not-exists') return head;
   const expected = assertion.expected.trim();
-  const shown = NUMERIC.test(expected) || expected === 'true' || expected === 'false' || expected === 'null' ? expected : JSON.stringify(expected);
+  const shown = literalKind(expected) === 'string' ? JSON.stringify(expected) : expected;
   return `${head} ${shown}${assertion.source === 'response-time' ? ' ms' : ''}`;
 }
 

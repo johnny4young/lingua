@@ -394,6 +394,13 @@ describe('step controls', () => {
     });
   });
 
+  it('keeps a disabled step disabled behind a breakpoint, so nothing is held back for it', async () => {
+    const steps = [step('a', 'url-encode', { breakpoint: true }), step('b', 'url-decode'), step('c', 'base64-encode', { disabled: true })];
+    expect((await summary(steps, 'a b')).results.map(([, state]) => state)).toEqual(['ok', 'paused', 'disabled']);
+    const tail = [step('a', 'url-encode', { breakpoint: true }), step('b', 'base64-encode', { disabled: true })];
+    expect((await summary(tail, 'a b')).results.map(([, state]) => state)).toEqual(['ok', 'disabled']);
+  });
+
   it('lets a failure win over a breakpoint', async () => {
     const steps = [step('a', 'url-decode', { breakpoint: true }), step('b', 'url-encode')];
     const { results, status } = await summary(steps, '%');

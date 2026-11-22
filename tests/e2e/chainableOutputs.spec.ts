@@ -59,7 +59,7 @@ for (const language of ['en', 'es'] as const) {
     await expect(page.getByTestId('utility-pipeline-result-input')).toHaveText('a b');
     await expect(page.getByTestId('utility-pipeline-result-output')).toHaveText('YSBi');
     await expect(page.getByTestId('pipeline-save-capsule')).toBeDisabled();
-    await expect(rows(page).first()).toContainText(language === 'en' ? 'its input passed through' : 'su entrada pasó tal cual');
+    await expect(rows(page).first()).toContainText(language === 'en' ? 'its input passes through' : 'su entrada pasa tal cual');
     await expect(rows(page).last()).toContainText(language === 'en' ? 'Waiting at the breakpoint' : 'Esperando en el punto de interrupción');
 
     await page.getByTestId('utility-pipeline-continue').click();

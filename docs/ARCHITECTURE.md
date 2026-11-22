@@ -2028,7 +2028,11 @@ They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
 active environment fresh for each step, and stop after transport, HTTP, assertion or snapshot
 failure unless the saved pipeline says to continue. SSE and WebSocket
 sessions are intentionally excluded because a long-lived connection has no
-deterministic next-step boundary.
+deterministic next-step boundary. Each settled step keeps a report in the run
+snapshot, in memory only: its time, status text, the first failing check (or
+the first check) with the value received, and the values it captured. A
+capture whose variable is a known secret, looks like a credential or holds a
+JSON Web Token keeps its name and source but never its value.
 
 
 **Open as JS tab** (`src/shared/httpJsTab.ts`)

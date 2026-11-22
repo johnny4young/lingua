@@ -16,13 +16,19 @@ export function toneForResponse(response: HttpResponseV1): StatusBadgeTone {
   return 'error';
 }
 
+/** The `httpWorkspace.response.kind.*` word for a failure with no status line, or undefined. */
+export function transportFailureWord(kind: string | undefined): 'network' | 'cors' | 'timeout' | undefined {
+  if (kind === 'network-error') return 'network';
+  if (kind === 'cors-error') return 'cors';
+  return kind === 'timeout' ? 'timeout' : undefined;
+}
+
 export function labelForResponse(
   response: HttpResponseV1,
   t: TFunction
 ): string {
-  if (response.kind === 'network-error') return t('httpWorkspace.response.kind.network');
-  if (response.kind === 'cors-error') return t('httpWorkspace.response.kind.cors');
-  if (response.kind === 'timeout') return t('httpWorkspace.response.kind.timeout');
+  const word = transportFailureWord(response.kind);
+  if (word) return t(`httpWorkspace.response.kind.${word}`);
   // Standard HTTP status renders as `200 OK`; fallback to just the
   // number when statusText is empty (rare but possible for some
   // proxies).
