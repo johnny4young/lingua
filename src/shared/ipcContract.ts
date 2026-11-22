@@ -663,6 +663,10 @@ interface IpcInvokeContract {
     args: [repoRoot: string, filePath: string];
     result: GitFileDiff;
   };
+  'git:changes': {
+    args: [repoRoot: string, folderPath: string];
+    result: import('./gitTypes').GitFolderChanges | null;
+  };
   'git:reveal': { args: [repoRoot: string]; result: boolean };
   'git:watch-head': { args: [repoRoot: string]; result: { ok: boolean } };
   'git:unwatch-head': { args: [repoRoot: string]; result: { ok: boolean } };
@@ -897,6 +901,7 @@ export const IPC_INVOKE_CHANNELS = [
   'git:detect',
   'git:status',
   'git:diff',
+  'git:changes',
   'git:reveal',
   'git:watch-head',
   'git:unwatch-head',

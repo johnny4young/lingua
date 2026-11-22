@@ -17,6 +17,7 @@
 import { useEffect } from 'react';
 import {
   GIT_DETECT_CACHE_TTL_MS,
+  gitDetectKey,
   useGitStore,
   type GitRepoPosture,
 } from '../stores/gitStore';
@@ -60,7 +61,7 @@ export function useGitDetectOnProjectChange(): void {
     // suppressed the detect on a fast project switch (A → B within
     // 30s would reuse A's posture as B's). Pinning the cache to the
     // key fixes that — a folder change resets the TTL implicitly.
-    const detectKey = `${rootPath}::${rootId ?? ''}`;
+    const detectKey = gitDetectKey(rootPath, rootId);
     const now = Date.now();
     if (
       lastDetectKey === detectKey &&
