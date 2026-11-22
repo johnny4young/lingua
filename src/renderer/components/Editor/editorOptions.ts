@@ -1,4 +1,5 @@
 import { editorFontVariations } from '../../utils/editorFontVariations';
+import { PULSE_RAIL_WIDTH } from '../../utils/pulseRail';
 
 interface EditorOptionInput {
   fontSize: number;
@@ -70,6 +71,8 @@ export function getEditorOptions({
     fontVariations: editorFontVariations(fontFamily),
     fontLigatures,
     glyphMargin: true,
+    // Monaco's default 10 px, plus the run rail beside the code.
+    lineDecorationsWidth: 10 + PULSE_RAIL_WIDTH,
     // Line numbers are baseline editor primitive; always on.
     lineNumbers: 'on',
     wordWrap: wordWrap ? 'on' : 'off',

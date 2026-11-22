@@ -1,6 +1,6 @@
 import { createLspEditorOpener } from './lspEditorOpener';
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
@@ -52,6 +52,9 @@ import { registerSelectionTransferActions } from '../../utils/selectionTransfer'
 import { useRunStale, useRunStaleAgeProperty } from '../../hooks/useRunStale';
 import { bindStopRunKey } from './stopRunKeybinding';
 import { TimelineLineHost } from '../Timeline/TimelineLineHost';
+import { PulseRailHost } from './PulseRailHost';
+import { PULSE_RAIL_WIDTH } from '../../utils/pulseRail';
+import { cn } from '../../utils/cn';
 import { RunRegionsHost } from '../RunRegions/RunRegionsHost';
 
 configureMonaco();
@@ -59,6 +62,8 @@ configureMonaco();
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
+
+const RAIL_STYLE = { '--rail-center': `${PULSE_RAIL_WIDTH / 2}px` } as CSSProperties;
 
 export function CodeEditor() {
   const activeTabId = useEditorStore(state => state.activeTabId);
@@ -517,7 +522,8 @@ export function CodeEditor() {
       <div ref={setAnswerHeaderSlot} className="contents" />
       <div
         ref={runStateRef}
-        className={runStale.stale ? 'run-stale min-h-0 flex-1' : 'min-h-0 flex-1'}
+        className={cn('lingua-pulse-rail-host min-h-0 flex-1', runStale.stale && 'run-stale')}
+        style={RAIL_STYLE}
         data-testid="editor-run-state"
         data-stale={runStale.stale ? 'true' : undefined}
       >
@@ -548,6 +554,7 @@ export function CodeEditor() {
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <PulseRailHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} stale={runStale.stale} />
         <TestLineAnswersHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}

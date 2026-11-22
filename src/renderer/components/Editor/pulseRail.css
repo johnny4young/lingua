@@ -1,0 +1,207 @@
+/* The run rail is the right-hand part of the lines-decorations margin, next to the code.
+   CodeEditor sets --rail-center from PULSE_RAIL_WIDTH. */
+.lingua-pulse-rail-host {
+  --rail-lit: var(--color-pulse-fg);
+  --rail-tick: var(--color-pulse-fg);
+  --rail-rule: var(--color-border-strong);
+  --rail-glow: none;
+  --rail-dots: repeating-linear-gradient(180deg, var(--rail-rule) 0 2px, transparent 2px 6px);
+  --rail-half: linear-gradient(180deg, var(--rail-lit) 0 50%, transparent 50%);
+}
+
+.dark .lingua-pulse-rail-host,
+[data-theme='dark'] .lingua-pulse-rail-host {
+  --rail-tick: color-mix(in srgb, var(--color-pulse) 62%, white);
+  --rail-glow: 0 0 8px color-mix(in srgb, var(--color-pulse) 50%, transparent);
+}
+
+/* Folding keeps the spot it had left of the rail. */
+.lingua-pulse-rail-host .monaco-editor .margin-view-overlays .cldr.codicon {
+  box-sizing: border-box;
+  padding-right: calc(var(--rail-center) * 2);
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail {
+  pointer-events: none;
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail::before,
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail::after {
+  content: '';
+  position: absolute;
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail::before {
+  top: 0;
+  bottom: 0;
+  right: calc(var(--rail-center) - 1px);
+  width: 2px;
+  background: var(--rail-lit);
+  box-shadow: var(--rail-glow);
+}
+
+/* Where the run is, threw or is held: lit above the mark only. */
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--not-run::before,
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--running::before,
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--raised::before,
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--paused::before {
+  box-shadow: none;
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--not-run::before {
+  background: var(--rail-dots);
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--running::before,
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--raised::before {
+  background: var(--rail-half);
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--paused::before {
+  background: var(--rail-half), var(--rail-dots);
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--answered::after {
+  top: calc(50% - 2px);
+  right: calc(var(--rail-center) - 3px);
+  width: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rail-tick);
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--running::after {
+  top: calc(50% - 8px);
+  right: calc(var(--rail-center) - 8px);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--color-pulse) 0 3.6px,
+    color-mix(in srgb, var(--color-pulse) 34%, transparent) 4px 5.6px,
+    color-mix(in srgb, var(--color-pulse) 12%, transparent) 6px 8px,
+    transparent 8.4px
+  );
+  animation: lingua-rail-beat 1.2s ease-in-out infinite;
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--raised::after {
+  top: calc(50% - 4.5px);
+  right: calc(var(--rail-center) - 4.5px);
+  width: 9px;
+  height: 9px;
+  background:
+    linear-gradient(45deg, transparent calc(50% - 1px), var(--color-value-error) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(-45deg, transparent calc(50% - 1px), var(--color-value-error) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
+}
+
+.lingua-pulse-rail-host .monaco-editor .lingua-rail-number--running {
+  color: var(--color-pulse-fg) !important;
+  font-weight: 640;
+}
+
+.lingua-pulse-rail-host .monaco-editor .lingua-rail-number--paused {
+  color: var(--color-value-number) !important;
+  font-weight: 640;
+}
+
+.lingua-pulse-rail-host .monaco-editor .lingua-rail-band {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+/* Older code than the editor holds: the rail fades and ticks go hollow. */
+.lingua-pulse-rail-host.run-stale {
+  --rail-lit: color-mix(in srgb, var(--color-fg-subtle) 55%, transparent);
+  --rail-glow: none;
+}
+
+.lingua-pulse-rail-host.run-stale .monaco-editor .cldr.lingua-rail--answered::after {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.2px var(--color-fg-subtle);
+}
+
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-0 { --slot: 0; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-1 { --slot: 1; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-2 { --slot: 2; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-3 { --slot: 3; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-4 { --slot: 4; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-5 { --slot: 5; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-6 { --slot: 6; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-7 { --slot: 7; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-8 { --slot: 8; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-9 { --slot: 9; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-10 { --slot: 10; }
+.lingua-pulse-rail-host .cldr.lingua-rail--slot-11 { --slot: 11; }
+
+/* With a step selected, the rail fades with distance above it, like a trail behind the pulse. */
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--trail {
+  opacity: calc(0.3 + var(--slot) * 0.06);
+}
+
+/* Each completed run: the pulse travels down the lit lines and leaves them lit. */
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--pass::before,
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--pass::after {
+  animation: lingua-rail-light var(--motion-pulse-line) var(--motion-pulse-curve) both;
+  animation-delay: calc(var(--motion-pulse-line) * var(--slot) / 3);
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--pass::after {
+  animation-name: lingua-rail-flash;
+  animation-duration: calc(var(--motion-pulse-line) * 2);
+}
+
+@keyframes lingua-rail-light {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lingua-rail-flash {
+  0% {
+    opacity: 0;
+    box-shadow: none;
+  }
+  10% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--color-pulse) 30%, transparent),
+      0 0 8px var(--color-pulse);
+  }
+  100% {
+    opacity: 1;
+    box-shadow: none;
+  }
+}
+
+@keyframes lingua-rail-beat {
+  50% {
+    transform: scale(1.25);
+    opacity: 0.8;
+  }
+}
+
+/* Ticks appear in place and the beat holds still. */
+@media (prefers-reduced-motion: reduce) {
+  .lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail::before,
+  .lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail::after {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .lingua-pulse-rail-host {
+    --rail-glow: none;
+  }
+
+  .lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--running::after {
+    background: radial-gradient(circle, var(--color-pulse) 0 3.6px, transparent 4px);
+  }
+
+  .lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail--pass::after {
+    animation-name: lingua-rail-light;
+  }
+}

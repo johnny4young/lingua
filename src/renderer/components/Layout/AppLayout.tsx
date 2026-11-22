@@ -30,7 +30,6 @@ import { cn } from '../../utils/cn';
 import type { LayoutPreset } from '../../types/settings';
 import { useDockShell } from '../../hooks/useLayoutAvailability';
 import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
-import { RunSweep } from './RunSweep';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
 const RESIZE_TARGET_MINIMUM_SIZE = { coarse: 24, fine: 24 } as const;
@@ -230,7 +229,6 @@ function EditorArea() {
               <Suspense fallback={<EditorLoadingState />}>
                 <CodeEditor />
               </Suspense>
-              <RunSweep />
             </div>
             <FloatingVariablesCardHost />
           </>
