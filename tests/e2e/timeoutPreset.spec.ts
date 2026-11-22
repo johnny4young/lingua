@@ -75,7 +75,7 @@ test.describe('execution timeout preset ', () => {
     );
     // ~5 s deadline + worker terminate latency + render → 7s is comfy.
     await expect(pill).toBeVisible({ timeout: 8_000 });
-    await expect(pill).toContainText(/Timeout/i);
+    await expect(pill).toContainText(/Timed out/i);
   });
 
   test('magic-comment override beats the preset', async ({ page }) => {

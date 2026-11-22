@@ -37,3 +37,16 @@ describe('tab run log', () => {
     expect(log.runs[0]!.number).toBe(4);
   });
 });
+
+describe('stopping a manual run', () => {
+  it('logs the stop for the tab so the run meter shows it', async () => {
+    const { beginManualRun } = await import('@/runtime/manualRunSession');
+    const tab = { id: 'stop-tab', name: 'a.js', language: 'javascript', content: '', isDirty: false };
+    const session = beginManualRun(tab as never)!;
+    useResultStore.setState({ manualRunSession: session, isManualRunning: true });
+    session.cancel();
+    const state = useResultStore.getState();
+    expect(state.tabRuns['stop-tab']?.runs.at(-1)).toMatchObject({ number: 1, kind: 'stopped' });
+    expect(state.runTermination).toEqual({ kind: 'stopped' });
+  });
+});
