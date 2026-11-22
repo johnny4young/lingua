@@ -46,6 +46,7 @@ import {
   type HttpRequestBodyKind,
   type HttpRequestHeader,
   type HttpRequestV1,
+  type HttpResponseV1,
   type HttpTransportKind,
 } from '../../../shared/httpWorkspaceSchema';
 import { generateHttpCode } from '../../../shared/httpCodegen';
@@ -77,7 +78,7 @@ import {
 } from './httpScopes';
 import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
 import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
-import { useHttpAssertionTarget, type HttpAssertionTarget } from './useHttpAssertionTarget';
+import { useHttpTestAnswers } from './useHttpTestAnswers';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
 
@@ -113,8 +114,12 @@ export interface HttpRequestEditorProps {
   onManageEnvironment?: (focus?: HttpEnvironmentFocus) => void;
   /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
   captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
-  /** Filled with the handler that adds an assertion suggested from the response. */
-  assertionTargetRef?: React.MutableRefObject<HttpAssertionTarget | null>;
+  /** The response the preview shows; it answers the Tests tab. */
+  response?: HttpResponseV1;
+  /** Whether `response` is the newest one, the only one that suggests checks. */
+  latestResponse?: boolean;
+  /** Changes between `response` and the stored snapshot, when there is one. */
+  snapshotChanges?: number;
   /** Offline queue state for this request; absent where sends never queue. */
   queue?: HttpSendQueue;
 }
@@ -131,7 +136,9 @@ export function HttpRequestEditor({
   activeEnvironmentId = null,
   onManageEnvironment,
   captureTargetRef,
-  assertionTargetRef,
+  response,
+  latestResponse = true,
+  snapshotChanges,
   queue,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
@@ -519,8 +526,7 @@ export function HttpRequestEditor({
     [scheduleAutoSave]
   );
 
-  const openTestsTab = useCallback(() => setBuilderTab('assert'), []);
-  useHttpAssertionTarget(assertionTargetRef, assertions, applyAssertions, openTestsTab);
+  const { tests, held } = useHttpTestAnswers({ assertions, applyAssertions, response, latest: latestResponse, visible: builderTab === 'assert', snapshotChanges, request: previewRequest, env: scopedEnv, sources, environmentName: activeEnv?.name });
   const handleAddAssertion = useCallback(() => {
     applyAssertions([...assertions, createBlankAssertion()]);
   }, [assertions, applyAssertions]);
@@ -779,6 +785,8 @@ export function HttpRequestEditor({
           onUpdate: (updater) => useWorkspaceToolStore.getState().updateRequestVariables(request.id, updater),
         }}
         {...(tint ? { tint } : {})}
+        tests={tests}
+        {...(held ? { held } : {})}
       />
     </div>
   );

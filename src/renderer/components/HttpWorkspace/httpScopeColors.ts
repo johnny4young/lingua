@@ -36,6 +36,9 @@ export const SCOPE_TINTS: Record<HttpVariableScope, HttpTint> = {
 
 export const UNRESOLVED_TINT = ENVIRONMENT_TINTS.red;
 
+/** How a secret value shows wherever it would print. */
+export const MASKED_VALUE = '••••••';
+
 /** A pill in the tint's colours. */
 export const tintPill = (tint: HttpTint): CSSProperties => ({ color: tint.fg, backgroundColor: tint.bg });
 

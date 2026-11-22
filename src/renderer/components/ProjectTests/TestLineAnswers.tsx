@@ -9,12 +9,13 @@ import './projectTests.css';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { sameTest, useProjectTestStore, type ProjectTestDisplayCase } from '../../stores/projectTestStore';
 import { parentDirOf } from '../../utils/filePath';
+import { formatWholeDuration } from '../../utils/latencyScale';
 import { projectTestFailureHeadline } from '../../utils/projectTestFailure';
 import { inferKind } from '../Editor/inlineResultWidgetDom';
 import { useAnswerColumnWidgets } from './answerColumn';
 import { openProjectFileAt, openTestFailure } from './openTestFailure';
 import { TestFailureCard } from './TestFailureCard';
-import { formatTestDuration, suiteTally, testLineAnswers, type TestLineAnswer } from './testLineAnswersModel';
+import { suiteTally, testLineAnswers, type TestLineAnswer } from './testLineAnswersModel';
 import { useCodeUnderTestChange } from './useCodeUnderTestChange';
 import type { CodeChange } from './codeUnderTestChange';
 
@@ -106,7 +107,7 @@ function LineAnswer({ answer, file, change }: { answer: TestLineAnswer; file: st
     );
   } else if (answer.kind === 'test') {
     const { test } = answer;
-    const duration = test.durationMs !== undefined ? formatTestDuration(test.durationMs) : null;
+    const duration = test.durationMs !== undefined ? formatWholeDuration(test.durationMs) : null;
     if (test.status === 'passed') {
       tag = t('projectTests.line.passed');
       body = (

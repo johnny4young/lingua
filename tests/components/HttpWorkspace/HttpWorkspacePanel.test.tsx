@@ -1387,13 +1387,21 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
     executeHttpRequestMock.mockReset();
   });
 
-  it('adds a suggested assertion to the request draft and opens Tests', async () => {
+  it('adds a suggested assertion from the Tests tab and answers it with the response', async () => {
     const request = { ...createBlankHttpRequest({ id: 'r1', now: NOW }), name: 'Repo', url: 'https://api.example.com/repo' };
     useWorkspaceToolStore.setState({ requests: [request], activeRequestId: 'r1', responsesByRequestId: { r1: [makeResponse({ body: '{"name":"janusly"}' })] } });
     render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-tab-assert'));
     await userEvent.click(screen.getAllByTestId('http-response-suggestion')[0]!);
-    expect(screen.getByTestId('http-request-editor-tab-assert').dataset.active).toBe('true');
     expect(screen.getByTestId('http-request-editor-tab-assert').textContent).toBe('Tests1');
+    const line = screen.getByTestId('http-test-line');
+    expect(line.dataset.pass).toBe('true');
+    expect(line.textContent).toContain('status == 200');
+    const summary = screen.getByTestId('http-response-assertions-summary');
+    expect(summary.querySelector('.http-tests-held-full')?.textContent).toBe('1 of 1 hold');
+    // Narrow strips show the short count instead of hiding it.
+    expect(summary.querySelector('.http-tests-held-short')?.textContent).toBe('1/1');
+    expect(screen.queryByTestId('http-response-assertions')).toBeNull();
     await waitFor(() => expect(useWorkspaceToolStore.getState().requests[0]?.assertions).toHaveLength(1));
   });
 
@@ -1406,6 +1414,7 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
       responsesByRequestId: { r1: [makeResponse({ body: '{"stars":12}' }), makeResponse({ body: '' })] },
     });
     render(<HttpWorkspacePanel />);
+    await userEvent.click(screen.getByTestId('http-request-editor-tab-assert'));
     expect(screen.getByTestId('http-response-snapshot-row').dataset.pass).toBe('true');
     await userEvent.click(screen.getAllByTestId('http-response-history-row')[1]!);
     expect(screen.queryByTestId('http-response-snapshot-row')).toBeNull();

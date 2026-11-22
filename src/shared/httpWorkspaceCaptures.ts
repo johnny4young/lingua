@@ -21,34 +21,48 @@ export function createBlankCaptureRule(): HttpCaptureRule {
   };
 }
 
-/**
- * Walk a JSON body by a dot/bracket path (`data.token`, `items[0].id`,
- * `items.0.id` — both index forms accepted). Returns a JSON primitive as a
- * string and `null` for invalid JSON, misses, objects, or arrays.
- */
-function extractJsonPath(body: string, rawPath: string): string | null {
-  let current: unknown;
+// Keyed by the response object, so a parsed body lives exactly as long as its response.
+const parsedBodies = new WeakMap<object, { value: unknown } | null>();
+
+/** A response body parsed as JSON, or null; every check on one response parses it once. */
+export function parseJsonBodyOnce(response: Pick<HttpResponseV1, 'body'>): { value: unknown } | null {
+  if (parsedBodies.has(response)) return parsedBodies.get(response)!;
+  let parsed: { value: unknown } | null;
   try {
-    current = JSON.parse(body);
+    parsed = { value: JSON.parse(response.body) as unknown };
   } catch {
-    return null;
+    parsed = null;
   }
+  parsedBodies.set(response, parsed);
+  return parsed;
+}
+
+/**
+ * Walk a parsed JSON value by a dot/bracket path (`data.token`, `items[0].id`,
+ * `items.0.id` — both index forms accepted, and `items.length`).
+ */
+export function readJsonPath(root: unknown, rawPath: string): { found: boolean; value?: unknown } {
   const keys = rawPath
     .replace(/\[(\d+)\]/g, '.$1')
     .split('.')
     .map(key => key.trim())
     .filter(key => key.length > 0);
-  if (keys.length === 0) return null;
+  if (keys.length === 0) return { found: false };
+  let current = root;
   for (const key of keys) {
-    if (current === null || typeof current !== 'object') return null;
+    if (current === null || typeof current !== 'object') return { found: false };
     current = (current as Record<string, unknown>)[key];
   }
-  if (current === null || current === undefined) return null;
-  if (typeof current === 'object') return null;
-  if (typeof current === 'string') return current;
-  if (typeof current === 'number' || typeof current === 'boolean') {
-    return String(current);
-  }
+  return current === undefined || typeof current === 'function' ? { found: false } : { found: true, value: current };
+}
+
+/** A JSON primitive at a path as a string; `null` for invalid JSON, misses, nulls, objects, or arrays. */
+function extractJsonPath(response: HttpCaptureSource, rawPath: string): string | null {
+  const parsed = parseJsonBodyOnce(response);
+  if (!parsed) return null;
+  const { value } = readJsonPath(parsed.value, rawPath);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   return null;
 }
 
@@ -67,7 +81,7 @@ export function extractCaptureValue(
       return match ? match.value : null;
     }
     case 'body-json':
-      return extractJsonPath(response.body, rule.path);
+      return extractJsonPath(response, rule.path);
     default:
       return null;
   }

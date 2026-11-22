@@ -58,4 +58,26 @@ describe('HTTP selection rows', () => {
     expect(rows[1]!.className).toContain('font-semibold');
     for (const row of rows) expect(row.className).not.toMatch(LEADING_STRIP);
   });
+
+  it('draws each history row as a status dot, its code and a latency bar on a shared square-root scale', () => {
+    render(
+      <HttpResponseHistory
+        history={[
+          { ...response('2026-10-24T00:00:03.000Z'), durationMs: 100 },
+          { ...response('2026-10-24T00:00:02.000Z'), status: 503, statusText: 'Service Unavailable', kind: 'server-error', durationMs: 2000 },
+          { ...response('2026-10-24T00:00:01.000Z'), status: 0, statusText: '', kind: 'timeout', durationMs: 500 },
+          { ...response('2026-10-24T00:00:00.000Z'), status: 304, statusText: 'Not Modified', durationMs: 20 },
+        ]}
+        selectedIndex={0}
+        onSelect={vi.fn()}
+      />
+    );
+    const rows = screen.getAllByTestId('http-response-history-row');
+    expect(rows.map((row) => row.dataset.tone)).toEqual(['ok', 'error', 'neutral', 'neutral']);
+    expect(screen.getAllByTestId('http-response-history-status').map((status) => status.textContent)).toEqual(['200', '503', 'Timeout', '304']);
+    const widths = screen.getAllByTestId('http-response-history-bar').map((bar) => bar.style.width);
+    expect(widths).toEqual([`${Math.sqrt(100 / 2000) * 72}px`, '72px', `${Math.sqrt(500 / 2000) * 72}px`, `${Math.sqrt(20 / 2000) * 72}px`]);
+    expect(rows[1]!.textContent).toContain('2.0 s');
+  });
 });
+

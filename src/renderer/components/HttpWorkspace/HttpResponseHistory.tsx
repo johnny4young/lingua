@@ -1,20 +1,25 @@
 /**
- * HTTP workspace usability upgrade — response history strip.
- *
- * A compact list of recent responses for the active request, read from
- * `workspaceToolStore.responsesByRequestId` (LRU, newest-first). Each
- * row shows a status badge + timing + relative timestamp; clicking it
- * selects that response for the preview. The newest entry is the one
- * the preview shows by default; older entries keep metadata but their
- * body was stripped by the store LRU, so selecting an old row shows the
- * status/timing without a body (the preview handles the empty body).
+ * Recent responses for the active request, newest first, from
+ * `workspaceToolStore.responsesByRequestId`. Each row reads as an
+ * instrument: a status dot, the code, and a latency bar on a square-root
+ * scale shared by the list. Older entries lost their body to the store
+ * LRU, so selecting one shows its status and timing only.
  */
-
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
-import { HttpStatusPill } from './HttpStatusPill';
+import { formatWholeDuration, latencyShare, maxDuration } from '../../utils/latencyScale';
+import { isTransportFailure, labelForResponse, toneForResponse } from './httpStatus';
+import './httpInstruments.css';
+
+const BAR_WIDTH = 72;
+
+/** The status pill's tone in three: ok for 2xx, error for 4xx, 5xx and too large, neutral for 3xx and no status. */
+function historyTone(entry: HttpResponseV1): 'ok' | 'error' | 'neutral' {
+  const tone = toneForResponse(entry);
+  return tone === 'success' ? 'ok' : tone === 'warning' || tone === 'error' ? 'error' : 'neutral';
+}
 
 export interface HttpResponseHistoryProps {
   history: ReadonlyArray<HttpResponseV1>;
@@ -54,6 +59,7 @@ export function HttpResponseHistory({
 }: HttpResponseHistoryProps) {
   const { t } = useTranslation();
   const relative = useRelativeTime();
+  const longest = useMemo(() => maxDuration(history.map((entry) => entry.durationMs)), [history]);
 
   // Only worth showing once there is more than one recorded response —
   // a single entry is already the live preview.
@@ -70,9 +76,11 @@ export function HttpResponseHistory({
           {t('httpWorkspace.response.history.label')}
         </span>
       </header>
-      <ul role="list" className="flex max-h-28 flex-col gap-0.5 overflow-y-auto px-1.5 pb-1.5">
+      <ul role="list" className="flex max-h-40 flex-col gap-0.5 overflow-y-auto px-1.5 pb-1.5">
         {history.map((entry, index) => {
           const isSelected = index === selectedIndex;
+          const tone = historyTone(entry);
+          const label = labelForResponse(entry, t);
           return (
             <li key={`${entry.recordedAt}-${index}`}>
               <button
@@ -80,21 +88,28 @@ export function HttpResponseHistory({
                 onClick={() => onSelect(index)}
                 data-testid="http-response-history-row"
                 data-selected={isSelected}
+                data-tone={tone}
                 aria-current={isSelected ? 'true' : undefined}
+                title={`${label} · ${relative(entry.recordedAt)}`}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
-                  isSelected
-                    ? 'bg-bg-inset font-semibold text-fg-base'
-                    : 'text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
+                  'flex w-full items-center gap-2.5 rounded-md px-2 py-1 text-left font-mono text-caption tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+                  isSelected ? 'bg-bg-inset font-semibold text-fg-base' : 'text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
                 )}
               >
-                <HttpStatusPill response={entry} />
-                <span className="font-mono tabular-nums text-fg-subtle">
-                  {entry.durationMs} ms
+                <span className="http-history-dot" data-tone={tone} aria-hidden="true" />
+                <span className={cn('w-12 shrink-0 truncate', tone === 'error' && 'text-error-fg')} data-testid="http-response-history-status">
+                  {entry.status > 0 && !isTransportFailure(entry) ? entry.status : label}
                 </span>
-                <span className="ml-auto shrink-0 text-eyebrow text-fg-subtle">
-                  {relative(entry.recordedAt)}
+                <span className="flex min-w-0 flex-1 items-center" aria-hidden="true">
+                  <span
+                    className="http-history-bar"
+                    data-tone={tone === 'error' ? 'error' : undefined}
+                    data-testid="http-response-history-bar"
+                    style={{ width: Math.max(3, latencyShare(entry.durationMs, longest) * BAR_WIDTH) }}
+                  />
                 </span>
+                <span className="shrink-0 text-fg-subtle">{formatWholeDuration(entry.durationMs)}</span>
+                <span className="sr-only">{`${label}, ${relative(entry.recordedAt)}`}</span>
               </button>
             </li>
           );

@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { replaceUnsafeText } from '../../utils/unsafeText';
@@ -10,6 +10,7 @@ import {
   type LoopAnswer,
   type RunningAnswer,
 } from './answerObjectModel';
+import { useAnswerContext } from './useAnswerContext';
 import '../../i18n/answersCatalog';
 import '../ui/identity.css';
 import './answerObject.css';
@@ -32,10 +33,7 @@ export interface AnswerObjectProps extends AnswerInput, AnswerChrome {}
 
 /** One answer: its type tag, its value coloured by type, and its picture. */
 export const AnswerObject = memo(function AnswerObject({ text, payload, role, language, source, ...chrome }: AnswerObjectProps) {
-  const { i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language ?? 'en';
-  // Relative times count from when the answer appeared.
-  const [now] = useState(Date.now);
+  const { now, locale } = useAnswerContext();
   const model = useMemo(() => cachedAnswer({ text, payload, role, language, source }, now, locale), [text, payload, role, language, source, now, locale]);
   return <AnswerObjectView model={model} {...chrome} />;
 });

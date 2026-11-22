@@ -67,7 +67,10 @@ test('explains a disabled Send, highlights variables, and folds, searches and ca
   const tree = page.getByTestId('http-response-preview-body-tree');
   await expect(tree).toBeVisible();
   await expect(tree).toHaveAttribute('data-wrap', 'false');
-  await expect(page.getByTestId('http-json-row').first()).toHaveText('items: [2]');
+  // An array of objects reads as a table first; the tree is one toggle away.
+  await expect(page.getByTestId('http-json-table-row')).toHaveCount(2);
+  await page.getByTestId('http-json-table-toggle').click();
+  await expect(page.getByTestId('http-json-row').first()).toHaveText('items: array·2 of objectshow as a table');
   const second = page.locator('[data-testid="http-json-row"][data-pointer="/items/1"]');
   await second.click();
   await page.keyboard.press('ArrowLeft');
@@ -299,7 +302,9 @@ test('snapshots a response, flags a change as a failed check and accepts it', as
   await send.click();
   await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
 
+  await page.getByTestId('http-request-editor-tab-assert').click();
   await page.getByTestId('http-response-suggestion').first().click();
+  await expect(page.getByTestId('http-test-line')).toHaveAttribute('data-pass', 'true');
   await expect(page.getByTestId('http-request-editor-tab-assert')).toHaveText('Tests1');
 
   await page.getByRole('button', { name: 'Snapshot', exact: true }).click();
@@ -310,9 +315,9 @@ test('snapshots a response, flags a change as a failed check and accepts it', as
   await send.click();
   await expect(page.getByTestId('http-snapshot-badge')).toHaveText('1 change');
   await expect(page.getByTestId('http-snapshot-diff')).toContainText('- stars: 12');
-  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('1/2 tests passed');
+  await expect(page.getByTestId('http-response-assertions-summary').locator('.http-tests-held-full')).toHaveText('1 of 2 hold');
   await page.getByTestId('http-snapshot-accept').click();
   await expect(page.getByTestId('http-snapshot-badge')).toHaveText('Matches the snapshot');
-  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('2/2 tests passed');
+  await expect(page.getByTestId('http-response-assertions-summary').locator('.http-tests-held-full')).toHaveText('2 of 2 hold');
 });
 

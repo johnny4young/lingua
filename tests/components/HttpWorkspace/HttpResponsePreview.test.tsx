@@ -111,8 +111,10 @@ describe('JSON body tree', () => {
 
   it('shows one value per line with counts, folds a node, and cuts long strings with an expand control', () => {
     render(<HttpResponsePreview response={json({ owner: { login: 'johnny4young', following_url: longUrl }, ids: [1, 2] })} isExecuting={false} />);
-    const login = rowAt('/owner/login').querySelectorAll<HTMLElement>('span[style]');
-    expect([...login].map((span) => span.style.color)).toEqual(['var(--color-syntax-keyword)', 'var(--color-syntax-string)']);
+    const login = rowAt('/owner/login');
+    expect([...login.querySelectorAll<HTMLElement>('span[style]')].map((span) => span.style.color)).toEqual(['var(--color-fg-base)']);
+    expect(login.querySelector('.answer-object-value')?.getAttribute('data-tone')).toBe('string');
+    expect(rowAt('/ids/0').querySelector('.answer-object-value')?.hasAttribute('data-pill')).toBe(true);
     expect(rows()).toEqual(['owner: {2}', 'login: "johnny4young"', `following_url: "${`"${longUrl}"`.slice(1, 119)}…`, 'ids: [2]', '0: 1', '1: 2']);
     fireEvent.click(screen.getByRole('button', { name: 'Show the full value' }));
     expect(rows()[2]).toBe(`following_url: "${longUrl}"`);
@@ -124,7 +126,11 @@ describe('JSON body tree', () => {
   it('starts a large document folded below the top level and pages long arrays', () => {
     const big = { users: Array.from({ length: 450 }, (_, id) => ({ id, name: `user ${id}` })) };
     render(<HttpResponsePreview response={json(big)} isExecuting={false} />);
-    expect(rows().slice(0, 3)).toEqual(['users: [450]', '0: {2}', '1: {2}']);
+    expect(screen.getAllByTestId('http-json-table-row')).toHaveLength(200);
+    expect(screen.getByTestId('http-json-more').textContent).toBe('Show 200 more');
+    fireEvent.click(screen.getByTestId('http-json-table-toggle'));
+    expect(screen.queryByTestId('http-json-table')).toBeNull();
+    expect(rows().slice(0, 3)).toEqual(['users: array·450 of objectshow as a table', '0: {2}', '1: {2}']);
     expect(screen.getAllByTestId('http-json-row')).toHaveLength(201);
     fold('/users/1');
     expect(rows().slice(2, 5)).toEqual(['1: {2}', 'id: 1', 'name: "user 1"']);
@@ -132,6 +138,7 @@ describe('JSON body tree', () => {
     fireEvent.click(screen.getByTestId('http-json-more'));
     expect(screen.getAllByTestId('http-json-row')).toHaveLength(401);
     expect(screen.getByTestId('http-json-more').textContent).toBe('Show 50 more');
+    expect(screen.getByTestId('http-json-table-toggle').getAttribute('aria-pressed')).toBe('false');
   });
 
   it('searches keys and values, highlighting the node and opening the way to it', () => {
@@ -146,6 +153,7 @@ describe('JSON body tree', () => {
 
   it('opens a node the user folded when a new search finds a match inside it, and folds again on request', () => {
     render(<HttpResponsePreview response={json({ items: [{ name: 'runtime' }, { name: 'editor' }] })} isExecuting={false} />);
+    fireEvent.click(screen.getByTestId('http-json-table-toggle'));
     fold('/items/1');
     fireEvent.change(screen.getByTestId('http-response-preview-search'), { target: { value: 'editor' } });
     expect(document.querySelector('[data-hit="true"]')?.getAttribute('data-pointer')).toBe('/items/1/name');

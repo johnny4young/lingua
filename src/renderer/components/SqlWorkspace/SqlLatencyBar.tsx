@@ -1,5 +1,5 @@
 import { cn } from '../../utils/cn';
-import { latencyShare } from './sqlLatency';
+import { latencyShare } from '../../utils/latencyScale';
 
 /** A run's time as a bar against the slowest run beside it; the duration text sits next to it. */
 export function SqlLatencyBar({

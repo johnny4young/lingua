@@ -24,12 +24,7 @@
 import { Loader2, SendHorizontal, X } from 'lucide-react';
 import { Fragment, useDeferredValue, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
-import type {
-  HttpAssertion,
-  HttpCaptureRule,
-  HttpResponseV1,
-} from '../../../shared/httpWorkspaceSchema';
+import type { HttpCaptureRule, HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderAction, type ResultHeaderTab } from '../ui/ResultHeader';
@@ -43,7 +38,7 @@ import { HttpJsonTree } from './HttpJsonTree';
 import { HttpResponseDelta, HttpTimingPanel } from './HttpTimingPanel';
 import { timingPhases, timingSummary } from './httpTiming';
 import { HttpSnapshotPanel } from './HttpSnapshotPanel';
-import { snapshotChanges, suggestAssertions } from '../../../shared/httpSnapshot';
+import type { SnapshotChange } from '../../../shared/httpSnapshot';
 import type { HttpResponseSnapshot } from '../../../shared/httpWorkspaceSchema';
 import { capturedByPath, nestsDeeperThan, parseJsonBody, searchJson, TREE_DEPTH_LIMIT, type JsonSegment } from './httpJsonTreeModel';
 import { splitForHighlight } from './httpTextHighlight';
@@ -51,11 +46,11 @@ import { splitForHighlight } from './httpTextHighlight';
 type PreviewTab = 'body' | 'headers' | 'raw' | 'timing' | 'snapshot';
 
 
-/** The request's snapshot and the ways to change it. */
+/** The request's snapshot, how the response differs from it, and the way to change it. */
 interface HttpResponseSnapshots {
   snapshot: HttpResponseSnapshot | undefined;
+  changes: readonly SnapshotChange[];
   onChange: (snapshot: HttpResponseSnapshot | undefined) => void;
-  onAddAssertion: (assertion: Omit<HttpAssertion, 'id'>) => void;
 }
 
 function isJsonContentType(contentType: string): boolean {
@@ -104,8 +99,6 @@ export interface HttpResponsePreviewProps {
    * error" trigger with the request as the code context.
    */
   requestSummary?: string;
-  /** The active request's assertions, evaluated against the response. */
-  assertions?: readonly HttpAssertion[];
   /** The response before this one for the same request, for the header's change in time. */
   previous?: HttpResponseV1;
   /** The active request's capture rules; their body paths are marked in the tree. */
@@ -121,7 +114,6 @@ export function HttpResponsePreview({
   response,
   isExecuting,
   requestSummary,
-  assertions,
   previous,
   captures,
   onCaptureValue,
@@ -129,21 +121,6 @@ export function HttpResponsePreview({
   starters,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
-  // Evaluate assertions against the settled response. Enabled
-  // rows only; disabled rows are excluded by runAssertions.
-  const assertionResults = useMemo(() => {
-    if (!response || !assertions || assertions.length === 0) return [];
-    return runAssertions(response, assertions);
-  }, [response, assertions]);
-  // A pending snapshot diff counts as one more failed check.
-  const snapshot = snapshots?.snapshot;
-  const changes = useMemo(() => (snapshot && response ? snapshotChanges(snapshot, response) : []), [snapshot, response]);
-  const checkCount = assertionResults.length + (snapshot ? 1 : 0);
-  const assertionPassCount = assertionResults.filter((r) => r.pass).length + (snapshot && changes.length === 0 ? 1 : 0);
-  const suggestions = useMemo(
-    () => (snapshots && response?.kind === 'success' ? suggestAssertions(response, assertions ?? []) : []),
-    [snapshots, response, assertions]
-  );
   const [selectedTab, setTab] = useState<PreviewTab>('body');
   const tab = selectedTab === 'snapshot' && !snapshots ? 'body' : selectedTab;
   // The response whose snapshot diff was rejected, kept across tab switches.
@@ -324,88 +301,6 @@ export function HttpResponsePreview({
         }
       />
 
-      {/* Results strip: shown when the request has enabled assertions or a
-          snapshot, which counts as one more check. */}
-      {checkCount > 0 ? (
-        <div
-          data-testid="http-response-assertions"
-          data-all-passed={assertionPassCount === checkCount}
-          className="border-b border-border-subtle bg-bg-panel-alt px-3 py-2"
-        >
-          <div
-            data-testid="http-response-assertions-summary"
-            className={cn(
-              'text-caption font-semibold',
-              assertionPassCount === checkCount
-                ? 'text-success-fg'
-                : 'text-error-fg'
-            )}
-          >
-            {t('httpWorkspace.editor.assert.results.summary', {
-              passed: assertionPassCount,
-              total: checkCount,
-            })}
-          </div>
-          <ul role="list" className="mt-1 flex flex-col gap-0.5">
-            {assertionResults.map((result) => (
-              <li
-                key={result.id}
-                data-testid="http-response-assertion-row"
-                data-pass={result.pass}
-                className="flex items-center gap-2 font-mono text-eyebrow"
-              >
-                <span
-                  className={cn(
-                    'rounded-sm px-1 py-0.5 font-semibold',
-                    result.pass
-                      ? 'bg-success-bg text-success-fg'
-                      : 'bg-error-bg text-error-fg'
-                  )}
-                >
-                  {result.pass
-                    ? t('httpWorkspace.editor.assert.results.pass')
-                    : t('httpWorkspace.editor.assert.results.fail')}
-                </span>
-                <span className="text-fg-subtle">
-                  {result.actual === null
-                    ? t('httpWorkspace.editor.assert.results.miss')
-                    : t('httpWorkspace.editor.assert.results.actual', {
-                        actual: result.actual,
-                      })}
-                </span>
-              </li>
-            ))}
-            {snapshot ? (
-              <li data-testid="http-response-snapshot-row" data-pass={changes.length === 0} className="flex items-center gap-2 font-mono text-eyebrow">
-                <span className={cn('rounded-sm px-1 py-0.5 font-semibold', changes.length === 0 ? 'bg-success-bg text-success-fg' : 'bg-error-bg text-error-fg')}>
-                  {t(changes.length === 0 ? 'httpWorkspace.editor.assert.results.pass' : 'httpWorkspace.editor.assert.results.fail')}
-                </span>
-                <span className="text-fg-subtle">
-                  {changes.length === 0 ? t('httpWorkspace.snapshot.matches') : t('httpWorkspace.snapshot.changes', { count: changes.length })}
-                </span>
-              </li>
-            ) : null}
-          </ul>
-        </div>
-      ) : null}
-
-      {suggestions.length > 0 && snapshots ? (
-        <div data-testid="http-response-suggestions" className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle px-3 py-2">
-          <span className="text-eyebrow font-semibold uppercase tracking-wide text-fg-subtle">{t('httpWorkspace.snapshot.suggested')}</span>
-          {suggestions.map((suggestion) => (
-            <button
-              key={`${suggestion.source}:${suggestion.path}:${suggestion.comparator}`}
-              type="button"
-              data-testid="http-response-suggestion"
-              onClick={() => snapshots.onAddAssertion(suggestion)}
-              className="focus-ring rounded-md border border-border-subtle px-2 py-0.5 font-mono text-eyebrow text-fg-muted hover:bg-bg-inset hover:text-fg-base"
-            >
-              {`+ ${t(`httpWorkspace.editor.assert.source.${suggestion.source === 'body-json' ? 'bodyJson' : suggestion.source === 'response-time' ? 'responseTime' : suggestion.source}`)}${suggestion.path ? ` ${suggestion.path}` : ''} ${t(`httpWorkspace.editor.assert.cmp.${suggestion.comparator}`)} ${suggestion.expected}`}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
       {/* Error band for typed failures — gives the user actionable copy. */}
       {response.kind === 'cors-error' ||
       response.kind === 'network-error' ||
@@ -520,7 +415,7 @@ export function HttpResponsePreview({
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
+      <div className="json-viewport min-h-0 flex-1 overflow-auto px-3 py-2">
         {tab === 'body' ? (
           imageSrc !== null ? (
             <img
@@ -590,8 +485,8 @@ export function HttpResponsePreview({
         {tab === 'snapshot' && snapshots ? (
           <HttpSnapshotPanel
             response={response}
-            snapshot={snapshot}
-            changes={changes}
+            snapshot={snapshots.snapshot}
+            changes={snapshots.changes}
             onChange={snapshots.onChange}
             rejected={rejectedAt === response.recordedAt}
             onReject={() => setRejectedAt(response.recordedAt)}

@@ -6,7 +6,7 @@ import { cn } from '../../utils/cn';
 import { toneForSqlStatus } from './sqlStatusTone';
 import { formatClock } from './sqlResultFormatters';
 import { SqlLatencyBar } from './SqlLatencyBar';
-import { maxDuration } from './sqlLatency';
+import { maxDuration } from '../../utils/latencyScale';
 
 const DOT_CLASS: Partial<Record<ReturnType<typeof toneForSqlStatus>, string>> = {
   success: 'bg-success-fg',

@@ -21,6 +21,7 @@ const implementationModule = 'src/shared/httpWorkspace.ts';
 const confirmationModule = 'src/renderer/hooks/importPreviewConfirm.ts';
 const responsePreviewModule =
   'src/renderer/components/HttpWorkspace/HttpResponsePreview.tsx';
+const testAnswersModule = 'src/renderer/components/HttpWorkspace/useHttpTestAnswers.ts';
 const requestEditorModule =
   'src/renderer/components/HttpWorkspace/HttpRequestEditor.tsx';
 const httpClientModule = 'src/renderer/runtime/httpClient.ts';
@@ -118,10 +119,10 @@ describe('HTTP workspace activation boundary', () => {
     expect(assertionsSource).not.toContain("from './httpWorkspace'");
   });
 
-  it('lets response previews evaluate assertions without the full implementation', () => {
+  it('lets the Tests tab evaluate assertions without the full implementation', () => {
     const { parents } = walkStaticImportGraph({
       repoRoot,
-      entry: responsePreviewModule,
+      entry: testAnswersModule,
     });
 
     expect(parents.has(assertionsModule)).toBe(true);
@@ -133,6 +134,11 @@ describe('HTTP workspace activation boundary', () => {
         implementationModule
       ).join(' -> ')}`
     ).toBe(false);
+  });
+
+  it('keeps the response preview off the full implementation', () => {
+    const { parents } = walkStaticImportGraph({ repoRoot, entry: responsePreviewModule });
+    expect(parents.has(implementationModule), importChain(parents, implementationModule).join(' -> ')).toBe(false);
   });
 
   it('keeps query synchronization schema-only and directly owned by the editor', () => {
