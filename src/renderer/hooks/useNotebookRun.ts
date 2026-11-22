@@ -66,22 +66,25 @@ const MAX_USES_CHIP_KEYS = 8;
 
 function deriveUsesKeys(
   source: string,
-  priorSandboxKeys: ReadonlyArray<string>
+  priorSandboxKeys: ReadonlyArray<string>,
+  sqlNames = false
 ): string[] {
   if (priorSandboxKeys.length === 0 || source.length === 0) return [];
-  const priorSet = new Set(priorSandboxKeys);
+  // SQL folds unquoted names and may qualify them with a schema.
+  const keyOf = (name: string) => (sqlNames ? (name.split('.').pop() ?? name).toLowerCase() : name);
+  const prior = new Map(priorSandboxKeys.map((name) => [keyOf(name), name]));
   const referenced = new Set<string>();
   for (const match of source.matchAll(IDENTIFIER_TOKEN_RE)) {
-    const token = match[0];
-    if (priorSet.has(token)) referenced.add(token);
+    const name = prior.get(keyOf(match[0]));
+    if (name !== undefined) referenced.add(name);
     if (referenced.size >= MAX_USES_CHIP_KEYS) break;
   }
   return [...referenced];
 }
 
 /**
- * Python and SQL keep no JS sandbox: what a cell can use is what other cells
- * of the same kernel made (Python names, DuckDB tables).
+ * Python and SQL keep no JS sandbox: what a cell can use is what the cells
+ * above it in the same kernel made (Python names, DuckDB tables).
  */
 function namesMadeBySameKernel(
   tabId: string,
@@ -92,7 +95,8 @@ function namesMadeBySameKernel(
   if (!slice) return [];
   const names = new Set<string>();
   for (const cell of slice.notebook.cells) {
-    if (cell.id === cellId || cell.kind !== 'code' || cell.language !== language) continue;
+    if (cell.id === cellId) break;
+    if (cell.kind !== 'code' || cell.language !== language) continue;
     for (const name of slice.cellVarFlow?.[cell.id]?.produces ?? []) names.add(name);
   }
   return [...names];
@@ -263,7 +267,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // stopped) so a failed cell still shows how long it ran.
         store.setCellDurationMs(tabId, cellId, durationMs);
         store.setCellVarFlow(tabId, cellId, {
-          uses: deriveUsesKeys(cell.source, priorSandboxKeys),
+          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language === 'sql'),
           produces: outcome.producedKeys,
         });
         // Lazy reactivity: a settled cell may have changed persistent
@@ -287,7 +291,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // (produces-empty) var-flow entry so the header stays coherent.
         store.setCellDurationMs(tabId, cellId, e2eFixedDurationMs(performance.now() - startedAt));
         store.setCellVarFlow(tabId, cellId, {
-          uses: deriveUsesKeys(cell.source, priorSandboxKeys),
+          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language === 'sql'),
           produces: [],
         });
         store.markCellsStaleAfter(tabId, cellId);

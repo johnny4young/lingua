@@ -506,8 +506,14 @@ export function serializeNotebookDocumentWithinLimit(
   notebook: NotebookV1,
   opts: { executionOrder?: Readonly<Record<string, number>> } = {}
 ): NotebookDocumentExportOutcome {
-  const json = serializeNotebookDocument(notebook, opts);
-  const bytes = utf8ByteLength(json);
+  let json = serializeNotebookDocument(notebook, opts);
+  let bytes = utf8ByteLength(json);
+  // Answers are derived from a run; a notebook that fits without them still saves.
+  if (bytes > MAX_LINGUANB_BYTES && notebook.cells.some((cell) => cell.kind === 'code' && cell.answers)) {
+    const cells = notebook.cells.map((cell) => (cell.kind === 'code' ? withCellRunResults(cell, cell.outputs) : cell));
+    json = serializeNotebookDocument({ ...notebook, cells }, opts);
+    bytes = utf8ByteLength(json);
+  }
   return bytes > MAX_LINGUANB_BYTES
     ? { ok: false, reason: 'oversized', bytes, limit: MAX_LINGUANB_BYTES }
     : { ok: true, json };

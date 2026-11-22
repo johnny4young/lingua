@@ -134,6 +134,18 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(screen.queryByTestId('notebook-cell-answer-leader')).toBeNull();
   });
 
+  it('opens the editor from the code, not from its horizontal scrollbar', () => {
+    render(<NotebookCodeCellRow {...rowProps(pythonCell)} />);
+    const view = screen.getByTestId('notebook-code-cell-static');
+    Object.defineProperty(view, 'clientHeight', { value: 80 });
+    const onScrollbar = new MouseEvent('mousedown', { bubbles: true });
+    Object.defineProperty(onScrollbar, 'offsetY', { value: 84 });
+    fireEvent(view, onScrollbar);
+    expect(screen.queryByTestId('notebook-code-cell-static')).not.toBeNull();
+    fireEvent.mouseDown(view);
+    expect(screen.queryByTestId('notebook-code-cell-static')).toBeNull();
+  });
+
   it('shows the run number in the margin, or a dash before the first run', () => {
     const { rerender } = render(<NotebookCodeCellRow {...rowProps(pythonCell)} />);
     const margin = screen.getByTestId('notebook-code-cell-execution-order');

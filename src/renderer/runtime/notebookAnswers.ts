@@ -158,30 +158,37 @@ export function pythonValueType(repr: string): { type?: string; size?: number } 
   if (/^-?(\d+\.\d*|\.\d+|\d+)(e[+-]?\d+)?$/i.test(text) || /^-?(inf|nan)$/.test(text)) {
     return { type: 'float' };
   }
+  if (COMPLEX_RE.test(text)) return { type: 'complex' };
   if (/^b(['"]).*\1$/s.test(text)) return { type: 'bytes' };
   if (/^(['"]).*\1$/s.test(text)) return { type: 'str' };
   const open = text[0];
   const close = text[text.length - 1];
+  const body = text.slice(1, -1);
+  const { items, colon } = scanTopLevel(body);
   const kind =
     open === '[' && close === ']'
       ? 'list'
       : open === '(' && close === ')'
         ? 'tuple'
         : open === '{' && close === '}'
-          ? text.slice(1, -1).includes(':') || text === '{}'
+          ? colon || text === '{}'
             ? 'dict'
             : 'set'
           : null;
   if (!kind) return {};
-  return { type: kind, size: countTopLevelItems(text.slice(1, -1)) };
+  return { type: kind, size: items };
 }
 
-/** Items in a repr body, counting commas outside nested brackets and strings. */
-function countTopLevelItems(body: string): number {
-  if (!body.trim()) return 0;
+const COMPLEX_PART = String.raw`(?:\d+\.?\d*(?:e[+-]?\d+)?|inf|nan)`;
+const COMPLEX_RE = new RegExp(String.raw`^(?:\(-?${COMPLEX_PART}[+-]${COMPLEX_PART}j\)|-?${COMPLEX_PART}j)$`, 'i');
+
+/** Items in a repr body (commas outside nested brackets and strings), and whether a key colon sits at the top. */
+function scanTopLevel(body: string): { items: number; colon: boolean } {
+  if (!body.trim()) return { items: 0, colon: false };
   let depth = 0;
   let quote: string | null = null;
   let items = 1;
+  let colon = false;
   for (let index = 0; index < body.length; index += 1) {
     const ch = body[index]!;
     if (quote) {
@@ -193,9 +200,10 @@ function countTopLevelItems(body: string): number {
     else if ('([{'.includes(ch)) depth += 1;
     else if (')]}'.includes(ch)) depth -= 1;
     else if (ch === ',' && depth === 0) items += 1;
+    else if (ch === ':' && depth === 0) colon = true;
   }
   // A trailing comma (`(1,)`) does not start another item.
-  return body.trimEnd().endsWith(',') ? items - 1 : items;
+  return { items: body.trimEnd().endsWith(',') ? items - 1 : items, colon };
 }
 
 const PYTHON_VALUE_TYPES = new Set(['result', 'magic', 'watch', 'autoLog']);
@@ -221,7 +229,7 @@ function lastLine(message: string): string {
 }
 
 const CREATE_RE =
-  /^\s*create\s+(?:or\s+replace\s+)?(?:(?:temp|temporary)\s+)?(table|view)\s+(?:if\s+not\s+exists\s+)?((?:"[^"]+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][\w$]*))*)/i;
+  /^\s*create\s+(?:or\s+replace\s+)?((?:temp|temporary)\s+)?(table|view)\s+(?:if\s+not\s+exists\s+)?((?:"[^"]+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][\w$]*))*)/i;
 
 /** What a SQL cell's last statement was, and where its answer goes. */
 export interface SqlAnswerTarget {
@@ -229,7 +237,7 @@ export interface SqlAnswerTarget {
   readonly firstLine: number;
   /** Line of the last statement's last line. */
   readonly lastLine: number;
-  /** `CREATE TABLE | VIEW <name>`: the name as written, and its display form. */
+  /** `CREATE TABLE | VIEW <name>`: the name as written, and its display form (unquoted). */
   readonly made?: { readonly kind: 'table' | 'view'; readonly name: string; readonly label: string };
   readonly isRead: boolean;
 }
@@ -265,13 +273,14 @@ export function sqlAnswerTarget(source: string): SqlAnswerTarget | null {
   const code = sqlCodeOnly(text);
   const created = CREATE_RE.exec(text);
   // Only trust a CREATE seen in code, not one inside a string or comment.
-  if (created && /^\s*create\b/i.test(code)) {
-    const name = created[2]!.replace(/\s*\.\s*/g, '.');
+  // A temporary relation ends with the engine's per-query connection, so it makes nothing.
+  if (created && !created[1] && /^\s*create\b/i.test(code)) {
+    const name = created[3]!.replace(/\s*\.\s*/g, '.');
     return {
       firstLine,
       lastLine,
       made: {
-        kind: created[1]!.toLowerCase() as 'table' | 'view',
+        kind: created[2]!.toLowerCase() as 'table' | 'view',
         name,
         label: name.replace(/"/g, ''),
       },
@@ -284,7 +293,9 @@ export function sqlAnswerTarget(source: string): SqlAnswerTarget | null {
 /** DuckDB reports a parse error position as `LINE n:` of the text it ran. */
 export function sqlErrorLine(message: string, source: string): number {
   const match = /\bLINE (\d+):/.exec(message);
-  const line = match ? Number(match[1]) : NaN;
+  // The engine runs the trimmed cell, so blank lines above it are not counted.
+  const skipped = newlines(source.slice(0, source.length - source.trimStart().length));
+  const line = match ? Number(match[1]) + skipped : NaN;
   if (Number.isInteger(line) && line >= 1 && line <= lineCount(source)) return line;
   return sqlAnswerTarget(source)?.firstLine ?? getLastNonEmptyLine(source);
 }

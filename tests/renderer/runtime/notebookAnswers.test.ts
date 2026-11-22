@@ -136,6 +136,9 @@ describe('pythonValueType', () => {
     ['(1,)', { type: 'tuple', size: 1 }],
     ["{'a': 1, 'b': [1, 2]}", { type: 'dict', size: 2 }],
     ['{1, 2, 3}', { type: 'set', size: 3 }],
+    ["{'a:b', 'c'}", { type: 'set', size: 2 }],
+    ['(1+2j)', { type: 'complex' }],
+    ['-3j', { type: 'complex' }],
     ['[]', { type: 'list', size: 0 }],
     ['<object at 0x1>', {}],
   ])('reads %s', (repr, expected) => {
@@ -196,6 +199,10 @@ describe('sqlAnswerTarget', () => {
     });
   });
 
+  it('makes nothing from a temporary table, which ends with its connection', () => {
+    expect(sqlAnswerTarget('CREATE TEMP TABLE t AS SELECT 1 AS a')).toEqual({ firstLine: 1, lastLine: 1, isRead: false });
+  });
+
   it('ignores a CREATE inside a string or comment', () => {
     expect(sqlAnswerTarget("SELECT 'create table x as' AS note")?.made).toBeUndefined();
   });
@@ -208,6 +215,10 @@ describe('sqlAnswerTarget', () => {
 describe('sqlErrorLine', () => {
   it('reads DuckDB LINE n when it falls inside the cell', () => {
     expect(sqlErrorLine('Parser Error: syntax error\n\nLINE 2: FRM t', 'SELECT *\nFRM t')).toBe(2);
+  });
+
+  it('counts the blank lines above the trimmed query DuckDB ran', () => {
+    expect(sqlErrorLine('Parser Error: syntax error\n\nLINE 2: FRM t', '\n\nSELECT *\nFRM t')).toBe(4);
   });
 
   it('falls back to the last statement', () => {

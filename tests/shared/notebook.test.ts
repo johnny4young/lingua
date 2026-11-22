@@ -14,13 +14,16 @@ import {
   MAX_CELLS_PER_NOTEBOOK,
   MAX_CELL_SOURCE_LENGTH,
   MAX_NOTEBOOK_BYTES,
+  MAX_ANSWERS_PER_CELL,
   MAX_ANSWER_TEXT_LENGTH,
+  MAX_OUTPUT_TEXT_LENGTH,
   MAX_OUTPUTS_PER_CELL,
   NOTEBOOK_CELL_KINDS,
   NOTEBOOK_CELL_LANGUAGES,
   NOTEBOOK_REJECT_REASONS,
   parseNotebook,
   serializeNotebook,
+  serializeNotebookDocumentWithinLimit,
   withCellRunResults,
   type NotebookV1,
 } from '../../src/shared/notebook';
@@ -389,6 +392,29 @@ describe('per-line answers', () => {
     };
     expect(withCellRunResults(cell, [])).toEqual({ ...cell, answers: undefined, outputs: [] });
     expect(withCellRunResults(cell, [])).not.toHaveProperty('answers');
+  });
+});
+
+describe('document size with answers', () => {
+  it('saves without answers when they alone push the document past the limit', () => {
+    const answers = Array.from({ length: MAX_ANSWERS_PER_CELL }, (_, index) => ({
+      line: 1,
+      kind: 'output' as const,
+      text: `${index}`.padEnd(MAX_ANSWER_TEXT_LENGTH, 'x'),
+    }));
+    const filler = 'y'.repeat(MAX_OUTPUT_TEXT_LENGTH);
+    const cells = Array.from({ length: 30 }, (_, index) => ({
+      kind: 'code' as const,
+      id: `c-${index}`,
+      language: 'python' as const,
+      source: 'x',
+      outputs: [{ kind: 'text' as const, stream: 'stdout' as const, text: filler }],
+      answers,
+    }));
+    const notebook: NotebookV1 = { version: 1, id: 'big', title: 'Big', cells };
+    const outcome = serializeNotebookDocumentWithinLimit(notebook);
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.json).not.toContain('"answers"');
   });
 });
 

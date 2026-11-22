@@ -642,7 +642,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const canRunFromActiveCell =
     activeCellIndex >= 0 && notebook.cells.slice(activeCellIndex).some(isNotebookCodeCell);
   const hasOutputsToClear = notebook.cells.some(
-    cell => isNotebookCodeCell(cell) && cell.outputs.length > 0
+    cell => isNotebookCodeCell(cell) && (cell.outputs.length > 0 || cell.answers !== undefined)
   );
   const exportLanguageLabel = exportLanguage
     ? languageLabel(exportLanguage)

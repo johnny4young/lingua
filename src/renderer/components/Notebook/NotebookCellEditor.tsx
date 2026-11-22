@@ -42,6 +42,7 @@ import { monacoLanguageFor } from '../../utils/languageMeta';
 import { defineCustomThemes } from '../Editor/editorThemes';
 import { getSatelliteEditorOptions } from '../Editor/editorOptions';
 import { VimStatusBar } from '../Editor/VimStatusBar';
+import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
 import { createLocalizedStatusBarClass } from '../Editor/vimStatusBarFactory';
 
 // Ensure the worker environment + JS/TS contribution are registered before
@@ -51,9 +52,6 @@ configureMonaco();
 
 type EditorInstance = Parameters<OnMount>[0];
 
-/** Cell editor never grows past this (matches the old textarea cap); it
- * scrolls internally beyond it so a giant cell can't dominate the page. */
-const MAX_CELL_EDITOR_HEIGHT = 600;
 /** Floor so a one-line / empty cell editor still has a comfortable target. */
 const MIN_CELL_EDITOR_HEIGHT = 56;
 
@@ -203,7 +201,12 @@ function NotebookCellStaticView({
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
-      onMouseDown={onRequestEdit}
+      onMouseDown={event => {
+        // A press on the horizontal scrollbar scrolls; it does not open the editor.
+        const box = event.currentTarget;
+        if (event.target === box && box.clientHeight > 0 && event.nativeEvent.offsetY >= box.clientHeight) return;
+        onRequestEdit();
+      }}
       onKeyDown={handleKeyDown}
       className="relative min-h-[44px] cursor-text overflow-x-auto rounded border border-transparent p-2 outline-none hover:border-border/60 focus-visible:border-primary/70 focus-visible:ring-1 focus-visible:ring-primary/40"
       style={{ fontFamily, fontSize }}
@@ -346,7 +349,7 @@ function NotebookCellMonaco({
       const applyHeight = () => {
         const next = Math.min(
           Math.max(editor.getContentHeight(), MIN_CELL_EDITOR_HEIGHT),
-          MAX_CELL_EDITOR_HEIGHT
+          NOTEBOOK_CELL_EDITOR_MAX_HEIGHT
         );
         setHeight(next);
       };

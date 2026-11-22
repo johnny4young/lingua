@@ -37,6 +37,13 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { NotebookCellAnswers } from './NotebookCellAnswers';
 import type { NotebookCellLeader } from './NotebookCellEditor';
 import { answersByLine, lineLength, notebookLineHeight } from './notebookAnswerView';
+import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
+
+function countLines(text: string): number {
+  let lines = 1;
+  for (let index = text.indexOf('\n'); index !== -1; index = text.indexOf('\n', index + 1)) lines += 1;
+  return lines;
+}
 
 export interface NotebookCodeCellRowProps {
   readonly notebookTabId?: string;
@@ -349,7 +356,10 @@ function NotebookCodeCellRowImpl({
   const fontSize = useSettingsStore(s => s.fontSize);
   const lineHeight = notebookLineHeight(fontSize);
   // Answers belong to the source they ran; a draft not yet saved moves the lines.
-  const showAnswers = hasAnswers && source === cell.source;
+  // An editor taller than its cap scrolls inside, where the column cannot follow.
+  const scrollsInEditor =
+    editing && hasAnswers && countLines(cell.source) * lineHeight + 16 > NOTEBOOK_CELL_EDITOR_MAX_HEIGHT;
+  const showAnswers = hasAnswers && source === cell.source && !scrollsInEditor;
   const outputTables = useMemo(
     () => cell.outputs.map(output => (output.stream === 'stdout' ? tableFromOutputText(output.text) : null)),
     [cell.outputs]

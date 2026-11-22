@@ -383,6 +383,19 @@ describe('<NotebookView /> command mode', () => {
       expect(nb.cells[0]).toMatchObject({ outputs: [] });
     });
 
+    it('Clear outputs also clears a cell that only answered on its lines', async () => {
+      seed([codeCell('c1')], 'c1');
+      useNotebookStore.getState().setCellOutputs(TAB_ID, 'c1', [], [
+        { line: 1, kind: 'value', text: '2', type: 'number' },
+      ]);
+      const user = userEvent.setup();
+      render(<NotebookView tabId={TAB_ID} />);
+      const clear = screen.getByTestId('notebook-toolbar-clear-outputs');
+      expect(clear.hasAttribute('disabled')).toBe(false);
+      await user.click(clear);
+      expect(useNotebookStore.getState().getNotebookForTab(TAB_ID)!.cells[0]).not.toHaveProperty('answers');
+    });
+
     it('Run from here runs the active cell + cells below', async () => {
       mockExecute.mockResolvedValue({
         kind: 'ok',
