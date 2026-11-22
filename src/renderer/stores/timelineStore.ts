@@ -5,7 +5,7 @@ import { currentEffectiveTier } from './licenseSelectors';
 import { useEditorStore } from './editorStore';
 import { findTimelineStep, type TimelineMove } from '../utils/timelineModel';
 
-interface TimelineRecording {
+export interface TimelineRecording {
   tabId: string;
   steps: TimelineStep[];
   /** Steps the run recorded, before the Free slice. */
@@ -13,12 +13,18 @@ interface TimelineRecording {
   truncated: boolean;
   /** Free kept only the last steps. */
   limited: boolean;
+  /** Paid tiers see the whole run, its trace and its time per line. */
+  entitled: boolean;
+  /** Run time when recording ended; see `ExecutionTimeline.ms`. */
+  ms?: number;
+  /** The tab's code when the recording arrived, so line labels survive later edits. */
+  code: string;
 }
 
 interface TimelineState {
   recording: TimelineRecording | null;
   current: number;
-  publish: (tabId: string, timeline: ExecutionTimeline) => void;
+  publish: (tabId: string, timeline: ExecutionTimeline, code?: string) => void;
   select: (index: number) => void;
   /** Moves by `delta` steps; at the first or last step it bumps `blocked` instead, as `go` does. */
   step: (delta: number) => boolean;
@@ -46,7 +52,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
   recording: null,
   current: 0,
   blocked: 0,
-  publish: (tabId, timeline) => {
+  publish: (tabId, timeline, code = '') => {
     let entitled: boolean;
     try {
       entitled = isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY');
@@ -57,7 +63,16 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     const total = timeline.steps.length;
     const steps = entitled ? timeline.steps : timeline.steps.slice(-TIMELINE_FREE_STEPS);
     set({
-      recording: { tabId, steps, total, truncated: timeline.truncated, limited: steps.length < total },
+      recording: {
+        tabId,
+        steps,
+        total,
+        truncated: timeline.truncated,
+        limited: steps.length < total,
+        entitled,
+        code,
+        ...(timeline.ms !== undefined ? { ms: timeline.ms } : {}),
+      },
       current: Math.max(0, steps.length - 1),
     });
   },

@@ -62,6 +62,7 @@ export function applyAutoRunResult({
     : presentation.lineResults;
 
   setLineResults(nextLineResults);
+  useResultStore.getState().recordTabAnswers(tabId, nextLineResults, code);
   // Publish per-statement timings alongside the line results.
   setLineTimings(result.lineTimings ?? []);
   setFullOutput(presentation.fullOutput);

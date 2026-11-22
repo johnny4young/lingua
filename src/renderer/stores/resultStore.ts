@@ -35,6 +35,22 @@ export interface TabRunLog {
 
 export const TAB_RUN_LOG_CAP = 12;
 
+/** The answers one run of a tab published, with the source of each answered line. */
+export interface RunAnswers {
+  number: number;
+  results: LineResult[];
+  /** Source text by line, for the lines that answered. */
+  sources: Record<number, string>;
+}
+
+interface TabAnswers {
+  latest: RunAnswers;
+  previous?: RunAnswers;
+}
+
+/** Tabs whose last two runs stay in memory; the least recently run one goes first. */
+export const TAB_ANSWERS_CAP = 12;
+
 /** Number the next run of `tabId` will take. */
 export function nextTabRunNumber(state: Pick<ResultState, 'tabRuns'>, tabId: string): number {
   return (state.tabRuns[tabId]?.count ?? 0) + 1;
@@ -258,6 +274,13 @@ interface ResultState {
   scopeSnapshot: ScopeSnapshot | null;
   /** Settled runs per tab for the session. Survives tab switches and `clear()`; never persisted. */
   tabRuns: Record<string, TabRunLog>;
+  /** Each tab's last two published answers, for the change since the previous run. Memory only. */
+  tabAnswers: Record<string, TabAnswers>;
+  /** Changes since the previous run show on the answers. */
+  showRunChanges: boolean;
+  setShowRunChanges: (show: boolean) => void;
+  /** Keeps `results` as the latest answers of `tabId`, and the latest as the previous. */
+  recordTabAnswers: (tabId: string, results: readonly LineResult[], code: string) => void;
 
   setLineResults: (results: LineResult[]) => void;
   setLineTimings: (timings: LineTimingEntry[]) => void;
@@ -446,6 +469,26 @@ export const useResultStore = create<ResultState>((set, get) => ({
   // runtime entry points on clean success.
   scopeSnapshot: null,
   tabRuns: {},
+  tabAnswers: {},
+  showRunChanges: true,
+
+  setShowRunChanges: (showRunChanges) => set({ showRunChanges }),
+  recordTabAnswers: (tabId, results, code) => {
+    const number = get().tabRuns[tabId]?.count ?? 0;
+    if (number === 0) return;
+    const lines = code.split('\n');
+    const sources: Record<number, string> = {};
+    for (const result of results) sources[result.line] = lines[result.line - 1] ?? '';
+    set((state) => {
+      const { [tabId]: current, ...others } = state.tabAnswers;
+      const kept = Object.keys(others);
+      for (const stale of kept.slice(0, Math.max(0, kept.length - TAB_ANSWERS_CAP + 1))) delete others[stale];
+      // A republish of the same run (a restored snapshot) replaces it instead of becoming its own previous.
+      const previous = current && current.latest.number !== number ? current.latest : current?.previous;
+      const latest: RunAnswers = { number, results: [...results], sources };
+      return { tabAnswers: { ...others, [tabId]: previous ? { latest, previous } : { latest } } };
+    });
+  },
 
   setLineResults: (lineResults) => set({ lineResults }),
   setLineTimings: (lineTimings) => set({ lineTimings }),

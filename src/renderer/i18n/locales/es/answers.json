@@ -14,5 +14,13 @@
   "answers.header.code": "Tú escribes",
   "answers.header.answers": "Lingua responde",
   "answers.header.run": "ejecución {{number}}",
-  "answers.header.runLive": "ejecución {{number}}, en vivo"
+  "answers.header.runLive": "ejecución {{number}}, en vivo",
+  "answers.header.changes": "Cambios desde la ejecución {{number}}",
+  "answers.delta.label": "Cambio desde la ejecución {{number}}",
+  "answers.delta.was": "antes",
+  "answers.delta.up": "subió",
+  "answers.delta.down": "bajó",
+  "answers.delta.edited": "editado",
+  "answers.delta.items_one": "{{count}} elemento",
+  "answers.delta.items_other": "{{count}} elementos"
 }

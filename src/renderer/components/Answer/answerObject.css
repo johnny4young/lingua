@@ -332,4 +332,26 @@
   }
 
   .answer-object-loop { color: var(--color-fg-muted); }
+
+  /* What moved since the previous run; the dashed frame reads as a note, not a value. */
+  .answer-delta {
+    display: inline-flex;
+    flex: none;
+    height: 19px;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border: 1px dashed var(--color-border-strong);
+    border-radius: 5px;
+    color: var(--color-fg-muted);
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    font-weight: 560;
+    white-space: pre;
+  }
+
+  .answer-delta-before {
+    color: var(--color-fg-subtle);
+    text-decoration-thickness: 1px;
+  }
 }

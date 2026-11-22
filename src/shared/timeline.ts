@@ -34,12 +34,16 @@ export interface TimelineStep {
   log?: 'log' | 'info' | 'warn' | 'error';
   /** The run threw while this step was the latest. */
   error?: true;
+  /** Run time in ms when the step began, without the recorder's own time. */
+  ms?: number;
 }
 
 export interface ExecutionTimeline {
   steps: TimelineStep[];
   /** Recording stopped at a cap before the run ended. */
   truncated: boolean;
+  /** Run time in ms when recording ended, on the same clock as `TimelineStep.ms`. */
+  ms?: number;
 }
 
 const text = (value: unknown, fallback = ''): string =>
@@ -47,6 +51,7 @@ const text = (value: unknown, fallback = ''): string =>
 const lineOf = (value: unknown): number => (Number.isInteger(value) && (value as number) > 0 ? (value as number) : 0);
 const LOGS = new Set(['log', 'info', 'warn', 'error']);
 const isCount = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
+const isTime = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 /** Re-applies the caps and types to a timeline from the worker, which user code can reach. */
 export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined {
@@ -69,9 +74,11 @@ export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined 
       ...(isCount(step.call) ? { call: step.call } : {}),
       ...(typeof step.log === 'string' && LOGS.has(step.log) ? { log: step.log as TimelineStep['log'] } : {}),
       ...(step.error === true ? { error: true as const } : {}),
+      ...(isTime(step.ms) ? { ms: step.ms } : {}),
     });
   }
-  return { steps, truncated: raw.truncated === true || raw.steps.length > TIMELINE_MAX_STEPS };
+  const ms = (raw as { ms?: unknown }).ms;
+  return { steps, truncated: raw.truncated === true || raw.steps.length > TIMELINE_MAX_STEPS, ...(isTime(ms) ? { ms } : {}) };
 }
 
 export interface TimelineWorkerMessage {

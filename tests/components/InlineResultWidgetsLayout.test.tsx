@@ -2,6 +2,8 @@ import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as monacoTypes from 'monaco-editor';
 import { InlineResultWidgets } from '@/components/Editor/InlineResultWidgets';
+import { useResultStore } from '@/stores/resultStore';
+import { useEditorStore } from '@/stores/editorStore';
 
 let nextFrame = 0;
 const frames = new Map<number, FrameRequestCallback>();
@@ -698,6 +700,86 @@ describe('answers span their statement, fall back under narrow editors and never
     view.rerender(<InlineResultWidgets {...props} editor={h.editor} headerSlot={slot} />);
     act(() => h.callbacks.get('layout')?.());
     expect(slot.querySelector('[data-testid="answer-column-header"]')).toBeNull();
+    slot.remove();
+  });
+});
+
+describe('changes since the previous run', () => {
+  const initial = useResultStore.getState();
+  afterEach(() => useResultStore.setState(initial, true));
+
+  it('marks a changed answer and lets the header toggle the marks off', () => {
+    const h = harness();
+    const slot = document.createElement('div');
+    document.body.append(slot);
+    const lineResults = [{ line: 1, type: 'log' as const, value: '131' }];
+    useResultStore.setState({
+      tabAnswers: {
+        tab: {
+          previous: { number: 6, results: [{ line: 1, type: 'log', value: '118' }], sources: { 1: 'x' } },
+          latest: { number: 7, results: lineResults, sources: { 1: 'x' } },
+        },
+      },
+    });
+    render(<InlineResultWidgets {...props} lineResults={lineResults} editor={h.editor} headerSlot={slot} />);
+    flushFrames();
+    expect(document.querySelector('[data-testid="answer-delta"]')?.textContent).toContain('118');
+    const toggle = slot.querySelector<HTMLButtonElement>('[data-testid="answer-column-header-changes"]')!;
+    expect(toggle.textContent).toContain('Changes since run 6');
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    act(() => toggle.click());
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(document.querySelector('[data-testid="answer-delta"]')).toBeNull();
+    slot.remove();
+  });
+
+  it('keeps only the switch over a narrow editor', () => {
+    const h = harness();
+    h.setContentWidth(500);
+    const slot = document.createElement('div');
+    document.body.append(slot);
+    const lineResults = [{ line: 1, type: 'log' as const, value: '2' }];
+    useResultStore.setState({
+      tabAnswers: {
+        tab: {
+          previous: { number: 1, results: [{ line: 1, type: 'log', value: '1' }], sources: {} },
+          latest: { number: 2, results: lineResults, sources: {} },
+        },
+      },
+    });
+    render(<InlineResultWidgets {...props} lineResults={lineResults} editor={h.editor} headerSlot={slot} />);
+    flushFrames();
+    expect(slot.querySelector('[data-testid="answer-column-header-changes"]')).not.toBeNull();
+    expect(slot.textContent).not.toContain('Lingua answers');
+    slot.remove();
+  });
+
+  it('drops a closed tab\'s answers once the overlay is loaded', () => {
+    const h = harness();
+    useEditorStore.setState({ tabs: [{ id: 'tab' }, { id: 'gone' }] as never });
+    const answers = { latest: { number: 1, results: [], sources: {} } };
+    useResultStore.setState({ tabAnswers: { tab: answers, gone: answers } });
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    act(() => useEditorStore.setState({ tabs: [{ id: 'tab' }] as never }));
+    expect(Object.keys(useResultStore.getState().tabAnswers)).toEqual(['tab']);
+  });
+
+  it('marks nothing when the answers on screen are not the latest run', () => {
+    const h = harness();
+    useResultStore.setState({
+      tabAnswers: {
+        tab: {
+          previous: { number: 1, results: [{ line: 1, type: 'log', value: '1' }], sources: {} },
+          latest: { number: 2, results: [{ line: 1, type: 'log', value: '2' }], sources: {} },
+        },
+      },
+    });
+    const slot = document.createElement('div');
+    document.body.append(slot);
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: '3' }]} editor={h.editor} headerSlot={slot} />);
+    flushFrames();
+    expect(document.querySelector('[data-testid="answer-delta"]')).toBeNull();
+    expect(slot.querySelector('[data-testid="answer-column-header-changes"]')).toBeNull();
     slot.remove();
   });
 });

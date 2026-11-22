@@ -105,6 +105,22 @@ describe('timeline step buffer', () => {
     expect(sanitizeTimeline({ steps: [{ line: 1, frames: [], vars: [], depth: -1, call: 2.5 }] })!.steps[0]).toEqual({ line: 1, frames: [], vars: [] });
   });
 
+  it('times each step on the run clock without the time spent reading locals', () => {
+    let clock = 100;
+    const timeline = createJsWorkerTimeline(() => clock);
+    clock = 110;
+    timeline.rec(1, () => {
+      clock += 50;
+      return {};
+    });
+    clock += 30;
+    timeline.rec(2, () => ({}));
+    clock += 5;
+    const snapshot = timeline.snapshot();
+    expect(snapshot.steps.map(step => step.ms)).toEqual([10, 40]);
+    expect(snapshot.ms).toBe(45);
+  });
+
   it('cuts long values to their preview length', () => {
     const timeline = createJsWorkerTimeline();
     timeline.rec(1, () => ({ text: 'x'.repeat(500) }));
@@ -175,6 +191,12 @@ describe('timeline value preview', () => {
       ],
       truncated: false,
     });
+    expect(sanitizeTimeline({ steps: [{ line: 1, ms: 4.5 }, { line: 2, ms: -1 }, { line: 3, ms: 'x' }], ms: 9 })).toMatchObject({
+      steps: [{ line: 1, ms: 4.5 }, { line: 2 }, { line: 3 }],
+      ms: 9,
+    });
+    expect(sanitizeTimeline({ steps: [{ line: 2, ms: -1 }], ms: Number.NaN })?.steps[0]).not.toHaveProperty('ms');
+    expect(sanitizeTimeline({ steps: [], ms: Number.POSITIVE_INFINITY })).not.toHaveProperty('ms');
     expect(sanitizeTimeline({ steps: 'no' })).toBeUndefined();
   });
 });

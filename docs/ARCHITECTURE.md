@@ -920,6 +920,12 @@ Scratchpad auto-run of the tab drops it. Replay reads the recording and never ru
 `utils/timelineModel.ts` derives depth moves (Over skips deeper calls, Out
 leaves the call, both backward too), the other runs of a line, what a line
 changed against the next step in the same call, and the lines not reached yet.
+Each step also carries `ms`, the run time when it began minus the time the
+recorder spent reading locals, and the snapshot carries the time recording
+ended; `utils/runTraceModel.ts` turns them into self time per line for the
+Console's trace, which also derives loop passes from backward jumps in one call.
+`resultStore.tabAnswers` keeps each tab's last two published answers (memory
+only, capped at 12 tabs) so the editor can mark what moved since the previous run.
 
 ### Rich display
 

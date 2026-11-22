@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { LineResult } from '../../stores/resultStore';
 import { replaceUnsafeText } from '../../utils/unsafeText';
 import { AnswerObject } from '../Answer/AnswerObject';
+import { AnswerDeltaChip } from '../Answer/AnswerDeltaChip';
+import type { AnswerDelta } from '../Answer/answerDelta';
 import type { AnswerRole } from '../Answer/answerObjectModel';
 import { DotLeader } from '../ui/answer';
 import '../../i18n/answersCatalog';
@@ -17,6 +19,8 @@ export interface InlineAnswerLineProps {
   readonly language?: string;
   /** The line's source, read for a threshold when the line has one answer. */
   readonly source?: string;
+  /** How the answer moved since run `change.since`. */
+  readonly change?: { readonly delta: AnswerDelta; readonly since: number } | null;
 }
 
 function roleOf(result: LineResult): AnswerRole {
@@ -46,7 +50,7 @@ function formatTimingMs(durationMs: number): string {
  * kind several times shows its latest answer and the count; mixed answers share
  * the row as values only.
  */
-export function InlineAnswerLine({ items, timing, language, source }: InlineAnswerLineProps) {
+export function InlineAnswerLine({ items, timing, language, source, change }: InlineAnswerLineProps) {
   const { t } = useTranslation();
   const repeat = isRepeat(items);
   const visible = repeat ? items.slice(-1) : items.slice(0, MAX_ITEMS_PER_LINE);
@@ -84,6 +88,7 @@ export function InlineAnswerLine({ items, timing, language, source }: InlineAnsw
             +{dropped}
           </span>
         ) : null}
+        {change ? <AnswerDeltaChip delta={change.delta} since={change.since} /> : null}
         {timing ? (
           <span className="lingua-inline-result-timing" data-testid="lingua-inline-timing" data-slowest={timing.slowest ? 'true' : undefined}>
             {`▸ ${formatTimingMs(timing.durationMs)}`}
