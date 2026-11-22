@@ -26,7 +26,8 @@ import { detectAutoTable, type RichOutputTable } from '../../../shared/richOutpu
 import { RichTableGrid } from '../Console/RichTableGrid';
 import { cn } from '../../utils/cn';
 import { languageBadgeTone, languageLabel } from '../../utils/languageMeta';
-import { ResultHeader } from '../ui/ResultHeader';
+import { ResultHeader, type ResultHeaderNumeral } from '../ui/ResultHeader';
+import { splitRunDuration } from '../../utils/timeLabels';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
 import { NotebookCellEditor } from './NotebookCellEditor';
@@ -54,9 +55,8 @@ export interface NotebookCodeCellRowProps {
   readonly cellIndex: number;
   readonly status: NotebookCellRunStatus;
   /**
-   * last-run latency in ms (fractional). Appended to the
-   * header StatusBadge (" · 1.2 ms") and the output meta. Omitted
-   * until the cell has run (transient store state, reset on reload).
+   * Last-run latency in ms: the output header's numeral when that header shows,
+   * otherwise appended to the cell's status badge. Omitted until the cell has run.
    */
   readonly durationMs?: number;
   /**
@@ -114,17 +114,7 @@ export interface NotebookCodeCellRowProps {
   onLanguageChange: (cellId: string, language: NotebookCellLanguage) => void;
 }
 
-/**
- * The per-cell run status maps onto a canonical
- * `<StatusBadge>` tone, used BOTH in the cell header (replacing the
- * old bespoke pill) and in the OUTPUT-region ResultHeader. `ok`/`error`
- * get the friendlier "Success"/"Error" copy in the output header;
- * `stopped` reads as a quiet warning; `running` never reaches the
- * output header (we omit it while a cell runs) but DOES render in the
- * cell header so the spinner-equivalent "Running" state stays visible.
- * Token-only — no hardcoded emerald/rose; the badge tones resolve in
- * both themes.
- */
+/** Cell run status onto a badge tone; token-only so both themes resolve. */
 const STATUS_BADGE_TONE: Record<NotebookCellRunStatus, StatusBadgeTone> = {
   idle: 'neutral',
   running: 'info',
@@ -144,22 +134,15 @@ function formatLatencyMs(ms: number): string {
   return ms >= 100 ? Math.round(ms).toString() : ms.toFixed(1);
 }
 
-/**
- * The OUTPUT-region ResultHeader prefers the friendlier
- * `notebook.status.success` / `notebook.status.errored` copy for the
- * two terminal states a reader actually sees there; everything else
- * reuses the existing `notebook.status.*` label so we don't duplicate
- * strings.
- */
-function outputStatusKey(status: NotebookCellRunStatus): string {
-  switch (status) {
-    case 'ok':
-      return 'success';
-    case 'error':
-      return 'errored';
-    default:
-      return status;
-  }
+/** The output header's numeral: the run time, red when the cell failed. */
+function latencyNumeral(durationMs: number, status: NotebookCellRunStatus): ResultHeaderNumeral {
+  const { value, unit } = splitRunDuration(durationMs);
+  return {
+    value,
+    unit: unit ?? undefined,
+    tone: status === 'error' ? 'error' : 'neutral',
+    attributes: { 'data-testid': 'notebook-code-cell-output-latency' },
+  };
 }
 
 /**
@@ -310,7 +293,8 @@ function NotebookCodeCellRowImpl({
         flushPendingSource();
       }, getNotebookCellAutoSaveDebounceMs());
     },
-    [cell.id, flushPendingSource]
+    // Listed for oxlint's preserve-manual-memoization rule; the setter is stable.
+    [cell.id, flushPendingSource, setSource]
   );
 
   // Run reads the cell source from the persisted store
@@ -383,7 +367,10 @@ function NotebookCodeCellRowImpl({
     Number.isFinite(durationMs) &&
     status !== 'running' &&
     status !== 'idle';
-  const latencyLabel = hasLatency ? formatLatencyMs(durationMs) : null;
+  const outputHeaderShown = hasOutputs && showOutputHeader && !showAnswers;
+  // The output header carries the time as its numeral; the cell badge drops it then.
+  const latencyLabel = hasLatency && !outputHeaderShown ? formatLatencyMs(durationMs) : null;
+  const outputNumeral = hasLatency && outputHeaderShown ? latencyNumeral(durationMs, status) : null;
   const usesKeys = varFlow?.uses ?? [];
   const producesKeys = varFlow?.produces ?? [];
 
@@ -638,23 +625,12 @@ function NotebookCodeCellRowImpl({
       ) : null}
       {hasOutputs && !(showAnswers && outputsCollapsed && !explainsError) ? (
         <div className="overflow-hidden rounded border border-border/40 bg-background-elevated/50">
-          {showOutputHeader && !showAnswers ? (
+          {outputHeaderShown ? (
             <ResultHeader
-              status={
-                <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
-                  {t(`notebook.status.${outputStatusKey(status)}`)}
-                </StatusBadge>
-              }
-              meta={
-                latencyLabel
-                  ? t('notebook.cell.outputMetaWithLatency', {
-                      count: cell.outputs.length,
-                      ms: latencyLabel,
-                    })
-                  : t('notebook.cell.outputMeta', {
-                      count: cell.outputs.length,
-                    })
-              }
+              density="compact"
+              workspace={cell.language === 'sql' ? 'sql' : 'code'}
+              numeral={outputNumeral ?? undefined}
+              meta={t('notebook.cell.outputMeta', { count: cell.outputs.length })}
               trailing={
                 <OutputToggle
                   collapsed={outputsCollapsed}

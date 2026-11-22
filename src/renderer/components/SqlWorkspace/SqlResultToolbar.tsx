@@ -156,6 +156,7 @@ export function SqlResultToolbar({
   onApplySql,
   engine,
   snippetLabel,
+  searchRef,
 }: {
   columns: ReadonlyArray<SqlColumnMetadata>;
   search: string;
@@ -175,6 +176,8 @@ export function SqlResultToolbar({
   /** The engine the result came from; a snippet masks secrets its way. */
   engine?: SqlEngineKind;
   snippetLabel?: string;
+  /** Lets the result header's filter action focus the search field. */
+  searchRef?: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
@@ -190,6 +193,7 @@ export function SqlResultToolbar({
         <span className="flex h-6 w-48 min-w-[9rem] shrink items-center gap-1.5 rounded-md border border-border-default bg-bg-inset px-2 focus-within:border-border-strong">
           <Search size={11} aria-hidden="true" className="shrink-0 text-fg-subtle" />
           <input
+            ref={searchRef}
             type="text"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}

@@ -23,36 +23,8 @@
 
 import { useTranslation } from 'react-i18next';
 import type { HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
-import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
-
-function toneForResponse(response: HttpResponseV1): StatusBadgeTone {
-  if (
-    response.kind === 'network-error' ||
-    response.kind === 'cors-error' ||
-    response.kind === 'timeout'
-  ) {
-    return 'neutral';
-  }
-  if (response.kind === 'too-large') return 'warning';
-  if (response.status >= 200 && response.status < 300) return 'success';
-  if (response.status >= 300 && response.status < 400) return 'info';
-  if (response.status >= 400 && response.status < 500) return 'warning';
-  return 'error';
-}
-
-function labelForResponse(
-  response: HttpResponseV1,
-  t: ReturnType<typeof useTranslation>['t']
-): string {
-  if (response.kind === 'network-error') return t('httpWorkspace.response.kind.network');
-  if (response.kind === 'cors-error') return t('httpWorkspace.response.kind.cors');
-  if (response.kind === 'timeout') return t('httpWorkspace.response.kind.timeout');
-  // Standard HTTP status renders as `200 OK`; fallback to just the
-  // number when statusText is empty (rare but possible for some
-  // proxies).
-  const text = response.statusText.length > 0 ? ` ${response.statusText}` : '';
-  return `${response.status}${text}`;
-}
+import { StatusBadge } from '../ui/StatusBadge';
+import { labelForResponse, toneForResponse } from './httpStatus';
 
 export interface HttpStatusPillProps {
   response: HttpResponseV1;

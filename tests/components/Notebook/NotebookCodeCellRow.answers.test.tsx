@@ -228,4 +228,21 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(screen.getByTestId('notebook-code-cell-run').textContent).toBe('Refresh cell');
     expect(screen.getByTestId('notebook-code-cell-run').getAttribute('aria-label')).toBeNull();
   });
+
+  it('heads a plain output with the run time as its numeral and drops it from the cell badge', () => {
+    const { answers: _answers, ...cell } = pythonCell;
+    render(<NotebookCodeCellRow {...rowProps(cell)} durationMs={1240} />);
+    const header = screen.getByTestId('result-header');
+    expect(header.dataset.density).toBe('compact');
+    expect(within(header).getByTestId('result-header-workspace').textContent).toBe('CODE');
+    expect(screen.getByTestId('notebook-code-cell-output-latency').textContent).toBe('1.24s');
+    expect(header.textContent).toContain('1 line');
+    expect(screen.getByTestId('notebook-code-cell-status').textContent).toBe('Ok');
+  });
+
+  it('keeps the time on the cell badge while answers replace the output header', () => {
+    render(<NotebookCodeCellRow {...rowProps(pythonCell)} durationMs={12.5} />);
+    expect(screen.queryByTestId('result-header')).toBeNull();
+    expect(screen.getByTestId('notebook-code-cell-status').textContent).toBe('Ok · 12.5 ms');
+  });
 });

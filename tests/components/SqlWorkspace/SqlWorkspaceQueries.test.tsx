@@ -466,13 +466,14 @@ describe('Load more', () => {
     openQuery('SELECT * FROM big');
     render(<SqlWorkspacePanel />);
     act(() => pressSqlChord('statement'));
-    const header = await screen.findByText(/5,000 of ≥ 10,000 rows in view/);
-    expect(header).toBeTruthy();
+    expect(await screen.findByText(/5,000 in view/)).toBeTruthy();
+    expect(screen.getByTestId('sql-status-pill').textContent).toBe('≥ 10,000rows');
     expect(stream.cancelled).toBe(0);
     await user.click(screen.getByTestId('sql-result-load-more'));
-    expect(await screen.findByText(/10,000 of ≥ 10,000 rows in view/)).toBeTruthy();
+    expect(await screen.findByText(/10,000 in view/)).toBeTruthy();
     await user.click(screen.getByTestId('sql-result-load-more'));
-    expect(await screen.findByText(/15,000 of ≥ 15,000 rows in view/)).toBeTruthy();
+    expect(await screen.findByText(/15,000 in view/)).toBeTruthy();
+    expect(screen.getByTestId('sql-status-pill').textContent).toBe('≥ 15,000rows');
     // The first rows of the stream follow the window without a gap.
     showColumnRail();
     expect(screen.getByTestId('sql-column-rail-sample').textContent).toContain('15,000');
@@ -481,7 +482,8 @@ describe('Load more', () => {
       await waitFor(() => expect(screen.queryByTestId('sql-result-loading-more')).toBeNull());
     }
     // Once the stream is drained the total is exact.
-    expect(await screen.findByText(/^40,000 rows/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('sql-status-pill').textContent).toBe('40,000rows'));
+    expect(screen.queryByText(/in view/)).toBeNull();
     await waitFor(() => expect(stream.cancelled).toBe(1));
     expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
   });
@@ -518,9 +520,9 @@ describe('Load more', () => {
     openQuery('SELECT * FROM big');
     render(<SqlWorkspacePanel />);
     act(() => pressSqlChord('statement'));
-    await screen.findByText(/5,000 of ≥ 10,000 rows in view/);
+    await screen.findByText(/5,000 in view/);
     await user.click(screen.getByTestId('sql-result-load-more'));
-    await screen.findByText(/10,000 of ≥ 10,000 rows in view/);
+    await screen.findByText(/10,000 in view/);
     await user.click(screen.getByTestId('sql-result-load-more'));
     await waitFor(() =>
       expect(useUIStore.getState().statusNotice).toMatchObject({
@@ -529,7 +531,7 @@ describe('Load more', () => {
       })
     );
     expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
-    expect(screen.getByText(/of ≥ 1\d,\d{3} rows in view/)).toBeTruthy();
+    expect(screen.getByTestId('sql-status-pill').textContent).toMatch(/^≥ 1\d,\d{3}rows$/);
   });
 
   it('lets the open stream go when another query runs', async () => {

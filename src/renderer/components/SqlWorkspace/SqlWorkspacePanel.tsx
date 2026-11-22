@@ -559,8 +559,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       void runner.loadMore(moreKey, rowDisplayLimit, activeResponse.rows.length, activeResponse.columns.length);
     }
   };
-  const handleInsertPredicate = (predicate: string) =>
-    setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));
+  const handleInsertPredicate = (predicate: string) => setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));
 
   const runBody =
     showResultTabs && view.kind === 'plan' && plan ? (
@@ -593,6 +592,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
         {...(tablePreview?.edit ? { rowEdits } : {})}
         {...(activeQuery ? { snippetLabel: activeQuery.name } : {})}
+        {...(!tablePreview && runSet && view.kind === 'result' ? { statementPosition: { index: view.index + 1, total: runSet.results.length + runSet.notRun.length } } : {})}
       />
     );
 

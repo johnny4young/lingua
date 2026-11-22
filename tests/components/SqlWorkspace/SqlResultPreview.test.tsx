@@ -29,6 +29,11 @@ function response(overrides: Partial<SqlResponseV1> = {}): SqlResponseV1 {
   };
 }
 
+/** The filter bar is session-wide state, so open it only when an earlier test left it closed. */
+async function openFilter(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  if (!screen.queryByTestId('sql-result-preview-filter')) await user.click(screen.getByTestId('sql-result-filter-toggle'));
+}
+
 /** Read the first-column cell text for each rendered data row. */
 function firstColumnCells(): string[] {
   return screen
@@ -55,8 +60,8 @@ describe('SqlResultPreview', () => {
     const meter = screen.getByTestId('sql-result-phases');
     expect(screen.getByTestId('sql-result-phases-label').textContent).toBe('plan 2 ms · execute 31 ms · fetch 5 ms');
     expect(meter.getAttribute('title')).toBe('plan 2 ms · execute 31 ms · fetch 5 ms');
-    // The breakdown gives up its width before the tabs do, so a narrow pane truncates it.
-    expect(meter.parentElement?.className).toContain('shrink-[100]');
+    // The breakdown gives up its width before the views do, so a narrow pane truncates it.
+    expect(screen.getByTestId('sql-result-phases-label').parentElement?.className).toContain('flex-[1_1_0]');
     expect(screen.getByTestId('sql-result-phases-label').className).toContain('truncate');
     expect([...meter.querySelectorAll('[data-phase]')].map((segment) => segment.getAttribute('data-phase'))).toEqual(['plan', 'execute', 'fetch']);
 
@@ -232,6 +237,7 @@ describe('SqlResultPreview', () => {
 
       expect(firstColumnCells()).toEqual(['lingua', 'duckdb', 'react']);
 
+      await openFilter(user);
       await user.type(
         screen.getByTestId('sql-result-preview-filter'),
         'duck'
@@ -255,6 +261,7 @@ describe('SqlResultPreview', () => {
         />
       );
 
+      await openFilter(user);
       await user.type(
         screen.getByTestId('sql-result-preview-filter'),
         'zzz'
@@ -276,6 +283,7 @@ describe('SqlResultPreview', () => {
         />
       );
 
+      await openFilter(user);
       await user.type(
         screen.getByTestId('sql-result-preview-filter'),
         'react'
