@@ -5,7 +5,7 @@
  * the right, and Export full result… in the footer.
  */
 
-import { AlertTriangle, ArrowLeft, Bookmark, Columns3, Download, Hash, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bookmark, Hash, Loader2 } from 'lucide-react';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,9 +22,6 @@ import type { SqlForeignKey } from '../../runtime/sqlForeignKeys';
 import { cn } from '../../utils/cn';
 import { formatNumber } from '../../i18n/formatNumber';
 import { EmptyState } from '../ui/EmptyState';
-import { ResultHeader } from '../ui/ResultHeader';
-import { StatusBadge } from '../ui/StatusBadge';
-import { toneForSqlStatus } from './sqlStatusTone';
 import { SqlRunHistory } from './SqlRunHistory';
 import { SqlColumnProfilePanel } from './SqlColumnProfilePanel';
 import { ErrorBand, JsonView } from './SqlResultPreviewParts';
@@ -41,7 +38,7 @@ import { SqlResultToolbar } from './SqlResultToolbar';
 import { SqlColumnRail } from './SqlColumnRail';
 import { columnStats, statsRowLimit } from './sqlColumnStats';
 import { resultInstruments } from './sqlColumnInstruments';
-import { SqlPhaseTimingsMeter } from './SqlPhaseTimingsMeter';
+import { SqlResultHeader } from './SqlResultHeader';
 import { SqlValueViewer } from './SqlValueViewer';
 import { DEFAULT_EXPORT_OPTIONS, serializeRows } from './sqlResultExport';
 import { useSqlResultPaneLayout } from './useSqlResultPaneLayout';
@@ -70,9 +67,10 @@ export interface SqlResultForeignKeys {
   countReferences: (key: SqlForeignKey, value: unknown) => Promise<number | null>;
 }
 
-// Session-wide: the rail stays as the user left it across results. It opens on
-// request; the column heads already carry each column's distribution.
+// Session-wide: the rail and the filter bar stay as the user left them across results.
+// The rail opens on request; the column heads already carry each column's distribution.
 let railShown = false;
+let filterShown = false;
 
 export interface SqlResultPreviewProps {
   /** The response on screen; `null` before the first run. */
@@ -115,6 +113,8 @@ export interface SqlResultPreviewProps {
   onApplySql?: (sql: string) => void;
   /** Staged edits on an Explorer table, when Edit table rows is on. */
   rowEdits?: SqlRowEdits;
+  /** Which statement of a multi-statement run is on screen (1-based). */
+  statementPosition?: { index: number; total: number };
 }
 
 type ResultBodyTab = 'table' | 'json' | 'profile';
@@ -149,6 +149,7 @@ export function SqlResultPreview({
   onInsertPredicate,
   onApplySql,
   rowEdits,
+  statementPosition,
 }: SqlResultPreviewProps) {
   const { t, i18n } = useTranslation();
   const num = (value: number) => formatNumber(value, i18n.language);
@@ -163,6 +164,8 @@ export function SqlResultPreview({
   const [selection, setSelection] = useState<{ key: string; cell: SqlGridCell } | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [showRail, setShowRail] = useState(railShown);
+  const [filterOpen, setFilterOpen] = useState(filterShown);
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const profileRequestIdRef = useRef(0);
   const [profileState, setProfileState] = useState<{
@@ -183,9 +186,16 @@ export function SqlResultPreview({
     [selectionKey]
   );
 
-  const handleSort = useCallback((column: string) => {
-    setSort((current) => nextSortState(current, column));
+  // Narrowing from the grid opens the filter bar, so its chips stay in sight.
+  const showFilterBar = useCallback(() => {
+    filterShown = true;
+    setFilterOpen(true);
   }, []);
+
+  const handleSort = useCallback((column: string) => {
+    showFilterBar();
+    setSort((current) => nextSortState(current, column));
+  }, [showFilterBar]);
 
   // Memoized: stripping literals and comments walks the whole source on every keystroke otherwise.
   const isProfileableSource = useMemo(
@@ -315,6 +325,7 @@ export function SqlResultPreview({
     const isNull = value === null || value === undefined;
     if (action === 'filter' || action === 'exclude') {
       const op = action === 'filter' ? (isNull ? 'is-null' : '=') : isNull ? 'not-null' : '!=';
+      showFilterBar();
       setConditions((current) => [...current, { id: crypto.randomUUID(), column: cell.column, op, value: isNull ? '' : renderCell(value) }]);
     } else if (action === 'copy-value') {
       copyToClipboard(renderCell(value), { messageKey: 'sqlWorkspace.grid.valueCopied' });
@@ -355,7 +366,7 @@ export function SqlResultPreview({
     [tableShown, shownColumns, filteredRows, linkedColumns]
   );
 
-  const { paneRef, headerRef, bodyRef, pinRef, layout: gridFirst, pinned } = useSqlResultPaneLayout(
+  const { paneRef, headerRef, bodyRef, pinRef, layout: gridFirst, pinned, short } = useSqlResultPaneLayout(
     (response?.status === 'success' || response?.status === 'too-large') && activeTab !== 'profile' && shownRows.length > 0,
     // Staged writes stay in sight on a short pane.
     rowEdits !== undefined && stagedCount(rowEdits.edits) > 0,
@@ -396,23 +407,9 @@ export function SqlResultPreview({
     );
   }
 
-  const tone = toneForSqlStatus(response.status);
   const hasResultBody = response.status === 'success' || response.status === 'too-large';
   const knownTotal = Math.max(response.rowCount, loadedRows.length);
   const totalIsLowerBound = response.rowCountIsLowerBound === true && more?.complete !== true;
-  const meta = hasResultBody
-    ? [
-        displayRows.length < knownTotal || totalIsLowerBound
-          ? t(totalIsLowerBound ? 'sqlWorkspace.response.inViewAtLeast' : 'sqlWorkspace.response.inView', {
-              shown: num(displayRows.length),
-              total: num(knownTotal),
-              count: knownTotal,
-            })
-          : t('sqlWorkspace.response.rowCount', { count: knownTotal, formatted: num(knownTotal) }),
-        `${Math.max(0, Math.round(response.durationMs))} ms`,
-      ].join(' · ')
-    : undefined;
-  const showStatementCount = response.statementCount > 1;
   const showSnippetNudge = response.status === 'success' && onSaveSnippet !== undefined;
   const tabs = hasResultBody
     ? [
@@ -422,6 +419,19 @@ export function SqlResultPreview({
       ]
     : undefined;
   const showGridChrome = hasResultBody && activeTab !== 'profile';
+  // The bar never closes on rows it is narrowing.
+  const narrowed =
+    filter.length > 0 || conditions.length > 0 || sort.column !== null || layout.hidden.length > 0 || layout.order.length > 0;
+  const filterBarShown = filterOpen || narrowed;
+  const toggleFilter = () => {
+    if (narrowed) {
+      filterInputRef.current?.focus();
+      return;
+    }
+    filterShown = !filterOpen;
+    setFilterOpen(filterShown);
+    if (filterShown) requestAnimationFrame(() => filterInputRef.current?.focus());
+  };
 
   return (
     <div
@@ -433,53 +443,32 @@ export function SqlResultPreview({
       className="relative flex h-full min-w-0 flex-col overflow-y-auto bg-bg-base"
     >
       <div ref={headerRef} className="sticky top-0 z-20 shrink-0">
-        <ResultHeader
-          status={
-            <span data-testid="sql-status-pill" data-tone={tone} data-status={response.status}>
-              <StatusBadge tone={tone} dot>
-                {t(`sqlWorkspace.statusPill.${response.status}`)}
-              </StatusBadge>
-            </span>
-          }
-          meta={meta}
-          detail={hasResultBody && response.phases ? <SqlPhaseTimingsMeter phases={response.phases} /> : undefined}
+        <SqlResultHeader
+          response={response}
+          total={{ count: knownTotal, lowerBound: totalIsLowerBound }}
+          shownInView={displayRows.length < knownTotal || totalIsLowerBound ? displayRows.length : null}
+          statementPosition={statementPosition}
+          density={short ? 'compact' : 'pane'}
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={(id) => {
             setBodyTab(id as ResultBodyTab);
             if (id === 'profile' && visibleProfile === null) void handleProfile();
           }}
-          trailing={
-            <>
-              {showStatementCount ? (
-                <span
-                  data-testid="sql-result-preview-statement-count"
-                  className="rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
-                >
-                  {t('sqlWorkspace.response.statementCount', { count: response.statementCount })}
-                </span>
-              ) : null}
-              {showGridChrome && response.rows.length > 0 ? (
-                <button
-                  type="button"
-                  aria-pressed={showRail}
-                  onClick={() => {
+          grid={
+            showGridChrome && response.rows.length > 0
+              ? {
+                  filterShown: filterBarShown,
+                  onToggleFilter: toggleFilter,
+                  railShown: showRail,
+                  onToggleRail: () => {
                     railShown = !showRail;
                     setShowRail(railShown);
-                  }}
-                  data-testid="sql-column-rail-toggle"
-                  title={t('sqlWorkspace.rail.toggle')}
-                  className={cn(
-                    'focus-ring inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-caption transition-colors',
-                    showRail ? 'bg-bg-panel-alt text-fg-base' : 'text-fg-muted hover:text-fg-base'
-                  )}
-                >
-                  <Columns3 size={12} aria-hidden="true" />
-                  {t('sqlWorkspace.rail.label')}
-                </button>
-              ) : null}
-            </>
+                  },
+                }
+              : undefined
           }
+          onExport={hasResultBody && response.rows.length > 0 ? () => setExportOpen(true) : undefined}
         />
       </div>
 
@@ -586,8 +575,9 @@ export function SqlResultPreview({
         </div>
       ) : null}
 
-      {showGridChrome && response.rows.length > 0 ? (
+      {showGridChrome && response.rows.length > 0 && filterBarShown ? (
         <SqlResultToolbar
+          searchRef={filterInputRef}
           columns={columns}
           search={filter}
           onSearchChange={setFilter}
@@ -733,15 +723,6 @@ export function SqlResultPreview({
               {t('sqlWorkspace.snippet.cta')}
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setExportOpen(true)}
-            data-testid="sql-result-preview-export"
-            className={`focus-ring ${showSnippetNudge ? '' : 'ml-auto '}inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt`}
-          >
-            <Download size={12} aria-hidden="true" />
-            {t('sqlWorkspace.export.open')}
-          </button>
         </footer>
       ) : null}
 

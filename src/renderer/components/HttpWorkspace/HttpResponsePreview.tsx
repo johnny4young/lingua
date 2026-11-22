@@ -1,9 +1,9 @@
 /**
  * Right column: response preview.
  *
- * The shared `<ResultHeader>` carries status, `245 ms · 83 B` and the
- * Body / Headers / Raw / Timing and Snapshot tabs; the no-response and loading states use
- * `<EmptyState>`. Search, Wrap and Pretty sit in a row under the header.
+ * The shared `<ResultHeader>` carries the status code, `245 ms · 83 B · json`, the
+ * Body / Headers / Timing / Raw and Snapshot views, filter and export; the no-response
+ * and loading states use `<EmptyState>`. Search, Wrap and Pretty sit in a row under the header.
  *
  * The Body view picks the renderer based on content-type:
  *
@@ -18,11 +18,11 @@
  * pretty/raw toggle on the Body tab. The toggle stays
  * local state (resetting on tab change is the desired UX).
  *
- * `<HttpStatusPill>` renders the status color-coded.
+ * `<HttpStatusPill>` stands in for the code when the request never got an answer.
  */
 
 import { Loader2, SendHorizontal, X } from 'lucide-react';
-import { Fragment, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useDeferredValue, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
 import type {
@@ -32,13 +32,16 @@ import type {
 } from '../../../shared/httpWorkspaceSchema';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
-import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
+import { ResultHeader, type ResultHeaderAction, type ResultHeaderTab } from '../ui/ResultHeader';
 import { cn } from '../../utils/cn';
+import { downloadTextFile } from '../../utils/downloadTextFile';
 import { formatBinarySize } from '../../utils/formatSize';
 import '../../i18n/httpBuilderCatalog';
 import { HttpStatusPill } from './HttpStatusPill';
+import { isTextContentType, isTransportFailure, labelForResponse, shortContentType, toneForResponse } from './httpStatus';
 import { HttpJsonTree } from './HttpJsonTree';
 import { HttpResponseDelta, HttpTimingPanel } from './HttpTimingPanel';
+import { timingPhases, timingSummary } from './httpTiming';
 import { HttpSnapshotPanel } from './HttpSnapshotPanel';
 import { snapshotChanges, suggestAssertions } from '../../../shared/httpSnapshot';
 import type { HttpResponseSnapshot } from '../../../shared/httpWorkspaceSchema';
@@ -46,6 +49,7 @@ import { capturedByPath, nestsDeeperThan, parseJsonBody, searchJson, TREE_DEPTH_
 import { splitForHighlight } from './httpTextHighlight';
 
 type PreviewTab = 'body' | 'headers' | 'raw' | 'timing' | 'snapshot';
+
 
 /** The request's snapshot and the ways to change it. */
 interface HttpResponseSnapshots {
@@ -150,6 +154,7 @@ export function HttpResponsePreview({
   const [wrap, setWrap] = useState<boolean>(false);
   // Response body search/filter (Body tab). Highlights matches inline.
   const [search, setSearch] = useState<string>('');
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
 
   const parsedBody = useMemo(() => {
@@ -173,11 +178,18 @@ export function HttpResponsePreview({
 
   const responseTabs = useMemo<ReadonlyArray<ResultHeaderTab>>(
     () =>
-      ([...(['body', 'headers', 'raw', 'timing'] as const), ...(snapshots ? (['snapshot'] as const) : [])]).map((tabId) => ({
+      ([...(['body', 'headers', 'timing', 'raw'] as const), ...(snapshots ? (['snapshot'] as const) : [])]).map((tabId) => ({
         id: tabId,
-        label: t(`httpWorkspace.response.tab.${tabId}`),
+        label:
+          tabId === 'headers' && response && response.headers.length > 0 ? (
+            <>
+              {t('httpWorkspace.response.tab.headers')} <span className="tabular-nums">{response.headers.length}</span>
+            </>
+          ) : (
+            t(`httpWorkspace.response.tab.${tabId}`)
+          ),
       })),
-    [t, snapshots]
+    [t, snapshots, response]
   );
 
   if (isExecuting && !response) {
@@ -211,13 +223,46 @@ export function HttpResponsePreview({
     );
   }
 
-  // Mono meta line: `245 ms · 83 B`, matching the proto's shared
-  // result header (timing first, then size).
-  const meta = `${response.durationMs} ms · ${formatBinarySize(response.sizeBytes)}${
-    response.messageCount !== undefined
-      ? ` · ${t('httpWorkspace.response.messages', { count: response.messageCount })}`
-      : ''
-  }`;
+  const kind = shortContentType(response.contentType);
+  const meta = [
+    `${response.durationMs} ms`,
+    formatBinarySize(response.sizeBytes),
+    ...(kind ? [kind] : []),
+    ...(response.messageCount !== undefined ? [t('httpWorkspace.response.messages', { count: response.messageCount })] : []),
+  ].join(' · ');
+  const phases = response.timing ? timingPhases(response.timing, t) : null;
+  const answered = response.status > 0 && !isTransportFailure(response);
+  const tone = toneForResponse(response);
+  const statusLabel = labelForResponse(response, t);
+  const headerActions: ResultHeaderAction[] = [
+    ...(imageSrc === null
+      ? [
+          {
+            id: 'filter',
+            glyph: 'filter' as const,
+            label: t('httpWorkspace.response.search.ariaLabel'),
+            pressed: search.trim().length > 0,
+            onClick: () => {
+              if (tab !== 'body') setTab('body');
+              requestAnimationFrame(() => searchRef.current?.focus());
+            },
+            testId: 'http-response-filter',
+          },
+        ]
+      : []),
+    ...(response.body.length > 0 && !response.tooLarge && isTextContentType(response.contentType)
+      ? [
+          {
+            id: 'export',
+            glyph: 'export' as const,
+            label: t('httpWorkspace.response.export'),
+            onClick: () =>
+              downloadTextFile(response.body, `response.${kind === 'json' || kind === 'xml' || kind === 'html' ? kind : 'txt'}`, response.contentType || 'text/plain'),
+            testId: 'http-response-export',
+          },
+        ]
+      : []),
+  ];
   const prettyToggleVisible =
     tab === 'body' && isJsonContentType(response.contentType);
   const wrapToggleVisible = (tab === 'body' && imageSrc === null) || tab === 'raw';
@@ -247,26 +292,35 @@ export function HttpResponsePreview({
       className="flex h-full min-w-0 flex-col overflow-hidden"
     >
       <ResultHeader
-        status={<HttpStatusPill response={response} />}
+        workspace="http"
+        numeral={
+          answered
+            ? {
+                value: response.status,
+                unit: response.statusText.toLowerCase() || undefined,
+                tone: response.status >= 400 ? 'error' : 'neutral',
+                title: statusLabel,
+                attributes: { 'data-testid': 'http-status-pill', 'data-tone': tone, 'data-kind': response.kind, 'data-status': response.status },
+              }
+            : undefined
+        }
+        status={answered ? undefined : <HttpStatusPill response={response} />}
         meta={meta}
         metaTrailing={<HttpResponseDelta response={response} previous={previous} />}
-        className="flex-wrap gap-y-1.5"
+        phases={phases ? { segments: phases, label: timingSummary(phases), testId: 'http-response-phases', hideLabel: tab === 'timing' } : undefined}
         tabs={responseTabs}
         activeTab={tab}
         onTabChange={(id) => setTab(id as PreviewTab)}
+        actions={headerActions}
         trailing={
-          <span className="flex items-center gap-2">
-            {response.redactedHeaders.length > 0 ? (
-              <span
-                data-testid="http-response-preview-redacted-badge"
-                className="rounded-sm bg-warning-bg px-1.5 py-0.5 text-eyebrow font-semibold text-warning-fg"
-              >
-                {t('httpWorkspace.response.redactedHeaders.badge', {
-                  count: response.redactedHeaders.length,
-                })}
-              </span>
-            ) : null}
-          </span>
+          response.redactedHeaders.length > 0 ? (
+            <span
+              data-testid="http-response-preview-redacted-badge"
+              className="rounded-sm bg-warning-bg px-1.5 py-0.5 text-eyebrow font-semibold text-warning-fg"
+            >
+              {t('httpWorkspace.response.redactedHeaders.badge', { count: response.redactedHeaders.length })}
+            </span>
+          ) : undefined
         }
       />
 
@@ -411,6 +465,7 @@ export function HttpResponsePreview({
         <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-1.5">
           {searchVisible ? (
             <input
+              ref={searchRef}
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}

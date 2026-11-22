@@ -8,10 +8,11 @@
  * native confirm matches the "no silent mutation" principle).
  */
 
-import { Copy, GitBranch, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, Copy, GitBranch, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
+import { emitCommand } from '../../stores/commandBus';
 import { cn } from '../../utils/cn';
 
 export interface HttpRequestListProps {
@@ -240,6 +241,16 @@ export function HttpRequestList({
           );
         })}
       </ul>
+      <button
+        type="button"
+        onClick={() => emitCommand('overlay.openImport')}
+        data-testid="http-request-list-import"
+        title={t('httpWorkspace.empty.importAction')}
+        className="focus-ring flex h-9 w-full shrink-0 items-center gap-2 border-t border-border-subtle px-3 text-body-sm text-fg-muted transition-colors hover:bg-bg-panel-alt hover:text-fg-base"
+      >
+        <ArrowDownToLine size={12} aria-hidden="true" className="shrink-0" />
+        <span className="truncate whitespace-nowrap">{t('httpWorkspace.empty.importAction')}</span>
+      </button>
     </div>
   );
 }

@@ -79,6 +79,9 @@ describe('RunMeter', () => {
     render(<RunMeter tabId="tab-js" />);
     expect(screen.getByTestId('run-meter').dataset.state).toBe('idle');
     expect(screen.getByTestId('run-meter-state').textContent).toContain('Not run');
+    // The workspace tag heads the meter like every result header, outside the live state.
+    expect(screen.getByTestId('result-header-workspace').textContent).toBe('CODE');
+    expect(screen.getByTestId('run-meter-state').contains(screen.getByTestId('result-header-workspace'))).toBe(false);
     expect(screen.getByTestId('run-meter').textContent).toContain('—');
     expect(screen.queryByTestId('run-meter-bars')).toBeNull();
     expect(screen.queryByTestId('dock-execution-time')).toBeNull();

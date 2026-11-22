@@ -281,7 +281,7 @@ test.describe('SQL result grid', () => {
       // Rows first, then the footer past the last one.
       await expect.poll(async () => {
         await wheelOverGrid(600);
-        return inPane('sql-result-preview-export');
+        return inPane('sql-result-footer');
       }).toBe(true);
       expect(await inPane('sql-status-pill')).toBe(true);
       await expect.poll(async () => {
@@ -296,7 +296,7 @@ test.describe('SQL result grid', () => {
       await expect(page.getByTestId('sql-edit-commit')).toBeVisible();
       await expect.poll(async () => {
         await wheelOverGrid(600);
-        return inPane('sql-result-preview-export');
+        return inPane('sql-result-footer');
       }).toBe(true);
       expect(await inPane('sql-edit-commit')).toBe(true);
       await page.getByTestId('sql-edit-discard').click();
@@ -305,7 +305,7 @@ test.describe('SQL result grid', () => {
       // A tall pane keeps every band and the footer on screen with no scrolling.
       await page.setViewportSize({ width: 1440, height: 960 });
       await expect(pane).not.toHaveAttribute('data-grid-first', 'true');
-      for (const testId of ['sql-status-pill', 'sql-result-strip', 'sql-edit-add', 'sql-result-preview-table-container', 'sql-result-preview-export']) {
+      for (const testId of ['sql-status-pill', 'sql-result-strip', 'sql-edit-add', 'sql-result-preview-table-container', 'sql-result-footer']) {
         await expect.poll(() => inPane(testId)).toBe(true);
       }
       expect(errors).toEqual([]);

@@ -1,16 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import '../../i18n/httpBuilderCatalog';
-import type { HttpResponseTiming, HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
+import type { HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 import { PhaseBar } from '../ui/PhaseBar';
-
-const PHASES = [
-  { key: 'dnsMs', label: 'dns', color: 'var(--color-border-strong)' },
-  { key: 'connectMs', label: 'connect', color: 'var(--color-border-strong)' },
-  { key: 'tlsMs', label: 'tls', color: 'var(--color-syntax-function)' },
-  { key: 'waitingMs', label: 'waiting', color: 'var(--color-accent)' },
-  { key: 'downloadMs', label: 'download', color: 'var(--color-success)' },
-] as const satisfies ReadonlyArray<{ key: keyof HttpResponseTiming; label: string; color: string }>;
+import { timingPhases, timingSummary } from './httpTiming';
 
 /** The Timing tab: the phases of the hop that answered on desktop, the total everywhere. */
 export function HttpTimingPanel({ response, desktop }: { response: HttpResponseV1; desktop: boolean }) {
@@ -31,13 +24,13 @@ export function HttpTimingPanel({ response, desktop }: { response: HttpResponseV
       </div>
     );
   }
-  const phases = PHASES.map((phase) => ({ ...phase, ms: timing[phase.key], name: t(`httpWorkspace.response.timing.phase.${phase.label}`) }));
+  const phases = timingPhases(timing, t);
   return (
     <div data-testid="http-timing" data-phases="true" className="flex flex-col gap-3">
       <p data-testid="http-timing-summary" className="font-mono text-caption tabular-nums text-fg-subtle">
-        {phases.map((phase) => `${phase.name} ${phase.ms}`).join(' · ')} ms
+        {timingSummary(phases)}
       </p>
-      <PhaseBar role="img" aria-label={t('httpWorkspace.response.timing.waterfall')} segments={phases} className="h-2" />
+      <PhaseBar role="img" aria-label={t('httpWorkspace.response.timing.waterfall')} segments={phases} className="h-2 rounded-full" />
       <dl className="flex flex-col gap-1 font-mono text-caption tabular-nums">
         {phases.map((phase) => (
           <div key={phase.key} className="flex gap-x-4">

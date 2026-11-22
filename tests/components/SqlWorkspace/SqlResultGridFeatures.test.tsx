@@ -64,7 +64,8 @@ describe('virtualized grid', () => {
         onLoadMore={onLoadMore}
       />
     );
-    expect(screen.getByText(/1,000 of ≥ 1,500 rows in view/)).toBeTruthy();
+    expect(screen.getByTestId('sql-status-pill').textContent).toBe('≥ 1,500rows');
+    expect(screen.getByText(/1,000 in view/)).toBeTruthy();
     await user.click(screen.getByTestId('sql-result-load-more'));
     expect(onLoadMore).toHaveBeenCalledOnce();
     rerender(
@@ -76,7 +77,8 @@ describe('virtualized grid', () => {
         onLoadMore={onLoadMore}
       />
     );
-    expect(screen.getByText(/^2,000 rows/)).toBeTruthy();
+    expect(screen.getByTestId('sql-status-pill').textContent).toBe('2,000rows');
+    expect(screen.queryByText(/in view/)).toBeNull();
     expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
   });
 
@@ -90,8 +92,8 @@ describe('virtualized grid', () => {
         onLoadMore={vi.fn()}
       />
     );
-    expect(screen.queryByText(/^2,000 rows/)).toBeNull();
-    expect(screen.getByText(/^2,000 of ≥ 2,000 rows in view/)).toBeTruthy();
+    expect(screen.getByTestId('sql-status-pill').textContent).toBe('≥ 2,000rows');
+    expect(screen.getByText(/2,000 in view/)).toBeTruthy();
   });
 });
 
@@ -149,6 +151,9 @@ describe('cell menu and filters', () => {
   it('adds a condition from the editor and hides a column from the picker', async () => {
     const user = userEvent.setup();
     render(<SqlResultPreview response={response(rows.slice(0, 9))} isExecuting={false} rowDisplayLimit={1_000} />);
+    // The filter bar is session-wide state; an earlier test may have left it open.
+    if (!screen.queryByTestId('sql-condition-new')) await user.click(screen.getByTestId('sql-result-filter-toggle'));
+    expect(screen.getByTestId('sql-result-filter-toggle').getAttribute('aria-pressed')).toBe('true');
     await user.click(screen.getByTestId('sql-condition-new'));
     await user.selectOptions(screen.getByTestId('sql-condition-column'), 'id');
     await user.selectOptions(screen.getByTestId('sql-condition-op'), '>=');

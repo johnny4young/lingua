@@ -19,6 +19,7 @@ import { RecentRunsPopoverHost } from '../Editor/RecentRunsPopoverHost';
 import { Glyph } from '../ui/Glyph';
 import { ResultNumeral } from '../ui/answer';
 import { RunDot } from '../ui/RunStateGlyph';
+import { WorkspaceTag } from '../ui/ResultHeader';
 import type { TabRunState } from '../ui/runState';
 import { RunMeterHistory } from './RunMeterHistory';
 import { type MeterBar, type MeterState, meterBars, meterState } from './runMeterModel';
@@ -190,21 +191,24 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
       data-state={state}
       className="run-meter"
     >
-      <div
-        className="run-meter-state"
-        title={stateTitle}
-        data-testid={state === 'stale' ? 'run-stale-pill' : 'run-meter-state'}
-        {...(statusKind ? { 'data-result-kind': 'run-status-pill', 'data-run-status': statusKind } : {})}
-        aria-live="polite"
-      >
-        <RunDot state={DOT[state] as TabRunState} />
-        <span className="run-meter-state-name">{t(`runMeter.state.${state}`)}</span>
-        {number > 0 ? <span className="run-meter-state-detail">· {t('runMeter.run', { number })}</span> : null}
-        {line !== null ? (
-          <span className="run-meter-state-detail">· {t('runMeter.line', { line, total: Math.max(line, totalLines) })}</span>
-        ) : null}
-        {countdown !== null ? <span className="run-meter-state-detail">· {t('runMeter.left', { time: countdown })}</span> : null}
-        {stateTitle ? <span className="sr-only">{stateTitle}</span> : null}
+      <div className="run-meter-head">
+        <WorkspaceTag workspace="code" className="run-meter-tag" />
+        <div
+          className="run-meter-state"
+          title={stateTitle}
+          data-testid={state === 'stale' ? 'run-stale-pill' : 'run-meter-state'}
+          {...(statusKind ? { 'data-result-kind': 'run-status-pill', 'data-run-status': statusKind } : {})}
+          aria-live="polite"
+        >
+          <RunDot state={DOT[state] as TabRunState} />
+          <span className="run-meter-state-name">{t(`runMeter.state.${state}`)}</span>
+          {number > 0 ? <span className="run-meter-state-detail">· {t('runMeter.run', { number })}</span> : null}
+          {line !== null ? (
+            <span className="run-meter-state-detail">· {t('runMeter.line', { line, total: Math.max(line, totalLines) })}</span>
+          ) : null}
+          {countdown !== null ? <span className="run-meter-state-detail">· {t('runMeter.left', { time: countdown })}</span> : null}
+          {stateTitle ? <span className="sr-only">{stateTitle}</span> : null}
+        </div>
       </div>
       <div className="run-meter-numeral">
         <ResultNumeral

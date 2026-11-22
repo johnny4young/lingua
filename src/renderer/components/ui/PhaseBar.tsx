@@ -13,9 +13,15 @@ export function PhaseBar({
   segments,
   className,
   ...aria
-}: { segments: ReadonlyArray<PhaseBarSegment>; className?: string; role?: 'img' } & AriaAttributes) {
+}: {
+  segments: ReadonlyArray<PhaseBarSegment>;
+  className?: string;
+  role?: 'img';
+  title?: string;
+  'data-testid'?: string;
+} & AriaAttributes) {
   return (
-    <span {...aria} className={cn('flex gap-0.5 overflow-hidden rounded-full bg-bg-inset', className)}>
+    <span {...aria} className={cn('flex gap-0.5 overflow-hidden bg-bg-inset', className)}>
       {segments.map((segment) =>
         segment.ms > 0 ? (
           <span key={segment.key} data-phase={segment.key} style={{ flexGrow: segment.ms, minWidth: 2, background: segment.color }} />
