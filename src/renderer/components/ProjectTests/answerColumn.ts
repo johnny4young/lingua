@@ -1,29 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type * as monacoTypes from 'monaco-editor';
+import { answerColumnBand, lineEnd } from '../Editor/answerColumnGeometry';
 import { createLineWidget } from '../Editor/useLineWidget';
 
 type Editor = monacoTypes.editor.IStandaloneCodeEditor;
 
 const WIDGET_PREFIX = 'lingua.testAnswer';
-const RIGHT_PAD = 22;
 const LEADER_MARGIN = 26;
 const MIN_LEADER = 26;
 const MIN_ANSWER = 140;
 
 /** The answer column in content coordinates: its start, its right edge and its width. */
 export function answerColumn(editor: Editor): { start: number; right: number; width: number } {
-  const layout = editor.getLayoutInfo();
-  const width = Math.round(Math.min(600, Math.max(300, layout.contentWidth * 0.4)));
-  const right = editor.getScrollLeft() + layout.contentWidth - RIGHT_PAD;
-  return { start: right - width, right, width };
-}
-
-/** Where a line's text ends in content coordinates, or null while Monaco has not rendered it. */
-export function lineEnd(editor: Editor, line: number): number | null {
-  const model = editor.getModel();
-  if (!model || line < 1 || line > model.getLineCount()) return null;
-  const offset = editor.getOffsetForColumn(line, model.getLineMaxColumn(line));
-  return offset >= 0 ? offset : null;
+  const band = answerColumnBand(editor.getLayoutInfo());
+  const start = editor.getScrollLeft() + band.start;
+  return { start, right: start + band.width, width: band.width };
 }
 
 /**

@@ -541,6 +541,7 @@ export function CodeEditor() {
           tabId={activeTabId}
           lineTimings={lineTimings}
           lineEndReserve={errorActionsReserve}
+          language={activeTab?.language}
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />

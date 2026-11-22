@@ -1,0 +1,13 @@
+{
+  "answers.fold_one": "+{{count}} línea",
+  "answers.fold_other": "+{{count}} líneas",
+  "answers.each": "→ {{tag}} cada uno",
+  "answers.over": "sobre {{threshold}}",
+  "answers.under": "bajo {{threshold}}",
+  "answers.moreRows_one": "+{{count}} fila",
+  "answers.moreRows_other": "+{{count}} filas",
+  "answers.running": "corriendo",
+  "answers.onThisLine": "en esta línea",
+  "answers.loop": "ciclo",
+  "answers.pass": "{{iteration}} de {{total}}"
+}

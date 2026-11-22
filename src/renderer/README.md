@@ -239,6 +239,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/Start/`](components/Start)                   | `StartPrompt.tsx`, `StartPickUp.tsx`, `StartNew.tsx`, `StartTemplates.tsx`, `startModel.ts` | Start sections that `Editor/EditorEmptyState.tsx` composes when no tab is open; copy lives in the lazy `start.json` catalog |
 | [`components/Welcome/`](components/Welcome)               | `ProjectTemplatesPanel.tsx`, `ProjectTemplatesOverlay.tsx` | Project template launcher, opened from the palette              |
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
+| [`components/Answer/`](components/Answer)                 | `AnswerObject.tsx`, `answerObjectModel.ts`, `answerLiteral.ts`, `answerDetectors.ts` | One answer as every surface draws it: type tag, value coloured by type and its picture (bars, spark, shared-scale bars, compact table, colour chips, gauge, relative time). Reads rich payloads or printed text (JSON, Python reprs, JS object literals); the colour, ISO date and threshold detectors live in `answerDetectors.ts` |
 | [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`, `Glyph.tsx`, `RunStateGlyph.tsx`, `answer.tsx` | Shared presentational primitives only; the glyph set, run states, motion tokens and answer typography load `identity.css` lazily; the keycap is `Kbd` in `ModalShell.tsx` |
 
 Keyboard shortcuts use two data layers with different activation costs:
@@ -353,7 +354,10 @@ presentation:
   is the startup-safe boundary. It loads the overlay runtime only after a run
   produces a visible value or statement timing.
 - [`components/Editor/InlineResultWidgets.tsx`](components/Editor/InlineResultWidgets.tsx)
-  owns overlay DOM, positioning, timing chips, and rich-output summaries.
+  owns the overlay shells and their placement in the answer column: a dotted
+  leader from the line's text, a view zone under the line when its text reaches
+  the column, and a zone only for what a tall answer cannot spread over the free
+  lines below. Each line's answers portal in through `InlineAnswerLine.tsx`.
   Failed chunk delivery reports localized reload guidance instead of silently
   dropping execution output.
 - Structured runtime and transpile failures also project one bounded red inline
@@ -1010,6 +1014,7 @@ Examples already in the codebase:
 - The pulse colour fills one control per screen; the run rail and the tab dot are its only other uses.
 - Counts stay neutral (`ResultNumeral` tone `neutral`); `error` is the only value tone a numeral takes.
 - Small caps (`TypeTag`) are for labels, never for values or counts.
+- Value colours mark type only: booleans and `None` stay neutral, and `error` is the only red, so a gauge past its threshold fills in the number colour.
 - No left accent bars: show state with a tint, weight, icon, full border or elevation. `tests/build/identityGlyphsMotion.test.ts` catches the border and inset-shadow forms; pseudo-element and positioned strips still need review.
 - Motion: the pulse lights each line in 120 ms and the tick stays lit; an answer takes 160 ms (the leader draws, the value rises 4 px). Reduced motion removes the travel and values appear in place.
 

@@ -11,7 +11,8 @@ import { parentDirOf } from '../../utils/filePath';
 import { PLAINTEXT_LANGUAGE, languageFromPath } from '../../utils/language';
 import { useLineWidget } from '../Editor/useLineWidget';
 import { LanguageSquare } from '../Start/StartParts';
-import { answerColumn, lineEnd } from './answerColumn';
+import { lineEnd } from '../Editor/answerColumnGeometry';
+import { answerColumn } from './answerColumn';
 import { explainTestFailureText, type CodeChange } from './codeUnderTestChange';
 import { openProjectFileAt } from './openTestFailure';
 

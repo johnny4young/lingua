@@ -1,128 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { renderInlineResultNode } from '@/components/Editor/inlineResultWidgetDom';
+import { createInlineResultNode, inferKind } from '@/components/Editor/inlineResultWidgetDom';
 import { isHiddenUndefinedLineResult } from '@/hooks/inlineResultVisibility';
 
-describe('inline result widget DOM', () => {
-  it('badges only watch results, not arrow magic results', () => {
-    const node = renderInlineResultNode([
-      { line: 1, value: 'arrow value', type: 'magic' },
-      { line: 2, value: 'pinned value', type: 'watch' },
-      { line: 3, value: 'auto value', type: 'autoLog' },
-    ]);
-
-    const watchBadges = node.querySelectorAll('.lingua-inline-result-watch');
-    expect(watchBadges).toHaveLength(1);
-    expect(watchBadges[0]?.textContent).toBe('@WATCH');
-
-    const parts = Array.from(node.querySelectorAll('.lingua-inline-result-part'));
-    expect(parts.map(part => part.textContent)).toEqual([
-      '⟸arrow valuestring',
-      '@WATCH⟸pinned valuestring',
-      '⟸auto valuestring',
-    ]);
+describe('inline result widget shell', () => {
+  it('builds an empty shell for the answers to portal into', () => {
+    const root = createInlineResultNode(4);
+    expect(root.dataset.testid).toBe('lingua-inline-result');
+    expect(root.dataset.line).toBe('4');
+    expect(root.children).toHaveLength(0);
   });
 
   it('keeps the hideUndefined filter aligned with inline widget semantics', () => {
     expect(isHiddenUndefinedLineResult({ line: 1, value: 'undefined', type: 'result' })).toBe(true);
-    expect(isHiddenUndefinedLineResult({ line: 2, value: 'undefined', type: 'autoLog' })).toBe(
-      true
-    );
+    expect(isHiddenUndefinedLineResult({ line: 2, value: 'undefined', type: 'autoLog' })).toBe(true);
     expect(isHiddenUndefinedLineResult({ line: 3, value: 'undefined', type: 'watch' })).toBe(false);
     expect(isHiddenUndefinedLineResult({ line: 4, value: 'undefined', type: 'magic' })).toBe(false);
   });
 
-  it('shows bidi, zero-width and control characters in a value or name as spaces', () => {
-    const node = renderInlineResultNode([
-      { line: 2, name: 'a\u202eb', value: '"admin\u202e\u200bnimda\u0007"', type: 'log' },
-    ]);
-    expect(node.querySelector('.lingua-inline-result-name')?.textContent).toBe('a b:');
-    expect(node.querySelector('.lingua-inline-result-value')?.textContent).toBe('"admin  nimda "');
-  });
-
-  it('names the variable of a paused value before it', () => {
-    const node = renderInlineResultNode([{ line: 2, name: 'count', value: '1', type: 'log' }]);
-    expect(node.querySelector('.lingua-inline-result-name')?.textContent).toBe('count:');
-    expect(node.querySelector('.lingua-inline-result-value')?.textContent).toBe('1');
-    expect(renderInlineResultNode([{ line: 2, value: '1', type: 'log' }]).querySelector('.lingua-inline-result-name')).toBeNull();
-  });
-
-  it('renders execution errors with the dedicated semantic kind', () => {
-    const node = renderInlineResultNode([
-      { line: 4, value: 'Error: invalid device id', type: 'error' },
-    ]);
-    const part = node.querySelector('[data-result-kind="error"]');
-    expect(part?.textContent).toBe('⟸Error: invalid device iderror');
-    expect(part?.querySelector('[data-type-pill="error"]')).not.toBeNull();
-  });
-
-  // Overflow prerequisite fix (landed in its own
-  // commit). Long values used to paint past the editor right edge and
-  // wrap onto a second line that overran the gutter; truncate to a
-  // fixed cap and surface the full text via `title`.
-  describe('long-value truncation', () => {
-    it('passes short values through unchanged with no title attribute', () => {
-      const node = renderInlineResultNode([{ line: 1, value: 'short', type: 'magic' }]);
-      const value = node.querySelector('.lingua-inline-result-value');
-      expect(value?.textContent).toBe('short');
-      expect(value?.getAttribute('title')).toBeNull();
-      expect(value?.getAttribute('data-truncated')).toBeNull();
-    });
-
-    it('truncates and tags values that exceed the inline cap', () => {
-      const longValue = '[' + 'a'.repeat(200) + ']';
-      const node = renderInlineResultNode([{ line: 1, value: longValue, type: 'magic' }]);
-      const value = node.querySelector('.lingua-inline-result-value');
-      expect(value?.textContent?.length).toBe(80);
-      expect(value?.textContent?.endsWith('…')).toBe(true);
-      expect(value?.getAttribute('title')).toBe(longValue);
-      expect(value?.getAttribute('data-truncated')).toBe('true');
-    });
-
-    it('leaves typed-payload summaries alone — they ship under the cap', () => {
-      const node = renderInlineResultNode([
-        {
-          line: 1,
-          value: '[{"a":1},{"a":2}]',
-          type: 'magic',
-          payload: {
-            kind: 'table',
-            columns: ['a'],
-            rows: [
-              [{ kind: 'primitive', type: 'number', repr: '1' }],
-              [{ kind: 'primitive', type: 'number', repr: '2' }],
-            ],
-          },
-        },
-      ]);
-      const value = node.querySelector('.lingua-inline-result-value');
-      expect(value?.textContent).toBe('Table(2×1) — a');
-      expect(value?.getAttribute('data-truncated')).toBeNull();
-    });
-  });
-});
-
-describe('inline timing chip', () => {
-  it('renders the timing chip after the value parts', () => {
-    const node = renderInlineResultNode([{ line: 1, value: '42', type: 'autoLog' }], {
-      durationMs: 320.4,
-      slowest: false,
-    });
-    const chip = node.querySelector('[data-testid="lingua-inline-timing"]');
-    expect(chip?.textContent).toBe('▸ 320 ms');
-    expect(chip?.getAttribute('data-slowest')).toBeNull();
-  });
-
-  it('marks the slowest statement and keeps sub-100ms precision', () => {
-    const node = renderInlineResultNode([], { durationMs: 1.26, slowest: true });
-    const chip = node.querySelector('[data-testid="lingua-inline-timing"]');
-    expect(chip?.textContent).toBe('▸ 1.3 ms');
-    expect(chip?.getAttribute('data-slowest')).toBe('true');
-    // A timing-only line renders no value parts at all.
-    expect(node.querySelectorAll('.lingua-inline-result-part')).toHaveLength(0);
-  });
-
-  it('renders no chip when the run was not instrumented', () => {
-    const node = renderInlineResultNode([{ line: 1, value: 'x', type: 'magic' }]);
-    expect(node.querySelector('[data-testid="lingua-inline-timing"]')).toBeNull();
+  it('infers a kind from printed text', () => {
+    expect(['1', 'true', '[1]', '{}', 'null', 'x'].map(inferKind)).toEqual(['number', 'boolean', 'array', 'object', 'null', 'string']);
   });
 });

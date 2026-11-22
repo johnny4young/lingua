@@ -1,0 +1,13 @@
+{
+  "answers.fold_one": "+{{count}} line",
+  "answers.fold_other": "+{{count}} lines",
+  "answers.each": "→ {{tag}} each",
+  "answers.over": "over {{threshold}}",
+  "answers.under": "under {{threshold}}",
+  "answers.moreRows_one": "+{{count}} row",
+  "answers.moreRows_other": "+{{count}} rows",
+  "answers.running": "running",
+  "answers.onThisLine": "on this line",
+  "answers.loop": "loop",
+  "answers.pass": "{{iteration}} of {{total}}"
+}

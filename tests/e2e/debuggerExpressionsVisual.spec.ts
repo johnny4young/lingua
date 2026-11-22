@@ -83,7 +83,7 @@ for (const locale of ['en', 'es'] as const) {
     );
     await expect(page.getByTestId('debugger-watches')).toContainText('count * 2');
     await expect(page.getByTestId('debugger-watches')).toContainText('4');
-    await expect(page.locator('.lingua-inline-result-value')).toContainText(['before increment 1']);
+    await expect(page.locator('.lingua-inline-result [data-testid="answer-object-value"]')).toContainText(['before increment 1']);
     await expect(page.locator('.monaco-editor .lingua-bp-glyph--logpoint')).toHaveCount(1);
     await expect(page.locator('.monaco-editor .lingua-bp-glyph--conditional')).toHaveCount(1);
 

@@ -57,7 +57,7 @@ async function moveEditorCursorToLine(page: Page, line: number) {
 }
 
 function inlineValue(page: Page, value: RegExp | string) {
-  return page.locator('.lingua-inline-result-value').filter({ hasText: value }).first();
+  return page.locator('.lingua-inline-result [data-testid="answer-object-value"]').filter({ hasText: value }).first();
 }
 
 async function openRunMenu(page: Page) {
@@ -172,8 +172,8 @@ test.describe('Debugger ', () => {
     await expect(pill(3)).toContainText('doubled:42');
     await page.getByTestId('debugger-hud-step-over').click();
     await expect(hud).toContainText('Paused · line 4');
-    await expect(pill(4)).toContainText('label:value:42');
-    await expect(pill(3)).toContainText('label:value:42');
+    await expect(pill(4)).toContainText('label:"value:42"');
+    await expect(pill(3)).toContainText('label:"value:42"');
     await expect(page.getByTestId('debugger-locals').locator('li[data-change="new"]')).toContainText('label: value:42');
     await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);

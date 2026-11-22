@@ -11,6 +11,7 @@ The format follows Keep a Changelog and groups changes by release.
 - SQL results read as instruments: each number has a bar scaled to its column, each header shows the column type over its name with its distribution, distinct count or sort, and a Σ row under the rows sums each numeric column, averaging rates, ratios and 0–1 fractions. SQL history and saved queries show a bar for each run's duration.
 
 ### Changed
+- Inline results line up in an answer column joined to their line by a dotted leader, each with its type and its value coloured by type: a list of numbers shows its bars and range, a longer one a spark line and its mean, a dict of numbers bars on one scale, a list of records a compact table, colour strings a swatch, a date how long ago or ahead it is, and a number written against a threshold such as 120 - p95 a gauge. Long strings fold to their first line, and an answer that does not fit beside its line moves under it.
 - New app icon and wordmark: an italic l, a dot leader and a cyan pulse on the macOS, Windows and Linux icons, the browser tab and the installable web app, and the lower-case lingua wordmark in the title bar.
 - The SQL column rail starts closed, since the headers carry each column's distribution; the Columns button opens it.
 - Start opens with a one-line prompt: type a line of JavaScript, pause, and its answer appears at the end of the line without touching the Console. Enter keeps the line as a scratch file.
