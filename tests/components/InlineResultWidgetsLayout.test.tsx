@@ -34,6 +34,7 @@ function harness() {
   const model = {
     getLineCount: () => lineCount,
     getLineMaxColumn: () => 90,
+    getLineContent: () => 'value',
   };
   const editor = {
     getModel: () => model,
@@ -180,6 +181,59 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe('inline results line up in the answer column', () => {
+  const tall = (height: number) =>
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const h = this.classList.contains('lingua-inline-result') ? height : 24;
+      return { width: 180, height: h, top: 0, left: 0, right: 180, bottom: h, x: 0, y: 0, toJSON() {} };
+    });
+
+  it('places answers at the column start and draws a leader from the line text', () => {
+    const h = harness();
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    const widget = document.querySelector<HTMLElement>('.lingua-inline-result')!;
+    // A 300 px column ends 22 px inside the 714 px content area; the text ends at offset 100.
+    expect(widget.style.left).toBe('452px');
+    expect(widget.style.getPropertyValue('--answer-column-width')).toBe('300px');
+    expect(widget.style.getPropertyValue('--answer-leader')).toBe('264px');
+    expect(widget.hasAttribute('data-below')).toBe(false);
+  });
+
+  it('marks an answer that moves under its line, which hides its leader', () => {
+    const h = harness();
+    h.setOffset(700);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.hasAttribute('data-below')).toBe(true);
+  });
+
+  it('spreads a tall answer over the free line below before reserving a row', () => {
+    tall(70);
+    const h = harness();
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    // 70 px need four 20 px lines; its own line and line 2 are free, so 30 px are reserved.
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 1, heightInPx: 30 }]);
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.style.top).toBe('0px');
+  });
+
+  it('does not spread a tall answer over a line that has its own answer', () => {
+    tall(70);
+    const h = harness();
+    const lineResults = [
+      { line: 1, type: 'result' as const, value: '[1]' },
+      { line: 2, type: 'result' as const, value: '2' },
+    ];
+    render(<InlineResultWidgets {...props} lineResults={lineResults} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.values()].map(zone => [zone.afterLineNumber, zone.heightInPx])).toEqual([
+      [1, 50],
+      [2, 50],
+    ]);
+  });
 });
 
 describe('inline results avoid source collisions', () => {

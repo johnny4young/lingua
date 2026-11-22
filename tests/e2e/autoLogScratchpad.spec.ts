@@ -151,7 +151,7 @@ test.describe('expression auto-log ', () => {
     const errorRow = page.locator('[data-result-kind="error"]');
     await expect(errorRow).toBeVisible();
     await expect(errorRow).toContainText('device id must be numeric: dd');
-    await expect(errorRow.locator('[data-type-pill="error"]')).toBeVisible();
+    await expect(errorRow.locator('[data-testid="answer-object"][data-kind="error"]')).toBeVisible();
     const valueRows = page.locator('[data-result-kind="autoLog"]');
     await expect(valueRows).toHaveCount(1);
     await expect(valueRows).toContainText('42');

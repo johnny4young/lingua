@@ -1,0 +1,325 @@
+@layer components {
+  .answer-object {
+    --answer-wash: 14%;
+    /* Tracks and neutral chips: a tint of the text colour reads in both themes. */
+    --answer-track: color-mix(in srgb, var(--color-fg-base) 11%, transparent);
+    --answer-chip: color-mix(in srgb, var(--color-fg-base) 7%, transparent);
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-code);
+    font-size: 12.5px;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: var(--color-fg-base);
+  }
+
+  .light .answer-object {
+    --answer-wash: 10%;
+  }
+
+  .answer-object-tag {
+    flex: none;
+    min-width: 60px;
+  }
+
+  /* A table hangs from its tag, which sits level with the header row. */
+  .answer-object[data-picture='table'] {
+    align-items: flex-start;
+  }
+
+  .answer-object[data-picture='table'] > .answer-object-tag {
+    line-height: 22px;
+  }
+
+  .answer-object[data-tone='error'] > .answer-object-tag { color: var(--color-value-error); }
+  .answer-object[data-tone='pulse'] > .answer-object-tag { color: var(--color-pulse-fg); }
+
+  .answer-object-value {
+    --answer-tone: var(--color-fg-base);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--answer-tone);
+    font-weight: 560;
+  }
+
+  .answer-object-value[data-tone='number'] { --answer-tone: var(--color-value-number); font-variant-numeric: tabular-nums; }
+  .answer-object-value[data-tone='string'] { --answer-tone: var(--color-value-string); }
+  .answer-object-value[data-tone='boolean'] { --answer-tone: var(--color-value-boolean); }
+  .answer-object-value[data-tone='date'] { --answer-tone: var(--color-value-date); }
+  .answer-object-value[data-tone='none'] { --answer-tone: var(--color-value-none); }
+  .answer-object-value[data-tone='error'] { --answer-tone: var(--color-value-error); }
+  .answer-object-value[data-tone='pulse'] { --answer-tone: var(--color-pulse-fg); }
+  .answer-object-value[data-tone='plain'] { font-weight: 400; }
+
+  .answer-object-value[data-pill] {
+    display: inline-flex;
+    height: 19px;
+    flex: none;
+    align-items: center;
+    max-width: 100%;
+    padding: 0 7px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--answer-tone) var(--answer-wash), transparent);
+  }
+
+  .answer-object-value[data-pill][data-tone='none'] {
+    background: var(--answer-chip);
+  }
+
+  .answer-object-fold {
+    flex: none;
+  }
+
+  .answer-object-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .answer-object-note,
+  .answer-object-fold {
+    color: var(--color-fg-muted);
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+  }
+
+  .answer-object-fold {
+    display: inline-flex;
+    height: 19px;
+    align-items: center;
+    padding: 0 6px;
+    border: 1px dashed var(--color-border-strong);
+    border-radius: 5px;
+    font-size: 10.5px;
+    font-weight: 560;
+  }
+
+  .answer-object-bars,
+  .answer-object-spark,
+  .answer-object-pulse {
+    display: block;
+    flex: none;
+  }
+
+  .answer-object-bars rect {
+    fill: var(--color-value-number);
+    opacity: 0.85;
+  }
+
+  .answer-object-spark-area {
+    fill: var(--color-value-number);
+    opacity: 0.13;
+  }
+
+  .answer-object-spark-line {
+    fill: none;
+    stroke: var(--color-value-number);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .answer-object-spark circle { fill: var(--color-value-number); }
+
+  .answer-object-pulse path {
+    fill: none;
+    stroke: var(--color-pulse-fg);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .answer-object-pulse circle { fill: var(--color-pulse-fg); }
+
+  /* Items that do not fit wrap onto a hidden row, so none is cut in half. */
+  .answer-object-scale,
+  .answer-object-keys {
+    display: inline-flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    height: 19px;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .answer-object-scale { gap: 14px; }
+  .answer-object-keys { gap: 8px; }
+
+  .answer-object-kv {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .answer-object-key { color: var(--color-fg-muted); }
+
+  .answer-object-hbar {
+    height: 6px;
+    flex: none;
+    border-radius: 2px;
+    background: var(--color-value-number);
+  }
+
+  .answer-object-chip {
+    display: inline-flex;
+    height: 19px;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    padding: 0 7px 0 3px;
+    border-radius: 5px;
+    background: var(--answer-chip);
+    color: var(--color-fg-muted);
+    font-size: 11.5px;
+  }
+
+  .answer-object-swatch {
+    width: 13px;
+    height: 13px;
+    flex: none;
+    border-radius: 3.5px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-fg-base) 14%, transparent);
+  }
+
+  .answer-object-gauge {
+    position: relative;
+    width: 190px;
+    height: 12px;
+    flex: 0 4 190px;
+    min-width: 60px;
+    background: linear-gradient(var(--answer-track), var(--answer-track)) 0 3px / 100% 6px no-repeat;
+  }
+
+  .answer-object-gauge i {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--color-fg-base) 30%, transparent);
+  }
+
+  .answer-object-gauge i[data-over] {
+    border-radius: 0 2px 2px 0;
+    background: var(--color-value-number);
+  }
+
+  .answer-object-gauge b {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    background: var(--color-fg-muted);
+  }
+
+  .answer-object-table {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    flex-direction: column;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  /* In a narrow column the frame stays whole and the columns past it are cut inside. */
+  .answer-object-table table {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--color-bg-panel);
+    font-size: 12px;
+  }
+
+  .answer-object-table th {
+    height: 20px;
+    padding: 0 14px 0 0;
+    background: var(--color-bg-inset);
+    color: var(--color-fg-muted);
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    font-weight: 560;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .answer-object-table td {
+    height: 21px;
+    padding: 0 14px 0 0;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .answer-object-table td[data-tone='number'] { text-align: right; }
+
+  .answer-object-table .answer-object-index {
+    width: 28px;
+    padding: 0 12px 0 8px;
+    color: var(--color-fg-subtle);
+    font-size: 11px;
+    text-align: right;
+  }
+
+  .answer-object-table .answer-object-value[data-pill] { height: 17px; }
+
+  .answer-object-cellbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .answer-object-cellbar .answer-object-value {
+    min-width: 36px;
+    text-align: right;
+  }
+
+  .answer-object-track {
+    position: relative;
+    width: 52px;
+    height: 6px;
+    flex: none;
+    border-radius: 2px;
+    background: var(--answer-track);
+  }
+
+  .answer-object-track i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 2px;
+    background: var(--color-value-number);
+  }
+
+  .answer-object-dots {
+    display: inline-flex;
+    flex: none;
+    gap: 5px;
+  }
+
+  .answer-object-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1.2px var(--color-fg-subtle);
+  }
+
+  .answer-object-dots i[data-state='done'] {
+    background: color-mix(in srgb, var(--color-pulse) 55%, transparent);
+    box-shadow: none;
+  }
+
+  .answer-object-dots i[data-state='live'] {
+    background: var(--color-pulse);
+    box-shadow: none;
+  }
+
+  .answer-object-loop { color: var(--color-fg-muted); }
+}

@@ -57,7 +57,7 @@ async function moveEditorCursorToLine(page: Page, line: number) {
 }
 
 function inlineValue(page: Page, value: RegExp | string) {
-  return page.locator('.lingua-inline-result-value').filter({ hasText: value }).first();
+  return page.locator('.lingua-inline-result [data-testid="answer-object-value"]').filter({ hasText: value }).first();
 }
 
 async function openRunMenu(page: Page) {

@@ -224,29 +224,6 @@
   --color-syntax-variable: oklch(0.32 0.016 210);
   --color-syntax-punctuation: oklch(0.62 0.015 210);
 
-  /* Inline-result editor decorations — sub-palette selected by the Monaco
-     theme class (.vs/.hc-light vs .vs-dark), so these live in :root (not the
-     shell [data-theme] dark block) and are named by editor theme. Promoted
-     from inline oklch on the rules so the values sit in one place. The `-prop`
-     variants feed the marker's own --inline-result-* custom props; the pill
-     hues are a type palette distinct from --color-syntax-*. */
-  --color-inline-light-tint: oklch(0.93 0.02 210);
-  --color-inline-light-fg: oklch(0.48 0.014 210);
-  --color-inline-light-arrow-prop: oklch(0.5 0.018 210);
-  --color-inline-light-arrow: oklch(0.62 0.015 210);
-  --color-inline-light-value-prop: oklch(0.2 0.018 210);
-  --color-inline-light-value: oklch(0.22 0.014 210);
-  --color-inline-dark-tint: oklch(0.14 0.008 220);
-  --color-inline-dark-fg: oklch(0.74 0.018 220);
-  --color-inline-dark-arrow-prop: oklch(0.7 0.02 220);
-  --color-inline-dark-arrow: oklch(0.62 0.018 220);
-  --color-inline-dark-value-prop: oklch(0.96 0.012 220);
-  --color-inline-dark-value: oklch(0.96 0.008 220);
-  --color-inline-dark-pill: oklch(0.76 0.018 220);
-  --color-inline-pill-string: oklch(0.8 0.14 155);
-  --color-inline-pill-number: oklch(0.8 0.12 250);
-  --color-inline-pill-object: oklch(0.82 0.1 45);
-
   /* Editor surfaces */
   --color-editor-bg: oklch(0.99 0.003 210);
   --color-editor-fg: oklch(0.22 0.014 210);
@@ -1291,207 +1268,81 @@
     @apply h-3.5 w-3.5 cursor-pointer accent-primary;
   }
 
-  /* Monaco overlay widget that renders the rich
-     inline result for each line that produced a value. The widget is
-     placed in the editor's overlay layer (sibling to the lines, not
-     a child), so we can pin it to the editor's right edge with
-     `position: absolute; top: <pixel>; right: <gutter offset>`. The
-     runtime (`InlineResultWidgets`) writes those style values from
-     `editor.getTopForLineNumber(line) - scrollTop`. Visually this
-     matches Quokka and the v2 design's right-edge alignment, while
-     keeping per-line vertical sync as the editor scrolls. */
+  /* One line's answers in the editor's answer column: an overlay widget whose
+     top, left and leader InlineResultWidgets writes on every scroll and edit. */
   .lingua-inline-result {
-    /* Quiet inline markers. Match the `InlineMarker` React
-       reference: an inset tint instead of an opaque panel, a hairline
-       (border-subtle) instead of a boxed-and-shadowed pill, and the
-       type label separated from the value by a LEFT hairline only.
-       Sizes drop to the reference's 11.5px value / 9.5px type so the
-       marker stops competing with the code it annotates. The
-       `data-type-pill` hue + `@watch` accent semantics are unchanged;
-       only visual weight moves here, not the widget/decoration logic. */
-    --inline-result-bg: color-mix(in srgb, var(--color-bg-inset) 60%, transparent);
-    --inline-result-arrow: var(--color-fg-muted);
-    --inline-result-value: var(--color-fg-base);
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 6px;
-    min-height: 18px;
-    line-height: 1;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    color: var(--color-fg-muted);
+    min-height: var(--inline-line-height, 19px);
+    top: 0;
     pointer-events: none;
     white-space: nowrap;
-    /* `top` and `right` are written by the hook on every scroll/edit;
-       this baseline keeps the pill out of the gutter on first paint. */
-    top: 0;
-    right: 12px;
-    /* The Monaco line height is 19px in the default theme — stretching
-       the pill keeps it vertically centred on the line it annotates. */
-    transform: translateY(3px);
-    /* Cap the overlay width so long
-       Python tracebacks or 3+ stacked results never paint past the
-       editor padding. The marker rides a quiet inset
-       tint (not an opaque panel), so the cap is what keeps a long
-       value from overrunning the gutter rather than a masking fill. */
-    max-width: 50%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding-left: 8px;
   }
 
-  .lingua-inline-result-overflow {
-    color: var(--color-fg-subtle);
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    margin-left: 4px;
+  /* The leader runs back from the column to the line's text; the hook sets its length. */
+  .lingua-inline-result-leader.leader-fill {
+    position: absolute;
+    top: calc(var(--inline-line-height, 19px) / 2 - 1px);
+    left: calc(-1 * (var(--answer-leader, 0px) + 14px));
+    width: var(--answer-leader, 0px);
+    margin: 0;
   }
 
-  .lingua-inline-result-part {
-    /* Quiet inset tint + hairline only — no boxed border, no shadow.
-       Mirrors `InlineMarker`'s `bg-bg-inset/60` container so the marker
-       reads as a faint annotation rather than a competing chip. */
+  .lingua-inline-result[data-below] .lingua-inline-result-leader {
+    display: none;
+  }
+
+  .lingua-inline-result-body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
-    border-radius: 5px;
-    background: var(--inline-result-bg);
-    padding: 3px 5px 3px 8px;
+    max-width: var(--answer-column-width, 50vw);
+    overflow: hidden;
   }
 
-  .lingua-inline-result-part[data-result-kind='error'] {
-    --inline-result-arrow: var(--color-danger, #e1495d);
-    --inline-result-value: var(--color-danger, #e1495d);
-    background: color-mix(in srgb, var(--color-danger, #e1495d) 10%, transparent);
-  }
-
-  .lingua-inline-result-arrow {
-    color: var(--inline-result-arrow);
-    font-size: 11.5px;
-    line-height: 1;
+  .lingua-inline-result-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
   }
 
   .lingua-inline-result-name {
     flex-shrink: 0;
-    opacity: 0.75;
-  }
-
-  .lingua-inline-result-value {
-    min-width: 0;
-    color: var(--inline-result-value);
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .lingua-inline-result-pill {
-    /* Type label: separated from the value by a LEFT hairline (no full
-       border box, no fill) per the `InlineMarker` reference. The
-       per-kind `data-type-pill` hue rules below still tint the text. */
-    display: inline-flex;
-    align-items: center;
-    padding-left: 8px;
-    border-left: 1px solid var(--color-border-subtle);
-    color: var(--color-fg-subtle);
-    font-size: 9.5px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .lingua-inline-result-timing {
-    /* per-statement wall-clock chip (`▸ 320 ms`). Quiet
-       italic gray so measurements never compete with values; only the
-       run's slowest statement gets the hot-spot tint below. */
-    display: inline-flex;
-    align-items: center;
-    margin-left: 8px;
-    color: var(--color-fg-subtle);
-    font-size: 10px;
-    font-style: italic;
-  }
-
-  .lingua-inline-result-timing[data-slowest='true'] {
-    color: var(--color-danger, #f87171);
-    font-weight: 600;
+    color: var(--color-fg-muted);
+    font-family: var(--font-code);
+    font-size: 12.5px;
   }
 
   .lingua-inline-result-watch {
-    /* @WATCH marker: a quiet accent text label (no filled chip) to
-       match `InlineMarker`'s `text-accent` glyph. Keeps the watch
-       semantic — the accent hue still flags a pinned expression. */
-    display: inline-flex;
-    align-items: center;
+    flex: none;
     color: var(--color-accent);
-    font-size: 9.5px;
+    font-family: var(--font-ui);
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
   .lingua-inline-result-separator {
     color: var(--color-border-strong);
-    margin: 0 4px;
   }
 
-  .monaco-editor.vs .lingua-inline-result,
-  .monaco-editor.hc-light .lingua-inline-result {
-    /* Quiet inset tint (no opaque panel, no drop shadow) so the marker
-       reads as a faint annotation in the light editor theme too. */
-    --inline-result-bg: color-mix(in srgb, var(--color-inline-light-tint) 55%, transparent);
-    --inline-result-arrow: var(--color-inline-light-arrow-prop);
-    --inline-result-value: var(--color-inline-light-value-prop);
-    color: var(--color-inline-light-fg);
+  .lingua-inline-result-overflow,
+  .lingua-inline-result-timing {
+    flex: none;
+    color: var(--color-fg-muted);
+    font-family: var(--font-ui);
+    font-size: 11px;
   }
 
-  .monaco-editor.vs .lingua-inline-result-arrow,
-  .monaco-editor.hc-light .lingua-inline-result-arrow {
-    color: var(--color-inline-light-arrow);
+  .lingua-inline-result-timing {
+    font-style: italic;
   }
 
-  .monaco-editor.vs .lingua-inline-result-value,
-  .monaco-editor.hc-light .lingua-inline-result-value {
-    color: var(--color-inline-light-value);
-  }
-
-  .monaco-editor.vs-dark .lingua-inline-result {
-    /* Quiet inset tint (no opaque panel, no drop shadow). */
-    --inline-result-bg: color-mix(in srgb, var(--color-inline-dark-tint) 55%, transparent);
-    --inline-result-arrow: var(--color-inline-dark-arrow-prop);
-    --inline-result-value: var(--color-inline-dark-value-prop);
-    color: var(--color-inline-dark-fg);
-  }
-
-  .monaco-editor.vs-dark .lingua-inline-result-arrow {
-    color: var(--color-inline-dark-arrow);
-  }
-
-  .monaco-editor.vs-dark .lingua-inline-result-value {
-    color: var(--color-inline-dark-value);
-  }
-
-  .monaco-editor.vs-dark .lingua-inline-result-pill {
-    color: var(--color-inline-dark-pill);
-  }
-
-  /* Per-kind type hue — text colour only; the borderless/fill-less
-     pill keeps its LEFT hairline divider neutral so only the label
-     tints. The `data-type-pill` semantic is preserved. */
-  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='string'] {
-    color: var(--color-inline-pill-string);
-  }
-
-  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='number'],
-  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='boolean'] {
-    color: var(--color-inline-pill-number);
-  }
-
-  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='object'],
-  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='array'],
-  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='error'] {
-    color: var(--color-inline-pill-object);
+  .lingua-inline-result-timing[data-slowest='true'] {
+    color: var(--color-value-number);
+    font-weight: 600;
   }
 
   /* Glyph-margin breakpoint marks from `useBreakpointGutter`: a solid red dot
