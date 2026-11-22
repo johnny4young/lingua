@@ -39,7 +39,8 @@ describe('InlineAnswerLine', () => {
     const { container } = render(<InlineAnswerLine items={[{ line: 2, name: 'a‮b', value: '1', type: 'log' }]} />);
     expect(container.querySelector('.lingua-inline-result-name')?.textContent).toBe('a b:');
     expect(container.querySelector('[data-testid="answer-object-value"]')?.textContent).toBe('1');
-    expect(screen.getByText('number')).toBeTruthy();
+    // The variable name labels a paused value, so its type tag steps aside.
+    expect(screen.queryByText('number')).toBeNull();
   });
 
   it('prints console output as stdout and errors with their kind', () => {

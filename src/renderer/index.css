@@ -1288,6 +1288,11 @@
     margin: 0;
   }
 
+  /* Under its line the answer drops its leader and clears what sits at the line's end. */
+  .lingua-inline-result[data-below] {
+    margin-top: 3px;
+  }
+
   .lingua-inline-result[data-below] .lingua-inline-result-leader {
     display: none;
   }

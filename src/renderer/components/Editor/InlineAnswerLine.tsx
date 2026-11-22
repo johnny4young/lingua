@@ -56,6 +56,7 @@ export function InlineAnswerLine({ items, timing, language, source }: InlineAnsw
                 language={language}
                 source={single ? source : undefined}
                 compact={!single}
+                hideTag={Boolean(result.name)}
               />
             </span>
             {index < visible.length - 1 ? <span className="lingua-inline-result-separator">·</span> : null}
