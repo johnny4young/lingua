@@ -595,6 +595,22 @@ describe('answers span their statement, fall back under narrow editors and never
     expect(widget.style.top).toBe('80px');
   });
 
+  it('keeps an off-screen row under its statement when a line is added inside it', () => {
+    tall(70);
+    const h = harness();
+    h.setLineCount(5);
+    h.setLines({ 1: 'console.table([', 2: '  { a: 1 },', 3: '  { a: 2 },', 4: '])', 5: 'next' });
+    const offsets: Record<number, number> = { 1: 100, 2: 700, 3: 100, 4: 100, 5: 100 };
+    vi.mocked(h.measure).mockImplementation((line: number, column: number) => (column < 90 ? 0 : offsets[line]!));
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: 'table' }]} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 4 }]);
+    h.setVisible(false);
+    h.editLines({ startLineNumber: 3, endLineNumber: 3, startColumn: 1 }, '\n', 1);
+    h.fire('content');
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 5 }]);
+  });
+
   it('keeps a tall answer beside its statement when every line leaves room', () => {
     tall(70);
     const h = harness();
@@ -633,6 +649,22 @@ describe('answers span their statement, fall back under narrow editors and never
     expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.hasAttribute('data-clipped')).toBe(true);
   });
 
+  it('marks an answer that was off-screen when its size was last checked', () => {
+    const h = harness();
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('lingua-inline-result-body') ? 400 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('lingua-inline-result-body') ? 300 : 0;
+    });
+    h.setVisible(false);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    h.setVisible(true);
+    h.fire('scroll');
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.hasAttribute('data-clipped')).toBe(true);
+  });
+
   it('plays the answer motion only for a new or changed answer', () => {
     const h = harness();
     const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
@@ -667,5 +699,17 @@ describe('answers span their statement, fall back under narrow editors and never
     act(() => h.callbacks.get('layout')?.());
     expect(slot.querySelector('[data-testid="answer-column-header"]')).toBeNull();
     slot.remove();
+  });
+});
+
+describe('a short answer under its line', () => {
+  it('stays under its own line inside a multi-line statement', () => {
+    const h = harness();
+    h.setLineCount(4);
+    h.setLines({ 1: 'items.forEach(item => {', 2: '  use(item)', 3: '})', 4: 'next' });
+    h.setOffset(700);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 1 }]);
   });
 });

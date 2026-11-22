@@ -90,13 +90,16 @@ interface InlineWidget {
   indent: number;
   /** Wider than its column, as of the last time its size or the column changed. */
   clipped: boolean;
+  /** `clipped` was measured after the last size or column change; off-screen answers wait until shown. */
+  clipChecked: boolean;
   items: readonly LineResult[];
   timing?: { durationMs: number; slowest: boolean };
   source?: string;
 }
 
 interface LineCache {
-  version: number;
+  /** Model, language and version the cached lines belong to. */
+  key: string;
   ends: Map<number, number>;
   indents: Map<number, number>;
   js?: JsLineDepth[];
@@ -176,11 +179,11 @@ function useInlineResultWidgets(
   // rows reserved until the run finishes stops the source below from jumping.
   const retainedZonesRef = useRef<RetainedZone[]>([]);
   // Statement ends and indents per line for one model version and font.
-  const lineCacheRef = useRef<LineCache>({ version: -1, ends: new Map(), indents: new Map() });
+  const lineCacheRef = useRef<LineCache>({ key: '', ends: new Map(), indents: new Map() });
   // Clipping only changes with an answer's size or the column; vertical scrolling skips the check.
   const clipDirtyRef = useRef(true);
   // What each line answered last time, so only a new or changed answer plays the answer motion.
-  const answeredRef = useRef<Map<number, string>>(new Map());
+  const answeredRef = useRef<Map<string, Map<number, string>>>(new Map());
 
   const cancelMeasurement = useCallback(() => {
     measurementGenerationRef.current += 1;
@@ -243,8 +246,8 @@ function useInlineResultWidgets(
       const band = answerColumnBand(layout);
       const columnLeft = layout.contentLeft + band.start;
       const scrollLeft = editor.getScrollLeft();
-      const version = model.getVersionId();
-      if (lineCacheRef.current.version !== version) lineCacheRef.current = { version, ends: new Map(), indents: new Map() };
+      const cacheKey = `${model.id}\u0000${model.getLanguageId()}\u0000${model.getVersionId()}`;
+      if (lineCacheRef.current.key !== cacheKey) lineCacheRef.current = { key: cacheKey, ends: new Map(), indents: new Map() };
       const cache = lineCacheRef.current;
       // The statement starting on a line, cut short when another answer sits inside it.
       const spanEnd = (line: number) => {
@@ -268,11 +271,12 @@ function useInlineResultWidgets(
       };
       const indentOf = (widget: InlineWidget) => {
         let indent = cache.indents.get(widget.line);
-        if (indent === undefined) {
-          indent = lineIndent(editor, widget.line) ?? widget.indent;
-          cache.indents.set(widget.line, indent);
-        }
-        return indent;
+        if (indent !== undefined) return indent;
+        const measuredIndent = lineIndent(editor, widget.line);
+        // An unrendered line keeps the last indent and is measured again next pass.
+        if (measuredIndent === null) return widget.indent;
+        cache.indents.set(widget.line, measuredIndent);
+        return measuredIndent;
       };
       // Scrolled sideways, an answer under its line stays at the editor's left edge instead of leaving with its code.
       const placeUnder = (widget: InlineWidget) => {
@@ -280,8 +284,10 @@ function useInlineResultWidgets(
         widget.domNode.style.left = `${layout.contentLeft + shown}px`;
         widget.domNode.style.setProperty('--answer-column-width', `${belowAnswerWidth(layout, shown)}px`);
       };
-      const checkClipping = clipDirtyRef.current;
-      clipDirtyRef.current = false;
+      if (clipDirtyRef.current) {
+        for (const widget of widgetsRef.current.values()) widget.clipChecked = false;
+        clipDirtyRef.current = false;
+      }
       const visibleRanges = editor.getVisibleRanges();
       const isVisible = (line: number) =>
         visibleRanges.some(range => line >= range.startLineNumber && line <= range.endLineNumber);
@@ -354,7 +360,8 @@ function useInlineResultWidgets(
           // A tall answer that cannot stand beside its whole statement moves under it rather than splitting it.
           spanBlocked = free < Math.min(needed, spanEnd(widget.line) - widget.line);
         }
-        if (checkClipping) {
+        if (!widget.clipChecked) {
+          widget.clipChecked = true;
           const body = widget.domNode.querySelector('.lingua-inline-result-body');
           // A table keeps its frame and cuts columns inside it, so it is checked on its own.
           widget.clipped = isClipped(body) || isClipped(body?.querySelector('.answer-object-table table') ?? null);
@@ -371,11 +378,12 @@ function useInlineResultWidgets(
           placeUnder(widget);
         }
         let height = 0;
-        // Under its statement, or after the last free line it spreads over, so a statement never splits.
+        // A tall answer goes under its statement, or after the last free line it spreads over, so a statement never splits.
         let anchor = widget.line;
         if (widget.below) {
           height = Math.ceil(Math.max(lineHeight, answerHeight + 6));
-          anchor = spanEnd(widget.line);
+          // Only a tall answer waits for the statement's end; a short one, such as an error, stays under its line.
+          if (answerHeight > lineHeight * 1.5) anchor = spanEnd(widget.line);
         } else {
           widget.domNode.style.setProperty('--answer-leader', `${room}px`);
           const short = answerHeight - lineHeight * (1 + free);
@@ -470,7 +478,7 @@ function useInlineResultWidgets(
     disposables.push(
       editor.onDidChangeConfiguration(() => {
         // A font change moves every indent.
-        lineCacheRef.current = { version: -1, ends: new Map(), indents: new Map() };
+        lineCacheRef.current = { key: '', ends: new Map(), indents: new Map() };
         clipDirtyRef.current = true;
         schedule();
       })
@@ -503,6 +511,8 @@ function useInlineResultWidgets(
             continue;
           }
           widget.line = line;
+          // The zone followed its own line; an edit inside the statement must not pull it back.
+          if (widget.zone) widget.zoneOffset = Math.max(0, widget.zone.line - line);
           widget.domNode.setAttribute('data-line', String(line));
           moved.set(line, widget);
         }
@@ -558,13 +568,15 @@ function useInlineResultWidgets(
       if (!grouped.has(entry.line)) grouped.set(entry.line, []);
     }
     const model = editor.getModel();
+    const answeredKey = tabId ?? '';
+    const previousAnswers = answeredRef.current.get(answeredKey);
     const answered = new Map<number, string>();
     for (const [line, items] of grouped) {
       const timingMs = timingByLine.get(line);
       const domNode = createInlineResultNode(line);
       const signature = answerSignature(items);
       answered.set(line, signature);
-      domNode.toggleAttribute('data-enter', items.length > 0 && answeredRef.current.get(line) !== signature);
+      domNode.toggleAttribute('data-enter', items.length > 0 && previousAnswers?.get(line) !== signature);
       // Overlay widgets are absolutely-positioned children of the
       // editor's overlay layer. We control position via inline style;
       // Monaco only places the host element on the page.
@@ -580,6 +592,7 @@ function useInlineResultWidgets(
         zoneOffset: 0,
         indent: 0,
         clipped: false,
+        clipChecked: false,
         items,
         timing: timingMs === undefined ? undefined : { durationMs: timingMs, slowest: line === slowestLine },
         source: model && line <= model.getLineCount() ? model.getLineContent(line) : undefined,
@@ -587,6 +600,7 @@ function useInlineResultWidgets(
       const retainedIndex = retainedZonesRef.current.findIndex(item => item.line === line);
       if (retainedIndex >= 0) {
         widget.zone = retainedZonesRef.current[retainedIndex]!.zone;
+        widget.zoneOffset = Math.max(0, widget.zone.line - line);
         retainedZonesRef.current.splice(retainedIndex, 1);
       }
       widgetsRef.current.set(line, widget);
@@ -598,7 +612,7 @@ function useInlineResultWidgets(
       });
     }
     // An empty publish is a run clearing its results, not an answer going away.
-    if (grouped.size > 0) answeredRef.current = answered;
+    if (grouped.size > 0) answeredRef.current.set(answeredKey, answered);
     setMounted([...widgetsRef.current.values()]);
     let active = true;
     clipDirtyRef.current = true;
