@@ -2022,7 +2022,7 @@
   "projectTerminal.panelLabel": "Terminal del proyecto",
   "projectTerminal.loading": "Cargando la terminal del proyecto…",
   "projectTerminal.status.starting": "Iniciando el shell…",
-  "projectTerminal.status.running": "{{shell}} · activo",
+  "projectTerminal.status.running": "{{shell}} · activa",
   "projectTerminal.status.exited": "Terminó · código {{code}}",
   "projectTerminal.errors.invalid-dimensions": "La terminal no pudo iniciar porque el tamaño del panel no es válido.",
   "projectTerminal.errors.session-limit": "Ya hay demasiadas sesiones locales de terminal activas.",

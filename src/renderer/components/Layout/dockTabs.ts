@@ -11,8 +11,8 @@ const DOCK_TAB_ORDER: readonly DockTabId[] = [
   'compare',
   'timeline',
   'variables',
-  'project-terminal',
   'tests',
+  'project-terminal',
   'debugger',
   'browser-preview',
   'dependencies',
@@ -39,4 +39,21 @@ export function resolveDockTab(
     if (availability.debugger) return 'debugger';
   }
   return selected === 'console' || availability[selected] ? selected : 'console';
+}
+
+/** Tests and Terminal, the tabs that share a wide dock side by side. */
+export const isDockSplitTab = (id: DockTabId): id is 'tests' | 'project-terminal' =>
+  id === 'tests' || id === 'project-terminal';
+
+/** Dock width from which the pair opens side by side; narrower docks show one tab at a time. */
+export const DOCK_SPLIT_MIN_WIDTH = 1100;
+
+/** Whether the dock shows Tests and Terminal side by side: wide, both apply, and one of them is selected. */
+export function isDockSplit(shown: DockTabId, availability: DockTabAvailability, wide: boolean): boolean {
+  return (
+    wide &&
+    availability.tests &&
+    availability['project-terminal'] &&
+    isDockSplitTab(shown)
+  );
 }

@@ -228,9 +228,10 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Project test runner
 
-- In the desktop app, **Tests** is a results dock tab, after Terminal. The Explorer's **Tests** row and **Run project tests** in the Command Palette open it. Without a project it offers **Open project folder…** and up to three recent projects with the runner each one last used.
+- In the desktop app, **Tests** is a results dock tab, before Terminal. On a dock at least 1100 px wide, selecting either one shows Tests and Terminal side by side; a narrower dock shows one at a time. The Explorer's **Tests** row and **Run project tests** in the Command Palette open it. Without a project it offers **Open project folder…** and up to three recent projects with the runner each one last used.
 - Lingua detects every matching root-level runner in deterministic order: Vitest, Jest, Pytest, Go, then Cargo. With more than one, the toolbar picks between them. A configured runner can remain unavailable until its project-local package or host toolchain is installed; **Detect again** (the refresh button) finds it without a restart.
-- **Run all tests** lists every test grouped by file (Go groups by package) with passed, failed and skipped counts, and the dock tab shows how many failed. **All / Failed only** narrows the list. Hovering a file offers **Run file**, and a test **Run this test**; a scoped run updates only that part of the list. A failed test shows the line of its assertion. A failure without a file and line shows its message in the list instead. Rust doc tests are listed but run only with the whole suite.
+- While Tests is on screen the dock's left column answers for the project: passed out of run as a large numeral (*5 of 6 passed*), the failures, skipped and not-run counts, the runner, the file count and the last run's time, and a bar for each of this session's last five whole-project runs, failed share in red over the passed share. **Run all tests** and **All / Failed only**, each with its count, sit on the dock's tab row; with Tests off screen the tab shows how many failed.
+- **Run all tests** lists every test grouped by file (Go groups by package), each file with passed out of run and each test with its time. **All / Failed only** narrows the list. Hovering a file offers **Run file**, and a test **Run this test**; a scoped run updates only that part of the list. A failed test shows the line of its assertion. A failure without a file and line shows its message in the list instead. Rust doc tests are listed but run only with the whole suite.
 - After a run, an open test file answers on its own lines, in the editor's answer column: each test's result after its declaration (**Passed** ok with its time, **Failed** with its time and the line of its assertion, **Skipped**), and for Vitest and Jest each suite's tally after its `describe` line. Go and Cargo do not report declaration lines, so their tests answer only on the failing assertion. The failing assertion line is tinted and shows **Received** against **expected** when the runner states both (otherwise the message's first line).
 - Selecting a failed test in the list, or its answer in the editor, opens a card under the assertion. For a JavaScript or TypeScript test it shows the uncommitted change in the code the test imports (its relative imports and theirs, one level down, against HEAD), preferring the module named after a function the failing line calls, with **Git diff** (opens that file and the Git diff tab) and **Open file:line** on the assertion line. It also has **Run this test again** when the test can run on its own, **Explain** with local AI (the message and the change), and a close button; Esc also closes it, and it closes by itself once the test passes. Running one test file opens the card on its first failure.
 - **Show output** has the runner's own log, which opens by itself when its report cannot be read. The first native run asks you to acknowledge that the suite and its dependencies execute as ordinary local processes. Continue only for projects you trust.
@@ -247,9 +248,10 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - The panel first explains the trust boundary. Choose **Start terminal** to
   launch your default system shell in the approved project root. Opening a
   folder or revealing the panel does not start a shell automatically.
-- The session continues while the results dock is hidden. **Clear** removes the
-  renderer's current transcript; **Stop** terminates the owned PTY; after exit,
-  **New session** starts a fresh shell.
+- The session continues while the results dock is hidden, and the Terminal tab
+  shows a green dot while it runs. **Clear** removes the renderer's current
+  transcript; **Stop** (the square) terminates the owned PTY; **New session**
+  stops the current shell, if any, and starts a fresh one.
 - Lingua chooses an absolute system shell, filters inherited environment
   variables, bounds input and retained output, and stops the session when the
   project closes, the window is destroyed, or the app quits.

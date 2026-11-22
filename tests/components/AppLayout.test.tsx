@@ -1,12 +1,13 @@
 import type { PropsWithChildren } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppLayout } from '../../src/renderer/components/Layout/AppLayout';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { useProjectStore } from '../../src/renderer/stores/projectStore';
+import { useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
 import { asRootId } from '../../src/shared/fs/brandedIds';
 
 let compactShell = false;
@@ -145,6 +146,18 @@ vi.mock('../../src/renderer/components/ProjectTerminal/ProjectTerminalPanel', ()
   ProjectTerminalPanel: ({ binding }: { binding: { projectName: string } }) => (
     <div data-testid="project-terminal-panel">Terminal for {binding.projectName}</div>
   ),
+}));
+
+vi.mock('../../src/renderer/components/ProjectTests/TestsPanel', () => ({
+  TestsPanel: () => <div data-testid="tests-panel">Tests by file</div>,
+}));
+
+vi.mock('../../src/renderer/components/ProjectTests/TestsMeter', () => ({
+  TestsMeter: () => <section data-testid="tests-meter">5 of 6 passed</section>,
+}));
+
+vi.mock('../../src/renderer/components/ProjectTests/TestsDockControls', () => ({
+  TestsDockControls: () => <div data-testid="tests-dock-controls">Run all tests</div>,
 }));
 
 // Mock the Recipe Run panel to avoid pulling
@@ -452,6 +465,79 @@ describe('AppLayout responsive shell', () => {
     expect((await screen.findByTestId('project-terminal-panel')).textContent).toContain(
       'Terminal for Alpha'
     );
+  });
+
+  describe('Tests and Terminal', () => {
+    function openProjectWithTestsAndTerminal(width: number) {
+      window.lingua = {
+        ...(window.lingua ?? ({ platform: 'darwin' } as LinguaAPI)),
+        projectTerminal: {} as NonNullable<LinguaAPI['projectTerminal']>,
+        projectTests: {} as NonNullable<LinguaAPI['projectTests']>,
+      } as LinguaAPI;
+      useProjectStore.setState({
+        currentProject: { id: 'project-alpha', name: 'Alpha', rootPath: '/tmp/alpha', rootId: asRootId('root-alpha'), openedAt: 1 },
+      });
+      useProjectTestStore.setState({ rootId: asRootId('root-alpha') });
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 240 } as DOMRect);
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      useProjectTestStore.setState({ rootId: null });
+    });
+
+    it('keeps the meter column off the Tests meter until detection binds this project', async () => {
+      openProjectWithTestsAndTerminal(1400);
+      useProjectTestStore.setState({ rootId: asRootId('root-other') });
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'tests' });
+
+      await renderLayout();
+
+      expect(await screen.findByTestId('results-dock-split')).toBeTruthy();
+      expect(screen.queryByTestId('tests-meter')).toBeNull();
+    });
+
+    it.each(['tests', 'project-terminal'] as const)('sit side by side on a wide dock when %s is selected', async (tab) => {
+      openProjectWithTestsAndTerminal(1400);
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: tab });
+
+      await renderLayout();
+
+      expect(await screen.findByTestId('results-dock-split')).toBeTruthy();
+      expect(screen.getByTestId('results-dock').dataset.split).toBe('true');
+      expect(await screen.findByTestId('tests-panel')).toBeTruthy();
+      expect(await screen.findByTestId('project-terminal-panel')).toBeTruthy();
+      expect(screen.getByRole('tablist').getAttribute('aria-multiselectable')).toBe('true');
+      expect(screen.getByTestId('bottom-panel-tests-tab').getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByTestId('bottom-panel-project-terminal-tab').getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByTestId('bottom-panel-console-tab').getAttribute('aria-selected')).toBe('false');
+      expect(await screen.findByTestId('tests-meter')).toBeTruthy();
+      expect(await screen.findByTestId('tests-dock-controls')).toBeTruthy();
+    });
+
+    it('keeps one tab at a time on a narrow dock', async () => {
+      openProjectWithTestsAndTerminal(900);
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'project-terminal' });
+
+      await renderLayout();
+
+      expect(await screen.findByTestId('project-terminal-panel')).toBeTruthy();
+      expect(screen.queryByTestId('results-dock-split')).toBeNull();
+      expect(screen.queryByTestId('tests-panel')).toBeNull();
+      expect(screen.queryByTestId('tests-meter')).toBeNull();
+      expect(screen.getByTestId('bottom-panel-tests-tab').getAttribute('aria-selected')).toBe('false');
+    });
+
+    it('shows one pane when another dock tab is selected on a wide dock', async () => {
+      openProjectWithTestsAndTerminal(1400);
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'console' });
+
+      await renderLayout();
+
+      expect(await screen.findByTestId('console-panel')).toBeTruthy();
+      expect(screen.queryByTestId('results-dock-split')).toBeNull();
+      expect(screen.queryByTestId('tests-dock-controls')).toBeNull();
+    });
   });
 
   it('keeps the editor mounted while the dock folds and opens', async () => {

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import {
   Boxes,
   Bug,
@@ -41,10 +41,18 @@ import {
 import { useConsoleStore } from '../../stores/consoleStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { useProjectTestStore } from '../../stores/projectTestStore';
+import { isCurrentFailure, useProjectTestStore } from '../../stores/projectTestStore';
+import { useProjectTerminalStore } from '../../stores/projectTerminalStore';
 import { cn } from '../../utils/cn';
 import { formatShortcutLabel } from '../../data/keyboardShortcuts';
-import { availableDockTabs, resolveDockTab, type DockTabId } from './dockTabs';
+import {
+  availableDockTabs,
+  DOCK_SPLIT_MIN_WIDTH,
+  isDockSplit,
+  isDockSplitTab,
+  resolveDockTab,
+  type DockTabId,
+} from './dockTabs';
 import { DockHeaderControls } from './DockHeaderControls';
 import { DockOutputReport } from './DockOutputReport';
 import { MissingToolchainPanel } from './MissingToolchainPanel';
@@ -87,6 +95,33 @@ const ProjectTerminalPanel = lazy(async () => {
   const module = await import('../ProjectTerminal/ProjectTerminalPanel');
   return { default: module.ProjectTerminalPanel };
 });
+
+const TestsMeter = lazy(async () => {
+  const module = await import('../ProjectTests/TestsMeter');
+  return { default: module.TestsMeter };
+});
+
+const TestsDockControls = lazy(async () => {
+  const module = await import('../ProjectTests/TestsDockControls');
+  return { default: module.TestsDockControls };
+});
+
+/** True while the element is at least `min` px wide; re-renders only when that flips. */
+function useWiderThan(ref: RefObject<HTMLElement | null>, min: number): boolean {
+  const [wide, setWide] = useState(false);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    setWide(node.getBoundingClientRect().width >= min);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWide(entry.contentRect.width >= min);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ref, min]);
+  return wide;
+}
 
 interface DockTabMeta {
   icon: LucideIcon;
@@ -145,8 +180,16 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
   const dockCombo = useShortcutLabel('view-toggle-console');
   const currentProject = useProjectStore(state => state.currentProject);
+  // The live shell's name, so the Terminal tab can say it is running; null otherwise.
+  const terminalShell = useProjectTerminalStore(state =>
+    state.status === 'running' && state.rootId !== null && state.rootId === currentProject?.rootId
+      ? (state.shellName ?? '')
+      : null
+  );
+  const shellRef = useRef<HTMLElement>(null);
+  const wide = useWiderThan(shellRef, DOCK_SPLIT_MIN_WIDTH);
   const consoleCount = useConsoleStore(state => state.entries.length);
-  const failedTests = useProjectTestStore(state => state.cases?.filter(entry => entry.status === 'failed' && !entry.stale).length ?? 0);
+  const failedTests = useProjectTestStore(state => state.cases?.filter(isCurrentFailure).length ?? 0);
   // Lines staged for the next run, so the Input tab says so before it is opened.
   const stdinLines = useEditorStore(
     s => (getActiveTab(s)?.stdinBuffer ?? '').split('\n').filter(line => line !== '').length
@@ -181,6 +224,13 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
     consoleVisible
   );
 
+  const split = expanded && currentProject !== null && isDockSplit(effectiveTab, availability, wide);
+  const shown = (id: DockTabId) => expanded && (effectiveTab === id || (split && isDockSplitTab(id)));
+  // The Tests meter and controls answer for the project while its tests are on screen.
+  const testsOnScreen = currentProject !== null && shown('tests');
+  // Until detection binds the test store to this project the code meter keeps the column.
+  const testsBound = useProjectTestStore(state => state.rootId !== null && state.rootId === currentProject?.rootId);
+
   useEffect(() => {
     if (activeBottomPanel !== 'console' && !availability[activeBottomPanel]) {
       setActiveBottomPanel('console');
@@ -193,7 +243,8 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
     compare: compareCount,
     variables: variableCount ?? 0,
     debugger: allBreakpoints,
-    tests: failedTests,
+    // While Tests is on screen its meter carries the failures.
+    tests: testsOnScreen ? 0 : failedTests,
   };
   const hintValues = {
     combo: formatShortcutLabel('run-toggle-variable-inspector', shortcutOverrides) ?? '',
@@ -202,15 +253,36 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   };
   const compareCombo = formatShortcutLabel('run-toggle-compare-snapshot', shortcutOverrides) ?? '';
 
+  const terminalPanel = currentProject ? (
+    <Suspense
+      fallback={
+        <div role="status" className="flex h-full items-center justify-center text-caption text-muted">
+          {t('projectTerminal.loading')}
+        </div>
+      }
+    >
+      <ProjectTerminalPanel
+        binding={{ rootId: currentProject.rootId, projectName: currentProject.name }}
+        autoFocus={effectiveTab === 'project-terminal'}
+      />
+    </Suspense>
+  ) : null;
+
   return (
     <section
+      ref={shellRef}
       aria-label={t('bottomPanel.tabs.label')}
       data-testid="results-dock"
       data-expanded={expanded ? 'true' : 'false'}
+      data-split={split ? 'true' : undefined}
       className="dock-shell h-full min-h-0 bg-bg-panel"
     >
       <div className="dock-shell-row">
-        {expanded && meterTabId ? (
+        {expanded && testsOnScreen && testsBound ? (
+          <Suspense fallback={null}>
+            <TestsMeter />
+          </Suspense>
+        ) : expanded && meterTabId ? (
           <RunMeter
             tabId={meterTabId}
             {...(availability.compare ? { onCompare: () => openBottomPanel('compare') } : {})}
@@ -224,12 +296,13 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             <div
               role="tablist"
               aria-label={t('bottomPanel.tabs.listLabel')}
+              aria-multiselectable={split || undefined}
               className="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
             >
               {availableDockTabs(availability).map(id => {
                 const meta = DOCK_TAB_META[id];
                 const Icon = meta.icon;
-                const selected = expanded && effectiveTab === id;
+                const selected = shown(id);
                 const count = counts[id] ?? 0;
                 return (
                   <Tooltip
@@ -257,6 +330,14 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                         className={selected ? 'text-accent-fg' : 'text-fg-subtle'}
                       />
                       {t(meta.labelKey)}
+                      {id === 'project-terminal' && terminalShell !== null ? (
+                        <span
+                          data-testid="bottom-panel-project-terminal-live"
+                          className="h-1.5 w-1.5 rounded-full bg-success-fg"
+                          role="img"
+                          aria-label={t('projectTerminal.status.running', { shell: terminalShell })}
+                        />
+                      ) : null}
                       {count > 0 ? (
                         <span
                           data-testid={`bottom-panel-${id}-count`}
@@ -274,6 +355,11 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
               })}
             </div>
             <div className="flex shrink-0 items-center gap-1.5 pl-2 pr-2">
+              {testsOnScreen ? (
+                <Suspense fallback={null}>
+                  <TestsDockControls />
+                </Suspense>
+              ) : null}
               <DockHeaderControls />
               <Tooltip
                 content={t(expanded ? 'bottomPanel.actions.hide' : 'bottomPanel.actions.show', {
@@ -303,8 +389,19 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             </div>
           </div>
           {expanded ? (
-            <div key={effectiveTab} className="dock-tab-body flex min-h-0 flex-1 flex-col overflow-hidden">
-              {effectiveTab === 'debugger' ? (
+            <div key={split ? 'split' : effectiveTab} className="dock-tab-body flex min-h-0 flex-1 flex-col overflow-hidden">
+              {split ? (
+                <div className="flex min-h-0 flex-1" data-testid="results-dock-split">
+                  <div className="min-h-0 min-w-0 flex-[1.25] border-r border-border-subtle" data-testid="results-dock-split-tests">
+                    <Suspense fallback={null}>
+                      <TestsPanel />
+                    </Suspense>
+                  </div>
+                  <div className="min-h-0 min-w-0 flex-1" data-testid="results-dock-split-terminal">
+                    {terminalPanel}
+                  </div>
+                </div>
+              ) : effectiveTab === 'debugger' ? (
                 <DebuggerDrawerHost activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
               ) : effectiveTab === 'browser-preview' ? (
                 <BrowserPreviewPanel />
@@ -334,23 +431,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                   <GitDiffPanel />
                 </Suspense>
               ) : effectiveTab === 'project-terminal' && currentProject ? (
-                <Suspense
-                  fallback={
-                    <div
-                      role="status"
-                      className="flex h-full items-center justify-center text-caption text-muted"
-                    >
-                      {t('projectTerminal.loading')}
-                    </div>
-                  }
-                >
-                  <ProjectTerminalPanel
-                    binding={{
-                      rootId: currentProject.rootId,
-                      projectName: currentProject.name,
-                    }}
-                  />
-                </Suspense>
+                terminalPanel
               ) : effectiveTab === 'tests' ? (
                 <Suspense fallback={null}>
                   <TestsPanel />

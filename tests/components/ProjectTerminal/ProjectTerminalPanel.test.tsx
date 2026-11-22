@@ -107,6 +107,22 @@ describe('ProjectTerminalPanel', () => {
     expect(screen.getByRole('button', { name: 'Start terminal' })).toBeTruthy();
   });
 
+  it('leaves focus alone while it only sits beside Tests, and takes it once Terminal is selected', async () => {
+    useProjectTerminalStore.setState({ status: 'running', sessionId: 'session-a', shellName: 'zsh' });
+    const frame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      callback(0);
+      return 0;
+    });
+    const { rerender } = render(<ProjectTerminalPanel binding={binding} autoFocus={false} />);
+    await screen.findByTestId('project-terminal-xterm');
+    const terminal = xterm.instances.at(-1)!;
+    expect(terminal.focus).not.toHaveBeenCalled();
+
+    rerender(<ProjectTerminalPanel binding={binding} autoFocus />);
+    expect(terminal.focus).toHaveBeenCalledTimes(1);
+    frame.mockRestore();
+  });
+
   it('starts the native terminal and renders buffered PTY output', async () => {
     const user = userEvent.setup();
     render(<ProjectTerminalPanel binding={binding} />);

@@ -1,12 +1,8 @@
 {
   "projectTests.runAll": "Ejecutar todas las pruebas",
-  "projectTests.running": "Ejecutando…",
   "projectTests.detecting": "Buscando runners de pruebas…",
-  "projectTests.count.tests_one": "{{count}} prueba",
-  "projectTests.count.tests_other": "{{count}} pruebas",
   "projectTests.count.files_one": "{{count}} archivo",
   "projectTests.count.files_other": "{{count}} archivos",
-  "projectTests.summary": "{{tests}} en {{files}} · encontradas con",
   "projectTests.runner.label": "Runner de pruebas",
   "projectTests.passed_one": "{{count}} aprobada",
   "projectTests.passed_other": "{{count}} aprobadas",
@@ -82,5 +78,19 @@
   "projectTests.change.more_one": "{{count}} línea cambiada más",
   "projectTests.change.more_other": "{{count}} líneas cambiadas más",
   "projectTests.change.gitDiff": "Diff de Git",
-  "projectTests.change.explain": "Explicar"
+  "projectTests.change.explain": "Explicar",
+  "projectTests.meter.label": "Resultados de pruebas",
+  "projectTests.meter.state.idle": "Sin ejecutar",
+  "projectTests.meter.state.running": "Ejecutando",
+  "projectTests.meter.state.passed": "Aprobadas",
+  "projectTests.meter.state.failed": "Falló",
+  "projectTests.meter.ofPassed": "de {{total}} aprobadas",
+  "projectTests.meter.lastRuns_one": "última ejecución\ndel proyecto",
+  "projectTests.meter.lastRuns_other": "últimas {{count}} ejecuciones\ndel proyecto",
+  "projectTests.meter.bar.counted": "Ejecución {{number}}: {{passed}} aprobadas, {{failed}} fallidas",
+  "projectTests.meter.bar.empty": "Ejecución {{number}}: {{outcome}}",
+  "projectTests.meter.outcome.success": "ninguna prueba reportó",
+  "projectTests.meter.outcome.failed": "falló antes de que alguna prueba reportara",
+  "projectTests.meter.outcome.timed-out": "tiempo agotado",
+  "projectTests.meter.outcome.stopped": "detenida"
 }
