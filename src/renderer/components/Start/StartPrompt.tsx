@@ -10,7 +10,7 @@ import { NEW_SCRATCH_LANGUAGE } from '../../stores/editorTabUtils';
 import { requestSqlSample } from '../SqlWorkspace/pendingSqlSample';
 import { Kbd } from '../ui/ModalShell';
 import { AnswerPicture } from './AnswerPicture';
-import { DottedLeader } from './StartParts';
+import { DotLeader } from '../ui/answer';
 import { StartPromptEditor } from './StartPromptEditor';
 import { answerFallback } from './answerLabels';
 import { runsOnPause, type PromptAnswer } from './startPromptModel';
@@ -78,7 +78,7 @@ function PromptAnswerView({ shown }: { shown: PromptAnswer }) {
       data-status={answer.status}
       data-kind={valueKind}
     >
-      <DottedLeader />
+      <DotLeader />
       {tag ? <span className="start-prompt-tag">{tag}</span> : null}
       {answer.picture ? (
         <span className="start-prompt-picture">

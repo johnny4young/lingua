@@ -16,11 +16,6 @@
   right: 12px;
   height: 2px;
   pointer-events: none;
-  background: radial-gradient(circle, var(--color-border-strong) 0.9px, transparent 1.1px) 0 0 / 7px 2px repeat-x;
-}
-
-.notebook-answer-leader[data-tone='error'] {
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--color-value-error) 60%, transparent) 0.9px, transparent 1.1px);
 }
 
 .notebook-answers {

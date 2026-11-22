@@ -8,7 +8,8 @@ import type { LastAnswer } from '../../utils/lastAnswer';
 import { languageLabel } from '../../utils/languageMeta';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { AnswerPicture } from './AnswerPicture';
-import { LanguageSquare, SectionHeading, DottedLeader } from './StartParts';
+import { LanguageSquare, SectionHeading } from './StartParts';
+import { DotLeader } from '../ui/answer';
 import { answerDisplay, answerIdentity } from './answerLabels';
 import { startTimeAgo } from './startModel';
 
@@ -192,7 +193,7 @@ export function StartPickUp() {
               {row.detail ? (
                 <span className="start-row-detail shrink-0 text-[12.5px] text-fg-muted">{row.detail}</span>
               ) : null}
-              <DottedLeader />
+              <DotLeader />
               <AnswerValue answer={row.answer} />
               <AnswerDetail answer={row.answer} />
               <span className="w-[72px] shrink-0 text-right text-[12.5px] text-fg-muted">

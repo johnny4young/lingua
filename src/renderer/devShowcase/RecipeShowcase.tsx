@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   ArrowRight,
   Braces,
@@ -33,6 +33,11 @@ import {
 import { StatusBadge } from '../components/ui/StatusBadge';
 import type { StatusBadgeTone } from '../components/ui/StatusBadge';
 import { ModalShell, Kbd } from '../components/ui/ModalShell';
+import { Glyph } from '../components/ui/Glyph';
+import { GLYPH_NAMES } from '../components/ui/glyphSet';
+import { RunDot, RunStateGlyph } from '../components/ui/RunStateGlyph';
+import { RUN_STATES, TAB_RUN_STATES, type RunState } from '../components/ui/runState';
+import { LeaderRow, ResultNumeral, TypeTag } from '../components/ui/answer';
 import { SpecRow, SpecCard, SettingsSection } from '../components/ui/SpecRow';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ResultHeader } from '../components/ui/ResultHeader';
@@ -50,6 +55,27 @@ function Cell({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const RUN_STATE_LABELS: Record<RunState, string> = {
+  'not-run': 'Not run',
+  running: 'Running',
+  answered: 'Answered',
+  raised: 'Raised',
+  paused: 'Paused',
+  stale: 'Stale',
+};
+
+const MOTION_SPECIMENS = [
+  { title: 'Pulse · 120 ms a line', detail: 'ease-out on the rail; ticks stay lit.', curve: 'M6 34C14 34 20 6 48 6' },
+  { title: 'Answer · 160 ms', detail: 'leader draws, value fades up 4 px.', curve: 'M6 34C24 34 22 6 48 6' },
+  { title: 'Reduced motion', detail: 'no travel; values appear in place.', curve: 'M6 34L48 6' },
+];
+
+const RESULT_HEADERS = [
+  { tag: 'Code', value: '1.24', unit: 's', tabs: ['Console', 'Variables'] },
+  { tag: 'SQL', value: '5', unit: 'rows', tabs: ['Table', 'Profile', 'Plan'] },
+  { tag: 'HTTP', value: '200', unit: 'ok', tabs: ['Body', 'Headers', 'Timing'] },
+];
+
 const ALL_TONES: StatusBadgeTone[] = [
   'free',
   'pro',
@@ -65,6 +91,7 @@ export function RecipeShowcase() {
   const [dark, setDark] = useState(true);
   const [tab, setTab] = useState('body');
   const [running, setRunning] = useState(false);
+  const [replay, setReplay] = useState(0);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -298,6 +325,128 @@ export function RecipeShowcase() {
             <Search size={16} aria-hidden />
             <Zap size={16} aria-hidden />
             <Hash size={16} aria-hidden />
+          </div>
+        </Cell>
+
+        <Cell title="Glyphs and motion">
+          <div
+            className="text-fg-base"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 24px)', columnGap: 4, rowGap: 14, maxWidth: 332 }}
+            data-testid="showcase-glyphs"
+          >
+            {GLYPH_NAMES.map((name) => (
+              <span key={name} title={name} className="inline-flex">
+                <Glyph name={name} label={name} />
+              </span>
+            ))}
+          </div>
+          <p className="text-body-sm text-fg-muted">16 px grid, 1.5 stroke, round joins.</p>
+          <div key={replay} className="flex flex-col gap-3">
+            {MOTION_SPECIMENS.map((specimen) => (
+              <div key={specimen.title} className="flex items-center gap-3 text-body-sm text-fg-muted">
+                <svg width="54" height="40" viewBox="0 0 54 40" aria-hidden style={{ flex: 'none' }}>
+                  <rect x=".5" y=".5" width="53" height="39" rx="6" fill="none" stroke="var(--color-border-strong)" />
+                  <path d={specimen.curve} fill="none" stroke="var(--color-fg-base)" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+                <span className="flex flex-col">
+                  <span className="font-semibold text-fg-base">{specimen.title}</span>
+                  {specimen.detail}
+                </span>
+              </div>
+            ))}
+            <span className="flex items-center gap-2" aria-hidden>
+              {[0, 1, 2, 3].map((index) => (
+                <span
+                  key={index}
+                  className="pulse-tick"
+                  style={{ width: 2, height: 18, borderRadius: 1, '--pulse-index': index } as CSSProperties}
+                />
+              ))}
+            </span>
+          </div>
+        </Cell>
+
+        <Cell title="Run states · rail and tab dots">
+          <div
+            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'repeat(3, 30px)', gridAutoFlow: 'column' }}
+            data-testid="showcase-run-states"
+          >
+            {RUN_STATES.map((state) => (
+              <span key={state} className="inline-flex items-center gap-3 text-body-sm font-semibold text-fg-base">
+                <RunStateGlyph state={state} />
+                {RUN_STATE_LABELS[state]}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            {TAB_RUN_STATES.map((state) => (
+              <span key={state} className="inline-flex items-center gap-2 font-mono text-body-sm text-fg-muted">
+                <RunDot state={state} label={state} />
+                {state}
+              </span>
+            ))}
+          </div>
+        </Cell>
+
+        <Cell title="Answer primitives · TypeTag · LeaderRow · ResultNumeral · Kbd">
+          <div key={replay} className="flex flex-col gap-3 font-mono text-body text-fg-base" data-testid="showcase-answers">
+            <LeaderRow
+              enter
+              label="p95 = round(quantiles(db)[-1], 1)"
+              value={
+                <>
+                  <TypeTag>float</TypeTag>
+                  <span className="text-value-number">151.4</span>
+                </>
+              }
+            />
+            <LeaderRow
+              enter
+              tone="error"
+              label="cache['slowest']"
+              value={
+                <>
+                  <TypeTag>error</TypeTag>
+                  <span className="text-value-error">KeyError</span>
+                </>
+              }
+            />
+          </div>
+          <div className="flex flex-col rounded-lg border border-border-subtle bg-bg-inset px-4" data-testid="showcase-result-header">
+            {RESULT_HEADERS.map((header, index) => (
+              <div
+                key={header.tag}
+                className={index < RESULT_HEADERS.length - 1 ? 'flex items-center gap-4 border-b border-border-subtle' : 'flex items-center gap-4'}
+                style={{ minHeight: 46 }}
+              >
+                <TypeTag className="w-10">{header.tag}</TypeTag>
+                <ResultNumeral value={header.value} unit={header.unit} className="w-20" />
+                <span className="flex items-center gap-3 text-body-sm text-fg-muted">
+                  <span className="font-semibold text-fg-base">{header.tabs[0]}</span>
+                  {header.tabs.slice(1).map((name) => (
+                    <span key={name}>{name}</span>
+                  ))}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-baseline gap-6">
+            <ResultNumeral size="sm" value="40.9" unit="ms" />
+            <ResultNumeral size="lg" value="1.15" unit="s" />
+            <ResultNumeral size="sm" value="KeyError" tone="error" />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-body-sm text-fg-muted">
+            <Kbd>⌘↵</Kbd>
+            <Kbd>⌘K</Kbd>
+            <Kbd>esc</Kbd>
+            <button
+              type="button"
+              onClick={() => setReplay((count) => count + 1)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border-subtle bg-bg-panel-alt px-3 text-body-sm text-fg-base hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            >
+              <Glyph name="refresh" />
+              Replay motion
+            </button>
           </div>
         </Cell>
       </div>

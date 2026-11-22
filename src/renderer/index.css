@@ -1090,10 +1090,6 @@
     @apply text-caption font-semibold uppercase tracking-[0.2em] text-muted;
   }
 
-  .subtle-copy {
-    @apply text-body-md leading-6 text-muted;
-  }
-
   /* Toolbar and keyboard affordances */
   .toolbar-divider {
     @apply mx-1 hidden h-5 w-px bg-border/80 sm:block;
@@ -1293,14 +1289,6 @@
 
   .guided-tour-dont-show-again-input {
     @apply h-3.5 w-3.5 cursor-pointer accent-primary;
-  }
-
-  /* Editor/result copy helpers */
-  .inline-result-text {
-    color: color-mix(in srgb, var(--app-muted) 92%, transparent);
-    font-style: italic;
-    opacity: 0.82;
-    padding-left: 1rem;
   }
 
   /* Monaco overlay widget that renders the rich
@@ -1878,11 +1866,6 @@
     padding: 0 12px 0 10px;
   }
 
-  .action-pill-mode {
-    font-size: 12px;
-    font-weight: 600;
-  }
-
   .action-pill-drag-handle {
     width: 20px;
     height: 32px;
@@ -2140,15 +2123,6 @@
     opacity: 0.5;
   }
 
-  .action-pill-run-spinner {
-    @apply inline-block rounded-full border-2;
-    width: 10px;
-    height: 10px;
-    border-color: currentColor;
-    border-top-color: transparent;
-    animation: run-spin 800ms linear infinite;
-  }
-
   /* Rich dropdown — used by lang / mode / run pickers. Each row has
      icon · label · description and a trailing badge (ACTUAL/PRO/kbd). */
   .dropdown-rich {
@@ -2244,14 +2218,6 @@
     @apply mt-1 max-w-[60ch] text-body-sm leading-relaxed text-fg-muted;
   }
 
-  .um-card-output {
-    @apply min-h-0 flex-1 overflow-auto rounded-md border border-border-subtle bg-bg-inset/60 p-3 font-mono text-body-sm text-fg-base;
-  }
-
-  .um-field {
-    @apply grid gap-2 rounded-xl border border-border-subtle bg-bg-panel/65 p-3;
-  }
-
   .um-control {
     @apply focus-ring w-full rounded-xl border border-border/80 bg-bg-inset/60 px-3 py-2.5 text-body-md text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55;
   }
@@ -2309,15 +2275,7 @@
     @apply flex items-center justify-between gap-3 border-t border-border/60 px-3 py-2 font-mono text-eyebrow text-fg-subtle;
   }
 
-  /* Utilities modal shell — 28px corner radius and the soft cool-gray
-     surface palette of the round-2 mock. The OverlayCard underneath
-     remains the focus-trap host; this class only tunes the geometry. */
-  .um-modal-shell {
-    border-radius: 28px;
-  }
-
-  /* Settings rail — left sidebar that replaces the v1 top tabs. The
-     active row gets a 2px accent border on the left. */
+  /* Settings rail — left sidebar; the active row takes the panel tint. */
   .settings-rail {
     @apply flex h-full w-[220px] flex-none flex-col border-r border-border/80 bg-bg-panel-alt/70;
   }
@@ -2476,15 +2434,6 @@
 /* v2 keyframes — declared at the top level so Tailwind  */
 /* doesn't try to scope them inside @layer components.          */
 /* ============================================================ */
-
-@keyframes run-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* Tab switches cross-fade the body; the tab strips only ease their colours.
    Opacity only, so fixed popovers inside a body keep the viewport as their

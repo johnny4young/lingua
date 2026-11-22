@@ -4,6 +4,7 @@ import type * as monacoTypes from 'monaco-editor';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import '../../i18n/testsCatalog';
+import '../ui/identity.css';
 import './projectTests.css';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { sameTest, useProjectTestStore, type ProjectTestDisplayCase } from '../../stores/projectTestStore';
@@ -181,7 +182,7 @@ function LineAnswer({ answer, file, change }: { answer: TestLineAnswer; file: st
 
   return (
     <div className="test-answer" data-testid="test-line-answer" data-kind={answer.kind} data-line={answer.line}>
-      <span className="test-answer-leader" data-tone={tone} aria-hidden="true" />
+      <span className="dot-leader test-answer-leader" data-tone={tone} aria-hidden="true" />
       <span className="test-answer-body">
         <span className="test-answer-tag" data-tone={tone}>
           {tag}
