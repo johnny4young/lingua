@@ -5,7 +5,7 @@ import { currentEffectiveTier } from './licenseSelectors';
 import { useEditorStore } from './editorStore';
 import { findTimelineStep, type TimelineMove } from '../utils/timelineModel';
 
-interface TimelineRecording {
+export interface TimelineRecording {
   tabId: string;
   steps: TimelineStep[];
   /** Steps the run recorded, before the Free slice. */
@@ -13,6 +13,10 @@ interface TimelineRecording {
   truncated: boolean;
   /** Free kept only the last steps. */
   limited: boolean;
+  /** Paid tiers see the whole run, its trace and its time per line. */
+  entitled: boolean;
+  /** Run time when recording ended; see `ExecutionTimeline.ms`. */
+  ms?: number;
 }
 
 interface TimelineState {
@@ -27,6 +31,11 @@ interface TimelineState {
   /** Counts moves that had nowhere to go, so the editor can flash the line. */
   blocked: number;
   clearTab: (tabId: string) => void;
+}
+
+/** A paid recording of `tabId` with enough steps to draw as the Console's trace. */
+export function traceShown(recording: TimelineRecording | null, tabId: string | null | undefined): recording is TimelineRecording {
+  return recording !== null && recording.entitled && recording.steps.length >= 2 && recording.tabId === tabId;
 }
 
 /** The latest Record run, in memory only. It opens on the step where the run ended. */
@@ -57,7 +66,15 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     const total = timeline.steps.length;
     const steps = entitled ? timeline.steps : timeline.steps.slice(-TIMELINE_FREE_STEPS);
     set({
-      recording: { tabId, steps, total, truncated: timeline.truncated, limited: steps.length < total },
+      recording: {
+        tabId,
+        steps,
+        total,
+        truncated: timeline.truncated,
+        limited: steps.length < total,
+        entitled,
+        ...(timeline.ms !== undefined ? { ms: timeline.ms } : {}),
+      },
       current: Math.max(0, steps.length - 1),
     });
   },

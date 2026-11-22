@@ -1,5 +1,5 @@
 import { Check, Clock, ListFilter, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,7 @@ import { useTelemetry } from '../../hooks/useTelemetry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useExplainPanelStore } from '../../stores/explainPanelStore';
 import { useResultStore } from '../../stores/resultStore';
+import { traceShown, useTimelineStore } from '../../stores/timelineStore';
 import { describeError } from '../../utils/describeError';
 import { useUIStore } from '../../stores/uiStore';
 import {
@@ -57,6 +58,9 @@ function matchIsFolded(content: string, needle: string): boolean {
   const firstBreak = content.indexOf('\n');
   return firstBreak >= 0 && !content.slice(0, firstBreak).toLowerCase().includes(needle);
 }
+
+// The trace loads only once a paid Record run of this tab exists.
+const RunTrace = lazy(() => import('./RunTrace').then(module => ({ default: module.RunTrace })));
 
 function tapeItemKey(item: TapeItem): string {
   if (item.kind === 'waiting') return WAITING_KEY;
@@ -177,6 +181,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
   }, []);
   const presenterActive = usePresenterModeStore(state => state.active);
   const activeTab = useEditorStore(state => getActiveTab(state));
+  const traced = useTimelineStore(state => traceShown(state.recording, activeTab?.id));
   // Offer "Explain this error" when the active tab's run left an error
   // entry. The shared button self-gates on LOCAL_AI, so here we only assemble
   // the error text + the code context (the active tab's source). Use only the
@@ -647,11 +652,12 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
         </div>
       </div>
 
+      <div className="@container flex min-h-0 flex-1">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
         data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
-        className="flex-1 overflow-y-auto pb-2 pt-2.5 font-mono"
+        className="min-w-0 flex-1 overflow-y-auto pb-2 pt-2.5 font-mono"
         style={{
           // Presenter mode lifts from the tape size itself, so the promised delta holds.
           fontSize: `${TAPE_FONT_PX + (presenterActive ? PRESENTER_CONSOLE_FONT_LIFT : 0)}px`,
@@ -709,6 +715,14 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
             <div aria-hidden style={{ height: listWindow.bottomSpacer }} />
           </>
         )}
+      </div>
+      {traced ? (
+        <div className="hidden w-[54%] min-w-[380px] max-w-[848px] shrink-0 border-l border-border-subtle/60 @3xl:block">
+          <Suspense fallback={null}>
+            <RunTrace />
+          </Suspense>
+        </div>
+      ) : null}
       </div>
       <PausedConsoleSummary />
 

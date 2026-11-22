@@ -290,6 +290,8 @@ export async function publishCompletedRun(
   if (plan.recordHistory) {
     recordCodeLastAnswer(activeTab.id, result, presentation);
   }
+  // A region answers for part of the file, so it is not a run to compare against.
+  if (!plan.region) useResultStore.getState().recordTabAnswers(activeTab.id, presentation.lineResults, content);
   if (showsResults()) {
     setLineResults(presentation.lineResults);
     setLineTimings(result.lineTimings ?? []);

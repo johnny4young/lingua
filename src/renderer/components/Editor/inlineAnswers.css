@@ -19,6 +19,53 @@
     gap: 6px;
   }
 
+  .answer-column-header-changes {
+    position: absolute;
+    top: 50%;
+    right: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transform: translateY(-50%);
+    border-radius: 4px;
+    color: var(--color-fg-muted);
+    cursor: pointer;
+  }
+
+  .answer-column-header-changes:hover {
+    color: var(--color-fg-base);
+  }
+
+  .answer-column-header-switch {
+    position: relative;
+    width: 22px;
+    height: 12px;
+    flex: none;
+    border-radius: 6px;
+    background: var(--color-border-strong);
+  }
+
+  .answer-column-header-switch::after {
+    content: '';
+    position: absolute;
+    top: 1.5px;
+    left: 1.5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--color-bg-panel);
+  }
+
+  .answer-column-header-changes[aria-checked='true'] .answer-column-header-switch {
+    background: var(--color-pulse);
+  }
+
+  .answer-column-header-changes[aria-checked='true'] .answer-column-header-switch::after {
+    left: auto;
+    right: 1.5px;
+    background: var(--color-pulse-on);
+  }
+
   .answer-column-header-title {
     color: var(--color-fg-base);
     font-weight: 620;

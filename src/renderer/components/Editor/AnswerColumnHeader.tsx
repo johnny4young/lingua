@@ -10,13 +10,13 @@ import '../../i18n/answersCatalog';
 function readLayout(editor: monacoTypes.editor.IStandaloneCodeEditor): string {
   const layout = editor.getLayoutInfo();
   const band = answerColumnBand(layout);
-  return band.narrow ? '' : `${layout.contentLeft}:${layout.contentLeft + band.start}`;
+  return band.narrow ? 'narrow' : `${layout.contentLeft}:${layout.contentLeft + band.start}`;
 }
 
 /**
  * Labels the two columns over the editor: the code on the left, the answer
  * column with the run it shows on the right. Narrow editors have no column, so
- * the header steps aside.
+ * the header keeps only the changes switch, and only when there is a run to compare.
  */
 export function AnswerColumnHeader({
   editor,
@@ -36,22 +36,43 @@ export function AnswerColumnHeader({
   const layout = useSyncExternalStore(subscribe, () => readLayout(editor));
   const run = useConsoleStore(state => (state.currentRun && state.currentRun.tabId === tabId ? state.currentRun.number : null));
   const live = useResultStore(state => state.executionSource === 'auto');
+  const since = useResultStore(state => (tabId ? (state.tabAnswers[tabId]?.previous?.number ?? null) : null));
+  const showChanges = useResultStore(state => state.showRunChanges);
+  const setShowChanges = useResultStore(state => state.setShowRunChanges);
 
-  if (!layout) return null;
+  const narrow = layout === 'narrow';
+  if (narrow && since === null) return null;
   const [code, column] = layout.split(':').map(Number);
   return (
     <div className="answer-column-header" data-testid="answer-column-header">
-      <span className="type-tag answer-column-header-code" style={{ left: code }}>
-        {t('answers.header.code')}
-      </span>
-      <span className="answer-column-header-answers" style={{ left: column }}>
-        <span className="type-tag answer-column-header-title">{t('answers.header.answers')}</span>
-        {run === null ? null : (
-          <span className="type-tag" data-testid="answer-column-header-run">
-            {`· ${t(live ? 'answers.header.runLive' : 'answers.header.run', { number: run })}`}
+      {narrow ? null : (
+        <>
+          <span className="type-tag answer-column-header-code" style={{ left: code }}>
+            {t('answers.header.code')}
           </span>
-        )}
-      </span>
+          <span className="answer-column-header-answers" style={{ left: column }}>
+            <span className="type-tag answer-column-header-title">{t('answers.header.answers')}</span>
+            {run === null ? null : (
+              <span className="type-tag" data-testid="answer-column-header-run">
+                {`· ${t(live ? 'answers.header.runLive' : 'answers.header.run', { number: run })}`}
+              </span>
+            )}
+          </span>
+        </>
+      )}
+      {since === null ? null : (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={showChanges}
+          className="type-tag answer-column-header-changes focus-ring"
+          onClick={() => setShowChanges(!showChanges)}
+          data-testid="answer-column-header-changes"
+        >
+          <span className="answer-column-header-switch" aria-hidden />
+          {t('answers.header.changes', { number: since })}
+        </button>
+      )}
     </div>
   );
 }

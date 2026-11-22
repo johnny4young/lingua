@@ -88,8 +88,12 @@ function safeName(name: unknown): string {
  * Step buffer for Record run. Past a cap it only tracks the current line, so
  * long loops stay fast, and it never throws into the user's code.
  */
-export function createJsWorkerTimeline(): JsWorkerTimeline {
+export function createJsWorkerTimeline(now: () => number = () => performance.now()): JsWorkerTimeline {
   const steps: TimelineStep[] = [];
+  const startedAt = now();
+  // Time spent reading locals is the recorder's, not the line's.
+  let overhead = 0;
+  const elapsedAt = (at: number) => Math.max(0, at - startedAt - overhead);
   const frames: TimelineFrame[] = [{ name: '<module>', line: 0 }];
   const calls = [0];
   let lastCall = 0;
@@ -98,9 +102,11 @@ export function createJsWorkerTimeline(): JsWorkerTimeline {
 
   return {
     rec: (line, getLocals) => {
+      let entered: number | null = null;
       try {
         frames[frames.length - 1]!.line = safeLine(line);
         if (truncated) return;
+        entered = now();
         if (steps.length >= TIMELINE_MAX_STEPS) {
           truncated = true;
           return;
@@ -127,9 +133,12 @@ export function createJsWorkerTimeline(): JsWorkerTimeline {
           truncated = true;
           return;
         }
-        steps.push({ line: frames[frames.length - 1]!.line, frames: kept, vars, depth: frames.length - 1, call: calls[calls.length - 1]! });
+        const ms = elapsedAt(entered);
+        steps.push({ line: frames[frames.length - 1]!.line, frames: kept, vars, depth: frames.length - 1, call: calls[calls.length - 1]!, ms });
       } catch {
         truncated = true;
+      } finally {
+        if (entered !== null && !truncated) overhead += now() - entered;
       }
     },
     enter: (name, line) => {
@@ -151,7 +160,7 @@ export function createJsWorkerTimeline(): JsWorkerTimeline {
       const step = steps[steps.length - 1];
       if (step) step.error = true;
     },
-    snapshot: () => ({ steps, truncated }),
+    snapshot: () => ({ steps, truncated, ms: elapsedAt(now()) }),
   };
 }
 

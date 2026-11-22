@@ -14,5 +14,13 @@
   "answers.header.code": "You write",
   "answers.header.answers": "Lingua answers",
   "answers.header.run": "run {{number}}",
-  "answers.header.runLive": "run {{number}}, live"
+  "answers.header.runLive": "run {{number}}, live",
+  "answers.header.changes": "Changes since run {{number}}",
+  "answers.delta.label": "Change since run {{number}}",
+  "answers.delta.was": "was",
+  "answers.delta.up": "up",
+  "answers.delta.down": "down",
+  "answers.delta.edited": "edited",
+  "answers.delta.items_one": "{{count}} item",
+  "answers.delta.items_other": "{{count}} items"
 }

@@ -26,5 +26,13 @@
   "timeline.outLabel": "Salir a quien llamó",
   "timeline.unreachable": "No hay un paso al que ir desde aquí",
   "timeline.legend.echoes": "ecos · la línea {{line}} corrió {{count}}×",
-  "timeline.echoPill": "eco {{position}} de {{count}}"
+  "timeline.echoPill": "eco {{position}} de {{count}}",
+  "timeline.trace.title": "Por dónde pasó la ejecución · línea en cada paso",
+  "timeline.trace.steps_one": "{{count}} paso · recórrelo en Línea de tiempo",
+  "timeline.trace.steps_other": "{{count}} pasos · recórrelos en Línea de tiempo",
+  "timeline.trace.chart": "Línea en cada paso",
+  "timeline.trace.loop": "vuelta {{number}}",
+  "timeline.trace.time": "tiempo",
+  "timeline.trace.slowest": "L{{line}} {{code}} · {{time}} · {{share}}%",
+  "timeline.trace.slowestLabel": "Línea más lenta {{line}}: {{time}}, {{share}} % de la ejecución"
 }

@@ -89,4 +89,18 @@ describe('InlineAnswerLine', () => {
     expect(screen.getByTestId('lingua-inline-timing').getAttribute('data-slowest')).toBe('true');
     expect(container.querySelectorAll('.lingua-inline-result-part')).toHaveLength(0);
   });
+
+  it('adds the change since the previous run after the answer', () => {
+    render(
+      <InlineAnswerLine
+        items={[{ line: 1, value: '-31.4', type: 'autoLog' }]}
+        change={{ delta: { change: { kind: 'number', before: '-10.6', up: false, by: '20.8' }, edited: true }, since: 6 }}
+      />
+    );
+    const chip = screen.getByTestId('answer-delta');
+    expect(chip.querySelector('s')?.textContent).toContain('-10.6');
+    expect(chip.textContent).toContain('▼');
+    expect(chip.textContent).toContain('20.8');
+    expect(chip.textContent).toContain('· edited');
+  });
 });

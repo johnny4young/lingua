@@ -26,5 +26,13 @@
   "timeline.outLabel": "Step out to the caller",
   "timeline.unreachable": "No step to go to from here",
   "timeline.legend.echoes": "echoes · line {{line}} ran {{count}}×",
-  "timeline.echoPill": "echo {{position}} of {{count}}"
+  "timeline.echoPill": "echo {{position}} of {{count}}",
+  "timeline.trace.title": "Where the run has been · line at each step",
+  "timeline.trace.steps_one": "{{count}} step · scrub in Timeline",
+  "timeline.trace.steps_other": "{{count}} steps · scrub in Timeline",
+  "timeline.trace.chart": "Line at each step",
+  "timeline.trace.loop": "loop {{number}}",
+  "timeline.trace.time": "time",
+  "timeline.trace.slowest": "L{{line}} {{code}} · {{time}} · {{share}}%",
+  "timeline.trace.slowestLabel": "Slowest line {{line}}: {{time}}, {{share}}% of the run"
 }

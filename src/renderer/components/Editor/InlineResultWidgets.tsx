@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
-import type { LineResult } from '../../stores/resultStore';
+import { useResultStore, type LineResult } from '../../stores/resultStore';
+import { lineAnswerDelta, type AnswerDelta } from '../Answer/answerDelta';
 import type { LineTimingEntry } from '../../types/execution';
 import { AnswerColumnHeader } from './AnswerColumnHeader';
 import { InlineAnswerLine } from './InlineAnswerLine';
@@ -55,12 +56,32 @@ export function InlineResultWidgets({
   const [header, setHeader] = useState(false);
   const showHeader = answering || (running && header);
   if (showHeader !== header) setHeader(showHeader);
+  const answers = useResultStore(state => (tabId ? state.tabAnswers[tabId] : undefined));
+  const showChanges = useResultStore(state => state.showRunChanges);
+  // A region run or a restored snapshot is not the run the previous one is compared with.
+  const onScreen = useMemo(() => answers !== undefined && sameAnswers(lineResults, answers.latest.results), [answers, lineResults]);
+  const previous = showChanges && onScreen ? answers?.previous : undefined;
+  const changes = useMemo(() => {
+    const byLine = new Map<number, { delta: AnswerDelta; since: number }>();
+    if (!answers || !previous) return byLine;
+    for (const widget of widgets) {
+      const delta = lineAnswerDelta(widget.line, widget.items, previous, answers.latest.sources[widget.line]);
+      if (delta) byLine.set(widget.line, { delta, since: previous.number });
+    }
+    return byLine;
+  }, [answers, previous, widgets]);
   return (
     <>
       {header && editor && headerSlot ? createPortal(<AnswerColumnHeader editor={editor} tabId={tabId} />, headerSlot) : null}
       {widgets.map(widget =>
         createPortal(
-          <InlineAnswerLine items={widget.items} timing={widget.timing} language={language} source={widget.source} />,
+          <InlineAnswerLine
+            items={widget.items}
+            timing={widget.timing}
+            language={language}
+            source={widget.source}
+            change={changes.get(widget.line) ?? null}
+          />,
           widget.domNode,
           widget.id
         )
@@ -112,6 +133,10 @@ interface RetainedZone {
 
 function isClipped(element: Element | null): boolean {
   return element instanceof HTMLElement && element.scrollWidth > element.clientWidth + 1;
+}
+
+function sameAnswers(a: readonly LineResult[], b: readonly LineResult[]): boolean {
+  return a.length === b.length && a.every((item, index) => item.line === b[index]!.line && item.type === b[index]!.type && item.value === b[index]!.value);
 }
 
 function answerSignature(items: readonly LineResult[]): string {
