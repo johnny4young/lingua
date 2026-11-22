@@ -1,9 +1,18 @@
 @layer components {
-  .answer-object {
+  /* Tracks and neutral chips: a tint of the text colour reads in both themes. Hosts that draw answer parts outside .answer-object add .answer-scope. */
+  .answer-object,
+  .answer-scope {
     --answer-wash: 14%;
-    /* Tracks and neutral chips: a tint of the text colour reads in both themes. */
     --answer-track: color-mix(in srgb, var(--color-fg-base) 11%, transparent);
     --answer-chip: color-mix(in srgb, var(--color-fg-base) 7%, transparent);
+  }
+
+  .light .answer-object,
+  .light .answer-scope {
+    --answer-wash: 10%;
+  }
+
+  .answer-object {
     display: inline-flex;
     min-width: 0;
     max-width: 100%;
@@ -14,10 +23,6 @@
     line-height: 1.2;
     white-space: nowrap;
     color: var(--color-fg-base);
-  }
-
-  .light .answer-object {
-    --answer-wash: 10%;
   }
 
   /* A tag labels the first row of an answer that wraps. */

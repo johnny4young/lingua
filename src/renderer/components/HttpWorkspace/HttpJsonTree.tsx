@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { truncateText } from '../../../shared/truncateText';
 import { cn } from '../../utils/cn';
 import '../../i18n/httpBuilderCatalog';
+import '../ui/identity.css';
+import { useAnswerContext } from '../Answer/useAnswerContext';
+import { objectTable } from './httpJsonAnswer';
+import { HttpJsonTable, JsonLeaf } from './HttpJsonValue';
 import {
   capturePath,
   countJsonNodes,
@@ -40,24 +44,23 @@ interface VisibleRow {
   toggle?: () => void;
   toggleFull?: () => void;
   capture?: () => void;
+  toggleTable?: () => void;
 }
 
-// Syntax hues are theme variables, used inline so they add no class to the boot stylesheet.
-const KEYWORD = { color: 'var(--color-syntax-keyword)' };
-
-function valueColor(value: unknown) {
-  if (typeof value === 'string') return { color: 'var(--color-syntax-string)' };
-  if (typeof value === 'number') return { color: 'var(--color-syntax-number)' };
-  return KEYWORD;
-}
+// Keys stay neutral so only values carry colour; inline, so no class reaches the boot stylesheet.
+const KEY = { color: 'var(--color-fg-base)' };
 
 /**
  * The response body as a foldable tree: one value per line, long strings cut
- * with an expand control. One tab stop: arrows move and fold, Enter or Space
- * folds or shows a full value, C captures. Key it by response so folds reset.
+ * with an expand control, and an array of objects drawn as a table. One tab
+ * stop: arrows move and fold, Enter or Space folds or shows a full value,
+ * C captures, T switches an array between table and tree. Key it by response
+ * so folds reset.
  */
 export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }: HttpJsonTreeProps) {
   const { t } = useTranslation();
+  const context = useAnswerContext();
+  const [asTree, setAsTree] = useState<ReadonlySet<string>>(new Set());
   const rootRef = useRef<HTMLDivElement>(null);
   // A fold the user set stands until a later search needs that node open to show a match.
   const [toggled, setToggled] = useState<ReadonlyMap<string, { open: boolean; search: JsonSearch }>>(new Map());
@@ -116,6 +119,17 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         return next;
       });
     const capture = !container && path !== null && onCapture && capturedAs === undefined ? () => onCapture(path, segments) : undefined;
+    const shape = Array.isArray(node) ? objectTable(node) : null;
+    const tabled = shape !== null && !asTree.has(pointer);
+    const toggleTable = shape
+      ? () =>
+          setAsTree((current) => {
+            const next = new Set(current);
+            if (next.has(pointer)) next.delete(pointer);
+            else next.add(pointer);
+            return next;
+          })
+      : undefined;
     visible.push({
       pointer,
       parent: segments.length > 1 ? jsonPointer(segments.slice(0, -1)) : null,
@@ -123,6 +137,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
       ...(container ? { toggle: () => toggle(pointer, open) } : {}),
       ...(long ? { toggleFull } : {}),
       ...(capture ? { capture } : {}),
+      ...(toggleTable ? { toggleTable } : {}),
     });
     rowElements.push((active) => (
       <div
@@ -142,6 +157,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         data-testid="http-json-row"
         data-pointer={pointer}
         data-hit={search.hits.has(pointer)}
+        {...(shape ? { 'data-table': tabled } : {})}
         style={{ paddingLeft: depth * 16 }}
         className={cn(
           'relative group flex items-start gap-1 rounded-sm pr-2 hover:bg-bg-inset/60 focus-visible:bg-bg-inset focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/70',
@@ -164,16 +180,32 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         <span className={cn(wrap ? 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre')}>
           {label !== null ? (
             <>
-              <span {...(typeof key === 'number' ? { className: 'text-fg-subtle' } : { style: KEYWORD })}>{highlight(label)}</span>
+              <span {...(typeof key === 'number' ? { className: 'text-fg-subtle' } : { style: KEY })}>{highlight(label)}</span>
               <span className="text-fg-subtle">: </span>
             </>
           ) : null}
-          {container ? (
+          {shape ? (
+            <span className="type-tag" data-testid="http-json-table-tag">
+              {t('httpWorkspace.response.tree.tableTag', { count: entries.length })}
+            </span>
+          ) : container ? (
             <span className="text-fg-subtle">{Array.isArray(node) ? `[${entries.length}]` : `{${entries.length}}`}</span>
           ) : (
-            <span style={valueColor(node)} className={cn(wrap && 'break-all')}>{highlight(long && !full ? truncateText(text, TRUNCATE_AT) : text)}</span>
+            <JsonLeaf value={node} text={long && !full ? truncateText(text, TRUNCATE_AT) : text} context={context} highlight={highlight} />
           )}
         </span>
+        {toggleTable ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-pressed={tabled}
+            data-testid="http-json-table-toggle"
+            onClick={toggleTable}
+            className="ml-2 shrink-0 rounded-sm text-fg-muted hover:text-fg-base"
+          >
+            {t(tabled ? 'httpWorkspace.response.tree.asTable' : 'httpWorkspace.response.tree.showTable')}
+          </button>
+        ) : null}
         {long ? (
           <button
             type="button"
@@ -204,7 +236,50 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         ) : null}
       </div>
     ));
-    if (open) addChildren(pointer, segments, entries, depth + 1);
+    if (open && shape && tabled) addTable(pointer, segments, node as unknown[], shape, depth + 1);
+    else if (open) addChildren(pointer, segments, entries, depth + 1);
+  };
+
+  const addTable = (pointer: string, segments: JsonSegment[], items: unknown[], shape: NonNullable<ReturnType<typeof objectTable>>, depth: number) => {
+    const page = pages.get(pointer) ?? PAGE;
+    // Past the page, a row still shows while a search hit sits inside it.
+    const shown = Array.from({ length: Math.min(page, items.length) }, (_, index) => index);
+    if (search.open.size > 0) {
+      for (let index = page; index < items.length; index += 1) if (search.open.has(jsonPointer([...segments, index]))) shown.push(index);
+    }
+    rowElements.push(() => (
+      <HttpJsonTable
+        key={`table:${pointer}`}
+        items={items}
+        shape={shape}
+        segments={segments}
+        shown={shown}
+        search={search}
+        captured={captured}
+        {...(onCapture ? { onCapture } : {})}
+        context={context}
+        highlight={highlight}
+        indent={depth * 16 + 18}
+      />
+    ));
+    addMore(pointer, items.length, page, depth);
+  };
+
+  const addMore = (pointer: string, total: number, shown: number, depth: number) => {
+    if (total <= shown) return;
+    const more = Math.min(PAGE, total - shown);
+    rowElements.push(() => (
+      <div key={`more:${pointer}`} role="none" style={{ paddingLeft: depth * 16 + 18 }}>
+        <button
+          type="button"
+          data-testid="http-json-more"
+          onClick={() => setPages((current) => new Map(current).set(pointer, shown + PAGE))}
+          className="rounded-sm text-micro font-semibold text-accent-fg hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+        >
+          {t('httpWorkspace.response.tree.more', { count: more })}
+        </button>
+      </div>
+    ));
   };
 
   const addChildren = (pointer: string, segments: JsonSegment[], entries: ReadonlyArray<readonly [JsonSegment, unknown]>, depth: number) => {
@@ -216,21 +291,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         addRow(childSegments, child, depth);
       }
     });
-    if (entries.length > shown) {
-      const more = Math.min(PAGE, entries.length - shown);
-      rowElements.push(() => (
-        <div key={`more:${pointer}`} role="none" style={{ paddingLeft: depth * 16 + 18 }}>
-          <button
-            type="button"
-            data-testid="http-json-more"
-            onClick={() => setPages((current) => new Map(current).set(pointer, shown + PAGE))}
-            className="rounded-sm text-micro font-semibold text-accent-fg hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-          >
-            {t('httpWorkspace.response.tree.more', { count: more })}
-          </button>
-        </div>
-      ));
-    }
+    addMore(pointer, entries.length, shown, depth);
   };
 
   if (isContainer(value)) {
@@ -260,6 +321,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
     else if (event.key === 'ArrowLeft') target = row.parent ?? undefined;
     else if ((event.key === 'Enter' || event.key === ' ') && (row.toggle ?? row.toggleFull)) (row.toggle ?? row.toggleFull)?.();
     else if ((event.key === 'c' || event.key === 'C') && row.capture) row.capture();
+    else if ((event.key === 't' || event.key === 'T') && row.toggleTable) row.toggleTable();
     else return;
     event.preventDefault();
     if (target !== undefined && rowRefs.current.has(target)) {
@@ -276,7 +338,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
       aria-label={t('httpWorkspace.response.tree.ariaLabel')}
       data-testid="http-response-preview-body-tree"
       data-wrap={wrap}
-      className="font-mono text-caption leading-5"
+      className="answer-scope font-mono text-caption leading-6"
     >
       {rows}
     </div>

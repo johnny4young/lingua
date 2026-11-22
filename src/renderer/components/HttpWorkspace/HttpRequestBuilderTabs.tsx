@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/httpBuilderCatalog';
+import '../ui/identity.css';
 import type {
   HttpAssertion,
   HttpCaptureRule,
@@ -16,7 +17,7 @@ import type {
   HttpTransportKind,
 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
-import { HttpAssertionsTab } from './HttpAssertionsTab';
+import { HttpAssertionsTab, type HttpTestAnswers } from './HttpAssertionsTab';
 import { HttpAuthTab } from './HttpAuthTab';
 import { HttpCaptureTab } from './HttpCaptureTab';
 import { HttpParamsTab } from './HttpParamsTab';
@@ -66,6 +67,10 @@ interface HttpRequestBuilderTabsProps {
   };
   /** The active environment's colour, drawn as the tab strip's bottom line. */
   readonly tint?: HttpTint;
+  /** What the shown response answers in the Tests tab. */
+  readonly tests?: HttpTestAnswers;
+  /** Checks that hold against the shown response, at the strip's end. */
+  readonly held?: { readonly passed: number; readonly total: number };
 }
 
 export function HttpRequestBuilderTabs({
@@ -96,6 +101,8 @@ export function HttpRequestBuilderTabs({
   onRemoveAssertion,
   variables,
   tint,
+  tests,
+  held,
 }: HttpRequestBuilderTabsProps) {
   const { t } = useTranslation();
   const supportsBody =
@@ -165,7 +172,7 @@ export function HttpRequestBuilderTabs({
         role="tablist"
         aria-label={t('httpWorkspace.editor.tabs.ariaLabel')}
         data-testid="http-request-editor-tabs"
-        className="flex shrink-0 items-center gap-1 border-b border-border-subtle pb-1.5"
+        className="http-builder-strip flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle pb-1.5"
         {...(tint ? { 'data-tinted': true, style: { borderBottomColor: tint.line } } : {})}
       >
         {builderTabs.map(tab => {
@@ -195,6 +202,15 @@ export function HttpRequestBuilderTabs({
             </button>
           );
         })}
+        {held ? (
+          <span
+            data-testid="http-response-assertions-summary"
+            data-all-passed={held.passed === held.total}
+            className={cn('http-tests-held type-tag ml-auto shrink-0 pr-1', held.passed === held.total ? 'text-fg-muted' : 'text-error-fg')}
+          >
+            {t('httpWorkspace.editor.assert.results.hold', { passed: held.passed, total: held.total })}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
@@ -329,6 +345,7 @@ export function HttpRequestBuilderTabs({
             onAdd={onAddAssertion}
             onUpdate={onUpdateAssertion}
             onRemove={onRemoveAssertion}
+            {...tests}
           />
         ) : null}
       </div>

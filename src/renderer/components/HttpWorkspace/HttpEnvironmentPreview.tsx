@@ -37,7 +37,7 @@ import {
   type HttpVariableSource,
 } from '../../../shared/httpEnvironment';
 import '../../i18n/httpBuilderCatalog';
-import { SCOPE_TINTS, tintPill } from './httpScopeColors';
+import { MASKED_VALUE, SCOPE_TINTS, tintPill } from './httpScopeColors';
 import { buildAuthHeader } from '../../../shared/httpWorkspaceHeaders';
 import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 
@@ -54,7 +54,6 @@ export interface HttpEnvironmentPreviewProps {
 
 type ChipState = 'resolved' | 'secret' | 'unresolved';
 
-const MASKED_VALUE = '••••••';
 const VALUE_PREVIEW_CHARS = 80;
 
 /** A non-secret variable's effective value: duplicate rows are last-edit-wins, as in interpolation. */

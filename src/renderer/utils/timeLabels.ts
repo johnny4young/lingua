@@ -12,6 +12,8 @@ const DAY = 24 * HOUR;
  * "in 23 hr" / "1 hr ago" in the given locale. Hours run up to two days, so a
  * token that expires tomorrow reads in hours rather than "in 1 day".
  */
+const relativeFormats = new Map<string, Intl.RelativeTimeFormat>();
+
 export function formatRelativeTime(targetMs: number, nowMs: number, locale: string): string {
   const delta = targetMs - nowMs;
   const absolute = Math.abs(delta);
@@ -23,10 +25,17 @@ export function formatRelativeTime(targetMs: number, nowMs: number, locale: stri
         : absolute >= MINUTE
           ? ['minute', MINUTE]
           : ['second', SECOND];
-  return new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' }).format(
-    Math.round(delta / size),
-    unit
-  );
+  let format = relativeFormats.get(locale);
+  if (!format) {
+    format = new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' });
+    relativeFormats.set(locale, format);
+  }
+  return format.format(Math.round(delta / size), unit);
+}
+
+/** A duration in whole milliseconds, seconds past one: `142 ms`, `2.0 s`. */
+export function formatWholeDuration(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
 
 type Translate = (key: string, values?: Record<string, number>) => string;

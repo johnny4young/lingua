@@ -77,7 +77,3 @@ export function suiteTally(statuses: readonly ProjectTestCaseStatus[]): { passed
   const counted = statuses.filter(status => status !== 'skipped');
   return { passed: counted.filter(status => status === 'passed').length, total: counted.length };
 }
-
-export function formatTestDuration(ms: number): string {
-  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
-}

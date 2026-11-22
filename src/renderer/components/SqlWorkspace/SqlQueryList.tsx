@@ -11,7 +11,7 @@ import type { SqlQueryV1 } from '../../../shared/sqlWorkspace';
 import { cn } from '../../utils/cn';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { SqlLatencyBar } from './SqlLatencyBar';
-import { maxDuration } from './sqlLatency';
+import { maxDuration } from '../../utils/latencyScale';
 import '../../i18n/sqlConnectionsCatalog';
 
 export interface SqlQueryListProps {

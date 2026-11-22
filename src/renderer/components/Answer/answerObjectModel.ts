@@ -1,6 +1,6 @@
 import type { RichOutputPayload } from '../../../shared/richOutput';
 import type { ScopeValue } from '../../../shared/scopeSnapshot';
-import { KEY_COLUMN } from '../../utils/lastAnswer';
+import { measurableMax } from '../../utils/lastAnswer';
 import { truncateText } from '../../../shared/truncateText';
 import { formatRelativeTime } from '../../utils/timeLabels';
 import { detectColour, detectGauge, detectIsoDate } from './answerDetectors';
@@ -266,14 +266,12 @@ function tablePicture(columns: readonly string[], rows: ReadonlyArray<ReadonlyAr
   const cells = rows.map(row => columns.map((_, index) => cellOf(row[index], reading)));
   // Every measurable numeric column gets bars on its own scale; keys and negatives do not measure.
   columns.forEach((column, index) => {
-    if (KEY_COLUMN.test(column) || rows.length < 2) return;
-    const numbers = rows.flatMap(row => {
+    const numbers = rows.map(row => {
       const value = row[index];
-      return value && isFiniteNumber(value) && value.v >= 0 ? [value.v] : [];
+      return value?.t === 'num' ? value.v : undefined;
     });
-    if (numbers.length !== rows.length) return;
-    const max = Math.max(...numbers);
-    if (max === Math.min(...numbers)) return;
+    const max = measurableMax(column, numbers);
+    if (max === undefined) return;
     cells.forEach((row, rowIndex) => {
       row[index] = { ...row[index]!, bar: (numbers[rowIndex]! / max) * 100 };
     });
@@ -351,15 +349,18 @@ function dictAnswer(literal: DictLiteral, size: number, reading: Reading): Answe
 
 const dateFormats = new Map<string, Intl.DateTimeFormat>();
 
-function dateAnswer(time: number, reading: Reading): AnswerModel {
-  const { locale, now } = reading.context;
+/** A date as answers show it: weekday, day and time, and how long ago. */
+export function answerDateText(time: number, { locale, now }: AnswerContext): { value: string; relative: string } {
   let format = dateFormats.get(locale);
   if (!format) {
     format = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     dateFormats.set(locale, format);
   }
-  const value = format.format(new Date(time));
-  const relative = formatRelativeTime(time, now, locale);
+  return { value: format.format(new Date(time)), relative: formatRelativeTime(time, now, locale) };
+}
+
+function dateAnswer(time: number, reading: Reading): AnswerModel {
+  const { value, relative } = answerDateText(time, reading.context);
   return { tag: reading.words.date, kind: 'date', tone: 'date', value, pill: true, fold: 0, picture: { kind: 'relative', text: relative }, summary: `${value} · ${relative}` };
 }
 

@@ -21,34 +21,47 @@ export function createBlankCaptureRule(): HttpCaptureRule {
   };
 }
 
-/**
- * Walk a JSON body by a dot/bracket path (`data.token`, `items[0].id`,
- * `items.0.id` — both index forms accepted). Returns a JSON primitive as a
- * string and `null` for invalid JSON, misses, objects, or arrays.
- */
-function extractJsonPath(body: string, rawPath: string): string | null {
-  let current: unknown;
+let lastBody: string | undefined;
+let lastParsed: { value: unknown } | null = null;
+
+/** A body parsed as JSON, or null; the last body is kept, so every check on one response parses it once. */
+export function parseJsonBodyOnce(body: string): { value: unknown } | null {
+  if (body === lastBody) return lastParsed;
+  lastBody = body;
   try {
-    current = JSON.parse(body);
+    lastParsed = { value: JSON.parse(body) as unknown };
   } catch {
-    return null;
+    lastParsed = null;
   }
+  return lastParsed;
+}
+
+/**
+ * Walk a parsed JSON value by a dot/bracket path (`data.token`, `items[0].id`,
+ * `items.0.id` — both index forms accepted, and `items.length`).
+ */
+export function readJsonPath(root: unknown, rawPath: string): { found: boolean; value?: unknown } {
   const keys = rawPath
     .replace(/\[(\d+)\]/g, '.$1')
     .split('.')
     .map(key => key.trim())
     .filter(key => key.length > 0);
-  if (keys.length === 0) return null;
+  if (keys.length === 0) return { found: false };
+  let current = root;
   for (const key of keys) {
-    if (current === null || typeof current !== 'object') return null;
+    if (current === null || typeof current !== 'object') return { found: false };
     current = (current as Record<string, unknown>)[key];
   }
-  if (current === null || current === undefined) return null;
-  if (typeof current === 'object') return null;
-  if (typeof current === 'string') return current;
-  if (typeof current === 'number' || typeof current === 'boolean') {
-    return String(current);
-  }
+  return current === undefined || typeof current === 'function' ? { found: false } : { found: true, value: current };
+}
+
+/** A JSON primitive at a path as a string; `null` for invalid JSON, misses, nulls, objects, or arrays. */
+function extractJsonPath(body: string, rawPath: string): string | null {
+  const parsed = parseJsonBodyOnce(body);
+  if (!parsed) return null;
+  const { value } = readJsonPath(parsed.value, rawPath);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   return null;
 }
 

@@ -53,7 +53,6 @@ import { HttpResponsePreview } from './HttpResponsePreview';
 import type { JsonSegment } from './httpJsonTreeModel';
 import type { HttpCaptureTarget } from './useHttpTreeCapture';
 import { useHttpOfflineSend } from './useHttpOfflineSend';
-import type { HttpAssertionTarget } from './useHttpAssertionTarget';
 import { snapshotChanges } from '../../../shared/httpSnapshot';
 import {
   rowsFromOtherEnvironments,
@@ -160,7 +159,6 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
-  const assertionTargetRef = useRef<HttpAssertionTarget | null>(null);
   const collectionVariables = useWorkspaceToolStore(state => state.collectionVariables);
   // Environments + active selection drive the
   // selector, the resolution preview, and send-time interpolation.
@@ -240,6 +238,12 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       : activeHistory[safeHistoryIndex];
   // Older history rows have no body left to compare or keep.
   const snapshotsShown = safeHistoryIndex === 0;
+  const storedSnapshot = activeRequest?.snapshot;
+  // Undefined when there is no snapshot to compare the shown response with.
+  const changes = useMemo(
+    () => (snapshotsShown && storedSnapshot && activeResponse ? snapshotChanges(storedSnapshot, activeResponse) : undefined),
+    [snapshotsShown, storedSnapshot, activeResponse]
+  );
 
   // SQL/HTTP MODEL rework — a new request is a row in the collection,
   // NOT a new editor tab. `createRequest` appends it and selects it (the
@@ -792,7 +796,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               activeEnvironmentId={activeEnvironmentId}
               onManageEnvironment={handleManageEnvironment}
               captureTargetRef={captureTargetRef}
-              assertionTargetRef={assertionTargetRef}
+              {...(activeResponse ? { response: activeResponse } : {})}
+              latestResponse={snapshotsShown}
+              {...(changes ? { snapshotChanges: changes.length } : {})}
               queue={queueFor(activeRequest)}
             />
           ) : (
@@ -819,7 +825,6 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                       } ${activeRequest.url}`
                     : undefined
                 }
-                assertions={activeRequest?.assertions}
                 previous={activeHistory[safeHistoryIndex + 1]}
                 captures={activeRequest?.captures}
                 {...(activeRequest
@@ -829,8 +834,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                   ? {
                       snapshots: {
                         snapshot: activeRequest.snapshot,
+                        changes: changes ?? [],
                         onChange: snapshot => useWorkspaceToolStore.getState().updateRequest(activeRequest.id, { snapshot }),
-                        onAddAssertion: assertion => assertionTargetRef.current?.(assertion),
                       },
                     }
                   : {})}

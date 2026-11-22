@@ -6,7 +6,7 @@ import { capturersOf, chainOrder, chainPasses, chainValue, latestFor, requestLab
 import { HTTP_CHAIN_RULES, type HttpChainRule, type HttpRequestV1, type HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { formatRelativeTime } from '../../utils/timeLabels';
-import { ENVIRONMENT_TINTS, SCOPE_TINTS, tintPill } from './httpScopeColors';
+import { ENVIRONMENT_TINTS, MASKED_VALUE, SCOPE_TINTS, tintPill } from './httpScopeColors';
 
 const EYEBROW = 'shrink-0 text-eyebrow font-semibold uppercase tracking-wide text-fg-subtle';
 
@@ -181,7 +181,7 @@ function HttpChainTagPanel({
           <span className="text-fg-subtle">{t('httpWorkspace.chain.tag.none')}</span>
         ) : (
           <>
-            <span style={{ color: SCOPE_TINTS.environment.fg }}>{secret ? '••••••' : JSON.stringify(value)}</span>
+            <span style={{ color: SCOPE_TINTS.environment.fg }}>{secret ? MASKED_VALUE : JSON.stringify(value)}</span>
             <span className="text-fg-subtle">
               {' · '}
               {latest ? t('httpWorkspace.chain.tag.from', { age: formatRelativeTime(Math.min(Date.parse(latest.recordedAt), now), now, i18n.language) }) : null}

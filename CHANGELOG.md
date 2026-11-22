@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Added
 - Two theme packs, Lingua Ink (near-black) and Lingua Paper (white), free on every plan and set in Recursive Mono: keywords and comments in its cursive forms, comments casual, literals in a muted tint of their answer colour, and the window chrome, panels and selection repainted to match. New installs start on Ink; an existing theme choice is kept. The Dark and Light cards and Theme: switch to Lingua Paper in the command palette move between the two.
+- HTTP results read as instruments: the Tests tab answers each test with the value the response gave it, its type and a bar against its threshold, suggests tests and resolves the request's variables beneath, and the tab strip says how many hold. In the response body an array of objects shows as a table with bars, values are coloured by type with swatches for colours and how long ago for dates, and each History row has a status dot and a time bar.
 - SQL results read as instruments: each number has a bar scaled to its column, each header shows the column type over its name with its distribution, distinct count or sort, and a Σ row under the rows sums each numeric column, averaging rates, ratios and 0–1 fractions. SQL history and saved queries show a bar for each run's duration.
 
 ### Changed

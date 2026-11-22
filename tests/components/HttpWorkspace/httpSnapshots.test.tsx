@@ -4,7 +4,7 @@ import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { HttpResponsePreview } from '@/components/HttpWorkspace/HttpResponsePreview';
-import { DEFAULT_SNAPSHOT_SCRUBBERS, takeSnapshot } from '@/../shared/httpSnapshot';
+import { DEFAULT_SNAPSHOT_SCRUBBERS, snapshotChanges, takeSnapshot } from '@/../shared/httpSnapshot';
 import type { HttpResponseSnapshot, HttpResponseV1 } from '@/../shared/httpWorkspace';
 
 const NOW = '2026-10-25T00:00:00.000Z';
@@ -34,9 +34,9 @@ beforeEach(async () => {
 
 function preview(current: HttpResponseV1, snapshot: HttpResponseSnapshot | undefined, extra: Partial<React.ComponentProps<typeof HttpResponsePreview>> = {}) {
   const onChange = vi.fn();
-  const onAddAssertion = vi.fn();
-  render(<HttpResponsePreview response={current} isExecuting={false} snapshots={{ snapshot, onChange, onAddAssertion }} {...extra} />);
-  return { onChange, onAddAssertion };
+  const changes = snapshot ? snapshotChanges(snapshot, current) : [];
+  render(<HttpResponsePreview response={current} isExecuting={false} snapshots={{ snapshot, changes, onChange }} {...extra} />);
+  return { onChange };
 }
 
 describe('snapshot tab', () => {
@@ -50,14 +50,11 @@ describe('snapshot tab', () => {
 
   it('shows a changed response as a failed check and a diff to accept or reject', async () => {
     const { onChange } = preview(response({ name: 'janusly', stars: 14, updated_at: '2026-10-25T09:00:00Z' }), baseline);
-    expect(screen.getByTestId('http-response-assertions-summary').textContent).toBe('0/1 tests passed');
-    expect(screen.getByTestId('http-response-snapshot-row').dataset.pass).toBe('false');
     await userEvent.click(screen.getByRole('button', { name: 'Snapshot' }));
     expect(screen.getByTestId('http-snapshot-badge').textContent).toBe('1 change');
     expect(screen.getByTestId('http-snapshot-diff').textContent).toBe('- stars: 12+ stars: 14');
     await userEvent.click(screen.getByTestId('http-snapshot-reject'));
     expect(screen.queryByTestId('http-snapshot-accept')).toBeNull();
-    expect(screen.getByTestId('http-response-snapshot-row').dataset.pass).toBe('false');
     expect(onChange).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'Body' }));
     await userEvent.click(screen.getByRole('button', { name: 'Snapshot' }));
@@ -102,16 +99,5 @@ describe('snapshot tab', () => {
   it('stays hidden with the flag off', () => {
     render(<HttpResponsePreview response={response({})} isExecuting={false} />);
     expect(screen.queryByRole('button', { name: 'Snapshot' })).toBeNull();
-    expect(screen.queryByTestId('http-response-suggestions')).toBeNull();
-  });
-});
-
-describe('suggested assertions', () => {
-  it('adds a suggestion in one click', async () => {
-    const { onAddAssertion } = preview(response({ name: 'janusly' }), undefined, { assertions: [] });
-    const chips = screen.getAllByTestId('http-response-suggestion').map((chip) => chip.textContent);
-    expect(chips).toEqual(['+ Status equals 200', '+ Header content-type contains json', '+ Body (JSON) name equals janusly']);
-    await userEvent.click(screen.getAllByTestId('http-response-suggestion')[2]!);
-    expect(onAddAssertion).toHaveBeenCalledWith({ source: 'body-json', path: 'name', comparator: 'equals', expected: 'janusly', enabled: true });
   });
 });

@@ -216,6 +216,19 @@ export function codeLastAnswer(input: {
 
 export const KEY_COLUMN = /^id$|_id$|Id$/;
 
+/** A column's largest value when its bars mean magnitude: not a key, two or more rows, every value a number ≥ 0, not all equal. */
+export function measurableMax(column: string, values: readonly unknown[]): number | undefined {
+  if (KEY_COLUMN.test(column) || values.length < 2) return undefined;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const value of values) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return undefined;
+    min = Math.min(min, value);
+    max = Math.max(max, value);
+  }
+  return max > min ? max : undefined;
+}
+
 /** The first column of non-negative numbers that is not a key, as bar heights. */
 function sqlPicture(response: SqlResponseV1): LastAnswerPicture | undefined {
   const rows = response.rows;
