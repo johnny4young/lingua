@@ -14,7 +14,6 @@ const {
   mockRunnerManagerPrepare,
   mockRunnerExecute,
   mockNeedsInitialization,
-  mockSetRunTermination,
   mockSetRunDeadlineAt,
 } = vi.hoisted(
   () => ({
@@ -22,7 +21,6 @@ const {
     mockRunnerManagerPrepare: vi.fn(),
     mockRunnerExecute: vi.fn(),
     mockNeedsInitialization: vi.fn(() => false),
-    mockSetRunTermination: vi.fn(),
     mockSetRunDeadlineAt: vi.fn(),
   })
 );
@@ -50,9 +48,8 @@ vi.mock('../../src/renderer/stores/consoleStore', () => {
 
 vi.mock('../../src/renderer/stores/resultStore', async importOriginal => {
   const actual = await importOriginal<typeof import('../../src/renderer/stores/resultStore')>();
-  const { setRunTermination, setRunDeadlineAt } = actual.useResultStore.getState();
+  const { setRunDeadlineAt } = actual.useResultStore.getState();
   actual.useResultStore.setState({
-    setRunTermination: value => { mockSetRunTermination(value); setRunTermination(value); },
     setRunDeadlineAt: value => { mockSetRunDeadlineAt(value); setRunDeadlineAt(value); },
   });
   return actual;
@@ -97,7 +94,6 @@ describe('executeTabManually — runner.executed telemetry', () => {
     mockRunnerExecute.mockReset();
     mockNeedsInitialization.mockReset();
     mockNeedsInitialization.mockReturnValue(false);
-    mockSetRunTermination.mockClear();
     mockSetRunDeadlineAt.mockClear();
     useSettingsStore.setState({
       runtimeTimeoutPresetByLanguage: defaultRuntimeTimeoutPresetSeed(),

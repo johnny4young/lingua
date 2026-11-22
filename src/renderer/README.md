@@ -98,13 +98,15 @@ full-width editor. Its tab row always lists Console; Input, Compare, Timeline
 (after a Record run), Variables,
 Terminal and Tests (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
-and carries the run controls: auto-log, run status, recent runs, time, capsule
-export and share. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
+and carries auto-log, capsule export and share. A code tab adds the run meter
+(`RunMeter/RunMeter.tsx`) at the dock's left: state, elapsed time, the tab's
+session runs from `resultStore.tabRuns`, Recent runs, execution history and
+Compare. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
 output surface reopens from one place. Compare is a dock tab, not a per-tab flag:
 `utils/compareDock.ts` opens and closes it for the shortcut and the palette.
 Validation and view-only tabs show their report above the Console rows, a
 desktop Go or Rust tab whose binary is missing shows
-`Layout/MissingToolchainPanel.tsx` there, and the Console tab ends with the last five runs (`Layout/RunHistoryStrip.tsx`).
+`Layout/MissingToolchainPanel.tsx` there.
 
 Console auto-follow is active only while the viewport remains at the bottom.
 `ConsolePanel` records its last pinned geometry so a manual upward scroll wins
@@ -226,7 +228,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
 | [`components/Timeline/`](components/Timeline)           | `TimelinePanel.tsx` (lazy Timeline dock tab), `TimelineLineHost.tsx` | Execution timeline: replay of the latest Record run from `stores/timelineStore.ts` and `utils/timelineModel.ts`, with the editor showing the selected step, its echoes and unreached lines |
 | [`components/RunRegions/`](components/RunRegions)       | `RunRegionsHost.tsx`, `RunRegions.tsx` (lazy), `runtime/regionRun.ts` | Run regions: `%%` regions from `utils/runRegions.ts`, the region chips above the editor, Cmd/Ctrl+Shift+Enter (run all) in the editor and the latest region output from `stores/runRegionStore.ts` under its region, with an inline stdin row when the run stopped for input; the Run shortcut picks the region at the cursor through `runtime/regionRun.ts`, and masked stdin answers stay in memory in `runRegionStore` |
-| Run state                                                 | `hooks/useRunStale.ts`, `Editor/RunStalePill.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
+| Run state                                                 | `hooks/useRunStale.ts`, `RunMeter/RunMeter.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
 | [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs: runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
 | [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestLineAnswersHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestLineAnswers.tsx` with `TestFailureCard.tsx`), `answerColumn.ts`, `codeUnderTestChange.ts`, `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, each test's result in the editor's answer column, and the failure card with the uncommitted change in the code under test |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
@@ -552,11 +554,10 @@ The floating Variables inspector also stays behind its actual visibility gate:
 
 Recent Runs keeps its discoverable shell separate from its paid implementation:
 
-- [`components/Editor/RecentRunsPill.tsx`](components/Editor/RecentRunsPill.tsx)
-  owns the visible per-tab count, Free upsell, global opener registration, and
-  dismissal behavior. It portals the popover to the body, fixed above the pill,
-  so the dock does not clip it. Primitive active-tab selectors keep ordinary buffer
-  edits from re-rendering this boundary.
+- [`components/RunMeter/RunMeter.tsx`](components/RunMeter/RunMeter.tsx)
+  owns the bars that open a run, Free's slice, global opener registration, and
+  dismissal behavior. It portals the popover to the body, fixed above the meter,
+  so the dock does not clip it.
 - [`components/Editor/RecentRunsPopoverHost.tsx`](components/Editor/RecentRunsPopoverHost.tsx)
   and
   [`components/Editor/recentRunsPopoverLoader.ts`](components/Editor/recentRunsPopoverLoader.ts)

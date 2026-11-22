@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { useRef } from 'react';
 import { useRunStale, useRunStaleAgeProperty } from '@/hooks/useRunStale';
-import { RunStalePill } from '@/components/Editor/RunStalePill';
+import { RunMeter } from '@/components/RunMeter/RunMeter';
 import { useEditorStore } from '@/stores/editorStore';
 import { runInputKey, useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -19,7 +19,11 @@ function openTab(workflowMode: 'run' | 'scratchpad', language = 'javascript', co
 beforeEach(async () => {
   initI18n('en');
   await i18next.changeLanguage('en');
-  useResultStore.setState({ ranCode: { tabId: 't1', code: 'const a = 1;', input: runInputKey(undefined, undefined), at: 1_000 }, lineResults: [{ line: 1, value: '1', type: 'result' }] });
+  useResultStore.setState({
+    ranCode: { tabId: 't1', code: 'const a = 1;', input: runInputKey(undefined, undefined), at: 1_000 },
+    lineResults: [{ line: 1, value: '1', type: 'result' }],
+    tabRuns: { t1: { count: 1, runs: [{ number: 1, kind: 'success', durationMs: 4 }] } },
+  });
 });
 
 afterEach(() => {
@@ -79,18 +83,18 @@ describe('run state', () => {
     expect(result.current.stale).toBe(true);
   });
 
-  it('hides the pill while the results match the code', () => {
+  it('keeps the meter out of the stale state while the results match the code', () => {
     openTab('run', 'javascript', 'const a = 1;');
-    render(<RunStalePill />);
+    render(<RunMeter tabId="t1" />);
     expect(screen.queryByTestId('run-stale-pill')).toBeNull();
   });
 
-  it('shows a STALE pill that explains itself, and ages the results', () => {
+  it('shows a stale meter state that explains itself, and ages the results', () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(13_000);
       openTab('run');
-      render(<RunStalePill />);
+      render(<RunMeter tabId="t1" />);
       expect(screen.getByTestId('run-stale-pill').textContent).toContain('Stale');
       expect(screen.getByTestId('run-stale-pill').getAttribute('title')).toBe('Edited after the last run · values dimmed');
       function Aged({ ranAt }: { ranAt: number | null }) {

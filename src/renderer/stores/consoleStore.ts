@@ -174,7 +174,7 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
       previousRun: null,
     })),
 
-  beginRun: ({ tabId, startedAt, keepPrevious = true }) =>
+  beginRun: ({ tabId, startedAt, keepPrevious = true, number }) =>
     set((state) => {
       const previous = state.currentRun?.tabId === tabId ? state.currentRun : null;
       return {
@@ -184,7 +184,7 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
           number: previous.number,
           rows: state.collapsedEntries.filter((row) => sourceLineForEntry(row.entry) !== null),
         } : null,
-        currentRun: { tabId, number: (previous?.number ?? 0) + 1, startedAt },
+        currentRun: { tabId, number: number ?? (previous?.number ?? 0) + 1, startedAt },
       };
     }),
 

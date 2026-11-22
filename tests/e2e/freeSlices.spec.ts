@@ -18,7 +18,7 @@ for (const language of ['en', 'es'] as const) {
       await clickRun(page);
       await waitForRunCompleted(page);
     }
-    await page.getByTestId('recent-runs-pill').click();
+    await page.locator('button[data-testid="run-meter-bar"]').last().click();
     const popover = page.getByTestId('recent-runs-popover');
     await expect(popover).toBeInViewport({ ratio: 1 });
     await expect(popover.locator('li')).toHaveCount(3);

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { ExecutionHistoryPopover } from '../../src/renderer/components/Console/ExecutionHistoryPopover';
 import {
   type ExecutionHistoryEntry,
@@ -27,9 +28,30 @@ describe('ExecutionHistoryPopover', () => {
     useExecutionHistoryStore.getState().clear();
   });
 
+  it('opens from a text trigger on the body, filtered to the active tab when it has runs', async () => {
+    useEditorStore.setState({ activeTabId: 'tab-a' });
+    useExecutionHistoryStore.getState().record({ language: 'python', status: 'ok', durationMs: 1, tabId: 'tab-b' });
+    const user = userEvent.setup();
+    const { unmount } = render(<ExecutionHistoryPopover triggerLabel="2 runs this session" defaultThisTabOnly />);
+    await user.click(screen.getByRole('button', { name: '2 runs this session' }));
+    // The tab has no runs, so the filter stays off and the other tab's run shows.
+    expect(screen.getAllByTestId('execution-history-entry')).toHaveLength(1);
+    expect(screen.getByTestId('execution-history-popover').parentElement).toBe(document.body);
+    await user.click(screen.getAllByTestId('execution-history-entry')[0]!);
+    expect(screen.getByTestId('execution-history-popover')).toBeTruthy();
+    unmount();
+
+    useExecutionHistoryStore.getState().record({ language: 'javascript', status: 'ok', durationMs: 1, tabId: 'tab-a' });
+    render(<ExecutionHistoryPopover triggerLabel="runs" defaultThisTabOnly />);
+    await user.click(screen.getByRole('button', { name: 'runs' }));
+    expect(screen.getAllByTestId('execution-history-entry')).toHaveLength(1);
+    expect((screen.getByRole('checkbox', { name: /this tab only/i }) as HTMLInputElement).checked).toBe(true);
+    useEditorStore.setState({ activeTabId: null });
+  });
+
   it('renders the empty state when there are no runs', async () => {
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover />);
+    render(<ExecutionHistoryPopover triggerLabel="History" />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
 
@@ -41,7 +63,7 @@ describe('ExecutionHistoryPopover', () => {
 
   it('moves focus into the popover on open and restores it on close (accessibility pass)', async () => {
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover />);
+    render(<ExecutionHistoryPopover triggerLabel="History" />);
     const toggle = screen.getByTestId('execution-history-toggle');
     toggle.focus();
     await user.click(toggle);
@@ -77,7 +99,7 @@ describe('ExecutionHistoryPopover', () => {
     });
 
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover />);
+    render(<ExecutionHistoryPopover triggerLabel="History" />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     const entries = screen.getAllByTestId('execution-history-entry');
@@ -99,7 +121,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const onRerun = vi.fn();
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover onRerun={onRerun} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onRerun={onRerun} />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
     await user.click(screen.getByTestId('execution-history-rerun'));
@@ -122,7 +144,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const onRerun = vi.fn();
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover onRerun={onRerun} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onRerun={onRerun} />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
 
@@ -143,7 +165,7 @@ describe('ExecutionHistoryPopover', () => {
     });
 
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover />);
+    render(<ExecutionHistoryPopover triggerLabel="History" />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     await user.click(screen.getByTestId('execution-history-clear'));
@@ -155,7 +177,7 @@ describe('ExecutionHistoryPopover', () => {
   it('renders Spanish copy when the locale switches', async () => {
     await i18next.changeLanguage('es');
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover />);
+    render(<ExecutionHistoryPopover triggerLabel="History" />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
     expect(
@@ -168,7 +190,7 @@ describe('ExecutionHistoryPopover', () => {
   it('calls onBlocked and stays closed when the entitlement is disabled', async () => {
     const user = userEvent.setup();
     const onBlocked = vi.fn();
-    render(<ExecutionHistoryPopover enabled={false} onBlocked={onBlocked} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" enabled={false} onBlocked={onBlocked} />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
 
@@ -189,7 +211,7 @@ describe('ExecutionHistoryPopover', () => {
     });
 
     const user = userEvent.setup();
-    render(<ExecutionHistoryPopover />);
+    render(<ExecutionHistoryPopover triggerLabel="History" />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     expect(screen.queryByTestId('execution-history-compare')).toBeNull();
@@ -212,7 +234,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const user = userEvent.setup();
     const onCompare = vi.fn();
-    render(<ExecutionHistoryPopover onCompare={onCompare} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onCompare={onCompare} />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     const checkboxes = screen.getAllByTestId(
@@ -238,7 +260,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const user = userEvent.setup();
     const onCompare = vi.fn();
-    render(<ExecutionHistoryPopover onCompare={onCompare} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onCompare={onCompare} />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     const compareButton = screen.getByTestId(
@@ -292,7 +314,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const user = userEvent.setup();
     const onCompare = vi.fn();
-    render(<ExecutionHistoryPopover onCompare={onCompare} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onCompare={onCompare} />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     const checkboxes = screen.getAllByTestId(
@@ -334,7 +356,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const user = userEvent.setup();
     const onCompare = vi.fn();
-    render(<ExecutionHistoryPopover onCompare={onCompare} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onCompare={onCompare} />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     const checkboxes = screen.getAllByTestId(
@@ -365,7 +387,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const user = userEvent.setup();
     const onCompare = vi.fn();
-    render(<ExecutionHistoryPopover onCompare={onCompare} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onCompare={onCompare} />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     const initialCheckboxes = screen.getAllByTestId(
@@ -413,7 +435,7 @@ describe('ExecutionHistoryPopover', () => {
 
     const user = userEvent.setup();
     const onCompare = vi.fn();
-    render(<ExecutionHistoryPopover onCompare={onCompare} />);
+    render(<ExecutionHistoryPopover triggerLabel="History" onCompare={onCompare} />);
     await user.click(screen.getByTestId('execution-history-toggle'));
 
     const checkbox = screen.getByTestId(

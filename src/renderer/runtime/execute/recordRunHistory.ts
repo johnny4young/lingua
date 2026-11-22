@@ -10,6 +10,7 @@ import { isEntitled } from '../../../shared/entitlements';
 import { buildRunCapsule, type RunCapsuleV1 } from '../../../shared/runCapsule';
 import { currentEffectiveTier } from '../../hooks/useEntitlement';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useGitStore } from '../../stores/gitStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { FileTab } from '../../types/editor';
@@ -246,6 +247,11 @@ function capsuleTabFields(activeTab: FileTab, gitSnapshot: GitSnapshot | undefin
   };
 }
 
+/** The number the tab's latest run settled as, read before any await so a later run cannot take it. */
+function settledRunNumber(tabId: string): number | undefined {
+  return useResultStore.getState().tabRuns[tabId]?.count;
+}
+
 /**
  * Record a run that finished, successfully or with a runner-reported error.
  * The capsule is built before `history.record` so the entry
@@ -264,6 +270,7 @@ export async function recordCompletedRun(args: {
 }): Promise<void> {
   const { activeTab, result, runStatus, lineResults, diagnostics, gitSnapshot } = args;
   const { language, content } = activeTab;
+  const runNumber = settledRunNumber(activeTab.id);
   const lineTerminatedConsole =
     (language === 'javascript' || language === 'typescript') &&
     (activeTab.runtimeMode ?? 'worker') === 'worker';
@@ -294,6 +301,7 @@ export async function recordCompletedRun(args: {
     // Anchor the entry to the source tab so the per-tab
     // pill can filter via `byTabId`.
     tabId: activeTab.id,
+    ...(runNumber !== undefined ? { runNumber } : {}),
     // Omit the capsule when construction failed so the
     // entry's wire shape stays clean.
     ...(capsule !== null ? { lastCapsule: capsule } : {}),
@@ -315,6 +323,7 @@ export async function recordFailedRun(
   isCurrent: () => boolean = () => true
 ): Promise<void> {
   const { language, content } = activeTab;
+  const runNumber = settledRunNumber(activeTab.id);
   const capsule = await tryBuildCapsule({
     ...capsuleTabFields(activeTab, gitSnapshot),
     status: 'error',
@@ -328,6 +337,7 @@ export async function recordFailedRun(
     durationMs: null,
     snapshot: snapshotPayloadFor(content, language),
     tabId: activeTab.id,
+    ...(runNumber !== undefined ? { runNumber } : {}),
     ...(capsule !== null ? { lastCapsule: capsule } : {}),
   });
 }

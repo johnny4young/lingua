@@ -6,6 +6,7 @@ import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHis
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
+import { RunMeterHistory } from '../../src/renderer/components/RunMeter/RunMeterHistory';
 import {
   _resetCommandBusForTesting,
   emitCommand,
@@ -1015,7 +1016,7 @@ describe('ConsolePanel', () => {
       },
     });
 
-    render(<ConsolePanel />);
+    render(<RunMeterHistory label="Runs" />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
     await user.click(screen.getByTestId('execution-history-rerun'));
@@ -1046,7 +1047,7 @@ describe('ConsolePanel', () => {
       durationMs: 120,
     });
 
-    render(<ConsolePanel />);
+    render(<RunMeterHistory label="Runs" />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
 
@@ -1063,7 +1064,7 @@ describe('ConsolePanel', () => {
   it('blocks the history popover on the Free tier', async () => {
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     const user = userEvent.setup();
-    render(<ConsolePanel />);
+    render(<RunMeterHistory label="Runs" />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
 

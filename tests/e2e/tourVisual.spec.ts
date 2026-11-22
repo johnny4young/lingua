@@ -105,7 +105,7 @@ async function dismissNotices(page: Page): Promise<void> {
 }
 
 async function hideConsole(page: Page): Promise<void> {
-  if (await page.getByTestId('execution-history-toggle').isVisible().catch(() => false)) {
+  if (await page.locator('[data-testid="results-dock"][data-expanded="true"]').isVisible().catch(() => false)) {
     await page.keyboard.press('ControlOrMeta+Backslash');
   }
 }

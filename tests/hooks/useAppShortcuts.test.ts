@@ -6,6 +6,7 @@ import { useAppShortcuts, type AppShortcutDeps } from '@/hooks/useAppShortcuts';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 import { useEditorStore } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
+import { setRecentRunsPopoverOpener } from '@/runtime/recentRunsPopoverBridge';
 
 const mocks = vi.hoisted(() => ({
   registeredOptions: null as UseGlobalShortcutsOptions | null,
@@ -29,7 +30,7 @@ vi.mock('@/stores/executionHistoryStore', () => ({
   useExecutionHistoryStore: {
     getState: () => ({
       latestCapsule: () => mocks.capsule.current,
-      entries: Array.from({ length: mocks.runs }),
+      entries: Array.from({ length: mocks.runs }, () => ({ tabId: 't1' })),
     }),
   },
 }));
@@ -96,6 +97,23 @@ describe('useAppShortcuts', () => {
     mocks.runs = 2;
     registeredOptions().toggleCompareWithSnapshot();
     expect(useUIStore.getState().activeBottomPanel).toBe('compare');
+    expect(mocks.pushInfoNotice).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a folded dock for recent runs and the list once the meter mounts', () => {
+    renderHook(() => useAppShortcuts(makeDeps()));
+    registeredOptions().toggleRecentRunsPopover();
+    expect(mocks.pushInfoNotice).toHaveBeenCalledWith('executionHistory.tabPill.shortcutUnavailable');
+
+    useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: '' }] as never, 't1');
+    mocks.runs = 1;
+    useUIStore.getState().setConsoleVisible(false);
+    registeredOptions().toggleRecentRunsPopover();
+    expect(useUIStore.getState().consoleVisible).toBe(true);
+    const opener = vi.fn();
+    setRecentRunsPopoverOpener(opener);
+    expect(opener).toHaveBeenCalledTimes(1);
+    setRecentRunsPopoverOpener(null);
     expect(mocks.pushInfoNotice).toHaveBeenCalledTimes(1);
   });
 

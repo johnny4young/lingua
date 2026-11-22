@@ -24,7 +24,6 @@ const {
   mockTrackEvent,
   mockRunnerManagerPrepare,
   mockRunnerExecute,
-  mockSetRunTermination,
   mockSetRunDeadlineAt,
   mockToExecutionPresentation,
   mockToResultDiagnostics,
@@ -32,7 +31,6 @@ const {
   mockTrackEvent: vi.fn().mockResolvedValue(undefined),
   mockRunnerManagerPrepare: vi.fn(),
   mockRunnerExecute: vi.fn(),
-  mockSetRunTermination: vi.fn(),
   mockSetRunDeadlineAt: vi.fn(),
   mockToExecutionPresentation: vi.fn(),
   mockToResultDiagnostics: vi.fn(),
@@ -94,7 +92,6 @@ describe('executeTabManually — capsule attach ', () => {
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
     mockRunnerExecute.mockReset();
-    mockSetRunTermination.mockClear();
     mockSetRunDeadlineAt.mockClear();
     mockToExecutionPresentation.mockReset();
     mockToExecutionPresentation.mockReturnValue({

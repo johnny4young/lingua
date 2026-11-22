@@ -176,7 +176,7 @@ test.describe('Automated axe scans', () => {
     await clickRun(page);
     await waitForRunCompleted(page);
     // The pill appears once the run, and its capsule, is in the history.
-    await expect(page.getByTestId('recent-runs-pill')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('button[data-testid="run-meter-bar"]').last()).toBeVisible({ timeout: 30_000 });
     await page.keyboard.press('ControlOrMeta+Alt+C');
     await expect(page.getByRole('dialog', { name: /run capsules/i })).toBeVisible();
     await expect(page.getByRole('option').first()).toBeVisible();

@@ -96,6 +96,8 @@ export interface ExecutionHistoryEntry {
   lastCapsule?: RunCapsuleV1;
   /** Compare data for the Compare tab, captured only on paid tiers with code capture on. */
   runCompare?: RunCompareRecord;
+  /** The tab's run number, so the run meter's bar for this run can open it. */
+  runNumber?: number;
 }
 
 interface ExecutionHistoryRecord {
@@ -126,6 +128,7 @@ interface ExecutionHistoryRecord {
   lastCapsule?: RunCapsuleV1;
   /** Result line for the Compare tab when the capsule alone cannot say it (SQL rows, HTTP status). */
   summary?: RunCompareSummary;
+  runNumber?: number;
 }
 
 /** The Compare tab keeps compare data only for paid tiers with code capture on. */
@@ -335,6 +338,7 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       // omit the field entirely when the caller passed nothing so the
       // serialized shape stays stable for legacy callers.
       ...(input.tabId !== undefined ? { tabId: input.tabId } : {}),
+      ...(input.runNumber !== undefined ? { runNumber: input.runNumber } : {}),
       // Attach the captured capsule. Pruning of older
       // entries' capsules happens in the `set` below so the cap is
       // applied AFTER the FIFO drop, never before.

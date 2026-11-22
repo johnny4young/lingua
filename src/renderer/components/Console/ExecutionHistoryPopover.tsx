@@ -1,4 +1,3 @@
-import { History } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -8,14 +7,13 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
 } from '../../stores/executionHistoryStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { IconButton } from '../ui/chrome';
-import { ICON_GLYPH } from '../ui/iconScale';
 import { formatRunAge, formatRunDuration } from '../../utils/timeLabels';
 
 interface ExecutionHistoryPopoverProps {
@@ -34,6 +32,10 @@ interface ExecutionHistoryPopoverProps {
   onCompare?: (older: ExecutionHistoryEntry, newer: ExecutionHistoryEntry) => void;
   enabled?: boolean;
   onBlocked?: () => void;
+  /** The trigger's text; the list opens above it, on the body, so a clipping dock cannot cut it. */
+  triggerLabel: string;
+  /** Start filtered to the active tab. */
+  defaultThisTabOnly?: boolean;
 }
 
 function parseEntryCounter(id: string): number | null {
@@ -80,6 +82,8 @@ export function ExecutionHistoryPopover({
   onCompare,
   enabled = true,
   onBlocked,
+  triggerLabel,
+  defaultThisTabOnly = false,
 }: ExecutionHistoryPopoverProps) {
   const { t } = useTranslation();
   const entries = useExecutionHistoryStore((state) => state.entries);
@@ -94,6 +98,7 @@ export function ExecutionHistoryPopover({
   // and reopening the popover resets the filter (consistent with the
   // existing selection-reset hygiene below).
   const [thisTabOnly, setThisTabOnly] = useState(false);
+  const [anchor, setAnchor] = useState<{ bottom: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // accessibility pass — focus management: the popover declared role=dialog but
   // never moved focus in, trapped Tab, or restored focus on close.
@@ -188,7 +193,8 @@ export function ExecutionHistoryPopover({
     if (!open) return;
     const onDown = (event: MouseEvent) => {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!containerRef.current.contains(target) && !dialogRef.current?.contains(target)) {
         closePopover();
       }
     };
@@ -252,6 +258,10 @@ export function ExecutionHistoryPopover({
       return;
     }
     setNow(Date.now());
+    // Filtering only applies when the tab has runs; otherwise the toggle is hidden and the list would sit empty.
+    setThisTabOnly(defaultThisTabOnly && entries.some((entry) => entry.tabId !== undefined && entry.tabId === activeTabId));
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) setAnchor({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
     setOpen(true);
   };
 
@@ -278,18 +288,20 @@ export function ExecutionHistoryPopover({
   }, [selectedEntries.length]);
 
   return (
-    <div ref={containerRef} className="relative">
-      <IconButton
+    <div ref={containerRef} className="relative min-w-0">
+      <button
+        type="button"
         onClick={handleToggle}
-        tooltip={enabled ? t('executionHistory.toggle') : t('executionHistory.lockedTooltip')}
+        title={enabled ? t('executionHistory.toggle') : t('executionHistory.lockedTooltip')}
         aria-expanded={enabled ? open : false}
         aria-haspopup={enabled ? 'dialog' : undefined}
         aria-controls={enabled && open ? popoverId : undefined}
         data-testid="execution-history-toggle"
+        className="run-meter-link"
       >
-        <History size={ICON_GLYPH.md} />
-      </IconButton>
-      {enabled && open ? (
+        {triggerLabel}
+      </button>
+      {enabled && open ? createPortal(
         <div
           ref={dialogRef}
           id={popoverId}
@@ -298,7 +310,8 @@ export function ExecutionHistoryPopover({
           data-testid="execution-history-popover"
           onKeyDown={handleDialogKeyDown}
           tabIndex={-1}
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,90vw)] overflow-hidden rounded-2xl border border-border/80 bg-background-elevated/96 shadow-e3"
+          className="fixed z-50 w-[min(22rem,90vw)] overflow-hidden rounded-2xl border border-border/80 bg-background-elevated/96 shadow-e3"
+          style={anchor ? { bottom: anchor.bottom, left: anchor.left } : undefined}
         >
           <header className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3">
             <span className="panel-title">{t('executionHistory.title')}</span>
@@ -443,7 +456,8 @@ export function ExecutionHistoryPopover({
               </button>
             </footer>
           ) : null}
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );

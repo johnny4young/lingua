@@ -2436,23 +2436,8 @@
   }
 }
 
-.run-history-bar[data-run-last='true'] {
-  transform-origin: bottom;
-  animation: run-bar-rise var(--duration-normal) var(--curve-spring);
-}
-
-@keyframes run-bar-rise {
-  from {
-    transform: scaleY(0);
-  }
-  to {
-    transform: scaleY(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .dock-tab-body,
-  .run-history-bar,
   .modal-rise {
     animation: none !important;
   }

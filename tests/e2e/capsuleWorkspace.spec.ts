@@ -51,7 +51,7 @@ test.describe('Capsule Workspace handoff', () => {
     );
     await clickRun(page);
     await waitForRunCompleted(page);
-    await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
+    await expect(page.locator('button[data-testid="run-meter-bar"]').last()).toBeVisible();
 
     await createTypeScriptTab(page);
     await replaceActiveSource(
@@ -140,7 +140,7 @@ test.describe('Capsule Workspace handoff', () => {
       await expectTier(page, 'PRO');
       await dismissWhatsNew(page);
       await createJavaScriptTab(page);
-      await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+      await expect(page.locator('button[data-testid="run-meter-bar"]').last()).toHaveCount(0);
       await page.keyboard.press('ControlOrMeta+Shift+Y');
       const input = page.getByTestId('capsule-import-paste-textarea');
       await input.fill(built.json);
@@ -163,7 +163,7 @@ test.describe('Capsule Workspace handoff', () => {
       await expect(
         page.getByTestId('editor-tab-activation').filter({ hasText: 'notes.txt' })
       ).toHaveCount(0);
-      await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+      await expect(page.locator('button[data-testid="run-meter-bar"]').last()).toHaveCount(0);
       await auditA11y(page);
       expect(consoleErrors).toEqual([]);
       await page.keyboard.press('Escape');

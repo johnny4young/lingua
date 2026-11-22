@@ -12,6 +12,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  openRecentRunsPopoverWhenReady,
   setRecentRunsPopoverOpener,
   toggleRecentRunsPopover,
 } from '@/runtime/recentRunsPopoverBridge';
@@ -38,5 +39,28 @@ describe('recentRunsPopoverBridge', () => {
     setRecentRunsPopoverOpener(null);
     expect(toggleRecentRunsPopover()).toBe(false);
     expect(opener).not.toHaveBeenCalled();
+  });
+
+  it('opens once when an opener registers after a queued request', () => {
+    const opener = vi.fn();
+    openRecentRunsPopoverWhenReady();
+    setRecentRunsPopoverOpener(opener);
+    expect(opener).toHaveBeenCalledTimes(1);
+    setRecentRunsPopoverOpener(null);
+    setRecentRunsPopoverOpener(opener);
+    expect(opener).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a queued open that no meter picked up in time', () => {
+    vi.useFakeTimers();
+    try {
+      const opener = vi.fn();
+      openRecentRunsPopoverWhenReady();
+      vi.advanceTimersByTime(2_500);
+      setRecentRunsPopoverOpener(opener);
+      expect(opener).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -11,12 +11,7 @@ import type {
 } from '../../types/console';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
-import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
-import { useRunner } from '../../hooks/useRunner';
-import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useTelemetry } from '../../hooks/useTelemetry';
-import { pushUpsellNotice } from '../../utils/upsellNotice';
-import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useExplainPanelStore } from '../../stores/explainPanelStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -32,8 +27,6 @@ import { IconButton, Tooltip } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { ContextualHint } from '../ContextualHints/ContextualHint';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
-import { ExecutionComparisonModal } from './ExecutionComparisonModal';
-import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRow } from './ConsoleEntryRow';
 import { ConsoleWaitingRow } from './ConsoleWaitingRow';
 import { ConsoleLevelSegment, ConsoleSearch } from './ConsoleTapeFilters';
@@ -137,9 +130,6 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = {}) {
   const { t } = useTranslation();
   const { track } = useTelemetry();
-  const { run, isRunning } = useRunner();
-  const effectiveTier = useEffectiveTier();
-  const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const {
     entries,
     collapsedEntries,
@@ -442,22 +432,6 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
     }
   };
 
-  const handleReplayHistoryEntry = useCallback(
-    (entry: ExecutionHistoryEntry) => {
-      // Gate telemetry on the actual dispatch — see App.tsx replay
-      // handler for rationale (already-running short-circuit, etc.).
-      const dispatched = replayHistoryEntry(entry, { isRunning, run });
-      if (dispatched) {
-        track('runtime.history_replay', {
-          language: entry.language,
-          status: entry.status,
-          surface: 'popover',
-        });
-      }
-    },
-    [isRunning, run, track]
-  );
-
   // accessibility pass — console clear is recoverable: snapshot the
   // cleared state, clear, then offer an Undo toast that restores it.
   // Skip the toast when there was nothing to clear so an empty console
@@ -487,32 +461,6 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
       ],
     });
   }, [clear, restore]);
-
-  const [comparison, setComparison] = useState<
-    [ExecutionHistoryEntry, ExecutionHistoryEntry] | null
-  >(null);
-
-  const handleCompareEntries = useCallback(
-    (older: ExecutionHistoryEntry, newer: ExecutionHistoryEntry) => {
-      setComparison([older, newer]);
-    },
-    []
-  );
-
-  const handleCloseComparison = useCallback(() => {
-    setComparison(null);
-  }, []);
-
-  const handleBlockedExecutionHistory = useCallback(() => {
-    pushUpsellNotice({
-      messageKey: 'upsell.freeCeilingReached',
-      featureLabel: t('upsell.feature.executionHistory'),
-    });
-    track('feature.blocked', {
-      entitlement: 'execution-history',
-      tier: effectiveTier,
-    });
-  }, [effectiveTier, t, track]);
 
   const renderedPulseLine =
     // eslint-disable-next-line react-hooks/refs -- This ref is an epoch guard, read on setting-driven renders so old pulses stay hidden after toggle-off.
@@ -669,12 +617,6 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
           >
             <Clock size={ICON_GLYPH.md} />
           </IconButton>
-          <ExecutionHistoryPopover
-            enabled={canUseExecutionHistory}
-            onBlocked={handleBlockedExecutionHistory}
-            onRerun={handleReplayHistoryEntry}
-            onCompare={canUseExecutionHistory ? handleCompareEntries : undefined}
-          />
           {canExplainConsoleError && activeTab ? (
             <ExplainErrorButton
               errorMessage={consoleErrorText}
@@ -770,7 +712,6 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
       </div>
       <PausedConsoleSummary />
 
-      <ExecutionComparisonModal entries={comparison} onClose={handleCloseComparison} />
     </div>
   );
 }
