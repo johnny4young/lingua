@@ -77,7 +77,7 @@ export interface GlyphProps {
   className?: string;
 }
 
-/** One icon component for the v6 set, drawn by lucide wherever its shape matches the board. */
+/** One icon component for the glyph set, drawn by lucide wherever its shape matches the board. */
 export function Glyph({ name, size = ICON_GLYPH.md, label, className }: GlyphProps) {
   const a11y = glyphA11y(label);
   if (name in CUSTOM) {

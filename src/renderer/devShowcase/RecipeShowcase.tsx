@@ -423,8 +423,8 @@ export function RecipeShowcase() {
                 <ResultNumeral value={header.value} unit={header.unit} className="w-20" />
                 <span className="flex items-center gap-3 text-body-sm text-fg-muted">
                   <span className="font-semibold text-fg-base">{header.tabs[0]}</span>
-                  {header.tabs.slice(1).map((tab) => (
-                    <span key={tab}>{tab}</span>
+                  {header.tabs.slice(1).map((name) => (
+                    <span key={name}>{name}</span>
                   ))}
                 </span>
               </div>

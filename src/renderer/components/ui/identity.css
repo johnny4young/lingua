@@ -1,184 +1,187 @@
 /* Lazy so the web initial bundle stays inside its budget; only answer surfaces load it. */
-:root {
-  /* Pulse: fills one control per screen. Rail lines light in turn and stay lit. */
-  --motion-pulse-line: var(--duration-fast);
-  --motion-pulse-curve: cubic-bezier(0.19, 0, 0.33, 1);
-  /* Answer: the leader draws while the value fades up. */
-  --motion-answer: 160ms;
-  --motion-answer-curve: cubic-bezier(0.43, 0, 0.38, 1);
-  --motion-answer-rise: 4px;
-}
-
-/* No travel: values appear in place. The global guard in index.css zeroes the durations. */
-@media (prefers-reduced-motion: reduce) {
+/* Components layer, so a utility className on a primitive still wins. */
+@layer components {
   :root {
-    --motion-answer-rise: 0px;
+    /* Pulse: fills one control per screen. Rail lines light in turn and stay lit. */
+    --motion-pulse-line: var(--duration-fast);
+    --motion-pulse-curve: cubic-bezier(0.19, 0, 0.33, 1);
+    /* Answer: the leader draws while the value fades up. */
+    --motion-answer: 160ms;
+    --motion-answer-curve: cubic-bezier(0.43, 0, 0.38, 1);
+    --motion-answer-rise: 4px;
   }
-}
 
-/* Small caps for labels only, never for values or counts. */
-.type-tag {
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 560;
-  line-height: 1.2;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--color-fg-subtle);
-}
-
-/* Counts stay neutral; only an error takes a value colour. */
-.result-numeral {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  white-space: nowrap;
-  color: var(--color-fg-base);
-}
-
-.result-numeral[data-tone='error'] {
-  color: var(--color-value-error);
-}
-
-.result-numeral-value {
-  font-family: var(--font-display-stack);
-  font-synthesis-weight: none;
-  font-variant-numeric: lining-nums tabular-nums;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-/* Fraunces only at 17 px and up; smaller units use the UI italic. */
-.result-numeral-unit {
-  font-family: var(--font-ui);
-  font-style: italic;
-  line-height: 1;
-  color: var(--color-fg-muted);
-}
-
-.result-numeral[data-size='sm'] .result-numeral-value { font-size: 19px; }
-.result-numeral[data-size='sm'] .result-numeral-unit { font-size: 12.5px; }
-.result-numeral[data-size='md'] .result-numeral-value { font-size: 26px; }
-.result-numeral[data-size='md'] .result-numeral-unit { font-size: 15px; }
-.result-numeral[data-size='lg'] { gap: 6px; }
-.result-numeral[data-size='lg'] .result-numeral-value { font-size: 44px; font-weight: 360; }
-.result-numeral[data-size='xl'] { gap: 10px; }
-.result-numeral[data-size='xl'] .result-numeral-value { font-size: 88px; font-weight: 340; letter-spacing: -0.04em; }
-
-.result-numeral[data-size='lg'] .result-numeral-unit,
-.result-numeral[data-size='xl'] .result-numeral-unit {
-  font-family: var(--font-display-stack);
-  font-synthesis-weight: none;
-}
-
-.result-numeral[data-size='lg'] .result-numeral-unit { font-size: 22px; }
-.result-numeral[data-size='xl'] .result-numeral-unit { font-size: 40px; }
-
-/* The one dot pattern every leader uses; the owner sets its size and place. */
-.dot-leader {
-  background: radial-gradient(circle, var(--color-border-strong) 0.9px, transparent 1.1px) 0 0 / 7px 2px repeat-x;
-}
-
-.dot-leader[data-tone='error'] {
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--color-value-error) 60%, transparent) 0.9px, transparent 1.1px);
-}
-
-.leader-fill {
-  flex: 1 1 auto;
-  min-width: 30px;
-  height: 2px;
-  margin: 0 6px;
-}
-
-.leader-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-}
-
-.leader-row-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.leader-row-value {
-  display: inline-flex;
-  flex: none;
-  align-items: baseline;
-  gap: 12px;
-  white-space: nowrap;
-}
-
-.leader-row[data-enter] .dot-leader {
-  animation: leader-draw var(--motion-answer) var(--motion-answer-curve) both;
-}
-
-.leader-row[data-enter] .leader-row-value {
-  animation: answer-rise var(--motion-answer) var(--motion-answer-curve) both;
-}
-
-@keyframes leader-draw {
-  from { clip-path: inset(0 100% 0 0); }
-  to { clip-path: inset(0); }
-}
-
-@keyframes answer-rise {
-  from {
-    opacity: 0;
-    transform: translateY(var(--motion-answer-rise));
+  /* No travel: values appear in place. The global guard in index.css zeroes the durations. */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --motion-answer-rise: 0px;
+    }
   }
-  to {
-    opacity: 1;
-    transform: none;
+
+  /* Small caps for labels only, never for values or counts. */
+  .type-tag {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 560;
+    line-height: 1.2;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-fg-subtle);
   }
-}
 
-/* A rail tick: set --pulse-index to its line order. */
-.pulse-tick {
-  background-color: var(--color-pulse-fg);
-  animation: pulse-tick-light var(--motion-pulse-line) var(--motion-pulse-curve)
-    calc(var(--pulse-index, 0) * var(--motion-pulse-line)) both;
-}
+  /* Counts stay neutral; only an error takes a value colour. */
+  .result-numeral {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+    color: var(--color-fg-base);
+  }
 
-@keyframes pulse-tick-light {
-  from { background-color: var(--color-border-strong); }
-  to { background-color: var(--color-pulse-fg); }
-}
+  .result-numeral[data-tone='error'] {
+    color: var(--color-value-error);
+  }
 
-.run-state-glyph {
-  --rs-pulse: var(--color-pulse-fg);
-  --rs-rule: var(--color-border-strong);
-  --rs-error: var(--color-value-error);
-  --rs-hold: var(--color-value-number);
-  --rs-stale-mark: var(--color-fg-subtle);
-  --rs-stale-line: color-mix(in srgb, var(--color-fg-subtle) 55%, transparent);
-  display: block;
-  flex: none;
-}
+  .result-numeral-value {
+    font-family: var(--font-display-stack);
+    font-synthesis-weight: none;
+    font-variant-numeric: lining-nums tabular-nums;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
 
-.run-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 50%;
-}
+  /* Fraunces only at 17 px and up; smaller units use the UI italic. */
+  .result-numeral-unit {
+    font-family: var(--font-ui);
+    font-style: italic;
+    line-height: 1;
+    color: var(--color-fg-muted);
+  }
 
-.run-dot[data-run-dot='ok'] { background: var(--color-value-string); }
-.run-dot[data-run-dot='error'] { background: var(--color-value-error); }
-.run-dot[data-run-dot='stale'] { box-shadow: inset 0 0 0 1.2px var(--color-fg-subtle); }
+  .result-numeral[data-size='sm'] .result-numeral-value { font-size: 19px; }
+  .result-numeral[data-size='sm'] .result-numeral-unit { font-size: 12.5px; }
+  .result-numeral[data-size='md'] .result-numeral-value { font-size: 26px; }
+  .result-numeral[data-size='md'] .result-numeral-unit { font-size: 15px; }
+  .result-numeral[data-size='lg'] { gap: 6px; }
+  .result-numeral[data-size='lg'] .result-numeral-value { font-size: 44px; font-weight: 360; }
+  .result-numeral[data-size='xl'] { gap: 10px; }
+  .result-numeral[data-size='xl'] .result-numeral-value { font-size: 88px; font-weight: 340; letter-spacing: -0.04em; }
 
-.run-dot[data-run-dot='running'] {
-  background: var(--color-pulse);
-  box-shadow: 0 0 8px var(--color-pulse);
-}
+  .result-numeral[data-size='lg'] .result-numeral-unit,
+  .result-numeral[data-size='xl'] .result-numeral-unit {
+    font-family: var(--font-display-stack);
+    font-synthesis-weight: none;
+  }
 
-@media (prefers-reduced-transparency: reduce) {
+  .result-numeral[data-size='lg'] .result-numeral-unit { font-size: 22px; }
+  .result-numeral[data-size='xl'] .result-numeral-unit { font-size: 40px; }
+
+  /* The one dot pattern every leader uses; the owner sets its size and place. */
+  .dot-leader {
+    background: radial-gradient(circle, var(--color-border-strong) 0.9px, transparent 1.1px) 0 0 / 7px 2px repeat-x;
+  }
+
+  .dot-leader[data-tone='error'] {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--color-value-error) 60%, transparent) 0.9px, transparent 1.1px);
+  }
+
+  .leader-fill {
+    flex: 1 1 auto;
+    min-width: 30px;
+    height: 2px;
+    margin: 0 6px;
+  }
+
+  .leader-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .leader-row-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .leader-row-value {
+    display: inline-flex;
+    flex: none;
+    align-items: baseline;
+    gap: 12px;
+    white-space: nowrap;
+  }
+
+  .leader-row[data-enter] .dot-leader {
+    animation: leader-draw var(--motion-answer) var(--motion-answer-curve) both;
+  }
+
+  .leader-row[data-enter] .leader-row-value {
+    animation: answer-rise var(--motion-answer) var(--motion-answer-curve) both;
+  }
+
+  @keyframes leader-draw {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0); }
+  }
+
+  @keyframes answer-rise {
+    from {
+      opacity: 0;
+      transform: translateY(var(--motion-answer-rise));
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* A rail tick: set --pulse-index to its line order. */
+  .pulse-tick {
+    background-color: var(--color-pulse-fg);
+    animation: pulse-tick-light var(--motion-pulse-line) var(--motion-pulse-curve)
+      calc(var(--pulse-index, 0) * var(--motion-pulse-line)) both;
+  }
+
+  @keyframes pulse-tick-light {
+    from { background-color: var(--color-border-strong); }
+    to { background-color: var(--color-pulse-fg); }
+  }
+
+  .run-state-glyph {
+    --rs-pulse: var(--color-pulse-fg);
+    --rs-rule: var(--color-border-strong);
+    --rs-error: var(--color-value-error);
+    --rs-hold: var(--color-value-number);
+    --rs-stale-mark: var(--color-fg-subtle);
+    --rs-stale-line: color-mix(in srgb, var(--color-fg-subtle) 55%, transparent);
+    display: block;
+    flex: none;
+  }
+
+  .run-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+  }
+
+  .run-dot[data-run-dot='ok'] { background: var(--color-value-string); }
+  .run-dot[data-run-dot='error'] { background: var(--color-value-error); }
+  .run-dot[data-run-dot='stale'] { box-shadow: inset 0 0 0 1.2px var(--color-fg-subtle); }
+
   .run-dot[data-run-dot='running'] {
-    box-shadow: none;
+    background: var(--color-pulse);
+    box-shadow: 0 0 8px var(--color-pulse);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .run-dot[data-run-dot='running'] {
+      box-shadow: none;
+    }
   }
 }

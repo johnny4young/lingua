@@ -1,4 +1,4 @@
-/** The v6 glyph set: 16 px grid, 1.5 px stroke, round joins. */
+/** The app glyph set: 16 px grid, 1.5 px stroke, round joins. */
 export const GLYPH_NAMES = [
   'run',
   'stop',

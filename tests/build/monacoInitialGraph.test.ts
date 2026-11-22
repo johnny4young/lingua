@@ -72,6 +72,8 @@ const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
     module: 'src/renderer/components/AI/EditWithAiDialog.tsx',
     why: 'the Edit with AI dialog, its DiffEditor and preview runners',
   },
+  { module: 'src/renderer/components/ui/answer.tsx', why: 'the lazy identity.css answer stylesheet' },
+  { module: 'src/renderer/components/ui/RunStateGlyph.tsx', why: 'the lazy identity.css run-state stylesheet' },
 ];
 
 /**
