@@ -2,37 +2,39 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
-  CheckCircle2,
+  Check,
   ChevronDown,
   ChevronRight,
-  CircleStop,
-  FileCode2,
   FolderOpen,
   Loader2,
-  MinusCircle,
+  Minus,
   Play,
   RefreshCw,
-  XCircle,
+  X,
 } from 'lucide-react';
 import '../../i18n/testsCatalog';
 import type { ProjectTestCaseStatus, ProjectTestScope } from '../../../shared/projectTests';
 import { useProjectStore } from '../../stores/projectStore';
-import { useProjectTestStore, isProjectTestRunFailure, opensInEditor, type ProjectTestDisplayCase, type ProjectTestBinding } from '../../stores/projectTestStore';
+import { useProjectTestStore, isCurrentFailure, isProjectTestRunFailure, opensInEditor, type ProjectTestDisplayCase, type ProjectTestBinding } from '../../stores/projectTestStore';
 import { cn } from '../../utils/cn';
+import { formatWholeDuration } from '../../utils/latencyScale';
+import { tallyTests, type TestTally } from '../FileTree/fileTreeMarks';
 import { openTestFailure } from './openTestFailure';
+import { countByStatus, type TestStatusCounts } from './testsMeterModel';
+import './projectTests.css';
 
 const MAX_RECENTS = 3;
+
+const FILE_DOT: Record<TestTally['tone'], string> = {
+  failed: 'bg-error-fg',
+  passed: 'bg-success-fg',
+  pending: 'bg-fg-subtle',
+};
 
 interface FileGroup {
   file: string;
   cases: ProjectTestDisplayCase[];
-  counts: Record<ProjectTestCaseStatus | 'notRun', number>;
-}
-
-function countByStatus(cases: readonly ProjectTestDisplayCase[]): Record<ProjectTestCaseStatus | 'notRun', number> {
-  const counts = { passed: 0, failed: 0, skipped: 0, notRun: 0 };
-  for (const entry of cases) counts[entry.stale ? 'notRun' : entry.status] += 1;
-  return counts;
+  counts: TestStatusCounts;
 }
 
 function groupByFile(cases: readonly ProjectTestDisplayCase[]): FileGroup[] {
@@ -55,9 +57,9 @@ function matchesScope(scope: ProjectTestScope | null, file: string, path?: strin
 }
 
 function StatusIcon({ status }: { status: ProjectTestCaseStatus | 'notRun' }) {
-  if (status === 'passed') return <CheckCircle2 size={14} className="shrink-0 text-success-fg" aria-hidden="true" />;
-  if (status === 'failed') return <XCircle size={14} className="shrink-0 text-error-fg" aria-hidden="true" />;
-  return <MinusCircle size={14} className="shrink-0 text-fg-subtle" aria-hidden="true" />;
+  if (status === 'passed') return <Check size={12} className="shrink-0 text-success-fg" aria-hidden="true" />;
+  if (status === 'failed') return <X size={12} className="shrink-0 text-error-fg" aria-hidden="true" />;
+  return <Minus size={12} className="shrink-0 text-fg-subtle" aria-hidden="true" />;
 }
 
 /** The Tests dock tab: the detected runner, every test grouped by file, and the raw log behind Show output. */
@@ -166,11 +168,9 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const result = useProjectTestStore(state => state.result);
   const error = useProjectTestStore(state => state.error);
   const filter = useProjectTestStore(state => state.filter);
-  const setFilter = useProjectTestStore(state => state.setFilter);
   const runningScope = useProjectTestStore(state => state.runningScope);
   const liveOutput = useProjectTestStore(state => state.liveOutput);
   const run = useProjectTestStore(state => state.run);
-  const stop = useProjectTestStore(state => state.stop);
   const detect = useProjectTestStore(state => state.detect);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [selected, setSelected] = useState<string | null>(null);
@@ -183,7 +183,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const candidate = candidates.find(entry => entry.framework === selectedFramework);
   const canRun = Boolean(candidate?.available) && !running;
   const groups = useMemo(() => groupByFile(cases ?? []), [cases]);
-  const counts = useMemo(() => countByStatus(cases ?? []), [cases]);
+  const tallies = useMemo(() => tallyTests(cases ?? []).byFile, [cases]);
   const visibleGroups = filter === 'failed' ? groups.filter(group => group.counts.failed > 0) : groups;
   const noReport = result !== null && result.cases === undefined && (result.kind === 'success' || result.kind === 'failed');
   // A compile error fails the run before any test reports, so the log is the only answer.
@@ -204,104 +204,40 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
 
   return (
     <>
-      <div className="flex min-h-[54px] shrink-0 flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-border-subtle px-4 py-2">
+      <div className="flex h-8 shrink-0 items-center gap-2 px-4" data-testid="tests-summary">
+        <h3 className="min-w-0 flex-1 truncate text-eyebrow font-semibold uppercase tracking-[0.09em] text-fg-subtle">
+          {t('projectTests.list.label')}
+        </h3>
+        {candidates.length > 1 ? (
+          <select
+            aria-label={t('projectTests.runner.label')}
+            value={selectedFramework ?? ''}
+            disabled={running}
+            onChange={event => selectFramework(event.target.value as typeof candidates[number]['framework'])}
+            className="h-6 rounded-md border border-border-subtle bg-bg-inset px-1.5 text-caption font-medium text-fg-base"
+            data-testid="tests-runner"
+          >
+            {candidates.map(entry => (
+              <option key={entry.framework} value={entry.framework}>
+                {t(`projectTests.framework.${entry.framework}`)}
+              </option>
+            ))}
+          </select>
+        ) : null}
         {running ? (
-          <button type="button" className="button-danger inline-flex h-[34px] items-center gap-2 px-4" onClick={() => void stop(binding)} data-testid="tests-stop">
-            <CircleStop size={13} aria-hidden="true" />
-            {t('projectTests.stop')}
-          </button>
+          <Loader2 size={13} className="animate-spin text-fg-subtle" aria-hidden="true" />
         ) : (
-          <button type="button" className="button-primary inline-flex h-[34px] items-center gap-2 px-4 font-semibold" disabled={!canRun} onClick={() => runScope({ kind: 'all' })} data-testid="tests-run-all">
-            <Play size={12} fill="currentColor" aria-hidden="true" />
-            {t('projectTests.runAll')}
+          <button
+            type="button"
+            aria-label={t('projectTests.refresh')}
+            title={t('projectTests.refresh')}
+            onClick={() => void detect(binding)}
+            data-testid="tests-refresh"
+            className="icon-button h-6 w-6 rounded-md"
+          >
+            <RefreshCw size={12} aria-hidden="true" />
           </button>
         )}
-        <span className="flex min-w-0 items-center gap-1.5 text-fg-muted" data-testid="tests-summary">
-          {cases && cases.length > 0 ? (
-            <span>
-              {t('projectTests.summary', {
-                tests: t('projectTests.count.tests', { count: cases.length }),
-                files: t('projectTests.count.files', { count: groups.length }),
-              })}
-            </span>
-          ) : null}
-          {candidates.length > 1 ? (
-            <select
-              aria-label={t('projectTests.runner.label')}
-              value={selectedFramework ?? ''}
-              disabled={running}
-              onChange={event => selectFramework(event.target.value as typeof candidates[number]['framework'])}
-              className="h-7 rounded-md border border-border-subtle bg-bg-inset px-2 font-semibold text-fg-base"
-              data-testid="tests-runner"
-            >
-              {candidates.map(entry => (
-                <option key={entry.framework} value={entry.framework}>
-                  {t(`projectTests.framework.${entry.framework}`)}
-                </option>
-              ))}
-            </select>
-          ) : selectedFramework ? (
-            <span className="font-semibold text-fg-base">{t(`projectTests.framework.${selectedFramework}`)}</span>
-          ) : null}
-          {!running ? (
-            <button
-              type="button"
-              aria-label={t('projectTests.refresh')}
-              title={t('projectTests.refresh')}
-              onClick={() => void detect(binding)}
-              data-testid="tests-refresh"
-              className="icon-button h-7 w-7 rounded-md"
-            >
-              <RefreshCw size={13} aria-hidden="true" />
-            </button>
-          ) : null}
-          {running ? (
-            <span role="status" className="inline-flex items-center gap-1.5 text-fg-subtle">
-              <Loader2 size={12} className="animate-spin" aria-hidden="true" />
-              {t('projectTests.running')}
-            </span>
-          ) : null}
-        </span>
-        {cases && cases.length > 0 ? (
-          <div className="ml-auto flex items-center gap-3.5">
-            <span className="flex items-center gap-3.5" data-testid="tests-counts">
-              <span className="inline-flex items-center gap-1.5 text-success-fg">
-                <CheckCircle2 size={14} aria-hidden="true" />
-                {t('projectTests.passed', { count: counts.passed })}
-              </span>
-              <span className={cn('inline-flex items-center gap-1.5', counts.failed > 0 ? 'text-error-fg' : 'text-fg-subtle')}>
-                <XCircle size={14} aria-hidden="true" />
-                {t('projectTests.failed', { count: counts.failed })}
-              </span>
-              {counts.skipped > 0 ? (
-                <span className="inline-flex items-center gap-1.5 text-fg-muted">
-                  <MinusCircle size={14} aria-hidden="true" />
-                  {t('projectTests.skipped', { count: counts.skipped })}
-                </span>
-              ) : null}
-              {counts.notRun > 0 ? <span className="text-fg-subtle">{t('projectTests.notRun', { count: counts.notRun })}</span> : null}
-            </span>
-            <span className="h-[18px] w-px bg-border-subtle" aria-hidden="true" />
-            <div role="radiogroup" aria-label={t('projectTests.filter.label')} className="inline-flex rounded-lg border border-border-subtle bg-bg-inset p-0.5">
-              {(['all', 'failed'] as const).map(option => (
-                <button
-                  key={option}
-                  type="button"
-                  role="radio"
-                  aria-checked={filter === option}
-                  onClick={() => setFilter(option)}
-                  data-testid={`tests-filter-${option}`}
-                  className={cn(
-                    'focus-ring h-6 rounded-md px-2.5 text-caption font-medium',
-                    filter === option ? 'bg-bg-panel text-fg-base shadow-e1' : 'text-fg-muted hover:text-fg-base'
-                  )}
-                >
-                  {t(`projectTests.filter.${option}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {candidate && !candidate.available && candidate.unavailableReason ? (
@@ -337,46 +273,44 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
         ) : (
           visibleGroups.map(group => {
             const open = !collapsed.has(group.file);
-            const visibleCases = filter === 'failed' ? group.cases.filter(entry => entry.status === 'failed' && !entry.stale) : group.cases;
+            const visibleCases = filter === 'failed' ? group.cases.filter(isCurrentFailure) : group.cases;
             const fileRunning = running && matchesScope(runningScope, group.file);
+            const tally = tallies.get(group.file);
             return (
               <div key={group.file} role="treeitem" aria-level={1} aria-expanded={open} aria-selected={false} data-testid="tests-file">
-                <div className="group/file flex h-[34px] items-center gap-2.5 border-b border-border-subtle px-4">
+                <div className="group/file flex h-7 items-center gap-2 border-b border-border-subtle px-4">
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.file)}
-                    className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    className="focus-ring flex min-w-0 items-center gap-2 text-left"
                   >
-                    {open ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}
-                    <FileCode2 size={13} className="shrink-0 text-fg-subtle" aria-hidden="true" />
-                    <span className="truncate font-mono text-caption text-fg-base">{group.file}</span>
-                    {(
-                      [
-                        ['failed', 'text-error-fg'],
-                        ['passed', group.counts.failed > 0 ? 'text-fg-subtle' : 'text-success-fg'],
-                        ['skipped', 'text-fg-subtle'],
-                        ['notRun', 'text-fg-subtle'],
-                      ] as const
-                    )
-                      .filter(([status]) => group.counts[status] > 0)
-                      .map(([status, tone], index) => (
-                        <span key={status} className={cn('shrink-0', tone)}>
-                          {index > 0 ? '· ' : ''}
-                          {t(`projectTests.${status}`, { count: group.counts[status] })}
-                        </span>
-                      ))}
+                    {open ? <ChevronDown size={11} className="shrink-0 text-fg-subtle" aria-hidden="true" /> : <ChevronRight size={11} className="shrink-0 text-fg-subtle" aria-hidden="true" />}
+                    <span aria-hidden className={cn('h-1.5 w-1.5 shrink-0 rounded-full', FILE_DOT[tally?.tone ?? 'pending'])} />
+                    <span className="truncate font-mono text-caption font-medium text-fg-base">{group.file}</span>
+                    <span className="sr-only">
+                      {(['failed', 'passed', 'skipped', 'notRun'] as const)
+                        .filter(status => group.counts[status] > 0)
+                        .map(status => t(`projectTests.${status}`, { count: group.counts[status] }))
+                        .join(' · ')}
+                    </span>
                   </button>
-                  {fileRunning ? <Loader2 size={13} className="animate-spin text-fg-subtle" aria-hidden="true" /> : null}
                   <button
                     type="button"
                     disabled={!canRun}
                     onClick={() => runScope({ kind: 'file', file: group.file })}
                     data-testid="tests-run-file"
-                    className="button-secondary inline-flex h-[26px] shrink-0 items-center gap-1.5 px-2 text-caption opacity-0 focus:opacity-100 group-hover/file:opacity-100"
+                    className="test-answer-chip opacity-0 focus:opacity-100 group-hover/file:opacity-100"
                   >
-                    <Play size={10} fill="currentColor" aria-hidden="true" />
+                    <Play size={9} fill="currentColor" aria-hidden="true" />
                     {t('projectTests.runFile')}
                   </button>
+                  <span className="flex-1" />
+                  {fileRunning ? <Loader2 size={13} className="animate-spin text-fg-subtle" aria-hidden="true" /> : null}
+                  {tally && tally.total > 0 ? (
+                    <span aria-hidden data-testid="tests-file-tally" className="shrink-0 font-mono text-[11.5px] tabular-nums text-fg-muted">
+                      {tally.passed} / {tally.total}
+                    </span>
+                  ) : null}
                 </div>
                 {open ? (
                   <div role="group">
@@ -384,6 +318,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                       const key = caseKey(entry);
                       const isSelected = selected === key;
                       const caseRunning = running && matchesScope(runningScope, entry.file, entry.path);
+                      const failedNow = isCurrentFailure(entry);
                       return (
                         <div
                           key={key}
@@ -392,53 +327,58 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                           aria-selected={isSelected}
                           data-testid="tests-case"
                           data-status={entry.stale ? 'not-run' : entry.status}
-                          className={cn('group/case border-b border-border-subtle', isSelected ? 'bg-accent-tint' : 'hover:bg-bg-panel-alt')}
+                          className={cn('group/case', isSelected ? 'bg-accent-tint' : 'hover:bg-bg-panel-alt')}
                         >
-                          <div className="flex min-h-8 items-center gap-2.5 py-1 pl-11 pr-4">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (opensInEditor(entry)) {
-                                  setSelected(key);
-                                  setUnopened(null);
-                                  void openTestFailure(entry).then(opened => {
-                                    if (!opened) setUnopened(key);
-                                  });
-                                } else setSelected(isSelected ? null : key);
-                              }}
-                              className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 text-left">
-                              <span className={cn('flex shrink-0', entry.stale && 'opacity-50')}><StatusIcon status={entry.status} /></span>
-                              <span className={cn('truncate text-fg-base', isSelected && 'font-medium')}>
-                                {entry.path.length > 0 ? (
-                                  <>
-                                    {entry.path.length > 1 ? <span className="text-fg-subtle">{entry.path.slice(0, -1).join(' › ')} › </span> : null}
-                                    {entry.path[entry.path.length - 1]}
-                                  </>
-                                ) : (
-                                  t('projectTests.fileFailed')
-                                )}
-                              </span>
-                              {entry.stale ? <span className="shrink-0 text-fg-subtle">{t('projectTests.previousResult')}</span> : null}
-                              {!entry.stale && entry.status === 'failed' && entry.failureLine && entry.failureFile === entry.file ? (
-                                <span className="shrink-0 text-error-fg">{t('projectTests.failedAt', { line: entry.failureLine })}</span>
-                              ) : null}
-                            </button>
-                            {caseRunning ? <Loader2 size={13} className="animate-spin text-fg-subtle" aria-hidden="true" /> : null}
-                            {entry.runnable !== false && entry.path.length > 0 ? (
+                          <div className="flex min-h-[26px] items-center gap-2 py-0.5 pl-9 pr-4">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
                               <button
                                 type="button"
-                                disabled={!canRun}
-                                onClick={() => runScope({ kind: 'test', file: entry.file, path: entry.path })}
-                                data-testid="tests-run-test"
-                                className="button-secondary inline-flex h-[26px] shrink-0 items-center gap-1.5 px-2 text-caption opacity-0 focus:opacity-100 group-hover/case:opacity-100"
-                              >
-                                <Play size={10} fill="currentColor" aria-hidden="true" />
-                                {t('projectTests.runTest')}
+                                onClick={() => {
+                                  if (opensInEditor(entry)) {
+                                    setSelected(key);
+                                    setUnopened(null);
+                                    void openTestFailure(entry).then(opened => {
+                                      if (!opened) setUnopened(key);
+                                    });
+                                  } else setSelected(isSelected ? null : key);
+                                }}
+                                className="focus-ring flex min-w-0 items-center gap-2 text-left">
+                                <span className={cn('flex shrink-0', entry.stale && 'opacity-50')}><StatusIcon status={entry.status} /></span>
+                                <span className={cn('truncate', failedNow ? 'text-error-fg' : 'text-fg-base', isSelected && 'font-medium')}>
+                                  {entry.path.length > 0 ? (
+                                    <>
+                                      {entry.path.length > 1 ? <span className="text-fg-subtle">{entry.path.slice(0, -1).join(' › ')} › </span> : null}
+                                      {entry.path[entry.path.length - 1]}
+                                    </>
+                                  ) : (
+                                    t('projectTests.fileFailed')
+                                  )}
+                                </span>
+                                {entry.stale ? <span className="shrink-0 text-fg-subtle">{t('projectTests.previousResult')}</span> : null}
+                                {failedNow && entry.failureLine && entry.failureFile === entry.file ? (
+                                  <span className="test-answer-chip">{t('projectTests.failedAt', { line: entry.failureLine })}</span>
+                                ) : null}
                               </button>
+                              {entry.runnable !== false && entry.path.length > 0 ? (
+                                <button
+                                  type="button"
+                                  disabled={!canRun}
+                                  onClick={() => runScope({ kind: 'test', file: entry.file, path: entry.path })}
+                                  data-testid="tests-run-test"
+                                  className={cn('test-answer-chip', !failedNow && 'opacity-0 focus:opacity-100 group-hover/case:opacity-100')}
+                                >
+                                  <Play size={9} fill="currentColor" aria-hidden="true" />
+                                  {t('projectTests.runTest')}
+                                </button>
+                              ) : null}
+                            </div>
+                            {caseRunning ? <Loader2 size={13} className="animate-spin text-fg-subtle" aria-hidden="true" /> : null}
+                            {entry.durationMs !== undefined && !entry.stale ? (
+                              <span className="w-12 shrink-0 text-right font-mono text-[11px] tabular-nums text-fg-muted">{formatWholeDuration(entry.durationMs)}</span>
                             ) : null}
                           </div>
                           {isSelected && entry.failureMessage && (!opensInEditor(entry) || unopened === key) ? (
-                            <pre className="mx-4 mb-2 ml-11 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-micro text-fg-base" data-testid="tests-failure">
+                            <pre className="mx-4 mb-2 ml-9 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-micro text-fg-base" data-testid="tests-failure">
                               {entry.failureMessage}
                             </pre>
                           ) : null}

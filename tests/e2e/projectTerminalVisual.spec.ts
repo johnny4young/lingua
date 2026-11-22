@@ -14,7 +14,7 @@ test.describe('project terminal bilingual evidence', () => {
 
   for (const [locale, title, startLabel, activeLabel] of [
     ['en', 'Terminal for polyglot-checkout', 'Start terminal', 'zsh · active'],
-    ['es', 'Terminal para polyglot-checkout', 'Inicia la terminal', 'zsh · activo'],
+    ['es', 'Terminal para polyglot-checkout', 'Inicia la terminal', 'zsh · activa'],
   ] as const) {
     test(`${locale} trust boundary and active shell`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 1440, height: 1000 });

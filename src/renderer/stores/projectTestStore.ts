@@ -29,6 +29,9 @@ export type ProjectTestDisplayCase = ProjectTestCase & { stale?: true; reportedB
 export const opensInEditor = (entry: ProjectTestDisplayCase): boolean =>
   !entry.stale && entry.status === 'failed' && Boolean(entry.failureFile) && Boolean(entry.failureLine);
 
+/** A failure from the latest run that covered the test, not one kept from an earlier run. */
+export const isCurrentFailure = (entry: ProjectTestDisplayCase): boolean => entry.status === 'failed' && !entry.stale;
+
 export const isProjectTestRunFailure = (entry: ProjectTestCase): boolean =>
   entry.status === 'failed' && entry.runnable === false && entry.path.length === 0;
 
@@ -36,6 +39,16 @@ export interface ProjectTestBinding {
   rootId: RootId;
   projectName: string;
 }
+
+/** One whole-project run as the Tests meter draws it. */
+export interface ProjectTestRunSummary {
+  kind: ProjectTestRunResult['kind'];
+  passed: number;
+  failed: number;
+}
+
+/** Whole-project runs the Tests meter keeps for the open project. */
+const PROJECT_TEST_RUNS_KEPT = 5;
 
 type ProjectTestStatus = 'idle' | 'detecting' | 'ready' | 'running' | 'error';
 type ProjectTestError = 'detect-failed' | 'run-failed' | null;
@@ -55,6 +68,8 @@ interface ProjectTestState {
   casesTruncated: boolean;
   runningScope: ProjectTestScope | null;
   filter: 'all' | 'failed';
+  /** This session's last whole-project runs, oldest first. */
+  runs: ProjectTestRunSummary[];
   /** The failed test the editor shows a card for; its result is read from `cases`. */
   focusedFailure: Pick<ProjectTestCase, 'file' | 'path'> | null;
   detect: (binding: ProjectTestBinding) => Promise<void>;
@@ -63,6 +78,16 @@ interface ProjectTestState {
   stop: (binding: ProjectTestBinding) => Promise<void>;
   setFilter: (filter: 'all' | 'failed') => void;
   focusFailure: (test: Pick<ProjectTestCase, 'file' | 'path'> | null) => void;
+}
+
+function summarizeProjectTestRun(result: ProjectTestRunResult): ProjectTestRunSummary {
+  let passed = 0;
+  let failed = 0;
+  for (const entry of result.cases ?? []) {
+    if (entry.status === 'passed') passed += 1;
+    else if (entry.status === 'failed') failed += 1;
+  }
+  return { kind: result.kind, passed, failed };
 }
 
 const ANSWERING_RUNS = new Set<ProjectTestRunResult['kind']>(['success', 'failed', 'timed-out', 'stopped']);
@@ -159,6 +184,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   casesTruncated: false,
   runningScope: null,
   filter: 'all',
+  runs: [],
   focusedFailure: null,
 
   setFilter: filter => set({ filter }),
@@ -190,6 +216,8 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       casesTruncated: false,
       runningScope: null,
       focusedFailure: null,
+      // Detecting the same project again keeps its run history.
+      runs: previous.rootId === binding.rootId ? previous.runs : [],
     });
     if (!bridge) {
       set({ status: 'ready', detection: { kind: 'none', candidates: [] } });
@@ -249,14 +277,17 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
     try {
       const result = await bridge.run(binding.rootId, framework, runId, scope);
       if (get().activeRunId !== runId) return;
+      // A scoped run answers for part of the project, not the folder.
+      const wholeRun = scope.kind === 'all' && ANSWERING_RUNS.has(result.kind);
+      const runs = (previous: ProjectTestRunSummary[]) =>
+        wholeRun ? [...previous, summarizeProjectTestRun(result)].slice(-PROJECT_TEST_RUNS_KEPT) : previous;
       const project = useProjectStore.getState().currentProject;
       if (project?.rootId === binding.rootId) {
         useProjectStore.getState().setRecentTestRunner(project.id, framework);
-        // A scoped run answers for part of the project, not the folder.
-        if (scope.kind === 'all' && ANSWERING_RUNS.has(result.kind)) void recordProjectTestAnswer(project.id, result);
+        if (wholeRun) void recordProjectTestAnswer(project.id, result);
       }
       set(state => {
-        if (!result.cases) return { status: 'ready', activeRunId: null, runningScope: null, result };
+        if (!result.cases) return { status: 'ready', activeRunId: null, runningScope: null, result, runs: runs(state.runs) };
         const cases = mergeProjectTestCases(state.cases, scope, result.cases);
         const focused = state.focusedFailure;
         // The card closes once its test stops failing.
@@ -273,6 +304,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
           activeRunId: null,
           runningScope: null,
           result,
+          runs: runs(state.runs),
           cases,
           casesTruncated: scope.kind === 'all' ? result.casesTruncated === true : state.casesTruncated,
           focusedFailure: stillFailing ? focused : firstFailure ? testRef(firstFailure) : null,

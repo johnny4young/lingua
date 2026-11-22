@@ -4,6 +4,8 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TestsDockControls } from '../../src/renderer/components/ProjectTests/TestsDockControls';
+import { TestsMeter } from '../../src/renderer/components/ProjectTests/TestsMeter';
 import { TestsPanel } from '../../src/renderer/components/ProjectTests/TestsPanel';
 import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useNativeExecutionGateStore } from '../../src/renderer/stores/nativeExecutionGateStore';
@@ -53,6 +55,17 @@ function result(overrides: Partial<ProjectTestRunResult> = {}): ProjectTestRunRe
     cases,
     ...overrides,
   };
+}
+
+/** The Tests surfaces as the dock mounts them: meter, tab-row controls and the list. */
+function TestsDock() {
+  return (
+    <>
+      <TestsMeter />
+      <TestsDockControls />
+      <TestsPanel />
+    </>
+  );
 }
 
 function openProject(): void {
@@ -105,7 +118,7 @@ describe('TestsPanel', () => {
         { id: 'd', name: 'delta', rootPath: '/d', openedAt: 1 },
       ],
     });
-    render(<TestsPanel />);
+    render(<TestsDock />);
     expect(screen.getByText('Open a project to see its tests')).toBeTruthy();
     const rows = screen.getAllByTestId('tests-recent-project');
     expect(rows.map((row) => row.textContent)).toEqual(['alphaVitestOpen', 'betaGoOpen', 'gammaOpen']);
@@ -117,13 +130,17 @@ describe('TestsPanel', () => {
     openProject();
     const bridge = installBridge();
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByTestId('tests-run-all'));
 
     await waitFor(() => expect(screen.getAllByTestId('tests-file')).toHaveLength(3));
     expect(bridge.run).toHaveBeenCalledWith('root-1', 'vitest', expect.any(String), { kind: 'all' });
-    expect(screen.getByTestId('tests-summary').textContent).toContain('4 tests in 3 files · found with');
-    expect(screen.getByTestId('tests-counts').textContent).toBe('2 passed1 failed1 skipped');
+    expect(screen.getByTestId('tests-counts').textContent).toBe('1 failed· 1 skipped · Vitest · 3 files · 5 ms');
+    expect(screen.getByTestId('tests-meter-numeral').textContent).toBe('2of 3 passed');
+    expect(screen.getAllByTestId('tests-file-tally').map(tally => tally.textContent)).toEqual(['1 / 2', '1 / 1']);
+    expect(screen.getByTestId('tests-filter-all').textContent).toBe('All4');
+    expect(screen.getByTestId('tests-filter-failed').textContent).toBe('Failed only1');
+    expect(screen.getAllByTestId('tests-meter-bar')).toHaveLength(1);
     expect(screen.getByText('Failed at line 10')).toBeTruthy();
     expect(useProjectStore.getState().recentProjects[0]!.testRunner).toBe('vitest');
 
@@ -141,9 +158,10 @@ describe('TestsPanel', () => {
     await i18next.changeLanguage('es');
     openProject();
     installBridge();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await userEvent.setup().click(await screen.findByTestId('tests-run-all'));
-    await waitFor(() => expect(screen.getByTestId('tests-counts').textContent).toBe('2 aprobadas1 fallida1 omitida'));
+    await waitFor(() => expect(screen.getByTestId('tests-counts').textContent).toBe('1 fallida· 1 omitida · Vitest · 3 archivos · 5 ms'));
+    expect(screen.getByTestId('tests-meter-numeral').textContent).toBe('2de 3 aprobadas');
   });
 
   it('shows the message in the list when the failing file cannot be opened', async () => {
@@ -151,7 +169,7 @@ describe('TestsPanel', () => {
     installBridge();
     useEditorStore.setState({ openFile: vi.fn().mockRejectedValue(new Error('gone')), requestReveal: vi.fn(), clearPendingReveal: vi.fn() });
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByTestId('tests-run-all'));
     await user.click(await screen.findByText('rounds cents'));
     expect((await screen.findByTestId('tests-failure')).textContent).toBe('expected 1211 to be 1210.5');
@@ -162,7 +180,7 @@ describe('TestsPanel', () => {
     const bridge = installBridge();
     bridge.run.mockResolvedValueOnce(result({ cases: [{ file: 'cart/total.test.ts', path: ['cartTotal', 'rounds cents'], status: 'failed', failureMessage: 'boom' }] }));
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByTestId('tests-run-all'));
     await user.click(await screen.findByText('rounds cents'));
     expect(screen.getByTestId('tests-failure').textContent).toBe('boom');
@@ -173,7 +191,7 @@ describe('TestsPanel', () => {
     openProject();
     installBridge();
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByTestId('tests-run-all'));
     await screen.findAllByTestId('tests-file');
 
@@ -186,7 +204,7 @@ describe('TestsPanel', () => {
     openProject();
     const bridge = installBridge();
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByTestId('tests-run-all'));
     await screen.findAllByTestId('tests-file');
 
@@ -200,7 +218,10 @@ describe('TestsPanel', () => {
       file: 'cart/total.test.ts',
       path: ['cartTotal', 'rounds cents'],
     });
-    await waitFor(() => expect(screen.getByTestId('tests-counts').textContent).toBe('3 passed0 failed1 skipped'));
+    await waitFor(() => expect(screen.getByTestId('tests-counts').textContent).toBe('Passed· 1 skipped · Vitest · 3 files · 5 ms'));
+    // A scoped run updates the numeral but is not one of the project's runs.
+    expect(screen.getByTestId('tests-meter-numeral').textContent).toBe('3of 3 passed');
+    expect(screen.getAllByTestId('tests-meter-bar')).toHaveLength(1);
 
     await user.click(within(screen.getAllByTestId('tests-file')[1]!).getByTestId('tests-run-file'));
     expect(bridge.run).toHaveBeenLastCalledWith('root-1', 'vitest', expect.any(String), { kind: 'file', file: 'cart/tax.test.ts' });
@@ -218,7 +239,7 @@ describe('TestsPanel', () => {
     const output = collector.push(readFileSync('tests/__fixtures__/projectTests/go-build-fail.ndjson', 'utf8')) + collector.flush();
     bridge.run.mockResolvedValueOnce(result({ framework: 'go', scope: { kind: 'test', file: 'internal/broken', path: ['TestX'] }, cases: collector.finish().cases, orderedOutput: output }));
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByTestId('tests-run-all'));
     await screen.findByText('TestX');
     const row = screen.getAllByTestId('tests-case').find(entry => entry.textContent?.includes('TestX'))!;
@@ -226,7 +247,8 @@ describe('TestsPanel', () => {
     expect((await screen.findByTestId('tests-notice')).textContent).toContain('file or build failure');
     expect(screen.getByTestId('tests-output').textContent).toContain("expected operand, found ';'");
     expect(screen.getAllByTestId('tests-case').map(entry => entry.dataset.status)).toEqual(['not-run', 'failed', 'passed']);
-    expect(screen.getByTestId('tests-counts').textContent).toBe('1 passed1 failed1 not run');
+    expect(screen.getByTestId('tests-counts').textContent).toContain('1 failed· 1 not run · Go');
+    expect(screen.getByTestId('tests-meter-numeral').textContent).toBe('1of 2 passed');
     expect(screen.queryByText('TestRoot')).toBeNull();
   });
 
@@ -235,7 +257,7 @@ describe('TestsPanel', () => {
     const bridge = installBridge();
     bridge.run.mockResolvedValueOnce(result({ cases: undefined }));
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByTestId('tests-run-all'));
     expect((await screen.findByTestId('tests-notice')).textContent).toBe('The runner report could not be read.');
     expect(screen.getByTestId('tests-output').textContent).toBe('raw vitest log\n');
@@ -245,7 +267,7 @@ describe('TestsPanel', () => {
     openProject();
     const bridge = installBridge();
     bridge.run.mockResolvedValueOnce(result({ cases: [], orderedOutput: 'error: could not compile' }));
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await userEvent.setup().click(await screen.findByTestId('tests-run-all'));
     expect((await screen.findByTestId('tests-notice')).textContent).toBe('The run failed before any test reported a result.');
     expect(screen.getByTestId('tests-output').textContent).toBe('error: could not compile');
@@ -259,7 +281,7 @@ describe('TestsPanel', () => {
       candidates: [detection.candidates[0]!, { framework: 'go', command: 'go test ./...', evidence: ['go.mod'], available: true }],
     });
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.selectOptions(await screen.findByTestId('tests-runner'), 'go');
     await user.click(screen.getByTestId('tests-run-all'));
     await waitFor(() => expect(useProjectStore.getState().recentProjects[0]!.testRunner).toBe('go'));
@@ -272,7 +294,7 @@ describe('TestsPanel', () => {
     let finish!: (value: ProjectTestDetectionResult) => void;
     bridge.detect.mockResolvedValueOnce({ kind: 'none', candidates: [] }).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await screen.findByRole('button', { name: label });
     await waitFor(() => expect((screen.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(false));
     await user.click(screen.getByRole('button', { name: label }));
@@ -291,7 +313,7 @@ describe('TestsPanel', () => {
     const bridge = installBridge();
     bridge.detect.mockResolvedValue({ kind: 'none', candidates: [] });
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await user.click(await screen.findByRole('button', { name: 'Detect again' }));
     expect(await screen.findByRole('button', { name: 'Detect again' })).toBeTruthy();
     expect(bridge.detect).toHaveBeenCalledTimes(2);
@@ -305,7 +327,7 @@ describe('TestsPanel', () => {
       candidates: [{ ...detection.candidates[0]!, available: false, unavailableReason: 'node-not-found' }],
     });
     const user = userEvent.setup();
-    render(<TestsPanel />);
+    render(<TestsDock />);
     expect((await screen.findByTestId('tests-unavailable')).textContent).toContain('Node.js was not found');
     expect((screen.getByTestId('tests-run-all') as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByTestId('tests-refresh'));
@@ -316,7 +338,7 @@ describe('TestsPanel', () => {
     openProject();
     const bridge = installBridge();
     useSettingsStore.setState({ nativeExecutionAcknowledged: false });
-    render(<TestsPanel />);
+    render(<TestsDock />);
     await userEvent.setup().click(await screen.findByTestId('tests-run-all'));
     expect(bridge.run).not.toHaveBeenCalled();
     expect(useNativeExecutionGateStore.getState().pendingLanguage).toBe('project-tests');

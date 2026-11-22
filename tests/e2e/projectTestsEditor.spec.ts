@@ -21,8 +21,8 @@ test.describe('test results on the line', () => {
   });
 
   for (const [locale, copy] of [
-    ['en', { suite: 'Suite2 of 3 passed', failed: 'Failed3 ms · at line 19', received: 'Received4.9expected0', open: 'Open shipping.ts:4', uncommitted: 'changed, not committed', changed: 'main · 2 changed', tally: '2 / 32 of 3 tests passed', active: 'zsh · active' }],
-    ['es', { suite: 'Grupo2 de 3 aprobadas', failed: 'Fallida3 ms · en la línea 19', received: 'Recibido4.9se esperaba0', open: 'Abrir shipping.ts:4', uncommitted: 'cambiado, sin confirmar', changed: 'main · 2 cambios', tally: '2 / 32 de 3 pruebas aprobadas', active: 'zsh · activa' }],
+    ['en', { suite: 'Suite2 of 3 passed', failed: 'Failed3 ms · at line 19', received: 'Received4.9expected0', open: 'Open shipping.ts:4', uncommitted: 'changed, not committed', changed: 'main · 2 changed', tally: '2 / 32 of 3 tests passed', active: 'zsh · active', meter: '5of 6 passed', heading: '1 failed· Vitest · 3 files · 412 ms', failedOnly: 'Failed only1' }],
+    ['es', { suite: 'Grupo2 de 3 aprobadas', failed: 'Fallida3 ms · en la línea 19', received: 'Recibido4.9se esperaba0', open: 'Abrir shipping.ts:4', uncommitted: 'cambiado, sin confirmar', changed: 'main · 2 cambios', tally: '2 / 32 de 3 pruebas aprobadas', active: 'zsh · activa', meter: '5de 6 aprobadas', heading: '1 fallida· Vitest · 3 archivos · 412 ms', failedOnly: 'Solo fallidas1' }],
   ] as const) {
     test(`${locale} answers on the test lines and the change under test${locale === 'es' ? ' in the light theme' : ''}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 1600, height: 1000 });
@@ -57,6 +57,15 @@ test.describe('test results on the line', () => {
       await expect(page.getByTestId('file-tree-tests-src/cart.test.ts')).toHaveAttribute('data-tone', 'failed');
       await expect(page.getByTestId('file-tree-footer-tests-tally')).toContainText('5 / 6');
       await expect(page.getByTestId('file-tree-footer-terminal-state')).toHaveText(copy.active);
+
+      // A wide dock shows Tests and Terminal side by side, with the Tests meter in the dock's column.
+      await expect(page.getByTestId('results-dock-split')).toBeVisible();
+      await expect(page.getByTestId('results-dock-split-terminal').getByTestId('project-terminal-status')).toHaveText(copy.active);
+      await expect(page.locator('.xterm-screen')).toContainText('pnpm vitest run shipping');
+      await expect(page.getByTestId('tests-meter-numeral')).toHaveText(copy.meter);
+      await expect(page.getByTestId('tests-counts')).toHaveText(copy.heading);
+      await expect(page.getByTestId('tests-filter-failed')).toHaveText(copy.failedOnly);
+      await expect(page.getByTestId('bottom-panel-project-terminal-live')).toBeVisible();
 
       // The Tests tab still opens the failure in the editor.
       await page.locator('[data-testid="tests-case"][data-status="failed"] button').first().click();

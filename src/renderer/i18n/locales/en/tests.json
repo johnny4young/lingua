@@ -1,12 +1,8 @@
 {
   "projectTests.runAll": "Run all tests",
-  "projectTests.running": "Running…",
   "projectTests.detecting": "Looking for test runners…",
-  "projectTests.count.tests_one": "{{count}} test",
-  "projectTests.count.tests_other": "{{count}} tests",
   "projectTests.count.files_one": "{{count}} file",
   "projectTests.count.files_other": "{{count}} files",
-  "projectTests.summary": "{{tests}} in {{files}} · found with",
   "projectTests.runner.label": "Test runner",
   "projectTests.passed_one": "{{count}} passed",
   "projectTests.passed_other": "{{count}} passed",
@@ -82,5 +78,18 @@
   "projectTests.change.more_one": "{{count}} more changed line",
   "projectTests.change.more_other": "{{count}} more changed lines",
   "projectTests.change.gitDiff": "Git diff",
-  "projectTests.change.explain": "Explain"
+  "projectTests.change.explain": "Explain",
+  "projectTests.meter.label": "Test results",
+  "projectTests.meter.state.idle": "Not run",
+  "projectTests.meter.state.running": "Running",
+  "projectTests.meter.state.passed": "Passed",
+  "projectTests.meter.ofPassed": "of {{total}} passed",
+  "projectTests.meter.lastRuns_one": "last run\nof this project",
+  "projectTests.meter.lastRuns_other": "last {{count}} runs\nof this project",
+  "projectTests.meter.bar.counted": "Run {{number}}: {{passed}} passed, {{failed}} failed",
+  "projectTests.meter.bar.empty": "Run {{number}}: {{outcome}}",
+  "projectTests.meter.outcome.success": "no tests reported",
+  "projectTests.meter.outcome.failed": "failed before any test reported",
+  "projectTests.meter.outcome.timed-out": "timed out",
+  "projectTests.meter.outcome.stopped": "stopped"
 }

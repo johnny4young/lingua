@@ -176,7 +176,20 @@ async function openProjectTestsEditorE2eFile(): Promise<void> {
   await useProjectStore.getState().refreshTree();
   await useProjectStore.getState().expandDirectory('src');
   await new Promise(resolve => setTimeout(resolve, 50));
-  useProjectTerminalStore.setState({ rootId, projectName: 'checkout-api', status: 'running', sessionId: 'e2e-terminal', shellName: 'zsh' });
+  const prompt = '\u001b[36mcheckout-api\u001b[0m \u001b[90mmain\u001b[0m % ';
+  const transcript =
+    `${prompt}git status -s\r\n\u001b[33m M\u001b[0m src/coupons.ts\r\n\u001b[33m M\u001b[0m src/shipping.ts\r\n` +
+    `${prompt}pnpm vitest run shipping\r\n\u001b[32m ✓\u001b[0m src/shipping.test.ts \u001b[90m(1 test) 3ms\u001b[0m\r\n${prompt}`;
+  useProjectTerminalStore.setState({
+    rootId,
+    projectName: 'checkout-api',
+    status: 'running',
+    sessionId: 'e2e-terminal',
+    shellName: 'zsh',
+    chunks: [{ sequence: 1, data: transcript }],
+    bufferChars: transcript.length,
+    nextSequence: 2,
+  });
   useGitStore.setState({ posture: { available: true, repoRoot: rootPath, branch: 'main', commit: 'e2e' }, lastDetectKey: gitDetectKey(rootPath, rootId), lastDetectAt: Date.now() });
   useProjectTestStore.setState({
     rootId,
@@ -188,6 +201,13 @@ async function openProjectTestsEditorE2eFile(): Promise<void> {
     cases,
     casesTruncated: false,
     filter: 'all',
+    runs: [
+      { kind: 'success', passed: 6, failed: 0 },
+      { kind: 'success', passed: 6, failed: 0 },
+      { kind: 'failed', passed: 5, failed: 1 },
+      { kind: 'success', passed: 6, failed: 0 },
+      { kind: 'failed', passed: 5, failed: 1 },
+    ],
     runningScope: null,
     liveOutput: { stdout: '', stderr: '' },
     error: null,

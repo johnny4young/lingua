@@ -30,6 +30,7 @@ function resetStore(): void {
     liveOutput: { stdout: '', stderr: '' },
     error: null,
     activeRunId: null,
+    runs: [],
   });
 }
 
@@ -130,6 +131,50 @@ describe('projectTestStore', () => {
     expect(projectLastAnswer(recent)).toEqual(recent.lastAnswer);
     expect(projectLastAnswer({ lastAnswer: { kind: 'tests', numeral: 7 } as never })).toBeUndefined();
   });
+  it('keeps the last five whole-project runs, across a repeat detection of the same project', async () => {
+    const report = (kind: ProjectTestRunResult['kind'], statuses: Array<'passed' | 'failed' | 'skipped'>): ProjectTestRunResult => ({
+      kind,
+      framework: 'vitest',
+      command: 'vitest run',
+      stdout: '',
+      stderr: '',
+      exitCode: kind === 'success' ? 0 : 1,
+      executionTime: 10,
+      timeoutMs: 300000,
+      cases: statuses.map((status, index) => ({ file: `t${index}.test.ts`, path: ['t'], status })),
+    });
+    const run = vi.fn();
+    const detect = vi.fn().mockResolvedValue({ kind: 'ready', candidates: [{ framework: 'vitest', command: 'vitest run', evidence: [], available: true }] });
+    installBridge({ run, detect });
+    useProjectTestStore.setState({ rootId: rootA, status: 'ready', selectedFramework: 'vitest' });
+    const binding = { rootId: rootA, projectName: 'Alpha' };
+
+    for (let index = 0; index < 5; index += 1) {
+      run.mockResolvedValueOnce(report('success', ['passed', 'skipped']));
+      await useProjectTestStore.getState().run(binding);
+    }
+    run.mockResolvedValueOnce(report('failed', ['passed', 'failed', 'passed']));
+    await useProjectTestStore.getState().run(binding);
+    run.mockResolvedValueOnce(report('success', ['passed']));
+    await useProjectTestStore.getState().run(binding, { kind: 'file', file: 't0.test.ts' });
+    run.mockResolvedValueOnce({ ...report('stopped', []), cases: undefined });
+    await useProjectTestStore.getState().run(binding);
+
+    const expected = [
+      { kind: 'success', passed: 1, failed: 0 },
+      { kind: 'success', passed: 1, failed: 0 },
+      { kind: 'success', passed: 1, failed: 0 },
+      { kind: 'failed', passed: 2, failed: 1 },
+      { kind: 'stopped', passed: 0, failed: 0 },
+    ];
+    expect(useProjectTestStore.getState().runs).toEqual(expected);
+
+    await useProjectTestStore.getState().detect(binding);
+    expect(useProjectTestStore.getState().runs).toEqual(expected);
+    await useProjectTestStore.getState().detect({ rootId: rootB, projectName: 'Beta' });
+    expect(useProjectTestStore.getState().runs).toEqual([]);
+  });
+
   it('selects the first available detected runner', async () => {
     vi.mocked(window.lingua!.projectTests!.detect).mockResolvedValue({
       kind: 'ready',

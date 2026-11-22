@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eraser, Play, RotateCcw, ShieldCheck, Square } from 'lucide-react';
+import { Play, ShieldCheck, Square } from 'lucide-react';
 import { Terminal as XtermTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -193,14 +193,14 @@ export function ProjectTerminalPanel({ binding }: ProjectTerminalPanelProps) {
       data-testid="project-terminal-panel"
       className="flex h-full min-h-0 flex-col bg-[#070a0b]"
     >
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border/70 bg-surface-strong/65 px-3 text-caption">
+      <div className="flex min-h-8 shrink-0 flex-wrap items-center gap-x-2.5 bg-bg-inset px-4 text-caption">
+        <h3 className="min-w-0 truncate text-eyebrow font-semibold uppercase tracking-[0.09em] text-fg-subtle">
+          {t('projectTerminal.title', { project: binding.projectName })}
+        </h3>
         <span
-          className={`h-1.5 w-1.5 rounded-full ${status === 'running' ? 'bg-success' : 'bg-muted'}`}
-          aria-hidden="true"
-        />
-        <span className="font-medium text-foreground">{binding.projectName}</span>
-        <span className="text-fg-subtle">·</span>
-        <span className="text-muted">
+          data-testid="project-terminal-status"
+          className={`shrink-0 ${status === 'running' ? 'text-success-fg' : 'text-fg-muted'}`}
+        >
           {status === 'starting'
             ? t('projectTerminal.status.starting')
             : status === 'running'
@@ -209,37 +209,36 @@ export function ProjectTerminalPanel({ binding }: ProjectTerminalPanelProps) {
                   code: exit?.exitCode ?? '—',
                 })}
         </span>
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleClear}
-            className="focus-ring inline-flex h-7 items-center gap-1 rounded px-2 text-fg-subtle hover:bg-background/70 hover:text-foreground"
-            data-testid="project-terminal-clear"
-          >
-            <Eraser size={11} aria-hidden="true" />
-            {t('projectTerminal.clear')}
-          </button>
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 text-fg-muted">
           {status === 'running' ? (
             <button
               type="button"
               onClick={() => void stop()}
-              className="focus-ring inline-flex h-7 items-center gap-1 rounded px-2 text-danger hover:bg-danger/10"
+              aria-label={t('projectTerminal.stop')}
+              title={t('projectTerminal.stop')}
+              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded hover:bg-bg-panel-alt hover:text-error-fg"
               data-testid="project-terminal-stop"
             >
               <Square size={10} aria-hidden="true" />
-              {t('projectTerminal.stop')}
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void handleRestart()}
-              className="focus-ring inline-flex h-7 items-center gap-1 rounded px-2 text-primary hover:bg-primary/10"
-              data-testid="project-terminal-restart"
-            >
-              <RotateCcw size={11} aria-hidden="true" />
-              {t('projectTerminal.restart')}
-            </button>
-          )}
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void handleRestart()}
+            disabled={status === 'starting'}
+            className="focus-ring h-6 rounded px-1.5 hover:bg-bg-panel-alt hover:text-fg-base disabled:opacity-50"
+            data-testid="project-terminal-restart"
+          >
+            {t('projectTerminal.restart')}
+          </button>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="focus-ring h-6 rounded px-1.5 hover:bg-bg-panel-alt hover:text-fg-base"
+            data-testid="project-terminal-clear"
+          >
+            {t('projectTerminal.clear')}
+          </button>
         </div>
       </div>
       <div

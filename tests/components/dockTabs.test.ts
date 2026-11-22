@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   availableDockTabs,
+  isDockSplit,
   resolveDockTab,
   type DockTabAvailability,
 } from '../../src/renderer/components/Layout/dockTabs';
@@ -9,7 +10,9 @@ const none: DockTabAvailability = {
   stdin: false,
   compare: false,
   variables: false,
+  timeline: false,
   'project-terminal': false,
+  tests: false,
   debugger: false,
   'browser-preview': false,
   dependencies: false,
@@ -41,5 +44,22 @@ describe('dock tabs', () => {
       'debugger'
     );
     expect(resolveDockTab('stdin', { ...none, stdin: true, debugger: true }, true)).toBe('stdin');
+  });
+
+  it('lists Tests before Terminal, the order they sit side by side', () => {
+    expect(availableDockTabs({ ...none, tests: true, 'project-terminal': true })).toEqual([
+      'console',
+      'tests',
+      'project-terminal',
+    ]);
+  });
+
+  it('splits Tests and Terminal only on a wide dock, with both available and one of them shown', () => {
+    const both = { ...none, tests: true, 'project-terminal': true };
+    expect(isDockSplit('tests', both, true)).toBe(true);
+    expect(isDockSplit('project-terminal', both, true)).toBe(true);
+    expect(isDockSplit('tests', both, false)).toBe(false);
+    expect(isDockSplit('console', both, true)).toBe(false);
+    expect(isDockSplit('tests', { ...none, tests: true }, true)).toBe(false);
   });
 });
