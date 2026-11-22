@@ -592,7 +592,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
         {...(tablePreview?.edit ? { rowEdits } : {})}
         {...(activeQuery ? { snippetLabel: activeQuery.name } : {})}
-        {...(!tablePreview && runSet && view.kind === 'result' ? { statementPosition: { index: view.index + 1, total: runSet.results.length + runSet.notRun.length } } : {})}
+        {...(!tablePreview && runSet && view.kind === 'result' && (runSetResponse || safeResponseIndex === 0) ? { statementPosition: { index: view.index + 1, total: runSet.results.length + runSet.notRun.length } } : {})}
       />
     );
 

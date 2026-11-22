@@ -41,8 +41,20 @@ describe('SQL result header', () => {
 
   it('keeps the status badge when there is no row count', () => {
     render(<SqlResultPreview response={response({ status: 'sql-error', rows: [], errorMessage: 'boom' })} isExecuting={false} rowDisplayLimit={1000} />);
-    expect(screen.queryByTestId('result-header-numeral')).toBeNull();
+    expect(document.querySelector('.result-numeral')).toBeNull();
     expect(screen.getByTestId('sql-status-pill').textContent).toBe('SQL error');
+  });
+
+  it('names the statement without a leading separator when no metrics precede it', () => {
+    render(
+      <SqlResultPreview
+        response={response({ status: 'sql-error', rows: [], errorMessage: 'boom' })}
+        isExecuting={false}
+        rowDisplayLimit={1000}
+        statementPosition={{ index: 2, total: 3 }}
+      />
+    );
+    expect(screen.getByTestId('sql-result-preview-statement-count').textContent).toBe('statement 2 of 3');
   });
 
   it('opens and closes the filter bar from the header, and never closes it on rows it narrows', async () => {
@@ -74,9 +86,19 @@ describe('SQL result header', () => {
     expect(screen.getByTestId('sql-sort-chip')).toBeTruthy();
   });
 
-  it('exports from the header action', async () => {
+  it('exports from the header action, also from the Profile view', async () => {
     const user = userEvent.setup();
-    render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={1000} />);
+    render(
+      <SqlResultPreview
+        response={response()}
+        isExecuting={false}
+        rowDisplayLimit={1000}
+        onProfileQuery={() => new Promise(() => {})}
+        profileQuerySource="SELECT 1"
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Profile' }));
+    expect(screen.queryByTestId('sql-result-filter-toggle')).toBeNull();
     await user.click(screen.getByTestId('sql-result-preview-export'));
     expect(screen.getByRole('dialog')).toBeTruthy();
   });

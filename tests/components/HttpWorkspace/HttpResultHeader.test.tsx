@@ -53,7 +53,7 @@ describe('HTTP result header', () => {
     expect(screen.getByTestId('http-status-pill').querySelector('.result-numeral')?.getAttribute('data-tone')).toBe('error');
 
     rerender(<HttpResponsePreview response={response({ kind: 'network-error', status: 0, statusText: '' })} isExecuting={false} />);
-    expect(screen.queryByTestId('result-header-numeral')).toBeNull();
+    expect(document.querySelector('.result-numeral')).toBeNull();
     expect(screen.getByTestId('http-status-pill').dataset.kind).toBe('network-error');
   });
 
@@ -87,6 +87,20 @@ describe('HTTP result header', () => {
 
     await user.click(screen.getByTestId('http-response-export'));
     expect(downloadSpy).toHaveBeenCalledWith('{"items":[{"id":101}]}', 'response.json', 'application/json; charset=utf-8');
+  });
+
+  it('offers no export for a body cut at the size cap or a binary body', () => {
+    const { rerender } = render(<HttpResponsePreview response={response({ kind: 'too-large', tooLarge: true })} isExecuting={false} />);
+    expect(screen.queryByTestId('http-response-export')).toBeNull();
+    rerender(<HttpResponsePreview response={response({ contentType: 'application/pdf', body: '%PDF-1.7' })} isExecuting={false} />);
+    expect(screen.queryByTestId('http-response-export')).toBeNull();
+  });
+
+  it('marks a client error as an error numeral', () => {
+    render(<HttpResponsePreview response={response({ status: 404, statusText: 'Not Found' })} isExecuting={false} />);
+    const numeral = screen.getByTestId('http-status-pill');
+    expect(numeral.querySelector('.result-numeral')?.getAttribute('data-tone')).toBe('error');
+    expect(numeral.dataset.tone).toBe('warning');
   });
 
   it('names the short content type', () => {

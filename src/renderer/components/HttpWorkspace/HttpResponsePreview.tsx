@@ -38,7 +38,7 @@ import { downloadTextFile } from '../../utils/downloadTextFile';
 import { formatBinarySize } from '../../utils/formatSize';
 import '../../i18n/httpBuilderCatalog';
 import { HttpStatusPill } from './HttpStatusPill';
-import { isTransportFailure, labelForResponse, shortContentType, toneForResponse } from './httpStatus';
+import { isTextContentType, isTransportFailure, labelForResponse, shortContentType, toneForResponse } from './httpStatus';
 import { HttpJsonTree } from './HttpJsonTree';
 import { HttpResponseDelta, HttpTimingPanel } from './HttpTimingPanel';
 import { timingPhases, timingSummary } from './httpTiming';
@@ -235,18 +235,22 @@ export function HttpResponsePreview({
   const tone = toneForResponse(response);
   const statusLabel = labelForResponse(response, t);
   const headerActions: ResultHeaderAction[] = [
-    {
-      id: 'filter',
-      glyph: 'filter',
-      label: t('httpWorkspace.response.search.ariaLabel'),
-      pressed: search.trim().length > 0,
-      onClick: () => {
-        if (tab !== 'body') setTab('body');
-        requestAnimationFrame(() => searchRef.current?.focus());
-      },
-      testId: 'http-response-filter',
-    },
-    ...(response.body.length > 0 && imageSrc === null
+    ...(imageSrc === null
+      ? [
+          {
+            id: 'filter',
+            glyph: 'filter' as const,
+            label: t('httpWorkspace.response.search.ariaLabel'),
+            pressed: search.trim().length > 0,
+            onClick: () => {
+              if (tab !== 'body') setTab('body');
+              requestAnimationFrame(() => searchRef.current?.focus());
+            },
+            testId: 'http-response-filter',
+          },
+        ]
+      : []),
+    ...(response.body.length > 0 && !response.tooLarge && isTextContentType(response.contentType)
       ? [
           {
             id: 'export',
@@ -294,7 +298,7 @@ export function HttpResponsePreview({
             ? {
                 value: response.status,
                 unit: response.statusText.toLowerCase() || undefined,
-                tone: tone === 'error' ? 'error' : 'neutral',
+                tone: response.status >= 400 ? 'error' : 'neutral',
                 title: statusLabel,
                 attributes: { 'data-testid': 'http-status-pill', 'data-tone': tone, 'data-kind': response.kind, 'data-status': response.status },
               }

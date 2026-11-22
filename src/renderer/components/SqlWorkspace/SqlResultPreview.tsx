@@ -459,7 +459,6 @@ export function SqlResultPreview({
               ? {
                   filterShown: filterBarShown,
                   onToggleFilter: toggleFilter,
-                  onExport: () => setExportOpen(true),
                   railShown: showRail,
                   onToggleRail: () => {
                     railShown = !showRail;
@@ -468,6 +467,7 @@ export function SqlResultPreview({
                 }
               : undefined
           }
+          onExport={hasResultBody && response.rows.length > 0 ? () => setExportOpen(true) : undefined}
         />
       </div>
 

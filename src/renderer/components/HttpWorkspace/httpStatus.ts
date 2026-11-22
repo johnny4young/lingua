@@ -30,6 +30,12 @@ export function labelForResponse(
   return `${response.status}${text}`;
 }
 
+/** A body that survives as text, so saving the decoded string keeps its bytes. */
+export function isTextContentType(contentType: string): boolean {
+  const mime = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
+  return /^text\//.test(mime) || /(json|xml|javascript|yaml|csv|x-www-form-urlencoded|graphql)$/.test(mime);
+}
+
 /** `application/vnd.api+json; charset=utf-8` → `json`. */
 export function shortContentType(contentType: string): string {
   const subtype = contentType.split(';')[0]?.split('/')[1]?.trim().toLowerCase() ?? '';

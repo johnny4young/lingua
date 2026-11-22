@@ -8,11 +8,10 @@ import { StatusBadge } from '../ui/StatusBadge';
 import { sqlPhaseSplit } from './sqlPhaseSplit';
 import { toneForSqlStatus } from './sqlStatusTone';
 
-/** The grid's controls in the header, present while rows are on screen. */
+/** The grid's controls in the header, present while the grid is on screen. */
 interface SqlResultHeaderGrid {
   filterShown: boolean;
   onToggleFilter: () => void;
-  onExport: () => void;
   railShown: boolean;
   onToggleRail: () => void;
 }
@@ -28,10 +27,12 @@ export interface SqlResultHeaderProps {
   activeTab: string;
   onTabChange: (id: string) => void;
   grid?: SqlResultHeaderGrid | undefined;
+  /** Present whenever the result has rows, on every view. */
+  onExport?: (() => void) | undefined;
 }
 
 /** SQL, the row count, time and statement over the phase bar, the views and the grid's actions. */
-export function SqlResultHeader({ response, total, shownInView, statementPosition, tabs, activeTab, onTabChange, grid }: SqlResultHeaderProps) {
+export function SqlResultHeader({ response, total, shownInView, statementPosition, tabs, activeTab, onTabChange, grid, onExport }: SqlResultHeaderProps) {
   const { t, i18n } = useTranslation();
   const num = (value: number) => formatNumber(value, i18n.language);
   const tone = toneForSqlStatus(response.status);
@@ -77,33 +78,29 @@ export function SqlResultHeader({ response, total, shownInView, statementPositio
           : undefined
       }
       metaTrailing={
-        statementLabel !== null ? <span data-testid="sql-result-preview-statement-count"> · {statementLabel}</span> : undefined
+        statementLabel !== null ? <span data-testid="sql-result-preview-statement-count">{hasRows ? ' · ' : ''}{statementLabel}</span> : undefined
       }
       phases={phases ? sqlPhaseSplit(phases, t) : undefined}
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={onTabChange}
-      actions={
-        grid
+      actions={[
+        ...(grid
           ? [
               {
                 id: 'filter',
-                glyph: 'filter',
+                glyph: 'filter' as const,
                 label: t('sqlWorkspace.grid.filterToggle'),
                 pressed: grid.filterShown,
                 onClick: grid.onToggleFilter,
                 testId: 'sql-result-filter-toggle',
               },
-              {
-                id: 'export',
-                glyph: 'export',
-                label: t('sqlWorkspace.export.open'),
-                onClick: grid.onExport,
-                testId: 'sql-result-preview-export',
-              },
             ]
-          : undefined
-      }
+          : []),
+        ...(onExport
+          ? [{ id: 'export', glyph: 'export' as const, label: t('sqlWorkspace.export.open'), onClick: onExport, testId: 'sql-result-preview-export' }]
+          : []),
+      ]}
       trailing={
         grid ? (
           <button
