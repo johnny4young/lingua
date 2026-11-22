@@ -125,7 +125,7 @@ export function HttpAssertionsTab({
 }: HttpAssertionsTabProps) {
   const { t } = useTranslation();
   const context = useAnswerContext();
-  const body = useMemo(() => (response ? parseJsonBodyOnce(response.body) : null), [response]);
+  const body = useMemo(() => (response ? parseJsonBodyOnce(response) : null), [response]);
   const canSuggest = suggestions !== undefined && suggestions.length > 0 && onAddSuggestion !== undefined;
 
   // Rows open for editing: blank ones on mount, and blank ones added later.

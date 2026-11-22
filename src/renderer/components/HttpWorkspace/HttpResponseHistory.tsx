@@ -16,10 +16,10 @@ import './httpInstruments.css';
 
 const BAR_WIDTH = 72;
 
-/** The status pill's tone in three: error for 4xx, 5xx and too large, neutral for no status at all. */
+/** The status pill's tone in three: ok for 2xx, error for 4xx, 5xx and too large, neutral for 3xx and no status. */
 function historyTone(entry: HttpResponseV1): 'ok' | 'error' | 'neutral' {
   const tone = toneForResponse(entry);
-  return tone === 'neutral' ? 'neutral' : tone === 'warning' || tone === 'error' ? 'error' : 'ok';
+  return tone === 'success' ? 'ok' : tone === 'warning' || tone === 'error' ? 'error' : 'neutral';
 }
 
 export interface HttpResponseHistoryProps {

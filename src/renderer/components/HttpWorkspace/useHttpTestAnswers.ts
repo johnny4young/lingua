@@ -4,6 +4,8 @@ import {
   collectSecretKeys,
   findResolvedVariables,
   findUnresolvedVariables,
+  looksSecret,
+  looksSecretValue,
   type HttpEnvironmentV1,
   type HttpVariableSource,
 } from '../../../shared/httpEnvironment';
@@ -67,7 +69,8 @@ export function useHttpTestAnswers({
     for (const key of findResolvedVariables(request, env)) {
       const source = sources.get(key);
       const row = rows.get(key);
-      const secret = secrets.has(key) || Boolean(source?.secret);
+      // Named or shaped like a credential masks too, as in the resolved URL and cURL.
+      const secret = secrets.has(key) || Boolean(source?.secret) || looksSecret(key) || (row !== undefined && looksSecretValue(row.value));
       out.push({
         key,
         ...(source ? { scope: source.scope } : {}),

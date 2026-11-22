@@ -8,12 +8,12 @@ const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+const relativeFormats = new Map<string, Intl.RelativeTimeFormat>();
+
 /**
  * "in 23 hr" / "1 hr ago" in the given locale. Hours run up to two days, so a
  * token that expires tomorrow reads in hours rather than "in 1 day".
  */
-const relativeFormats = new Map<string, Intl.RelativeTimeFormat>();
-
 export function formatRelativeTime(targetMs: number, nowMs: number, locale: string): string {
   const delta = targetMs - nowMs;
   const absolute = Math.abs(delta);

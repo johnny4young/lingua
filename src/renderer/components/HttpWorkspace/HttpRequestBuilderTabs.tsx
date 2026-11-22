@@ -208,7 +208,8 @@ export function HttpRequestBuilderTabs({
             data-all-passed={held.passed === held.total}
             className={cn('http-tests-held type-tag ml-auto shrink-0 pr-1', held.passed === held.total ? 'text-fg-muted' : 'text-error-fg')}
           >
-            {t('httpWorkspace.editor.assert.results.hold', { passed: held.passed, total: held.total })}
+            <span className="http-tests-held-full">{t('httpWorkspace.editor.assert.results.hold', { passed: held.passed, total: held.total })}</span>
+            <span className="http-tests-held-short" aria-hidden="true">{`${held.passed}/${held.total}`}</span>
           </span>
         ) : null}
       </div>

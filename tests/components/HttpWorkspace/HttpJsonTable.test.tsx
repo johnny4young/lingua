@@ -73,4 +73,16 @@ describe('HttpJsonTree answers', () => {
     tree({ one: [{ a: 1 }], mixed: [{ a: 1 }, 2], wide: [wide, wide] });
     expect(screen.queryByTestId('http-json-table')).toBeNull();
   });
+
+  it('shows a root array of objects as a table too', () => {
+    tree(services.items);
+    expect(row('').dataset.table).toBe('true');
+    expect(screen.getAllByTestId('http-json-table-row')).toHaveLength(3);
+    expect(cell('/0/name').textContent).toContain('"runtime"');
+  });
+
+  it('keeps cell capture off the tab order, like the other inline tree buttons', () => {
+    tree(services);
+    expect(cell('/items/0/name').querySelector('button')?.tabIndex).toBe(-1);
+  });
 });

@@ -21,19 +21,20 @@ export function createBlankCaptureRule(): HttpCaptureRule {
   };
 }
 
-let lastBody: string | undefined;
-let lastParsed: { value: unknown } | null = null;
+// Keyed by the response object, so a parsed body lives exactly as long as its response.
+const parsedBodies = new WeakMap<object, { value: unknown } | null>();
 
-/** A body parsed as JSON, or null; the last body is kept, so every check on one response parses it once. */
-export function parseJsonBodyOnce(body: string): { value: unknown } | null {
-  if (body === lastBody) return lastParsed;
-  lastBody = body;
+/** A response body parsed as JSON, or null; every check on one response parses it once. */
+export function parseJsonBodyOnce(response: Pick<HttpResponseV1, 'body'>): { value: unknown } | null {
+  if (parsedBodies.has(response)) return parsedBodies.get(response)!;
+  let parsed: { value: unknown } | null;
   try {
-    lastParsed = { value: JSON.parse(body) as unknown };
+    parsed = { value: JSON.parse(response.body) as unknown };
   } catch {
-    lastParsed = null;
+    parsed = null;
   }
-  return lastParsed;
+  parsedBodies.set(response, parsed);
+  return parsed;
 }
 
 /**
@@ -56,8 +57,8 @@ export function readJsonPath(root: unknown, rawPath: string): { found: boolean; 
 }
 
 /** A JSON primitive at a path as a string; `null` for invalid JSON, misses, nulls, objects, or arrays. */
-function extractJsonPath(body: string, rawPath: string): string | null {
-  const parsed = parseJsonBodyOnce(body);
+function extractJsonPath(response: HttpCaptureSource, rawPath: string): string | null {
+  const parsed = parseJsonBodyOnce(response);
   if (!parsed) return null;
   const { value } = readJsonPath(parsed.value, rawPath);
   if (typeof value === 'string') return value;
@@ -80,7 +81,7 @@ export function extractCaptureValue(
       return match ? match.value : null;
     }
     case 'body-json':
-      return extractJsonPath(response.body, rule.path);
+      return extractJsonPath(response, rule.path);
     default:
       return null;
   }

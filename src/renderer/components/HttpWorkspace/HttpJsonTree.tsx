@@ -296,7 +296,8 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
 
   if (isContainer(value)) {
     const entries = jsonEntries(value);
-    if (entries.length === 0) addRow([], value, 0);
+    // An empty root, or a root array that reads as a table, is one row of its own.
+    if (entries.length === 0 || (Array.isArray(value) && objectTable(value))) addRow([], value, 0);
     else addChildren('', [], entries, 0);
   } else {
     addRow([], value, 0);

@@ -4,11 +4,12 @@
  * round-tripping through parseHttpRequest.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   applyCaptureRules,
   createBlankCaptureRule,
   extractCaptureValue,
+  readJsonPath,
 } from '../../src/shared/httpWorkspaceCaptures';
 import { parseHttpRequest } from '../../src/shared/httpWorkspacePersistence';
 import type {
@@ -181,5 +182,33 @@ describe('createBlankCaptureRule', () => {
       enabled: true,
     });
     expect(blank.id.length).toBeGreaterThan(0);
+  });
+});
+
+describe('JSON path reading', () => {
+  it('parses a response body once for every rule read against it, and again for another response', () => {
+    const parse = vi.spyOn(JSON, 'parse');
+    try {
+      const response = { status: 200, headers: [], body: '{"a":{"b":1},"items":[{"id":7}]}' };
+      const rule = (path: string) => ({ ...createBlankCaptureRule(), source: 'body-json' as const, path });
+      expect(extractCaptureValue(response, rule('a.b'))).toBe('1');
+      expect(extractCaptureValue(response, rule('items[0].id'))).toBe('7');
+      expect(extractCaptureValue(response, rule('items.length'))).toBe('1');
+      expect(parse).toHaveBeenCalledTimes(1);
+      extractCaptureValue({ ...response }, rule('a.b'));
+      expect(parse).toHaveBeenCalledTimes(2);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
+  it('reads a typed value and tells a miss from a null', () => {
+    const root = { next: null, list: [1, 2], nested: { x: 'y' } };
+    expect(readJsonPath(root, 'next')).toEqual({ found: true, value: null });
+    expect(readJsonPath(root, 'nested')).toEqual({ found: true, value: { x: 'y' } });
+    expect(readJsonPath(root, 'list[1]')).toEqual({ found: true, value: 2 });
+    expect(readJsonPath(root, 'gone')).toEqual({ found: false });
+    expect(readJsonPath(root, 'nested.x.y')).toEqual({ found: false });
+    expect(readJsonPath(root, 'constructor')).toEqual({ found: false });
   });
 });

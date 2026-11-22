@@ -136,8 +136,12 @@
 
   .http-builder-strip { container-type: inline-size; }
 
+  .http-tests-held-short { display: none; }
+
+  /* Narrow: the count shortens to 3/4 rather than leaving failures out of sight. */
   @container (max-width: 560px) {
-    .http-tests-held { display: none; }
+    .http-tests-held-full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .http-tests-held-short { display: inline; }
   }
 
   .http-test-line:hover { background: color-mix(in srgb, var(--color-fg-base) 4%, transparent); }

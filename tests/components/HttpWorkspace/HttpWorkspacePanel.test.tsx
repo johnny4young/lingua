@@ -1397,7 +1397,10 @@ describe('HttpWorkspacePanel — snapshot assertions', () => {
     const line = screen.getByTestId('http-test-line');
     expect(line.dataset.pass).toBe('true');
     expect(line.textContent).toContain('status == 200');
-    expect(screen.getByTestId('http-response-assertions-summary').textContent).toBe('1 of 1 hold');
+    const summary = screen.getByTestId('http-response-assertions-summary');
+    expect(summary.querySelector('.http-tests-held-full')?.textContent).toBe('1 of 1 hold');
+    // Narrow strips show the short count instead of hiding it.
+    expect(summary.querySelector('.http-tests-held-short')?.textContent).toBe('1/1');
     expect(screen.queryByTestId('http-response-assertions')).toBeNull();
     await waitFor(() => expect(useWorkspaceToolStore.getState().requests[0]?.assertions).toHaveLength(1));
   });

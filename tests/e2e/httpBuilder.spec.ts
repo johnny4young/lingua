@@ -315,9 +315,9 @@ test('snapshots a response, flags a change as a failed check and accepts it', as
   await send.click();
   await expect(page.getByTestId('http-snapshot-badge')).toHaveText('1 change');
   await expect(page.getByTestId('http-snapshot-diff')).toContainText('- stars: 12');
-  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('1 of 2 hold');
+  await expect(page.getByTestId('http-response-assertions-summary').locator('.http-tests-held-full')).toHaveText('1 of 2 hold');
   await page.getByTestId('http-snapshot-accept').click();
   await expect(page.getByTestId('http-snapshot-badge')).toHaveText('Matches the snapshot');
-  await expect(page.getByTestId('http-response-assertions-summary')).toHaveText('2 of 2 hold');
+  await expect(page.getByTestId('http-response-assertions-summary').locator('.http-tests-held-full')).toHaveText('2 of 2 hold');
 });
 

@@ -111,6 +111,7 @@ export function HttpJsonTable({ items, shape, segments, shown, search, captured,
                       {path !== null && capturedAs === undefined && onCapture ? (
                         <button
                           type="button"
+                          tabIndex={-1}
                           data-testid="http-json-cell-capture"
                           aria-label={t('httpWorkspace.response.tree.captureAria', { path })}
                           title={t('httpWorkspace.response.tree.captureAria', { path })}
