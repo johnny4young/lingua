@@ -8,5 +8,9 @@
   "notebookAnswers.outputToggle_other": "{{count}} output lines",
   "notebookAnswers.run": "Run {{n}}",
   "notebookAnswers.runLabel": "run",
-  "notebookAnswers.notRun": "Not run"
+  "notebookAnswers.notRun": "Not run",
+  "notebookAnswers.dated": "may be out of date",
+  "notebookAnswers.datedRun": "from run {{n}} · may be out of date",
+  "notebookAnswers.runHint": "run and move on",
+  "notebookAnswers.runHintKeys": "Shift+Enter"
 }

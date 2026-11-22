@@ -108,7 +108,7 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(table.textContent).toContain('Medellín');
     // The last measurable numeric column carries the bars.
     expect(table.querySelectorAll('.notebook-answer-track')).toHaveLength(2);
-    expect(screen.getByTestId('notebook-cell-answer').style.gridRow).toBe('1 / -1');
+    expect(screen.getByTestId('notebook-cell-answer').style.gridRow).toBe('1 / 5');
   });
 
   it('summarizes a made table in Spanish', async () => {
@@ -153,5 +153,75 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(margin.textContent).toBe('4run');
     rerender(<NotebookCodeCellRow {...rowProps({ ...pythonCell, answers: undefined }, 'idle', null)} />);
     expect(screen.getByTestId('notebook-code-cell-execution-order').textContent).toBe('–Not run');
+  });
+
+  it('dates stale answers on their last line with the run they came from', async () => {
+    const { rerender } = render(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale', 3)} />);
+    const answers = screen.getAllByTestId('notebook-cell-answer');
+    const dated = screen.getByTestId('notebook-cell-answer-dated');
+    expect(answers.at(-1)!.contains(dated)).toBe(true);
+    expect(dated.textContent).toBe('from run 3 · may be out of date');
+    rerender(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale', null)} />);
+    expect(screen.getByTestId('notebook-cell-answer-dated').textContent).toBe('may be out of date');
+    await i18next.changeLanguage('es');
+    rerender(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale', 3)} />);
+    expect(screen.getByTestId('notebook-cell-answer-dated').textContent).toBe(
+      'de la ejecución 3 · puede estar desactualizado'
+    );
+    rerender(<NotebookCodeCellRow {...rowProps(pythonCell, 'ok', 3)} />);
+    expect(screen.queryByTestId('notebook-cell-answer-dated')).toBeNull();
+  });
+
+  it('dates a stale query table below the table', () => {
+    const cell: NotebookCodeCellV1 = {
+      kind: 'code',
+      id: 'cell-sql-stale',
+      language: 'sql',
+      source: 'SELECT city, share\nFROM by_city',
+      outputs: [{ kind: 'text', stream: 'stdout', text: JSON.stringify([{ city: 'Cali', share: 1 }, { city: 'Bogotá', share: 2 }]) }],
+      answers: [{ line: 1, kind: 'result', text: '', rows: 2, columns: 2 }],
+    };
+    render(<NotebookCodeCellRow {...rowProps(cell, 'stale', 2)} />);
+    const dated = screen.getByTestId('notebook-cell-answer-dated');
+    expect(screen.getByTestId('notebook-cell-answer').contains(dated)).toBe(false);
+    expect(screen.getByTestId('notebook-cell-answer').style.gridRow).toBe('1 / 4');
+    expect((dated.parentElement as HTMLElement).style.gridRow).toBe('4');
+  });
+
+  it('offers the run-and-move-on key on the last code line of a cell that never ran', async () => {
+    const cell: NotebookCodeCellV1 = {
+      kind: 'code',
+      id: 'cell-js',
+      language: 'javascript',
+      source: "const usd = n => n.toFixed(2);\nusd(818294.4)\n\n",
+      outputs: [],
+    };
+    const { rerender } = render(<NotebookCodeCellRow {...rowProps(cell, 'idle', null)} />);
+    const hint = screen.getByTestId('notebook-cell-run-hint');
+    expect(hint.style.gridRow).toBe('2');
+    expect(hint.textContent).toBe('⇧↵run and move on');
+    expect(hint.querySelector('kbd')!.getAttribute('aria-label')).toBe('Shift+Enter');
+    const leaders = screen.getAllByTestId('notebook-cell-answer-leader');
+    expect(leaders).toHaveLength(1);
+    expect(leaders[0]!.style.left).toBe('calc(13ch + 22px)');
+    // The margin says it never ran; the header does not repeat it.
+    expect(screen.queryByTestId('notebook-code-cell-status')).toBeNull();
+    await i18next.changeLanguage('es');
+    rerender(<NotebookCodeCellRow {...rowProps(cell, 'idle', null)} />);
+    expect(screen.getByTestId('notebook-cell-run-hint').textContent).toBe('⇧↵ejecuta y avanza');
+    rerender(<NotebookCodeCellRow {...rowProps({ ...cell, source: '  \n' }, 'idle', null)} />);
+    expect(screen.queryByTestId('notebook-cell-run-hint')).toBeNull();
+    rerender(<NotebookCodeCellRow {...rowProps(cell, 'running', null)} />);
+    expect(screen.queryByTestId('notebook-cell-run-hint')).toBeNull();
+  });
+
+  it('runs from a quiet icon button, and names the replay on a stale cell', () => {
+    const { rerender } = render(<NotebookCodeCellRow {...rowProps(pythonCell)} />);
+    const run = screen.getByTestId('notebook-code-cell-run');
+    expect(run.getAttribute('aria-label')).toBe('Run cell');
+    expect(run.textContent).toBe('');
+    rerender(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale')} />);
+    expect(screen.getByTestId('notebook-code-cell-run').textContent).toBe('Refresh cell');
+    expect(screen.getByTestId('notebook-code-cell-run').getAttribute('aria-label')).toBeNull();
   });
 });

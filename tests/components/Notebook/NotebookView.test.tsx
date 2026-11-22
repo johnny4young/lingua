@@ -282,7 +282,7 @@ describe('<NotebookView />', () => {
     render(<NotebookView tabId={TAB_ID} />);
 
     expect(screen.getByTestId('notebook-reactivity-banner').textContent).toMatch(
-      /2 executed cells need a refresh/i
+      /2 cells are stale/i
     );
     // One banner for the notebook; each stale cell says so in its status.
     const staleStatuses = screen.getAllByTestId('notebook-code-cell-status');
@@ -572,7 +572,7 @@ describe('<NotebookView />', () => {
     render(<NotebookView tabId={TAB_ID} />);
 
     expect(screen.getByTestId('notebook-reactivity-banner').textContent).toMatch(
-      /1 celda ejecutada necesita actualizarse/i
+      /1 celda desactualizada/i
     );
     expect(screen.getByTestId('notebook-toolbar-refresh-stale').textContent).toMatch(
       /actualiza 1/i

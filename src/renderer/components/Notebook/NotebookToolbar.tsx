@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Eraser,
   PlayCircle,
-  RefreshCw,
   Square,
   Sparkles,
 } from 'lucide-react';
@@ -18,6 +17,7 @@ import type { NotebookCellLanguage, NotebookV1 } from '../../../shared/notebook'
 import { cn } from '../../utils/cn';
 import { Kbd } from '../ui/ModalShell';
 import { NotebookDocumentActions } from './NotebookDocumentActions';
+import { NotebookStaleNotice } from './NotebookStaleNotice';
 
 const NOTEBOOK_SHORTCUT_HINTS: ReadonlyArray<{
   readonly keys: ReadonlyArray<string>;
@@ -164,6 +164,25 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
         <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
         <button
           type="button"
+          onClick={handleRunAll}
+          disabled={disabled || lastCodeCellId === null}
+          data-testid="notebook-toolbar-run-all"
+          className="button-ghost focus-ring px-2.5 text-caption"
+        >
+          {isAnyCellRunning ? (
+            <>
+              <Loader2 size={11} aria-hidden="true" className="animate-spin" />
+              {t('notebook.toolbar.running')}
+            </>
+          ) : (
+            <>
+              <Play size={11} aria-hidden="true" />
+              {t('notebook.toolbar.runAll')}
+            </>
+          )}
+        </button>
+        <button
+          type="button"
           onClick={() => {
             if (activeCellId) runAbove(tabId, activeCellId);
           }}
@@ -184,44 +203,6 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
           <PlayCircle size={11} aria-hidden="true" />
           {t('notebook.toolbar.runFromHere')}
         </button>
-        <button
-          type="button"
-          onClick={handleRunAll}
-          disabled={disabled || lastCodeCellId === null}
-          data-testid="notebook-toolbar-run-all"
-          className={cn(
-            'focus-ring inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-caption font-medium transition-colors duration-150',
-            disabled
-              ? 'border-border/40 bg-surface/40 text-muted'
-              : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
-            'disabled:cursor-not-allowed disabled:opacity-40'
-          )}
-        >
-          {isAnyCellRunning ? (
-            <>
-              <Loader2 size={11} aria-hidden="true" className="animate-spin" />
-              {t('notebook.toolbar.running')}
-            </>
-          ) : (
-            <>
-              <Play size={11} aria-hidden="true" />
-              {t('notebook.toolbar.runAll')}
-            </>
-          )}
-        </button>
-        {staleCount > 0 ? (
-          <button
-            type="button"
-            onClick={handleRefreshStale}
-            disabled={disabled}
-            title={t('notebook.reactivity.refreshHint')}
-            data-testid="notebook-toolbar-refresh-stale"
-            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <RefreshCw size={11} aria-hidden="true" />
-            {t('notebook.reactivity.refreshButton', { count: staleCount })}
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={stop}
@@ -356,6 +337,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
           ) : null}
         </div>
       </div>
+      <NotebookStaleNotice staleCount={staleCount} disabled={disabled} onRefresh={handleRefreshStale} />
     </header>
   );
 }

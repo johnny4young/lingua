@@ -111,8 +111,8 @@ for (const locale of ['en', 'es'] as const) {
     const banner = page.getByTestId('notebook-reactivity-banner');
     await expect(banner).toContainText(
       locale === 'es'
-        ? '2 celdas ejecutadas necesitan actualizarse'
-        : '2 executed cells need a refresh'
+        ? '2 celdas desactualizadas'
+        : '2 cells are stale'
     );
     const refresh = page.getByTestId('notebook-toolbar-refresh-stale');
     await expect(refresh).toContainText(
