@@ -5,6 +5,7 @@ import { useConsoleStore } from '../../stores/consoleStore';
 import { useResultStore } from '../../stores/resultStore';
 import { answerColumnBand } from './answerColumnGeometry';
 import '../../i18n/answersCatalog';
+import '../ui/identity.css';
 
 /** Code start, column start and narrowness as one string, so an unchanged layout keeps its snapshot. */
 function readLayout(editor: monacoTypes.editor.IStandaloneCodeEditor): string {
@@ -71,7 +72,7 @@ export function AnswerColumnHeader({
           onClick={() => setShowChanges(!showChanges)}
           data-testid="answer-column-header-changes"
         >
-          <span className="answer-column-header-switch" aria-hidden />
+          <span className="switch-track" aria-hidden />
           {t('answers.header.changes', { number: since })}
         </button>
       )}

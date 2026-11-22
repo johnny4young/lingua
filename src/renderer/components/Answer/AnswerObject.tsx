@@ -26,6 +26,10 @@ interface AnswerChrome {
   /** Values only, no picture: several answers sharing one row. */
   readonly compact?: boolean;
   readonly hideTag?: boolean;
+  /** One line: the text ends in an ellipsis instead of wrapping. */
+  readonly oneLine?: boolean;
+  /** Muted text with no colour by type, for values that are not the current answer. */
+  readonly muted?: boolean;
   readonly 'data-testid'?: string;
 }
 
@@ -63,7 +67,7 @@ interface AnswerObjectViewProps extends AnswerChrome {
 }
 
 /** Draws an answer already read. */
-function AnswerObjectView({ model, compact = false, hideTag = false, 'data-testid': testId }: AnswerObjectViewProps) {
+function AnswerObjectView({ model, compact = false, hideTag = false, oneLine = false, muted = false, 'data-testid': testId }: AnswerObjectViewProps) {
   const { t } = useTranslation();
   const picture = compact ? undefined : model.picture;
   const value = replaceUnsafeText(compact && !model.value ? model.summary : model.value);
@@ -85,6 +89,8 @@ function AnswerObjectView({ model, compact = false, hideTag = false, 'data-testi
       data-kind={model.kind}
       data-tone={model.tone}
       data-picture={picture?.kind}
+      data-one-line={oneLine || undefined}
+      data-muted={muted || undefined}
       data-testid={testId ?? 'answer-object'}
     >
       {hideTag || !model.tag ? null : (

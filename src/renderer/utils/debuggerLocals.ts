@@ -92,22 +92,49 @@ interface Pause {
   readonly tabId: string;
   readonly line: number;
   readonly locals: Locals;
+  readonly depth: number;
+  readonly frame?: string;
 }
 
 /**
- * Inline values for a pause: the locals the paused line names, and what the
- * last step changed after the line it stepped from.
+ * Inline values for a pause. The paused line shows the locals it names, held
+ * before it runs. The line the last pause stopped on shows what changed since,
+ * or, when that pause was in another frame, the values it read there with the
+ * depth they came from. With `compare`, a changed value carries the one it replaced.
  */
-export function pausedLineResults(frame: Pause, previous: Pause | null, code: string, language: string): LineResult[] {
+export function pausedLineResults(frame: Pause, previous: Pause | null, code: string, language: string, compare = true): LineResult[] {
   const lines = code.split('\n');
-  const byLine = new Map<number, string[]>();
-  const add = (line: number, names: Iterable<string>) => {
-    if (!Number.isInteger(line) || line < 1 || line > lines.length) return;
-    const list = byLine.get(line) ?? [];
-    for (const name of names) if (!list.includes(name)) list.push(name);
-    if (list.length > 0) byLine.set(line, list);
+  const inRange = (line: number) => Number.isInteger(line) && line >= 1 && line <= lines.length;
+  const results: LineResult[] = [];
+  const before = previous?.tabId === frame.tabId ? previous : null;
+  const sameFrame = before !== null && before.depth === frame.depth && before.frame === frame.frame;
+  // Only the same function's locals can be compared; a recursive call of it can.
+  const comparable = compare && before !== null && before.frame === frame.frame;
+  const withPrevious = (name: string, value: string): Pick<LineResult, 'previous'> => {
+    const old = comparable ? before.locals[name] : undefined;
+    return old !== undefined && old !== value ? { previous: old } : {};
   };
-  add(frame.line, localsOnLine(lines[frame.line - 1] ?? '', frame.locals, language));
-  if (previous?.tabId === frame.tabId) add(previous.line, localsChanges(previous.locals, frame.locals).keys());
-  return [...byLine].flatMap(([line, names]) => names.map((name) => ({ line, name, value: frame.locals[name]!, type: 'log' as const })));
+  const shown = new Set<string>();
+  if (inRange(frame.line)) {
+    for (const name of localsOnLine(lines[frame.line - 1]!, frame.locals, language)) {
+      const value = frame.locals[name]!;
+      shown.add(`${frame.line}:${name}`);
+      results.push({ line: frame.line, name, value, type: 'log', held: true, ...withPrevious(name, value) });
+    }
+  }
+  if (before && inRange(before.line)) {
+    if (sameFrame) {
+      for (const name of localsChanges(before.locals, frame.locals).keys()) {
+        if (shown.has(`${before.line}:${name}`)) continue;
+        const value = frame.locals[name]!;
+        results.push({ line: before.line, name, value, type: 'log', ...withPrevious(name, value) });
+      }
+    } else {
+      for (const name of localsOnLine(lines[before.line - 1]!, before.locals, language)) {
+        if (shown.has(`${before.line}:${name}`)) continue;
+        results.push({ line: before.line, name, value: before.locals[name]!, type: 'log', depth: before.depth });
+      }
+    }
+  }
+  return results;
 }

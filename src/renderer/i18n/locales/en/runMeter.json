@@ -20,5 +20,20 @@
   "runMeter.bar.timeout": "Run {{number}}, timed out",
   "runMeter.bar.stopped": "Run {{number}}, stopped",
   "runMeter.bar.live": "Run {{number}}, running",
-  "runMeter.bar.open": "{{label}}. Open in recent runs"
+  "runMeter.bar.open": "{{label}}. Open in recent runs",
+  "runMeter.reason.user-breakpoint": "breakpoint",
+  "runMeter.reason.step": "step",
+  "runMeter.reason.exception": "exception",
+  "runMeter.pausedLineUnit": "line",
+  "runMeter.inFunction": "in {{name}}",
+  "runMeter.topLevel": "at the top level",
+  "runMeter.visit.1": "first visit",
+  "runMeter.visit.2": "second visit",
+  "runMeter.visit.3": "third visit",
+  "runMeter.visit.n": "visit {{count}}",
+  "runMeter.callStack_one": "Call stack · 1 deep",
+  "runMeter.callStack_other": "Call stack · {{count}} deep",
+  "runMeter.callStackMore_one": "+{{count}} outer call",
+  "runMeter.callStackMore_other": "+{{count}} outer calls",
+  "runMeter.topLevelFrame": "(top level)"
 }

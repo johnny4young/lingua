@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { LineResult } from '../../stores/resultStore';
 import { replaceUnsafeText } from '../../utils/unsafeText';
 import { AnswerObject } from '../Answer/AnswerObject';
-import { AnswerDeltaChip } from '../Answer/AnswerDeltaChip';
+import { AnswerDeltaChip, AnswerWasChip } from '../Answer/AnswerDeltaChip';
 import type { AnswerDelta } from '../Answer/answerDelta';
 import type { AnswerRole } from '../Answer/answerObjectModel';
 import { DotLeader } from '../ui/answer';
@@ -56,13 +56,24 @@ export function InlineAnswerLine({ items, timing, language, source, change }: In
   const visible = repeat ? items.slice(-1) : items.slice(0, MAX_ITEMS_PER_LINE);
   const dropped = repeat ? 0 : items.length - visible.length;
   const single = visible.length === 1;
+  // Values read at one earlier depth share one chip at the end of the line.
+  const lineDepth = visible.length > 0 && visible.every(item => item.depth === visible[0]!.depth) ? visible[0]!.depth : undefined;
   return (
     <>
       {visible.length > 0 ? <DotLeader className="lingua-inline-result-leader" /> : null}
       <span className="lingua-inline-result-body">
+        {visible.some(result => result.held) ? (
+          <span className="type-tag lingua-inline-result-held" title={t('answers.paused.heldHint')} data-testid="lingua-inline-result-held">
+            {t('answers.paused.held')}
+          </span>
+        ) : null}
         {visible.map((result, index) => (
           <Fragment key={index}>
-            <span className="lingua-inline-result-part" data-result-kind={result.type}>
+            <span
+              className="lingua-inline-result-part"
+              data-result-kind={result.type}
+              data-depth={result.depth}
+            >
               {result.type === 'watch' ? <span className="lingua-inline-result-watch">{WATCH_MARK}</span> : null}
               {result.name ? <span className="lingua-inline-result-name">{`${replaceUnsafeText(result.name)}:`}</span> : null}
               <AnswerObject
@@ -73,7 +84,10 @@ export function InlineAnswerLine({ items, timing, language, source, change }: In
                 source={single ? source : undefined}
                 compact={!single}
                 hideTag={Boolean(result.name)}
+                muted={result.depth !== undefined}
               />
+              {result.previous !== undefined ? <AnswerWasChip value={result.previous} /> : null}
+              {result.depth !== undefined && lineDepth === undefined ? <DepthChip label={t('answers.paused.depth', { depth: result.depth })} /> : null}
             </span>
             {index < visible.length - 1 ? <span className="lingua-inline-result-separator">·</span> : null}
           </Fragment>
@@ -88,6 +102,7 @@ export function InlineAnswerLine({ items, timing, language, source, change }: In
             +{dropped}
           </span>
         ) : null}
+        {lineDepth !== undefined ? <DepthChip label={t('answers.paused.depth', { depth: lineDepth })} /> : null}
         {change ? <AnswerDeltaChip delta={change.delta} since={change.since} /> : null}
         {timing ? (
           <span className="lingua-inline-result-timing" data-testid="lingua-inline-timing" data-slowest={timing.slowest ? 'true' : undefined}>
@@ -96,5 +111,13 @@ export function InlineAnswerLine({ items, timing, language, source, change }: In
         ) : null}
       </span>
     </>
+  );
+}
+
+function DepthChip({ label }: { readonly label: string }) {
+  return (
+    <span className="lingua-inline-result-depth" data-testid="lingua-inline-result-depth">
+      {label}
+    </span>
   );
 }

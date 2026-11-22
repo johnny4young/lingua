@@ -22,5 +22,8 @@
   "answers.delta.down": "down",
   "answers.delta.edited": "edited",
   "answers.delta.items_one": "{{count}} item",
-  "answers.delta.items_other": "{{count}} items"
+  "answers.delta.items_other": "{{count}} items",
+  "answers.paused.held": "held",
+  "answers.paused.heldHint": "Before this line runs",
+  "answers.paused.depth": "depth {{depth}}"
 }

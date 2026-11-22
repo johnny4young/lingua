@@ -14,7 +14,11 @@ beforeEach(() => {
       watches: [],
       session: null,
       pausedFrame: null,
-      drawerCollapsed: false,
+      previousPause: null,
+      lastPause: null,
+      pauseVisits: {},
+      breakpointHits: {},
+      showPauseChanges: true,
     },
     false
   );
@@ -164,20 +168,14 @@ describe('debuggerStore ', () => {
     expect(useDebuggerStore.getState().breakpoints).toBe(before);
   });
 
-  it('toggleDrawerCollapsed flips the drawer state', () => {
-    expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
-    useDebuggerStore.getState().toggleDrawerCollapsed();
-    expect(useDebuggerStore.getState().drawerCollapsed).toBe(true);
-    useDebuggerStore.getState().toggleDrawerCollapsed();
-    expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
-  });
-
-  it('persists drawerCollapsed across reloads', async () => {
-    useDebuggerStore.getState().toggleDrawerCollapsed();
-    await Promise.resolve();
+  it('keeps the changes switch out of persisted state', async () => {
+    useDebuggerStore.getState().setShowPauseChanges(false);
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 3);
     const raw = localStorage.getItem(DEBUGGER_STORAGE_KEY);
-    const parsed = JSON.parse(raw!) as { state: { drawerCollapsed?: boolean } };
-    expect(parsed.state.drawerCollapsed).toBe(true);
+    const parsed = JSON.parse(raw!) as { state: Record<string, unknown> };
+    expect(parsed.state).not.toHaveProperty('showPauseChanges');
+    expect(parsed.state).not.toHaveProperty('drawerCollapsed');
+    expect(useDebuggerStore.getState().showPauseChanges).toBe(false);
   });
 
   it('sanitizes persisted breakpoints and watches during rehydration', async () => {
@@ -276,12 +274,40 @@ describe('debuggerStore ', () => {
     expect(useDebuggerStore.getState().previousPause).toBeNull();
     store.setPausedFrame(null);
     store.setPausedFrame(frame('a', 3));
-    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' } });
+    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' }, watches: {}, depth: 0, frame: '' });
     store.setPausedFrame({ ...frame('a', 3), watchResults: { x: { value: '1' } } });
-    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' } });
+    expect(useDebuggerStore.getState().previousPause).toEqual({ tabId: 'a', line: 2, locals: { line: '2' }, watches: {}, depth: 0, frame: '' });
+    expect(useDebuggerStore.getState().lastPause?.watches).toEqual({ x: '1' });
     store.setPausedFrame(frame('b', 1));
     expect(useDebuggerStore.getState().previousPause).toBeNull();
     store.detachSession();
     expect(useDebuggerStore.getState().lastPause).toBeNull();
+  });
+
+  it('counts visits per line and breakpoint hits for the session, and records depth', () => {
+    const store = useDebuggerStore.getState();
+    const frame = (line: number, reason: 'step' | 'user-breakpoint', depth: number) => ({
+      tabId: 'a',
+      line,
+      reason,
+      locals: {},
+      callStack: Array.from({ length: depth }, (_, index) => ({ functionName: `f${index}`, line: 1 })),
+      watchResults: { 'x + 1': { value: String(line) }, broken: { error: 'nope' } },
+    });
+    store.attachSession({ runtime: 'js', tabId: 'a', attachedAt: 1 });
+    store.setPausedFrame(frame(4, 'user-breakpoint', 1));
+    store.setPausedFrame(frame(4, 'user-breakpoint', 1));
+    store.setPausedFrame(null);
+    store.setPausedFrame(frame(5, 'step', 1));
+    store.setPausedFrame(null);
+    store.setPausedFrame(frame(4, 'user-breakpoint', 2));
+    const state = useDebuggerStore.getState();
+    expect(state.pauseVisits).toEqual({ 'a:4': 2, 'a:5': 1 });
+    expect(state.breakpointHits).toEqual({ 'a:4': 2 });
+    expect(state.lastPause).toMatchObject({ depth: 2, watches: { 'x + 1': '4' } });
+    expect(state.previousPause).toMatchObject({ line: 5, depth: 1 });
+    store.detachSession();
+    expect(useDebuggerStore.getState().pauseVisits).toEqual({});
+    expect(useDebuggerStore.getState().breakpointHits).toEqual({});
   });
 });

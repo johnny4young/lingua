@@ -83,6 +83,12 @@ export interface LineResult {
    * the console panel widget plugs in later.
    */
   payload?: RichOutputPayload;
+  /** Paused values only: what the variable held at the previous pause, when it differs. */
+  previous?: string;
+  /** Paused values only: read at an earlier pause in a frame this many calls deep. */
+  depth?: number;
+  /** Paused values only: read on the paused line, before it runs. */
+  held?: boolean;
 }
 
 export type StickyLineResult = LineResult & {

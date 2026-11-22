@@ -12,11 +12,18 @@ const source = ['const a = 1;', 'const b = 2;', '', 'console.log(a + b);', 'cons
 type Decoration = { range: { line: number }; options: Record<string, string> };
 
 class FakeModel {
-  decorations: Decoration[] = [];
+  collections = new Map<object, Decoration[]>();
   constructor(public lines: string[]) {}
   getLinesContent = () => this.lines;
+  get decorations(): Decoration[] {
+    return [...this.collections.values()].flat();
+  }
+  private classes = (held: boolean) =>
+    this.decorations.filter(({ options }) => (options.linesDecorationsClassName === 'lingua-rail-hold') === held);
   /** The rail class of each decorated line. */
-  rail = () => Object.fromEntries(this.decorations.map(({ range, options }) => [range.line, options.linesDecorationsClassName]));
+  rail = () => Object.fromEntries(this.classes(false).map(({ range, options }) => [range.line, options.linesDecorationsClassName]));
+  /** Lines holding the paused ring. */
+  held = () => this.classes(true).map(({ range }) => range.line);
 }
 
 /** Like Monaco, a collection writes to the current model and a detached model loses the editor's marks. */
@@ -30,18 +37,19 @@ function fakeEditor(model: FakeModel) {
       return { dispose: () => listeners.splice(listeners.indexOf(listener), 1) };
     },
     createDecorationsCollection: (initial: Decoration[]) => {
-      current.decorations = initial;
+      const key = {};
+      current.collections.set(key, initial);
       return {
         set: (next: Decoration[]) => {
-          current.decorations = next;
+          current.collections.set(key, next);
         },
         clear: () => {
-          current.decorations = [];
+          current.collections.delete(key);
         },
       };
     },
     swap(next: FakeModel) {
-      current.decorations = [];
+      current.collections.clear();
       current = next;
       for (const listener of listeners) listener();
     },
@@ -167,6 +175,19 @@ describe('PulseRailHost', () => {
     act(() => useDebuggerStore.setState({ pausedFrame: { tabId: 't1', line: 2 } as never }));
     render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);
     expect(model.rail()[2]).toBe('lingua-rail lingua-rail--paused');
+    expect(model.held()).toEqual([2]);
+  });
+
+  it('moves the held ring with the pause while the rail is stale', () => {
+    const model = new FakeModel(source);
+    publishRun([]);
+    act(() => useDebuggerStore.setState({ pausedFrame: { tabId: 't1', line: 2 } as never }));
+    render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" stale />);
+    expect(model.held()).toEqual([2]);
+    act(() => useDebuggerStore.setState({ pausedFrame: { tabId: 't1', line: 4 } as never }));
+    expect(model.held()).toEqual([4]);
+    act(() => useDebuggerStore.setState({ pausedFrame: null }));
+    expect(model.held()).toEqual([]);
   });
 
   it('sends the pulse down the rail once per new run, then leaves the ticks lit', () => {

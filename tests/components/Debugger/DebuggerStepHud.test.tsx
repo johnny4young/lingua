@@ -1,3 +1,4 @@
+import { DEBUGGER_HUD_HEIGHT, stepHudLine } from '@/components/Debugger/debuggerHudGeometry';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -74,9 +75,13 @@ describe('step HUD', () => {
     render(<DebuggerStepHud editor={fake.editor} monaco={fake.monaco} tabId="t1" />);
     expect(fake.zones).toHaveLength(0);
     pause(3);
-    expect(fake.zones).toEqual([expect.objectContaining({ afterLineNumber: 3, heightInPx: 38 })]);
+    expect(fake.zones).toEqual([expect.objectContaining({ afterLineNumber: 3, ordinal: 0, heightInPx: DEBUGGER_HUD_HEIGHT })]);
     expect(fake.widgets[0]?.getPosition()).toEqual({ position: { lineNumber: 3, column: 1 }, preference: [2] });
-    expect(screen.getByRole('toolbar', { name: 'Debugger controls' }).textContent).toContain('Paused · line 3');
+    const toolbar = screen.getByRole('toolbar', { name: 'Debugger controls' });
+    // The run meter says where the run is held; the HUD only steps, with Continue as its primary action.
+    expect(toolbar.textContent).not.toContain('line 3');
+    expect(screen.getByTestId('debugger-hud-continue').dataset.primary).toBe('true');
+    expect(toolbar.querySelectorAll('button')).toHaveLength(5);
   });
 
   it('steps from the HUD and only offers Step out inside a function', async () => {
@@ -91,6 +96,17 @@ describe('step HUD', () => {
     expect(screen.getByTestId('debugger-hud-step-out').hasAttribute('disabled')).toBe(false);
   });
 
+  it('runs to the end by clearing breakpoints before resuming', async () => {
+    const fake = fakeEditor();
+    render(<DebuggerStepHud editor={fake.editor} monaco={fake.monaco} tabId="t1" />);
+    pause(3);
+    vi.mocked(postDebuggerMessage).mockClear();
+    await userEvent.click(screen.getByTestId('debugger-hud-run-to-end'));
+    expect(postDebuggerMessage).toHaveBeenNthCalledWith(1, { type: 'set-breakpoints', breakpoints: [] });
+    expect(postDebuggerMessage).toHaveBeenNthCalledWith(2, { type: 'resume' });
+    expect(useDebuggerStore.getState().session).toBeNull();
+  });
+
   it('follows the paused line when an edit above it moves the row', () => {
     const fake = fakeEditor();
     render(<DebuggerStepHud editor={fake.editor} monaco={fake.monaco} tabId="t1" />);
@@ -99,6 +115,10 @@ describe('step HUD', () => {
     act(() => fake.edit.current?.());
     expect(fake.editor.layoutContentWidget).toHaveBeenCalledTimes(1);
     expect(fake.widgets[0]?.getPosition()?.position).toEqual({ lineNumber: 4, column: 1 });
+    // Answers placed under a line read where the HUD row sits now, not the paused frame's line.
+    expect(stepHudLine(fake.editor)).toBe(4);
+    act(() => useDebuggerStore.getState().setPausedFrame(null));
+    expect(stepHudLine(fake.editor)).toBeNull();
   });
 
   it('stays away from another tab', () => {

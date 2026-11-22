@@ -8,7 +8,7 @@ import { useEntitlement } from '../../hooks/useEntitlement';
 import { useRunStale } from '../../hooks/useRunStale';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { setRecentRunsPopoverOpener } from '../../runtime/recentRunsPopoverBridge';
-import { useDebuggerStore } from '../../stores/debuggerStore';
+import { bpKey, useDebuggerStore } from '../../stores/debuggerStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { type ExecutionHistoryEntry, useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { type TabRunLog, useResultStore } from '../../stores/resultStore';
@@ -22,6 +22,8 @@ import { RunDot } from '../ui/RunStateGlyph';
 import { WorkspaceTag } from '../ui/ResultHeader';
 import type { TabRunState } from '../ui/runState';
 import { RunMeterHistory } from './RunMeterHistory';
+import { RunMeterStack } from './RunMeterStack';
+import { pausedFunctionName, stackRows } from '../../utils/debuggerStack';
 import { type MeterBar, type MeterState, meterBars, meterState } from './runMeterModel';
 import './RunMeter.css';
 
@@ -42,6 +44,19 @@ function lineCount(text: string): number {
   let count = 1;
   for (let at = text.indexOf('\n'); at !== -1; at = text.indexOf('\n', at + 1)) count += 1;
   return count;
+}
+
+type Translate = ReturnType<typeof useTranslation>['t'];
+
+/** The function the pause is in; JS top level and Python's module read as the top level. */
+function whereLabel(t: Translate, stack: Parameters<typeof pausedFunctionName>[0]): string {
+  const name = pausedFunctionName(stack);
+  return name ? t('runMeter.inFunction', { name }) : t('runMeter.topLevel');
+}
+
+/** Which time this line has paused in the session, in words for the first three. */
+function visitLabel(t: Translate, visits: number): string {
+  return visits >= 1 && visits <= 3 ? t(`runMeter.visit.${visits}`) : t('runMeter.visit.n', { count: visits });
 }
 
 type PopoverState = { tabId: string; focusId?: string } | null;
@@ -87,7 +102,12 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
       log: state.tabRuns[tabId] ?? EMPTY_LOG,
     }))
   );
+  // Separate fields, so a watch sync that replaces the frame object does not re-render the meter.
   const pausedLine = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.line : null));
+  const pauseReason = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.reason : null));
+  const callStack = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.callStack : null));
+  const runtime = useDebuggerStore(state => state.session?.runtime ?? null);
+  const visits = useDebuggerStore(state => (pausedLine === null ? 0 : (state.pauseVisits[bpKey(tabId, pausedLine)] ?? 1)));
 
   const showCountdown = useSettingsStore(state => state.showTimeoutCountdown);
   const { stale } = useRunStale();
@@ -112,8 +132,9 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
   const numeral = splitRunDuration(live ? elapsedMs : (last?.durationMs ?? null));
   const bars = meterBars(log.runs, live && elapsedMs !== null ? { number, elapsedMs } : null);
   const countdown = state === 'running' && showCountdown && deadlineAt !== null ? formatCountdown(deadlineAt - now) : null;
-  const line =
-    state === 'paused' ? pausedLine : state === 'error' || state === 'timeout' ? (last?.line ?? null) : null;
+  // While paused the numeral is the line, so only an error names it in the state row.
+  const line = state === 'error' || state === 'timeout' ? (last?.line ?? null) : null;
+  const stack = useMemo(() => (callStack ? stackRows(callStack, runtime) : []), [callStack, runtime]);
   // The buffer is only scanned while a line is on show, so typing never pays for it.
   const totalLines = useEditorStore(state =>
     line === null ? 0 : lineCount(state.tabs.find(tab => tab.id === tabId)?.content ?? '')
@@ -202,7 +223,9 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
         >
           <RunDot state={DOT[state] as TabRunState} />
           <span className="run-meter-state-name">{t(`runMeter.state.${state}`)}</span>
-          {number > 0 ? <span className="run-meter-state-detail">· {t('runMeter.run', { number })}</span> : null}
+          {pauseReason ? <span className="run-meter-state-detail">· {t(`runMeter.reason.${pauseReason}`)}</span> : null}
+          {/* Paused, the reason takes the run's place; the answer column header still names the run. */}
+          {number > 0 && !paused ? <span className="run-meter-state-detail">· {t('runMeter.run', { number })}</span> : null}
           {line !== null ? (
             <span className="run-meter-state-detail">· {t('runMeter.line', { line, total: Math.max(line, totalLines) })}</span>
           ) : null}
@@ -210,6 +233,18 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
           {stateTitle ? <span className="sr-only">{stateTitle}</span> : null}
         </div>
       </div>
+      {pausedLine !== null ? (
+        <>
+          <div className="run-meter-numeral run-meter-numeral--paused" data-testid="run-meter-paused-line" data-line={pausedLine}>
+            <ResultNumeral size="xl" value={pausedLine} unit={t('runMeter.pausedLineUnit')} />
+            <span className="run-meter-where">
+              <span>{whereLabel(t, stack)}</span>
+              <span data-testid="run-meter-visit">{visitLabel(t, visits)}</span>
+            </span>
+          </div>
+          <RunMeterStack rows={stack} />
+        </>
+      ) : (
       <div className="run-meter-numeral">
         <ResultNumeral
           size="xl"
@@ -219,7 +254,8 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
           {...(numeral.unit ? { 'data-testid': 'dock-execution-time' } : {})}
         />
       </div>
-      {bars.length > 0 ? (
+      )}
+      {!paused && bars.length > 0 ? (
         <div className="run-meter-bars" role="group" aria-label={t('runMeter.bars')} data-testid="run-meter-bars">
           {bars.map(bar => {
             const label = barLabel(bar);
@@ -267,7 +303,7 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
           })}
         </div>
       ) : null}
-      {number > 0 || allEntries.length > 0 ? (
+      {!paused && (number > 0 || allEntries.length > 0) ? (
         <div className="run-meter-foot">
           <RunMeterHistory label={t('runMeter.runs', { count: number })} />
           {onCompare && compareWith !== null ? (

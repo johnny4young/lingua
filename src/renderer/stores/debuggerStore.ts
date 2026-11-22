@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
+import { pauseDepth } from '../utils/debuggerStack';
 
 /**
  * Debugger state machine store.
@@ -114,11 +115,17 @@ export interface PausedFrame {
   conditionError?: string;
 }
 
-/** Where and with which locals a session last paused, so the next pause can show what changed. */
+/** Where and with which values a session last paused, so the next pause can show what changed. */
 interface PauseSnapshot {
   tabId: string;
   line: number;
   locals: Record<string, string>;
+  /** Watch values by expression; errors and pending results are left out. */
+  watches: Record<string, string>;
+  /** Calls deep, outermost frame 0. */
+  depth: number;
+  /** The paused function's name, so a sibling call at the same depth is not the same frame. */
+  frame: string;
 }
 
 interface DebuggerSession {
@@ -153,12 +160,12 @@ export interface DebuggerState {
   previousPause: PauseSnapshot | null;
   /** The latest pause, kept while execution runs to the next one. */
   lastPause: PauseSnapshot | null;
-  /**
-   * Drawer collapse state. Persists across reloads
-   * (folded users want it folded when they reopen) but defaults to
-   * expanded so first-time users discover the panel.
-   */
-  drawerCollapsed: boolean;
+  /** Pauses per `${tabId}:${line}` this session, any reason. */
+  pauseVisits: Record<string, number>;
+  /** Breakpoint pauses per `${tabId}:${line}` this session. */
+  breakpointHits: Record<string, number>;
+  /** Whether paused values show the value they replaced; session-only, on by default. */
+  showPauseChanges: boolean;
 
   // Mutators — breakpoints
   toggleBreakpoint: (tabId: string, line: number) => void;
@@ -189,11 +196,16 @@ export interface DebuggerState {
     results: Record<string, { value?: string; error?: string; pending?: boolean }>
   ) => void;
 
-  // Mutators — drawer collapse.
-  toggleDrawerCollapsed: () => void;
+  setShowPauseChanges: (show: boolean) => void;
 }
 
-function bpKey(tabId: string, line: number): string {
+/** The previous pause when its values can be compared with the one on screen: changes on, same function. */
+export function comparablePreviousPause(state: DebuggerState): PauseSnapshot | null {
+  const { previousPause, lastPause, showPauseChanges } = state;
+  return showPauseChanges && previousPause && lastPause && previousPause.frame === lastPause.frame ? previousPause : null;
+}
+
+export function bpKey(tabId: string, line: number): string {
   return `${tabId}:${line}`;
 }
 
@@ -282,6 +294,22 @@ function sanitizeWatches(value: unknown): WatchExpression[] {
   return watches;
 }
 
+const EMPTY_SESSION_STATE = {
+  pausedFrame: null,
+  previousPause: null,
+  lastPause: null,
+  pauseVisits: {},
+  breakpointHits: {},
+} satisfies Partial<DebuggerState>;
+
+function watchValues(results: PausedFrame['watchResults']): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [expression, result] of Object.entries(results)) {
+    if (result.value !== undefined && result.error === undefined) values[expression] = result.value;
+  }
+  return values;
+}
+
 let monotonicWatchId = 0;
 function nextWatchId(): string {
   monotonicWatchId += 1;
@@ -298,7 +326,9 @@ export const useDebuggerStore = create<DebuggerState>()(
       pausedFrame: null,
       previousPause: null,
       lastPause: null,
-      drawerCollapsed: false,
+      pauseVisits: {},
+      breakpointHits: {},
+      showPauseChanges: true,
 
       toggleBreakpoint: (tabId, line) => {
         if (typeof tabId !== 'string' || tabId.length === 0 || !isPositiveLine(line)) {
@@ -457,11 +487,11 @@ export const useDebuggerStore = create<DebuggerState>()(
       },
 
       attachSession: (session) => {
-        set({ session, pausedFrame: null, previousPause: null, lastPause: null });
+        set({ session, ...EMPTY_SESSION_STATE });
       },
 
       detachSession: () => {
-        set({ session: null, pausedFrame: null, previousPause: null, lastPause: null });
+        set({ session: null, ...EMPTY_SESSION_STATE });
       },
 
       setPausedFrame: (frame) => {
@@ -470,16 +500,28 @@ export const useDebuggerStore = create<DebuggerState>()(
           return;
         }
         set((state) => {
-          const snapshot = { tabId: frame.tabId, line: frame.line, locals: frame.locals };
+          const snapshot: PauseSnapshot = {
+            tabId: frame.tabId,
+            line: frame.line,
+            locals: frame.locals,
+            watches: watchValues(frame.watchResults),
+            depth: pauseDepth(frame.callStack, state.session?.runtime),
+            frame: frame.callStack[0]?.functionName ?? '',
+          };
           // A refresh of the pause on screen (a watch sync) keeps the pause it is compared with.
           const current = state.pausedFrame;
           if (current && current.tabId === frame.tabId && current.line === frame.line) {
             return { pausedFrame: frame, lastPause: snapshot };
           }
+          const key = bpKey(frame.tabId, frame.line);
           return {
             pausedFrame: frame,
             previousPause: state.lastPause?.tabId === frame.tabId ? state.lastPause : null,
             lastPause: snapshot,
+            pauseVisits: { ...state.pauseVisits, [key]: (state.pauseVisits[key] ?? 0) + 1 },
+            ...(frame.reason === 'user-breakpoint'
+              ? { breakpointHits: { ...state.breakpointHits, [key]: (state.breakpointHits[key] ?? 0) + 1 } }
+              : {}),
           };
         });
       },
@@ -508,12 +550,13 @@ export const useDebuggerStore = create<DebuggerState>()(
           if (!state.pausedFrame) return state;
           return {
             pausedFrame: { ...state.pausedFrame, watchResults: results },
+            ...(state.lastPause ? { lastPause: { ...state.lastPause, watches: watchValues(results) } } : {}),
           };
         });
       },
 
-      toggleDrawerCollapsed: () => {
-        set((state) => ({ drawerCollapsed: !state.drawerCollapsed }));
+      setShowPauseChanges: (show) => {
+        set({ showPauseChanges: show });
       },
     }),
     {
@@ -528,7 +571,6 @@ export const useDebuggerStore = create<DebuggerState>()(
         breakpoints: state.breakpoints,
         breakpointOrder: state.breakpointOrder,
         watches: state.watches,
-        drawerCollapsed: state.drawerCollapsed,
       }),
       merge: (persisted, current) => {
         if (!persisted || typeof persisted !== 'object') return current;
@@ -543,10 +585,6 @@ export const useDebuggerStore = create<DebuggerState>()(
           breakpoints,
           breakpointOrder,
           watches,
-          drawerCollapsed:
-            typeof candidate.drawerCollapsed === 'boolean'
-              ? candidate.drawerCollapsed
-              : current.drawerCollapsed,
         };
       },
     }

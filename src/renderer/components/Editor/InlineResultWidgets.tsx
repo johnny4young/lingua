@@ -1,3 +1,4 @@
+import { DEBUGGER_HUD_HEIGHT, stepHudLine } from '../Debugger/debuggerHudGeometry';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
@@ -160,7 +161,9 @@ function sameAnswers(a: readonly LineResult[], b: readonly LineResult[]): boolea
 }
 
 function answerSignature(items: readonly LineResult[]): string {
-  return items.map(item => `${item.type}\u0000${item.name ?? ''}\u0000${item.value}`).join('\u0001');
+  return items
+    .map(item => `${item.type}\u0000${item.name ?? ''}\u0000${item.value}\u0000${item.previous ?? ''}\u0000${item.depth ?? ''}`)
+    .join('\u0001');
 }
 
 function newlineCount(text: string): number {
@@ -466,11 +469,13 @@ function useInlineResultWidgets(
       }
       // Adding a zone moves subsequent lines; read positions after the batch.
       const scrollTop = editor.getScrollTop();
+      // The step HUD's row comes first under the line it holds.
+      const hudLine = stepHudLine(editor);
       for (const widget of widgetsRef.current.values()) {
         if (widget.domNode.style.visibility === 'hidden') continue;
         const top =
           widget.zone && widget.below
-            ? editor.getBottomForLineNumber(widget.zone.line)
+            ? editor.getBottomForLineNumber(widget.zone.line) + (widget.zone.line === hudLine ? DEBUGGER_HUD_HEIGHT : 0)
             : editor.getTopForLineNumber(widget.line);
         widget.domNode.style.top = `${top - scrollTop}px`;
       }
@@ -504,6 +509,7 @@ function useInlineResultWidgets(
     lineEndReserveRef.current = lineEndReserve;
     scheduleReposition();
   }, [lineEndReserve?.line, lineEndReserve?.width, scheduleReposition]);
+
 
   // Wire scroll + layout listeners. Disposed on unmount / tab swap.
   useEffect(() => {

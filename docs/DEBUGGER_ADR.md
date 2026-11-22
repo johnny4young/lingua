@@ -213,6 +213,15 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   chevron that persists the collapsed state (B); the
   `debugger.detached` event joins the ADR-named pair so dashboards
   can compute median session length (E).
+- **Held pulse 2026-11-22.** The step HUD under the paused line is the only
+  step bar; the Debugger tab drops its header, step buttons and collapse
+  chevron and shows Locals, Watch and Breakpoints side by side. The run meter
+  shows the paused line, its frame, the session's visit count and the call
+  stack as a staircase; the rail holds a ring on the paused line. Pause
+  snapshots record watch values and depth so values that changed since the
+  last pause show the old one struck through, and values read in another
+  frame are tagged with their depth. Visit and breakpoint hit counts are
+  renderer-side session state; no runtime protocol changed.
 - **Layout note 2026-10-20.** The inline-results column this ADR keeps visible
   was removed: the Debugger is a tab of the single results dock under a
   full-width editor, and inline values stay in the editor.

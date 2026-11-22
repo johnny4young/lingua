@@ -1,4 +1,3 @@
-import { ArrowDownToDot, ArrowUpFromDot, ChevronsRight, Redo, Zap, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
@@ -8,8 +7,10 @@ import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import type { ShortcutId } from '../../data/keyboardShortcuts';
 import { useDebuggerControls } from './useDebuggerControls';
 import { useLineWidget } from '../Editor/useLineWidget';
+import { DEBUGGER_HUD_HEIGHT, setStepHudLine } from './debuggerHudGeometry';
+import { Glyph } from '../ui/Glyph';
+import type { GlyphName } from '../ui/glyphSet';
 
-const HUD_HEIGHT = 38;
 const HUD_ID = 'lingua.debugger.stepHud';
 
 export interface DebuggerStepHudProps {
@@ -19,8 +20,9 @@ export interface DebuggerStepHudProps {
 }
 
 /**
- * The step controls under the paused line: a row reserved below it so no code
- * is covered, and a toolbar in that row.
+ * The only step bar: a row reserved under the paused line so no code is
+ * covered, and the toolbar in that row. Where and how deep the pause is lives
+ * in the run meter.
  */
 export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps) {
   const { t } = useTranslation();
@@ -32,9 +34,16 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
     if (!editor || !monaco || line === null) return;
     let zoneId = '';
     editor.changeViewZones((accessor) => {
-      zoneId = accessor.addZone({ afterLineNumber: line, heightInPx: HUD_HEIGHT, domNode: document.createElement('div'), suppressMouseDown: true });
+      // Ordinal 0 keeps this row above an answer's row under the same line.
+      zoneId = accessor.addZone({ afterLineNumber: line, ordinal: 0, heightInPx: DEBUGGER_HUD_HEIGHT, domNode: document.createElement('div'), suppressMouseDown: true });
     });
-    return () => editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
+    const tracker = editor.createDecorationsCollection([{ range: new monaco.Range(line, 1, line, 1), options: {} }]);
+    setStepHudLine(editor, () => tracker.getRange(0)?.startLineNumber ?? line);
+    return () => {
+      setStepHudLine(editor, null);
+      tracker.clear();
+      editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
+    };
   }, [editor, monaco, line]);
   // Edits move the reserved row, so the toolbar follows the line.
   useLineWidget(editor, monaco, line, node, { id: HUD_ID, placement: 'below' });
@@ -45,16 +54,13 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
       role="toolbar"
       aria-label={t('debugger.hud.label')}
       data-testid="debugger-step-hud"
-      className="mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-border-strong bg-bg-panel p-1 shadow-e2"
+      className="mt-1.5 inline-flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border border-border-strong bg-bg-panel p-1 shadow-e2"
     >
-      <span className="mx-1 rounded-sm bg-accent-tint px-1.5 py-0.5 text-micro font-semibold uppercase tracking-wide text-accent-fg">
-        {t('debugger.hud.paused', { line })}
-      </span>
-      <HudButton icon={ChevronsRight} label={t('debugger.actions.continue')} hint={t('debugger.actions.continueHint')} shortcut="debugger-continue" onClick={resume} testid="debugger-hud-continue" />
-      <HudButton icon={Redo} label={t('debugger.actions.stepOver')} hint={t('debugger.actions.stepOverHint')} shortcut="debugger-step-over" onClick={() => step('over')} testid="debugger-hud-step-over" />
-      <HudButton icon={ArrowDownToDot} label={t('debugger.actions.stepInto')} hint={t('debugger.actions.stepIntoHint')} shortcut="debugger-step-into" onClick={() => step('into')} testid="debugger-hud-step-into" />
+      <HudButton primary glyph="continue" label={t('debugger.actions.continue')} hint={t('debugger.actions.continueHint')} shortcut="debugger-continue" onClick={resume} testid="debugger-hud-continue" />
+      <HudButton glyph="stepOver" label={t('debugger.actions.stepOver')} hint={t('debugger.actions.stepOverHint')} shortcut="debugger-step-over" onClick={() => step('over')} testid="debugger-hud-step-over" />
+      <HudButton glyph="stepInto" label={t('debugger.actions.stepInto')} hint={t('debugger.actions.stepIntoHint')} shortcut="debugger-step-into" onClick={() => step('into')} testid="debugger-hud-step-into" />
       <HudButton
-        icon={ArrowUpFromDot}
+        glyph="stepOut"
         label={t('debugger.actions.stepOut')}
         hint={canStepOut ? t('debugger.actions.stepOutHint') : t('debugger.actions.stepOut.disabledHint')}
         shortcut="debugger-step-out"
@@ -62,27 +68,29 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
         disabled={!canStepOut}
         testid="debugger-hud-step-out"
       />
-      <HudButton icon={Zap} label={t('debugger.actions.detach')} hint={t('debugger.actions.detachHint')} onClick={runToEnd} testid="debugger-hud-run-to-end" />
+      <HudButton glyph="runToEnd" label={t('debugger.actions.detach')} hint={t('debugger.actions.detachHint')} onClick={runToEnd} testid="debugger-hud-run-to-end" />
     </div>,
     node
   );
 }
 
 function HudButton({
-  icon: Icon,
+  glyph,
   label,
   hint,
   shortcut,
   onClick,
   disabled = false,
+  primary = false,
   testid,
 }: {
-  icon: LucideIcon;
+  glyph: GlyphName;
   label: string;
   hint: string;
   shortcut?: ShortcutId;
   onClick: () => void;
   disabled?: boolean;
+  primary?: boolean;
   testid: string;
 }) {
   return (
@@ -92,19 +100,28 @@ function HudButton({
       onClick={onClick}
       disabled={disabled}
       data-testid={testid}
-      className="focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md border border-border-subtle bg-bg-panel px-2 text-caption font-medium text-fg-base hover:bg-bg-inset disabled:cursor-not-allowed disabled:opacity-40"
+      data-primary={primary || undefined}
+      className={`focus-ring inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
+        primary ? 'bg-pulse text-pulse-on hover:brightness-110' : 'text-fg-base hover:bg-bg-inset'
+      }`}
     >
-      <Icon size={12} aria-hidden="true" />
+      <Glyph name={glyph} size={14} />
       {label}
-      {shortcut ? <HudKey id={shortcut} /> : null}
+      {shortcut ? <HudKey id={shortcut} primary={primary} /> : null}
     </button>
   );
 }
 
-function HudKey({ id }: { id: ShortcutId }) {
+function HudKey({ id, primary }: { id: ShortcutId; primary: boolean }) {
   const label = useShortcutLabel(id);
   if (!label) return null;
   return (
-    <kbd className="rounded-sm border border-border-subtle bg-bg-inset px-1 font-mono text-micro text-fg-muted">{label}</kbd>
+    <kbd
+      className={`rounded-sm px-1 font-mono text-micro ${
+        primary ? 'bg-black/15 text-pulse-on' : 'border border-border-subtle bg-bg-inset text-fg-muted'
+      }`}
+    >
+      {label}
+    </kbd>
   );
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { changedValuesLabel, localsChanges, localsOnLine, orderedLocals, pausedLineResults } from '../../../src/renderer/utils/debuggerLocals';
+import { pauseDepth, stackRows } from '../../../src/renderer/utils/debuggerStack';
 
 describe('debugger locals diff', () => {
   it('marks nothing on the first pause', () => {
@@ -46,26 +47,73 @@ describe('locals on a line', () => {
 
 describe('paused line results', () => {
   const code = ['let count = 1;', 'const doubled = count * 2;', 'console.log(doubled, count);'].join('\n');
-  const pause = (line: number, locals: Record<string, string>, tabId = 't1') => ({ tabId, line, locals });
+  const pause = (line: number, locals: Record<string, string>, tabId = 't1', depth = 0) => ({ tabId, line, locals, depth });
 
-  it('shows the locals of the paused line on the first pause', () => {
-    expect(pausedLineResults(pause(2, { count: '1' }), null, code, 'javascript')).toEqual([{ line: 2, name: 'count', value: '1', type: 'log' }]);
+  it('holds the locals of the paused line on the first pause', () => {
+    expect(pausedLineResults(pause(2, { count: '1' }), null, code, 'javascript')).toEqual([{ line: 2, name: 'count', value: '1', type: 'log', held: true }]);
   });
 
   it('adds what the step changed on the line it stepped from', () => {
     expect(pausedLineResults(pause(3, { count: '1', doubled: '2' }), pause(2, { count: '1' }), code, 'javascript')).toEqual([
-      { line: 3, name: 'doubled', value: '2', type: 'log' },
-      { line: 3, name: 'count', value: '1', type: 'log' },
+      { line: 3, name: 'doubled', value: '2', type: 'log', held: true },
+      { line: 3, name: 'count', value: '1', type: 'log', held: true },
       { line: 2, name: 'doubled', value: '2', type: 'log' },
     ]);
   });
 
-  it('merges a loop that pauses on the same line, and ignores another tab and lines that are not lines', () => {
+  it('carries the value a local held at the previous pause, unless changes are off', () => {
     expect(pausedLineResults(pause(1, { count: '2', i: '1' }), pause(1, { count: '1' }), code, 'javascript')).toEqual([
-      { line: 1, name: 'count', value: '2', type: 'log' },
+      { line: 1, name: 'count', value: '2', type: 'log', held: true, previous: '1' },
       { line: 1, name: 'i', value: '1', type: 'log' },
     ]);
-    expect(pausedLineResults(pause(2, { count: '2' }), pause(1, { count: '1' }, 't2'), code, 'javascript')).toEqual([{ line: 2, name: 'count', value: '2', type: 'log' }]);
+    expect(pausedLineResults(pause(1, { count: '2' }), pause(1, { count: '1' }), code, 'javascript', false)).toEqual([
+      { line: 1, name: 'count', value: '2', type: 'log', held: true },
+    ]);
+  });
+
+  it('shows the values an earlier pause read in another frame with its depth', () => {
+    expect(pausedLineResults(pause(1, { count: '5' }, 't1', 2), pause(2, { count: '1', doubled: '9' }, 't1', 1), code, 'javascript')).toEqual([
+      { line: 1, name: 'count', value: '5', type: 'log', held: true, previous: '1' },
+      { line: 2, name: 'doubled', value: '9', type: 'log', depth: 1 },
+      { line: 2, name: 'count', value: '1', type: 'log', depth: 1 },
+    ]);
+  });
+
+  it('treats a sibling call at the same depth as another frame, and does not repeat a line the pause holds', () => {
+    const inF = { ...pause(2, { count: '1', doubled: '9' }, 't1', 1), frame: 'f' };
+    const inG = { ...pause(1, { count: '5' }, 't1', 1), frame: 'g' };
+    expect(pausedLineResults(inG, inF, code, 'javascript', false)).toEqual([
+      { line: 1, name: 'count', value: '5', type: 'log', held: true },
+      { line: 2, name: 'doubled', value: '9', type: 'log', depth: 1 },
+      { line: 2, name: 'count', value: '1', type: 'log', depth: 1 },
+    ]);
+    expect(pausedLineResults(pause(2, { count: '2' }, 't1', 2), pause(2, { count: '3' }, 't1', 1), code, 'javascript')).toEqual([
+      { line: 2, name: 'count', value: '2', type: 'log', held: true, previous: '3' },
+    ]);
+  });
+
+  it('strikes a previous value only from the same function', () => {
+    const inF = { ...pause(1, { count: '2' }, 't1', 1), frame: 'f' };
+    const inG = { ...pause(1, { count: '5' }, 't1', 1), frame: 'g' };
+    expect(pausedLineResults(inG, inF, code, 'javascript')).toEqual([{ line: 1, name: 'count', value: '5', type: 'log', held: true }]);
+    expect(pausedLineResults({ ...inF, depth: 2 }, { ...inF, locals: { count: '1' } }, code, 'javascript')[0]).toMatchObject({ previous: '1' });
+  });
+
+  it('ignores another tab and lines that are not lines', () => {
+    expect(pausedLineResults(pause(2, { count: '2' }), pause(1, { count: '1' }, 't2'), code, 'javascript')).toEqual([
+      { line: 2, name: 'count', value: '2', type: 'log', held: true },
+    ]);
     expect(pausedLineResults(pause(9, { count: '2' }), pause(0.5, {}), code, 'javascript')).toEqual([]);
+  });
+});
+
+describe('call stack rows', () => {
+  it('gives the JS top level a row and reads native stacks as reported, outermost first', () => {
+    const stack = [{ functionName: 'inner', line: 4 }, { functionName: 'outer', line: 9 }];
+    expect(stackRows(stack, 'js')).toEqual([{ functionName: '' }, { functionName: 'outer', line: 9 }, { functionName: 'inner', line: 4 }]);
+    expect(pauseDepth(stack, 'js')).toBe(2);
+    expect(stackRows([...stack, { functionName: '<module>', line: 12 }], 'python').map(row => row.functionName)).toEqual(['<module>', 'outer', 'inner']);
+    expect(pauseDepth([], 'python')).toBe(0);
+    expect(pauseDepth([], 'js')).toBe(0);
   });
 });

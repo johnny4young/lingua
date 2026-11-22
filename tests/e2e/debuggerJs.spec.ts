@@ -60,6 +60,15 @@ function inlineValue(page: Page, value: RegExp | string) {
   return page.locator('.lingua-inline-result [data-testid="answer-object-value"]').filter({ hasText: value }).first();
 }
 
+/** The run meter carries where the debugger holds the run. */
+async function expectPausedAt(page: Page, line: number) {
+  await expect(page.getByTestId('run-meter-paused-line')).toHaveAttribute('data-line', String(line));
+}
+
+async function expectLocal(page: Page, name: string, value: string) {
+  await expect(page.getByTestId('debugger-locals').locator(`[data-local="${name}"]`)).toContainText(value);
+}
+
 async function openRunMenu(page: Page) {
   await page.getByTestId('action-pill-run-menu').click();
 }
@@ -104,7 +113,7 @@ test.describe('Debugger ', () => {
     await expect(page.getByTestId('bottom-panel-debugger-count')).toContainText('1');
     await page.getByTestId('bottom-panel-debugger-tab').click();
     await expect(page.getByTestId('debugger-drawer')).toBeVisible();
-    await expect(page.getByTestId('debugger-breakpoint-summary')).toContainText('1/1');
+    await expect(page.getByTestId('debugger-breakpoints').locator('[data-testid^="debugger-breakpoint-line-"]')).toHaveCount(1);
 
     await openRunMenu(page);
     await expect(page.getByTestId('action-pill-workflow-option-debug')).toBeEnabled();
@@ -132,16 +141,16 @@ test.describe('Debugger ', () => {
     await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
 
     await clickDebug(page);
-    await expect(page.getByText(/Paused at line 3/i)).toBeVisible();
+    await expectPausedAt(page, 3);
     await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(1);
-    await expect(page.getByTestId('debugger-locals')).toContainText('value: 21');
-    await expect(page.getByTestId('debugger-locals')).toContainText('doubled: 42');
+    await expectLocal(page, 'value', '21');
+    await expectLocal(page, 'doubled', '42');
 
-    await page.getByTestId('debugger-step-over').click();
-    await expect(page.getByText(/Paused at line 4/i)).toBeVisible();
-    await expect(page.getByTestId('debugger-locals')).toContainText('label: value:42');
+    await page.getByTestId('debugger-hud-step-over').click();
+    await expectPausedAt(page, 4);
+    await expectLocal(page, 'label', 'value:42');
 
-    await page.getByTestId('debugger-continue').click();
+    await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);
     await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
   });
@@ -152,7 +161,7 @@ test.describe('Debugger ', () => {
     await page.keyboard.press('Control+Shift+B');
     await clickDebug(page);
     const hud = page.getByTestId('debugger-step-hud');
-    await expect(hud).toContainText('Paused · line 3');
+    await expectPausedAt(page, 3);
     await page.getByRole('tab', { name: /^Console/ }).click();
     await expect(page.getByTestId('console-paused-summary')).toContainText('Paused at line 3');
     await page.getByTestId('console-paused-summary').getByRole('button', { name: 'Open Debugger' }).click();
@@ -171,10 +180,10 @@ test.describe('Debugger ', () => {
     await expect(pill(3)).toBeVisible();
     await expect(pill(3)).toContainText('doubled:42');
     await page.getByTestId('debugger-hud-step-over').click();
-    await expect(hud).toContainText('Paused · line 4');
+    await expectPausedAt(page, 4);
     await expect(pill(4)).toContainText('label:"value:42"');
     await expect(pill(3)).toContainText('label:"value:42"');
-    await expect(page.getByTestId('debugger-locals').locator('li[data-change="new"]')).toContainText('label: value:42');
+    await expect(page.getByTestId('debugger-locals').locator('[data-local="label"][data-change="new"]')).toContainText('value:42');
     await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);
     await expect(hud).toHaveCount(0);
@@ -189,6 +198,7 @@ test.describe('Debugger ', () => {
     await page.keyboard.press('Control+Shift+B');
     await openConsole(page);
     await page.getByTestId('bottom-panel-debugger-tab').click();
+    await page.getByTestId('debugger-breakpoint-edit-2').click();
     await page.getByTestId('debugger-breakpoint-mode-2').selectOption('conditional');
     await page.getByTestId('debugger-breakpoint-condition-2').fill('count > 10');
 
@@ -205,16 +215,17 @@ test.describe('Debugger ', () => {
     await page.keyboard.press('Control+Shift+B');
     await openConsole(page);
     await page.getByTestId('bottom-panel-debugger-tab').click();
+    await page.getByTestId('debugger-breakpoint-edit-2').click();
     await page.getByTestId('debugger-breakpoint-mode-2').selectOption('conditional');
     await page.getByTestId('debugger-breakpoint-condition-2').fill('missing()');
 
     await clickDebug(page);
 
-    await expect(page.getByText(/Paused at line 2/i)).toBeVisible();
+    await expectPausedAt(page, 2);
     await expect(page.getByTestId('debugger-condition-error')).toContainText(
       'Unsupported syntax: CallExpression'
     );
-    await page.getByTestId('debugger-continue').click();
+    await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);
   });
 
@@ -237,18 +248,18 @@ test.describe('Debugger ', () => {
     await page.keyboard.press('Control+Shift+B');
 
     await clickDebug(page);
-    await expect(page.getByText(/Paused at line 4/i)).toBeVisible();
+    await expectPausedAt(page, 4);
     await expect(inlineValue(page, /^Hello, World!$/)).toBeVisible();
     await expect(page.getByTestId('debugger-locals')).toContainText(
       'No variables are available before this line.'
     );
     await expect(page.getByText(/time limit of 30 s/i)).toHaveCount(0);
 
-    await page.getByTestId('debugger-step-over').click();
-    await expect(page.getByText(/Paused at line 6/i)).toBeVisible();
-    await expect(page.getByTestId('debugger-locals')).toContainText('i: 1');
+    await page.getByTestId('debugger-hud-step-over').click();
+    await expectPausedAt(page, 6);
+    await expectLocal(page, 'i', '1');
 
-    await page.getByTestId('debugger-continue').click();
+    await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);
     await expect(inlineValue(page, /^Hello, World!$/)).toBeVisible();
     await expect(inlineValue(page, /^11$/)).toBeVisible();
@@ -284,19 +295,19 @@ test.describe('Debugger ', () => {
     await page.keyboard.press('Control+Shift+B');
 
     await clickDebug(page);
-    await expect(page.getByText(/Paused at line 11/i)).toBeVisible();
-    await expect(page.getByTestId('debugger-step-out')).toBeDisabled();
+    await expectPausedAt(page, 11);
+    await expect(page.getByTestId('debugger-hud-step-out')).toBeDisabled();
     await expect(inlineValue(page, /^Hello, World!$/)).toBeVisible();
     await expect(inlineValue(page, /^21$/)).toBeVisible();
     await expect(inlineValue(page, /^6$/)).toBeVisible();
 
-    await page.getByTestId('debugger-step-into').click();
-    await expect(page.getByText(/Paused at line 15/i)).toBeVisible();
+    await page.getByTestId('debugger-hud-step-into').click();
+    await expectPausedAt(page, 15);
     await expect(page.getByTestId('debugger-callstack')).toContainText('llamar');
-    await expect(page.getByTestId('debugger-step-out')).toBeEnabled();
-    await expect(page.getByTestId('debugger-locals')).toContainText('i: 1');
+    await expect(page.getByTestId('debugger-hud-step-out')).toBeEnabled();
+    await expectLocal(page, 'i', '1');
 
-    await page.getByTestId('debugger-step-out').click();
+    await page.getByTestId('debugger-hud-step-out').click();
     await waitForRunCompleted(page);
     await expect(inlineValue(page, /^1calling$/)).toBeVisible();
   });
@@ -329,9 +340,7 @@ test.describe('Debugger ', () => {
       await openConsole(esPage);
       await esPage.getByTestId('bottom-panel-debugger-tab').click();
 
-      await expect(esPage.getByTestId('debugger-clear-all-breakpoints')).toContainText(
-        /Limpiar/
-      );
+      await expect(esPage.getByTestId('debugger-clear-all-breakpoints')).toHaveAttribute('aria-label', /Limpiar/);
       await expect(esPage.getByText(/Borra/)).toHaveCount(0);
     } finally {
       await context.close();
@@ -394,11 +403,11 @@ test.describe('Debugger TypeScript smoke ', () => {
     await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
     await clickDebug(page);
 
-    await expect(page.getByText(/Paused at line 3/i)).toBeVisible();
+    await expectPausedAt(page, 3);
     await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(1);
-    await expect(page.getByTestId('debugger-locals')).toContainText('doubled: 42');
+    await expectLocal(page, 'doubled', '42');
 
-    await page.getByTestId('debugger-continue').click();
+    await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);
   });
 });

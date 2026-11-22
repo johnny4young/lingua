@@ -96,6 +96,28 @@
     linear-gradient(-45deg, transparent calc(50% - 1px), var(--color-value-error) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
 }
 
+/* Held where the debugger paused: a still ring with the pause bars, never a beat. */
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail-hold {
+  pointer-events: none;
+}
+
+.lingua-pulse-rail-host .monaco-editor .cldr.lingua-rail-hold::after {
+  --hold: var(--color-value-number);
+  content: '';
+  position: absolute;
+  top: calc(50% - 7px);
+  right: calc(var(--rail-center) - 7px);
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 1.6px solid var(--hold);
+  border-radius: 50%;
+  background:
+    linear-gradient(var(--hold), var(--hold)) calc(50% - 1.8px) 50% / 1.6px 6px no-repeat,
+    linear-gradient(var(--hold), var(--hold)) calc(50% + 1.8px) 50% / 1.6px 6px no-repeat,
+    var(--vscode-editorGutter-background, var(--vscode-editor-background, var(--color-bg-base)));
+}
+
 .lingua-pulse-rail-host .monaco-editor .lingua-rail-number--running {
   color: var(--color-pulse-fg) !important;
   font-weight: 640;

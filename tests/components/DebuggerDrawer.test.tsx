@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,108 +25,52 @@ describe('DebuggerDrawer', () => {
         pausedFrame: null,
         previousPause: null,
         lastPause: null,
-        drawerCollapsed: false,
+        pauseVisits: {},
+        breakpointHits: {},
+        showPauseChanges: true,
       },
       false
     );
   });
 
   it('stays hidden until a matching breakpoint or session exists', () => {
-    const { container } = render(
-      <DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />
-    );
+    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders the idle drawer when the active tab has a breakpoint', () => {
+  it('inspects without stepping: no step bar, no status header', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
-
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
     expect(screen.getByTestId('debugger-drawer')).toBeTruthy();
-    expect(screen.getByTestId('debugger-breakpoint-summary').textContent).toContain('1/1 active');
-    expect(screen.getByTestId('debugger-empty').textContent).toContain(
-      'Press Debug to run until the first enabled breakpoint.'
-    );
-    expect(screen.getByTestId('debugger-continue').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('debugger-empty').textContent).toContain('Press Debug to run until the first enabled breakpoint.');
+    for (const id of ['debugger-continue', 'debugger-step-over', 'debugger-step-into', 'debugger-step-out', 'debugger-detach', 'debugger-collapse']) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
   });
 
   it('explains when every breakpoint is disabled', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
     useDebuggerStore.getState().setAllBreakpointsEnabled(false);
-
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
-    expect(screen.getByTestId('debugger-empty').textContent).toContain(
-      'All breakpoints are disabled.'
-    );
-    expect(screen.getByTestId('debugger-breakpoint-summary').textContent).toContain('0/1 active');
+    expect(screen.getByTestId('debugger-empty').textContent).toContain('All breakpoints are disabled.');
+    expect(screen.getByTestId('debugger-breakpoint-line-2').dataset.enabled).toBe('false');
   });
 
-  it('manages breakpoint batches from the debugger panel', () => {
+  it('manages breakpoint batches from the breakpoints column', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
     useDebuggerStore.getState().toggleBreakpoint('tab-2', 9);
-
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
     fireEvent.click(screen.getByTestId('debugger-toggle-all-breakpoints'));
-
-    expect(
-      Object.values(useDebuggerStore.getState().breakpoints).every(bp => bp.enabled === false)
-    ).toBe(true);
-    expect(screen.getByTestId('debugger-toggle-all-breakpoints').textContent).toContain(
-      'Enable all'
-    );
+    expect(Object.values(useDebuggerStore.getState().breakpoints).every(bp => bp.enabled === false)).toBe(true);
+    expect(screen.getByTestId('debugger-toggle-all-breakpoints').textContent).toContain('Enable all');
   });
 
-  it('surfaces contextual tooltips for debugger status and controls', async () => {
-    const user = userEvent.setup();
-    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
-    useDebuggerStore.setState({
-      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
-      pausedFrame: {
-        tabId: 'tab-1',
-        line: 2,
-        reason: 'user-breakpoint',
-        locals: {},
-        callStack: [{ functionName: 'main', line: 1 }],
-        watchResults: {},
-      },
-    });
-
-    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
-    await user.hover(screen.getByTestId('debugger-breakpoint-summary'));
-    expect((await screen.findByRole('tooltip')).textContent).toContain(
-      '1 of 1 breakpoints are active'
-    );
-
-    await user.unhover(screen.getByTestId('debugger-breakpoint-summary'));
-    await waitFor(() => {
-      expect(screen.queryByRole('tooltip')).toBeNull();
-    });
-    await user.hover(screen.getByTestId('debugger-continue'));
-    expect((await screen.findByRole('tooltip')).textContent).toContain(
-      'Resume execution until the next breakpoint'
-    );
-
-    await user.unhover(screen.getByTestId('debugger-continue'));
-    await waitFor(() => {
-      expect(screen.queryByRole('tooltip')).toBeNull();
-    });
-    await user.hover(screen.getByTestId('debugger-step-into'));
-    expect((await screen.findByRole('tooltip')).textContent).toContain(
-      'Enter a local function call'
-    );
-  });
-
-  it('clears all breakpoints from the debugger panel after confirmation', () => {
+  it('clears all breakpoints after confirmation', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
     useDebuggerStore.getState().toggleBreakpoint('tab-2', 9);
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
     fireEvent.click(screen.getByTestId('debugger-clear-all-breakpoints'));
-
     expect(confirmSpy).toHaveBeenCalled();
     expect(Object.keys(useDebuggerStore.getState().breakpoints)).toHaveLength(0);
     confirmSpy.mockRestore();
@@ -135,73 +79,63 @@ describe('DebuggerDrawer', () => {
   it('uses neutral Spanish copy for breakpoint actions', async () => {
     await i18next.changeLanguage('es');
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
-
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
-    expect(screen.getByTestId('debugger-clear-all-breakpoints').textContent).toContain('Limpiar');
+    expect(screen.getByTestId('debugger-clear-all-breakpoints').getAttribute('aria-label')).toContain('Limpiar');
+    expect(screen.getByTestId('debugger-toggle-all-breakpoints').textContent).toContain('Desactivar');
     expect(screen.queryByText(/Borra/i)).toBeNull();
   });
 
   it('stays hidden for languages whose debugger adapter is not available', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
-
     const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="html" />);
-
     expect(container.firstChild).toBeNull();
   });
 
-  it('names an exception pause', () => {
-    useDebuggerStore.setState({
-      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
-      pausedFrame: { tabId: 'tab-1', line: 6, reason: 'exception', locals: {}, callStack: [], watchResults: {} },
-    });
-    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-    expect(screen.getByText(/Paused at line 6/).textContent).toContain('(exception)');
-    expect(screen.getByText(/Paused at line 6/).textContent).not.toContain('debugger.paused');
-  });
-
-  it('marks the locals a step added or changed, keeping their order', () => {
+  it('marks what changed since the last pause, keeping the order and striking the old value', () => {
     useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
     const pause = (line: number, locals: Record<string, string>) =>
-      useDebuggerStore.getState().setPausedFrame({ tabId: 'tab-1', line, reason: 'step', locals, callStack: [], watchResults: {} });
+      useDebuggerStore.getState().setPausedFrame({ tabId: 'tab-1', line, reason: 'step', locals, callStack: [{ functionName: 'tally', line: 1 }], watchResults: {} });
     pause(3, { count: '1', label: 'a' });
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-    expect(screen.getByTestId('debugger-locals').querySelectorAll('[data-change]')).toHaveLength(0);
+    const locals = () => screen.getByTestId('debugger-locals');
+    expect(locals().querySelectorAll('[data-change]')).toHaveLength(0);
+    expect(locals().textContent).toContain('Locals · tally');
     act(() => pause(4, { doubled: '4', label: 'a', count: '2' }));
-    const rows = [...screen.getByTestId('debugger-locals').querySelectorAll('li')];
-    expect(rows.map((row) => row.textContent)).toEqual(['count: 2changed', 'label: a', 'doubled: 4new']);
-    expect(rows[0]!.getAttribute('title')).toBe('Before: 1');
-    expect(rows[2]!.dataset.change).toBe('new');
+    const rows = [...locals().querySelectorAll<HTMLElement>('.debugger-local')];
+    expect(rows.map(row => row.dataset.local)).toEqual(['count', 'label', 'doubled']);
+    expect(rows.map(row => row.dataset.change)).toEqual(['changed', undefined, 'new']);
+    expect(within(rows[0]!).getByTestId('answer-was').textContent).toBe('was 1');
+    expect(within(rows[2]!).getByText('new')).toBeTruthy();
+    expect(screen.getByTestId('debugger-locals-changed').textContent).toBe('2 changed');
+    act(() => useDebuggerStore.getState().setShowPauseChanges(false));
+    expect(locals().querySelectorAll('[data-change]')).toHaveLength(0);
+    expect(screen.queryByTestId('answer-was')).toBeNull();
   });
 
-  it('renders paused locals and dispatches step controls', () => {
+  it('shows locals and watches with the watch value the last pause held', () => {
     useDebuggerStore.getState().addWatch('value');
-    useDebuggerStore.setState({
-      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
-      pausedFrame: {
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    const pause = (line: number, value: string) =>
+      useDebuggerStore.getState().setPausedFrame({
         tabId: 'tab-1',
-        line: 4,
+        line,
         reason: 'user-breakpoint',
-        locals: { value: '42' },
-        callStack: [{ functionName: 'main', line: 1 }],
-        watchResults: { value: { value: '42' } },
-      },
-    });
-
+        locals: { value },
+        callStack: [],
+        watchResults: { value: { value } },
+      });
+    pause(4, '41');
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
-    expect(screen.getByTestId('debugger-locals').textContent).toContain('value: 42');
-    expect(screen.getByTestId('debugger-callstack').textContent).toContain('main');
-    expect(screen.getByText('Paused')).toBeTruthy();
-    expect(screen.getByTestId('debugger-watches').textContent).toContain('value42');
-
-    fireEvent.click(screen.getByTestId('debugger-step-over'));
-
-    expect(postDebuggerMessage).toHaveBeenCalledWith({ type: 'step', mode: 'over' });
-    expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+    act(() => pause(5, '42'));
+    expect(screen.getByTestId('debugger-locals').querySelector('[data-local="value"]')?.textContent).toContain('42');
+    const watch = screen.getByTestId('debugger-watches').querySelector('li')!;
+    expect(watch.dataset.change).toBe('changed');
+    expect(watch.textContent).toContain('value');
+    expect(within(watch).getByTestId('answer-was').textContent).toBe('was 41');
   });
 
-  it('keeps Python breakpoints pause-only and discloses native watch evaluation', () => {
+  it('keeps Python breakpoints pause-only and discloses native watch evaluation', async () => {
+    const user = userEvent.setup();
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
     useDebuggerStore.getState().addWatch('value + 1');
     useDebuggerStore.setState({
@@ -215,83 +149,95 @@ describe('DebuggerDrawer', () => {
         watchResults: { 'value + 1': { value: '42' } },
       },
     });
-
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="python" />);
-
+    expect(screen.getByTestId('debugger-locals').querySelector('h4')?.textContent).toBe('Locals');
+    await user.click(screen.getByTestId('debugger-breakpoint-edit-2'));
     expect(screen.queryByLabelText('Breakpoint behavior at line 2')).toBeNull();
     expect(screen.getByText(/standard pause breakpoints/i)).toBeTruthy();
     expect(screen.getByText(/may have side effects/i)).toBeTruthy();
-    expect(screen.getByTestId('debugger-step-out').hasAttribute('disabled')).toBe(true);
   });
 
-  it('only enables step out while paused inside a function frame', () => {
-    useDebuggerStore.setState({
-      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
-      pausedFrame: {
-        tabId: 'tab-1',
-        line: 4,
-        reason: 'user-breakpoint',
-        locals: {},
-        callStack: [],
-        watchResults: {},
-      },
-    });
-
+  it('lists breakpoints as rows with their hits this session, conditions and logpoints', async () => {
+    const user = userEvent.setup();
+    const store = useDebuggerStore.getState();
+    store.toggleBreakpoint('tab-1', 4);
+    store.toggleBreakpoint('tab-1', 6);
+    store.setBreakpointCondition('tab-1', 6, 'pivot > 5');
+    store.toggleBreakpoint('tab-1', 23);
+    store.setBreakpointLogMessage('tab-1', 23, '{nums}');
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
-    expect(screen.getByTestId('debugger-step-out').hasAttribute('disabled')).toBe(true);
-  });
-
-  it('runs to the end by clearing breakpoints before resuming from detach', () => {
-    useDebuggerStore.setState({
-      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
-      pausedFrame: {
-        tabId: 'tab-1',
-        line: 4,
-        reason: 'user-breakpoint',
-        locals: {},
-        callStack: [],
-        watchResults: {},
-      },
+    expect(screen.queryByTestId('debugger-breakpoint-count-4')).toBeNull();
+    act(() => {
+      store.attachSession({ runtime: 'js', tabId: 'tab-1', attachedAt: 1 });
+      store.setPausedFrame({ tabId: 'tab-1', line: 4, reason: 'user-breakpoint', locals: {}, callStack: [], watchResults: {} });
+      store.setPausedFrame(null);
+      store.setPausedFrame({ tabId: 'tab-1', line: 4, reason: 'user-breakpoint', locals: {}, callStack: [], watchResults: {} });
     });
-
-    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-    vi.mocked(postDebuggerMessage).mockClear();
-    fireEvent.click(screen.getByTestId('debugger-detach'));
-
-    expect(postDebuggerMessage).toHaveBeenNthCalledWith(1, {
-      type: 'set-breakpoints',
-      breakpoints: [],
-    });
-    expect(postDebuggerMessage).toHaveBeenNthCalledWith(2, { type: 'resume' });
-    expect(useDebuggerStore.getState().session).toBeNull();
-    expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+    expect(screen.getByTestId('debugger-breakpoint-count-4').textContent).toBe('hit 2');
+    expect(screen.getByTestId('debugger-breakpoint-count-6').textContent).toBe('not reached');
+    expect(screen.queryByTestId('debugger-breakpoint-count-23')).toBeNull();
+    expect(screen.getByTestId('debugger-breakpoint-edit-6').textContent).toBe('if pivot > 5');
+    expect(screen.getByTestId('debugger-breakpoint-edit-23').textContent).toBe('log {nums}');
+    await user.click(screen.getByLabelText('Enable breakpoint at line 4'));
+    expect(useDebuggerStore.getState().breakpoints['tab-1:4']?.enabled).toBe(false);
+    await user.click(screen.getByTestId('debugger-breakpoint-edit-4'));
+    await user.click(screen.getByLabelText('Remove breakpoint at line 4'));
+    expect(useDebuggerStore.getState().breakpoints['tab-1:4']).toBeUndefined();
   });
 
   it('configures conditional breakpoints, logpoints, and watches from the panel', async () => {
     const user = userEvent.setup();
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    const edit = screen.getByTestId('debugger-breakpoint-edit-2');
+    expect(edit.getAttribute('aria-expanded')).toBe('false');
+    await user.click(edit);
+    expect(edit.getAttribute('aria-expanded')).toBe('true');
 
     await user.selectOptions(screen.getByLabelText('Breakpoint behavior at line 2'), 'conditional');
     await user.type(screen.getByLabelText('Condition for breakpoint at line 2'), 'value > 3');
-    expect(useDebuggerStore.getState().breakpoints['tab-1:2']).toMatchObject({
-      mode: 'conditional',
-      condition: 'value > 3',
-    });
+    expect(useDebuggerStore.getState().breakpoints['tab-1:2']).toMatchObject({ mode: 'conditional', condition: 'value > 3' });
 
     await user.selectOptions(screen.getByLabelText('Breakpoint behavior at line 2'), 'logpoint');
-    fireEvent.change(screen.getByLabelText('Logpoint message at line 2'), {
-      target: { value: 'value is {value}' },
-    });
-    expect(useDebuggerStore.getState().breakpoints['tab-1:2']).toMatchObject({
-      mode: 'logpoint',
-      logMessage: 'value is {value}',
-    });
+    fireEvent.change(screen.getByLabelText('Logpoint message at line 2'), { target: { value: 'value is {value}' } });
+    expect(useDebuggerStore.getState().breakpoints['tab-1:2']).toMatchObject({ mode: 'logpoint', logMessage: 'value is {value}' });
 
+    expect(screen.queryByTestId('debugger-watch-add')).toBeNull();
     await user.type(screen.getByTestId('debugger-watch-input'), 'value * 2');
     await user.click(screen.getByTestId('debugger-watch-add'));
     expect(useDebuggerStore.getState().watches[0]?.expression).toBe('value * 2');
+    await user.click(screen.getByTestId('debugger-watch-focus'));
+    expect(document.activeElement).toBe(screen.getByTestId('debugger-watch-input'));
+  });
+
+  it('keeps a breakpoint editor to its own tab', async () => {
+    const user = userEvent.setup();
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 5);
+    useDebuggerStore.getState().toggleBreakpoint('tab-2', 5);
+    const { rerender } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    await user.click(screen.getByTestId('debugger-breakpoint-edit-5'));
+    expect(screen.getByTestId('debugger-breakpoint-line-5').dataset.open).toBe('true');
+    rerender(<DebuggerDrawer activeTabId="tab-2" activeLanguage="javascript" />);
+    expect(screen.getByTestId('debugger-breakpoint-line-5').dataset.open).toBeUndefined();
+  });
+
+  it('compares locals and watches only with a pause in the same function', () => {
+    useDebuggerStore.getState().addWatch('count');
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    const pause = (fn: string, count: string) =>
+      useDebuggerStore.getState().setPausedFrame({
+        tabId: 'tab-1',
+        line: fn === 'f' ? 2 : 6,
+        reason: 'user-breakpoint',
+        locals: { count },
+        callStack: [{ functionName: fn, line: 1 }],
+        watchResults: { count: { value: count } },
+      });
+    pause('f', '1');
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    act(() => pause('g', '5'));
+    expect(screen.queryByTestId('answer-was')).toBeNull();
+    expect(screen.getByTestId('debugger-locals').querySelectorAll('[data-change]')).toHaveLength(0);
   });
 
   it('surfaces conditional evaluation errors as a fail-safe pause', () => {
@@ -308,27 +254,16 @@ describe('DebuggerDrawer', () => {
         conditionError: 'Unknown identifier: missing',
       },
     });
-
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
-    expect(screen.getByTestId('debugger-condition-error').textContent).toContain(
-      'paused instead of silently skipping'
-    );
+    expect(screen.getByTestId('debugger-condition-error').textContent).toContain('paused instead of silently skipping');
   });
 
-  it('chevron toggles drawerCollapsed and hides the body', () => {
-    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
-
+  it('carries the call stack for docks too narrow for the run meter column', () => {
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: { tabId: 'tab-1', line: 2, reason: 'step', locals: {}, callStack: [{ functionName: 'llamar', line: 1 }], watchResults: {} },
+    });
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
-
-    const collapse = screen.getByTestId('debugger-collapse');
-    expect(collapse.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.queryByTestId('debugger-empty')).not.toBeNull();
-
-    fireEvent.click(collapse);
-
-    expect(useDebuggerStore.getState().drawerCollapsed).toBe(true);
-    expect(screen.queryByTestId('debugger-empty')).toBeNull();
-    expect(screen.getByTestId('debugger-collapse').getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByTestId('debugger-callstack-narrow').textContent).toContain('llamar');
   });
 });
