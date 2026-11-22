@@ -13,17 +13,18 @@
  * force clients to refresh stale caches.
  */
 
-// Bumped to `v5` for the Pyodide self-hosting hardening: older `v4`
-// clients could hold jsDelivr Pyodide responses that are no longer
-// part of the runtime trust boundary.
+// Bumped to `v6` for the new app icon: favicon.svg, the manifest and its
+// icons keep their URLs, so a `v5` cache would keep serving the old mark.
 //
 // History:
+// - v5 : Pyodide self-hosting hardening; older `v4` clients could hold
+//   jsDelivr Pyodide responses outside the runtime trust boundary.
 // - v4 : web Pyodide CDN moved to cache-first.
 // - v3 : web moved from GitHub Pages (`/lingua/`) to
 //   Cloudflare Pages (`app.linguacode.dev/`). Prior `v2` had paths
 //   under `/lingua/` that no longer match the subdomain-rooted hashes.
 // - v2 : cache scope changed.
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = `lingua-${CACHE_VERSION}`;
 const BASE_PATH = new URL(self.registration.scope).pathname;
 

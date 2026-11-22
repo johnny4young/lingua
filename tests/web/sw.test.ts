@@ -206,10 +206,16 @@ function fetchRespondsWith(sw: SwHarness, request: { method: string; url: string
   return respondWithCalled;
 }
 
+function currentCacheName(source: string): string {
+  const version = source.match(/const\s+CACHE_VERSION\s*=\s*'(v\d+)'/)?.[1];
+  if (!version) throw new Error('public/sw.js has no CACHE_VERSION');
+  return `lingua-${version}`;
+}
+
 describe('public/sw.js — dev-server self-destruct', () => {
   it('on localhost:5174, activate clears every cache, unregisters, and reloads open tabs', async () => {
     const source = await readSwSource();
-    const sw = instantiateSw(source, { hostname: 'localhost', port: '5174' }, ['lingua-v5', 'lingua-v4']);
+    const sw = instantiateSw(source, { hostname: 'localhost', port: '5174' }, [currentCacheName(source), 'lingua-v4']);
     await runActivate(sw);
     expect(sw.cacheNames()).toEqual([]);
     expect(sw.unregistered()).toBe(true);
@@ -228,10 +234,11 @@ describe('public/sw.js — dev-server self-destruct', () => {
 
   it('on the production origin, activate keeps the SW registered and prunes only stale caches', async () => {
     const source = await readSwSource();
-    const sw = instantiateSw(source, { hostname: 'app.linguacode.dev', port: '' }, ['lingua-v4', 'lingua-v5']);
+    const current = currentCacheName(source);
+    const sw = instantiateSw(source, { hostname: 'app.linguacode.dev', port: '' }, ['lingua-v4', current]);
     await runActivate(sw);
     expect(sw.unregistered()).toBe(false);
-    expect(sw.cacheNames()).toEqual(['lingua-v5']);
+    expect(sw.cacheNames()).toEqual([current]);
   });
 
   it('on the production origin, fetch serves same-origin assets via respondWith', async () => {
@@ -247,10 +254,11 @@ describe('public/sw.js — dev-server self-destruct', () => {
 
   it('on localhost:4173 (preview, hashed build assets), the SW is NOT treated as a dev server', async () => {
     const source = await readSwSource();
-    const sw = instantiateSw(source, { hostname: 'localhost', port: '4173' }, ['lingua-v5']);
+    const current = currentCacheName(source);
+    const sw = instantiateSw(source, { hostname: 'localhost', port: '4173' }, [current]);
     await runActivate(sw);
     expect(sw.unregistered()).toBe(false);
-    expect(sw.cacheNames()).toEqual(['lingua-v5']);
+    expect(sw.cacheNames()).toEqual([current]);
   });
 });
 

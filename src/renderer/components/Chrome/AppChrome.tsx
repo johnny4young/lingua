@@ -6,6 +6,7 @@ import { useUpdateStore } from '../../stores/updateStore';
 import { LicenseBadge } from '../Toolbar/LicenseBadge';
 import { cn } from '../../utils/cn';
 import { requestSettingsTab } from '../Settings/pendingSettingsTab';
+import { Wordmark } from './Wordmark';
 
 interface AppChromeProps {
   onOpenSettings?: () => void;
@@ -51,15 +52,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
         aria-hidden="true"
       />
       <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-caption font-mono">
-        <span
-          aria-label={t('chrome.mark.aria')}
-          className="inline-flex h-3 w-3 items-center justify-center rounded-sm bg-primary text-nano font-bold text-background"
-        >
-          L
-        </span>
-        <span className="text-fg-muted" aria-hidden="true">
-          {t('chrome.appName').toLowerCase()}
-        </span>
+        <Wordmark />
         <span className="text-fg-subtle" aria-hidden="true">
           ·
         </span>
