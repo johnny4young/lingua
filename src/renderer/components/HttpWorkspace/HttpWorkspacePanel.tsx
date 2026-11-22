@@ -19,7 +19,6 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import { applyCaptureRules } from '../../../shared/httpWorkspaceCaptures';
-import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
 import type {
   HttpPipelineRunSnapshot,
   HttpPipelineStepResult,
@@ -67,6 +66,7 @@ import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
 import { ENVIRONMENT_TINTS } from './httpScopeColors';
 import { CommandBarSlot } from '../Chrome/CommandBarSlot';
 import { HttpPipelineManager } from './HttpPipelineManager';
+import { readPipelineStep } from './httpPipelineReport';
 import { appPlatform } from '../../utils/appPlatform';
 import { recordTabLastAnswer } from '../../stores/tabLastAnswer';
 import { HTTP_WORKSPACE_TAB_ID } from '../../stores/editorTabUtils';
@@ -704,13 +704,9 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                 message: 'no-response',
               });
             } else {
-              const assertionFailures = runAssertions(response, request.assertions ?? []).filter(
-                result => !result.pass
-              ).length;
               // A pending snapshot diff fails the step like a failed assertion.
-              const snapshotFailed =
-                request.snapshot !== undefined && snapshotChanges(request.snapshot, response).length > 0;
-              const passed = response.kind === 'success' && assertionFailures === 0 && !snapshotFailed;
+              const env = scopedEnvironmentFor(request, useWorkspaceToolStore.getState().getActiveEnvironment() ?? null);
+              const { passed, assertionFailures, report } = readPipelineStep(request, response, collectSecretKeys(env));
               results.push({
                 stepId: step.id,
                 requestId: step.requestId,
@@ -718,6 +714,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                 responseKind: response.kind,
                 httpStatus: response.status,
                 assertionFailures,
+                report,
               });
             }
           }

@@ -17,6 +17,17 @@ import type { HttpCaptureRule, HttpRequestV1, HttpResponseV1 } from './httpWorks
 /** Shorter captures are flags and counts; masking them would garble every body. */
 const MIN_CAPTURED_SECRET_CHARS = 8;
 
+/** Whether a captured value is a secret: a long enough value bound for a secret-looking variable, or a token by shape. */
+export function isSecretCapture(
+  { targetVariable, value }: { targetVariable: string; value: string },
+  secretKeys: ReadonlySet<string>
+): boolean {
+  return (
+    value.length >= MIN_CAPTURED_SECRET_CHARS &&
+    (secretKeys.has(targetVariable) || looksSecret(targetVariable) || looksSecretValue(value))
+  );
+}
+
 /** The values these rules pull from a response into a secret variable. */
 export function secretCaptureValues(
   response: Pick<HttpResponseV1, 'status' | 'headers' | 'body'>,
@@ -24,10 +35,7 @@ export function secretCaptureValues(
   secretKeys: ReadonlySet<string>
 ): string[] {
   return applyCaptureRules(response, rules)
-    .filter(({ targetVariable, value }) =>
-      value.length >= MIN_CAPTURED_SECRET_CHARS &&
-      (secretKeys.has(targetVariable) || looksSecret(targetVariable) || looksSecretValue(value))
-    )
+    .filter((write) => isSecretCapture(write, secretKeys))
     .map(({ value }) => value);
 }
 

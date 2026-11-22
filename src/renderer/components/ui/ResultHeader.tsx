@@ -13,11 +13,11 @@ import type { GlyphName } from './glyphSet';
 import { PhaseBar, type PhaseBarSegment } from './PhaseBar';
 
 /** Workspace vocabulary, like a language tag: never translated. */
-const WORKSPACE_TAG = { code: 'CODE', sql: 'SQL', http: 'HTTP' } as const;
+const WORKSPACE_TAG = { code: 'CODE', sql: 'SQL', http: 'HTTP', pipe: 'PIPE' } as const;
 
 export type ResultWorkspace = keyof typeof WORKSPACE_TAG;
 
-/** CODE / SQL / HTTP: the first word of every result header. */
+/** CODE / SQL / HTTP / PIPE: the first word of every result header. */
 export function WorkspaceTag({ workspace, className }: { workspace: ResultWorkspace; className?: string }) {
   return (
     <span data-testid="result-header-workspace" className={cn('flex', className)}>
