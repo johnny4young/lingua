@@ -41,6 +41,17 @@ describe('execution history for Compare runs', () => {
     expect(record('three').runCompare).toBeUndefined();
   });
 
+  it('keeps the row count or status line of a run with a capsule on every tier and capture setting', () => {
+    useSettingsStore.setState({ executionHistorySnapshotEnabled: false });
+    mockTier = 'free';
+    expect(record('one', { kind: 'rows', count: 2, columns: ['id'] }).resultSummary).toEqual({ kind: 'rows', count: 2, columns: ['id'] });
+    expect(record('two', { kind: 'http', method: 'GET', status: 404, statusText: 'Not Found', bytes: 9 }).resultSummary).toMatchObject({
+      kind: 'http', status: 404, statusText: 'Not Found',
+    });
+    expect(record('three').resultSummary).toBeUndefined();
+    expect(useExecutionHistoryStore.getState().record({ language: 'sql', status: 'ok', durationMs: 1, summary: { kind: 'rows', count: 1, columns: [] } }).resultSummary).toBeUndefined();
+  });
+
   it('keeps no compare data with code capture off', () => {
     useSettingsStore.setState({ executionHistorySnapshotEnabled: false });
     expect(record('one').runCompare).toBeUndefined();
@@ -63,6 +74,17 @@ describe('execution history for Compare runs', () => {
     expect(find().runCompare).toBeUndefined();
     useExecutionHistoryStore.getState().restoreCapsule(entry.id, capsule, entry.runCompare);
     expect(find().runCompare?.code).toBe('secret code');
+  });
+
+  it('drops the result summary with its capsule, brings it back on undo and clears it with captured data', () => {
+    const entry = record('select 1', { kind: 'rows', count: 1, columns: ['secret_column'] });
+    const find = () => useExecutionHistoryStore.getState().entries.find(item => item.id === entry.id)!;
+    useExecutionHistoryStore.getState().clearCapsule(entry.id);
+    expect(find().resultSummary).toBeUndefined();
+    useExecutionHistoryStore.getState().restoreCapsule(entry.id, entry.lastCapsule!, entry.runCompare, entry.resultSummary);
+    expect(find().resultSummary).toEqual({ kind: 'rows', count: 1, columns: ['secret_column'] });
+    useExecutionHistoryStore.getState().clearCapturedData();
+    expect(find().resultSummary).toBeUndefined();
   });
 
   it('clears every capsule, compare record and code snapshot but keeps the run rows', () => {

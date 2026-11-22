@@ -16,6 +16,8 @@ export interface ResultNumeralProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   /** Counts stay neutral; `error` is reserved for a failed answer. */
   tone?: AnswerTone;
+  /** A word in the numeral slot (an error name) sets smaller than digits. */
+  word?: boolean;
   className?: string;
   'data-testid'?: string;
 }
@@ -26,11 +28,12 @@ export function ResultNumeral({
   unit,
   size = 'md',
   tone = 'neutral',
+  word = false,
   className,
   'data-testid': testId,
 }: ResultNumeralProps) {
   return (
-    <span className={cn('result-numeral', className)} data-size={size} data-tone={tone} data-testid={testId}>
+    <span className={cn('result-numeral', className)} data-size={size} data-tone={tone} data-word={word ? '' : undefined} data-testid={testId}>
       <span className="result-numeral-value">{value}</span>
       {unit ? <span className="result-numeral-unit">{unit}</span> : null}
     </span>

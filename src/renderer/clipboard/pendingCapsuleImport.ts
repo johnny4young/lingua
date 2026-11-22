@@ -1,5 +1,5 @@
 /**
- * one-shot handoff for a pasted capsule.
+ * one-shot handoff for a pasted capsule, or a capsule file dropped on the list.
  *
  * The smart-paste router (`applyPasteIntent`) cannot open the capsule-import
  * overlay directly (the overlay slot is App-local state). Instead it stashes
@@ -11,16 +11,23 @@
  * Module-level + one-shot (take clears it) so a stale seed never bleeds into a
  * later overlay opened from Settings or the palette.
  */
-let pendingSource: string | null = null;
+export type PendingCapsuleImport = { text: string } | { file: File };
+
+let pending: PendingCapsuleImport | null = null;
 
 /** Stash the pasted capsule JSON for the next capsule-import overlay open. */
 export function setPendingCapsuleImportSource(source: string): void {
-  pendingSource = source;
+  pending = { text: source };
 }
 
-/** Return and clear the stashed capsule JSON, or null when none is pending. */
-export function takePendingCapsuleImportSource(): string | null {
-  const source = pendingSource;
-  pendingSource = null;
-  return source;
+/** Stash a file dropped outside the overlay (the capsule list) for the next open. */
+export function setPendingCapsuleImportFile(file: File): void {
+  pending = { file };
+}
+
+/** Return and clear the stashed text or file, or null when none is pending. */
+export function takePendingCapsuleImport(): PendingCapsuleImport | null {
+  const seed = pending;
+  pending = null;
+  return seed;
 }

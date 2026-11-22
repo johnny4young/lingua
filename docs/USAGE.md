@@ -441,7 +441,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - A **PRO** chip next to a limited feature opens the same table. On Free, three features open as slices of your own data:
   - **Recent runs** on a tab lists the last 3 runs, with status, language, time and age; replay and pins stay Pro.
   - **Utility pipelines** open and run their first 3 steps; later steps show dimmed under *Free runs the first 3 steps*.
-  - **Run capsules** keeps previewing your last run read-only, with Import, and a PRO chip in place of the upgrade button.
+  - **Run capsules** opens and shares your last run, lists the earlier ones locked under a PRO chip in place of the upgrade button, and sends Compare, Export and Create Capsule Workspace to the table.
 - The timeline's *Free keeps the last 20 of …* chip also opens the table.
 - Only the first notice about a Pro limit in a session carries **Compare plans**; later ones only say what was blocked.
 

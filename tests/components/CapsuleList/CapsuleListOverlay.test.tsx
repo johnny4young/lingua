@@ -1,7 +1,8 @@
 /**
- * Tests for the run capsules browser: the Pro list (search, result filter,
- * detail pane, Open / Share / More), imported capsules, the compare pick,
- * and the Free gate that previews the user's own last run.
+ * Tests for the run capsules browser: rows that answer with their run's
+ * numeral, the Pro list (search, result filter, detail pane, Open / Share /
+ * Compare / Export / More), imported capsules, the compare pick, the import
+ * strip, and the Free gate that opens only the user's own last run.
  */
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -43,6 +44,7 @@ import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { subscribeCommand, _resetCommandBusForTesting } from '../../../src/renderer/stores/commandBus';
 import { _resetCapsuleListSurfaceForTesting } from '../../../src/renderer/components/CapsuleList/capsuleListSurface';
+import { takePendingCapsuleImport } from '../../../src/renderer/clipboard/pendingCapsuleImport';
 import type { RunCompareRecord } from '@/utils/runCompareRecord';
 import type { RunCapsuleV1 } from '../../../src/shared/runCapsule';
 import {
@@ -73,7 +75,7 @@ function seed(...capsules: RunCapsuleV1[]) {
 
 const rowNames = () => screen.getAllByTestId('capsule-list-row').map((row) => row.textContent);
 
-function choose(menu: 'capsule-list-share' | 'capsule-list-more', item: string) {
+function choose(menu: 'capsule-list-share' | 'capsule-list-export' | 'capsule-list-more', item: string) {
   fireEvent.click(screen.getByTestId(menu));
   fireEvent.click(screen.getByTestId(item));
 }
@@ -104,7 +106,73 @@ describe('CapsuleListOverlay — Pro browser', () => {
     expect(screen.getByTestId('capsule-detail-code').textContent).toContain(FIXTURE_FULL_TS.source.content);
     expect(screen.getByTestId('capsule-detail-input').textContent).toBe('Ada\n');
     expect(screen.getByTestId('capsule-detail-output').textContent).toContain('hi Ada');
-    expect(screen.queryByTestId('capsule-detail-run-details-panel')).toBeNull();
+    expect(screen.getByTestId('capsule-detail-run-details-panel')).toBeTruthy();
+  });
+
+  it('answers each row with its time, rows, status line or error name', () => {
+    useExecutionHistoryStore.setState({
+      entries: [
+        { ...entry('e1', FIXTURE_MINIMAL_JS), runNumber: 7 },
+        entry('e2', FIXTURE_PYTHON_ERROR, 1_700_000_001_000),
+        { ...entry('e3', { ...FIXTURE_FULL_TS, tab: { ...FIXTURE_FULL_TS.tab, name: 'orders', language: 'sql' } }, 1_700_000_002_000), resultSummary: { kind: 'rows', count: 1200, columns: ['city'] } },
+        { ...entry('e4', { ...FIXTURE_FULL_TS, tab: { ...FIXTURE_FULL_TS.tab, name: 'GET /missing', language: 'http' } }, 1_700_000_003_000), resultSummary: { kind: 'http', method: 'GET', status: 404, statusText: 'Not Found', bytes: 9 } },
+        entry('e5', FIXTURE_STOPPED, 1_700_000_004_000),
+      ],
+    });
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    const rows = screen.getAllByTestId('capsule-list-row');
+    const answerOf = (name: string) => within(rows.find((row) => row.textContent!.includes(name))!).getByTestId('capsule-list-row-answer');
+    expect(answerOf('scratchpad.js').textContent).toBe('3.0ms');
+    expect(answerOf('orders').textContent).toBe('1,200rows');
+    expect(answerOf('GET /missing').textContent).toBe('404not found');
+    expect(answerOf('GET /missing').getAttribute('data-tone')).toBe('error');
+    expect(answerOf(FIXTURE_PYTHON_ERROR.tab.name).textContent).toBe('ValueError');
+    expect(answerOf(FIXTURE_PYTHON_ERROR.tab.name).getAttribute('data-tone')).toBe('error');
+    expect(answerOf(FIXTURE_STOPPED.tab.name).getAttribute('data-tone')).toBe('neutral');
+    expect(rows.find((row) => row.textContent!.includes('scratchpad.js'))!.textContent).toContain('run 7');
+  });
+
+  it('puts the newest own run first under Your last run, ahead of a newer import', () => {
+    seed(FIXTURE_MINIMAL_JS);
+    useImportedCapsuleStore.getState().add(FIXTURE_FULL_TS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByText('Your last run')).toBeTruthy();
+    expect(screen.getAllByTestId('capsule-list-row').map((row) => row.getAttribute('data-kind'))).toEqual(['run', 'imported']);
+  });
+
+  it('heads the detail with the run numeral, name and status', () => {
+    useExecutionHistoryStore.setState({ entries: [{ ...entry('e1', FIXTURE_STOPPED), runNumber: 3 }] });
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-detail-answer').textContent).toBe('Stopped');
+    expect(screen.getByTestId('capsule-detail').textContent).toContain(`${FIXTURE_STOPPED.tab.name} · run 3`);
+    expect(screen.getByTestId('capsule-detail-status').textContent).toMatch(/^Stopped · /);
+  });
+
+  it('folds long code after eight lines and opens the rest on request', () => {
+    const source = Array.from({ length: 27 }, (_, index) => `line ${index + 1}`).join('\n');
+    seed({ ...FIXTURE_MINIMAL_JS, source: { ...FIXTURE_MINIMAL_JS.source, content: source } });
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByText('Code · 27 lines')).toBeTruthy();
+    expect(screen.getByTestId('capsule-detail-code').textContent).not.toContain('line 9');
+    const toggle = screen.getByTestId('capsule-detail-code-toggle');
+    expect(toggle.textContent).toContain('19 more lines');
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('capsule-detail-code').textContent).toContain('line 27');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('hands a file dropped on the import strip to the Import overlay', () => {
+    seed(FIXTURE_MINIMAL_JS);
+    const openImport = vi.fn();
+    subscribeCommand('capsule.openImport', openImport);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    const file = new File(['{}'], 'capsule.json', { type: 'application/json' });
+    fireEvent.drop(screen.getByTestId('capsule-list-import-strip'), { dataTransfer: { files: [file], types: ['Files'] } });
+    expect(openImport).toHaveBeenCalledTimes(1);
+    expect(takePendingCapsuleImport()).toEqual({ file });
+    fireEvent.click(screen.getByTestId('capsule-list-import-strip'));
+    expect(openImport).toHaveBeenCalledTimes(2);
+    expect(takePendingCapsuleImport()).toBeNull();
   });
 
   it('shows the result and a relative time on each row', () => {
@@ -115,6 +183,7 @@ describe('CapsuleListOverlay — Pro browser', () => {
       const row = screen.getByTestId('capsule-list-row');
       expect(row.textContent).toContain('31 seconds ago');
       expect(within(row).getByTestId('capsule-list-row-result').textContent).toBe('Error');
+      expect(within(row).getByTestId('capsule-list-row-answer').textContent).toBe('ValueError');
     } finally {
       nowSpy.mockRestore();
     }
@@ -207,7 +276,9 @@ describe('CapsuleListOverlay — Pro browser', () => {
     const menu = screen.getByRole('menu');
     expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-export'));
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
-    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-export-html'));
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-copy-summary'));
+    fireEvent.keyDown(menu, { key: 'Home' });
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-export'));
     fireEvent.keyDown(menu, { key: 'End' });
     expect(document.activeElement).toBe(screen.getByTestId('capsule-list-row-copy-summary'));
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
@@ -216,13 +287,14 @@ describe('CapsuleListOverlay — Pro browser', () => {
     expect(document.activeElement).toBe(screen.getByTestId('capsule-list-share'));
   });
 
-  it('folds runner and hash under Run details', () => {
+  it('lists runner, hash, branch and what was left out as run details', () => {
     seed(FIXTURE_MINIMAL_JS);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('capsule-detail-run-details'));
     const panel = screen.getByTestId('capsule-detail-run-details-panel');
     expect(panel.textContent).toContain(FIXTURE_MINIMAL_JS.environment.runner);
-    expect(panel.textContent).toContain(FIXTURE_MINIMAL_JS.source.contentHash.slice(0, 12));
+    expect(panel.textContent).toContain(`${FIXTURE_MINIMAL_JS.source.contentHash.slice(0, 8)}…`);
+    expect(panel.textContent).toContain('Branchnone');
+    expect(panel.textContent).toContain('Left outnothing');
   });
 
   it('opens the capsule in an inert tab and closes', () => {
@@ -241,7 +313,7 @@ describe('CapsuleListOverlay — Pro browser', () => {
     await waitFor(() => {
       expect(trackEvent).toHaveBeenCalledWith('capsule.exported', { trigger: 'list-export', sizeBucket: expect.any(String) });
     });
-    choose('capsule-list-share', 'capsule-list-row-export-html');
+    choose('capsule-list-export', 'capsule-list-row-export-html');
     await waitFor(() => expect(exportCapsuleAsHtml).toHaveBeenCalledTimes(1));
     const [capsule, trigger, context] = exportCapsuleAsHtml.mock.calls[0]! as [RunCapsuleV1, string, { locale: string }];
     expect(capsule.capsuleId).toBe(FIXTURE_MINIMAL_JS.capsuleId);
@@ -259,14 +331,14 @@ describe('CapsuleListOverlay — Pro browser', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('opens the Capsule Workspace review from More', () => {
+  it('opens the Capsule Workspace review from the hint', () => {
     seed(FIXTURE_MINIMAL_JS);
     useEditorStore.setState({
       tabs: [{ id: 'helper', name: 'helper.ts', language: 'typescript', content: 'export const n = 1;', isDirty: false }],
       activeTabId: 'helper',
     });
     render(<CapsuleListOverlay onClose={vi.fn()} />);
-    choose('capsule-list-more', 'capsule-list-row-create-workspace');
+    fireEvent.click(screen.getByTestId('capsule-list-row-create-workspace'));
     expect(screen.getByTestId('capsule-workspace-export-dialog')).toBeTruthy();
   });
 
@@ -322,7 +394,7 @@ describe('CapsuleListOverlay — compare', () => {
   it('pairs the selected capsule with the next one picked, older first', () => {
     seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
-    choose('capsule-list-more', 'capsule-compare-button');
+    fireEvent.click(screen.getByTestId('capsule-compare-button'));
     expect(screen.getByTestId('capsule-compare-picking').textContent).toContain('demo.ts');
 
     fireEvent.click(screen.getAllByTestId('capsule-list-row')[1]!);
@@ -335,7 +407,7 @@ describe('CapsuleListOverlay — compare', () => {
   it('compares from the keyboard: the pick takes focus and Enter chooses the second capsule', () => {
     seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
-    choose('capsule-list-more', 'capsule-compare-button');
+    fireEvent.click(screen.getByTestId('capsule-compare-button'));
     const list = screen.getByRole('listbox');
     expect(document.activeElement).toBe(list);
     fireEvent.keyDown(list, { key: 'ArrowDown' });
@@ -346,7 +418,7 @@ describe('CapsuleListOverlay — compare', () => {
   it('ends the pick when its capsule is removed', () => {
     seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
-    choose('capsule-list-more', 'capsule-compare-button');
+    fireEvent.click(screen.getByTestId('capsule-compare-button'));
     choose('capsule-list-more', 'capsule-list-row-delete');
     expect(screen.queryByTestId('capsule-compare-picking')).toBeNull();
     fireEvent.click(screen.getByTestId('capsule-list-row'));
@@ -357,7 +429,7 @@ describe('CapsuleListOverlay — compare', () => {
     seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
     const onClose = vi.fn();
     render(<CapsuleListOverlay onClose={onClose} />);
-    choose('capsule-list-more', 'capsule-compare-button');
+    fireEvent.click(screen.getByTestId('capsule-compare-button'));
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' });
     expect(screen.queryByTestId('capsule-compare-picking')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
@@ -366,7 +438,6 @@ describe('CapsuleListOverlay — compare', () => {
   it('cannot compare a lone capsule', () => {
     seed(FIXTURE_MINIMAL_JS);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('capsule-list-more'));
     expect((screen.getByTestId('capsule-compare-button') as HTMLButtonElement).disabled).toBe(true);
   });
 });
@@ -377,20 +448,52 @@ describe('CapsuleListOverlay — Free gate', () => {
     mockTier = 'free';
   });
 
-  it('previews the last own run read-only with the quota and Import', () => {
+  it('opens only the last own run and lists the earlier ones locked below the gate', () => {
     seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS, FIXTURE_PYTHON_ERROR);
     useImportedCapsuleStore.getState().add(FIXTURE_TIMEOUT);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
 
-    expect(screen.getByTestId('capsule-list-upsell')).toBeTruthy();
+    expect(screen.getByTestId('capsule-list-upsell').textContent).toContain('2 earlier runs from this session are below.');
     expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
+    const locked = screen.getAllByTestId('capsule-list-row-locked');
+    expect(locked).toHaveLength(2);
+    expect(locked[0]!.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(locked[0]!);
+    expect(screen.getByTestId('capsule-detail-code').textContent).toContain(FIXTURE_PYTHON_ERROR.source.content);
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'ArrowDown' });
     expect(screen.getByTestId('capsule-detail-code').textContent).toContain(FIXTURE_PYTHON_ERROR.source.content);
     expect(screen.getByTestId('capsule-list-quota').textContent).toBe('Free · 3 of 5 kept');
     expect(screen.getByTestId('capsule-list-import')).toBeTruthy();
-    for (const id of ['capsule-list-row-open', 'capsule-list-share', 'capsule-list-more', 'capsule-list-search']) {
+    for (const id of ['capsule-list-row-open', 'capsule-list-share', 'capsule-list-search']) {
+      expect(screen.getByTestId(id)).toBeTruthy();
+    }
+    for (const id of ['capsule-list-more', 'capsule-compare-button', 'capsule-list-export']) {
       expect(screen.queryByTestId(id)).toBeNull();
     }
     expect(trackEvent).toHaveBeenCalledWith('capsule.browse_opened', { surface: 'palette', tier: 'free' });
+  });
+
+  it('keeps an earlier run locked when a search or filter hides the last one', () => {
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS, FIXTURE_PYTHON_ERROR);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('capsule-list-search'), { target: { value: FIXTURE_FULL_TS.tab.name } });
+    expect(screen.queryByTestId('capsule-list-row')).toBeNull();
+    expect(screen.queryByTestId('capsule-detail')).toBeNull();
+    expect(screen.queryByText('Your last run')).toBeNull();
+    expect(screen.getAllByTestId('capsule-list-row-locked')).toHaveLength(1);
+    expect(screen.getByTestId('capsule-list-upsell').textContent).toContain('1 earlier run from this session is below.');
+  });
+
+  it('sends Compare, Export and Capsule Workspace to Compare plans', () => {
+    const compare = vi.fn();
+    subscribeCommand('plans.compare', compare);
+    seed(FIXTURE_MINIMAL_JS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    for (const id of ['capsule-compare-locked', 'capsule-export-locked', 'capsule-list-row-create-workspace']) {
+      fireEvent.click(screen.getByTestId(id));
+    }
+    expect(compare).toHaveBeenCalledTimes(3);
+    expect(screen.queryByTestId('capsule-workspace-export-dialog')).toBeNull();
   });
 
   it('shows the empty state before the first run', () => {

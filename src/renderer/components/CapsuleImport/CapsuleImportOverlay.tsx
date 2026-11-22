@@ -31,7 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, FileUp } from 'lucide-react';
 import { useCapsuleImport } from '../../hooks/useCapsuleImport';
-import { takePendingCapsuleImportSource } from '../../clipboard/pendingCapsuleImport';
+import { takePendingCapsuleImport } from '../../clipboard/pendingCapsuleImport';
 import { useUIStore } from '../../stores/uiStore';
 import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -91,15 +91,20 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   useEffect(() => {
     if (seededRef.current) return;
     seededRef.current = true;
-    const seed = takePendingCapsuleImportSource();
-    if (!seed) return;
+    const pending = takePendingCapsuleImport();
+    if (!pending) return;
     autoDetectedRef.current = true; // don't let clipboard auto-detect clobber it
+    if ('file' in pending) {
+      void decodeFromFile(pending.file, 'drag-drop');
+      return;
+    }
+    const seed = pending.text;
     const timer = window.setTimeout(() => {
       setPasteValue(seed);
       decodeFromText(seed, 'paste');
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [decodeFromText]);
+  }, [decodeFromFile, decodeFromText]);
   useEffect(() => {
     if (autoDetectedRef.current) return;
     if (clipboardConsent !== 'granted') return;

@@ -57,7 +57,7 @@ for (const language of ['en', 'es'] as const) {
     await page.getByTestId('action-pill-browse-capsules').click();
     mkdirSync('output/review/capsule-regression', { recursive: true });
     await page.screenshot({ path: `output/review/capsule-regression/web-${language}-list.png` });
-    await page.getByTestId('capsule-list-more').click();
+    await page.getByTestId('capsule-list-export').click();
     await page.getByTestId('capsule-prepare-regression').click();
     const dialog = page.getByTestId('capsule-regression-dialog');
     const exportButton = dialog.getByRole('button', {
@@ -110,5 +110,6 @@ test('Free cannot prepare a Pro history regression case', async ({ page }) => {
   await page.getByTestId('action-pill-browse-capsules').click();
   await expect(page.getByTestId('capsule-regression-dialog')).toHaveCount(0);
   await expect(page.getByTestId('capsule-list-more')).toHaveCount(0);
+  await expect(page.getByTestId('capsule-list-export')).toHaveCount(0);
   await expect(page.getByTestId('capsule-prepare-regression')).toHaveCount(0);
 });

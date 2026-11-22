@@ -98,6 +98,8 @@ export interface ExecutionHistoryEntry {
   runCompare?: RunCompareRecord;
   /** The tab's run number, so the run meter's bar for this run can open it. */
   runNumber?: number;
+  /** Row count or HTTP status of a run that kept a capsule; the capsule itself does not carry them. */
+  resultSummary?: RunCompareSummary;
 }
 
 interface ExecutionHistoryRecord {
@@ -298,7 +300,7 @@ export interface ExecutionHistoryState {
    * row itself never left the `entries` array, so this restores it to
    * its exact prior position in the browse list.
    */
-  restoreCapsule: (id: string, capsule: RunCapsuleV1, runCompare?: RunCompareRecord) => void;
+  restoreCapsule: (id: string, capsule: RunCapsuleV1, runCompare?: RunCompareRecord, resultSummary?: RunCompareSummary) => void;
   /** Drop every captured capsule, Compare record and code snapshot, keeping the run rows. */
   clearCapturedData: () => void;
   byLanguage: (language: string) => readonly ExecutionHistoryEntry[];
@@ -344,6 +346,9 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       // applied AFTER the FIFO drop, never before.
       ...(input.lastCapsule !== undefined
         ? { lastCapsule: input.lastCapsule }
+        : {}),
+      ...(input.lastCapsule !== undefined && input.summary !== undefined
+        ? { resultSummary: input.summary }
         : {}),
       ...(input.lastCapsule !== undefined && runCompareCaptureOn()
         ? { runCompare: buildRunCompareRecord(input.lastCapsule, input.summary) }
@@ -408,24 +413,27 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
     set((state) => {
       let changed = false;
       const entries = state.entries.map((entry) => {
-        if (entry.id !== id || (entry.lastCapsule === undefined && entry.runCompare === undefined)) return entry;
+        if (
+          entry.id !== id ||
+          (entry.lastCapsule === undefined && entry.runCompare === undefined && entry.resultSummary === undefined)
+        ) return entry;
         changed = true;
-        // The Compare record copies the capsule's code and output, so it leaves with it.
+        // The Compare record and result summary are cut from the capsule's output, so they leave with it.
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { lastCapsule: _dropped, runCompare: _compare, ...rest } = entry;
+        const { lastCapsule: _dropped, runCompare: _compare, resultSummary: _summary, ...rest } = entry;
         return rest;
       });
       return changed ? { entries } : state;
     });
   },
 
-  restoreCapsule: (id, capsule, runCompare) => {
+  restoreCapsule: (id, capsule, runCompare, resultSummary) => {
     set((state) => {
       let changed = false;
       const entries = state.entries.map((entry) => {
         if (entry.id !== id || entry.lastCapsule !== undefined) return entry;
         changed = true;
-        return { ...entry, lastCapsule: capsule, ...(runCompare ? { runCompare } : {}) };
+        return { ...entry, lastCapsule: capsule, ...(runCompare ? { runCompare } : {}), ...(resultSummary ? { resultSummary } : {}) };
       });
       return changed ? { entries: pruneCapsulesToCap(entries) } : state;
     });
@@ -435,7 +443,7 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
     set((state) => ({
       entries: state.entries.map((entry) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { lastCapsule: _capsule, runCompare: _compare, ...rest } = entry;
+        const { lastCapsule: _capsule, runCompare: _compare, resultSummary: _summary, ...rest } = entry;
         return { ...rest, snapshot: null };
       }),
     }));
