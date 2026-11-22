@@ -29,7 +29,10 @@ export const PULSE_RAIL_SLOTS = 12;
 export const PULSE_RAIL_WIDTH = 22;
 
 /** Blank lines, comments and closing brackets run nothing on their own, so they never carry a tick. */
-const QUIET_LINE = /^\s*(?:(?:\/\/|#|\/\*|\*).*|[\]})>;,]*)$/;
+const QUIET_LINE = /^\s*(?:(?:\/\/|#|\/\*|\*(?=\s|\/|$)).*|[\]})>;,]*)$/;
+
+/** A line that opens a block: ends in an opening bracket, or a colon as in Python. */
+const OPENS_BLOCK = /[{([:]\s*(?:\/\/.*|#.*)?$/;
 
 export function isQuietRailLine(text: string): boolean {
   return QUIET_LINE.test(text);
@@ -48,7 +51,10 @@ export function buildPulseRail(input: PulseRailInput): PulseRailLine[] {
   const inSpan = (line: number) => Number.isInteger(line) && line >= start && line <= end;
 
   const front = frontier && inSpan(frontier.line) ? frontier : null;
-  const ran = new Set(input.executed.filter(line => inSpan(line) && (complete || !front || line <= front.line)));
+  // A line that answered ran, wherever the run stopped; only steps after a selected one have not happened yet.
+  const ran = new Set(
+    input.executed.filter(line => inSpan(line) && (complete || front?.kind !== 'running' || line <= front.line))
+  );
   if (ran.size === 0 && !front) return [];
 
   const quiet = (line: number) => isQuietRailLine(lines[line - 1]!);
@@ -61,13 +67,21 @@ export function buildPulseRail(input: PulseRailInput): PulseRailLine[] {
     for (const anchor of [...anchors, end + 1]) {
       let lit = anchor <= end;
       for (let line = previous + 1; lit && line < anchor; line += 1) lit = quiet(line);
-      for (let line = previous + 1; line < anchor; line += 1) states[line - start] = lit ? 'reached' : 'not-run';
+      // The header of a block whose body ran, such as a called function, ran too.
+      let opened = anchor;
+      for (let line = anchor - 1; anchor <= end && line > previous; line -= 1) {
+        if (OPENS_BLOCK.test(lines[line - 1]!)) opened = line;
+        else if (!quiet(line)) break;
+      }
+      for (let line = previous + 1; line < anchor; line += 1) {
+        states[line - start] = lit || line >= opened ? 'reached' : 'not-run';
+      }
       previous = anchor;
     }
   } else {
     // Only answers are known: everything above the frontier ran, and below it only when the run finished.
     let reachedTo = front ? front.line - 1 : finished ? end : start - 1;
-    if (!front && !finished) for (const line of ran) reachedTo = Math.max(reachedTo, line);
+    for (const line of ran) reachedTo = Math.max(reachedTo, line);
     for (let line = start; line <= end; line += 1) states[line - start] = line <= reachedTo ? 'reached' : 'not-run';
   }
   for (const line of ran) states[line - start] = quiet(line) ? 'reached' : 'answered';

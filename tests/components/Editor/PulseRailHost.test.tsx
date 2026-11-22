@@ -140,6 +140,27 @@ describe('PulseRailHost', () => {
     expect(live.options.marginClassName).toBe('lingua-rail-band');
   });
 
+  it('fades only the rail above the selected step, not the lines that ran below it', () => {
+    const model = new FakeModel(source);
+    useTimelineStore.setState({
+      recording: {
+        tabId: 't1',
+        steps: [4, 5, 2].map(line => ({ line, frames: [], vars: [] })),
+        total: 3,
+        truncated: false,
+        limited: false,
+      },
+      current: 2,
+    });
+    useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' });
+    render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);
+    expect(model.rail()).toMatchObject({
+      2: 'lingua-rail lingua-rail--running',
+      4: 'lingua-rail lingua-rail--answered',
+      5: 'lingua-rail lingua-rail--answered',
+    });
+  });
+
   it('holds the line the debugger paused on', () => {
     const model = new FakeModel(source);
     publishRun([]);
@@ -154,11 +175,25 @@ describe('PulseRailHost', () => {
     publishRun([4]);
     render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);
     expect(model.rail()[1]).toBe('lingua-rail lingua-rail--reached');
-    act(() => useExecutionHistoryStore.setState({ entries: [{ id: 'r1' }] as never }));
+    act(() => useExecutionHistoryStore.setState({ entries: [{ id: 'other', tabId: 't2' }] as never }));
+    expect(model.rail()[1]).toBe('lingua-rail lingua-rail--reached');
+    act(() => useExecutionHistoryStore.setState({ entries: [{ id: 'r1', tabId: 't1' }] as never }));
     expect(model.rail()[1]).toBe('lingua-rail lingua-rail--reached lingua-rail--pass lingua-rail--slot-0');
     expect(model.rail()[4]).toContain('lingua-rail--slot-');
     act(() => vi.advanceTimersByTime(2_000));
     expect(model.rail()[4]).toBe('lingua-rail lingua-rail--answered');
+  });
+
+  it('leaves the marks where Monaco moved them while the results are stale', () => {
+    const model = new FakeModel(source);
+    const editor = fakeEditor(model);
+    const { rerender } = render(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
+    publishRun([4]);
+    const before = model.rail();
+    rerender(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" stale />);
+    act(() => useUIStore.setState({ consoleVisible: true, activeBottomPanel: 'timeline' }));
+    publishRun([1]);
+    expect(model.rail()).toEqual(before);
   });
 
   it('moves its marks off a tab when the editor switches models', () => {

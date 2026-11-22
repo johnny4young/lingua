@@ -37,7 +37,7 @@ describe('buildPulseRail', () => {
   });
 
   it('dots everything below the line that threw and crosses that line', () => {
-    expect(rail({ executed: [2, 8], frontier: { line: 7, kind: 'raised' } })).toMatchObject({
+    expect(rail({ executed: [2], frontier: { line: 7, kind: 'raised' } })).toMatchObject({
       2: 'answered',
       6: 'reached',
       7: 'raised',
@@ -45,13 +45,22 @@ describe('buildPulseRail', () => {
     });
   });
 
+  it('keeps a line that answered lit below the line that threw, as when a function throws above its call', () => {
+    expect(rail({ executed: [8], frontier: { line: 2, kind: 'raised' } })).toMatchObject({
+      1: 'reached',
+      2: 'raised',
+      7: 'reached',
+      8: 'answered',
+    });
+  });
+
   it('stops a run that did not finish at its last answer', () => {
     expect(rail({ executed: [2] })).toMatchObject({ 1: 'reached', 2: 'answered', 3: 'not-run', 8: 'not-run' });
   });
 
-  it('with every timeline step, lights only quiet gaps and dots code that never ran', () => {
+  it('with every timeline step, lights quiet gaps and the header of a called function', () => {
     expect(rail({ executed: [7, 8, 2, 3], complete: true })).toEqual({
-      1: 'not-run',
+      1: 'reached',
       2: 'answered',
       3: 'answered',
       4: 'reached',
@@ -59,6 +68,16 @@ describe('buildPulseRail', () => {
       6: 'reached',
       7: 'answered',
       8: 'answered',
+    });
+  });
+
+  it('with every timeline step, dots a function nobody called', () => {
+    expect(rail({ executed: [7, 8], complete: true })).toMatchObject({
+      1: 'not-run',
+      3: 'not-run',
+      4: 'not-run',
+      6: 'not-run',
+      7: 'answered',
     });
   });
 
@@ -98,6 +117,8 @@ describe('isQuietRailLine', () => {
     for (const text of ['', '   ', '// note', '# note', '/* a', ' * b', '}', '  ]);', ')']) {
       expect(isQuietRailLine(text)).toBe(true);
     }
-    for (const text of ['x = 1', 'print(x)', '} else {', 'return']) expect(isQuietRailLine(text)).toBe(false);
+    for (const text of ['x = 1', 'print(x)', '} else {', 'return', '*count += 1;', '*rest, last = xs']) {
+      expect(isQuietRailLine(text)).toBe(false);
+    }
   });
 });

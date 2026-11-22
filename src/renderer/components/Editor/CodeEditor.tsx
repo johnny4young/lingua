@@ -554,7 +554,7 @@ export function CodeEditor() {
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
-        <PulseRailHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
+        <PulseRailHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} stale={runStale.stale} />
         <TestLineAnswersHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}

@@ -19,12 +19,11 @@ function railDecoration(
   monaco: typeof monacoTypes,
   { line, state, slot }: PulseRailLine,
   travel: boolean,
-  trail: boolean
+  trailSlot: number | null
 ): monacoTypes.editor.IModelDeltaDecoration {
   const classes = ['lingua-rail', `lingua-rail--${state}`];
-  if (slot !== null && (travel || (trail && state !== 'running'))) {
-    classes.push(travel ? 'lingua-rail--pass' : 'lingua-rail--trail', `lingua-rail--slot-${slot}`);
-  }
+  if (travel && slot !== null) classes.push('lingua-rail--pass', `lingua-rail--slot-${slot}`);
+  else if (trailSlot !== null) classes.push('lingua-rail--trail', `lingua-rail--slot-${trailSlot}`);
   const marked = state === 'running' || state === 'paused';
   return {
     range: new monaco.Range(line, 1, line, 1),
@@ -59,10 +58,13 @@ export function PulseRailHost({
   editor,
   monaco,
   tabId,
+  stale = false,
 }: {
   editor: monacoTypes.editor.IStandaloneCodeEditor | null;
   monaco: typeof monacoTypes | null;
   tabId: string | null;
+  /** The editor holds other code than the run: line numbers no longer match, so the marks stay where Monaco moved them. */
+  stale?: boolean;
 }) {
   const results = useResultStore(
     useShallow(state => ({
@@ -80,15 +82,18 @@ export function PulseRailHost({
   const timelineOpen = useUIStore(state => state.consoleVisible && state.activeBottomPanel === 'timeline');
   const pausedLine = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.line : null));
   const region = useRunRegionStore(state => (state.last?.tabId === tabId ? state.last.region : null));
-  const lastRunId = useExecutionHistoryStore(state => state.entries.at(-1)?.id ?? null);
+  const lastRun = useExecutionHistoryStore(
+    useShallow(state => ({ id: state.entries.at(-1)?.id ?? null, tabId: state.entries.at(-1)?.tabId ?? null }))
+  );
+  const lastRunId = lastRun.id;
   const [travelRun, setTravelRun] = useState<string | null>(null);
   const [seenRun, setSeenRun] = useState(lastRunId);
   const decorations = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
 
-  // A new run after mount sends the pulse; the run already on screen does not.
+  // A new run of this tab after mount sends the pulse; the run already on screen does not.
   if (lastRunId !== seenRun) {
     setSeenRun(lastRunId);
-    if (lastRunId) setTravelRun(lastRunId);
+    if (lastRunId && lastRun.tabId === tabId) setTravelRun(lastRunId);
   }
   useEffect(() => {
     if (!travelRun) return;
@@ -129,14 +134,19 @@ export function PulseRailHost({
     () => (model && source ? buildPulseRail({ ...source, lines: model.getLinesContent() }) : []),
     [model, source]
   );
-  const trail = source?.frontier?.kind === 'running';
-
   useEffect(() => {
-    if (!editor || !monaco) return;
-    const next = rail.map(line => railDecoration(monaco, line, travelRun !== null, trail));
+    if (!editor || !monaco || stale) return;
+    // The trail fades with distance above the selected step, not from the top of the rail.
+    const front = rail.find(line => line.state === 'running')?.line;
+    const top = rail.find(line => line.slot !== null)?.line ?? 1;
+    const trailSlot = ({ line, slot }: PulseRailLine) =>
+      front !== undefined && slot !== null && line < front
+        ? Math.round(((line - top) / Math.max(1, front - top)) * (PULSE_RAIL_SLOTS - 1))
+        : null;
+    const next = rail.map(line => railDecoration(monaco, line, travelRun !== null, trailSlot(line)));
     if (decorations.current) decorations.current.set(next);
     else decorations.current = editor.createDecorationsCollection(next);
-  }, [editor, monaco, rail, travelRun, trail]);
+  }, [editor, monaco, rail, travelRun, stale]);
 
   useEffect(() => () => decorations.current?.clear(), []);
 
