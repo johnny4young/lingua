@@ -223,10 +223,12 @@ export function SqlResultPreview({
   const activeTab: ResultBodyTab =
     bodyTab === 'profile' ? (canProfile && visibleProfile !== null ? 'profile' : 'table') : bodyTab;
 
-  // The window, plus what Load more read past it.
+  // The window, plus what Load more read past it. Keyed on the rows, not on more: its loading
+  // flag and a parent render must not copy and profile the whole result again.
+  const moreRows = more?.rows;
   const loadedRows = useMemo(
-    () => (!response ? [] : more && more.rows.length > 0 ? [...response.rows, ...more.rows] : response.rows),
-    [response, more]
+    () => (!response ? [] : moreRows && moreRows.length > 0 ? [...response.rows, ...moreRows] : response.rows),
+    [response, moreRows]
   );
   const columns = useMemo(() => (response ? response.columns : []), [response]);
   const editTarget = rowEdits?.target ?? null;

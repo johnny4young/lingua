@@ -318,6 +318,10 @@ test.describe('SQL result grid', () => {
     await openSqlScratch(page);
     await typeSql(page, "SELECT * FROM (VALUES ('Cali', 1), ('Cali', 2), ('Pasto', 3)) t(city, n)");
     await page.keyboard.press('ControlOrMeta+Enter');
+    // The rail opens on request; the column heads carry the distribution until then.
+    const toggle = page.getByTestId('sql-column-rail-toggle');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await toggle.click();
     await expect(page.getByTestId('sql-column-rail-sample')).toHaveText('of the 3 rows loaded');
     const city = page.locator('[data-testid="sql-rail-column"][data-column="city"]');
     await city.getByTestId('sql-rail-value').first().click();

@@ -36,6 +36,7 @@ import type { SqlColumnStats } from './sqlColumnStats';
 import '../../i18n/sqlConnectionsCatalog';
 
 const ROW_HEIGHT = 26;
+const SUMMARY_HEIGHT = 30;
 const OVERSCAN = 12;
 const COLUMN_OVERSCAN = 4;
 
@@ -165,7 +166,13 @@ function NumberBar({ share, text }: { share: number; text: string }) {
   );
 }
 
-const readViewport = (node: HTMLElement) => ({ scrollTop: node.scrollTop, scrollLeft: node.scrollLeft, height: node.clientHeight, width: node.clientWidth });
+const readViewport = (node: HTMLElement) => ({
+  scrollTop: node.scrollTop,
+  scrollLeft: node.scrollLeft,
+  height: node.clientHeight,
+  width: node.clientWidth,
+  headerHeight: node.querySelector('thead')?.offsetHeight ?? 0,
+});
 
 interface RowActions {
   sort: (column: string) => void;
@@ -404,7 +411,7 @@ const SummaryRow = memo(function SummaryRow({
   const { summaries, rowCount, skipped, labelColumn } = instruments;
   const num = (value: number) => formatNumber(value, i18n.language);
   return (
-    <tr aria-rowindex={rowIndex} data-testid="sql-result-summary" className="h-[30px] border-t border-border-default">
+    <tr aria-rowindex={rowIndex} data-testid="sql-result-summary" style={{ height: SUMMARY_HEIGHT }} className="border-t border-border-default">
       {slots.map((slot) => {
         if ('gap' in slot) return <td key={slot.key} role="presentation" aria-hidden="true" colSpan={slot.gap} />;
         const { col, index } = slot;
@@ -499,7 +506,7 @@ export function SqlVirtualGrid({
     } else onCellAction('open-value', cell);
   };
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, height: 0, width: 0 });
+  const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, height: 0, width: 0, headerHeight: 0 });
   const [menu, setMenu] = useState<{ cell: SqlGridCell; x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -517,7 +524,9 @@ export function SqlVirtualGrid({
   const fractions = useMemo(() => new Set<string>(JSON.parse(fractionKey)), [fractionKey]);
   const scaleKey = useMemo(() => JSON.stringify([...(instruments?.scales ?? [])]), [instruments]);
   const scales = useMemo(() => new Map<string, number>(JSON.parse(scaleKey)), [scaleKey]);
-  const summary = instruments && instruments.summaries.size > 0 && instruments.rowCount > 1 ? instruments : null;
+  // The sticky Σ row steps aside on a grid too short to show a whole row beside it and the header.
+  const summaryFits = viewport.height === 0 || viewport.height - viewport.headerHeight >= SUMMARY_HEIGHT + ROW_HEIGHT;
+  const summary = summaryFits && instruments && instruments.summaries.size > 0 && instruments.rowCount > 1 ? instruments : null;
   const statsByName = useMemo(() => (stats ? new Map(stats.map((column) => [column.name, column])) : undefined), [stats]);
 
   // Only the column set: a sort, filter or Load more must not move columns.

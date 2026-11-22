@@ -3,7 +3,13 @@ import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
 import { SqlVirtualGrid } from '../../../src/renderer/components/SqlWorkspace/SqlVirtualGrid';
+import { resultInstruments } from '../../../src/renderer/components/SqlWorkspace/sqlColumnInstruments';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
+
+vi.mock('../../../src/renderer/components/SqlWorkspace/sqlColumnInstruments', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/renderer/components/SqlWorkspace/sqlColumnInstruments')>();
+  return { ...actual, resultInstruments: vi.fn(actual.resultInstruments) };
+});
 
 function response(): SqlResponseV1 {
   const rows = [
@@ -40,8 +46,19 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await i18next.changeLanguage('en');
 });
+
+/** Lays the grid out at a given height under a 46 px header; jsdom measures nothing. */
+function layOutGrid(height: number) {
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
+    return this.dataset.testid === 'sql-result-preview-table-container' ? height : 0;
+  });
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+    return this.tagName === 'THEAD' ? 46 : 0;
+  });
+}
 
 describe('SQL grid instruments', () => {
   it('types each head and shows the distribution, a text column its distinct count', () => {
@@ -81,6 +98,28 @@ describe('SQL grid instruments', () => {
     expect(at('avg_ticket').dataset.summary).toBe('avg');
     expect(at('avg_ticket').textContent).toBe('avg137.24');
     expect(screen.getByTestId('sql-result-preview-table').getAttribute('aria-rowcount')).toBe('6');
+  });
+
+  it('steps the sticky Σ row aside on a grid too short to show a row beside it', () => {
+    layOutGrid(78);
+    const { unmount } = render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
+    expect(screen.queryByTestId('sql-result-summary')).toBeNull();
+    expect(screen.getByTestId('sql-result-preview-table').getAttribute('aria-rowcount')).toBe('5');
+    unmount();
+    layOutGrid(102);
+    render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
+    expect(screen.getByTestId('sql-result-summary')).toBeTruthy();
+  });
+
+  it('works the instruments out again for new rows, not for a loading flag', () => {
+    const more = { rows: [{ id: 5, city: 'Pasto', orders: 10, revenue: '1.00', avg_ticket: 1 }], canRead: true, loading: false };
+    const base = response();
+    const { rerender } = render(<SqlResultPreview response={base} isExecuting={false} rowDisplayLimit={100} more={more} />);
+    const calls = vi.mocked(resultInstruments).mock.calls.length;
+    rerender(<SqlResultPreview response={base} isExecuting={false} rowDisplayLimit={100} more={{ ...more, loading: true }} />);
+    expect(vi.mocked(resultInstruments).mock.calls.length).toBe(calls);
+    rerender(<SqlResultPreview response={base} isExecuting={false} rowDisplayLimit={100} more={{ ...more, rows: [...more.rows, ...more.rows] }} />);
+    expect(vi.mocked(resultInstruments).mock.calls.length).toBeGreaterThan(calls);
   });
 
   it('keeps the distribution in one place: the rail when it is open', () => {
