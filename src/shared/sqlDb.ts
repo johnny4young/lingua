@@ -4,7 +4,7 @@
  * Local engine, and Test connection steps.
  */
 
-import type { SqlColumnMetadata, SqlQueryStatus } from './sqlWorkspace';
+import type { SqlColumnMetadata, SqlPhaseTimings, SqlQueryStatus } from './sqlWorkspace';
 import type { SqlConnectionDraft, SqlConnectionV1, SqlRemoteEngine } from './sqlConnections';
 import type { RowEditChanges, RowEditFailure } from './sqlRowEdits';
 import type { SecretStorageMode } from './secretVault';
@@ -68,6 +68,8 @@ export interface SqlDbRunResult {
   /** More rows can be read with `sql-db:fetch` under the same run id. */
   hasMore: boolean;
   durationMs: number;
+  /** Plan, execute and fetch milliseconds, when the engine measured them apart. */
+  phases?: SqlPhaseTimings;
   /** Rows a write touched, when the server says. */
   affectedRows?: number;
   errorMessage?: string;

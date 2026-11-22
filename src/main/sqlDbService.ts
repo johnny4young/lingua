@@ -635,6 +635,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           rowCountIsLowerBound: result.rowCountIsLowerBound,
           hasMore: result.hasMore,
           durationMs: Math.round(performance.now() - started),
+          ...(result.phases ? { phases: result.phases } : {}),
           ...(result.affectedRows !== undefined ? { affectedRows: result.affectedRows } : {}),
         };
       } catch (err) {

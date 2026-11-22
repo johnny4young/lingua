@@ -27,7 +27,7 @@ import type { SqlDbConnectionView, SqlDbSecretKind } from '../../shared/sqlDb';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
-import { e2eFixedDurationMs } from '../testing/e2eDurations';
+import { withE2eSqlDuration } from '../testing/e2eDurations';
 import type { SqlRunRequest } from '../components/SqlWorkspace/SqlQueryEditor';
 import { useAnnounce } from './useAnnounce';
 import { trackSqlQueryExecuted } from './sqlWorkspaceTelemetry';
@@ -36,14 +36,16 @@ import { recordTabLastAnswer } from '../stores/tabLastAnswer';
 import { SQL_WORKSPACE_TAB_ID } from '../stores/editorTabUtils';
 import '../i18n/sqlConnectionsCatalog';
 
-export function toSqlResponse(outcome: DuckDbExecuteOutcome): SqlResponseV1 {
+export function toSqlResponse(measured: DuckDbExecuteOutcome): SqlResponseV1 {
+  const outcome = withE2eSqlDuration(measured);
   return {
     version: 1,
     status: outcome.status,
     rows: outcome.rows,
     columns: outcome.columns,
     rowCount: outcome.rowCount,
-    durationMs: e2eFixedDurationMs(outcome.durationMs),
+    durationMs: outcome.durationMs,
+    ...(outcome.phases ? { phases: outcome.phases } : {}),
     tooLarge: outcome.tooLarge,
     ...(outcome.rowCountIsLowerBound ? { rowCountIsLowerBound: true } : {}),
     statementCount: outcome.statementCount,

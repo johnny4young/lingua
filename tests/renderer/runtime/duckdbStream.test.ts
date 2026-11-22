@@ -112,11 +112,22 @@ describe('executeQuery streaming and cancel', () => {
     expect(query).not.toHaveBeenCalled();
   });
 
+  it('splits a streamed statement into execute and fetch', async () => {
+    const { result } = stream(3, 10);
+    // Batches that take whole milliseconds, since phases that all round to 0 ms are dropped.
+    const slow: DuckDbResultStream = { ...result, next: () => new Promise((resolve) => setTimeout(() => resolve(result.next()), 3)) };
+    engineWith({ stream: async () => slow, cancel: async () => true });
+    const outcome = await executeQuery('SELECT * FROM range(30)');
+    expect(Object.keys(outcome.phases ?? {})).toEqual(['execute', 'fetch']);
+  });
+
   it('keeps several statements on the query path', async () => {
     const stream = vi.fn();
     const query = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, tooLarge: false }));
     engineWith({ query, stream });
-    await executeQuery('SELECT 1; SELECT 2;');
+    const outcome = await executeQuery('SELECT 1; SELECT 2;');
+    // One call answers for every statement, so there is nothing to split.
+    expect(outcome.phases).toBeUndefined();
     expect(query).toHaveBeenCalledOnce();
     expect(stream).not.toHaveBeenCalled();
   });

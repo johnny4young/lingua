@@ -29,7 +29,7 @@ async function ok<T>(body: HostRequest): Promise<T> {
   return response.value as T;
 }
 
-type Rows = { rows: Array<Record<string, unknown>>; columns: Array<{ name: string; type: string }>; hasMore: boolean; affectedRows?: number };
+type Rows = { rows: Array<Record<string, unknown>>; columns: Array<{ name: string; type: string }>; hasMore: boolean; affectedRows?: number; phases?: Record<string, number> };
 
 const run = (config: HostSessionConfig, sql: string, readWrite = false) =>
   ok<Rows>({ type: 'execute', config, runId: `run-${++id}`, sql, readWrite, window });
@@ -68,6 +68,8 @@ describe.skipIf(!libsql)('libSQL over Hrana', () => {
     const read = await run(libsql!, 'SELECT * FROM notes ORDER BY id');
     expect(read.columns.map((column) => column.type)).toEqual(['INTEGER', 'TEXT', 'DOUBLE', 'INTEGER', 'BLOB']);
     expect(read.rows[0]).toEqual({ id: 1, body: 'hola', score: 1.5, big: '9007199254740993', raw: 'yv4=' });
+    // One HTTP answer carries every row, so the engine reports its total only.
+    expect(read.phases).toBeUndefined();
 
     expect((await run(libsqlReadOnly!, 'SELECT count(*) AS n FROM notes')).rows).toEqual([{ n: 2 }]);
     const refused = await send({ type: 'execute', config: libsqlReadOnly!, runId: 'ro-write', sql: 'DELETE FROM notes', readWrite: false, window });
@@ -116,6 +118,7 @@ describe.skipIf(!neon)('Neon over SQL over HTTP', () => {
     const read = await run(neon!, 'SELECT * FROM orders ORDER BY id');
     expect(read.columns.map((column) => column.type)).toEqual(['INTEGER', 'TEXT', 'BOOLEAN', 'DECIMAL(10,2)', 'BIGINT', 'BLOB']);
     expect(read.rows[0]).toEqual({ id: 1, city: 'Cali', paid: true, total: '10.50', big: '9007199254740993', raw: 'yv4=' });
+    expect(read.phases).toBeUndefined();
 
     const refused = await send({ type: 'execute', config: neonReadOnly!, runId: 'neon-ro', sql: 'DELETE FROM orders', readWrite: false, window });
     expect(refused.ok ? null : refused.error.message).toMatch(/read-only transaction/);

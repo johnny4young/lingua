@@ -519,6 +519,19 @@ never falls back to a `.pgpass` file, so a driver can only use the password
 main gives it. The host holds one session per connection and serializes the
 requests on it.
 
+A result may carry `phases`, the milliseconds of plan, execute and fetch for
+that statement (`runClock` in `src/shared/sqlDriver.ts`). Execute is the time
+from sending the statement to its first row or result header (a driver that
+opens a read-only transaction first stamps `sentAt`), fetch the time to
+read the first page, and plan the time a driver spends preparing apart from
+running: only SQLite reports it, around `prepare`. A driver that has read every
+row before `run` returns (`wholeRows`: the HTTP engines, a run that lifts read-only, a SQL
+Server plan) marks its rows `buffered`, and a statement without a result set
+has no fetch. A split of fewer than two phases, or whose phases all round to
+0 ms, is dropped, so the result shows its total only. Local
+SQL measures execute and fetch around a streamed statement in
+`runOnConnection`, on both engines.
+
 Main owns everything the host must not decide. `sqlConnectionCatalog.ts`
 keeps the catalog in `userData/sql-connections.json` (mode 0600, written
 atomically, never a password). Passwords live in the secret store under the

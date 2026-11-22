@@ -6,7 +6,7 @@ import net from 'node:net';
 import mysql from 'mysql2';
 import type { Connection, ConnectionOptions, FieldPacket, Query } from 'mysql2';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, wholeRows, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
 import { introspectMysql } from './mysqlCatalog';
 import type { HostSessionConfig } from './protocol';
 
@@ -230,6 +230,7 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
       // read-only transaction, so an earlier statement cannot have made the session writable.
       await query(connection, 'SET SESSION TRANSACTION READ ONLY');
       await query(connection, 'START TRANSACTION READ ONLY');
+      const sentAt = performance.now();
       let rows: DriverRows;
       try {
         rows = await stream(connection, sql, killQuery);
@@ -239,6 +240,7 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
       }
       return {
         ...rows,
+        sentAt,
         async close() {
           await rows.close();
           await query(connection, 'ROLLBACK').catch(() => undefined);
@@ -306,19 +308,6 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
 }
 
 function whole(result: unknown, fields: FieldPacket[] | undefined): DriverRows {
-  if (!Array.isArray(result)) {
-    const affected = Number((result as { affectedRows?: unknown } | null)?.affectedRows ?? 0);
-    return { columns: [], affectedRows: affected, next: async () => ({ rows: [], done: true }), close: async () => undefined };
-  }
-  let rows = result as Array<Record<string, unknown>>;
-  const columns = (fields ?? []).map((field) => ({ name: field.name, type: columnType(field) }));
-  return {
-    columns,
-    async next(limit) {
-      const page = rows.slice(0, limit);
-      rows = rows.slice(page.length);
-      return { rows: page, done: rows.length === 0 };
-    },
-    close: async () => undefined,
-  };
+  if (!Array.isArray(result)) return wholeRows([], [], Number((result as { affectedRows?: unknown } | null)?.affectedRows ?? 0));
+  return wholeRows((fields ?? []).map((field) => ({ name: field.name, type: columnType(field) })), result as Array<Record<string, unknown>>);
 }
