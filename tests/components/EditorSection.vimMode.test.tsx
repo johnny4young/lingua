@@ -138,7 +138,7 @@ describe('EditorSection — Vim mode toggle', () => {
     await user.selectOptions(screen.getByTestId('editor-font-family-select'), 'Menlo, monospace');
 
     expect(useSettingsStore.getState().fontFamily).toBe(
-      "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace"
+      "'Recursive', 'JetBrains Mono', ui-monospace, monospace"
     );
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });

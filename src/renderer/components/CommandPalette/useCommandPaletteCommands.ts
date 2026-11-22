@@ -17,6 +17,8 @@ import { useResultStore } from '../../stores/resultStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
 import { getPendingSessionRestoreTabCount, useSessionStore } from '../../stores/sessionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { switchIdentityTheme } from '../../stores/identityThemeSwitch';
+import { identityPaletteFor } from '../../utils/editorThemeCatalog';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useUpdateStore } from '../../stores/updateStore';
@@ -157,6 +159,8 @@ export function useCommandPaletteCommands({
     (dependencyDetectionEntry.dependencies.length > 0 ||
       dependencyDetectionEntry.skippedReason !== undefined);
   const setLayoutPreset = useSettingsStore(state => state.setLayoutPreset);
+  const editorTheme = useSettingsStore(state => state.editorTheme);
+  const identityThemeTarget = identityPaletteFor(editorTheme) === 'ink' ? 'paper' : 'ink';
   const togglePresenterMode = usePresenterModeStore(state => state.toggle);
   const vimMode = useSettingsStore(state => state.vimMode);
   // Gate the "Focus status bar" palette command on the bar's
@@ -574,6 +578,8 @@ export function useCommandPaletteCommands({
       onOpenSettings,
       onOpenWhatsNew,
       onStartGuidedTour,
+      identityThemeTarget,
+      onSwitchIdentityTheme: () => switchIdentityTheme(identityThemeTarget),
       onOpenSnippets,
       onOpenProjectSearch,
       onOpenProjectReplace,
@@ -740,6 +746,7 @@ export function useCommandPaletteCommands({
     setTabRuntimeMode,
     addTab,
     setLayoutPreset,
+    identityThemeTarget,
     togglePresenterMode,
     onClose,
     onOpenSettings,

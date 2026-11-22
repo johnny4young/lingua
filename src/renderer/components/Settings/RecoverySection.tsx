@@ -25,7 +25,9 @@ import { FolderOpen, RefreshCcw, RotateCcw, ShieldOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getActiveAppLanguage } from '../../i18n';
+import { INK_THEME_PACK_ID } from '../../data/themePacks';
 import { useEnvVarsStore } from '../../stores/envVarsStore';
+import { DEFAULT_EDITOR_FONT_FAMILY } from '../../stores/settingsDefaults';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -63,9 +65,9 @@ function buildScopeActions(): ScopeAction[] {
         useSettingsStore.setState((draft) => ({
           ...draft,
           theme: 'dark',
-          editorTheme: 'lingua-dark',
+          editorTheme: 'lingua-ink',
           fontSize: 14,
-          fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+          fontFamily: DEFAULT_EDITOR_FONT_FAMILY,
           fontLigatures: true,
           showLineNumbers: true,
           wordWrap: false,
@@ -81,7 +83,7 @@ function buildScopeActions(): ScopeAction[] {
           executionHistorySnapshotEnabled: true,
           shortcutOverrides: {},
           keymapPreset: 'default',
-          themePack: 'default',
+          themePack: INK_THEME_PACK_ID,
           telemetryConsent: current.telemetryConsent,
           nativeExecutionAcknowledged: current.nativeExecutionAcknowledged,
         }));

@@ -7,6 +7,7 @@ export type CommandGroupId =
   | 'workspaces'
   | 'commands'
   | 'utilities'
+  | 'settings'
   | 'templates'
   | 'snippets';
 
@@ -16,6 +17,7 @@ const COMMAND_GROUP_ORDER: readonly CommandGroupId[] = [
   'workspaces',
   'commands',
   'utilities',
+  'settings',
   'templates',
   'snippets',
 ];
@@ -26,9 +28,12 @@ export const COMMAND_GROUP_LABEL_KEY: Record<CommandGroupId, string> = {
   workspaces: 'commandPalette.scope.workspaces',
   commands: 'commandPalette.scope.actions',
   utilities: 'commandPalette.scope.utilities',
+  settings: 'start.palette.settings',
   templates: 'commandPalette.scope.templates',
   snippets: 'commandPalette.scope.snippets',
 };
+
+export const IDENTITY_THEME_COMMAND_ID = 'action-switch-identity-theme';
 
 const WORKSPACE_COMMAND_IDS = new Set([
   'action-open-sql-workspace',
@@ -71,6 +76,7 @@ export function commandGroupFor(command: CommandEntry): Exclude<CommandGroupId, 
   if (command.category === 'snippet') return 'snippets';
   if (WORKSPACE_COMMAND_IDS.has(command.id)) return 'workspaces';
   if (command.id.startsWith('action-developer-utility-')) return 'utilities';
+  if (command.id === IDENTITY_THEME_COMMAND_ID) return 'settings';
   return 'commands';
 }
 

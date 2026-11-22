@@ -17,6 +17,8 @@ export interface EditorThemeOption {
 }
 
 export const EDITOR_THEMES: readonly EditorThemeOption[] = [
+  { id: 'lingua-ink', label: 'Lingua Ink', dark: true },
+  { id: 'lingua-paper', label: 'Lingua Paper', dark: false },
   { id: 'lingua-dark', label: 'Lingua Dark', dark: true },
   { id: 'lingua-light', label: 'Lingua Light', dark: false },
   { id: 'dracula', label: 'Dracula', dark: true },
@@ -33,4 +35,13 @@ export const EDITOR_THEMES: readonly EditorThemeOption[] = [
 export function isDarkEditorTheme(themeId: string): boolean {
   const match = EDITOR_THEMES.find((entry) => entry.id === themeId);
   return match ? match.dark : true;
+}
+
+export type IdentityPalette = 'ink' | 'paper';
+
+/** The Ink/Paper shell palette an editor theme maps to, or null for the other themes. */
+export function identityPaletteFor(themeId: string): IdentityPalette | null {
+  if (themeId === 'lingua-ink') return 'ink';
+  if (themeId === 'lingua-paper') return 'paper';
+  return null;
 }

@@ -77,7 +77,7 @@ Five scoped reset actions plus two affordances:
 
 | Action | Wipes | Preserves |
 |---|---|---|
-| Reset editor settings | theme, font, layout, shortcuts, keymap, theme pack | telemetry consent, native-execution acknowledgement, license |
+| Reset editor settings | theme, font, layout, shortcuts, keymap, theme pack (back to Lingua Ink) | telemetry consent, native-execution acknowledgement, license |
 | Reset snippets | every saved snippet | everything else |
 | Reset environment variables | global, project, and tab scopes | settings + snippets |
 | Reset session and recent state | recent projects, execution history | preferences + saved data |

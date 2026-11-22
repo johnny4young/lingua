@@ -1,4 +1,5 @@
 import { buildActionCommand } from '../commandPaletteModelHelpers';
+import { IDENTITY_THEME_COMMAND_ID } from '../commandPaletteGroups';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 
 export const buildApplicationCommands: CommandPaletteRegistry = ({ args, translate }) => {
@@ -15,6 +16,8 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
     onOpenHttpWorkspace,
     onOpenSqlWorkspace,
     onOpenGoToSymbol,
+    identityThemeTarget,
+    onSwitchIdentityTheme,
   } = args;
 
   const restartDescription = translate(
@@ -86,6 +89,23 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
       }
     ),
   ];
+
+  if (identityThemeTarget && onSwitchIdentityTheme) {
+    commands.push(
+      buildActionCommand(
+        IDENTITY_THEME_COMMAND_ID,
+        translate(
+          identityThemeTarget === 'paper' ? 'start.palette.themePaper' : 'start.palette.themeInk'
+        ),
+        '',
+        ['theme', 'ink', 'paper', 'dark', 'light', 'appearance', 'tema', 'claro', 'oscuro'],
+        () => {
+          onClose();
+          onSwitchIdentityTheme();
+        }
+      )
+    );
+  }
 
   if (onOpenProjectSearch) {
     commands.push(

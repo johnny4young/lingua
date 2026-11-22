@@ -3,7 +3,9 @@ import { FONT_FAMILIES } from '@/components/Settings/settingsOptions';
 import {
   DEFAULT_THEME_PACK_ID,
   THEME_PACKS,
+  RECURSIVE_MONO_FONT_FAMILY,
   findThemePack,
+  isFreeThemePack,
   isKnownThemePackId,
 } from '@/data/themePacks';
 
@@ -58,5 +60,16 @@ describe('themePacks catalog', () => {
     expect(isKnownThemePackId(undefined)).toBe(false);
     expect(isKnownThemePackId(null)).toBe(false);
     expect(isKnownThemePackId(99)).toBe(false);
+  });
+
+  it('ships Ink and Paper as free Recursive Mono packs, one per polarity', () => {
+    const ink = findThemePack('lingua-ink');
+    const paper = findThemePack('lingua-paper');
+    expect(ink?.appearance).toMatchObject({ theme: 'dark', editorTheme: 'lingua-ink' });
+    expect(paper?.appearance).toMatchObject({ theme: 'light', editorTheme: 'lingua-paper' });
+    expect(ink?.appearance.fontFamily).toBe(RECURSIVE_MONO_FONT_FAMILY);
+    expect(paper?.appearance.fontFamily).toBe(RECURSIVE_MONO_FONT_FAMILY);
+    expect(['default', 'lingua-ink', 'lingua-paper'].every(isFreeThemePack)).toBe(true);
+    expect(isFreeThemePack('nord-night')).toBe(false);
   });
 });

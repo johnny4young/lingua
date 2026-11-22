@@ -5,7 +5,6 @@ import {
   type ShortcutCombo,
   type ShortcutOverrideMap,
 } from '../data/keyboardShortcuts';
-import { type ThemePackAppearance } from '../data/themePacks';
 import {
   isWorkflowMode,
   type WorkflowMode,
@@ -215,32 +214,6 @@ export function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
     if (combos.length > 0) out[key] = combos;
   }
   return out;
-}
-
-/**
- * Theme-pack normalization mirror for appearance fields. A selected pack is
- * considered active only if every pack-owned setting still equals the catalog
- * bundle; manual edits to theme, editor theme, font, size, or layout clear the
- * pack marker so Settings never shows a stale active preset.
- */
-export function themePackAppearanceMatchesSettings(
-  settings: Pick<
-    SettingsState,
-    | 'theme'
-    | 'editorTheme'
-    | 'fontFamily'
-    | 'fontSize'
-    | 'layoutPreset'
-  >,
-  appearance: ThemePackAppearance
-): boolean {
-  return (
-    settings.theme === appearance.theme &&
-    settings.editorTheme === appearance.editorTheme &&
-    settings.fontFamily === appearance.fontFamily &&
-    settings.fontSize === appearance.fontSize &&
-    settings.layoutPreset === appearance.layoutPreset
-  );
 }
 
 /**

@@ -18,6 +18,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { isLocalAiEndpoint } from '../../utils/loopbackHost';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { cn } from '../../utils/cn';
+import { defineCustomThemes } from '../Editor/editorThemes';
 
 const NOTICE_KEY = 'lingua-ai-edit-preview-notice';
 const MAX_VALUE_ROWS = 6;
@@ -73,7 +74,7 @@ function ValueChanges({ rows }: { rows: ValueChange[] }) {
 }
 
 /** Detaches and disposes the models itself: the wrapper disposes them while still attached on unmount, which Monaco throws on. */
-function WholeFileDiff({ original, modified, language, dark }: { original: string; modified: string; language: string; dark: boolean }) {
+function WholeFileDiff({ original, modified, language, theme }: { original: string; modified: string; language: string; theme: string }) {
   const editor = useRef<monacoTypes.editor.IStandaloneDiffEditor | null>(null);
   useEffect(
     () => () => {
@@ -90,7 +91,8 @@ function WholeFileDiff({ original, modified, language, dark }: { original: strin
       original={original}
       modified={modified}
       language={language}
-      theme={dark ? 'vs-dark' : 'vs'}
+      beforeMount={defineCustomThemes}
+      theme={theme}
       keepCurrentOriginalModel
       keepCurrentModifiedModel
       onMount={mounted => {
@@ -290,7 +292,7 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
                     original={request.code}
                     modified={applyEdit(request.code, span.start, span.end, ready!.proposal)}
                     language={request.language}
-                    dark={theme !== 'lingua-light'}
+                    theme={theme}
                   />
                 </div>
               ) : (

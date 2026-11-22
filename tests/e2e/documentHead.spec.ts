@@ -100,11 +100,12 @@ test.describe('Document head — boot hints', () => {
     expect(html).toMatch(/#0c1017/);
   });
 
-  test('defaults to dark pre-hydration and loads the vendored fonts', async ({ page }) => {
+  test('defaults to Ink pre-hydration and loads the vendored fonts', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     const probe = await page.evaluate(() => ({
       theme: document.documentElement.dataset.theme ?? null,
+      palette: document.documentElement.dataset.palette ?? null,
       hasDarkClass: document.documentElement.classList.contains('dark'),
       colorScheme: document.documentElement.style.colorScheme,
       themeColor:
@@ -112,9 +113,10 @@ test.describe('Document head — boot hints', () => {
     }));
     expect(probe).toEqual({
       theme: 'dark',
+      palette: 'ink',
       hasDarkClass: true,
       colorScheme: 'dark',
-      themeColor: '#0c1017',
+      themeColor: '#05090a',
     });
 
     // fonts.load() forces the @font-face fetch through the same URL the

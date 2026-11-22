@@ -1,4 +1,4 @@
-import type { LayoutPreset } from '../types/settings';
+import type { LayoutPreset, SettingsState } from '../types/settings';
 
 /**
  * Curated theme packs that ship with the application. A pack is a
@@ -25,19 +25,60 @@ export interface ThemePack {
   labelKey: string;
   descriptionKey: string;
   appearance: ThemePackAppearance;
+  /** Free on every tier; the rest need the extended theme-pack entitlement. */
+  free?: boolean;
 }
 
+/** Also the "no pack in force" marker that manual appearance edits fall back to. */
 export const DEFAULT_THEME_PACK_ID = 'default';
+export const INK_THEME_PACK_ID = 'lingua-ink';
+export const PAPER_THEME_PACK_ID = 'lingua-paper';
+
+/** Lingua's identity editor face: Recursive with its MONO axis on (see utils/editorFontVariations.ts). */
+export const RECURSIVE_MONO_FONT_FAMILY = "'Recursive', 'JetBrains Mono', ui-monospace, monospace";
+export const CLASSIC_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
+
+/** Editor faces every tier may pick; the rest need the extended font entitlement. */
+export function isFreeEditorFontFamily(fontFamily: string): boolean {
+  return fontFamily === CLASSIC_EDITOR_FONT_FAMILY || fontFamily === RECURSIVE_MONO_FONT_FAMILY;
+}
 
 export const THEME_PACKS: readonly ThemePack[] = [
+  {
+    id: INK_THEME_PACK_ID,
+    labelKey: 'settings.themePack.ink.label',
+    descriptionKey: 'settings.themePack.ink.description',
+    free: true,
+    appearance: {
+      theme: 'dark',
+      editorTheme: 'lingua-ink',
+      fontFamily: RECURSIVE_MONO_FONT_FAMILY,
+      fontSize: 14,
+      layoutPreset: 'horizontal',
+    },
+  },
+  {
+    id: PAPER_THEME_PACK_ID,
+    labelKey: 'settings.themePack.paper.label',
+    descriptionKey: 'settings.themePack.paper.description',
+    free: true,
+    appearance: {
+      theme: 'light',
+      editorTheme: 'lingua-paper',
+      fontFamily: RECURSIVE_MONO_FONT_FAMILY,
+      fontSize: 14,
+      layoutPreset: 'horizontal',
+    },
+  },
   {
     id: DEFAULT_THEME_PACK_ID,
     labelKey: 'settings.themePack.default.label',
     descriptionKey: 'settings.themePack.default.description',
+    free: true,
     appearance: {
       theme: 'dark',
       editorTheme: 'lingua-dark',
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+      fontFamily: CLASSIC_EDITOR_FONT_FAMILY,
       fontSize: 14,
       layoutPreset: 'horizontal',
     },
@@ -75,4 +116,27 @@ export function findThemePack(id: string): ThemePack | undefined {
 export function isKnownThemePackId(id: unknown): id is string {
   if (typeof id !== 'string' || id.length === 0) return false;
   return THEME_PACKS.some((pack) => pack.id === id);
+}
+
+export function isFreeThemePack(id: string): boolean {
+  return findThemePack(id)?.free === true;
+}
+
+/**
+ * Theme-pack normalization mirror for appearance fields. A selected pack is
+ * considered active only if every pack-owned setting still equals the catalog
+ * bundle; manual edits to theme, editor theme, font, size, or layout clear the
+ * pack marker so Settings never shows a stale active preset.
+ */
+export function themePackAppearanceMatchesSettings(
+  settings: Pick<SettingsState, 'theme' | 'editorTheme' | 'fontFamily' | 'fontSize' | 'layoutPreset'>,
+  appearance: ThemePackAppearance
+): boolean {
+  return (
+    settings.theme === appearance.theme &&
+    settings.editorTheme === appearance.editorTheme &&
+    settings.fontFamily === appearance.fontFamily &&
+    settings.fontSize === appearance.fontSize &&
+    settings.layoutPreset === appearance.layoutPreset
+  );
 }

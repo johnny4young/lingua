@@ -13,6 +13,8 @@ export interface EditorThemeSurface {
 const EDITOR_THEME_SURFACES = {
   'lingua-dark': { background: '#060a0b', foreground: '#dfe6e7' },
   'lingua-light': { background: '#fafcfd', foreground: '#2a3537' },
+  'lingua-ink': { background: '#05090a', foreground: '#f3f7f8' },
+  'lingua-paper': { background: '#ffffff', foreground: '#0e1517' },
   dracula: { background: '#282a36', foreground: '#f8f8f2' },
   'one-dark-pro': { background: '#282c34', foreground: '#abb2bf' },
   monokai: { background: '#272822', foreground: '#f8f8f2' },
@@ -28,6 +30,72 @@ export function getEditorThemeSurface(themeId: string): EditorThemeSurface {
     return EDITOR_THEME_SURFACES[themeId as keyof typeof EDITOR_THEME_SURFACES];
   }
   return EDITOR_THEME_SURFACES['lingua-dark'];
+}
+
+interface IdentityInks {
+  keyword: string;
+  string: string;
+  number: string;
+  comment: string;
+  punctuation: string;
+  builtin: string;
+  property: string;
+  lineNumber: string;
+  lineNumberActive: string;
+  panel: string;
+  selection: string;
+  widgetBorder: string;
+  cursor: string;
+}
+
+function identityTheme(
+  base: 'vs' | 'vs-dark',
+  id: 'lingua-ink' | 'lingua-paper',
+  inks: IdentityInks
+): Parameters<Monaco['editor']['defineTheme']>[1] {
+  const { background, foreground } = EDITOR_THEME_SURFACES[id];
+  const text = foreground.slice(1);
+  const brackets = `#${inks.punctuation}`;
+  return {
+    base,
+    inherit: true,
+    rules: [
+      { token: '', foreground: text },
+      { token: 'comment', foreground: inks.comment, fontStyle: 'italic underline' },
+      { token: 'keyword', foreground: inks.keyword, fontStyle: 'italic' },
+      { token: 'string', foreground: inks.string },
+      { token: 'regexp', foreground: inks.string },
+      { token: 'number', foreground: inks.number },
+      { token: 'type', foreground: inks.builtin },
+      { token: 'predefined', foreground: inks.builtin },
+      { token: 'function', foreground: text },
+      { token: 'identifier', foreground: text },
+      { token: 'variable', foreground: inks.property },
+      { token: 'operator', foreground: inks.punctuation },
+      { token: 'delimiter', foreground: inks.punctuation },
+    ],
+    colors: {
+      'editor.background': background,
+      'editor.foreground': foreground,
+      'editorLineNumber.foreground': inks.lineNumber,
+      'editorLineNumber.activeForeground': inks.lineNumberActive,
+      'editor.lineHighlightBackground': inks.panel,
+      'editor.selectionBackground': inks.selection,
+      'editor.inactiveSelectionBackground': inks.selection,
+      'editorCursor.foreground': inks.cursor,
+      'editorWidget.background': inks.panel,
+      'editorWidget.border': inks.widgetBorder,
+      'editorSuggestWidget.background': inks.panel,
+      'editorHoverWidget.background': inks.panel,
+      // Bracket pairs stay punctuation-quiet instead of rainbow.
+      'editorBracketHighlight.foreground1': brackets,
+      'editorBracketHighlight.foreground2': brackets,
+      'editorBracketHighlight.foreground3': brackets,
+      'editorBracketHighlight.foreground4': brackets,
+      'editorBracketHighlight.foreground5': brackets,
+      'editorBracketHighlight.foreground6': brackets,
+    },
+  };
 }
 
 export function defineCustomThemes(monaco: Monaco) {
@@ -92,6 +160,42 @@ export function defineCustomThemes(monaco: Monaco) {
       'editorCursor.foreground': '#0080a1',
     },
   });
+
+  // Lingua Ink and Paper: four low-chroma inks (keyword, string, number,
+  // comment) so the answers beside the code carry the colour. Literals are a
+  // muted echo of their answer colour. `underline` on comments is a marker:
+  // index.css swaps it for Recursive's casual axis (CASL) under these themes.
+  monaco.editor.defineTheme('lingua-ink', identityTheme('vs-dark', 'lingua-ink', {
+    keyword: '8ccbd8',
+    string: '8fbfa3',
+    number: 'd4b07a',
+    comment: '6d7f82',
+    punctuation: '8a9a9d',
+    builtin: 'bfd0d3',
+    property: 'd5dee0',
+    lineNumber: '#7f8f92',
+    lineNumberActive: '#a9b7ba',
+    panel: '#0a1012',
+    selection: '#1b282b',
+    widgetBorder: '#2d3b3e',
+    cursor: '#00bfdf',
+  }));
+
+  monaco.editor.defineTheme('lingua-paper', identityTheme('vs', 'lingua-paper', {
+    keyword: '0a6f8c',
+    string: '2e7352',
+    number: '8f5e12',
+    comment: '647477',
+    punctuation: '62727a',
+    builtin: '36505a',
+    property: '2a3a3e',
+    lineNumber: '#5e6e71',
+    lineNumberActive: '#46575a',
+    panel: '#f5f8f9',
+    selection: '#dfe7e9',
+    widgetBorder: '#bcc7ca',
+    cursor: '#007a9c',
+  }));
 
   monaco.editor.defineTheme('dracula', {
     base: 'vs-dark',

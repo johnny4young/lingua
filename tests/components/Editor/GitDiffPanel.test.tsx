@@ -31,14 +31,16 @@ vi.mock('@monaco-editor/react', () => ({
     original,
     modified,
     onMount,
+    theme,
   }: {
     original: string;
     modified: string;
     onMount?: (editor: unknown, monaco: unknown) => void;
+    theme?: string;
   }) => {
     transfer.onMount = onMount ?? null;
     return (
-      <div data-testid="mock-diff-editor">
+      <div data-testid="mock-diff-editor" data-theme={theme}>
         <span>{original}</span>
         <span>{modified}</span>
       </div>
@@ -48,6 +50,7 @@ vi.mock('@monaco-editor/react', () => ({
 
 import { GitDiffPanel } from '../../../src/renderer/components/Editor/GitDiffPanel';
 import { useGitStore } from '../../../src/renderer/stores/gitStore';
+import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 
 const REPO_ROOT = '/tmp/repo';
@@ -138,6 +141,10 @@ describe('GitDiffPanel', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('mock-diff-editor')).toBeTruthy();
+      // Monaco themes are global, so the diff keeps the user's theme instead of vs/vs-dark.
+      expect(screen.getByTestId('mock-diff-editor').getAttribute('data-theme')).toBe(
+        useSettingsStore.getState().editorTheme
+      );
     });
     expect(screen.getByText('current original')).toBeTruthy();
     expect(screen.getByText('current modified')).toBeTruthy();

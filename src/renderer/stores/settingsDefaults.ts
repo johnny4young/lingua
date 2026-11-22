@@ -2,7 +2,11 @@ import type { SettingsState } from '../types/settings';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpSensitiveHeaders';
 import { DEFAULT_KEYMAP_PRESET_ID } from '../data/keymapPresets';
-import { DEFAULT_THEME_PACK_ID } from '../data/themePacks';
+import {
+  CLASSIC_EDITOR_FONT_FAMILY,
+  INK_THEME_PACK_ID,
+  RECURSIVE_MONO_FONT_FAMILY,
+} from '../data/themePacks';
 import { defaultRuntimeTimeoutPresetSeed } from '../../shared/runtimeTimeoutPresets';
 import { DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL } from '../../shared/browserPreviewRefresh';
 import { DEFAULT_RUN_POLICY_BY_GROUP } from '../../shared/runPolicy';
@@ -16,7 +20,17 @@ import { isStorageEphemeral } from '../utils/ephemeralStorage';
  * defaults it references, never on the store, sanitizers, or action factories.
  */
 
-export const DEFAULT_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
+export const DEFAULT_EDITOR_FONT_FAMILY = RECURSIVE_MONO_FONT_FAMILY;
+
+/**
+ * Appearance a stored settings snapshot falls back to for fields it lacks:
+ * Ink is for installs with no stored settings, never a silent move for others.
+ */
+export const CLASSIC_APPEARANCE = {
+  theme: 'dark',
+  editorTheme: 'lingua-dark',
+  fontFamily: CLASSIC_EDITOR_FONT_FAMILY,
+} as const;
 
 /**
  * Seeded defaults surfaced in Settings → Editor
@@ -112,7 +126,7 @@ export const BASELINE_SENSITIVE_HEADERS_LC: ReadonlySet<string> = new Set(
 export function createInitialSettingsState() {
   return {
     theme: 'dark',
-    editorTheme: 'lingua-dark',
+    editorTheme: 'lingua-ink',
     fontSize: 14,
     fontFamily: DEFAULT_EDITOR_FONT_FAMILY,
     wordWrap: false,
@@ -222,7 +236,7 @@ export function createInitialSettingsState() {
     suppressTourAutoStart: isStorageEphemeral(),
     shortcutOverrides: {},
     keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
-    themePack: DEFAULT_THEME_PACK_ID,
+    themePack: INK_THEME_PACK_ID,
     // Sensitive HTTP header allowlist. Initial
     // state is empty (the baseline list in
     // `BASELINE_SENSITIVE_HEADERS` is always applied additively at

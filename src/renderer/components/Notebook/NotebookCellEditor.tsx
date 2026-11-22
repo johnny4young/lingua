@@ -41,6 +41,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
 import { defineCustomThemes } from '../Editor/editorThemes';
 import { getSatelliteEditorOptions } from '../Editor/editorOptions';
+import { editorFontVariations } from '../../utils/editorFontVariations';
 import { VimStatusBar } from '../Editor/VimStatusBar';
 import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
 import { createLocalizedStatusBarClass } from '../Editor/vimStatusBarFactory';
@@ -209,7 +210,7 @@ function NotebookCellStaticView({
       }}
       onKeyDown={handleKeyDown}
       className="relative min-h-[44px] cursor-text overflow-x-auto rounded border border-transparent p-2 outline-none hover:border-border/60 focus-visible:border-primary/70 focus-visible:ring-1 focus-visible:ring-primary/40"
-      style={{ fontFamily, fontSize }}
+      style={{ fontFamily, fontSize, fontVariationSettings: editorFontVariations(fontFamily) || undefined }}
     >
       {isEmpty ? <span className="font-mono text-body-sm text-muted">{placeholder}</span> : null}
       {/* No wrapping: each source line keeps one row, so answers stay beside it. */}

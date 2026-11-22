@@ -28,6 +28,7 @@ const LICENSE_SERVER_HEADERS = {
 
 export const APP_VERSION = packageJson.version;
 export const DEV_LICENSE_TOKEN = process.env.LINGUA_DEV_LICENSE_TOKEN;
+// Seeded settings keep the Classic appearance; only installs with no stored settings start on Ink.
 export const DEFAULT_FONT_STACK = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
 
 if (!DEV_LICENSE_TOKEN) {

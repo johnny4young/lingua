@@ -11,6 +11,7 @@ import {
   DEFAULT_THEME_PACK_ID,
   findThemePack,
   isKnownThemePackId,
+  themePackAppearanceMatchesSettings,
 } from '../data/themePacks';
 import { isRuntimeModeImplemented } from '../../shared/runtimeModes';
 import {
@@ -19,10 +20,7 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import { type WorkflowMode } from '../../shared/workflowMode';
 import { sanitizeBrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
-import {
-  SCRATCHPAD_AUTO_LOG_DEFAULT_SEED,
-  WORKFLOW_MODE_DEFAULT_SEED,
-} from './settingsDefaults';
+import { SCRATCHPAD_AUTO_LOG_DEFAULT_SEED, WORKFLOW_MODE_DEFAULT_SEED, CLASSIC_APPEARANCE } from './settingsDefaults';
 import {
   hasOwn,
   isAppLanguage,
@@ -37,7 +35,6 @@ import {
   sanitizeSqlRowDisplayLimit,
   sanitizeWorkflowModeDefaults,
   shortcutOverridesEqual,
-  themePackAppearanceMatchesSettings,
 } from './settingsSanitizers';
 
 /**
@@ -62,6 +59,7 @@ export function settingsMerge(
   }
   const merged = {
     ...currentState,
+    ...(persisted ? CLASSIC_APPEARANCE : {}),
     ...persisted,
   };
   const hasSnapshotPreference =
@@ -254,7 +252,7 @@ export function settingsMerge(
   return {
     ...merged,
     // Resync before first render so System never paints the last session's polarity.
-    ...(merged.theme === 'system' ? { editorTheme: systemEditorTheme() } : {}),
+    ...(merged.theme === 'system' ? { editorTheme: systemEditorTheme(merged.editorTheme) } : {}),
     restoreSessionMode,
     languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform),
     hasCompletedOnboardingWelcome,
