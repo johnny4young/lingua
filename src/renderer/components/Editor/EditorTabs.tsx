@@ -195,7 +195,15 @@ export function EditorTabs() {
     visibleTabsRef.current = visibleTabs;
   });
 
-  if (tabs.length === 0) return null;
+  if (tabs.length === 0) {
+    return (
+      <div className="flex h-[34px] items-stretch" data-testid="editor-tab-start">
+        <span className="flex items-center border-r border-border/60 bg-bg-base px-3.5 text-caption font-semibold text-fg-base">
+          {t('editorTabs.start')}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <>

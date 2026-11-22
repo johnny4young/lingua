@@ -11,12 +11,14 @@ import { bucketAutoLogCount } from './autoRunModel';
 import { preserveStickyLineResults } from './autoRunStickyResults';
 import { toConsoleEntries } from './runnerOutput';
 import { withE2eExecutionTime } from '../testing/e2eDurations';
+import { recordCodeLastAnswer } from '../stores/tabLastAnswer';
 
 interface ApplyAutoRunResultOptions {
   autoLogEnabled?: boolean;
   code: string;
   language: Language;
   result: ExecutionResult;
+  tabId: string;
 }
 
 /** Publish a non-stale runner result to the inline and console surfaces. */
@@ -25,6 +27,7 @@ export function applyAutoRunResult({
   code,
   language,
   result: measuredResult,
+  tabId,
 }: ApplyAutoRunResultOptions): void {
   const result = withE2eExecutionTime(measuredResult);
   const {
@@ -39,6 +42,7 @@ export function applyAutoRunResult({
     setScopeSnapshot,
   } = useResultStore.getState();
   const presentation = toExecutionPresentation(language, code, result);
+  recordCodeLastAnswer(tabId, result, presentation);
 
   // Preserve watch and auto-log rows only when their exact source line still
   // exists and the failure happened elsewhere. Type + line alone is not a
@@ -62,7 +66,8 @@ export function applyAutoRunResult({
   // The bottom console owns rich payload rendering, so mirror the manual run
   // path instead of publishing only the inline full-output projection.
   const consoleStore = useConsoleStore.getState();
-  consoleStore.clear();
+  // Output lands all at once, so there is no timeline to stamp rows against.
+  consoleStore.beginRun({ tabId, startedAt: null });
   consoleStore.addEntries(toConsoleEntries(result, language));
 
   setStdinConsumed(result.stdinConsumed ?? null);

@@ -59,10 +59,10 @@ describe('<OutputLineBadge>', () => {
     vi.useRealTimers();
   });
 
-  it('renders an `L<n>` button with the localized aria-label', () => {
+  it('renders the line number button with the localized aria-label', () => {
     const { getByTestId } = render(<OutputLineBadge origin={{ line: 7 }} language="javascript" />);
     const button = getByTestId('output-line-badge');
-    expect(button.textContent).toBe('L7');
+    expect(button.textContent).toBe('7');
     expect(button.getAttribute('aria-label')).toBe('console.outputBadge.ariaLabel:7');
   });
 

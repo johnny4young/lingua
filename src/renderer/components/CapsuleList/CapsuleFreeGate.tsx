@@ -83,9 +83,9 @@ export function ImportButton({ onImport }: { onImport: () => void }) {
       type="button"
       onClick={onImport}
       data-testid="capsule-list-import"
-      className="focus-ring inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-md border border-border-subtle bg-bg-panel px-2.5 text-caption font-medium text-fg-base hover:border-border-strong"
+      className="focus-ring action-pill-run shrink-0 rounded-lg px-3"
     >
-      <ArrowUpFromLine size={11} aria-hidden="true" />
+      <ArrowUpFromLine size={12} aria-hidden="true" />
       {t('capsuleList.import')}
     </button>
   );

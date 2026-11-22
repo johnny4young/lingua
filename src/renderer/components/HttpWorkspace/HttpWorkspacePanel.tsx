@@ -40,6 +40,7 @@ import {
   collectSecretKeys,
   maskSecretsForCapsule,
   maskSecretValuesInResponse,
+  environmentColor,
 } from '../../../shared/httpEnvironment';
 import { executeHttpRequest } from '../../runtime/httpClient';
 import { buildHttpResponseCapsule } from '../../runtime/httpResponseCapsule';
@@ -63,8 +64,13 @@ import {
 import { chainedOrigin, chainOrder, chainPasses, chainTags, latestFor, requestLabel, sourceNeedsSend } from '../../../shared/httpChain';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
+import { HttpEnvironmentSelector } from './HttpEnvironmentSelector';
+import { ENVIRONMENT_TINTS } from './httpScopeColors';
+import { CommandBarSlot } from '../Chrome/CommandBarSlot';
 import { HttpPipelineManager } from './HttpPipelineManager';
 import { appPlatform } from '../../utils/appPlatform';
+import { recordTabLastAnswer } from '../../stores/tabLastAnswer';
+import { HTTP_WORKSPACE_TAB_ID } from '../../stores/editorTabUtils';
 
 export interface HttpWorkspacePanelProps {
   /**
@@ -160,6 +166,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   // selector, the resolution preview, and send-time interpolation.
   const environments = useWorkspaceToolStore(state => state.environments);
   const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
+  const environmentColorName = environmentColor(environments.find(env => env.id === activeEnvironmentId));
+  const environmentTint = environmentColorName ? ENVIRONMENT_TINTS[environmentColorName] : undefined;
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
   const [managerFocus, setManagerFocus] = useState<HttpEnvironmentFocus | null>(null);
   const [isPipelineManagerOpen, setIsPipelineManagerOpen] = useState(false);
@@ -551,6 +559,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         } else {
           announce(t('httpWorkspace.run.announceError'));
         }
+        // A token this response introduced was not a known secret when it was masked.
+        const answered = maskSecretValuesInResponse(response, secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env)));
         let capsule;
         try {
           const appInfo = getBundledAppInfo();
@@ -562,17 +572,14 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             appVersion: appInfo.version,
             requestName: requestToSend.name,
             request: capsuleSafe,
-            // A token this response introduced was not a known secret when it was masked.
-            response: maskSecretValuesInResponse(
-              response,
-              secretCaptureValues(raw, requestToSend.captures ?? [], collectSecretKeys(env))
-            ),
+            response: answered,
             platform,
             userSensitiveHeaders: sensitiveHttpHeaders,
           });
         } catch {
           capsule = undefined;
         }
+        void recordTabLastAnswer(HTTP_WORKSPACE_TAB_ID, ({ httpLastAnswer }, ranAt) => httpLastAnswer(answered, requestToSend.method, ranAt));
         useExecutionHistoryStore.getState().record({
           language: 'http',
           status: response.kind === 'success' ? 'ok' : 'error',
@@ -743,6 +750,15 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
 
   return (
     <div data-testid="http-workspace-panel" className="relative flex h-full min-w-0 flex-col">
+      <CommandBarSlot slot="context">
+        <HttpEnvironmentSelector
+          environments={environments}
+          activeEnvironmentId={activeEnvironmentId}
+          onSelect={handleSelectEnvironment}
+          onManage={() => handleManageEnvironment()}
+          {...(environmentTint ? { tint: environmentTint } : {})}
+        />
+      </CommandBarSlot>
       <Group
         orientation="horizontal"
         defaultLayout={layout.defaultLayout}
@@ -774,7 +790,6 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               isExecuting={isExecuting}
               environments={environments}
               activeEnvironmentId={activeEnvironmentId}
-              onSelectEnvironment={handleSelectEnvironment}
               onManageEnvironment={handleManageEnvironment}
               captureTargetRef={captureTargetRef}
               assertionTargetRef={assertionTargetRef}

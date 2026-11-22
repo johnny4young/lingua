@@ -34,11 +34,13 @@ describe('palette groups', () => {
     ]);
   });
 
-  it('leads with Recent and does not repeat a recent command in its own group', () => {
-    const groups = groupCommands(commands, ['action-open-sql-workspace', 'gone']);
+  it('leads with recent files on the empty query', () => {
+    const groups = groupCommands(commands, [entry('recent-file-tab-a', 'file')]);
     expect(groups[0]).toMatchObject({ id: 'recent' });
-    expect(groups[0]?.commands.map(command => command.id)).toEqual(['action-open-sql-workspace']);
-    expect(groups.find(group => group.id === 'workspaces')).toBeUndefined();
+    expect(groups[0]?.commands.map(command => command.id)).toEqual(['recent-file-tab-a']);
+    expect(groups.find(group => group.id === 'workspaces')?.commands.map(command => command.id)).toEqual([
+      'action-open-sql-workspace',
+    ]);
   });
 
   it('orders filtered groups by their best match so the top row stays the top hit', () => {

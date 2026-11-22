@@ -10,6 +10,7 @@ import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useTimelineStore } from '@/stores/timelineStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 function openTab(tab: Record<string, unknown>) {
   act(() => {
@@ -53,6 +54,16 @@ describe('useLayoutAvailability', () => {
     expect(result.current.dockExpanded).toBe(true);
     expect(result.current.tabs['browser-preview']).toBe(true);
     expect(result.current.tabs.stdin).toBe(false);
+  });
+
+  it('removes the dock on Start unless a project is open', () => {
+    const { result, rerender } = renderHook(() => useLayoutAvailability());
+    expect(result.current).toMatchObject({ dockShown: false, dockExpanded: false });
+
+    act(() => useProjectStore.setState({ currentProject: { id: 'p', name: 'P', rootPath: '/p', rootId: 'r', openedAt: 1 } as never }));
+    rerender();
+    expect(result.current.dockShown).toBe(true);
+    act(() => useProjectStore.setState({ currentProject: null }));
   });
 
   it('removes the dock in the editor-only layout and on Utilities tabs', () => {

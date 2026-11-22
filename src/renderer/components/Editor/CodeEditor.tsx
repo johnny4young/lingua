@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
+import { useRegisterProjectTestFileRun } from './useRegisterProjectTestFileRun';
 import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { pausedLineResults } from '../../utils/debuggerLocals';
@@ -46,7 +47,7 @@ import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
 import { DebuggerStepHudHost } from '../Debugger/DebuggerStepHudHost';
 import { ErrorLineRowHost } from '../AI/ErrorLineRowHost';
-import { TestFailureCardHost } from '../ProjectTests/TestFailureCardHost';
+import { TestLineAnswersHost } from '../ProjectTests/TestLineAnswersHost';
 import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 import { useRunStale, useRunStaleAgeProperty } from '../../hooks/useRunStale';
 import { bindStopRunKey } from './stopRunKeybinding';
@@ -131,6 +132,7 @@ export function CodeEditor() {
   );
 
   const activeTab = useActiveTab();
+  useRegisterProjectTestFileRun(activeTab ?? null);
   // While paused here, the frame's values join what the run has logged so far.
   const inlineLineResults = useMemo(
     () =>
@@ -542,7 +544,7 @@ export function CodeEditor() {
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
-        <TestFailureCardHost editor={editorInstance} monaco={monacoInstance} />
+        <TestLineAnswersHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}
           monaco={monacoInstance}

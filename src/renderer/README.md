@@ -73,9 +73,14 @@ Commit goes through the same bridge's `applyEdits` on a connection and
 
 The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`
 and keeps its `app-chrome` landmarks: brand and file on the left, then
-language · engine · mode-aware action, autosave, the command icons, the license
-badge and Settings. On SQL, HTTP and Utilities tabs only the workspace chip
-stays, because Run and Send live inside those tabs. **Undock** in the More
+a context chip and one filled verb, autosave, the command icons, the license
+badge and Settings. Surfaces fill the context and verb from where their state
+lives: `<CommandBarSlot slot="context" | "verb">` (`components/Chrome/CommandBarSlot.tsx`)
+portals into the bar's hosts, the highest-priority, latest claim wins, and an
+empty slot falls back to the code controls (language, runtime, Run). The SQL
+connection picker and Run statement, the HTTP environment and Send, the notebook
+cell and Run cell, and Run pipeline all render this way; a modal scope keeps a
+slot inline and a hidden workspace scope drops it. **Undock** in the More
 actions menu brings back the draggable `FloatingActionPill` (persisted in
 `uiStore.commandBarDocked`); `AppLayout` then restores `AppChrome` and reserves a
 row below it so the pill never covers the editor tab strip, and **Dock** puts the
@@ -184,7 +189,7 @@ The renderer is intentionally split by feature instead of by component type.
 | Feature folder                                                                                                    | Main files                                            | Notes                                                          |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`, `BottomPanel.tsx`, `dockTabs.ts`     | Owns shell composition, panel layout, sidebar/drawer behavior; the results dock stays behind a lazy boundary so its feature tree stays out of the initial bundle |
-| [`components/Chrome/`](components/Chrome)                 | `CommandBar.tsx`, `AppChrome.tsx`                     | The 48 px command bar (default) and the undocked title row     |
+| [`components/Chrome/`](components/Chrome)                 | `CommandBar.tsx`, `CommandBarSlot.tsx`, `AppChrome.tsx` | The 48 px command bar (default) and the undocked title row     |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
 | [`components/ErrorBoundary.tsx`](components/ErrorBoundary.tsx) | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
@@ -223,7 +228,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/RunRegions/`](components/RunRegions)       | `RunRegionsHost.tsx`, `RunRegions.tsx` (lazy), `runtime/regionRun.ts` | Run regions: `%%` regions from `utils/runRegions.ts`, the region chips above the editor, Cmd/Ctrl+Shift+Enter (run all) in the editor and the latest region output from `stores/runRegionStore.ts` under its region, with an inline stdin row when the run stopped for input; the Run shortcut picks the region at the cursor through `runtime/regionRun.ts`, and masked stdin answers stay in memory in `runRegionStore` |
 | Run state                                                 | `hooks/useRunStale.ts`, `Editor/RunStalePill.tsx`, `Settings/RunPolicySection.tsx`, `Editor/stopRunKeybinding.ts` | Stale results against `resultStore.ranCode`, the per-group Scratchpad run policy, and Cmd/Ctrl+. Stop |
 | [`components/RunCompare/`](components/RunCompare)       | `RunComparePanel.tsx` (lazy Compare dock tab), `runCompareModel.ts` | Compare runs: runs by day, a diff of code, stdout, inline values and exit, Restore as new tab and Pin as capsule |
-| [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestFailureCardHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestFailureCard.tsx`), `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, and the failure card under the assertion line |
+| [`components/ProjectTests/`](components/ProjectTests)     | `TestsPanel.tsx` (lazy dock tab), `TestLineAnswersHost.tsx` (mounted by `CodeEditor`, lazy-loads `TestLineAnswers.tsx` with `TestFailureCard.tsx`), `answerColumn.ts`, `codeUnderTestChange.ts`, `openTestFailure.ts` | Desktop project-suite discovery, runner selection, live output, stop, result UX, each test's result in the editor's answer column, and the failure card with the uncommitted change in the code under test |
 | [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX; the shared archive codec loads only after an explicit export/import action |
 | [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
 | [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
@@ -231,7 +236,8 @@ a failed refresh cannot display another tab's preview.
 | [`components/Snippets/`](components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
 | [`components/StatusBar/`](components/StatusBar)           | `StatusBar.tsx`, `useStatusBarModel.ts`              | Persistent 24px bottom bar: language, lint, cursor, indent, Git |
 | [`components/StatusNotice/`](components/StatusNotice)     | `StatusNoticeBanner.tsx`                              | Global status-notice banner rendering                          |
-| [`components/Welcome/`](components/Welcome)               | welcome/project template overlays                     | Empty-state entry points and project template launcher          |
+| [`components/Start/`](components/Start)                   | `StartPrompt.tsx`, `StartPickUp.tsx`, `StartNew.tsx`, `StartTemplates.tsx`, `startModel.ts` | Start sections that `Editor/EditorEmptyState.tsx` composes when no tab is open; copy lives in the lazy `start.json` catalog |
+| [`components/Welcome/`](components/Welcome)               | `ProjectTemplatesPanel.tsx`, `ProjectTemplatesOverlay.tsx` | Project template launcher, opened from the palette              |
 | [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
 | [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
 
@@ -256,6 +262,9 @@ group jump. Keep shortcuts out of command descriptions; add the command id to
 that map instead, so the keycap follows the user's overrides. A combo outside
 the remappable catalog (paste as plain text) sets `CommandEntry.shortcut`.
 While filtering, groups follow their best-ranked match so Enter runs the top hit.
+On the empty query the Recent group holds the newest open tabs and recent files
+with their `lastAnswer` (`commandPaletteRecentFiles.ts`); executed commands go
+to `commandHistoryStore` and show only in the Cmd+; stack.
 `usePaletteAutodetect.ts` reads the query with
 `shared/paletteIntent.ts` and puts one Autodetected row above the groups (a
 question for Explain this code, or a file for Quick Open); that row is not a
@@ -793,7 +802,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [consoleEntryBatcher.ts](stores/consoleEntryBatcher.ts) | per-frame coalescing of streamed console entries into one `addEntries` update |
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
-| [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, per-test cases merged across scoped runs, the Failed only filter, the failed test the editor card shows (`focusedFailure`), and active project-test run lifecycle |
+| [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, per-test cases merged across scoped runs, the Failed only filter, the failed test the editor card shows (`focusedFailure`, set to the first failure of a file or single-test run), and active project-test run lifecycle |
 | [projectTerminalStore.ts](stores/projectTerminalStore.ts) | transient project binding, native-execution gate, PTY session id, bounded output chunks, and stop/restart lifecycle; never persisted |
 | [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, lazy stale state, persisted replay evidence, and active cell — thin assembly point that composes the focused notebook\* modules below |
 | notebook split — [notebookStorePrimitives.ts](stores/notebookStorePrimitives.ts) (runtime-safe status/id leaf), [notebookReactivity.ts](stores/notebookReactivity.ts) (execution evidence, conservative invalidation, and persisted-ledger validation), [notebookStoreContext.ts](stores/notebookStoreContext.ts) (shared `NotebookSet`/`NotebookGet` types) + action factories: [notebookLifecycleActions.ts](stores/notebookLifecycleActions.ts) (create/install-imported/dispose/rename), [notebookCellActions.ts](stores/notebookCellActions.ts) (add/remove/undo-delete/update-source/transform/set-language/move), [notebookRunActions.ts](stores/notebookRunActions.ts) (outputs/run-status/duration/var-flow/execution-order/invalidation/clear/restart), [notebookUiActions.ts](stores/notebookUiActions.ts) (active-cell/scroll-top), [notebookSelectors.ts](stores/notebookSelectors.ts) (get-notebook/run-status/execution-order/active-cell) | `(set, get) => Pick<NotebookState, …>` slices spread into `useNotebookStore`; factories import runtime values from leaves, never back from the assembled store |
@@ -802,6 +811,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors, Compare runs records |
 | [importedCapsuleStore.ts](stores/importedCapsuleStore.ts) | capsules opened from Import this session, listed by the capsule browser as not run; memory only |
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
+| [commandBarSlotStore.ts](stores/commandBarSlotStore.ts) | the command bar's context and verb hosts and the surfaces claiming them |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
 | [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |
 | [explainPanelStore.ts](stores/explainPanelStore.ts) | the anchored explain panel's error, its pin and, per tab, one in-memory conversation per endpoint for the current error (never persisted, so code stays off storage); a new error or a closed tab drops them, and a failed first request is never kept, so Retry and a reopened panel start from the current preview |
@@ -824,7 +834,9 @@ Use the closest store that already owns the product concept instead of adding cr
 | [nativeToolchainStore.ts](stores/nativeToolchainStore.ts) | session-only Go and Rust availability plus the folders searched; feeds the disabled Run reason and the Dock empty state, and asks main to pick a binary |
 | [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
-| [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot and restore translation          |
+| [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot, the pinned ask-mode snapshot and the one-at-a-time restore guard |
+| [sessionRestore.ts](stores/sessionRestore.ts) | restore translation from saved tabs to editor tabs, loaded on the first restore |
+| [tabLastAnswer.ts](stores/tabLastAnswer.ts), [lastAnswerSelectors.ts](stores/lastAnswerSelectors.ts) | writes each run's answer summary onto its tab (`utils/lastAnswer.ts`, loaded on the first run) and reads it for Start and the palette |
 | [settingsStore.ts](stores/settingsStore.ts) | sanitized persisted preferences, theme/keymap packs, consent and onboarding flags — thin `create(persist(...))` assembly point that composes the focused settings\* modules below |
 | settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsPolicySanitizer.ts](stores/settingsPolicySanitizer.ts) (network and run policy), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |
 | settings split — action factories: [settingsAppearanceActions.ts](stores/settingsAppearanceActions.ts) (theme/font/layout/keymap/shortcuts), [settingsRuntimeActions.ts](stores/settingsRuntimeActions.ts) (execution/runtime-mode/workflow/auto-log/timeout/ruby), [settingsPrivacyActions.ts](stores/settingsPrivacyActions.ts) (telemetry/clipboard consents + sensitive headers), [settingsSessionActions.ts](stores/settingsSessionActions.ts) (onboarding/tour/language/SQL workspace) | `(set[, get]) => Pick<SettingsState, …>` slices spread into `useSettingsStore` |

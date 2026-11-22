@@ -27,7 +27,13 @@ describe('project test reports', () => {
       failureFile: 'src/total.test.ts',
       failureLine: 8,
       failureMessage: 'AssertionError: expected 1211 to be 1210.5 // Object.is equality',
+      declarationLine: 7,
+      expected: '1210.5',
+      received: '1211',
     });
+    expect(cases[1]).toMatchObject({ declarationLine: 4 });
+    expect(cases[1]).not.toHaveProperty('expected');
+    expect(cases[0]).not.toHaveProperty('declarationLine');
   });
 
   it('reads Jest JSON, pending as skipped', () => {
@@ -39,6 +45,16 @@ describe('project test reports', () => {
     ]);
     expect(cases[1]!.failureLine).toBe(3);
     expect(cases[1]!.failureMessage).toContain('Expected: 1210.5');
+    expect(cases[1]).toMatchObject({ declarationLine: 3, expected: '1210.5', received: '1211' });
+    expect(cases[0]).not.toHaveProperty('declarationLine');
+  });
+
+  it('ignores a declaration line that is not a positive integer', () => {
+    const report = (location: unknown) =>
+      JSON.stringify({ testResults: [{ name: '/project/a.test.ts', assertionResults: [{ title: 't', status: 'passed', location }] }] });
+    for (const location of [{ line: 0 }, { line: -2 }, { line: 1.5 }, { line: '4' }, 'x', null]) {
+      expect(parseJestStyleReport(report(location), '/project')!.cases[0]).not.toHaveProperty('declarationLine');
+    }
   });
 
   it('drops files outside the project root and rejects a report that is not JSON', () => {
@@ -57,7 +73,21 @@ describe('project test reports', () => {
       'passed tests/test_cart.py test_param[1]',
       'failed tests/test_cart.py test_param[2]',
     ]);
-    expect(cases[1]).toMatchObject({ failureFile: 'tests/test_cart.py', failureLine: 7, failureMessage: 'assert 1211 == 1210.5' });
+    expect(cases[1]).toMatchObject({
+      failureFile: 'tests/test_cart.py',
+      failureLine: 7,
+      failureMessage: 'assert 1211 == 1210.5',
+      declarationLine: 6,
+      expected: '1210.5',
+      received: '1211',
+    });
+    expect(cases.map((entry) => entry.declarationLine)).toEqual([3, 6, 9, 14, 17, 17]);
+    expect(cases[5]).toMatchObject({ expected: '1', received: '2' });
+  });
+
+  it('leaves the declaration line out when pytest writes none', () => {
+    const xml = '<testsuite><testcase classname="t" name="x" file="t.py"/><testcase classname="t" name="y" file="t.py" line=""/></testsuite>';
+    for (const entry of parsePytestJunit(xml)!.cases) expect(entry).not.toHaveProperty('declarationLine');
   });
 
   it('keeps an attribute value with a closing bracket inside its quotes', () => {
@@ -83,7 +113,13 @@ describe('project test reports', () => {
     expect(cases.find((entry) => entry.path[0] === 'TestRounds')).toMatchObject({
       failureFile: 'internal/cart/total_test.go',
       failureLine: 9,
+      expected: '1210.5',
+      received: '1000.42',
     });
+    const two = cases.find((entry) => entry.path[1] === 'two')!;
+    expect(two.failureMessage).toContain('two failed');
+    expect(two).not.toHaveProperty('expected');
+    expect(cases.some((entry) => entry.declarationLine !== undefined)).toBe(false);
     expect(text).toContain('--- FAIL: TestRounds');
     expect(text).not.toContain('"Action"');
   });
@@ -97,8 +133,9 @@ describe('project test reports', () => {
       'passed tests/flow.rs checkout_works',
       'passed src/lib.rs add (line 3)',
     ]);
-    expect(cases[2]).toMatchObject({ failureFile: 'src/lib.rs', failureLine: 14 });
+    expect(cases[2]).toMatchObject({ failureFile: 'src/lib.rs', failureLine: 14, expected: '5', received: '4' });
     expect(cases[2]!.failureMessage).toContain('left: 4');
+    expect(cases.some((entry) => entry.declarationLine !== undefined)).toBe(false);
     expect(cases[4]!.runnable).toBe(false);
   });
 

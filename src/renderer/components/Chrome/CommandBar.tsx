@@ -38,7 +38,7 @@ export function CommandBar({
   const activeName = useEditorStore(state => getActiveTab(state)?.name);
   const isDirty = useEditorStore(state => getActiveTab(state)?.isDirty === true);
   const platform = typeof window !== 'undefined' ? window.lingua?.platform : undefined;
-  const filename = activeName ?? t('chrome.filename.untitled');
+  const filename = activeName ?? t('editorTabs.start');
   const handleOpenLicenseSettings = useCallback(() => {
     requestSettingsTab('account', onOpenSettings);
   }, [onOpenSettings]);

@@ -1319,6 +1319,50 @@ metadata-only contract. Removing a run's capsule, or Clear everything in
 Settings › Privacy, drops the record too. Restore as new tab opens the earlier run's code in Run mode, never
 running it.
 
+### Last answer
+
+Each finished run leaves a small summary on its tab (`FileTab.lastAnswer`,
+`utils/lastAnswer.ts`) for Start and the palette: a numeral of up to 24
+characters, its unit, a picture of up to 24 numbers, the duration, the change
+from the previous duration, and when it ran. Bar pictures hold heights from 0
+to 100, never the values behind them. Printed text passes through
+`redactSecretsFromOutput` before it is clipped. Code runs answer with their last value,
+SQL runs with the row count of the SQL tab, and HTTP runs with the status of the
+HTTP tab. A whole-project test run answers on the recent project entry in
+`lingua-project-store`. Region runs and runs that throw before a result keep the
+previous answer. The summary persists through `lingua-session` as an optional
+field: older sessions restore without it, and restore rebuilds it through
+`sanitizeLastAnswer`, so a malformed or oversized entry is dropped or clipped. If
+the summary chunk fails to load, restore keeps the tabs and drops their answers.
+The execution history stays in memory.
+
+Start lists these answers from the boot snapshot the restore prompt pins in
+ask mode (`pendingRestoreTabs` in the session store follows it), never from
+this session's autosave. Reopening one row calls `restoreSession({ only })`:
+the tab joins the open tabs (`restoreTabs` with `append`) and the snapshot
+keeps the rest, marked partial so a later full restore appends too. One restore
+runs at a time, and any restore of the pinned snapshot closes the prompt. The
+translator from saved tabs to editor tabs lives in `stores/sessionRestore.ts`
+and loads on the first restore, so it stays off the startup graph.
+
+### Start prompt
+
+Start's one-line prompt (`components/Start/StartPrompt.tsx`) is a satellite
+Monaco built on `getSatelliteEditorOptions`, with the gutter, scrollbars,
+folding and line highlight off; Enter submits and pasted line breaks become
+spaces. Start renders inside the lazy `CodeEditor` chunk, which already holds
+Monaco, so the prompt adds no download to first paint and nothing to the boot
+graph. `useStartPromptRun` calls `runnerManager.execute` with auto-log and keeps
+the answer in its own state: it never calls `executeAutoRun`, so the global
+`resultStore`, the console and the execution history never see it. JS and TS
+run in the worker once `isLikelyComplete` passes and the line pauses for
+`AUTO_RUN_DEBOUNCE_MS`, unless the jsTs run policy is Manual; other languages
+run on Enter. A run waits while a notebook cell owns the runner
+(`notebookRunnerLockStore`) or a manual run is going, starts once that owner
+lets go, and drops its answer if a notebook claims the runner mid-run. Enter on
+an answered line, or on any JS or TS line, opens it as a scratch tab, whose own
+auto-run takes over the runner.
+
 ### Run state
 
 Each run records the code and the stdin and arguments it started from in

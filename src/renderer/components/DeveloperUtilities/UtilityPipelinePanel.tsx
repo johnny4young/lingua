@@ -79,6 +79,7 @@ import { UtilityPipelineLibrarySidebar } from './UtilityPipelineLibrarySidebar';
 import { UtilityPipelineResults } from './UtilityPipelineResults';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { appPlatform } from '../../utils/appPlatform';
+import { CommandBarSlot, CommandBarVerb } from '../Chrome/CommandBarSlot';
 
 const DEFAULT_FIRST_STEP_UTILITY: UtilityAdapterId = 'json-format';
 
@@ -548,26 +549,26 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 />
                 {t('utilityPipeline.editor.autoBake')}
               </label>
-              <button
-                type="button"
-                onClick={handleRun}
-                disabled={
-                  isExecuting ||
-                  activePipeline.steps.length === 0 ||
-                  runState.phase === 'running' ||
-                  everyStepOff
-                }
-                data-testid="utility-pipeline-editor-run"
-                aria-label={t('utilityPipeline.editor.run')}
-                className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-caption font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <PlayCircle size={11} aria-hidden="true" />
-                <span>
-                  {runState.phase === 'running'
-                    ? t('utilityPipeline.editor.running')
-                    : t('utilityPipeline.editor.run')}
-                </span>
-              </button>
+              <CommandBarSlot slot="verb">
+                <CommandBarVerb
+                  label={
+                    runState.phase === 'running'
+                      ? t('utilityPipeline.editor.running')
+                      : t('utilityPipeline.editor.run')
+                  }
+                  icon={<PlayCircle size={12} />}
+                  onClick={handleRun}
+                  disabled={
+                    isExecuting ||
+                    activePipeline.steps.length === 0 ||
+                    runState.phase === 'running' ||
+                    everyStepOff
+                  }
+                  running={runState.phase === 'running'}
+                  ariaLabel={t('utilityPipeline.editor.run')}
+                  testId="utility-pipeline-editor-run"
+                />
+              </CommandBarSlot>
             </header>
 
             {activePipeline.steps.length === 0 ? (

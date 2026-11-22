@@ -8,12 +8,12 @@ import {
   normalizeCapturePath,
   searchJson,
   suggestCaptureName,
-  truncateText,
   type JsonSegment,
 } from '../../../src/renderer/components/HttpWorkspace/httpJsonTreeModel';
 import { looksSecret } from '../../../src/shared/httpEnvironment';
 import { extractCaptureValue } from '../../../src/shared/httpWorkspaceCaptures';
 import type { HttpCaptureRule, HttpResponseV1 } from '../../../src/shared/httpWorkspaceSchema';
+import { truncateText } from '../../../src/shared/truncateText';
 
 const body = {
   items: [

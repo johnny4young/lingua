@@ -20,6 +20,9 @@ import {
   type CommandGroupId,
 } from './commandPaletteGroups';
 import { formatRunAge } from '../../utils/timeLabels';
+import { DottedLeader, LanguageSquare } from '../Start/StartParts';
+import { answerDisplay } from '../Start/answerLabels';
+import '../../i18n/startCatalog';
 
 const GROUP_ICON: Record<CommandGroupId, ReactNode> = {
   autodetected: <Sparkles size={14} aria-hidden="true" />,
@@ -121,6 +124,59 @@ function relativeTimeLabel(
   return executedAt === undefined ? null : formatRunAge(executedAt, Date.now(), t);
 }
 
+function rowClass(isActive: boolean, disabled?: boolean): string {
+  return cn(
+    'flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors',
+    disabled
+      ? 'cursor-not-allowed border-transparent opacity-55'
+      : isActive
+      ? 'border-accent/40 bg-primary-soft'
+      : 'border-transparent hover:bg-bg-panel-alt'
+  );
+}
+
+/** A selected row's ↵, hidden from assistive tech so its name does not change with selection. */
+function ReturnKeycap() {
+  return (
+    <span aria-hidden="true">
+      <Kbd className="border-accent text-accent-fg">↵</Kbd>
+    </span>
+  );
+}
+
+/** A recent file: its badge and name, then a dotted leader to its last answer. */
+function RecentFileContent({ command, isActive }: { command: CommandEntry; isActive: boolean }) {
+  const { t } = useTranslation();
+  const value = command.answer ? answerDisplay(command.answer, t) : null;
+  return (
+    <>
+      <span className="grid w-7 shrink-0 place-items-center">
+        {command.language ? <LanguageSquare language={command.language} /> : null}
+      </span>
+      <span className="min-w-0 truncate font-mono text-body text-fg-base">{command.label}</span>
+      {value ? (
+        <>
+          <DottedLeader />
+          <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap" data-testid="command-palette-recent-answer">
+            <span
+              className={cn(
+                'font-display text-[19px] leading-none tracking-[-0.02em]',
+                value.failed ? 'text-value-error' : 'text-fg-base'
+              )}
+            >
+              {value.value}
+            </span>
+            {value.unit ? <span className="text-body-sm italic text-fg-muted">{value.unit}</span> : null}
+          </span>
+        </>
+      ) : (
+        <span className="flex-1" />
+      )}
+      <span className="flex w-6 shrink-0 justify-end">{isActive ? <ReturnKeycap /> : null}</span>
+    </>
+  );
+}
+
 function renderEntry(
   command: CommandEntry,
   index: number,
@@ -132,6 +188,7 @@ function renderEntry(
   recentMeta?: { slot: number; relativeTime: string | null }
 ) {
   const isActive = index === selectedIndex;
+  const isFile = command.category === 'file';
   const shortcut = commandShortcutLabel(command, overrides);
   return (
     <button
@@ -148,15 +205,13 @@ function renderEntry(
       onClick={command.action}
       onMouseEnter={() => onHoverIndex(index)}
       data-result-index={index}
-      className={cn(
-        'flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors',
-        command.disabled
-          ? 'cursor-not-allowed border-transparent opacity-55'
-          : isActive
-          ? 'border-accent/40 bg-primary-soft'
-          : 'border-transparent hover:bg-bg-panel-alt'
-      )}
+      data-testid={isFile ? 'command-palette-recent-file' : undefined}
+      className={rowClass(isActive, command.disabled)}
     >
+      {isFile ? (
+        <RecentFileContent command={command} isActive={isActive} />
+      ) : (
+        <>
       {recentMeta ? (
         <kbd
           data-testid="recent-command-slot"
@@ -204,13 +259,10 @@ function renderEntry(
             {languageShortLabel(command.language)}
           </span>
         ) : null}
-        {/* Hidden from assistive tech so a row's name does not change with selection. */}
-        {isActive && !command.disabled ? (
-          <span aria-hidden="true">
-            <Kbd className="border-accent text-accent-fg">↵</Kbd>
-          </span>
-        ) : null}
+        {isActive && !command.disabled ? <ReturnKeycap /> : null}
       </span>
+        </>
+      )}
     </button>
   );
 }

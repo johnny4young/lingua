@@ -24,6 +24,7 @@ import { toExecutionPresentation } from '../../utils/executionPresentation';
 import { trackEvent } from '../../utils/telemetry';
 import { validateDocument } from '../../validation';
 import { recordCompletedRun, recordFailedRun, type GitSnapshot } from './recordRunHistory';
+import { recordCodeLastAnswer } from '../../stores/tabLastAnswer';
 import type { RunPlan } from './resolveRunPlan';
 import type { CollectedRun, RunConsole } from './runAndCollect';
 import type { ManualExecutionSummary } from './types';
@@ -151,7 +152,11 @@ export function publishRunStart(
     setIsManualRunning,
   } = useResultStore.getState();
   const { name } = activeTab;
-  useConsoleStore.getState().clear();
+  useConsoleStore.getState().beginRun({
+    tabId: activeTab.id,
+    startedAt: Date.now(),
+    keepPrevious: !plan.region,
+  });
   if (showsResults()) {
     clearVisibleResults();
     setExecutionSource('manual');
@@ -216,6 +221,7 @@ export function publishCancelledRun(
     setExecutionTime(result.executionTime);
   }
   const cancelledOutputs = streamedConsoleCount > 0 ? [] : orderedConsoleOutputs(result);
+  if (streamedConsoleCount === 0 && showsResults()) useConsoleStore.getState().dropRunAnchor();
   for (const output of cancelledOutputs) {
     runConsole.add(toConsoleEntry(output, language));
   }
@@ -280,6 +286,9 @@ export async function publishCompletedRun(
       diagnosticsCount: 0,
       message: '',
     };
+  if (plan.recordHistory) {
+    recordCodeLastAnswer(activeTab.id, result, presentation);
+  }
   if (showsResults()) {
     setLineResults(presentation.lineResults);
     setLineTimings(result.lineTimings ?? []);
@@ -306,6 +315,7 @@ export async function publishCompletedRun(
   }
 
   const entriesToAdd = toConsoleEntries(result, language, { streamed: streamedConsoleCount > 0 });
+  if (streamedConsoleCount === 0 && isCurrent()) useConsoleStore.getState().dropRunAnchor();
   for (const entry of entriesToAdd) {
     runConsole.add(entry);
   }

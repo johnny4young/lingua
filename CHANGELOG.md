@@ -7,16 +7,23 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Changed
+- Start opens with a one-line prompt: type a line of JavaScript, pause, and its answer appears at the end of the line without touching the Console. Enter keeps the line as a scratch file.
+- With no tab open, Start shows the last session's tabs with the answer each one left, a scratch file in any language with how it runs here, every workspace with its shortcut, and the templates as a list you can filter by language. A row's number reopens that tab alone. The command bar verb reads New scratch there, and the dock waits for a tab unless a folder is open.
 - The interface uses Recursive and titles use Fraunces, both bundled with the app so they render the same offline. Inter and JetBrains Mono stay bundled, and the editor font is still yours to choose.
 - On desktop, TypeScript that only needs its types removed runs without loading the esbuild compiler, so the first TypeScript run starts sooner. Code with enums, namespaces, decorators or JSX still goes through esbuild.
 - On desktop, the window paints sooner at startup: the shell loads its small startup modules as one file, so it fetches 14 files before its first paint instead of 41.
 - When a model server on this machine does not answer, the AI error names its address and says LM Studio needs Enable CORS on, instead of Failed to fetch.
 - On desktop, each update of a streamed answer from your own AI endpoint carries only the new text instead of the whole answer so far, and a non-streaming answer stops at 2 MiB, the size the AI client accepts.
 - A SQL result shows how its time split into plan, execute and fetch beside the total, with a bar for each phase. Postgres, MySQL, SQL Server, ClickHouse and Local SQL report execute and fetch, SQLite files add plan, and engines that answer over HTTP show the total only.
+- The command bar shows what you are working on and the one action for it on every surface: the SQL connection with Run statement, the HTTP environment and its variable count with Send, the notebook's active cell with Run cell, Run pipeline on pipelines, and New scratch when no tab is open. On a test file of the open project the Run menu adds Run tests in file. SQL Import data moved to the foot of the explorer, and HTTP Copy as moved into the Send menu.
+- The Console reads as a tape: each row shows the line that printed it and its time into the run, multi-line output folds behind +N lines, and one All / Log / Warn / Error segment with counts plus a search replace the per-type chips. While a run is going, the previous run's rows stay dimmed until this run reaches their line, and a waiting row shows where the next output is expected. Plain strings print without quotes and with their line breaks.
+- The command palette opens on your three most recent tabs and files, each with the answer its last run left, such as 1.24 s, 12 rows or 200 OK, and Enter opens the selected one. A file that never ran, or that you closed during this session, shows its name only, and a recent file that was moved or deleted leaves the list when you pick it. Recently run commands stay one shortcut away on Cmd/Ctrl+;, shown in the palette footer.
+- On desktop, a test file of the open project shows each test's result at the end of its it() line after a run, such as Passed ok 2 ms or Failed 3 ms at line 19, with the suite tally on its describe line. The failing assertion shows the value received against the one expected, and its card shows the uncommitted change in the code the test imports, with Git diff, Explain and Open file:line. Running one test file opens that card on its first failure.
 
 ### Fixed
 - On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.
 - Cancel on a database connection that is still connecting stops the query. The statement used to run once the connection opened.
+- Send to an environment coloured red or another custom colour keeps readable white text in the dark theme.
 - Cancel and query timeouts on a database server answer within three seconds. The tab used to stay busy until the server stopped the statement, up to 30 seconds; the next query on that connection still waits for it.
 
 ## [2.3.0] — 2026-11-09

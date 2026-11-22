@@ -15,7 +15,7 @@ import { getInitializationMessage } from '../../hooks/runnerOutput';
 import { useRunStale } from '../../hooks/useRunStale';
 import { RecordRunMenuItem } from './RecordRunMenuItem';
 import { useTranslation } from 'react-i18next';
-import { Bug, ChevronDown, Loader2, Play, Sparkles, Square } from 'lucide-react';
+import { Bug, ChevronDown, FlaskConical, Loader2, Play, Plus, Sparkles, Square } from 'lucide-react';
 import type { EditorState, FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import type { WorkflowMode } from '../../../shared/workflowMode';
@@ -24,6 +24,7 @@ import { Kbd } from '../ui/chrome';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { MonoBadge } from '../ui/primitives';
 import type { ActionPillMenu, ActionPillMenuSetter } from './useFloatingActionPill';
+import type { ProjectTestFileRun } from '../../stores/commandBarSlotStore';
 import {
   executionDisabledTooltipKey,
   type ExecutionControlPolicy,
@@ -47,6 +48,8 @@ interface RunGroupProps {
   language: Language;
   ensureTabForLanguage: (lang: Language) => FileTab;
   setTabWorkflowMode: EditorState['setTabWorkflowMode'];
+  /** Run tests in file, when the tab is a test file of the open project. */
+  testFileRun?: ProjectTestFileRun | null;
 }
 
 export function FloatingActionPillRunGroup({
@@ -66,10 +69,12 @@ export function FloatingActionPillRunGroup({
   language,
   ensureTabForLanguage,
   setTabWorkflowMode,
+  testFileRun = null,
 }: RunGroupProps) {
   const { t } = useTranslation();
   const { stale } = useRunStale();
   const runShortcut = useShortcutLabel('run-toggle');
+  const stopShortcut = useShortcutLabel('run-stop');
   const isAutoRunning = useResultStore(state => state.isAutoRunning);
   // Live runtime-bootstrap progress, path-agnostic: the
   // store is fed by the worker whether the boot started from a manual
@@ -78,6 +83,8 @@ export function FloatingActionPillRunGroup({
   const bootstrapProgress = useBootstrapProgressStore(state =>
     state.progress?.language === language ? state.progress : null
   );
+  // Start has nothing to run, so the verb makes the scratch file instead.
+  const newScratch = noActiveTab && !isRunning;
   const bootstrapLabel = bootstrapProgress && (isRunning || isInitializing || isAutoRunning)
     ? formatBootstrapProgress(
         getInitializationMessage(bootstrapProgress.language),
@@ -94,20 +101,24 @@ export function FloatingActionPillRunGroup({
         type="button"
         onClick={() => {
           setOpenMenu(null);
-          handleRunClick();
+          if (newScratch) ensureTabForLanguage(language);
+          else handleRunClick();
         }}
-        disabled={runDisabled}
+        disabled={!newScratch && runDisabled}
         data-running={isRunning ? 'true' : 'false'}
         data-stale={stale && !isRunning ? 'true' : undefined}
         data-workflow={currentWorkflow}
+        data-verb={newScratch ? 'new-scratch' : undefined}
         data-tour-id="run-button"
         data-testid="action-pill-run"
-        aria-label={isRunning ? t('toolbar.run.stop') : workflowChip.label}
-        title={runDisabledTooltip}
+        aria-label={isRunning ? t('toolbar.run.stop') : newScratch ? t('actionPill.newScratch') : workflowChip.label}
+        title={newScratch ? undefined : runDisabledTooltip}
         className="action-pill-run action-pill-run-main rounded-l-none"
       >
         {isRunning ? (
           <Square size={11} fill="currentColor" aria-hidden />
+        ) : newScratch ? (
+          <Plus size={13} aria-hidden />
         ) : bootstrapLabel !== null || isInitializing ? (
           <Loader2 size={11} className="animate-spin" aria-hidden />
         ) : (
@@ -116,7 +127,9 @@ export function FloatingActionPillRunGroup({
         <span className="max-w-[260px] truncate">
           {isRunning
             ? t('toolbar.run.stop')
-            : (bootstrapLabel ??
+            : newScratch
+              ? t('actionPill.newScratch')
+              : (bootstrapLabel ??
               (isInitializing && loadingMessage ? loadingMessage : workflowChip.label))}
         </span>
         {isRunning && (bootstrapLabel ?? (isInitializing ? loadingMessage : null)) ? (
@@ -124,7 +137,7 @@ export function FloatingActionPillRunGroup({
             {bootstrapLabel ?? loadingMessage}
           </span>
         ) : null}
-        {!isRunning && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
+        {isRunning ? (stopShortcut ? <Kbd>{stopShortcut}</Kbd> : null) : !newScratch && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
       </button>
       <button
         type="button"
@@ -233,6 +246,28 @@ export function FloatingActionPillRunGroup({
               </button>
             );
           })}
+          {testFileRun ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="dropdown-rich-row w-full disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:[&_.row-label]:opacity-50"
+              data-testid="action-pill-run-test-file"
+              disabled={isRunning || testFileRun.disabled}
+              onClick={() => {
+                setOpenMenu(null);
+                testFileRun.run();
+              }}
+            >
+              <span className="row-icon self-start mt-0.5">
+                <FlaskConical size={13} />
+              </span>
+              <span>
+                <span className="row-label block">{t('actionPill.runTestsInFile')}</span>
+                <span className="row-desc block">{t('actionPill.runTestsInFileDesc')}</span>
+              </span>
+              <span />
+            </button>
+          ) : null}
           <RecordRunMenuItem
             disabled={isRunning || noActiveTab || workflowAvailability.run.disabled}
             onRecord={() => {
