@@ -39,6 +39,8 @@ import type { SqlRowEdits } from '../../hooks/useSqlRowEdits';
 import { renderCell } from './sqlResultFormatters';
 import { SqlResultToolbar } from './SqlResultToolbar';
 import { SqlColumnRail } from './SqlColumnRail';
+import { columnStats, statsRowLimit } from './sqlColumnStats';
+import { resultInstruments } from './sqlColumnInstruments';
 import { SqlPhaseTimingsMeter } from './SqlPhaseTimingsMeter';
 import { SqlValueViewer } from './SqlValueViewer';
 import { DEFAULT_EXPORT_OPTIONS, serializeRows } from './sqlResultExport';
@@ -68,8 +70,9 @@ export interface SqlResultForeignKeys {
   countReferences: (key: SqlForeignKey, value: unknown) => Promise<number | null>;
 }
 
-// Session-wide: the rail stays as the user left it across results.
-let railShown = true;
+// Session-wide: the rail stays as the user left it across results. It opens on
+// request; the column heads already carry each column's distribution.
+let railShown = false;
 
 export interface SqlResultPreviewProps {
   /** The response on screen; `null` before the first run. */
@@ -221,10 +224,12 @@ export function SqlResultPreview({
   const activeTab: ResultBodyTab =
     bodyTab === 'profile' ? (canProfile && visibleProfile !== null ? 'profile' : 'table') : bodyTab;
 
-  // The window, plus what Load more read past it.
+  // The window, plus what Load more read past it. Keyed on the rows, not on more: its loading
+  // flag and a parent render must not copy and profile the whole result again.
+  const moreRows = more?.rows;
   const loadedRows = useMemo(
-    () => (!response ? [] : more && more.rows.length > 0 ? [...response.rows, ...more.rows] : response.rows),
-    [response, more]
+    () => (!response ? [] : moreRows && moreRows.length > 0 ? [...response.rows, ...moreRows] : response.rows),
+    [response, moreRows]
   );
   const columns = useMemo(() => (response ? response.columns : []), [response]);
   const editTarget = rowEdits?.target ?? null;
@@ -324,6 +329,31 @@ export function SqlResultPreview({
       setViewerOpen(true);
     }
   };
+
+  // One pass feeds whichever shows the distribution: the rail when open, the column heads otherwise.
+  const hasRows = displayRows.length > 0;
+  const railOpen = showRail && hasRows && activeTab !== 'profile';
+  const tableShown = hasRows && activeTab === 'table';
+  // The value viewer takes the rail's place, so the heads carry the distribution meanwhile.
+  const viewerShown = activeTab === 'table' && viewerOpen && selected !== null && displayRows[selected.row] !== undefined;
+  const statsShown = railOpen || tableShown;
+  const shownStats = useMemo(
+    () => (statsShown ? columnStats(shownColumns, railRows) : null),
+    [statsShown, shownColumns, railRows]
+  );
+  // Load order and the rail's cell budget: a sort changes neither, so it never recomputes.
+  const instruments = useMemo(
+    () =>
+      tableShown
+        ? resultInstruments(
+            shownColumns,
+            filteredRows,
+            linkedColumns,
+            statsRowLimit(shownColumns.length)
+          )
+        : undefined,
+    [tableShown, shownColumns, filteredRows, linkedColumns]
+  );
 
   const { paneRef, headerRef, bodyRef, pinRef, layout: gridFirst, pinned } = useSqlResultPaneLayout(
     (response?.status === 'success' || response?.status === 'too-large') && activeTab !== 'profile' && shownRows.length > 0,
@@ -614,6 +644,8 @@ export function SqlResultPreview({
                     ? { onFollowLink: (column: string, value: unknown) => foreignKeys.onFollow(outgoingByColumn.get(column)!, value) }
                     : {})}
                   {...(gridEditing ? { editing: gridEditing } : {})}
+                  {...(shownStats && (!railOpen || viewerShown) ? { stats: shownStats } : {})}
+                  {...(instruments ? { instruments } : {})}
                 />
               )
             ) : hasResultBody && loadedRows.length > 0 && filteredCount === 0 ? (
@@ -644,9 +676,13 @@ export function SqlResultPreview({
                 : {})}
               onClose={() => setViewerOpen(false)}
             />
-          ) : showGridChrome && showRail && displayRows.length > 0 ? (
+          ) : railOpen && shownStats ? (
             // Load order, not the sort: a sort changes neither the stats nor which rows a sampled rail reads.
-            <SqlColumnRail columns={shownColumns} rows={railRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
+            <SqlColumnRail
+              stats={shownStats}
+              rowCount={railRows.length}
+              {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})}
+            />
           ) : null}
         </div>
       )}

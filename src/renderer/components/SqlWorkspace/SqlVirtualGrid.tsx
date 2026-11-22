@@ -1,6 +1,7 @@
 /**
  * Virtualized result grid: fixed 26 px rows and, on wide results, fixed-width
- * columns, only the visible ones mounted, a sticky typed header, cell selection
+ * columns, only the visible ones mounted, a sticky typed header with each
+ * column's distribution, bars in numeric cells, a sticky Σ row, cell selection
  * with the arrow keys, a cell menu, and foreign-key cells that link to the
  * referenced row.
  */
@@ -10,17 +11,32 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSPr
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
+import { formatNumber } from '../../i18n/formatNumber';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 import { cn } from '../../utils/cn';
 import { fixedRowWindow } from './sqlResultFilters';
 import { renderCell } from './sqlResultFormatters';
-import { cellMagic, fractionColumns, type SqlCellMagic } from './sqlCellMagic';
-import { columnSlots, fixedColumnWindow, MAX_AUTO_LAYOUT_COLUMNS, planColumns, type ColumnSlot, type TypedColumn } from './sqlGridColumns';
+import { cellMagic, type SqlCellMagic } from './sqlCellMagic';
+import {
+  columnSlots,
+  fixedColumnWindow,
+  MAX_AUTO_LAYOUT_COLUMNS,
+  planColumns,
+  SCALE_BAR_GAP_PX,
+  SCALE_BAR_TRACK_PX,
+  SPARK_HEIGHT_PX,
+  SPARK_TICK_PX,
+  type ColumnSlot,
+  type TypedColumn,
+} from './sqlGridColumns';
 import type { SqlSortState } from './sqlResultGrid';
 import { cellText, cellTone, DELETED, type CellTone, type ShownRow } from './sqlRowEditModel';
+import { barShare, formatSummary, type SqlResultInstruments } from './sqlColumnInstruments';
+import type { SqlColumnStats } from './sqlColumnStats';
 import '../../i18n/sqlConnectionsCatalog';
 
 const ROW_HEIGHT = 26;
+const SUMMARY_HEIGHT = 30;
 const OVERSCAN = 12;
 const COLUMN_OVERSCAN = 4;
 
@@ -136,7 +152,27 @@ function MagicCell({ magic, text }: { magic: SqlCellMagic; text: string }) {
   }
 }
 
-const readViewport = (node: HTMLElement) => ({ scrollTop: node.scrollTop, scrollLeft: node.scrollLeft, height: node.clientHeight, width: node.clientWidth });
+/** A number with a bar against its column's largest value; the bar is decoration, the text is the value. */
+function NumberBar({ share, text }: { share: number; text: string }) {
+  return (
+    <span className="inline-flex items-center" style={{ gap: SCALE_BAR_GAP_PX }} data-testid="sql-cell-scale">
+      {text}
+      <span aria-hidden="true" className="flex h-1.5 shrink-0 items-center" style={{ width: SCALE_BAR_TRACK_PX }}>
+        {share > 0 ? (
+          <span className="h-full rounded-sm" style={{ width: `max(0.375rem, ${(share * 100).toFixed(1)}%)`, background: 'var(--color-syntax-number)' }} />
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
+const readViewport = (node: HTMLElement) => ({
+  scrollTop: node.scrollTop,
+  scrollLeft: node.scrollLeft,
+  height: node.clientHeight,
+  width: node.clientWidth,
+  headerHeight: node.querySelector('thead')?.offsetHeight ?? 0,
+});
 
 interface RowActions {
   sort: (column: string) => void;
@@ -161,6 +197,7 @@ const GridRow = memo(function GridRow({
   actions,
   editor,
   fractions,
+  scales,
 }: {
   row: Record<string, unknown>;
   index: number;
@@ -175,6 +212,8 @@ const GridRow = memo(function GridRow({
   editor: { column: string; value: string } | null;
   /** The numeric columns drawn as 0–1 bars. */
   fractions: ReadonlySet<string>;
+  /** Each barred numeric column's largest value. */
+  scales: ReadonlyMap<string, number>;
 }) {
   const rowSelected = selectedColumn !== null;
   return (
@@ -194,7 +233,10 @@ const GridRow = memo(function GridRow({
         const cellSelected = selectedColumn === col.name;
         const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
         const tone = cellTone(row, col.name);
-        const magic = !linked ? cachedMagic(row, col.name, value, duckType, fractions.has(col.name)) : null;
+        // The fraction scan reads a sample, so a value past it can still fall outside 0–1.
+        const fraction = fractions.has(col.name) && typeof value === 'number' && value >= 0 && value <= 1;
+        const magic = !linked ? cachedMagic(row, col.name, value, duckType, fraction) : null;
+        const share = !linked && !magic ? barShare(value, scales.get(col.name)) : null;
         if (editor?.column === col.name) {
           return (
             <td key={col.name} role="gridcell" aria-colindex={columnIndex + 1} data-column={col.name} className="p-0">
@@ -247,6 +289,8 @@ const GridRow = memo(function GridRow({
               UNSET_CELL
             ) : magic ? (
               <MagicCell magic={magic} text={renderCell(value)} />
+            ) : share !== null ? (
+              <NumberBar share={share} text={renderCell(value)} />
             ) : (
               renderCell(value)
             )}
@@ -257,16 +301,61 @@ const GridRow = memo(function GridRow({
   );
 });
 
+/** A column's distribution in the header: one tick per histogram bin. */
+function HeaderSpark({ stats }: { stats: SqlColumnStats }) {
+  const peak = Math.max(1, ...stats.bins.map((bin) => bin.count));
+  return (
+    <span aria-hidden="true" data-testid="sql-result-head-spark" className="flex shrink-0 items-end gap-px" style={{ height: SPARK_HEIGHT_PX }}>
+      {stats.bins.map((bin, index) => (
+        <span
+          key={index}
+          className="block rounded-[1px] bg-fg-muted"
+          style={{ width: SPARK_TICK_PX, height: Math.max(1, Math.round((bin.count / peak) * SPARK_HEIGHT_PX)) }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** The type line's second half: sorted wins, then a text column's distinct count, then the distribution. */
+function HeaderMeta({ stats, sorted }: { stats: SqlColumnStats | undefined; sorted: SqlSortState['direction'] | null }) {
+  const { t, i18n } = useTranslation();
+  if (sorted) {
+    const Arrow = sorted === 'asc' ? ArrowUp : ArrowDown;
+    return (
+      <span data-testid="sql-result-head-meta" className="inline-flex shrink-0 items-center gap-1">
+        · {t('sqlWorkspace.grid.head.sorted')}
+        <Arrow size={10} aria-hidden="true" className="shrink-0 text-accent-fg" />
+      </span>
+    );
+  }
+  if (!stats) return null;
+  if (stats.kind === 'text') {
+    return (
+      <span data-testid="sql-result-head-meta" className="shrink-0">
+        ·{' '}
+        {t(stats.distinctCapped ? 'sqlWorkspace.rail.distinctAtLeast' : 'sqlWorkspace.rail.distinct', {
+          count: stats.distinct,
+          formatted: formatNumber(stats.distinct, i18n.language),
+        })}
+      </span>
+    );
+  }
+  return stats.bins.length > 1 ? <HeaderSpark stats={stats} /> : null;
+}
+
 /** Every column's header stays mounted, so sort buttons keep their tab order and focus; memoized so scrolling skips it. */
 const GridHeader = memo(function GridHeader({
   typed,
   sort,
   linkedColumns,
+  stats,
   onSort,
 }: {
   typed: ReadonlyArray<TypedColumn>;
   sort: SqlSortState;
   linkedColumns: ReadonlySet<string> | undefined;
+  stats: ReadonlyMap<string, SqlColumnStats> | undefined;
   onSort: (column: string) => void;
 }) {
   const { t } = useTranslation();
@@ -281,7 +370,7 @@ const GridHeader = memo(function GridHeader({
               scope="col"
               aria-colindex={index + 1}
               aria-sort={isSorted ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-              className={`h-7 whitespace-nowrap border-b border-border-subtle p-0 font-normal ${numeric ? 'min-w-[8.125rem]' : 'min-w-[12.5rem]'}`}
+              className={`whitespace-nowrap border-b border-border-subtle p-0 align-bottom font-normal ${numeric ? 'min-w-[8.125rem]' : 'min-w-[12.5rem]'}`}
             >
               <button
                 type="button"
@@ -290,29 +379,75 @@ const GridHeader = memo(function GridHeader({
                 data-column={col.name}
                 data-sort={isSorted ? sort.direction : 'none'}
                 title={t('sqlWorkspace.grid.sortBy', { name: col.name })}
-                className={`flex w-full items-center gap-1.5 overflow-hidden px-2.5 py-1.5 transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 ${numeric ? 'justify-end text-right' : 'text-left'}`}
+                className={`flex w-full flex-col gap-0.5 overflow-hidden px-2.5 pb-1.5 pt-2 transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 ${numeric ? 'items-end text-right' : 'items-start text-left'}`}
               >
-                <span className="shrink-0 text-fg-subtle">{col.name}</span>
-                <span
-                  data-testid="sql-result-preview-type"
-                  className="min-w-0 truncate text-micro tracking-[0.04em] text-fg-subtle/70"
-                  title={t('sqlWorkspace.grid.arrowType', { type: col.type })}
-                >
-                  {linkedColumns?.has(col.name) ? `${duckType} · FK` : duckType}
+                <span className="flex h-3 max-w-full items-center gap-1.5 text-micro uppercase tracking-[0.04em] text-fg-subtle">
+                  <span data-testid="sql-result-preview-type" className="min-w-0 truncate" title={t('sqlWorkspace.grid.arrowType', { type: col.type })}>
+                    {linkedColumns?.has(col.name) ? `${duckType} · FK` : duckType}
+                  </span>
+                  <HeaderMeta stats={stats?.get(col.name)} sorted={isSorted ? sort.direction : null} />
                 </span>
-                {isSorted ? (
-                  sort.direction === 'asc' ? (
-                    <ArrowUp size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
-                  ) : (
-                    <ArrowDown size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
-                  )
-                ) : null}
+                <span className="max-w-full truncate font-semibold text-fg-base">{col.name}</span>
               </button>
             </th>
           );
         })}
       </tr>
     </thead>
+  );
+});
+
+/** The Σ row: Σ and the row count under the first column without a sum, a sum or an average under each numeric one. */
+const SummaryRow = memo(function SummaryRow({
+  slots,
+  instruments,
+  rowIndex,
+}: {
+  slots: ReadonlyArray<ColumnSlot>;
+  instruments: SqlResultInstruments;
+  rowIndex: number;
+}) {
+  const { t, i18n } = useTranslation();
+  const { summaries, rowCount, skipped, labelColumn } = instruments;
+  const num = (value: number) => formatNumber(value, i18n.language);
+  return (
+    <tr aria-rowindex={rowIndex} data-testid="sql-result-summary" style={{ height: SUMMARY_HEIGHT }} className="border-t border-border-default">
+      {slots.map((slot) => {
+        if ('gap' in slot) return <td key={slot.key} role="presentation" aria-hidden="true" colSpan={slot.gap} />;
+        const { col, index } = slot;
+        const summary = summaries.get(col.name);
+        const label = col.name === labelColumn;
+        return (
+          <td
+            key={col.name}
+            role="gridcell"
+            aria-colindex={index + 1}
+            data-column={col.name}
+            data-summary={summary?.kind}
+            className={`max-w-[32rem] truncate px-2.5 align-middle ${summary ? 'text-right tabular-nums' : ''}`}
+          >
+            {label ? (
+              <span data-testid="sql-result-summary-count" className={`text-fg-muted ${summary ? 'mr-3' : ''}`}>
+                <span aria-hidden="true" className="mr-2 text-fg-subtle">
+                  Σ
+                </span>
+                {skipped > 0
+                  ? t('sqlWorkspace.grid.summary.rowsFirst', { count: rowCount, formatted: num(rowCount), total: num(rowCount + skipped) })
+                  : t('sqlWorkspace.grid.summary.rows', { count: rowCount, formatted: num(rowCount) })}
+              </span>
+            ) : null}
+            {summary ? (
+              <>
+                <span className={summary.kind === 'avg' ? 'mr-1.5 text-fg-muted' : 'sr-only'}>
+                  {t(summary.kind === 'avg' ? 'sqlWorkspace.grid.summary.avg' : 'sqlWorkspace.grid.summary.sum')}
+                </span>
+                <span className="font-semibold text-fg-base">{formatSummary(summary, i18n.language)}</span>
+              </>
+            ) : null}
+          </td>
+        );
+      })}
+    </tr>
   );
 });
 
@@ -336,6 +471,8 @@ export function SqlVirtualGrid({
   linkedColumns,
   onFollowLink,
   editing,
+  stats,
+  instruments,
 }: {
   columns: ReadonlyArray<SqlColumnMetadata>;
   rows: ReadonlyArray<Record<string, unknown>>;
@@ -349,6 +486,10 @@ export function SqlVirtualGrid({
   linkedColumns?: ReadonlySet<string>;
   onFollowLink?: (column: string, value: unknown) => void;
   editing?: SqlGridEditing;
+  /** Column stats for the header's type line; absent while the column rail shows them. */
+  stats?: ReadonlyArray<SqlColumnStats>;
+  /** Bar scales and the Σ row, worked out over the loaded rows. */
+  instruments?: SqlResultInstruments;
 }) {
   const { t } = useTranslation();
   const [editor, setEditor] = useState<{ row: number; column: string; value: string; target: Record<string, unknown>; wasEmpty: boolean } | null>(null);
@@ -365,7 +506,7 @@ export function SqlVirtualGrid({
     } else onCellAction('open-value', cell);
   };
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, height: 0, width: 0 });
+  const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, height: 0, width: 0, headerHeight: 0 });
   const [menu, setMenu] = useState<{ cell: SqlGridCell; x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -378,15 +519,15 @@ export function SqlVirtualGrid({
     [columns]
   );
 
-  // Keyed by the column names, so a new rows array (filter, Load more) with the same bars leaves unchanged rows memoized.
-  const fractionNames = useMemo(
-    () => [...fractionColumns(typed.map(({ col, numeric }) => ({ name: col.name, numeric })), rows)].join('\u0000'),
-    [typed, rows]
-  );
-  const fractions = useMemo(
-    () => new Set(fractionNames ? fractionNames.split('\u0000') : []),
-    [fractionNames]
-  );
+  // Kept while their entries match, so a new rows array (filter, Load more, a staged edit) with the same bars leaves unchanged rows memoized.
+  const fractionKey = useMemo(() => JSON.stringify([...(instruments?.fractions ?? [])]), [instruments]);
+  const fractions = useMemo(() => new Set<string>(JSON.parse(fractionKey)), [fractionKey]);
+  const scaleKey = useMemo(() => JSON.stringify([...(instruments?.scales ?? [])]), [instruments]);
+  const scales = useMemo(() => new Map<string, number>(JSON.parse(scaleKey)), [scaleKey]);
+  // The sticky Σ row steps aside on a grid too short to show a whole row beside it and the header.
+  const summaryFits = viewport.height === 0 || viewport.height - viewport.headerHeight >= SUMMARY_HEIGHT + ROW_HEIGHT;
+  const summary = summaryFits && instruments && instruments.summaries.size > 0 && instruments.rowCount > 1 ? instruments : null;
+  const statsByName = useMemo(() => (stats ? new Map(stats.map((column) => [column.name, column])) : undefined), [stats]);
 
   // Only the column set: a sort, filter or Load more must not move columns.
   const plan = useMemo(
@@ -452,10 +593,12 @@ export function SqlVirtualGrid({
     const node = scrollRef.current;
     if (!node) return;
     const top = row * ROW_HEIGHT;
-    const headerHeight = 28;
+    const table = node.querySelector('table');
+    const headerHeight = table?.tHead?.offsetHeight ?? 0;
+    const footerHeight = table?.tFoot?.offsetHeight ?? 0;
     if (top < node.scrollTop) node.scrollTop = top;
-    else if (top + ROW_HEIGHT > node.scrollTop + node.clientHeight - headerHeight) {
-      node.scrollTop = top + ROW_HEIGHT - node.clientHeight + headerHeight;
+    else if (top + ROW_HEIGHT > node.scrollTop + node.clientHeight - headerHeight - footerHeight) {
+      node.scrollTop = top + ROW_HEIGHT - node.clientHeight + headerHeight + footerHeight;
     }
   };
 
@@ -556,13 +699,13 @@ export function SqlVirtualGrid({
       <table
         data-testid="sql-result-preview-table"
         role="grid"
-        aria-rowcount={rows.length + 1}
+        aria-rowcount={rows.length + (summary ? 2 : 1)}
         aria-colcount={typed.length}
         style={plan ? { width: plan.offsets[plan.offsets.length - 1] } : undefined}
         className={cn('border-collapse font-mono text-caption', plan ? 'table-fixed' : 'w-max')}
       >
         {colgroup}
-        <GridHeader typed={typed} sort={sort} linkedColumns={linkedColumns} onSort={rowActions.sort} />
+        <GridHeader typed={typed} sort={sort} linkedColumns={linkedColumns} stats={statsByName} onSort={rowActions.sort} />
         <tbody>
           {slice.top > 0 ? <tr aria-hidden="true" style={{ height: slice.top }} /> : null}
           {rows.slice(slice.start, slice.end + 1).map((row, offset) => {
@@ -579,11 +722,21 @@ export function SqlVirtualGrid({
                 actions={rowActions}
                 editor={editor?.row === index ? { column: editor.column, value: editor.value } : null}
                 fractions={fractions}
+                scales={scales}
               />
             );
           })}
           {slice.bottom > 0 ? <tr aria-hidden="true" style={{ height: slice.bottom }} /> : null}
         </tbody>
+        {summary ? (
+          <tfoot className="sticky bottom-0 z-10 bg-bg-panel">
+            <SummaryRow
+              slots={slots}
+              instruments={summary}
+              rowIndex={rows.length + 2}
+            />
+          </tfoot>
+        ) : null}
       </table>
       {menu
         ? createPortal(

@@ -9,7 +9,7 @@ import { quoteSqlIdentifier } from '../../../shared/sqlQuote';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 import { nonFiniteNumber } from './sqlNonFinite';
 
-const BIN_COUNT = 8;
+export const BIN_COUNT = 8;
 const TOP_COUNT = 5;
 /** Past this many distinct values a column reports a lower bound and stops tracking new ones. */
 export const DISTINCT_CAP = 10_000;
@@ -37,9 +37,10 @@ export interface SqlColumnStats {
   top: Array<{ value: string; count: number }>;
 }
 
-const isTemporal = (duckType: string) => /^(DATE|TIMESTAMP|TIME)/.test(duckType);
+export const isTemporal = (duckType: string) => /^(DATE|TIMESTAMP|TIME)/.test(duckType);
 
-function numberOf(value: unknown): number | null {
+/** A finite number from a cell, BIGINT and DECIMAL strings included; null otherwise. */
+export function numberOf(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'string' && value.trim() !== '') {

@@ -9,6 +9,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SqlQueryV1 } from '../../../shared/sqlWorkspace';
 import { cn } from '../../utils/cn';
+import { formatRunDuration } from '../../utils/timeLabels';
+import { SqlLatencyBar } from './SqlLatencyBar';
+import { maxDuration } from './sqlLatency';
+import '../../i18n/sqlConnectionsCatalog';
 
 export interface SqlQueryListProps {
   queries: ReadonlyArray<SqlQueryV1>;
@@ -23,6 +27,8 @@ export interface SqlQueryListProps {
   filter?: string;
   /** Where a saved query runs, shown on its row; unset while connections are off. */
   connectionLabel?: (connectionId: string | undefined) => string;
+  /** The newest run's duration per query id, drawn on saved rows. */
+  lastDurations?: ReadonlyMap<string, number>;
 }
 
 /** First word of the query, capped at 8 characters, for the row chip. */
@@ -46,6 +52,7 @@ export function SqlQueryList({
   onDuplicate,
   filter = '',
   connectionLabel,
+  lastDurations,
 }: SqlQueryListProps) {
   const { t } = useTranslation();
   const needle = filter.trim().toLowerCase();
@@ -68,6 +75,7 @@ export function SqlQueryList({
     return [...byFolder.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [saved]);
   const unfiled = saved.filter((q) => q.folder === undefined);
+  const slowest = maxDuration(saved.map((q) => lastDurations?.get(q.id) ?? 0));
   const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
@@ -92,6 +100,8 @@ export function SqlQueryList({
     const isRenaming = renamingId === q.id;
     const isScratch = q.kind === 'scratch';
     const label = q.name.length > 0 ? q.name : t('sqlWorkspace.queryList.renamePlaceholder');
+    const latency = isScratch ? undefined : lastDurations?.get(q.id);
+    const latencyText = latency === undefined ? '' : formatRunDuration(latency);
     return (
       <li
         key={q.id}
@@ -104,7 +114,7 @@ export function SqlQueryList({
         aria-current={isActive ? 'true' : undefined}
         style={{ paddingLeft: `${10 + depth * 14}px` }}
         className={cn(
-          'group flex min-h-[23px] cursor-pointer items-center gap-2 rounded-md py-0.5 pr-2.5 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+          'group @container flex min-h-[23px] cursor-pointer items-center gap-2 rounded-md py-0.5 pr-2.5 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
           isActive
             ? 'bg-bg-inset font-medium text-fg-base'
             : 'text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'
@@ -162,7 +172,19 @@ export function SqlQueryList({
           </span>
         ) : null}
         {isRenaming ? null : (
-          <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          // The latency and the row actions share one slot; hover or focus swaps them.
+          <span className="grid shrink-0 items-center justify-items-end">
+          {latency !== undefined ? (
+            <span
+              data-testid="sql-query-list-latency"
+              title={t('sqlWorkspace.queryList.lastRun', { duration: latencyText })}
+              className="hidden items-center gap-1.5 transition-opacity [grid-area:1/1] group-focus-within:opacity-0 group-hover:opacity-0 @[15rem]:flex"
+            >
+              <SqlLatencyBar durationMs={latency} maxMs={slowest} className="flex w-6" />
+              <span className="font-mono text-micro tabular-nums text-fg-subtle">{latencyText}</span>
+            </span>
+          ) : null}
+          <span className="flex items-center gap-0.5 opacity-0 transition-opacity [grid-area:1/1] focus-within:opacity-100 group-hover:opacity-100">
             {isScratch ? null : (
               <>
                 <button
@@ -208,6 +230,7 @@ export function SqlQueryList({
             >
               <Trash2 size={11} aria-hidden="true" />
             </button>
+          </span>
           </span>
         )}
       </li>

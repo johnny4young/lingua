@@ -3,6 +3,7 @@ import i18next from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
+import { showColumnRail } from './columnRail.helpers';
 
 const COLUMNS = 100;
 const ROWS = 100_000;
@@ -36,7 +37,10 @@ describe('grid at 100,000 rows by 100 columns', () => {
   it('mounts a screenful of rows and columns and moves both windows on scroll', () => {
     const { container: root } = render(<SqlResultPreview response={response} isExecuting={false} rowDisplayLimit={ROWS} />);
     const table = root.querySelector('table')!;
-    expect(table.getAttribute('aria-rowcount')).toBe(String(ROWS + 1));
+    // The header, the rows and the Σ row.
+    expect(table.getAttribute('aria-rowcount')).toBe(String(ROWS + 2));
+    // So does the Σ row.
+    expect(table.tFoot!.textContent).toContain('Profile of the first 10,000 of 100,000 rows');
     expect(mountedRows(table).length).toBeLessThan(100);
     // About 53 rows of 12 cells and a gap, where a screen shows perhaps 15 columns.
     expect(table.querySelectorAll('td').length).toBeLessThan(750);
@@ -60,6 +64,7 @@ describe('grid at 100,000 rows by 100 columns', () => {
     expect(cells.map((cell) => cell.dataset.column)).toContain('c50');
     expect(table.querySelectorAll('td').length).toBeLessThan(1_500);
     // The rail summarizes the first rows of a result this wide, and says so.
+    showColumnRail();
     expect(root.querySelector('aside [data-testid="sql-column-rail-sample"]')!.textContent).toBe('of the first 10,000 of 100,000 rows loaded');
   });
 });

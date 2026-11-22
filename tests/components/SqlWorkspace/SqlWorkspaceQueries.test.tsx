@@ -27,6 +27,7 @@ import {
 import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace';
 import { createDefaultTab } from '../../../src/renderer/stores/editorTabUtils';
 import { moveSqlCursor, pressSqlChord } from '../../__fixtures__/sqlMonacoMock';
+import { showColumnRail } from './columnRail.helpers';
 
 vi.mock('react-resizable-panels', () => ({
   Group: ({ children, className }: PropsWithChildren<{ className?: string }>) => (
@@ -473,6 +474,7 @@ describe('Load more', () => {
     await user.click(screen.getByTestId('sql-result-load-more'));
     expect(await screen.findByText(/15,000 of ≥ 15,000 rows in view/)).toBeTruthy();
     // The first rows of the stream follow the window without a gap.
+    showColumnRail();
     expect(screen.getByTestId('sql-column-rail-sample').textContent).toContain('15,000');
     while (screen.queryByTestId('sql-result-load-more')) {
       await user.click(screen.getByTestId('sql-result-load-more'));
@@ -499,6 +501,7 @@ describe('Load more', () => {
       await waitFor(() => expect(screen.queryByTestId('sql-result-loading-more')).toBeNull());
     }
     expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
+    showColumnRail();
     expect(screen.getByTestId('sql-column-rail-sample').textContent).toContain('100,000');
     await waitFor(() => expect(stream.cancelled).toBe(1));
   });

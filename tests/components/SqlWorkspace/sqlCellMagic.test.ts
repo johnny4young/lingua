@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { cellMagic, fractionColumns } from '@/components/SqlWorkspace/sqlCellMagic';
+import { describe, expect, it } from 'vitest';
+import { cellMagic } from '@/components/SqlWorkspace/sqlCellMagic';
 import { MAX_IMAGE_SRC_LENGTH } from '@/../shared/richOutput';
 
 const b64 = (...bytes: number[]) => btoa(String.fromCharCode(...bytes));
@@ -76,36 +76,5 @@ describe('SQL cell magics', () => {
     expect(cellMagic(`https://x.dev/${'a'.repeat(3000)}`, 'VARCHAR', false)).toBeNull();
     expect(cellMagic(null, 'VARCHAR', false)).toBeNull();
     expect(cellMagic(`data:image/png;base64,${'A'.repeat(MAX_IMAGE_SRC_LENGTH)}`, 'VARCHAR', false)).toBeNull();
-  });
-
-  it('marks numeric columns whose loaded values are fractions from 0 to 1', () => {
-    const columns = [
-      { name: 'share', numeric: true },
-      { name: 'flag', numeric: true },
-      { name: 'big', numeric: true },
-      { name: 'name', numeric: false },
-    ];
-    const rows = [
-      { share: 0.25, flag: 1, big: 0.5, name: '0.5' },
-      { share: null, flag: 0, big: 7, name: '0.1' },
-      { share: 1, flag: 1, big: 0.1, name: 'x' },
-    ];
-    expect([...fractionColumns(columns, rows)]).toEqual(['share']);
-    expect(fractionColumns(columns, [])).toEqual(new Set());
-  });
-
-  it('drops a column at its first misfit, keeps the rest in column order, and stops once none is left', () => {
-    const columns = ['a', 'b', 'c', 'd'].map((name) => ({ name, numeric: true }));
-    const rows = [
-      { a: 0.5, b: 0.5, c: 0.5, d: 0.5 },
-      { a: 2, b: 0.5, c: 'x', d: 0.5 },
-      { a: 0.5, b: null, c: 0.5, d: 1 },
-    ];
-    expect([...fractionColumns(columns, rows)]).toEqual(['b', 'd']);
-
-    const read = vi.fn(() => 'x');
-    const lateRow = Object.defineProperty({}, 'a', { get: read });
-    expect(fractionColumns([{ name: 'a', numeric: true }], [{ a: 'x' }, lateRow])).toEqual(new Set());
-    expect(read).not.toHaveBeenCalled();
   });
 });
