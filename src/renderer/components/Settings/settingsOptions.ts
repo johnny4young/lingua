@@ -1,4 +1,5 @@
 import type { LayoutPreset } from '../../types/settings';
+import { CLASSIC_EDITOR_FONT_FAMILY, RECURSIVE_MONO_FONT_FAMILY } from '../../data/themePacks';
 
 // Theme catalog lives in utils so stores/hooks can classify themes without
 // importing from the components layer; re-exported here so Settings-side
@@ -15,11 +16,8 @@ export interface FontFamilyOption {
 }
 
 export const FONT_FAMILIES: FontFamilyOption[] = [
-  {
-    value: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-    label: 'JetBrains Mono',
-    supportsLigatures: true,
-  },
+  { value: RECURSIVE_MONO_FONT_FAMILY, label: 'Recursive Mono', supportsLigatures: false },
+  { value: CLASSIC_EDITOR_FONT_FAMILY, label: 'JetBrains Mono', supportsLigatures: true },
   { value: "'Fira Code', monospace", label: 'Fira Code', supportsLigatures: true },
   { value: "'Cascadia Code', monospace", label: 'Cascadia Code', supportsLigatures: true },
   { value: "'Source Code Pro', monospace", label: 'Source Code Pro', supportsLigatures: false },
@@ -30,8 +28,6 @@ export const FONT_FAMILIES: FontFamilyOption[] = [
   { value: "'Courier New', monospace", label: 'Courier New', supportsLigatures: false },
   { value: 'monospace', label: 'System Monospace', supportsLigatures: false },
 ];
-
-export const DEFAULT_FONT_FAMILY = FONT_FAMILIES[0]?.value ?? 'monospace';
 
 /**
  * Return true if the font stack is known to carry ligature glyphs. Falls back

@@ -141,7 +141,7 @@ describe('AppearanceSection', () => {
 
     await user.selectOptions(screen.getByTestId('theme-pack-select'), 'solarized-daylight');
 
-    expect(useSettingsStore.getState().themePack).toBe('default');
+    expect(useSettingsStore.getState().themePack).toBe('lingua-ink');
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 
@@ -163,6 +163,7 @@ describe('AppearanceSection', () => {
 
     it('follows the OS preference with the Lingua editor themes', async () => {
       mockPrefersDark(false);
+      useSettingsStore.setState({ theme: 'dark', editorTheme: 'lingua-dark', themePack: 'default' });
       const user = userEvent.setup();
       render(<AppearanceSection />);
       await user.click(screen.getByRole('button', { name: /^System/i }));
@@ -170,6 +171,14 @@ describe('AppearanceSection', () => {
       expect(useSettingsStore.getState().editorTheme).toBe('lingua-light');
       expect(screen.getByRole('button', { name: /^System/i }).getAttribute('aria-pressed')).toBe('true');
       expect(screen.getByRole('button', { name: /^Light/i }).getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('follows the OS preference within Ink and Paper', async () => {
+      mockPrefersDark(false);
+      const user = userEvent.setup();
+      render(<AppearanceSection />);
+      await user.click(screen.getByRole('button', { name: /^System/i }));
+      expect(useSettingsStore.getState().editorTheme).toBe('lingua-paper');
     });
 
     it('draws each card with its own theme colours', () => {
@@ -185,5 +194,29 @@ describe('AppearanceSection', () => {
         { polarity: 'dark', scoped: true },
       ]);
     });
+  });
+  it('offers Ink and Paper on the Free tier and switches between them', async () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    const user = userEvent.setup();
+    render(<AppearanceSection />);
+    const select = screen.getByTestId('theme-pack-select') as HTMLSelectElement;
+    const labels = [...select.options].map((option) => option.textContent);
+    expect(labels).toContain('Lingua Ink');
+    expect(labels).toContain('Lingua Paper');
+
+    await user.selectOptions(select, 'lingua-paper');
+    expect(useSettingsStore.getState()).toMatchObject({ themePack: 'lingua-paper', editorTheme: 'lingua-paper' });
+    expect(useUIStore.getState().statusNotice).toBeNull();
+    expect(
+      [...document.querySelectorAll('[data-theme-swatch]')].map((el) => el.getAttribute('data-palette'))
+    ).toEqual(['ink', 'paper', 'paper', 'ink']);
+  });
+
+  it('names a manual appearance Custom instead of a pack', () => {
+    useSettingsStore.setState({ themePack: 'default', editorTheme: 'dracula' });
+    render(<AppearanceSection />);
+    const select = screen.getByTestId('theme-pack-select') as HTMLSelectElement;
+    expect(select.value).toBe('custom');
+    expect(select.selectedOptions[0]?.textContent).toBe('Custom');
   });
 });

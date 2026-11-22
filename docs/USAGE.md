@@ -56,6 +56,10 @@ With no tab open, Lingua shows Start.
 - **or try**, under the prompt, opens welcome.js, a sample table in the SQL workspace, or a sample request in the HTTP workspace.
 - The command bar verb reads **New scratch** and opens a JavaScript scratch file. The dock stays hidden until a tab opens, unless a folder is open, so its Terminal and Tests stay reachable.
 
+## Themes
+
+New installs start on **Lingua Ink**, a near-black theme; **Lingua Paper** is its white counterpart. Both are theme packs in Settings › Appearance, free on every plan, with Recursive Mono as the editor font: keywords and comments take its cursive forms, comments its casual style, and literals a muted tint of their answer colour. The packs repaint the window chrome, panels and selection too. While either is active, the Dark, Light and System cards move between Ink and Paper and keep your font, size and layout. **Theme: switch to Lingua Paper** (or Ink) in the command palette does the same, and from any other theme it applies the Ink pack. Updating keeps the theme you already chose; Classic is the previous default, with Lingua Dark and JetBrains Mono.
+
 ## Sharing a selected code reference
 
 Select code in the editor, then choose **Copy reference** or **Copy with

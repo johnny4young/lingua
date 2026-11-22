@@ -90,6 +90,8 @@
   --color-ink-value-error: #ff8a8a;
   --color-ink-value-date: #f2a3cc;
   --color-ink-value-none: #8a9a9d;
+  --color-ink-rule: #1a2426;
+  --color-ink-rule-2: #2d3b3e;
   --color-paper-ground: #ffffff;
   --color-paper-panel: #f5f8f9;
   --color-paper-raised: #ebf0f1;
@@ -104,6 +106,8 @@
   --color-paper-value-error: #c2333b;
   --color-paper-value-date: #a8327a;
   --color-paper-value-none: var(--color-paper-text-3);
+  --color-paper-rule: #dce3e5;
+  --color-paper-rule-2: #bcc7ca;
   /* Pulse is a fill under dark text on both grounds; text and lines use -fg. */
   --color-pulse: #00bfdf;
   --color-pulse-on: #041014;
@@ -517,6 +521,70 @@
   --app-gradient-b: radial-gradient(circle at 84% 10%, oklch(0.78 0.14 285 / 0.1), transparent 30%);
   --app-grid: oklch(0.72 0.018 210 / 0.1);
   --tour-overlay: color-mix(in srgb, var(--color-bg-base) 72%, transparent);
+}
+
+/* Lingua Ink and Paper: the identity packs repaint chrome, panels and
+   selection over the dark/light polarity (useAppTheme sets data-palette from
+   the editor theme). Syntax values mirror editorThemes.ts. */
+[data-palette='ink'] {
+  --color-bg-base: var(--color-ink-ground);
+  --color-bg-panel: var(--color-ink-panel);
+  --color-bg-panel-alt: var(--color-ink-raised);
+  --color-bg-inset: var(--color-ink-ground);
+  --color-fg-base: var(--color-ink-text-1);
+  --color-fg-muted: var(--color-ink-text-2);
+  --color-fg-subtle: var(--color-ink-text-3);
+  --color-border-subtle: var(--color-ink-rule);
+  --color-border-default: var(--color-ink-rule-2);
+  --color-accent-tint: var(--color-ink-select);
+  --color-syntax-keyword: #8ccbd8;
+  --color-syntax-string: #8fbfa3;
+  --color-syntax-number: #d4b07a;
+  --color-syntax-comment: #6d7f82;
+  --color-editor-bg: var(--color-ink-ground);
+  --color-editor-fg: var(--color-ink-text-1);
+  --color-editor-gutter-fg: var(--color-ink-text-3);
+  --color-editor-line-hl: var(--color-ink-panel);
+  --color-editor-selection: var(--color-ink-select);
+  --color-console-bg: var(--color-ink-ground);
+  --color-console-stdout: var(--color-ink-text-1);
+  --app-panel: color-mix(in srgb, var(--color-ink-panel) 82%, transparent);
+}
+
+[data-palette='paper'] {
+  --color-bg-base: var(--color-paper-ground);
+  --color-bg-panel: var(--color-paper-panel);
+  --color-bg-panel-alt: var(--color-paper-raised);
+  --color-bg-inset: var(--color-paper-raised);
+  --color-fg-base: var(--color-paper-text-1);
+  --color-fg-muted: var(--color-paper-text-2);
+  --color-fg-subtle: var(--color-paper-text-3);
+  --color-border-subtle: var(--color-paper-rule);
+  --color-border-default: var(--color-paper-rule-2);
+  --color-accent-tint: var(--color-paper-select);
+  --color-syntax-keyword: #0a6f8c;
+  --color-syntax-string: #2e7352;
+  --color-syntax-number: #8f5e12;
+  --color-syntax-comment: #647477;
+  --color-editor-bg: var(--color-paper-ground);
+  --color-editor-fg: var(--color-paper-text-1);
+  --color-editor-gutter-fg: var(--color-paper-text-3);
+  --color-editor-line-hl: var(--color-paper-panel);
+  --color-editor-selection: var(--color-paper-select);
+  --color-console-bg: var(--color-paper-ground);
+  --color-console-stdout: var(--color-paper-text-1);
+  --app-panel: color-mix(in srgb, var(--color-paper-panel) 82%, transparent);
+}
+
+/* Keywords and comments take Recursive's cursive forms; the comment rule's
+   underline marker becomes the casual axis instead. */
+[data-palette] .mtki {
+  font-variation-settings: 'MONO' 1, 'CRSV' 1;
+}
+
+[data-palette] .mtki.mtku {
+  text-decoration: none;
+  font-variation-settings: 'MONO' 1, 'CRSV' 1, 'CASL' 1;
 }
 
 /* -------------------------------------------------------------------------- */

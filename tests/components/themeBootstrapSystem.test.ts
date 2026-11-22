@@ -25,6 +25,7 @@ describe.each(HTML_ENTRIES)('theme bootstrap in %s with the System preference', 
   afterEach(() => {
     localStorage.clear();
     document.documentElement.className = '';
+    delete document.documentElement.dataset.palette;
   });
 
   it.each([
@@ -36,5 +37,42 @@ describe.each(HTML_ENTRIES)('theme bootstrap in %s with the System preference', 
       JSON.stringify({ state: { theme: 'system', editorTheme: prefersDark ? 'lingua-light' : 'lingua-dark' }, version: 3 })
     );
     expect(runBootstrap(entry, prefersDark)).toBe(expected);
+  });
+});
+
+describe.each(HTML_ENTRIES)('theme bootstrap in %s with Ink and Paper', (entry) => {
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.className = '';
+    delete document.documentElement.dataset.palette;
+  });
+
+  const palette = () => document.documentElement.dataset.palette ?? null;
+  const themeColor = () => document.querySelector('meta[name="theme-color"]')?.getAttribute('content');
+
+  it('paints a fresh install on Ink', () => {
+    expect(runBootstrap(entry, true)).toBe('dark');
+    expect(palette()).toBe('ink');
+    expect(themeColor()).toBe('#05090a');
+  });
+
+  it('paints a stored Paper choice and keeps other stored themes off the palette', () => {
+    localStorage.setItem('lingua-settings', JSON.stringify({ state: { editorTheme: 'lingua-paper' }, version: 3 }));
+    expect(runBootstrap(entry, true)).toBe('light');
+    expect(palette()).toBe('paper');
+
+    localStorage.setItem('lingua-settings', JSON.stringify({ state: { editorTheme: 'lingua-dark' }, version: 3 }));
+    delete document.documentElement.dataset.palette;
+    expect(runBootstrap(entry, true)).toBe('dark');
+    expect(palette()).toBeNull();
+  });
+
+  it('follows the OS within Ink and Paper under System', () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({ state: { theme: 'system', editorTheme: 'lingua-ink' }, version: 3 })
+    );
+    expect(runBootstrap(entry, false)).toBe('light');
+    expect(palette()).toBe('paper');
   });
 });

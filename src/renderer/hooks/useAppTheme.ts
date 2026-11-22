@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { isDarkEditorTheme } from '../utils/editorThemeCatalog';
+import { identityPaletteFor, isDarkEditorTheme } from '../utils/editorThemeCatalog';
 import { useSettingsStore } from '../stores/settingsStore';
 import { applyAppTheme, systemEditorTheme } from '../utils/appTheme';
 import type { ThemePreference } from '../types/settings';
@@ -30,17 +30,19 @@ export function useAppTheme() {
   const editorTheme = useSettingsStore((state) => state.editorTheme);
 
   const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme);
+  const palette = identityPaletteFor(editorTheme);
 
   useEffect(() => {
-    applyAppTheme(effectiveTheme);
-  }, [effectiveTheme]);
+    applyAppTheme(effectiveTheme, document, palette);
+  }, [effectiveTheme, palette]);
 
   // System keeps the Lingua editor theme in step with the OS preference.
   useEffect(() => {
     if (theme !== 'system' || typeof window.matchMedia !== 'function') return;
     const sync = () => {
-      const next = systemEditorTheme();
-      if (useSettingsStore.getState().editorTheme !== next) {
+      const current = useSettingsStore.getState().editorTheme;
+      const next = systemEditorTheme(current);
+      if (current !== next) {
         useSettingsStore.setState({ editorTheme: next });
       }
     };

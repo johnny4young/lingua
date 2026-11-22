@@ -161,11 +161,11 @@ describe('web license smoke', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
 
     await user.selectOptions(screen.getByTestId('theme-pack-select'), 'solarized-daylight');
-    expect(useSettingsStore.getState().themePack).toBe('default');
+    expect(useSettingsStore.getState().themePack).toBe('lingua-ink');
 
     await user.selectOptions(screen.getByTestId('editor-font-family-select'), 'Menlo, monospace');
     expect(useSettingsStore.getState().fontFamily).toBe(
-      "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace"
+      "'Recursive', 'JetBrains Mono', ui-monospace, monospace"
     );
   });
 

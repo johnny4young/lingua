@@ -1,4 +1,4 @@
-import { AppWindow, Braces, FileCode, FileSearch, History, Search, Sparkles, Wrench, Zap } from 'lucide-react';
+import { AppWindow, Braces, FileCode, FileSearch, History, Palette, Search, Sparkles, Wrench, Zap } from 'lucide-react';
 import type { ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -30,6 +30,7 @@ const GROUP_ICON: Record<CommandGroupId, ReactNode> = {
   workspaces: <AppWindow size={14} aria-hidden="true" />,
   commands: <Zap size={14} aria-hidden="true" />,
   utilities: <Wrench size={14} aria-hidden="true" />,
+  settings: <Palette size={14} aria-hidden="true" />,
   templates: <FileCode size={14} aria-hidden="true" />,
   snippets: <Braces size={14} aria-hidden="true" />,
 };

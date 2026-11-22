@@ -189,7 +189,12 @@
         const themeColors = {
           dark: '#0c1017',
           light: '#f4efe7',
+          ink: '#05090a',
+          paper: '#ffffff',
         };
+        // Must mirror identityPaletteFor: Ink and Paper repaint the shell, and
+        // installs with no stored settings start on Ink.
+        let identity = true;
 
         const resolveEditorThemePolarity = (editorTheme) => {
           if (typeof editorTheme !== 'string' || editorTheme.length === 0) {
@@ -199,7 +204,7 @@
           // React derives shell polarity from the Monaco editor theme,
           // not from the legacy state.theme field. Unknown editor themes
           // fall back to dark, matching isDarkEditorTheme().
-          const lightEditorThemes = new Set(['lingua-light', 'vs', 'solarized-light']);
+          const lightEditorThemes = new Set(['lingua-light', 'lingua-paper', 'vs', 'solarized-light']);
           return lightEditorThemes.has(editorTheme) ? 'light' : 'dark';
         };
 
@@ -215,6 +220,8 @@
             }
 
             const parsed = JSON.parse(storedState);
+            const storedEditorTheme = parsed?.state?.editorTheme ?? parsed?.editorTheme;
+            identity = storedEditorTheme === 'lingua-ink' || storedEditorTheme === 'lingua-paper';
             // System follows the OS; the stored editor theme can be stale.
             if (parsed?.state?.theme === 'system' || parsed?.theme === 'system') {
               return window.matchMedia?.('(prefers-color-scheme: dark)').matches === false
@@ -240,16 +247,20 @@
             if (persistedTheme === 'dark' || persistedTheme === 'light') {
               return persistedTheme;
             }
-          } catch {}
+          } catch {
+            identity = false;
+          }
 
           return 'dark';
         };
 
         const theme = readStoredTheme();
+        const palette = identity ? (theme === 'dark' ? 'ink' : 'paper') : null;
         const root = document.documentElement;
         root.classList.remove('dark', 'light');
         root.classList.add(theme);
         root.dataset.theme = theme;
+        if (palette) root.dataset.palette = palette;
         root.style.colorScheme = theme;
 
         let themeColorMeta = document.querySelector('meta[name="theme-color"]');
@@ -259,7 +270,7 @@
           document.head.appendChild(themeColorMeta);
         }
 
-        themeColorMeta.setAttribute('content', themeColors[theme]);
+        themeColorMeta.setAttribute('content', themeColors[palette ?? theme]);
       })();
     </script>
     <!--
@@ -298,6 +309,22 @@
         --boot-panel-alt: #ebe4d9;
         --boot-border: #d4c9ba;
         --boot-muted: #b5aa9a;
+      }
+
+      html[data-palette='ink'] #lingua-boot-skeleton {
+        --boot-bg: #05090a;
+        --boot-panel: #0a1012;
+        --boot-panel-alt: #111a1c;
+        --boot-border: #1a2426;
+        --boot-muted: #4c5b5e;
+      }
+
+      html[data-palette='paper'] #lingua-boot-skeleton {
+        --boot-bg: #ffffff;
+        --boot-panel: #f5f8f9;
+        --boot-panel-alt: #ebf0f1;
+        --boot-border: #dce3e5;
+        --boot-muted: #9aa7aa;
       }
 
       #lingua-boot-skeleton,

@@ -6,6 +6,7 @@ import { inspectTimestampLike, type TimestampHoverInfo } from '../../utils/devel
 import { cn } from '../../utils/cn';
 import { utcDateLabel } from '../../utils/timeLabels';
 import { defineCustomThemes, getEditorThemeSurface } from '../Editor/editorThemes';
+import { editorFontVariations } from '../../utils/editorFontVariations';
 
 interface JsonTimestampRange {
   start: number;
@@ -139,6 +140,7 @@ export function JsonSyntaxOutput({
         backgroundColor: surface.background,
         color: surface.foreground,
         fontFamily,
+        fontVariationSettings: editorFontVariations(fontFamily) || undefined,
         fontSize,
       }}
     />

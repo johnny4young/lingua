@@ -1,3 +1,5 @@
+import { editorFontVariations } from '../../utils/editorFontVariations';
+
 interface EditorOptionInput {
   fontSize: number;
   fontFamily: string;
@@ -41,6 +43,7 @@ export function getSatelliteEditorOptions({
     ariaLabel,
     fontSize,
     fontFamily,
+    fontVariations: editorFontVariations(fontFamily),
     lineNumbers: 'on',
     minimap: { enabled: false },
     wordWrap: 'off',
@@ -64,6 +67,7 @@ export function getEditorOptions({
   return {
     fontSize,
     fontFamily,
+    fontVariations: editorFontVariations(fontFamily),
     fontLigatures,
     glyphMargin: true,
     // Line numbers are baseline editor primitive; always on.

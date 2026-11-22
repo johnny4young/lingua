@@ -211,10 +211,11 @@ test.describe('Free tier gates', () => {
     const select = page.getByTestId('theme-pack-select');
     const options = await select.locator('option').allTextContents();
 
-    // "Default" is free; everything else must be labeled PRO.
-    expect(options.length).toBeGreaterThan(1);
-    const nonDefault = options.filter(option => !/Default/i.test(option));
-    expect(nonDefault.every(option => /PRO/i.test(option))).toBe(true);
+    // Ink, Paper and Classic are free; everything else must be labeled PRO.
+    expect(options.length).toBeGreaterThan(3);
+    const extended = options.filter(option => !/Lingua (Ink|Paper|Classic)/i.test(option));
+    expect(extended.length).toBeGreaterThan(0);
+    expect(extended.every(option => /PRO/i.test(option))).toBe(true);
 
     await select.selectOption('solarized-daylight');
     await expectNoticeContains(page, 'additional theme packs');
@@ -229,7 +230,7 @@ test.describe('Free tier gates', () => {
 
     const select = page.getByTestId('editor-font-family-select');
     const options = await select.locator('option').allTextContents();
-    const nonDefault = options.filter(option => !/Default|JetBrains Mono/i.test(option));
+    const nonDefault = options.filter(option => !/Recursive Mono|JetBrains Mono/i.test(option));
     expect(nonDefault.length).toBeGreaterThan(0);
     expect(nonDefault.every(option => /PRO/i.test(option))).toBe(true);
 

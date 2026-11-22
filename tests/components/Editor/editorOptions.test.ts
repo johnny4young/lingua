@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getEditorOptions } from '@/components/Editor/editorOptions';
+import { getEditorOptions, getSatelliteEditorOptions } from '@/components/Editor/editorOptions';
 
 describe('getEditorOptions', () => {
   it('maps renderer settings into stable Monaco editor options', () => {
@@ -17,6 +17,7 @@ describe('getEditorOptions', () => {
     ).toEqual({
       fontSize: 16,
       fontFamily: 'JetBrains Mono',
+      fontVariations: false,
       fontLigatures: true,
       glyphMargin: true,
       // Line numbers are baseline editor primitive; always on.
@@ -45,5 +46,19 @@ describe('getEditorOptions', () => {
       wordBasedSuggestions: 'currentDocument',
       tabSize: 2,
     });
+  });
+
+  it('turns on the MONO axis when the stack leads with Recursive', () => {
+    const recursive = "'Recursive', 'JetBrains Mono', ui-monospace, monospace";
+    expect(
+      getEditorOptions({ fontSize: 14, fontFamily: recursive, fontLigatures: false, wordWrap: false, minimap: false })
+        .fontVariations
+    ).toBe("'MONO' 1");
+    expect(
+      getSatelliteEditorOptions({ fontSize: 14, fontFamily: recursive, ariaLabel: 'cell' }).fontVariations
+    ).toBe("'MONO' 1");
+    expect(
+      getSatelliteEditorOptions({ fontSize: 14, fontFamily: 'Menlo, monospace', ariaLabel: 'cell' }).fontVariations
+    ).toBe(false);
   });
 });

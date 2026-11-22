@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  CLASSIC_EDITOR_FONT_FAMILY,
+  RECURSIVE_MONO_FONT_FAMILY,
+} from '../../src/renderer/data/themePacks';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
@@ -54,7 +58,9 @@ describe('settingsStore', () => {
   it('should have correct defaults', () => {
     const state = useSettingsStore.getState();
     expect(state.theme).toBe('dark');
-    expect(state.editorTheme).toBe('lingua-dark');
+    expect(state.editorTheme).toBe('lingua-ink');
+    expect(state.fontFamily).toBe(RECURSIVE_MONO_FONT_FAMILY);
+    expect(state.themePack).toBe('lingua-ink');
     expect(state.fontSize).toBe(14);
     expect(state.wordWrap).toBe(false);
     expect(state.minimap).toBe(false);
@@ -96,12 +102,18 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().fontFamily).toBe('Menlo');
   });
 
-  it('keeps the default font family on the Free tier when an extended font is requested', () => {
+  it('keeps the current font family on the Free tier when an extended font is requested', () => {
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     useSettingsStore.getState().setFontFamily('Menlo, monospace');
-    expect(useSettingsStore.getState().fontFamily).toBe(
-      "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace"
-    );
+    expect(useSettingsStore.getState().fontFamily).toBe(RECURSIVE_MONO_FONT_FAMILY);
+  });
+
+  it('lets the Free tier pick either free editor face', () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    useSettingsStore.getState().setFontFamily(CLASSIC_EDITOR_FONT_FAMILY);
+    expect(useSettingsStore.getState().fontFamily).toBe(CLASSIC_EDITOR_FONT_FAMILY);
+    useSettingsStore.getState().setFontFamily(RECURSIVE_MONO_FONT_FAMILY);
+    expect(useSettingsStore.getState().fontFamily).toBe(RECURSIVE_MONO_FONT_FAMILY);
   });
 
   it('should toggle word wrap', () => {
@@ -311,7 +323,46 @@ describe('settingsStore', () => {
   it('blocks extended theme packs on the Free tier', () => {
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     useSettingsStore.getState().applyThemePack('solarized-daylight');
+    expect(useSettingsStore.getState().themePack).toBe('lingua-ink');
+  });
+
+  it('applies the Ink and Paper packs on the Free tier', () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    useSettingsStore.getState().applyThemePack('lingua-paper');
+    const state = useSettingsStore.getState();
+    expect(state.themePack).toBe('lingua-paper');
+    expect(state.theme).toBe('light');
+    expect(state.editorTheme).toBe('lingua-paper');
+    expect(state.fontFamily).toBe(RECURSIVE_MONO_FONT_FAMILY);
+  });
+
+  it('flips Ink to Paper and back without dropping the pack marker', () => {
+    useSettingsStore.getState().setTheme('light');
+    expect(useSettingsStore.getState()).toMatchObject({
+      theme: 'light',
+      editorTheme: 'lingua-paper',
+      themePack: 'lingua-paper',
+    });
+    useSettingsStore.getState().setTheme('dark');
+    expect(useSettingsStore.getState()).toMatchObject({
+      theme: 'dark',
+      editorTheme: 'lingua-ink',
+      themePack: 'lingua-ink',
+    });
+  });
+
+  it('keeps Ink/Paper but drops the pack marker after a manual edit or under System', () => {
+    useSettingsStore.getState().setFontSize(18);
+    useSettingsStore.getState().setTheme('light');
+    expect(useSettingsStore.getState()).toMatchObject({
+      editorTheme: 'lingua-paper',
+      themePack: 'default',
+      fontSize: 18,
+    });
+    useSettingsStore.getState().applyThemePack('lingua-ink');
+    useSettingsStore.getState().setTheme('system');
     expect(useSettingsStore.getState().themePack).toBe('default');
+    expect(['lingua-ink', 'lingua-paper']).toContain(useSettingsStore.getState().editorTheme);
   });
 
   it('should default language to system', () => {
@@ -522,8 +573,8 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().shortcutOverrides).toEqual({});
   });
 
-  it('defaults themePack to "default" and applies a pack wholesale', () => {
-    expect(useSettingsStore.getState().themePack).toBe('default');
+  it('defaults themePack to Ink and applies a pack wholesale', () => {
+    expect(useSettingsStore.getState().themePack).toBe('lingua-ink');
     useSettingsStore.getState().applyThemePack('solarized-daylight');
     const state = useSettingsStore.getState();
     expect(state.themePack).toBe('solarized-daylight');
@@ -560,6 +611,52 @@ describe('settingsStore', () => {
     ).persist.rehydrate();
 
     expect(useSettingsStore.getState().themePack).toBe('solarized-daylight');
+  });
+
+  it('never moves a stored settings snapshot onto Ink', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({ state: { language: 'es' }, version: 0 })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    const state = useSettingsStore.getState();
+    expect(state.editorTheme).toBe('lingua-dark');
+    expect(state.fontFamily).toBe(CLASSIC_EDITOR_FONT_FAMILY);
+    expect(state.themePack).toBe('default');
+  });
+
+  it('keeps a persisted Paper choice on rehydrate', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          themePack: 'lingua-paper',
+          theme: 'light',
+          editorTheme: 'lingua-paper',
+          fontFamily: RECURSIVE_MONO_FONT_FAMILY,
+          fontSize: 14,
+          layoutPreset: 'horizontal',
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState()).toMatchObject({
+      themePack: 'lingua-paper',
+      editorTheme: 'lingua-paper',
+    });
   });
 
   it('drops a persisted theme pack back to default when the stored appearance no longer matches it', async () => {

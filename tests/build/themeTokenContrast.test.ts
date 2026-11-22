@@ -121,6 +121,22 @@ describe('Ink and Paper palettes', () => {
   });
 });
 
+describe.each(['ink', 'paper'] as const)('%s pack shell', (set) => {
+  const root = readCssBlock(css, /^:root\s*\{/m);
+  const block = readCssBlock(css, new RegExp(`^\\[data-palette='${set}'\\]\\s*\\{`, 'm'));
+  const shell = new Map([...root, ...light, ...(set === 'ink' ? dark : []), ...block]);
+
+  it.each(PAIRS)('%s on %s (%s) clears 4.5:1', (fg, bg) => {
+    expect(contrastRatio(parseColor(resolveToken(fg, shell)), parseColor(resolveToken(bg, shell)))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('repaints chrome, panels and selection from the pack tokens', () => {
+    for (const token of ['--color-bg-base', '--color-bg-panel', '--color-fg-base', '--color-accent-tint', '--color-editor-selection']) {
+      expect(block.get(token)).toMatch(new RegExp(`^var\\(--color-${set}-`));
+    }
+  });
+});
+
 describe('contrast helper', () => {
   it.each([
     ['#0080A1', '#FFFFFF', 4.56],

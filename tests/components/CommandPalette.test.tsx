@@ -226,6 +226,7 @@ vi.mock('lucide-react', () => ({
   Braces: () => null,
   History: () => null,
   Wrench: () => null,
+  Palette: () => null,
   Sparkles: () => null,
   FileSearch: () => null,
 }));

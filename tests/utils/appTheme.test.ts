@@ -36,4 +36,20 @@ describe('appTheme utilities', () => {
     expect(document.head.querySelectorAll('meta[name="theme-color"]')).toHaveLength(1);
     expect(themeColorMeta.getAttribute('content')).toBe('#ffffff');
   });
+
+  it('marks the Ink and Paper palettes and clears them for other themes', () => {
+    document.head.innerHTML = '';
+    applyAppTheme('dark', document, 'ink');
+    const meta = () => document.querySelector('meta[name="theme-color"]')?.getAttribute('content');
+    expect(document.documentElement.dataset.palette).toBe('ink');
+    expect(meta()).toBe('#05090a');
+
+    applyAppTheme('light', document, 'paper');
+    expect(document.documentElement.dataset.palette).toBe('paper');
+    expect(meta()).toBe('#ffffff');
+
+    applyAppTheme('dark');
+    expect(document.documentElement.dataset.palette).toBeUndefined();
+    expect(meta()).toBe(APP_THEME_COLOR.dark);
+  });
 });

@@ -345,6 +345,9 @@ export interface BuildCommandPaletteModelArgs {
   onOpenSettings: () => void;
   onOpenWhatsNew: () => void;
   onStartGuidedTour: () => void;
+  /** The identity theme the switch command moves to; hidden when omitted. */
+  identityThemeTarget?: 'ink' | 'paper';
+  onSwitchIdentityTheme?: () => void;
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
   // Invoked when the user picks the

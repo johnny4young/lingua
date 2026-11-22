@@ -1,12 +1,54 @@
 import type { SettingsState } from '../types/settings';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
-import { isDarkEditorTheme } from '../utils/editorThemeCatalog';
+import { identityPaletteFor, isDarkEditorTheme } from '../utils/editorThemeCatalog';
 import { DEFAULT_KEYMAP_PRESET_ID, findKeymapPreset } from '../data/keymapPresets';
-import { DEFAULT_THEME_PACK_ID, findThemePack } from '../data/themePacks';
-import { DEFAULT_EDITOR_FONT_FAMILY } from './settingsDefaults';
+import {
+  DEFAULT_THEME_PACK_ID,
+  INK_THEME_PACK_ID,
+  PAPER_THEME_PACK_ID,
+  findThemePack,
+  isFreeThemePack,
+  themePackAppearanceMatchesSettings,
+} from '../data/themePacks';
+import { isFreeEditorFontFamily } from '../data/themePacks';
 import type { SettingsSet } from './settingsStoreContext';
-import { systemEditorTheme } from '../utils/appTheme';
+import { linguaEditorTheme, systemEditorTheme } from '../utils/appTheme';
+
+type PolarityInput = Pick<
+  SettingsState,
+  'editorTheme' | 'themePack' | 'fontFamily' | 'fontSize' | 'layoutPreset'
+>;
+
+/**
+ * Editor theme and pack marker for a light/dark/system choice. Ink and Paper
+ * are one identity in two polarities: switching keeps the pack marker while
+ * the counterpart pack still matches the other appearance fields. System never
+ * claims a pack, since a pack fixes its polarity.
+ */
+function polarityFields(
+  state: PolarityInput,
+  theme: SettingsState['theme']
+): Pick<SettingsState, 'editorTheme' | 'themePack'> {
+  const editorTheme =
+    theme === 'system'
+      ? systemEditorTheme(state.editorTheme)
+      : linguaEditorTheme(theme === 'light' ? 'light' : 'dark', state.editorTheme);
+  const wasIdentityPack =
+    state.themePack === INK_THEME_PACK_ID || state.themePack === PAPER_THEME_PACK_ID;
+  const palette = identityPaletteFor(editorTheme);
+  const counterpart =
+    theme !== 'system' && wasIdentityPack && palette
+      ? findThemePack(palette === 'paper' ? PAPER_THEME_PACK_ID : INK_THEME_PACK_ID)
+      : undefined;
+  const keepsPack =
+    counterpart !== undefined &&
+    themePackAppearanceMatchesSettings(
+      { ...state, theme: counterpart.appearance.theme, editorTheme },
+      counterpart.appearance
+    );
+  return { editorTheme, themePack: keepsPack ? counterpart.id : DEFAULT_THEME_PACK_ID };
+}
 
 /**
  * Appearance setter factory for the settings store. Bundles the
@@ -40,13 +82,7 @@ export function createAppearanceActions(
     // Each field the theme pack covers resets `themePack` to `default` so
     // the selector never lies about the active pack. Line numbers, word
     // wrap, and minimap aren't part of the pack so they stay untouched.
-    setTheme: (theme) =>
-      set({
-        theme,
-        editorTheme:
-          theme === 'system' ? systemEditorTheme() : theme === 'light' ? 'lingua-light' : 'lingua-dark',
-        themePack: DEFAULT_THEME_PACK_ID,
-      }),
+    setTheme: (theme) => set((state) => ({ theme, ...polarityFields(state, theme) })),
     setEditorTheme: (editorTheme) =>
       set({
         editorTheme,
@@ -65,7 +101,7 @@ export function createAppearanceActions(
     setFontFamily: (fontFamily) =>
       set((state) => {
         if (
-          fontFamily !== DEFAULT_EDITOR_FONT_FAMILY &&
+          !isFreeEditorFontFamily(fontFamily) &&
           !isEntitled(currentEffectiveTier(), 'FONT_PACK_EXTENDED')
         ) {
           return state;
@@ -125,10 +161,7 @@ export function createAppearanceActions(
     applyThemePack: (packId) => {
       const pack = findThemePack(packId);
       if (!pack) return;
-      if (
-        pack.id !== DEFAULT_THEME_PACK_ID &&
-        !isEntitled(currentEffectiveTier(), 'THEME_PACK_EXTENDED')
-      ) {
+      if (!isFreeThemePack(pack.id) && !isEntitled(currentEffectiveTier(), 'THEME_PACK_EXTENDED')) {
         return;
       }
       set({

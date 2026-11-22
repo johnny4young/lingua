@@ -1,0 +1,13 @@
+{
+  "settings.themePack.custom.label": "Personalizado",
+  "settings.themePack.ink.label": "Lingua Ink",
+  "settings.themePack.ink.description": "Shell casi negro, editor Lingua Ink y Recursive Mono.",
+  "settings.themePack.paper.label": "Lingua Paper",
+  "settings.themePack.paper.description": "Shell de papel blanco, editor Lingua Paper y Recursive Mono.",
+  "settings.themePack.default.label": "Lingua Clásico",
+  "settings.themePack.default.description": "Shell grafito, editor Lingua Dark y JetBrains Mono.",
+  "settings.themePack.solarizedDaylight.label": "Solarized Día",
+  "settings.themePack.solarizedDaylight.description": "Shell tipo papel cálido con el editor Solarized Light y Menlo; contraste calmado para trabajo diurno.",
+  "settings.themePack.nordNight.label": "Nord Noche",
+  "settings.themePack.nordNight.description": "Shell oscuro azul grisáceo con el editor Nord Night y Fira Code; contraste calmado para trabajo nocturno."
+}

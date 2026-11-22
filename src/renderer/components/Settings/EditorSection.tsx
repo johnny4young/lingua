@@ -7,11 +7,12 @@ import { trackEvent } from '../../utils/telemetry';
 import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import {
-  DEFAULT_FONT_FAMILY,
   EDITOR_THEMES,
   FONT_FAMILIES,
   FONT_SIZES,
 } from './settingsOptions';
+import { isFreeEditorFontFamily } from '../../data/themePacks';
+import { editorFontVariations } from '../../utils/editorFontVariations';
 import { Select, StepperButton, Toggle } from './shared';
 import { SpecCard, SpecRow, SettingsSection, UnlockProLink } from '../ui/SpecRow';
 import { languageLabel } from '../../utils/languageMeta';
@@ -134,7 +135,7 @@ export function EditorSection() {
   };
 
   const handleFontFamilyChange = (nextFontFamily: string) => {
-    const isExtendedFont = nextFontFamily !== DEFAULT_FONT_FAMILY;
+    const isExtendedFont = !isFreeEditorFontFamily(nextFontFamily);
     if (isExtendedFont && !canUseExtendedFonts) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
@@ -153,7 +154,7 @@ export function EditorSection() {
     const baseLabel = font.supportsLigatures
       ? t('editor.fontFamily.optionWithLigatures', { name: font.label })
       : font.label;
-    return font.value === DEFAULT_FONT_FAMILY || canUseExtendedFonts
+    return isFreeEditorFontFamily(font.value) || canUseExtendedFonts
       ? baseLabel
       : `${baseLabel} · ${t('license.badge.pro')}`;
   };
@@ -208,6 +209,7 @@ export function EditorSection() {
                 className="rounded-md border border-border-subtle bg-bg-base px-3 py-2 text-body leading-6 text-fg-base"
                 style={{
                   fontFamily,
+                  fontVariationSettings: editorFontVariations(fontFamily) || undefined,
                   fontVariantLigatures: ligaturesAvailable ? 'contextual' : 'none',
                   fontFeatureSettings: ligaturesAvailable ? undefined : '"liga" 0, "calt" 0',
                 }}

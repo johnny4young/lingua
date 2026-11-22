@@ -1,11 +1,20 @@
+import '../../i18n/appearanceCatalog';
 import { Monitor, MoonStar, SunMedium } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_THEME_PACK_ID, THEME_PACKS } from '../../data/themePacks';
+import {
+  DEFAULT_THEME_PACK_ID,
+  THEME_PACKS,
+  themePackAppearanceMatchesSettings,
+  findThemePack,
+  isFreeThemePack,
+} from '../../data/themePacks';
 import { resolveEffectiveShellTheme } from '../../hooks/useAppTheme';
+import { identityPaletteFor } from '../../utils/editorThemeCatalog';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { changeAppLanguage } from '../../i18n';
 import type { AppLanguage } from '../../types/language';
+import type { SettingsState } from '../../types/settings';
 import { trackEvent } from '../../utils/telemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
@@ -29,11 +38,33 @@ const APP_THEMES = [
   },
 ];
 
+const CUSTOM_PACK_VALUE = 'custom';
+
+/**
+ * The pack Settings names. The default id doubles as the marker manual edits
+ * fall back to, so it names the Classic pack only while every field matches it.
+ */
+function activeThemePackId(settings: SettingsState): string | null {
+  const pack = findThemePack(settings.themePack);
+  if (!pack) return null;
+  if (pack.id === DEFAULT_THEME_PACK_ID && !themePackAppearanceMatchesSettings(settings, pack.appearance)) {
+    return null;
+  }
+  return pack.id;
+}
+
 /** Shell and editor swatch drawn with that theme's own tokens, not the current theme's. */
-function ThemeSwatch({ polarity }: { readonly polarity: 'dark' | 'light' }) {
+function ThemeSwatch({
+  polarity,
+  identity,
+}: {
+  readonly polarity: 'dark' | 'light';
+  readonly identity: boolean;
+}) {
   return (
     <span
       data-theme-swatch={polarity}
+      data-palette={identity ? (polarity === 'dark' ? 'ink' : 'paper') : undefined}
       className={`${polarity} flex h-[26px] flex-1 overflow-hidden rounded-md border border-border-subtle`}
     >
       <span className="w-[28%] shrink-0 bg-bg-panel-alt" />
@@ -60,11 +91,12 @@ export function AppearanceSection() {
   const setTheme = useSettingsStore((state) => state.setTheme);
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
-  const themePack = useSettingsStore((state) => state.themePack);
+  const activePackId = useSettingsStore(activeThemePackId);
   const applyThemePack = useSettingsStore((state) => state.applyThemePack);
   const { t } = useTranslation();
-  const activePack = THEME_PACKS.find((pack) => pack.id === themePack) ?? THEME_PACKS[0]!;
+  const activePack = activePackId ? findThemePack(activePackId) : undefined;
   const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme);
+  const identity = identityPaletteFor(editorTheme) !== null;
 
   const handleLanguageChange = (value: string) => {
     if (!isAppLanguage(value)) return;
@@ -73,7 +105,7 @@ export function AppearanceSection() {
   };
 
   const handleThemePackChange = (packId: string) => {
-    const isExtendedPack = packId !== DEFAULT_THEME_PACK_ID;
+    const isExtendedPack = !isFreeThemePack(packId);
     if (isExtendedPack && !canUseExtendedThemePacks) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
@@ -100,16 +132,22 @@ export function AppearanceSection() {
         <SpecRow
           searchTargetId="appearance-theme-pack"
           label={t('settings.themePack.label')}
-          description={t(activePack.descriptionKey)}
+          strong
+          description={activePack ? t(activePack.descriptionKey) : undefined}
           control={
             <Select
-              value={themePack}
+              value={activePack?.id ?? CUSTOM_PACK_VALUE}
               onChange={(event) => handleThemePackChange(event.currentTarget.value)}
               data-testid="theme-pack-select"
             >
+              {activePack ? null : (
+                <option value={CUSTOM_PACK_VALUE} disabled>
+                  {t('settings.themePack.custom.label')}
+                </option>
+              )}
               {THEME_PACKS.map((pack) => (
                 <option key={pack.id} value={pack.id}>
-                  {pack.id === DEFAULT_THEME_PACK_ID || canUseExtendedThemePacks
+                  {isFreeThemePack(pack.id) || canUseExtendedThemePacks
                     ? t(pack.labelKey)
                     : `${t(pack.labelKey)} · ${t('license.badge.pro')}`}
                 </option>
@@ -165,11 +203,11 @@ export function AppearanceSection() {
               <div className="mt-3 flex gap-2">
                 {option.id === 'system' ? (
                   <>
-                    <ThemeSwatch polarity="light" />
-                    <ThemeSwatch polarity="dark" />
+                    <ThemeSwatch polarity="light" identity={identity} />
+                    <ThemeSwatch polarity="dark" identity={identity} />
                   </>
                 ) : (
-                  <ThemeSwatch polarity={option.id} />
+                  <ThemeSwatch polarity={option.id} identity={identity} />
                 )}
               </div>
             </button>
