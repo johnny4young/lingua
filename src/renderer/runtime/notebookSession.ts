@@ -62,9 +62,24 @@ import {
   type NotebookRunnerKey,
 } from '../stores/notebookRunnerLockStore';
 import {
+  MAX_ANSWERS_PER_CELL,
+  MAX_ANSWER_TEXT_LENGTH,
   NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellLanguage,
+  type NotebookLineAnswerV1,
 } from '../../shared/notebook';
+import { JS_WORKER_USER_SOURCE, createSourcePositionMapper } from '../../shared/sourcePosition';
+import {
+  NOTEBOOK_ANSWER_FN,
+  capAnswerText,
+  instrumentJsAnswers,
+  jsAnswers,
+  pythonAnswers,
+  sqlAnswerTarget,
+  sqlErrorLine,
+  type NotebookJsAnswerCapture,
+  type SqlAnswerTarget,
+} from './notebookAnswers';
 
 // ---------------------------------------------------------------------------
 // Closed enums
@@ -229,8 +244,9 @@ interface EsbuildTransformError {
 }
 
 export type NotebookTranspileResult =
-  | { readonly ok: true; readonly js: string }
-  | { readonly ok: false; readonly message: string };
+  /** `map` is esbuild's source map from `js` back to the TypeScript cell. */
+  | { readonly ok: true; readonly js: string; readonly map?: string }
+  | { readonly ok: false; readonly message: string; readonly line: number | null };
 
 /**
  * type-strip a TypeScript cell to JavaScript so it runs
@@ -261,8 +277,9 @@ export async function transpileTypescriptCell(
       loader: 'ts',
       target: 'es2022',
       sourcefile: 'notebook-cell.ts',
+      sourcemap: 'external',
     });
-    return { ok: true, js: result.code };
+    return { ok: true, js: result.code, ...(result.map ? { map: result.map } : {}) };
   } catch (err) {
     const failure = err as {
       errors?: ReadonlyArray<EsbuildTransformError>;
@@ -270,13 +287,14 @@ export async function transpileTypescriptCell(
     const firstError = failure.errors?.[0];
     if (firstError === undefined) throw err;
     let position = '';
+    let line: number | null = null;
     if (firstError.location !== null && firstError.location !== undefined) {
       // esbuild lines are already 1-based; its columns are not. Display
       // both 1-based, mirroring how editors report TS errors.
-      const { line, column } = firstError.location;
-      position = ` (${line}:${column + 1})`;
+      line = firstError.location.line;
+      position = ` (${line}:${firstError.location.column + 1})`;
     }
-    return { ok: false, message: `TypeScript: ${firstError.text}${position}` };
+    return { ok: false, message: `TypeScript: ${firstError.text}${position}`, line };
   }
 }
 
@@ -405,8 +423,13 @@ export async function rewriteTopLevelDeclarationsForSession(
         (name) =>
           `try { _sessionDelta.${name} = ${name}; } catch { /* non-serializable */ }`
       )
-      .join('\n');
-    out = `${out.slice(0, insert.end)}\n${assignments}${out.slice(insert.end)}`;
+      .join(' ');
+    // On the declaration's line so the cell keeps its line numbers; the
+    // end-of-cell capture gets its own line since the cell may end in a comment.
+    out =
+      insert.end === source.length
+        ? `${out.slice(0, insert.end)}\n${assignments}${out.slice(insert.end)}`
+        : `${out.slice(0, insert.end)};${assignments}${out.slice(insert.end)}`;
   }
   return out;
 }
@@ -464,6 +487,25 @@ export async function composeNotebookCellSource(
   userSource: string,
   sandbox: Readonly<Record<string, unknown>>
 ): Promise<string> {
+  return (await composeNotebookCellProgram(userSource, sandbox)).source;
+}
+
+
+export interface NotebookCellProgram {
+  readonly source: string;
+  /** 1-based line of the composed source where the cell's first line sits. */
+  readonly userStartLine: number;
+}
+
+/**
+ * `composeNotebookCellSource` plus where the cell starts in it. The cell is
+ * spliced in line for line, so a composed line maps back to a cell line by
+ * subtracting `userStartLine - 1`.
+ */
+export async function composeNotebookCellProgram(
+  userSource: string,
+  sandbox: Readonly<Record<string, unknown>>
+): Promise<NotebookCellProgram> {
   const rewritten = await rewriteTopLevelDeclarationsForSession(userSource);
   const declaredInCell = await collectTopLevelDeclaredNames(userSource);
   // Pull-ins: emit `const KEY = <JSON literal>;` for every existing
@@ -487,42 +529,88 @@ export async function composeNotebookCellSource(
     if (literal === undefined) continue;
     pullInLines.push(`  const ${key} = ${literal};`);
   }
-  return [
+  const head = [
     'return (async () => {',
     '  "use strict";',
     '  const _sessionDelta = {};',
     '  const __notebook_console_buffer_stdout = [];',
     '  const __notebook_console_buffer_stderr = [];',
+    '  const __notebook_console_lines_stdout = [];',
+    '  const __notebook_console_lines_stderr = [];',
+    '  const __notebook_answers = [];',
     '  const __notebook_original_log = console.log.bind(console);',
     '  const __notebook_original_error = console.error.bind(console);',
-    '  const __notebook_capture = (buffer, ...args) => {',
+    // The first user-code frame is the console override (on `selfLine`), the
+    // next is its caller; their distance survives any constant offset.
+    '  const __notebook_line_of = (stack, selfLine) => {',
+    `    const frames = String(stack ?? "").match(/${JS_WORKER_USER_SOURCE}:\\d+/g);`,
+    '    if (!frames || frames.length < 2) return null;',
+    '    const lineOf = (frame) => Number(frame.slice(frame.lastIndexOf(":") + 1));',
+    '    return selfLine + lineOf(frames[1]) - lineOf(frames[0]);',
+    '  };',
+    '  const __notebook_capture = (buffer, lines, line, ...args) => {',
     '    try {',
     '      const text = args',
     '        .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))',
     '        .join(" ");',
     `      if (buffer.length < ${MAX_NOTEBOOK_CELL_OUTPUTS}) {`,
     `        buffer.push(text.length > ${MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH} ? text.slice(0, ${MAX_NOTEBOOK_CELL_OUTPUT_TEXT_LENGTH - 1}) + "…" : text);`,
+    '        lines.push(line);',
     '      }',
     '    } catch { /* ignore stringify failures */ }',
     '  };',
-    '  console.log = (...args) => {',
-    '    __notebook_capture(__notebook_console_buffer_stdout, ...args);',
-    '    __notebook_original_log(...args);',
+    `  const ${NOTEBOOK_ANSWER_FN} = (line, value) => {`,
+    `    if (value === undefined || __notebook_answers.length >= ${MAX_ANSWERS_PER_CELL}) return value;`,
+    '    try {',
+    '      let type = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;',
+    '      let size;',
+    '      let text;',
+    '      if (Array.isArray(value)) { size = value.length; text = JSON.stringify(value); }',
+    '      else if (value instanceof Error) { type = "error"; text = `${value.name}: ${value.message}`; }',
+    '      else if (value instanceof Map || value instanceof Set) { type = value instanceof Map ? "map" : "set"; size = value.size; text = JSON.stringify([...value]); }',
+    '      else if (value instanceof Date) { type = "date"; text = Number.isNaN(value.getTime()) ? "Invalid Date" : value.toISOString(); }',
+    '      else if (type === "object" && typeof value.then === "function") { type = "promise"; text = "Promise"; }',
+    '      else if (type === "object") { size = Object.keys(value).length; text = JSON.stringify(value); }',
+    '      else if (type === "string") text = JSON.stringify(value);',
+    '      else if (type === "bigint") text = `${value}n`;',
+    '      else if (type === "function") text = `ƒ ${value.name || "anonymous"}`;',
+    '      else text = String(value);',
+    '      if (typeof text !== "string") text = String(value);',
+    `      if (text.length > ${MAX_ANSWER_TEXT_LENGTH}) text = text.slice(0, ${MAX_ANSWER_TEXT_LENGTH - 1}) + "…";`,
+    '      __notebook_answers.push(size === undefined ? { line, type, text } : { line, type, size, text });',
+    '    } catch { /* an answer never breaks the run */ }',
+    '    return value;',
     '  };',
+  ];
+  // Each override creates its Error on the line it reports as `selfLine`.
+  const logLine = head.length + 2;
+  head.push(
+    '  console.log = (...args) => {',
+    `    __notebook_capture(__notebook_console_buffer_stdout, __notebook_console_lines_stdout, __notebook_line_of(new Error().stack, ${logLine}), ...args);`,
+    '    __notebook_original_log(...args);',
+    '  };'
+  );
+  const errorLine = head.length + 2;
+  head.push(
     '  console.error = (...args) => {',
-    '    __notebook_capture(__notebook_console_buffer_stderr, ...args);',
+    `    __notebook_capture(__notebook_console_buffer_stderr, __notebook_console_lines_stderr, __notebook_line_of(new Error().stack, ${errorLine}), ...args);`,
     '    __notebook_original_error(...args);',
     '  };',
     '  try {',
-    ...pullInLines,
+    ...pullInLines
+  );
+  const userStartLine = head.length + 1;
+  const source = [
+    ...head,
     rewritten,
     '  } finally {',
     '    console.log = __notebook_original_log;',
     '    console.error = __notebook_original_error;',
     '  }',
-    '  return { stdout: __notebook_console_buffer_stdout, stderr: __notebook_console_buffer_stderr, sessionDelta: _sessionDelta };',
+    '  return { stdout: __notebook_console_buffer_stdout, stderr: __notebook_console_buffer_stderr, stdoutLines: __notebook_console_lines_stdout, stderrLines: __notebook_console_lines_stderr, answers: __notebook_answers, sessionDelta: _sessionDelta };',
     '})();',
   ].join('\n');
+  return { source, userStartLine };
 }
 
 /**
@@ -604,6 +692,8 @@ export interface NotebookCellRunOutcome {
    * Additive only — this does NOT change the kernel merge behavior.
    */
   readonly producedKeys: ReadonlyArray<string>;
+  /** What the cell answered on its lines; absent when the kernel gave none. */
+  readonly answers?: ReadonlyArray<NotebookLineAnswerV1>;
 }
 
 export type NotebookCellRunResult =
@@ -688,6 +778,13 @@ export async function runNotebookCell(
             errorMessage,
             sandboxKeyCount,
             producedKeys: [],
+            answers: [
+              {
+                line: sqlErrorLine(errorMessage, request.source),
+                kind: 'error',
+                text: capAnswerText(errorMessage.split('\n')[0] ?? errorMessage),
+              },
+            ],
           },
         };
       }
@@ -710,6 +807,9 @@ export async function runNotebookCell(
       } else {
         stdout.push(`Query OK — ${outcome.rowCount} row(s).`);
       }
+      const target = sqlAnswerTarget(request.source);
+      const answers = target ? await sqlCellAnswers(target, outcome, request.timeoutMs) : [];
+      if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
       return {
         ok: true,
         outcome: {
@@ -717,7 +817,9 @@ export async function runNotebookCell(
           stdout,
           stderr: [],
           sandboxKeyCount,
-          producedKeys: [],
+          // A CREATE leaves a table for the cells below.
+          producedKeys: target?.made ? [target.made.label] : [],
+          answers,
         },
       };
     }
@@ -732,6 +834,8 @@ export async function runNotebookCell(
     if (request.language === 'python') {
       const result = await runnerManager.execute('python', request.source, {
         language: 'python',
+        // Every module-level expression and assignment answers on its line.
+        autoLog: 'assignments',
         // Run this cell against the notebook's persistent Python
         // kernel scope (keyed by tabId) so cells in this notebook share
         // state, isolated from the editor scratchpad + other notebooks.
@@ -755,6 +859,7 @@ export async function runNotebookCell(
       const stdout = flattenStdoutText(result.stdout);
       const stderr = flattenStdoutText(result.stderr);
       const errorMessage = result.error?.message;
+      const answers = pythonAnswers(result, request.source);
       if (errorMessage !== undefined && errorMessage.length > 0) {
         return {
           ok: true,
@@ -765,6 +870,7 @@ export async function runNotebookCell(
             errorMessage,
             sandboxKeyCount,
             producedKeys: [],
+            answers,
           },
         };
       }
@@ -775,7 +881,8 @@ export async function runNotebookCell(
           stdout,
           stderr,
           sandboxKeyCount,
-          producedKeys: [],
+          producedKeys: assignedNames(answers, request.source),
+          answers,
         },
       };
     }
@@ -785,6 +892,7 @@ export async function runNotebookCell(
     // outcome carrying the precise compiler message; JS cells
     // skip this hop entirely.
     let runnableSource = request.source;
+    let typescriptMap: string | undefined;
     if (request.language === 'typescript') {
       const transpiled = await transpileTypescriptCell(request.source);
       if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
@@ -798,17 +906,32 @@ export async function runNotebookCell(
             errorMessage: transpiled.message,
             sandboxKeyCount: Object.keys(session.sandbox).length,
             producedKeys: [],
+            answers: jsAnswers({
+              source: request.source,
+              captures: [],
+              stdout: [],
+              stderr: [],
+              error: { message: transpiled.message, line: transpiled.line },
+              mapLine: line => line,
+            }),
           },
         };
       }
       runnableSource = transpiled.js;
+      typescriptMap = transpiled.map;
     }
-    const composed = await composeNotebookCellSource(
-      runnableSource,
+    const program = await composeNotebookCellProgram(
+      instrumentJsAnswers(runnableSource),
       session.sandbox
     );
+    // Answers arrive in lines of the JavaScript that ran; map them to the cell.
+    const mapLine = createCellLineMapper(request.source, runnableSource, typescriptMap);
+    const jsLine = (composedLine: unknown): number | null =>
+      typeof composedLine === 'number' && Number.isInteger(composedLine)
+        ? composedLine - program.userStartLine + 1
+        : null;
     if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
-    const result = await runnerManager.execute('javascript', composed, {
+    const result = await runnerManager.execute('javascript', program.source, {
       language: 'javascript',
       // Ask the worker to forward the cell's structured
       // return value losslessly on `result.structuredResult`. The default
@@ -841,6 +964,14 @@ export async function runNotebookCell(
           errorMessage,
           sandboxKeyCount: Object.keys(session.sandbox).length,
           producedKeys: [],
+          answers: jsAnswers({
+            source: request.source,
+            captures: [],
+            stdout: [],
+            stderr: [],
+            error: { message: errorMessage, line: jsLine(result.error?.line) },
+            mapLine,
+          }),
         },
       };
     }
@@ -854,6 +985,9 @@ export async function runNotebookCell(
     const composedResult = result.structuredResult;
     let composedStdout: string[] = [];
     let composedStderr: string[] = [];
+    let stdoutLines: unknown[] = [];
+    let stderrLines: unknown[] = [];
+    let captures: NotebookJsAnswerCapture[] = [];
     let sessionDelta: unknown = {};
     if (
       composedResult !== undefined &&
@@ -872,6 +1006,9 @@ export async function runNotebookCell(
           .slice(0, MAX_NOTEBOOK_CELL_OUTPUTS);
       }
       sessionDelta = obj.sessionDelta;
+      if (Array.isArray(obj.stdoutLines)) stdoutLines = obj.stdoutLines;
+      if (Array.isArray(obj.stderrLines)) stderrLines = obj.stderrLines;
+      captures = readJsAnswerCaptures(obj.answers);
     }
     if (composedStdout.length === 0) {
       composedStdout = flattenStdoutText(result.stdout);
@@ -895,6 +1032,13 @@ export async function runNotebookCell(
         stderr: composedStderr,
         sandboxKeyCount: Object.keys(session.sandbox).length,
         producedKeys,
+        answers: jsAnswers({
+          source: request.source,
+          captures,
+          stdout: composedStdout.map((text, index) => ({ text, line: jsLine(stdoutLines[index]) })),
+          stderr: composedStderr.map((text, index) => ({ text, line: jsLine(stderrLines[index]) })),
+          mapLine,
+        }),
       },
     };
   } catch (err) {
@@ -997,6 +1141,127 @@ export function getNotebookSessionSnapshotForTests(
   const state = sessions.get(tabId);
   if (!state) return undefined;
   return { ...state.sandbox };
+}
+
+/**
+ * A line of the JavaScript that ran back to a line of the cell. JavaScript
+ * runs as written; TypeScript goes through esbuild's source map, read at the
+ * first code column of the line.
+ */
+function createCellLineMapper(
+  cellSource: string,
+  runnableSource: string,
+  typescriptMap: string | undefined
+): (line: number) => number | null {
+  const cellLines = cellSource.split('\n').length;
+  const jsLines = runnableSource.split('\n');
+  if (typescriptMap === undefined) {
+    return (line) => (line >= 1 && line <= cellLines ? line : null);
+  }
+  const map = createSourcePositionMapper([typescriptMap], cellLines);
+  return (line) => {
+    const text = jsLines[line - 1];
+    if (text === undefined) return null;
+    const column = Math.max(1, text.length - text.trimStart().length + 1);
+    return map({ line, column })?.line ?? null;
+  };
+}
+
+function readJsAnswerCaptures(raw: unknown): NotebookJsAnswerCapture[] {
+  if (!Array.isArray(raw)) return [];
+  const captures: NotebookJsAnswerCapture[] = [];
+  for (const entry of raw.slice(0, MAX_ANSWERS_PER_CELL)) {
+    if (entry === null || typeof entry !== 'object') continue;
+    const { line, text, type, size } = entry as Record<string, unknown>;
+    if (!Number.isInteger(line) || typeof text !== 'string') continue;
+    captures.push({
+      line: line as number,
+      text,
+      ...(typeof type === 'string' ? { type } : {}),
+      ...(Number.isSafeInteger(size) && (size as number) >= 0 ? { size: size as number } : {}),
+    });
+  }
+  return captures;
+}
+
+/** Names a Python cell assigned, read off the answered assignment lines. */
+function assignedNames(
+  answers: ReadonlyArray<NotebookLineAnswerV1>,
+  source: string
+): string[] {
+  const lines = source.split('\n');
+  const names = new Set<string>();
+  for (const answer of answers) {
+    if (answer.kind !== 'value') continue;
+    const match = /^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(?::[^=]*)?(?:[-+*/%@&|^]|\*\*|\/\/|<<|>>)?=(?!=)/.exec(
+      lines[answer.line - 1] ?? ''
+    );
+    for (const name of match?.[1]?.split(',') ?? []) names.add(name.trim());
+  }
+  return [...names];
+}
+
+/** Count DuckDB reports for a write: one `Count` row. */
+function writeCount(outcome: { rows: Array<Record<string, unknown>> }): number | undefined {
+  if (outcome.rows.length !== 1) return undefined;
+  const value = Number(outcome.rows[0]?.Count);
+  return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+/**
+ * A SQL cell answers on its last statement: a query with its rows × columns,
+ * a CREATE with the made table's name and size, a write with its row count.
+ */
+async function sqlCellAnswers(
+  target: SqlAnswerTarget,
+  outcome: {
+    rows: Array<Record<string, unknown>>;
+    columns: ReadonlyArray<unknown>;
+    rowCount: number;
+  },
+  timeoutMs: number | undefined
+): Promise<NotebookLineAnswerV1[]> {
+  const options = timeoutMs !== undefined ? { timeoutMs } : {};
+  if (target.made) {
+    // One query sizes the made table; a view keeps its column count only.
+    const reported = target.made.kind === 'table' ? writeCount(outcome) : undefined;
+    const counts =
+      target.made.kind === 'table' && reported === undefined
+        ? `(SELECT count(*) FROM ${target.made.name}) AS n, `
+        : '';
+    const shape = await executeQuery(
+      `SELECT ${counts}(SELECT count(*) FROM (DESCRIBE ${target.made.name})) AS c`,
+      options
+    );
+    const ok = shape.status === 'success';
+    const counted = Number(shape.rows[0]?.n);
+    const rows = reported ?? (ok && counts && Number.isSafeInteger(counted) ? counted : undefined);
+    const columns = Number(shape.rows[0]?.c);
+    return [
+      {
+        line: target.lastLine,
+        kind: 'table',
+        text: capAnswerText(target.made.label),
+        ...(rows !== undefined ? { rows } : {}),
+        ...(ok && Number.isSafeInteger(columns) ? { columns } : {}),
+      },
+    ];
+  }
+  if (target.isRead) {
+    return [
+      {
+        line: target.firstLine,
+        kind: 'result',
+        text: '',
+        rows: outcome.rowCount,
+        columns: outcome.columns.length,
+      },
+    ];
+  }
+  const count = writeCount(outcome);
+  return count === undefined
+    ? []
+    : [{ line: target.lastLine, kind: 'value', type: 'rows', text: String(count) }];
 }
 
 function flattenStdoutText(

@@ -66,17 +66,40 @@ const MAX_USES_CHIP_KEYS = 8;
 
 function deriveUsesKeys(
   source: string,
-  priorSandboxKeys: ReadonlyArray<string>
+  priorSandboxKeys: ReadonlyArray<string>,
+  sqlNames = false
 ): string[] {
   if (priorSandboxKeys.length === 0 || source.length === 0) return [];
-  const priorSet = new Set(priorSandboxKeys);
+  // SQL folds unquoted names and may qualify them with a schema.
+  const keyOf = (name: string) => (sqlNames ? (name.split('.').pop() ?? name).toLowerCase() : name);
+  const prior = new Map(priorSandboxKeys.map((name) => [keyOf(name), name]));
   const referenced = new Set<string>();
   for (const match of source.matchAll(IDENTIFIER_TOKEN_RE)) {
-    const token = match[0];
-    if (priorSet.has(token)) referenced.add(token);
+    const name = prior.get(keyOf(match[0]));
+    if (name !== undefined) referenced.add(name);
     if (referenced.size >= MAX_USES_CHIP_KEYS) break;
   }
   return [...referenced];
+}
+
+/**
+ * Python and SQL keep no JS sandbox: what a cell can use is what the cells
+ * above it in the same kernel made (Python names, DuckDB tables).
+ */
+function namesMadeBySameKernel(
+  tabId: string,
+  cellId: string,
+  language: NotebookCellLanguage
+): string[] {
+  const slice = useNotebookStore.getState().notebooks[tabId];
+  if (!slice) return [];
+  const names = new Set<string>();
+  for (const cell of slice.notebook.cells) {
+    if (cell.id === cellId) break;
+    if (cell.kind !== 'code' || cell.language !== language) continue;
+    for (const name of slice.cellVarFlow?.[cell.id]?.produces ?? []) names.add(name);
+  }
+  return [...names];
 }
 
 /** A manual editor, Recipe or Debug run is executing on this cell's runner. */
@@ -179,7 +202,9 @@ export function useNotebookRun(): UseNotebookRunResult {
       // Snapshot the sandbox keys BEFORE the run so the
       // `uses` chip reflects what this cell consumed from earlier
       // cells (the run itself will add this cell's own declarations).
-      const priorSandboxKeys = getNotebookSessionKeys(tabId);
+      const priorSandboxKeys = notebookCellRunnerKey(cell.language) === 'javascript'
+        ? getNotebookSessionKeys(tabId)
+        : namesMadeBySameKernel(tabId, cell.id, cell.language);
       const startedAt = performance.now();
 
       try {
@@ -228,7 +253,7 @@ export function useNotebookRun(): UseNotebookRunResult {
             text,
           })),
         ];
-        store.setCellOutputs(tabId, cellId, outputs);
+        store.setCellOutputs(tabId, cellId, outputs, outcome.answers);
         store.setCellRunStatus(tabId, cellId, outcome.status);
         // Signal-Slate — stamp the Jupyter `[N]` execution number on
         // every settled run (ok / error / stopped). A `stopped` run
@@ -242,7 +267,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // stopped) so a failed cell still shows how long it ran.
         store.setCellDurationMs(tabId, cellId, durationMs);
         store.setCellVarFlow(tabId, cellId, {
-          uses: deriveUsesKeys(cell.source, priorSandboxKeys),
+          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language === 'sql'),
           produces: outcome.producedKeys,
         });
         // Lazy reactivity: a settled cell may have changed persistent
@@ -266,7 +291,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // (produces-empty) var-flow entry so the header stays coherent.
         store.setCellDurationMs(tabId, cellId, e2eFixedDurationMs(performance.now() - startedAt));
         store.setCellVarFlow(tabId, cellId, {
-          uses: deriveUsesKeys(cell.source, priorSandboxKeys),
+          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language === 'sql'),
           produces: [],
         });
         store.markCellsStaleAfter(tabId, cellId);

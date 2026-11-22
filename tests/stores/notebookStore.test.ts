@@ -347,6 +347,41 @@ describe('useNotebookStore CRUD', () => {
     }
   });
 
+  it('keeps per-line answers with the outputs until the source or language changes', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-answers');
+    const cellOf = () =>
+      useNotebookStore
+        .getState()
+        .getNotebookForTab('tab-answers')!
+        .cells.find((c) => c.kind === 'code')!;
+    const id = cellOf().id;
+    const answers = [{ line: 1, kind: 'value' as const, text: '21', type: 'number' }];
+    store.setCellOutputs('tab-answers', id, [], answers);
+    expect(cellOf()).toMatchObject({ answers });
+
+    // A run without answers leaves no empty field behind.
+    store.setCellOutputs('tab-answers', id, []);
+    expect(cellOf()).not.toHaveProperty('answers');
+
+    store.setCellOutputs('tab-answers', id, [{ kind: 'text', text: '42', stream: 'stdout' }], answers);
+    store.updateCellSource('tab-answers', id, 'const y = 1;');
+    expect(cellOf()).not.toHaveProperty('answers');
+    expect(cellOf()).toMatchObject({ outputs: [{ text: '42' }] });
+
+    store.setCellOutputs('tab-answers', id, [], answers);
+    store.clearCellOutput('tab-answers', id);
+    expect(cellOf()).not.toHaveProperty('answers');
+
+    store.setCellOutputs('tab-answers', id, [], answers);
+    store.clearAllOutputs('tab-answers');
+    expect(cellOf()).not.toHaveProperty('answers');
+
+    store.setCellOutputs('tab-answers', id, [], answers);
+    store.setCellLanguage('tab-answers', id, 'python');
+    expect(cellOf()).not.toHaveProperty('answers');
+  });
+
   it('setCellRunStatus rejects values outside NOTEBOOK_CELL_RUN_STATUSES', () => {
     const store = useNotebookStore.getState();
     store.createNotebookForTab('tab-10');

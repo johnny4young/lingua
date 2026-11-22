@@ -18,6 +18,7 @@ export function hasNotebookExecutionEvidence(
   return (
     (status !== undefined && status !== 'idle') ||
     cell.outputs.length > 0 ||
+    cell.answers !== undefined ||
     (typeof executionOrder === 'number' && executionOrder > 0)
   );
 }

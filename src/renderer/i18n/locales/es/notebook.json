@@ -1,0 +1,12 @@
+{
+  "notebookAnswers.region": "Respuestas de la celda {{index}}",
+  "notebookAnswers.rows_one": "fila",
+  "notebookAnswers.rows_other": "filas",
+  "notebookAnswers.columns_one": "{{count}} columna",
+  "notebookAnswers.columns_other": "{{count}} columnas",
+  "notebookAnswers.outputToggle_one": "{{count}} línea de salida",
+  "notebookAnswers.outputToggle_other": "{{count}} líneas de salida",
+  "notebookAnswers.run": "Ejecución {{n}}",
+  "notebookAnswers.runLabel": "ejecución",
+  "notebookAnswers.notRun": "Sin ejecutar"
+}

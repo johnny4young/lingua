@@ -25,7 +25,9 @@ The format follows Keep a Changelog and groups changes by release.
 - On desktop, a test file of the open project shows each test's result at the end of its it() line after a run, such as Passed ok 2 ms or Failed 3 ms at line 19, with the suite tally on its describe line. The failing assertion shows the value received against the one expected, and its card shows the uncommitted change in the code the test imports, with Git diff, Explain and Open file:line. Running one test file opens that card on its first failure.
 - The explorer lists Open tabs above the files. On desktop its Files heading shows the branch and how many paths changed, changed files carry M and untracked ones U, and each test file shows how many of its tests passed in the last project run. Rows under the tree open Search in files, Tests with the project's tally, and Terminal with its shell while it runs; Open different folder moved into the ⋯ menu.
 
+- Notebook cells answer beside their lines: an expression, and in Python an assignment, shows its value and type, a list of numbers its bars and range, a printed line its text, and an error the line that failed. A SQL query draws its result table beside the cell, and a CREATE TABLE names the table with its rows × columns. The run number sits in the margin, cells show the names they make and use, and a cell's output folds behind its line count while its lines answer. Answers are saved in the .linguanb file and older notebooks open unchanged.
 ### Fixed
+- A long line in a notebook cell scrolls inside the cell instead of pushing the cell's buttons past the edge of the window.
 - On desktop, Reload in safe mode opens the app in safe mode again. The window's navigation rules used to refuse it.
 - Cancel on a database connection that is still connecting stops the query. The statement used to run once the connection opened.
 - Send to an environment coloured red or another custom colour keeps readable white text in the dark theme.

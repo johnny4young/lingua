@@ -284,7 +284,10 @@ describe('<NotebookView />', () => {
     expect(screen.getByTestId('notebook-reactivity-banner').textContent).toMatch(
       /2 executed cells need a refresh/i
     );
-    expect(screen.getAllByTestId('notebook-code-cell-stale-hint')).toHaveLength(2);
+    // One banner for the notebook; each stale cell says so in its status.
+    const staleStatuses = screen.getAllByTestId('notebook-code-cell-status');
+    expect(staleStatuses.map(status => status.getAttribute('data-status'))).toEqual(['stale', 'stale']);
+    expect(staleStatuses[0]!.getAttribute('title')).toMatch(/may be out of date/i);
     const refresh = screen.getByTestId('notebook-toolbar-refresh-stale');
     expect(refresh.textContent).toMatch(/refresh 2/i);
 
@@ -574,7 +577,7 @@ describe('<NotebookView />', () => {
     expect(screen.getByTestId('notebook-toolbar-refresh-stale').textContent).toMatch(
       /actualiza 1/i
     );
-    expect(screen.getByTestId('notebook-code-cell-stale-hint').textContent).toMatch(
+    expect(screen.getByTestId('notebook-code-cell-status').getAttribute('title')).toMatch(
       /puede estar desactualizado/i
     );
   });

@@ -30,6 +30,8 @@ export interface PythonWorkerExecuteMessage {
   sourceMappingEnabled?: boolean;
   /** Capture every module-level expression in Python Scratchpad mode. */
   autoLog?: boolean;
+  /** With `autoLog`, also capture module-level assignments. */
+  autoLogAssignments?: boolean;
   /** Network policy for this run; absent means unrestricted. */
   network?: NetworkRunPolicy;
 }

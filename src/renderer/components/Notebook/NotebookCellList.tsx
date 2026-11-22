@@ -122,6 +122,10 @@ export function NotebookCellList(props: NotebookCellListProps) {
                   aria-setsize={notebook.cells.length}
                   aria-posinset={idx + 1}
                 >
+                  <div className="flex items-start">
+                  {/* Keeps markdown aligned with the code cells' run margin. */}
+                  <div className="notebook-run-margin pr-3" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
                   <NotebookMarkdownCellRow
                     notebookTabId={props.tabId}
                     cell={cell}
@@ -137,6 +141,8 @@ export function NotebookCellList(props: NotebookCellListProps) {
                     onMoveDown={handleMoveDown}
                     onDelete={handleDelete}
                   />
+                  </div>
+                  </div>
                 </li>
               );
             }

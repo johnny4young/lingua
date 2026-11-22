@@ -214,7 +214,7 @@ export function codeLastAnswer(input: {
   };
 }
 
-const KEY_COLUMN = /^id$|_id$|Id$/;
+export const KEY_COLUMN = /^id$|_id$|Id$/;
 
 /** The first column of non-negative numbers that is not a key, as bar heights. */
 function sqlPicture(response: SqlResponseV1): LastAnswerPicture | undefined {

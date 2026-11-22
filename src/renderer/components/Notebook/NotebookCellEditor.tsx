@@ -42,6 +42,7 @@ import { monacoLanguageFor } from '../../utils/languageMeta';
 import { defineCustomThemes } from '../Editor/editorThemes';
 import { getSatelliteEditorOptions } from '../Editor/editorOptions';
 import { VimStatusBar } from '../Editor/VimStatusBar';
+import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
 import { createLocalizedStatusBarClass } from '../Editor/vimStatusBarFactory';
 
 // Ensure the worker environment + JS/TS contribution are registered before
@@ -51,9 +52,6 @@ configureMonaco();
 
 type EditorInstance = Parameters<OnMount>[0];
 
-/** Cell editor never grows past this (matches the old textarea cap); it
- * scrolls internally beyond it so a giant cell can't dominate the page. */
-const MAX_CELL_EDITOR_HEIGHT = 600;
 /** Floor so a one-line / empty cell editor still has a comfortable target. */
 const MIN_CELL_EDITOR_HEIGHT = 56;
 
@@ -88,6 +86,17 @@ export interface NotebookCellEditorProps {
   readonly onRunInsertBelow: () => void;
   /** Esc with no Monaco widget open — parent drops to command mode. */
   readonly onEscape: () => void;
+  /** Pixel line height, shared with the answer column beside the code. */
+  readonly lineHeight: number;
+  /** Lines that answered: the static view runs a dotted leader from each line's end. */
+  readonly leaders?: ReadonlyArray<NotebookCellLeader>;
+}
+
+export interface NotebookCellLeader {
+  readonly line: number;
+  /** Where the line's text ends, in characters. */
+  readonly chars: number;
+  readonly tone?: 'error';
 }
 
 export function NotebookCellEditor(props: NotebookCellEditorProps) {
@@ -102,6 +111,8 @@ export function NotebookCellEditor(props: NotebookCellEditorProps) {
       ariaLabel={props.ariaLabel}
       placeholder={props.placeholder}
       onRequestEdit={props.onRequestEdit}
+      lineHeight={props.lineHeight}
+      leaders={props.leaders}
     />
   );
 }
@@ -117,7 +128,14 @@ interface NotebookCellStaticViewProps {
   readonly ariaLabel: string;
   readonly placeholder: string;
   readonly onRequestEdit: () => void;
+  readonly lineHeight: number;
+  readonly leaders?: ReadonlyArray<NotebookCellLeader>;
 }
+
+/** The static view's border plus padding, so leaders sit on their line. */
+const STATIC_VIEW_PADDING = 8;
+/** Space between a line's last character and its leader. */
+const LEADER_GAP = 14;
 
 function NotebookCellStaticView({
   language,
@@ -125,6 +143,8 @@ function NotebookCellStaticView({
   ariaLabel,
   placeholder,
   onRequestEdit,
+  lineHeight,
+  leaders = [],
 }: NotebookCellStaticViewProps) {
   const monaco = useMonaco();
   const editorTheme = useSettingsStore(s => s.editorTheme);
@@ -181,17 +201,37 @@ function NotebookCellStaticView({
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
-      onMouseDown={onRequestEdit}
+      onMouseDown={event => {
+        // A press on the horizontal scrollbar scrolls; it does not open the editor.
+        const box = event.currentTarget;
+        if (event.target === box && box.clientHeight > 0 && event.nativeEvent.offsetY >= box.clientHeight) return;
+        onRequestEdit();
+      }}
       onKeyDown={handleKeyDown}
-      className="min-h-[44px] cursor-text rounded border border-border/60 bg-background p-2 outline-none hover:border-border-strong focus-visible:border-primary/70 focus-visible:ring-1 focus-visible:ring-primary/40"
+      className="relative min-h-[44px] cursor-text overflow-x-auto rounded border border-transparent p-2 outline-none hover:border-border/60 focus-visible:border-primary/70 focus-visible:ring-1 focus-visible:ring-primary/40"
       style={{ fontFamily, fontSize }}
     >
       {isEmpty ? <span className="font-mono text-body-sm text-muted">{placeholder}</span> : null}
+      {/* No wrapping: each source line keeps one row, so answers stay beside it. */}
       <pre
         ref={hostRef}
         aria-hidden={isEmpty ? 'true' : undefined}
-        className="m-0 overflow-x-auto whitespace-pre-wrap break-words font-mono text-body-sm text-foreground"
+        className="m-0 w-max min-w-full whitespace-pre font-mono text-body-sm text-foreground"
+        style={{ lineHeight: `${lineHeight}px` }}
       />
+      {leaders.map(leader => (
+        <span
+          key={leader.line}
+          aria-hidden="true"
+          data-testid="notebook-cell-answer-leader"
+          data-tone={leader.tone}
+          className="notebook-answer-leader font-mono text-body-sm"
+          style={{
+            top: STATIC_VIEW_PADDING + (leader.line - 1) * lineHeight + lineHeight / 2 - 1,
+            left: `calc(${STATIC_VIEW_PADDING + LEADER_GAP}px + ${leader.chars}ch)`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -212,6 +252,7 @@ function NotebookCellMonaco({
   onRunAdvance,
   onRunInsertBelow,
   onEscape,
+  lineHeight,
 }: NotebookCellEditorProps) {
   const { t } = useTranslation();
   const editorTheme = useSettingsStore(s => s.editorTheme);
@@ -308,7 +349,7 @@ function NotebookCellMonaco({
       const applyHeight = () => {
         const next = Math.min(
           Math.max(editor.getContentHeight(), MIN_CELL_EDITOR_HEIGHT),
-          MAX_CELL_EDITOR_HEIGHT
+          NOTEBOOK_CELL_EDITOR_MAX_HEIGHT
         );
         setHeight(next);
       };
@@ -376,6 +417,7 @@ function NotebookCellMonaco({
           }}
           options={{
             ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }),
+            lineHeight,
             readOnly: disabled,
             // Disposing on blur can leave the word highlighter's Delayer
             // promise rejected, which trips safe boot.

@@ -47,7 +47,7 @@ async function createStaleNotebook(page: Page): Promise<void> {
 
   await editCell(page, second, "console.log('answer', base * 2);");
   await second.getByTestId('notebook-code-cell-run').click();
-  await expect(second.getByTestId('notebook-code-cell-outputs')).toContainText(
+  await expect(second.getByTestId('notebook-cell-answers')).toContainText(
     'answer 42'
   );
 
@@ -70,7 +70,7 @@ async function createStaleNotebook(page: Page): Promise<void> {
   await expect(first.getByTestId('notebook-code-cell-outputs')).toContainText(
     'base 21'
   );
-  await expect(second.getByTestId('notebook-code-cell-outputs')).toContainText(
+  await expect(second.getByTestId('notebook-cell-answers')).toContainText(
     'answer 42'
   );
 }
@@ -153,10 +153,10 @@ for (const locale of ['en', 'es'] as const) {
     const first = page.getByTestId('notebook-code-cell-row').first();
     const second = page.getByTestId('notebook-code-cell-row').nth(1);
     await expect(banner).toHaveCount(0);
-    await expect(first.getByTestId('notebook-code-cell-outputs')).toContainText(
+    await expect(first.getByTestId('notebook-cell-answers')).toContainText(
       'base 10'
     );
-    await expect(second.getByTestId('notebook-code-cell-outputs')).toContainText(
+    await expect(second.getByTestId('notebook-cell-answers')).toContainText(
       'answer 20'
     );
     await expect

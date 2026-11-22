@@ -14,12 +14,17 @@ import {
   MAX_CELLS_PER_NOTEBOOK,
   MAX_CELL_SOURCE_LENGTH,
   MAX_NOTEBOOK_BYTES,
+  MAX_ANSWERS_PER_CELL,
+  MAX_ANSWER_TEXT_LENGTH,
+  MAX_OUTPUT_TEXT_LENGTH,
   MAX_OUTPUTS_PER_CELL,
   NOTEBOOK_CELL_KINDS,
   NOTEBOOK_CELL_LANGUAGES,
   NOTEBOOK_REJECT_REASONS,
   parseNotebook,
   serializeNotebook,
+  serializeNotebookDocumentWithinLimit,
+  withCellRunResults,
   type NotebookV1,
 } from '../../src/shared/notebook';
 
@@ -312,3 +317,104 @@ describe('createBlankNotebook + cell guards', () => {
     }
   });
 });
+
+describe('per-line answers', () => {
+  const answered = (answers: unknown): unknown => ({
+    ...validNotebook(),
+    cells: [
+      {
+        kind: 'code',
+        id: 'cell-a',
+        language: 'python',
+        source: 'tickets = [1, 2]\nlen(tickets)',
+        outputs: [],
+        answers,
+      },
+    ],
+  });
+
+  it('round-trips answers through serialize and parse', () => {
+    const answers = [
+      { line: 1, kind: 'value', text: '[1, 2]', type: 'list', size: 2 },
+      { line: 2, kind: 'table', text: 'by_city', rows: 12, columns: 3 },
+    ];
+    const first = parseNotebook(answered(answers));
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.notebook.cells[0]).toMatchObject({ answers });
+    const again = parseNotebook(serializeNotebook(first.notebook)!);
+    expect(again).toEqual(first);
+  });
+
+  it('opens a notebook written before answers existed unchanged', () => {
+    const notebook = validNotebook();
+    const parsed = parseNotebook(serializeNotebook(notebook)!);
+    expect(parsed).toEqual({ ok: true, notebook });
+    if (parsed.ok) expect(parsed.notebook.cells[1]).not.toHaveProperty('answers');
+  });
+
+  it('drops malformed answers instead of rejecting the notebook', () => {
+    for (const answers of [
+      'nope',
+      [{ line: 0, kind: 'value', text: '1' }],
+      [{ line: 1, kind: 'chart', text: '1' }],
+      [{ line: 1, kind: 'value', text: 'x'.repeat(MAX_ANSWER_TEXT_LENGTH + 1) }],
+      [{ line: 1, kind: 'value', text: '1', type: 'not a type!' }],
+      [{ line: 1, kind: 'value', text: '1', size: -1 }],
+      [],
+    ]) {
+      const parsed = parseNotebook(answered(answers));
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) expect(parsed.notebook.cells[0]).not.toHaveProperty('answers');
+    }
+  });
+
+  it('skips an answer past the last source line', () => {
+    const parsed = parseNotebook(
+      answered([
+        { line: 2, kind: 'value', text: '2' },
+        { line: 9, kind: 'value', text: '9' },
+      ])
+    );
+    expect(parsed.ok && parsed.notebook.cells[0]).toMatchObject({
+      answers: [{ line: 2, kind: 'value', text: '2' }],
+    });
+  });
+
+  it('withCellRunResults replaces answers and removes the field when there are none', () => {
+    const cell = {
+      kind: 'code' as const,
+      id: 'c',
+      language: 'javascript' as const,
+      source: 'x',
+      outputs: [],
+      answers: [{ line: 1, kind: 'value' as const, text: '1' }],
+    };
+    expect(withCellRunResults(cell, [])).toEqual({ ...cell, answers: undefined, outputs: [] });
+    expect(withCellRunResults(cell, [])).not.toHaveProperty('answers');
+  });
+});
+
+describe('document size with answers', () => {
+  it('saves without answers when they alone push the document past the limit', () => {
+    const answers = Array.from({ length: MAX_ANSWERS_PER_CELL }, (_, index) => ({
+      line: 1,
+      kind: 'output' as const,
+      text: `${index}`.padEnd(MAX_ANSWER_TEXT_LENGTH, 'x'),
+    }));
+    const filler = 'y'.repeat(MAX_OUTPUT_TEXT_LENGTH);
+    const cells = Array.from({ length: 30 }, (_, index) => ({
+      kind: 'code' as const,
+      id: `c-${index}`,
+      language: 'python' as const,
+      source: 'x',
+      outputs: [{ kind: 'text' as const, stream: 'stdout' as const, text: filler }],
+      answers,
+    }));
+    const notebook: NotebookV1 = { version: 1, id: 'big', title: 'Big', cells };
+    const outcome = serializeNotebookDocumentWithinLimit(notebook);
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.json).not.toContain('"answers"');
+  });
+});
+

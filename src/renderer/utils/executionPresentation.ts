@@ -5,7 +5,7 @@ import type { ConsoleOutput, ExecutionResult } from '../types/execution';
 import { isInlineResultLanguage } from './languageCapabilities';
 import { formatPayloadInlineSummary } from '../../shared/richOutput';
 
-function getLastNonEmptyLine(code: string): number {
+export function getLastNonEmptyLine(code: string): number {
   const lines = code.split('\n');
 
   for (let index = lines.length - 1; index >= 0; index -= 1) {

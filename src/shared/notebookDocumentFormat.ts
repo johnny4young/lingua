@@ -4,4 +4,5 @@ export {
   LINGUANB_FILE_EXTENSION,
   MAX_LINGUANB_BYTES,
   serializeNotebookDocument,
+  serializeNotebookDocumentWithinLimit,
 } from './notebook';

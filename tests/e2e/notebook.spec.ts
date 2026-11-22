@@ -115,7 +115,7 @@ test.describe('Notebook — cross-cell variable sharing ', () => {
     // 42 crossed from cell 1; 42 * 2 = 84 proves the value (not just the
     // name) round-tripped losslessly.
     await expect(
-      secondRow.getByTestId('notebook-code-cell-outputs')
+      secondRow.getByTestId('notebook-cell-answers')
     ).toContainText('shared is 84');
   });
 
@@ -157,7 +157,7 @@ test.describe('Notebook — cross-cell variable sharing ', () => {
     // `data` survived the cascade even though `helper` (a function) sat in
     // the same delta — proving the snapshot is not all-or-nothing.
     await expect(
-      secondRow.getByTestId('notebook-code-cell-outputs')
+      secondRow.getByTestId('notebook-cell-answers')
     ).toContainText('first is 4');
   });
 });
@@ -189,7 +189,7 @@ test.describe('Notebook — TypeScript cells ', () => {
       firstRow.getByTestId('notebook-code-cell-status')
     ).toContainText('Ok');
     await expect(
-      firstRow.getByTestId('notebook-code-cell-outputs')
+      firstRow.getByTestId('notebook-cell-answers')
     ).toContainText('42');
     await expect(
       firstRow.getByTestId('notebook-code-cell-produces')
@@ -206,7 +206,7 @@ test.describe('Notebook — TypeScript cells ', () => {
       secondRow.getByTestId('notebook-code-cell-status')
     ).toContainText('Ok');
     await expect(
-      secondRow.getByTestId('notebook-code-cell-outputs')
+      secondRow.getByTestId('notebook-cell-answers')
     ).toContainText('doubled is 43');
   });
 
@@ -229,7 +229,7 @@ test.describe('Notebook — TypeScript cells ', () => {
       firstRow.getByTestId('notebook-code-cell-status')
     ).toContainText('Error');
     await expect(
-      firstRow.getByTestId('notebook-code-cell-outputs')
+      firstRow.getByTestId('notebook-cell-answers')
     ).toContainText('TypeScript:');
   });
 });
@@ -250,11 +250,6 @@ test.describe('Notebook — Python cells ', () => {
     await firstRow
       .getByTestId('notebook-code-cell-language')
       .selectOption('python');
-    // The independent-run hint is visible on Python cells.
-    await expect(
-      firstRow.getByTestId('notebook-code-cell-python-hint')
-    ).toBeVisible();
-
     await editCell(page, firstRow, 'print("hello from python")');
     await firstRow.getByTestId('notebook-code-cell-run').click();
 
@@ -263,9 +258,14 @@ test.describe('Notebook — Python cells ', () => {
     await expect(
       firstRow.getByTestId('notebook-code-cell-status')
     ).toContainText('Ok', { timeout: 90_000 });
+    // The printed line answers beside its line; the output stays one click away.
+    await expect(
+      firstRow.locator('[data-testid="notebook-cell-answer"][data-line="1"]')
+    ).toContainText('hello from python', { timeout: 90_000 });
+    await firstRow.getByTestId('notebook-code-cell-output-toggle').click();
     await expect(
       firstRow.getByTestId('notebook-code-cell-outputs')
-    ).toContainText('hello from python', { timeout: 90_000 });
+    ).toContainText('hello from python');
   });
 });
 
@@ -330,7 +330,7 @@ test.describe('Notebook — Monaco cells + mount-virtualization ', () => {
       firstRow.getByTestId('notebook-code-cell-status')
     ).toContainText('Ok');
     await expect(
-      firstRow.getByTestId('notebook-code-cell-outputs')
+      firstRow.getByTestId('notebook-cell-answers')
     ).toContainText('from monaco');
   });
 });

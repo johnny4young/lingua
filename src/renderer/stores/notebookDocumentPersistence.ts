@@ -1,12 +1,17 @@
 import { useUIStore, type StatusNoticeAction } from './uiStore';
-import { serializeNotebookDocument } from '../../shared/notebookDocumentFormat';
+import {
+  serializeNotebookDocument,
+  serializeNotebookDocumentWithinLimit,
+} from '../../shared/notebookDocumentFormat';
 import { useNotebookStore } from './notebookStore';
 
 export function notebookDocumentSnapshot(tabId: string): string | null {
   const slice = useNotebookStore.getState().notebooks[tabId];
-  return slice
-    ? serializeNotebookDocument(slice.notebook, { executionOrder: slice.cellExecutionOrder })
-    : null;
+  if (!slice) return null;
+  const options = { executionOrder: slice.cellExecutionOrder };
+  // Within the limit when dropping answers is enough; an oversized document still fails the save.
+  const outcome = serializeNotebookDocumentWithinLimit(slice.notebook, options);
+  return outcome.ok ? outcome.json : serializeNotebookDocument(slice.notebook, options);
 }
 
 export function notebookDocumentNotice(

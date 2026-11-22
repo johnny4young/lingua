@@ -2,6 +2,7 @@ import {
   MAX_CELLS_PER_NOTEBOOK,
   MAX_CELL_SOURCE_LENGTH,
   NOTEBOOK_CELL_LANGUAGES,
+  withCellRunResults,
   type NotebookCellV1,
 } from '../../shared/notebook';
 import type { NotebookState } from './notebookStore';
@@ -195,9 +196,10 @@ export function createCellActions(
         if (idx === -1) return state;
         const existing = slice.notebook.cells[idx]!;
         if (existing.source === clamped) return state;
+        // Answers point at lines of the source they ran; an edit moves them.
         const updatedCell: NotebookCellV1 =
-          existing.kind === 'code'
-            ? { ...existing, source: clamped }
+          existing.kind === 'code' && existing.answers !== undefined
+            ? { ...withCellRunResults(existing, existing.outputs), source: clamped }
             : { ...existing, source: clamped };
         const next = slice.notebook.cells.slice();
         next[idx] = updatedCell;
@@ -321,7 +323,7 @@ export function createCellActions(
         const next = slice.notebook.cells.slice();
         // Outputs from the prior language are stale once the cell runs
         // under the new one — drop them with the language change.
-        next[idx] = { ...existing, language, outputs: [] };
+        next[idx] = { ...withCellRunResults(existing, []), language };
         const existingWasExecuted = hasNotebookExecutionEvidence(
           existing,
           slice.cellRunStatus[existing.id],
