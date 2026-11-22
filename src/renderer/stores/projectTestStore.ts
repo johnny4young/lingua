@@ -84,6 +84,8 @@ function summarizeProjectTestRun(result: ProjectTestRunResult): ProjectTestRunSu
   let passed = 0;
   let failed = 0;
   for (const entry of result.cases ?? []) {
+    // Build and load diagnostics fail the run without being tests.
+    if (isProjectTestRunFailure(entry)) continue;
     if (entry.status === 'passed') passed += 1;
     else if (entry.status === 'failed') failed += 1;
   }

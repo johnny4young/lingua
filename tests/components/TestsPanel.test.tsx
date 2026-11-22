@@ -261,6 +261,7 @@ describe('TestsPanel', () => {
     await user.click(await screen.findByTestId('tests-run-all'));
     expect((await screen.findByTestId('tests-notice')).textContent).toBe('The runner report could not be read.');
     expect(screen.getByTestId('tests-output').textContent).toBe('raw vitest log\n');
+    expect(screen.getByTestId('tests-meter').dataset.state).toBe('failed');
   });
 
   it('opens the log when a run fails before any test reports', async () => {
@@ -271,6 +272,8 @@ describe('TestsPanel', () => {
     await userEvent.setup().click(await screen.findByTestId('tests-run-all'));
     expect((await screen.findByTestId('tests-notice')).textContent).toBe('The run failed before any test reported a result.');
     expect(screen.getByTestId('tests-output').textContent).toBe('error: could not compile');
+    expect(screen.getByTestId('tests-meter').dataset.state).toBe('failed');
+    expect(screen.getByTestId('tests-counts').textContent).toContain('Failed');
   });
 
   it('remembers the runner the project last ran on its recent entry', async () => {

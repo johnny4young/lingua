@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { useProjectStore } from '../../src/renderer/stores/projectStore';
+import { useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
 import { asRootId } from '../../src/shared/fs/brandedIds';
 
 let compactShell = false;
@@ -476,10 +477,25 @@ describe('AppLayout responsive shell', () => {
       useProjectStore.setState({
         currentProject: { id: 'project-alpha', name: 'Alpha', rootPath: '/tmp/alpha', rootId: asRootId('root-alpha'), openedAt: 1 },
       });
+      useProjectTestStore.setState({ rootId: asRootId('root-alpha') });
       vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 240 } as DOMRect);
     }
 
-    afterEach(() => vi.restoreAllMocks());
+    afterEach(() => {
+      vi.restoreAllMocks();
+      useProjectTestStore.setState({ rootId: null });
+    });
+
+    it('keeps the meter column off the Tests meter until detection binds this project', async () => {
+      openProjectWithTestsAndTerminal(1400);
+      useProjectTestStore.setState({ rootId: asRootId('root-other') });
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'tests' });
+
+      await renderLayout();
+
+      expect(await screen.findByTestId('results-dock-split')).toBeTruthy();
+      expect(screen.queryByTestId('tests-meter')).toBeNull();
+    });
 
     it.each(['tests', 'project-terminal'] as const)('sit side by side on a wide dock when %s is selected', async (tab) => {
       openProjectWithTestsAndTerminal(1400);

@@ -83,6 +83,7 @@
   "projectTests.meter.state.idle": "Not run",
   "projectTests.meter.state.running": "Running",
   "projectTests.meter.state.passed": "Passed",
+  "projectTests.meter.state.failed": "Failed",
   "projectTests.meter.ofPassed": "of {{total}} passed",
   "projectTests.meter.lastRuns_one": "last run\nof this project",
   "projectTests.meter.lastRuns_other": "last {{count}} runs\nof this project",

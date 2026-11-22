@@ -9,15 +9,18 @@ import { useProjectTerminalStore } from '../../stores/projectTerminalStore';
 
 interface ProjectTerminalPanelProps {
   readonly binding: ProjectTerminalBinding;
+  /** Take keyboard focus; false while Terminal only sits beside Tests. */
+  readonly autoFocus?: boolean;
 }
 
 const INITIAL_COLUMNS = 100;
 const INITIAL_ROWS = 30;
 
-export function ProjectTerminalPanel({ binding }: ProjectTerminalPanelProps) {
+export function ProjectTerminalPanel({ binding, autoFocus = true }: ProjectTerminalPanelProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XtermTerminal | null>(null);
+  const autoFocusRef = useRef(autoFocus);
   const lastSequenceRef = useRef(0);
   const status = useProjectTerminalStore(state => state.status);
   const rootId = useProjectTerminalStore(state => state.rootId);
@@ -114,7 +117,7 @@ export function ProjectTerminalPanel({ binding }: ProjectTerminalPanelProps) {
     observer.observe(container);
     requestAnimationFrame(() => {
       fit();
-      terminal.focus();
+      if (autoFocusRef.current) terminal.focus();
     });
     return () => {
       observer.disconnect();
@@ -124,6 +127,11 @@ export function ProjectTerminalPanel({ binding }: ProjectTerminalPanelProps) {
       terminalRef.current = null;
     };
   }, [resize, status, write]);
+
+  useEffect(() => {
+    autoFocusRef.current = autoFocus;
+    if (autoFocus) terminalRef.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     const terminal = terminalRef.current;

@@ -169,6 +169,19 @@ describe('projectTestStore', () => {
     ];
     expect(useProjectTestStore.getState().runs).toEqual(expected);
 
+    run.mockResolvedValueOnce({
+      ...report('failed', ['passed']),
+      cases: [
+        { file: 'pkg', path: [], status: 'failed', runnable: false },
+        { file: 't0.test.ts', path: ['t'], status: 'passed' },
+      ],
+    });
+    await useProjectTestStore.getState().run(binding);
+    // A build diagnostic fails the run without counting as a failed test.
+    expected.shift();
+    expected.push({ kind: 'failed', passed: 1, failed: 0 });
+    expect(useProjectTestStore.getState().runs).toEqual(expected);
+
     await useProjectTestStore.getState().detect(binding);
     expect(useProjectTestStore.getState().runs).toEqual(expected);
     await useProjectTestStore.getState().detect({ rootId: rootB, projectName: 'Beta' });

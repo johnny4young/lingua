@@ -228,6 +228,8 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const shown = (id: DockTabId) => expanded && (effectiveTab === id || (split && isDockSplitTab(id)));
   // The Tests meter and controls answer for the project while its tests are on screen.
   const testsOnScreen = currentProject !== null && shown('tests');
+  // Until detection binds the test store to this project the code meter keeps the column.
+  const testsBound = useProjectTestStore(state => state.rootId !== null && state.rootId === currentProject?.rootId);
 
   useEffect(() => {
     if (activeBottomPanel !== 'console' && !availability[activeBottomPanel]) {
@@ -259,7 +261,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
         </div>
       }
     >
-      <ProjectTerminalPanel binding={{ rootId: currentProject.rootId, projectName: currentProject.name }} />
+      <ProjectTerminalPanel
+        binding={{ rootId: currentProject.rootId, projectName: currentProject.name }}
+        autoFocus={effectiveTab === 'project-terminal'}
+      />
     </Suspense>
   ) : null;
 
@@ -273,7 +278,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
       className="dock-shell h-full min-h-0 bg-bg-panel"
     >
       <div className="dock-shell-row">
-        {expanded && testsOnScreen ? (
+        {expanded && testsOnScreen && testsBound ? (
           <Suspense fallback={null}>
             <TestsMeter />
           </Suspense>

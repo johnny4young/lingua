@@ -83,6 +83,7 @@
   "projectTests.meter.state.idle": "Sin ejecutar",
   "projectTests.meter.state.running": "Ejecutando",
   "projectTests.meter.state.passed": "Aprobadas",
+  "projectTests.meter.state.failed": "Falló",
   "projectTests.meter.ofPassed": "de {{total}} aprobadas",
   "projectTests.meter.lastRuns_one": "última ejecución\ndel proyecto",
   "projectTests.meter.lastRuns_other": "últimas {{count}} ejecuciones\ndel proyecto",

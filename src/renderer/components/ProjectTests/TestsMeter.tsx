@@ -33,6 +33,7 @@ export function TestsMeter() {
   const cases = useProjectTestStore(state => state.cases);
   const result = useProjectTestStore(state => state.result);
   const runs = useProjectTestStore(state => state.runs);
+  const error = useProjectTestStore(state => state.error);
   const ours = rootId !== null && boundRoot === rootId;
 
   const tally = useMemo(() => (cases ? tallyTests(cases) : null), [cases]);
@@ -45,14 +46,17 @@ export function TestsMeter() {
       ? 'running'
       : result?.kind === 'timed-out' || result?.kind === 'stopped'
         ? result.kind
-        : failed > 0
+        : // A run that failed before any test reported has no failed test to count.
+          failed > 0 || error === 'run-failed' || (result?.kind === 'failed' && !result.cases?.length)
           ? 'failed'
           : tally && tally.all.total > 0
             ? 'passed'
             : 'idle';
   const stateLabel =
     state === 'failed'
-      ? t('projectTests.failed', { count: failed })
+      ? failed > 0
+        ? t('projectTests.failed', { count: failed })
+        : t('projectTests.meter.state.failed')
       : state === 'timed-out' || state === 'stopped'
         ? t(`projectTests.result.${state}`)
         : t(`projectTests.meter.state.${state}`);
