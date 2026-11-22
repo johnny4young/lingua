@@ -15,6 +15,7 @@ export {
   _resetFilesystemApprovalsForTests,
   pathInsideApprovedScope,
   pathIntersectsApprovedScope,
+  realPathInsideApprovedScope,
 } from './fs/fsApprovals';
 export {
   _resetBeforeQuitInstallStateForTests,

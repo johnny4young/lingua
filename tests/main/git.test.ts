@@ -21,7 +21,7 @@
  */
 
 import path from 'node:path';
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import {
   afterEach,
@@ -159,6 +159,104 @@ describe('detectGit', () => {
     const result = await detectGit(workdir);
     expect(result.installed).toBe(true);
     expect(result.repoRoot).toBeUndefined();
+  });
+});
+
+describe('getFolderChanges', () => {
+  let workdir = '';
+
+  beforeEach(async () => {
+    workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-changes-'));
+    mocks.inner.mockReset();
+    mocks.config.mockReset().mockImplementation(mocks.noConfigMatch);
+    vi.resetModules();
+    const mod = await import('../../src/main/git');
+    mod.resetGitProbeCacheForTests();
+  });
+
+  afterEach(() => {
+    rmSync(workdir, { recursive: true, force: true });
+  });
+
+  it('lists changes under the folder relative to it, skipping rename sources', async () => {
+    mkdirSync(path.join(workdir, 'app'));
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: `${workdir}\n`, stderr: '' });
+    mocks.inner.mockResolvedValueOnce({
+      stdout: [' M app/src/a b.ts', '?? app/new/', 'R  app/moved.ts', 'app/old.ts', 'A  app/added.ts', ''].join('\0'),
+      stderr: '',
+    });
+    const { getFolderChanges } = await import('../../src/main/git');
+    await expect(getFolderChanges(workdir, path.join(workdir, 'app'))).resolves.toEqual({
+      paths: [
+        { path: 'src/a b.ts', status: 'modified' },
+        { path: 'new/', status: 'untracked' },
+        { path: 'moved.ts', status: 'modified' },
+        { path: 'added.ts', status: 'modified' },
+      ],
+      truncated: false,
+    });
+    const statusArgs = mocks.inner.mock.calls[2]?.[1] as string[];
+    expect(statusArgs).toEqual(expect.arrayContaining(['status', '--porcelain=v1', '-z', '--', 'app']));
+  });
+
+  it('refuses a folder outside the repository without running git status', async () => {
+    mkdirSync(path.join(workdir, 'repo'));
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: `${path.join(workdir, 'repo')}\n`, stderr: '' });
+    const { getFolderChanges } = await import('../../src/main/git');
+    await expect(getFolderChanges(path.join(workdir, 'repo'), workdir)).resolves.toBeNull();
+    expect(mocks.inner.mock.calls.some(call => (call[1] as string[]).includes('status'))).toBe(false);
+  });
+
+  it('refuses a repo root that is not the toplevel git reports', async () => {
+    mkdirSync(path.join(workdir, 'sub'));
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: `${workdir}\n`, stderr: '' });
+    const { getFolderChanges } = await import('../../src/main/git');
+    await expect(getFolderChanges(path.join(workdir, 'sub'), path.join(workdir, 'sub'))).resolves.toBeNull();
+    expect(mocks.inner.mock.calls.some(call => (call[1] as string[]).includes('status'))).toBe(false);
+  });
+
+  it('accepts a folder whose name starts with two dots', async () => {
+    mkdirSync(path.join(workdir, '..cache'));
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: `${workdir}\n`, stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: ' M ..cache/a.ts\0', stderr: '' });
+    const { getFolderChanges } = await import('../../src/main/git');
+    await expect(getFolderChanges(workdir, path.join(workdir, '..cache'))).resolves.toEqual({
+      paths: [{ path: 'a.ts', status: 'modified' }],
+      truncated: false,
+    });
+  });
+
+  it('keeps the complete records when git status overflows its buffer', async () => {
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: `${workdir}\n`, stderr: '' });
+    mocks.inner.mockRejectedValueOnce(
+      Object.assign(new Error('maxBuffer'), { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', stdout: ' M a.ts\0?? new/\0 M cut-of' })
+    );
+    const { getFolderChanges } = await import('../../src/main/git');
+    await expect(getFolderChanges(workdir, workdir)).resolves.toEqual({
+      paths: [
+        { path: 'a.ts', status: 'modified' },
+        { path: 'new/', status: 'untracked' },
+      ],
+      truncated: true,
+    });
+  });
+
+  it('reports the folder itself when it is untracked', async () => {
+    const { parseFolderChanges } = await import('../../src/main/git');
+    expect(parseFolderChanges('?? app/\0', 'app/').paths).toEqual([{ path: '', status: 'untracked' }]);
+  });
+
+  it('stops at the entry cap and says so', async () => {
+    const { parseFolderChanges, MAX_FOLDER_CHANGES } = await import('../../src/main/git');
+    const stdout = Array.from({ length: MAX_FOLDER_CHANGES + 5 }, (_, index) => `?? f${index}.ts`).join('\0');
+    const result = parseFolderChanges(stdout, '');
+    expect(result.paths).toHaveLength(MAX_FOLDER_CHANGES);
+    expect(result.truncated).toBe(true);
   });
 });
 

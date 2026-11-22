@@ -69,6 +69,7 @@ vi.mock('electron', () => ({
 import {
   _resetFilesystemApprovalsForTests,
   pathIntersectsApprovedScope,
+  realPathInsideApprovedScope,
   registerFileSystemHandlers,
 } from '../../src/main/ipc/fileSystem';
 import {
@@ -1514,6 +1515,22 @@ describe('fs:importBundle', () => {
 // The approved-scope intersection that gates the git
 // read-only IPC layer (src/main/ipc/git.ts). Exercised against the REAL
 // approvals registry via the same picker flow production uses.
+describe('realPathInsideApprovedScope', () => {
+  it('accepts the root and its folders but not a link that leaves the root', async () => {
+    const project = path.join(tmpRoot, 'monorepo', 'packages', 'app');
+    const sibling = path.join(tmpRoot, 'monorepo', 'packages', 'other');
+    await mkdir(path.join(project, 'src'), { recursive: true });
+    await mkdir(sibling, { recursive: true });
+    await symlink(sibling, path.join(project, 'link'), 'dir');
+    await approveRoot(project);
+
+    expect(await realPathInsideApprovedScope(project)).toBe(true);
+    expect(await realPathInsideApprovedScope(path.join(project, 'src'))).toBe(true);
+    expect(await realPathInsideApprovedScope(path.join(project, 'link'))).toBe(false);
+    expect(await realPathInsideApprovedScope(sibling)).toBe(false);
+  });
+});
+
 describe('pathIntersectsApprovedScope', () => {
   it('matches the approved root itself, its children, and its ancestors', async () => {
     const project = path.join(tmpRoot, 'monorepo', 'packages', 'app');

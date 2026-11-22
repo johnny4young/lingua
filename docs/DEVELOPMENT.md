@@ -649,7 +649,7 @@ After building desktop bundles (`pnpm run build:desktop-bundles`), run
 `node scripts/smoke-project-test-output.mjs [path-to-electron-executable]`.
 It launches the real main/preload with a local Vite renderer, an isolated profile,
 and a disposable project whose host Node process emits interleaved stdout/stderr.
-It opens the Tests dock tab from the Explorer header, runs all tests with the
+It opens the Tests dock tab from the Explorer's Tests row, runs all tests with the
 output expanded, and checks that the live output reads `first`, `warning`, `last`
 while the run is still going, that the run ends failed with the same final
 order, and that a later passing run recovers. It covers EN/light and ES/dark,

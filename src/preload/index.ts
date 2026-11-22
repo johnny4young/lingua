@@ -560,6 +560,8 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('git:status', repoRoot, filePath),
     diff: (repoRoot: string, filePath: string) =>
       typedInvoke('git:diff', repoRoot, filePath),
+    changes: (repoRoot: string, folderPath: string) =>
+      typedInvoke('git:changes', repoRoot, folderPath),
     // Reveal repo working tree in the OS file
     // manager. Returns false when the path disappeared between the
     // context-menu open and the click, or when the OS rejected the

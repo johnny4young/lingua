@@ -223,6 +223,22 @@ describe('renderer locale bundle boundary', () => {
     expect(section).toContain("import '../../i18n/localMcpCatalog'");
   });
 
+  it('keeps the project explorer copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    const explorerKeys = Object.keys(JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/explorer.json'), 'utf8')
+    ) as Record<string, string>);
+    expect(explorerKeys.length).toBeGreaterThan(0);
+    expect(explorerKeys.filter((key) => key in bootCatalog)).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/explorer.json');
+    expect(rendererI18n).toContain("import('./locales/es/explorer.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/explorerCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/explorer.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/FileTree/FileTree.tsx'), 'utf8')).toContain("import '../../i18n/explorerCatalog'");
+  });
+
   it('keeps language selection metadata free of catalog imports', () => {
     expect(languageMetadata).not.toMatch(/common\.json/u);
   });

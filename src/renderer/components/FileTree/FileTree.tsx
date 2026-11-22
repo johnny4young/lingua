@@ -6,11 +6,9 @@ import {
   FolderOpen,
   FolderPlus,
   FilePlus,
-  FlaskConical,
-  SquareTerminal,
   RefreshCw,
-  FolderOpen as OpenFolderIcon,
 } from 'lucide-react';
+import '../../i18n/explorerCatalog';
 import { useTranslation } from 'react-i18next';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
@@ -20,17 +18,21 @@ import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
 import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useProjectBundle } from '../../hooks/useProjectBundle';
-import { useUIStore } from '../../stores/uiStore';
+import { useGitStore } from '../../stores/gitStore';
+import { useProjectTestStore } from '../../stores/projectTestStore';
 import { IconButton } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
+import { FileTreeFooter } from './FileTreeFooter';
 import { FileTreeHeaderMenu } from './FileTreeHeaderMenu';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import { FileTreeNode } from './FileTreeNode';
 import { FileTreeOpenTabs } from './FileTreeOpenTabs';
 import { flattenVisibleRows } from './fileTreeRows';
 import type { CreationTarget } from './fileTreeTypes';
+import { gitMarksFrom, tallyTests } from './fileTreeMarks';
+import { useGitChanges } from './useGitChanges';
 
 // ------------------------------------------------------------------ main FileTree
 
@@ -90,6 +92,14 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   );
   // Export the open project as a `.zip` bundle.
   const { exportProjectBundle } = useProjectBundle();
+  const branch = useGitStore((state) => state.posture?.branch ?? null);
+  const gitChanges = useGitChanges(currentProject);
+  const gitMarks = useMemo(() => (gitChanges ? gitMarksFrom(gitChanges) : null), [gitChanges]);
+  // Results of another project's run never mark this tree.
+  const testCases = useProjectTestStore((state) =>
+    currentProject && state.rootId === currentProject.rootId ? state.cases : null
+  );
+  const tests = useMemo(() => (testCases ? tallyTests(testCases) : null), [testCases]);
 
   const [creating, setCreating] = useState<CreationTarget>(null);
   // accessibility pass BLOCKER #1 — the entry pending a delete confirmation.
@@ -104,6 +114,16 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   // header badge and a smart-truncated tooltip path. Memoised on the
   // tree reference so unrelated re-renders don't walk the tree.
   const fileCount = useMemo(() => countFiles(nodes), [nodes]);
+  const summary = gitMarks
+    ? {
+        testId: 'file-tree-git-summary',
+        text: `${branch ?? t('editor.git.tooltip.detachedHead')}${
+          gitMarks.count > 0 ? ` · ${t('explorer.changed', { count: gitMarks.count, shown: gitMarks.shown })}` : ''
+        }`,
+      }
+    : fileCount > 0
+      ? { testId: 'file-tree-file-count', text: t('fileTree.fileCount', { count: fileCount }) }
+      : null;
   const truncatedRootPath = useMemo(
     () =>
       currentProject
@@ -322,26 +342,14 @@ export function FileTree({ onNavigate }: FileTreeProps) {
 
   return (
     <div className="flex h-full flex-col bg-background/65">
-      {/* Header */}
       <div className="surface-header flex h-12 items-center gap-2 px-3">
-        <FolderOpen size={14} className="shrink-0 text-warning" />
-        <div className="min-w-0 flex-1">
-          <span
-            className="block truncate text-body font-semibold text-foreground"
-            title={`${currentProject.name}\n${truncatedRootPath}`}
-            data-testid="file-tree-root-tooltip"
-          >
-            {currentProject.name}
-          </span>
-          {fileCount > 0 && (
-            <span
-              className="block text-eyebrow uppercase tracking-[0.14em] text-muted"
-              data-testid="file-tree-file-count"
-            >
-              {t('fileTree.fileCount', { count: fileCount })}
-            </span>
-          )}
-        </div>
+        <span
+          className="min-w-0 flex-1 truncate text-body font-semibold text-foreground"
+          title={`${currentProject.name}\n${truncatedRootPath}`}
+          data-testid="file-tree-root-tooltip"
+        >
+          {currentProject.name}
+        </span>
         <div className="flex items-center gap-0.5">
           <IconButton
             onClick={() => handleNewFile()}
@@ -358,17 +366,25 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           <FileTreeHeaderMenu
             actions={[
               { id: 'collapse-all', label: t('fileTree.actions.collapseAll'), icon: <ChevronsDownUp size={ICON_GLYPH.md} />, run: collapseAllDirectories },
-              ...(window.lingua?.projectTests
-                ? [{ id: 'project-tests', label: t('fileTree.actions.projectTests'), icon: <FlaskConical size={ICON_GLYPH.md} />, run: () => useUIStore.getState().openBottomPanel('tests') }]
-                : []),
-              ...(window.lingua?.projectTerminal
-                ? [{ id: 'project-terminal', label: t('fileTree.actions.projectTerminal'), icon: <SquareTerminal size={ICON_GLYPH.md} />, run: () => useUIStore.getState().openBottomPanel('project-terminal') }]
-                : []),
               { id: 'refresh', label: t('fileTree.actions.refresh'), icon: <RefreshCw size={ICON_GLYPH.md} />, run: refreshTree },
+              { id: 'open-folder', label: t('fileTree.openDifferent'), icon: <FolderOpen size={ICON_GLYPH.md} />, run: () => void openProject() },
               { id: 'export-project', label: t('fileTree.actions.exportProject'), icon: <FileArchive size={ICON_GLYPH.md} />, run: () => void exportProjectBundle() },
             ]}
           />
         </div>
+      </div>
+
+      {/* Owns its own narrowed `tabs` projection, so typing in the editor
+          does not re-render the tree. Renders nothing with no open tabs. */}
+      <FileTreeOpenTabs onNavigate={onNavigate} />
+
+      <div className="flex h-8 shrink-0 items-center gap-2 px-4">
+        <span className="panel-title">{t('explorer.files')}</span>
+        {summary ? (
+          <span className="ml-auto truncate text-caption text-muted" data-testid={summary.testId}>
+            {summary.text}
+          </span>
+        ) : null}
       </div>
 
       {/* Tree: one windowed flat list. Only the rows whose band
@@ -438,6 +454,8 @@ export function FileTree({ onNavigate }: FileTreeProps) {
               depth={row.depth}
               dirtyTabPaths={dirtyTabPaths}
               activeFileKey={activeFileKey}
+              gitMark={gitMarks?.markFor(row.node.path)}
+              testTally={tests?.byFile.get(row.node.path)}
               onFileClick={handleFileClick}
               onDelete={handleDelete}
               onNewFileIn={(n) => {
@@ -470,22 +488,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         )}
       </div>
 
-      {/* Open folder link */}
-      <div className="border-t border-border/70 p-2">
-        <button
-          onClick={() => openProject()}
-          className="focus-ring flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-body-sm text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
-        >
-          <OpenFolderIcon size={12} />
-          {t('fileTree.openDifferent')}
-        </button>
-      </div>
-
-      {/* Synced Open-tabs foot, identical to the no-project
-          empty state. Self-renders to null when no tabs are open.
-          It owns its own narrowed `tabs` projection so a
-          keystroke in the editor does not re-render the explorer tree. */}
-      <FileTreeOpenTabs onNavigate={onNavigate} />
+      <FileTreeFooter rootId={currentProject.rootId} tests={tests?.all ?? null} />
 
       {pendingDelete ? (
         <ConfirmDialog

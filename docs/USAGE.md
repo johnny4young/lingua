@@ -218,11 +218,13 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 ## Project files
 
 - Files opened from an approved folder (the Explorer, Quick Open, project search, the Tests tab, deep links and template scaffolds) start in **Run** mode, whatever the per-language default in Settings, so a module never runs on its own the moment it opens. Switch the tab to Scratchpad from the run control when you want auto-run. New tabs and files picked with **File › Open…** keep the Settings default; restored sessions keep each tab's mode.
-- The Explorer header keeps **New file** and **New folder**; **Collapse all folders**, **Detect and run project tests**, **Open project terminal**, **Refresh** and **Export project as zip** are in its **⋯** menu.
+- The Explorer header keeps **New file** and **New folder**; **Collapse all folders**, **Refresh**, **Open different folder** and **Export project as zip** are in its **⋯** menu.
+- **Open tabs** sits above the tree. The **Files** heading shows the branch and how many paths have uncommitted changes, such as `main · 2 changed`, or the file count when the folder is not a Git repository. Changed files carry **M**, untracked files and folders **U**. After a project test run each test file shows passed out of run, such as `2 / 3`, with a dot that is red when one failed.
+- Under the tree, **Search in files** opens project search, and in the desktop app **Tests** (passed out of run for the whole project) and **Terminal** (the shell name while it runs) open their dock tabs.
 
 ## Project test runner
 
-- In the desktop app, **Tests** is a results dock tab, after Terminal. **Detect and run project tests** in the Explorer header menu (**⋯**) and **Run project tests** in the Command Palette open it. Without a project it offers **Open project folder…** and up to three recent projects with the runner each one last used.
+- In the desktop app, **Tests** is a results dock tab, after Terminal. The Explorer's **Tests** row and **Run project tests** in the Command Palette open it. Without a project it offers **Open project folder…** and up to three recent projects with the runner each one last used.
 - Lingua detects every matching root-level runner in deterministic order: Vitest, Jest, Pytest, Go, then Cargo. With more than one, the toolbar picks between them. A configured runner can remain unavailable until its project-local package or host toolchain is installed; **Detect again** (the refresh button) finds it without a restart.
 - **Run all tests** lists every test grouped by file (Go groups by package) with passed, failed and skipped counts, and the dock tab shows how many failed. **All / Failed only** narrows the list. Hovering a file offers **Run file**, and a test **Run this test**; a scoped run updates only that part of the list. A failed test shows the line of its assertion. A failure without a file and line shows its message in the list instead. Rust doc tests are listed but run only with the whole suite.
 - After a run, an open test file answers on its own lines, in the editor's answer column: each test's result after its declaration (**Passed** ok with its time, **Failed** with its time and the line of its assertion, **Skipped**), and for Vitest and Jest each suite's tally after its `describe` line. Go and Cargo do not report declaration lines, so their tests answer only on the failing assertion. The failing assertion line is tinted and shows **Received** against **expected** when the runner states both (otherwise the message's first line).
@@ -235,8 +237,8 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Project terminal
 
-- Open a local project in the desktop app, then choose the terminal action in
-  the Explorer header menu (**⋯**), search for **Open project terminal** in the Command
+- Open a local project in the desktop app, then choose the Explorer's
+  **Terminal** row, search for **Open project terminal** in the Command
   Palette, or select **Terminal** in the results dock.
 - The panel first explains the trust boundary. Choose **Start terminal** to
   launch your default system shell in the approved project root. Opening a

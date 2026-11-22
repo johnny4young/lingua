@@ -2563,8 +2563,6 @@
   "fileTree.actions.collapseFolder": "Colapsa {{name}}",
   "fileTree.actions.revealInFinder": "Mostrar en Finder",
   "fileTree.actions.exportProject": "Exporta el proyecto como zip",
-  "fileTree.actions.projectTests": "Detecta y ejecuta pruebas del proyecto",
-  "fileTree.actions.projectTerminal": "Abre la terminal del proyecto",
   "fileTree.actions.more": "Más acciones del proyecto",
   "fileTree.emptyState.title": "Explorador del proyecto",
   "fileTree.emptyState.noProject": "No hay proyecto abierto",

@@ -172,6 +172,21 @@ export async function pathInsideApprovedScope(
   return false;
 }
 
+/**
+ * `pathInsideApprovedScope` after symlinks: the real path must stay inside
+ * the real approved root, so a link in the project cannot reach a sibling.
+ */
+export async function realPathInsideApprovedScope(
+  absolutePath: string
+): Promise<boolean> {
+  await loadFilesystemApprovals();
+  const normalized = normalizeApprovalPath(absolutePath);
+  for (const root of approvedRoots) {
+    if (isPathWithinProject(normalized, root) && (await realPathStaysInside(normalized, root))) return true;
+  }
+  return false;
+}
+
 export function _resetFilesystemApprovalsForTests(): void {
   filesystemApprovalsLoaded = false;
   approvedRoots = new Set();
