@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCapsuleRows,
+  capsuleAnswer,
   filterCapsuleRows,
   orderForComparison,
+  pinLastRun,
 } from '../../../src/renderer/components/CapsuleList/capsuleBrowserRows';
+import { errorNameOf } from '../../../src/renderer/utils/describeError';
 import type { ExecutionHistoryEntry } from '../../../src/renderer/stores/executionHistoryStore';
 import type { RunCapsuleV1 } from '../../../src/shared/runCapsule';
 import {
@@ -74,5 +77,34 @@ describe('capsule browser rows', () => {
     const [newer, older] = buildCapsuleRows([run('a', FIXTURE_MINIMAL_JS, 1), run('b', FIXTURE_FULL_TS, 2)], [], 20);
     expect(orderForComparison(newer!, older!)).toEqual([FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS]);
     expect(orderForComparison(older!, newer!)).toEqual([FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS]);
+  });
+
+  it('reads the error name from the last traceback line or a JS message', () => {
+    expect(errorNameOf('Traceback (most recent call last):\n  File "x.py", line 3\nKeyError: \'db\'')).toBe('KeyError');
+    expect(errorNameOf('TypeError: Cannot read properties of undefined')).toBe('TypeError');
+    expect(errorNameOf('json.decoder.JSONDecodeError: Expecting value')).toBe('JSONDecodeError');
+    expect(errorNameOf('Execution stopped by user.')).toBeNull();
+    expect(errorNameOf(undefined)).toBeNull();
+  });
+
+  it('answers with the status line first, then the error, the rows or the time', () => {
+    expect(capsuleAnswer({ capsule: FIXTURE_MINIMAL_JS })).toEqual({ kind: 'duration', value: '3.0', unit: 'ms' });
+    expect(capsuleAnswer({ capsule: FIXTURE_STOPPED })).toEqual({ kind: 'failed', name: null, status: 'stopped' });
+    expect(capsuleAnswer({ capsule: FIXTURE_PYTHON_ERROR })).toEqual({ kind: 'failed', name: 'ValueError', status: 'error' });
+    expect(capsuleAnswer({ capsule: FIXTURE_MINIMAL_JS, summary: { kind: 'rows', count: 12, columns: [] } })).toEqual({ kind: 'rows', count: 12 });
+    expect(capsuleAnswer({ capsule: FIXTURE_PYTHON_ERROR, summary: { kind: 'http', method: 'GET', status: 500, statusText: 'Server Error', bytes: 0 } })).toEqual({
+      kind: 'http', status: 500, statusText: 'Server Error',
+    });
+  });
+
+  it('pins the newest own run first and leaves imports in order', () => {
+    const rows = buildCapsuleRows(
+      [run('a', FIXTURE_MINIMAL_JS, 1000), run('b', FIXTURE_TIMEOUT, 2000)],
+      [{ id: 'imported-x', capsule: FIXTURE_FULL_TS, importedAt: 3000 }],
+      5
+    );
+    expect(pinLastRun(rows)).toMatchObject({ lastRunId: 'b' });
+    expect(pinLastRun(rows).rows.map((row) => row.id)).toEqual(['b', 'imported-x', 'a']);
+    expect(pinLastRun(rows.filter((row) => row.kind === 'imported'))).toMatchObject({ lastRunId: null });
   });
 });

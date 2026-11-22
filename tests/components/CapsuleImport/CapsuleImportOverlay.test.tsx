@@ -7,7 +7,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CapsuleImportOverlay } from '../../../src/renderer/components/CapsuleImport';
-import { setPendingCapsuleImportSource } from '../../../src/renderer/clipboard/pendingCapsuleImport';
+import { setPendingCapsuleImportFile, setPendingCapsuleImportSource } from '../../../src/renderer/clipboard/pendingCapsuleImport';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useWorkspaceToolStore } from '../../../src/renderer/stores/workspaceToolStore';
@@ -106,6 +106,15 @@ describe('CapsuleImportOverlay', () => {
     ) as HTMLButtonElement;
     expect(confirm.disabled).toBe(false);
     // The seed is one-shot: a second overlay opens empty.
+    cleanup();
+    render(<CapsuleImportOverlay onClose={() => undefined} />);
+    expect(screen.getByTestId('capsule-import-empty')).toBeTruthy();
+  });
+
+  it('decodes a file dropped on the capsule list on mount, once', async () => {
+    setPendingCapsuleImportFile(new File([MINIMAL_JSON], 'capsule.json', { type: 'application/json' }));
+    render(<CapsuleImportOverlay onClose={() => undefined} />);
+    expect(await screen.findByTestId('capsule-import-preview')).toBeTruthy();
     cleanup();
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     expect(screen.getByTestId('capsule-import-empty')).toBeTruthy();

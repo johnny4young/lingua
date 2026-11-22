@@ -11,7 +11,7 @@ export interface CapsuleMenuItem {
   danger?: boolean;
 }
 
-/** A menu that opens above its trigger; Escape closes the menu, not the dialog. */
+/** A menu that opens below its trigger; Escape closes the menu, not the dialog. */
 export function CapsuleActionMenu({
   label,
   trigger,
@@ -85,7 +85,7 @@ export function CapsuleActionMenu({
           onBlur={(event) => {
             if (!rootRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
           }}
-          className={cn('dropdown-rich absolute bottom-[calc(100%+0.4rem)] z-50 w-max min-w-[200px]', align === 'right' ? 'right-0' : 'left-0')}
+          className={cn('dropdown-rich absolute top-[calc(100%+0.4rem)] z-50 w-max min-w-[200px]', align === 'right' ? 'right-0' : 'left-0')}
         >
           {items.map((item) => (
             <button

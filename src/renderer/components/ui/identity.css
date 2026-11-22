@@ -97,6 +97,8 @@
   .result-numeral[data-size='lg'] .result-numeral-value { font-size: 44px; font-weight: 360; }
   .result-numeral[data-size='xl'] { gap: 10px; }
   .result-numeral[data-size='xl'] .result-numeral-value { font-size: 88px; font-weight: 340; letter-spacing: -0.04em; }
+  .result-numeral[data-word][data-size='sm'] .result-numeral-value { font-size: 15px; }
+  .result-numeral[data-word][data-size='lg'] .result-numeral-value { font-size: 32px; }
 
   .result-numeral[data-size='lg'] .result-numeral-unit,
   .result-numeral[data-size='xl'] .result-numeral-unit {

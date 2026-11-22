@@ -1,92 +1,27 @@
-import { useId, useState } from 'react';
-import { ProChip } from '../ui/ProChip';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpFromLine, Package } from 'lucide-react';
+import { ProChip } from '../ui/ProChip';
+import { TypeTag } from '../ui/answer';
 import { CAPSULE_LRU_CAP } from '../../stores/executionHistoryStore';
-import { ModalShell } from '../ui/ModalShell';
-import { EmptyState } from '../ui/EmptyState';
-import { CapsuleDialogHeader, CapsuleRowCells } from './CapsuleBrowserParts';
-import { CapsuleDetail } from './CapsuleDetail';
-import { CAPSULE_ROW_GRID, type CapsuleBrowserRow } from './capsuleBrowserRows';
 
-/** Free shows its own last run read-only; browsing every capsule is the Pro part. */
-export function CapsuleFreeGate({
-  runs,
-  onClose,
-  onImport,
-}: {
-  runs: readonly CapsuleBrowserRow[];
-  onClose: () => void;
-  onImport: () => void;
-}) {
+/** Free keeps its own last run open; the PRO chip says the rest of the list is the paid part. */
+export function CapsuleFreeGate({ kept }: { kept: number }) {
   const { t } = useTranslation();
-  const titleId = useId();
-  const [now] = useState(() => Date.now());
-  const last = runs[0];
-
+  const earlier = Math.max(0, kept - 1);
   return (
-    <ModalShell
-      size="max-w-[860px]"
-      onClose={onClose}
-      labelledById={titleId}
-      headerClose="button"
-      closeLabel={t('capsuleList.overlay.close')}
-      bodyClassName="px-[18px] py-4"
-      bodyMaxHeightClassName="max-h-[min(64vh,560px)]"
-      header={
-        <CapsuleDialogHeader
-          titleId={titleId}
-          trailing={
-            <>
-              <span data-testid="capsule-list-quota" className="shrink-0 rounded-md border border-border-subtle px-2 py-0.5 font-mono text-eyebrow uppercase tracking-wide text-fg-muted">
-                {t('capsuleList.gate.quota', { count: runs.length, max: CAPSULE_LRU_CAP })}
-              </span>
-              <ImportButton onImport={onImport} />
-            </>
-          }
-        />
-      }
-      footerLegend={
-        <span className="text-caption text-fg-muted" data-testid="capsule-list-free-slice">
-          <ProChip>{t('capsuleList.gate.proSlice')}</ProChip>
+    <div data-testid="capsule-list-upsell" className="m-3.5 shrink-0 rounded-[10px] border border-border-default bg-bg-base p-3.5">
+      <div className="flex items-center gap-2 whitespace-nowrap">
+        <TypeTag className="text-fg-base">
+          <span data-testid="capsule-list-quota">{t('capsuleList.gate.quota', { count: kept, max: CAPSULE_LRU_CAP })}</span>
+        </TypeTag>
+        <span className="flex-1" />
+        <span data-testid="capsule-list-free-slice">
+          <ProChip />
         </span>
-      }
-    >
-      <div data-testid="capsule-list-upsell">
-        {last ? (
-          <section aria-labelledby={`${titleId}-last`}>
-            <h3 id={`${titleId}-last`} className="mb-2 font-mono text-eyebrow font-semibold uppercase tracking-[0.14em] text-fg-subtle">
-              {t('capsuleList.gate.lastRun')}
-            </h3>
-            <div data-testid="capsule-list-row" className={`${CAPSULE_ROW_GRID} mb-4 h-[44px] rounded-lg border border-border-subtle px-3`}>
-              <CapsuleRowCells row={last} now={now} />
-            </div>
-            <CapsuleDetail capsule={last.capsule} />
-          </section>
-        ) : (
-          <EmptyState
-            className="py-10"
-            icon={<Package size={18} aria-hidden="true" />}
-            title={<span data-testid="capsule-list-empty">{t('capsuleList.empty.title')}</span>}
-            description={t('capsuleList.empty.hint')}
-          />
-        )}
       </div>
-    </ModalShell>
-  );
-}
-
-export function ImportButton({ onImport }: { onImport: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      onClick={onImport}
-      data-testid="capsule-list-import"
-      className="focus-ring action-pill-run shrink-0 rounded-lg px-3"
-    >
-      <ArrowUpFromLine size={12} aria-hidden="true" />
-      {t('capsuleList.import')}
-    </button>
+      <p className="mt-2 text-body-sm leading-[17px] text-fg-muted">
+        {earlier > 0 ? `${t('capsuleList.gate.earlier', { count: earlier })} ` : null}
+        {t('capsuleList.gate.proLets')}
+      </p>
+    </div>
   );
 }

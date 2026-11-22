@@ -98,6 +98,8 @@ export interface ExecutionHistoryEntry {
   runCompare?: RunCompareRecord;
   /** The tab's run number, so the run meter's bar for this run can open it. */
   runNumber?: number;
+  /** Row count or HTTP status of a run that kept a capsule; the capsule itself does not carry them. */
+  resultSummary?: RunCompareSummary;
 }
 
 interface ExecutionHistoryRecord {
@@ -344,6 +346,9 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       // applied AFTER the FIFO drop, never before.
       ...(input.lastCapsule !== undefined
         ? { lastCapsule: input.lastCapsule }
+        : {}),
+      ...(input.lastCapsule !== undefined && input.summary !== undefined
+        ? { resultSummary: input.summary }
         : {}),
       ...(input.lastCapsule !== undefined && runCompareCaptureOn()
         ? { runCompare: buildRunCompareRecord(input.lastCapsule, input.summary) }
