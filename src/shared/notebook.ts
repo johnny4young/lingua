@@ -96,7 +96,7 @@ export type NotebookCellOutputV1 = {
   readonly stream: 'stdout' | 'stderr';
 };
 
-export const NOTEBOOK_LINE_ANSWER_KINDS = ['value', 'output', 'error', 'table', 'result'] as const;
+const NOTEBOOK_LINE_ANSWER_KINDS = ['value', 'output', 'error', 'table', 'result'] as const;
 export type NotebookLineAnswerKind = (typeof NOTEBOOK_LINE_ANSWER_KINDS)[number];
 
 /**

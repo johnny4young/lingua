@@ -767,7 +767,7 @@ function OutputToggle({
 }
 
 /** The run number in the cell's margin, or a dash before its first run. */
-export function NotebookRunMargin({ executionOrder }: { readonly executionOrder: number | null }) {
+function NotebookRunMargin({ executionOrder }: { readonly executionOrder: number | null }) {
   const { t } = useTranslation();
   const label = executionOrder === null ? t('notebookAnswers.notRun') : t('notebookAnswers.run', { n: executionOrder });
   return (

@@ -779,8 +779,21 @@ describe('runNotebookCell + session manager', () => {
     if (!result.ok) return;
     expect(result.outcome.status).toBe('error');
     expect(result.outcome.errorMessage).toContain('TypeScript:');
+    expect(result.outcome.answers).toEqual([
+      expect.objectContaining({ line: 1, kind: 'error', text: expect.stringContaining('TypeScript:') }),
+    ]);
     // A transpile failure short-circuits before the worker round-trip.
     expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it('answers a TypeScript syntax error on the line the compiler names', async () => {
+    const result = await runNotebookCell({
+      tabId: 'tab-ts-err-line',
+      language: 'typescript',
+      source: 'const ok = 1;\nconst broken: number = ;',
+    });
+    if (!result.ok) throw new Error('expected an outcome');
+    expect(result.outcome.answers?.map(answer => [answer.line, answer.kind])).toEqual([[2, 'error']]);
   });
 
   it('records error + propagates the error message to stderr', async () => {

@@ -246,7 +246,7 @@ interface EsbuildTransformError {
 export type NotebookTranspileResult =
   /** `map` is esbuild's source map from `js` back to the TypeScript cell. */
   | { readonly ok: true; readonly js: string; readonly map?: string }
-  | { readonly ok: false; readonly message: string };
+  | { readonly ok: false; readonly message: string; readonly line: number | null };
 
 /**
  * type-strip a TypeScript cell to JavaScript so it runs
@@ -287,13 +287,14 @@ export async function transpileTypescriptCell(
     const firstError = failure.errors?.[0];
     if (firstError === undefined) throw err;
     let position = '';
+    let line: number | null = null;
     if (firstError.location !== null && firstError.location !== undefined) {
       // esbuild lines are already 1-based; its columns are not. Display
       // both 1-based, mirroring how editors report TS errors.
-      const { line, column } = firstError.location;
-      position = ` (${line}:${column + 1})`;
+      line = firstError.location.line;
+      position = ` (${line}:${firstError.location.column + 1})`;
     }
-    return { ok: false, message: `TypeScript: ${firstError.text}${position}` };
+    return { ok: false, message: `TypeScript: ${firstError.text}${position}`, line };
   }
 }
 
@@ -905,6 +906,14 @@ export async function runNotebookCell(
             errorMessage: transpiled.message,
             sandboxKeyCount: Object.keys(session.sandbox).length,
             producedKeys: [],
+            answers: jsAnswers({
+              source: request.source,
+              captures: [],
+              stdout: [],
+              stderr: [],
+              error: { message: transpiled.message, line: transpiled.line },
+              mapLine: line => line,
+            }),
           },
         };
       }
