@@ -9,8 +9,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
-import { latencyShare, maxDuration } from '../../utils/latencyScale';
-import { formatWholeDuration } from '../../utils/timeLabels';
+import { formatWholeDuration, latencyShare, maxDuration } from '../../utils/latencyScale';
 import { isTransportFailure, labelForResponse, toneForResponse } from './httpStatus';
 import './httpInstruments.css';
 

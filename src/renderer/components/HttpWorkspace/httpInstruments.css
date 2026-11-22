@@ -108,7 +108,7 @@
   .http-tests {
     display: grid;
     grid-template-columns: 18px minmax(0, max-content) minmax(16px, 0.35fr) minmax(140px, 1.4fr) 24px;
-    column-gap: 10px;
+    gap: 2px 10px;
     align-content: start;
   }
 
@@ -120,6 +120,10 @@
     display: grid;
     grid-template-columns: subgrid;
   }
+
+  .http-tests > ul { row-gap: 2px; }
+
+  .http-test-dot { background: color-mix(in oklab, var(--color-fg-subtle) 60%, transparent); }
 
   .http-test-line {
     align-items: center;

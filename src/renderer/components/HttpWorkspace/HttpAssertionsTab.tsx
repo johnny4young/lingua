@@ -83,7 +83,7 @@ const ASSERTION_COMPARATORS: ReadonlyArray<{
 const plain = (text: string) => text;
 
 function ResultGlyph({ pass }: { readonly pass: boolean | undefined }) {
-  if (pass === undefined) return <span className="mx-auto h-1.5 w-1.5 rounded-full bg-fg-subtle/60" aria-hidden="true" />;
+  if (pass === undefined) return <span className="mx-auto h-1.5 w-1.5 rounded-full http-test-dot" aria-hidden="true" />;
   return pass ? (
     <Check size={13} className="mx-auto text-success-fg" aria-hidden="true" />
   ) : (
@@ -187,13 +187,13 @@ export function HttpAssertionsTab({
 
   return (
     <section data-testid="http-request-editor-assert" className="http-tests-frame answer-scope pt-1">
-      <div className="http-tests gap-y-0.5">
+      <div className="http-tests">
       {assertions.length === 0 ? (
         <p data-testid="http-request-editor-assert-empty" className="px-1 pb-1 text-caption text-fg-subtle">
           {t('httpWorkspace.editor.assert.empty')}
         </p>
       ) : null}
-      <ul role="list" className="gap-y-0.5">
+      <ul role="list">
         {assertions.map((assertion, i) => {
           const result = results?.get(assertion.id);
           const pass = result?.pass;
@@ -376,7 +376,7 @@ export function HttpAssertionsTab({
         />
       </ul>
       {variables && variables.length > 0 ? (
-        <ul role="list" aria-label={t('httpWorkspace.editor.assert.variablesAria')} className="mt-2 gap-y-0.5" data-testid="http-test-variables">
+        <ul role="list" aria-label={t('httpWorkspace.editor.assert.variablesAria')} className="mt-2" data-testid="http-test-variables">
           {variables.map((variable) => (
             <TestLine
               key={variable.key}

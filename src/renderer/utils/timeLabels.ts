@@ -33,11 +33,6 @@ export function formatRelativeTime(targetMs: number, nowMs: number, locale: stri
   return format.format(Math.round(delta / size), unit);
 }
 
-/** A duration in whole milliseconds, seconds past one: `142 ms`, `2.0 s`. */
-export function formatWholeDuration(ms: number): string {
-  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
-}
-
 type Translate = (key: string, values?: Record<string, number>) => string;
 
 /** "1 second ago" … "3 hours ago" for this session's runs; never "0 seconds". */

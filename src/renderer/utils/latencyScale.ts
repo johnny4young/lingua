@@ -10,3 +10,8 @@ export const maxDuration = (durations: Iterable<number>) => {
   for (const duration of durations) if (duration > max) max = duration;
   return max;
 };
+
+/** A duration in whole milliseconds, seconds past one: `142 ms`, `2.0 s`. */
+export function formatWholeDuration(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
+}
