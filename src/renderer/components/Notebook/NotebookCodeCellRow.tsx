@@ -40,6 +40,7 @@ import { ICON_GLYPH } from '../ui/iconScale';
 import type { NotebookCellLeader } from './NotebookCellEditor';
 import { answersByLine, lineLength, notebookLineHeight } from './notebookAnswerView';
 import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
+import { hasNotebookExecutionEvidence } from '../../stores/notebookReactivity';
 
 /** The last line with code on it (1-based), or 0 for an empty cell. */
 function lastCodeLine(lines: ReadonlyArray<string>): number {
@@ -345,9 +346,11 @@ function NotebookCodeCellRowImpl({
     [cell.outputs]
   );
   const answerRows = useMemo(() => (answers ? answersByLine(answers) : []), [answers]);
-  const neverRan = status === 'idle' && !hasAnswers && !hasOutputs;
+  const neverRan = !hasNotebookExecutionEvidence(cell, status, executionOrder ?? undefined);
+  // A cell that never ran has no answers to pin, so its hint follows the draft.
+  const answerSource = neverRan ? source : cell.source;
   const { leaders, lineCount, hintLine } = useMemo(() => {
-    const lines = cell.source.split('\n');
+    const lines = answerSource.split('\n');
     const hint = neverRan ? lastCodeLine(lines) : 0;
     const answered: ReadonlyArray<{ line: number; kind?: string }> = hint ? [{ line: hint }] : answerRows;
     const placed: NotebookCellLeader[] = answered.map(answer => ({
@@ -356,12 +359,11 @@ function NotebookCodeCellRowImpl({
       ...(answer.kind === 'error' ? { tone: 'error' as const } : {}),
     }));
     return { leaders: placed, lineCount: lines.length, hintLine: hint };
-  }, [answerRows, cell.source, neverRan]);
+  }, [answerRows, answerSource, neverRan]);
   // Answers belong to the source they ran; a draft not yet saved moves the lines.
   // An editor taller than its cap scrolls inside, where the column cannot follow.
   const answerColumn =
-    (hasAnswers || hintLine > 0) &&
-    source === cell.source &&
+    ((hasAnswers && source === cell.source) || hintLine > 0) &&
     !(editing && lineCount * lineHeight + 16 > NOTEBOOK_CELL_EDITOR_MAX_HEIGHT);
   const showAnswers = hasAnswers && answerColumn;
   const answerTable = answerRows.some(answer => answer.kind === 'result')
@@ -500,7 +502,7 @@ function NotebookCodeCellRowImpl({
             </span>
           ) : null}
           {/* Before the first run the margin says so; the badge would repeat it. */}
-          {status === 'idle' ? null : (
+          {neverRan ? null : (
             <span
               data-testid="notebook-code-cell-status"
               data-status={status}

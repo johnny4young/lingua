@@ -98,7 +98,7 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
           style={{ gridRow: hintLine, height: lineHeight }}
         >
           <span className="notebook-answer-tag" aria-hidden="true" />
-          <kbd className="notebook-answer-kbd" aria-label={t('notebookAnswers.runHintKeys')}>
+          <kbd className="notebook-answer-kbd" role="img" aria-label={t('notebookAnswers.runHintKeys')}>
             ⇧↵
           </kbd>
           <span className="notebook-answer-text">{t('notebookAnswers.runHint')}</span>

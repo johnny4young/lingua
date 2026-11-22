@@ -213,6 +213,10 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(screen.queryByTestId('notebook-cell-run-hint')).toBeNull();
     rerender(<NotebookCodeCellRow {...rowProps(cell, 'running', null)} />);
     expect(screen.queryByTestId('notebook-cell-run-hint')).toBeNull();
+    // A run that left nothing on screen still ran: no hint, and the header keeps its status.
+    rerender(<NotebookCodeCellRow {...rowProps(cell, 'idle', 2)} />);
+    expect(screen.queryByTestId('notebook-cell-run-hint')).toBeNull();
+    expect(screen.getByTestId('notebook-code-cell-status').dataset.status).toBe('idle');
   });
 
   it('runs from a quiet icon button, and names the replay on a stale cell', () => {

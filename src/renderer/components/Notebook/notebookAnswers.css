@@ -237,8 +237,7 @@
 
 .notebook-answer-pill[data-tone='dated'] {
   --notebook-answer-tone: var(--color-fg-muted);
-  min-width: 0;
-  flex: 0 1 auto;
+  max-width: 60%;
   border: 1px solid var(--color-border-default);
   background: transparent;
   font-size: 11px;
