@@ -64,9 +64,9 @@ for (const theme of ['light', 'dark'] as const) {
     test('results dock tab row', async ({ page }) => {
       await boot(page, theme);
       await expect(page.getByTestId('bottom-panel-console-tab')).toBeVisible();
-      const row = page.getByTestId('results-dock').locator('> div').first();
+      const row = page.getByTestId('results-dock-tab-row');
       await expect(row).toHaveScreenshot(`results-dock-${theme}.png`, {
-        mask: [page.getByTestId('dock-execution-time'), page.getByTestId('bottom-panel-console-count')],
+        mask: [page.getByTestId('bottom-panel-console-count')],
       });
     });
 

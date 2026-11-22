@@ -123,10 +123,10 @@ test.describe('Command palette', () => {
     // Only should force it off regardless of `consoleVisible`.
     await createJavaScriptTab(page);
     await openConsole(page);
-    await expect(page.getByTestId('execution-history-toggle')).toBeVisible();
+    await expect(page.getByTestId('bottom-panel-console-tab')).toBeVisible();
 
     await openPaletteAction(page, 'editor only', /Layout: Editor Only/i);
-    await expect(page.getByTestId('execution-history-toggle')).toHaveCount(0);
+    await expect(page.getByTestId('bottom-panel-console-tab')).toHaveCount(0);
   });
 });
 

@@ -1,5 +1,5 @@
 import { Check, Pin, RotateCw, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useResultStore } from '../../stores/resultStore';
 import {
@@ -23,7 +23,7 @@ function formatDuration(durationMs: number | null): string {
   return `${(durationMs / 1000).toFixed(2)} s`;
 }
 
-export function RecentRunsPopover({ entries, onClose, sliceOf }: RecentRunsPopoverProps) {
+export function RecentRunsPopover({ entries, onClose, sliceOf, focusId }: RecentRunsPopoverProps) {
   const slice = sliceOf !== undefined;
   const { t } = useTranslation();
   const togglePin = useExecutionHistoryStore(state => state.togglePin);
@@ -33,7 +33,14 @@ export function RecentRunsPopover({ entries, onClose, sliceOf }: RecentRunsPopov
   const { track } = useTelemetry();
   const [now, setNow] = useState(() => Date.now());
 
-  const visibleEntries = useMemo(() => entries.slice(0, MAX_VISIBLE_ENTRIES), [entries]);
+  const visibleEntries = useMemo(() => {
+    const focusAt = focusId ? entries.findIndex(entry => entry.id === focusId) : -1;
+    return entries.slice(0, Math.max(MAX_VISIBLE_ENTRIES, focusAt + 1));
+  }, [entries, focusId]);
+  const focusRef = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    focusRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [focusId]);
 
   useEffect(() => {
     const handle = setInterval(() => setNow(Date.now()), 60_000);
@@ -77,8 +84,15 @@ export function RecentRunsPopover({ entries, onClose, sliceOf }: RecentRunsPopov
           return (
             <li
               key={entry.id}
+              ref={entry.id === focusId ? focusRef : undefined}
+              aria-current={entry.id === focusId ? 'true' : undefined}
               data-testid={`recent-runs-popover-row-${entry.id}`}
-              className="flex items-center gap-2 rounded-lg border border-border/40 bg-background-elevated/40 px-2 py-1.5 text-body-sm"
+              className={cn(
+                'flex items-center gap-2 rounded-lg border px-2 py-1.5 text-body-sm',
+                entry.id === focusId
+                  ? 'border-accent bg-primary-soft'
+                  : 'border-border/40 bg-background-elevated/40'
+              )}
             >
               <span
                 aria-hidden="true"
@@ -90,7 +104,12 @@ export function RecentRunsPopover({ entries, onClose, sliceOf }: RecentRunsPopov
               >
                 {entry.status === 'ok' ? <Check size={10} /> : <X size={10} />}
               </span>
-              <span className="min-w-0 flex-1 truncate text-foreground">{entry.language}</span>
+              <span className="min-w-0 flex-1 truncate text-foreground">
+                {entry.runNumber !== undefined ? (
+                  <span className="mr-1.5 tabular-nums text-muted">#{entry.runNumber}</span>
+                ) : null}
+                {entry.language}
+              </span>
               <span className="shrink-0 tabular-nums text-muted">
                 {formatDuration(entry.durationMs)}
               </span>

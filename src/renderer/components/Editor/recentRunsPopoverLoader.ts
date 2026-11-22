@@ -6,6 +6,8 @@ export interface RecentRunsPopoverProps {
   readonly onClose: () => void;
   /** Free's slice: how many runs the tab has; rows show without pin or replay. */
   readonly sliceOf?: number;
+  /** Run to highlight, from a run meter bar. */
+  readonly focusId?: string;
 }
 
 interface RecentRunsPopoverModule {

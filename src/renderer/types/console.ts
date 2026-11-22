@@ -130,8 +130,8 @@ export interface ConsoleState {
    */
   addEntries: (entries: ReadonlyArray<NewConsoleEntry>) => void;
   clear: () => void;
-  /** Clear for a run of `tabId`; the outgoing run becomes `previousRun` unless `keepPrevious` is false. */
-  beginRun: (run: { tabId: string; startedAt: number | null; keepPrevious?: boolean }) => void;
+  /** Clear for a run of `tabId`; the outgoing run becomes `previousRun` unless `keepPrevious` is false. `number` defaults to the previous run's plus one. */
+  beginRun: (run: { tabId: string; startedAt: number | null; keepPrevious?: boolean; number?: number }) => void;
   /** Rows that landed all at once have no timeline: show clock time instead of offsets. */
   dropRunAnchor: () => void;
   /**

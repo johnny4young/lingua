@@ -18,6 +18,28 @@ interface RunTerminationSummary {
   timeoutMs?: number;
 }
 
+/** One settled run of a tab, metadata only; the run meter draws its bars from these. */
+export interface TabRun extends RunTerminationSummary {
+  /** 1-based count of runs this tab settled in the session; the console and answer header use it too. */
+  number: number;
+  durationMs: number | null;
+  /** Line that raised, when the run failed on one. */
+  line?: number;
+}
+
+export interface TabRunLog {
+  count: number;
+  /** Newest last, capped at `TAB_RUN_LOG_CAP`. */
+  runs: TabRun[];
+}
+
+export const TAB_RUN_LOG_CAP = 12;
+
+/** Number the next run of `tabId` will take. */
+export function nextTabRunNumber(state: Pick<ResultState, 'tabRuns'>, tabId: string): number {
+  return (state.tabRuns[tabId]?.count ?? 0) + 1;
+}
+
 
 export interface LineResult {
   line: number;
@@ -234,6 +256,8 @@ interface ResultState {
    * (Cmd+A → Backspace) does not drop the comparator.
    */
   scopeSnapshot: ScopeSnapshot | null;
+  /** Settled runs per tab for the session. Survives tab switches and `clear()`; never persisted. */
+  tabRuns: Record<string, TabRunLog>;
 
   setLineResults: (results: LineResult[]) => void;
   setLineTimings: (timings: LineTimingEntry[]) => void;
@@ -249,10 +273,14 @@ interface ResultState {
   setExecutionSource: (source: 'manual' | 'auto' | null) => void;
   setAutoRunGateReason: (reason: AutoRunGateReason | null) => void;
   /**
-   * Write the run termination summary. `null`
-   * clears the field (pill goes back to its empty state).
+   * Settle a run of `tabId`: logs it for the run meter and, when the tab's
+   * results are on screen, publishes its termination. Returns the run number.
    */
-  setRunTermination: (summary: RunTerminationSummary | null) => void;
+  settleTabRun: (
+    tabId: string,
+    summary: RunTerminationSummary,
+    details: { durationMs: number | null; line?: number; publish?: boolean }
+  ) => number;
   /**
    * Set / clear the in-flight deadline used
    * by the countdown pill.
@@ -417,6 +445,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
   // Variable inspector snapshot, populated by the
   // runtime entry points on clean success.
   scopeSnapshot: null,
+  tabRuns: {},
 
   setLineResults: (lineResults) => set({ lineResults }),
   setLineTimings: (lineTimings) => set({ lineTimings }),
@@ -433,7 +462,19 @@ export const useResultStore = create<ResultState>((set, get) => ({
     set({ manualLoadingMessage }),
   setExecutionSource: (executionSource) => set({ executionSource }),
   setAutoRunGateReason: (autoRunGateReason) => set({ autoRunGateReason }),
-  setRunTermination: (runTermination) => set({ runTermination }),
+  settleTabRun: (tabId, summary, { durationMs, line, publish = true }) => {
+    const log = get().tabRuns[tabId];
+    const number = nextTabRunNumber(get(), tabId);
+    const run: TabRun = { ...summary, number, durationMs, ...(line !== undefined ? { line } : {}) };
+    set((state) => ({
+      tabRuns: {
+        ...state.tabRuns,
+        [tabId]: { count: number, runs: [...(log?.runs ?? []), run].slice(-TAB_RUN_LOG_CAP) },
+      },
+      ...(publish ? { runTermination: summary } : {}),
+    }));
+    return number;
+  },
   setRunDeadlineAt: (runDeadlineAt) => set({ runDeadlineAt }),
   setScopeSnapshot: (scopeSnapshot) => set({ scopeSnapshot }),
   captureSuccessfulSnapshot: (language, code) => {

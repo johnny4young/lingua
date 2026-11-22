@@ -434,14 +434,16 @@ export async function closeSettings(page: Page): Promise<void> {
 }
 
 export async function openConsole(page: Page): Promise<void> {
-  const historyToggle = page.getByTestId('execution-history-toggle');
-  if (await historyToggle.isVisible().catch(() => false)) {
+  const consoleTab = page.getByTestId('bottom-panel-console-tab');
+  const expandedDock = page.locator('[data-testid="results-dock"][data-expanded="true"]');
+  if ((await expandedDock.isVisible().catch(() => false)) && (await consoleTab.getAttribute('aria-selected')) === 'true') {
     return;
   }
 
   // The dock is open by default; a tab opens it when folded and selects Console.
-  await page.getByTestId('bottom-panel-console-tab').click();
-  await expect(historyToggle).toBeVisible();
+  await consoleTab.click();
+  await expect(expandedDock).toBeVisible();
+  await expect(consoleTab).toHaveAttribute('aria-selected', 'true');
 }
 
 export async function openQuickOpen(page: Page): Promise<void> {

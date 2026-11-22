@@ -14,6 +14,7 @@ import { mkdirSync } from 'node:fs';
 import {
   DEFAULT_FONT_STACK,
   closeSettings,
+  clickRun,
   createJavaScriptTab,
   dismissNotice,
   expect,
@@ -26,6 +27,7 @@ import {
   openSnippets,
   seedSession,
   test,
+  waitForRunCompleted,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -252,7 +254,10 @@ test.describe('Free tier gates', () => {
   test('execution history popover toggle dispatches upsell instead of opening', async ({
     page,
   }) => {
-    // Popover lives in the console header; open the console first.
+    // The run meter's run count opens it once the tab has run.
+    await createJavaScriptTab(page);
+    await clickRun(page);
+    await waitForRunCompleted(page);
     await openConsole(page);
     await page.getByTestId('execution-history-toggle').click();
     await expectNoticeContains(page, 'execution history and rerun tools');

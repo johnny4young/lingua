@@ -19,6 +19,8 @@ interface ApplyAutoRunResultOptions {
   language: Language;
   result: ExecutionResult;
   tabId: string;
+  /** Number the run settled as; the console labels the run with it. */
+  runNumber?: number;
 }
 
 /** Publish a non-stale runner result to the inline and console surfaces. */
@@ -28,6 +30,7 @@ export function applyAutoRunResult({
   language,
   result: measuredResult,
   tabId,
+  runNumber,
 }: ApplyAutoRunResultOptions): void {
   const result = withE2eExecutionTime(measuredResult);
   const {
@@ -67,7 +70,7 @@ export function applyAutoRunResult({
   // path instead of publishing only the inline full-output projection.
   const consoleStore = useConsoleStore.getState();
   // Output lands all at once, so there is no timeline to stamp rows against.
-  consoleStore.beginRun({ tabId, startedAt: null });
+  consoleStore.beginRun({ tabId, startedAt: null, ...(runNumber ? { number: runNumber } : {}) });
   consoleStore.addEntries(toConsoleEntries(result, language));
 
   setStdinConsumed(result.stdinConsumed ?? null);

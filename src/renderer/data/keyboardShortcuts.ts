@@ -69,9 +69,8 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'M'] }],
   },
   {
-    // Toggle the per-tab Recent Runs popover.
-    // No-op when no pill is mounted (view-only tab or empty per-tab history). Dispatcher in `App.tsx` consults the
-    // `recentRunsPopoverBridge` module.
+    // Toggle the run meter's Recent Runs popover, opening a folded dock first;
+    // a notice when the tab has no recorded runs. See `recentRunsPopoverBridge`.
     id: 'run-toggle-recent-runs',
     group: 'run',
     // Moved from Mod+Shift+H to Mod+Alt+H so the

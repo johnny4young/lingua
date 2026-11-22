@@ -34,10 +34,23 @@ type Translate = (key: string, values?: Record<string, number>) => string;
 /** "1 second ago" … "3 hours ago" for this session's runs; never "0 seconds". */
 /** A run's duration: `0.4 ms`, `13 ms`, `18.90 s`; `—` when timing never ran. */
 export function formatRunDuration(durationMs: number | null): string {
-  if (durationMs === null) return '—';
-  if (durationMs < 10) return `${durationMs.toFixed(1)} ms`;
-  if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
-  return `${(durationMs / 1000).toFixed(2)} s`;
+  const { value, unit } = splitRunDuration(durationMs);
+  return unit ? `${value} ${unit}` : value;
+}
+
+/** The same duration as a numeral and its unit, for surfaces that set them apart. */
+export function splitRunDuration(durationMs: number | null): { value: string; unit: 'ms' | 's' | null } {
+  if (durationMs === null || !Number.isFinite(durationMs)) return { value: '—', unit: null };
+  const safe = Math.max(0, durationMs);
+  if (safe < 10) return { value: safe.toFixed(1), unit: 'ms' };
+  if (safe < 1000) return { value: String(Math.round(safe)), unit: 'ms' };
+  return { value: (safe / 1000).toFixed(2), unit: 's' };
+}
+
+/** Time left before a run's limit, as m:ss. */
+export function formatCountdown(remainingMs: number): string {
+  const seconds = Math.floor(Math.max(0, remainingMs) / 1000);
+  return `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
 }
 
 export function formatRunAge(timestamp: number, now: number, t: Translate): string {

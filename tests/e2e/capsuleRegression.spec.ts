@@ -53,7 +53,7 @@ for (const language of ['en', 'es'] as const) {
     await file.getByRole('button').click();
     await clickRun(page);
     await waitForRunCompleted(page);
-    await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
+    await expect(page.locator('button[data-testid="run-meter-bar"]').last()).toBeVisible();
     await page.getByTestId('action-pill-browse-capsules').click();
     mkdirSync('output/review/capsule-regression', { recursive: true });
     await page.screenshot({ path: `output/review/capsule-regression/web-${language}-list.png` });

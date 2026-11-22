@@ -16,7 +16,7 @@ import { bucketDurationMs } from '../../../shared/telemetry';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { formatExecutionSummary, toConsoleEntries, toConsoleEntry } from '../../hooks/runnerOutput';
 import { useConsoleStore } from '../../stores/consoleStore';
-import { runInputKey, useResultStore } from '../../stores/resultStore';
+import { nextTabRunNumber, runInputKey, useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import { toResultDiagnostics } from '../../utils/executionDiagnostics';
@@ -156,6 +156,7 @@ export function publishRunStart(
     tabId: activeTab.id,
     startedAt: Date.now(),
     keepPrevious: !plan.region,
+    number: nextTabRunNumber(useResultStore.getState(), activeTab.id),
   });
   if (showsResults()) {
     clearVisibleResults();
@@ -354,19 +355,20 @@ export async function publishRunFailure(
   error: unknown,
   gitSnapshot: GitSnapshot | undefined,
   isCurrent: () => boolean = () => true,
-  showsResults: () => boolean = isCurrent
+  showsResults: () => boolean = isCurrent,
+  alreadySettled = false
 ): Promise<string> {
-  const { setRunDeadlineAt, setRunTermination } = useResultStore.getState();
+  const { setRunDeadlineAt, settleTabRun } = useResultStore.getState();
   const message = error instanceof Error ? error.message : String(error);
   // Surface the failure via the pill too.
+  // Settle first so the history entry carries this run's number.
+  if (isCurrent() && !alreadySettled) settleTabRun(activeTab.id, { kind: 'error' }, { durationMs: null, publish: showsResults() });
+  else if (isCurrent() && showsResults()) useResultStore.setState({ runTermination: { kind: 'error' } });
   if (plan.recordHistory) {
     await recordFailedRun(activeTab, message, gitSnapshot, isCurrent);
   }
   if (!isCurrent()) return message;
-  if (showsResults()) {
-    setRunDeadlineAt(null);
-    setRunTermination({ kind: 'error' });
-  }
+  if (showsResults()) setRunDeadlineAt(null);
 
   // Mirror the error path in telemetry. `durationBucketMs: 0`
   // because the runner never completed a timed window.

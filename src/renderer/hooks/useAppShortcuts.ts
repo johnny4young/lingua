@@ -5,7 +5,7 @@ import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { cycleRuntimeMode, languageHasRuntimeModes } from '../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { cycleWorkflowMode, defaultWorkflowMode } from '../../shared/workflowMode';
-import { toggleRecentRunsPopover } from '../runtime/recentRunsPopoverBridge';
+import { openRecentRunsPopoverWhenReady, toggleRecentRunsPopover } from '../runtime/recentRunsPopoverBridge';
 import { runCompareCaptureOn, useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
@@ -15,6 +15,7 @@ import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/s
 import { trackEvent } from '../utils/telemetry';
 import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
 import { toggleCompareDock } from '../utils/compareDock';
+import { executionModeForLanguage } from '../utils/languageMeta';
 import {
   nextVariableInspectorEnabled,
   syncVariableInspectorSurfaceAfterToggle,
@@ -169,15 +170,19 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       state.setTabWorkflowMode(tab.id, next);
     },
     toggleRecentRunsPopover: () => {
-      // Toggle the per-tab Recent Runs
-      // popover. The bridge returns `false` when no pill is mounted
-      // (view-only tab, empty
-      // per-tab history); surface
-      // a passive notice so the keystroke is never silent.
-      const dispatched = toggleRecentRunsPopover();
-      if (!dispatched) {
-        pushInfoNotice('executionHistory.tabPill.shortcutUnavailable');
+      // The run meter owns the popover. A folded dock opens first when the tab
+      // has runs; otherwise a notice keeps the keystroke from being silent.
+      if (toggleRecentRunsPopover()) return;
+      const tab = getActiveTab(useEditorStore.getState());
+      // Only code tabs mount the meter, so only they can take the queued open.
+      const meterTab = tab && !tab.kind && executionModeForLanguage(tab.language) === 'run' ? tab.id : null;
+      const hasRuns = meterTab !== null && useExecutionHistoryStore.getState().entries.some(entry => entry.tabId === meterTab);
+      if (hasRuns && !useUIStore.getState().consoleVisible) {
+        openRecentRunsPopoverWhenReady();
+        useUIStore.getState().openBottomPanel('console');
+        return;
       }
+      pushInfoNotice('executionHistory.tabPill.shortcutUnavailable');
     },
     toggleCompareWithSnapshot: () => {
       // Toggle the Compare panel with the dock's gate: a comparator

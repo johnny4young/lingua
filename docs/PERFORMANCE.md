@@ -184,9 +184,8 @@ localized; a failed module URL offers a page reload because retrying it in the
 same document is not reliable.
 
 Recent Runs uses a narrower activation boundary because its trigger must remain
-discoverable. `RecentRunsPill.tsx` keeps the per-tab count, Free upsell, and
-global keyboard opener in the initial graph, selecting only primitive active-tab
-fields so buffer edits do not re-render the trigger. Opening an eligible Pro
+discoverable. The run meter (`RunMeter/RunMeter.tsx`, in the lazy dock chunk)
+keeps the bars, Free's slice and the global keyboard opener. Opening an eligible Pro
 history mounts `RecentRunsPopoverHost.tsx`, whose cached loader requests the row
 renderer, relative-time interval, pin/replay controls, runner integration, and
 icons. A successful chunk is reused for later opens; a failed module URL stays

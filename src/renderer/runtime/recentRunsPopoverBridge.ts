@@ -1,33 +1,36 @@
 /**
- * module-level handle so the global keyboard
- * shortcut (`Mod+Alt+H`, moved from `Mod+Shift+H` so
- * the VSCode-parity `Mod+Shift+H` binding can map to project-replace)
- * can toggle the result-panel pill's popover
- * without piping a ref through the renderer tree.
- *
- * Mirrors the `editorAccess` / `debuggerWorkerBridge` pattern: the
- * pill writes the opener on mount and clears it on unmount; the
- * keyboard handler reads it on demand and short-circuits when no
- * opener is registered (no pill mounted — no active runnable tab).
+ * Module-level handle so the global shortcut (`Mod+Alt+H`) can toggle the run
+ * meter's Recent runs popover without piping a ref through the renderer tree.
+ * The meter writes the opener on mount and clears it on unmount.
  */
 
 export type RecentRunsPopoverOpener = () => void;
 
-const ref: { opener: RecentRunsPopoverOpener | null } = { opener: null };
+// A queued open expires, so a meter that mounts much later for another reason never pops the list.
+const PENDING_MS = 2_000;
+const ref: { opener: RecentRunsPopoverOpener | null; pendingUntil: number } = { opener: null, pendingUntil: 0 };
 
 export function setRecentRunsPopoverOpener(opener: RecentRunsPopoverOpener | null): void {
   ref.opener = opener;
+  if (opener && Date.now() <= ref.pendingUntil) {
+    ref.pendingUntil = 0;
+    opener();
+  }
 }
 
 /**
- * Toggle the per-tab Recent runs popover if a pill is mounted and
- * exposes an opener. Returns `true` when the toggle dispatched,
- * `false` when no opener is registered (so the shortcut dispatcher
- * can fall back to a status notice).
+ * Toggle the per-tab Recent runs popover if the meter is mounted and exposes
+ * an opener. Returns `false` when none is registered, so the shortcut can open
+ * the dock with `openRecentRunsPopoverWhenReady` or fall back to a notice.
  */
 export function toggleRecentRunsPopover(): boolean {
   const opener = ref.opener;
   if (!opener) return false;
   opener();
   return true;
+}
+
+/** Open the popover as soon as the meter mounts, for a shortcut pressed while the dock is folded. */
+export function openRecentRunsPopoverWhenReady(): void {
+  ref.pendingUntil = Date.now() + PENDING_MS;
 }

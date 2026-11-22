@@ -225,6 +225,14 @@ describe('consoleStore', () => {
     expect(state.previousRun?.rows.map(row => row.entry.content)).toEqual(['first']);
   });
 
+  it('beginRun takes the number the tab run log assigned, so tab switches keep counting', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000, number: 7 });
+    expect(useConsoleStore.getState().currentRun?.number).toBe(7);
+    useConsoleStore.getState().beginRun({ tabId: 'b', startedAt: 2_000, number: 3 });
+    expect(useConsoleStore.getState().currentRun).toEqual({ tabId: 'b', number: 3, startedAt: 2_000 });
+    expect(useConsoleStore.getState().previousRun).toBeNull();
+  });
+
   it('keeps only line-keyed rows of the previous run, and clear drops them with the anchor', () => {
     useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000 });
     useConsoleStore.getState().addEntries([

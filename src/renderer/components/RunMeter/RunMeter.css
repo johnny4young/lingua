@@ -1,0 +1,254 @@
+/* The dock shell is the container, so the meter can fold into a band on narrow docks. */
+.dock-shell {
+  container: dock / inline-size;
+}
+
+.dock-shell-row {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.run-meter {
+  container: meter / size;
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
+  width: 300px;
+  flex: none;
+  min-height: 0;
+  overflow: hidden;
+  padding: 14px 20px 12px;
+  border-right: 1px solid var(--color-border-subtle);
+  background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--color-pulse) 7%, transparent), transparent 60%),
+    var(--color-bg-panel);
+}
+
+.run-meter-state {
+  display: flex;
+  min-width: 0;
+  height: 18px;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-fg-subtle);
+}
+
+.run-meter-state .run-dot {
+  margin-right: 2px;
+}
+
+.run-meter-state .run-dot[data-run-dot='paused'] { background: var(--color-value-number); }
+.run-meter-state .run-dot[data-run-dot='idle'] { box-shadow: inset 0 0 0 1.2px var(--color-fg-subtle); }
+
+.run-meter-state-name { color: var(--color-fg-muted); }
+.run-meter[data-state='running'] .run-meter-state-name { color: var(--color-pulse-fg); }
+.run-meter[data-state='paused'] .run-meter-state-name { color: var(--color-value-number); }
+.run-meter[data-state='error'] .run-meter-state-name,
+.run-meter[data-state='timeout'] .run-meter-state-name { color: var(--color-value-error); }
+
+.run-meter-state-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.run-meter-numeral {
+  display: flex;
+  min-height: 0;
+  align-items: flex-end;
+  margin-top: 2px;
+  overflow: hidden;
+}
+
+/* The numeral gives up height before the bars do; 88 px once the dock is about 240 px tall. */
+.run-meter-numeral .result-numeral-value {
+  font-size: clamp(30px, calc(100cqh - 90px), 88px);
+  line-height: 1.04;
+}
+
+.run-meter-numeral .result-numeral-unit {
+  font-size: clamp(13px, calc((100cqh - 90px) * 0.34), 30px);
+  color: var(--color-fg-muted);
+}
+
+.run-meter[data-state='stale'] .result-numeral,
+.run-meter[data-state='idle'] .result-numeral {
+  color: var(--color-fg-muted);
+}
+
+.run-meter-bars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.run-meter-bar {
+  display: grid;
+  grid-template-rows: auto auto;
+  justify-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--color-fg-subtle);
+}
+
+button.run-meter-bar { cursor: pointer; }
+button.run-meter-bar:hover .run-meter-bar-fill { filter: brightness(1.2); }
+button.run-meter-bar:focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
+}
+
+.run-meter-bar-track {
+  position: relative;
+  display: block;
+  height: clamp(18px, 17cqh, 36px);
+}
+
+.run-meter-bar-fill,
+.run-meter-bar-expected {
+  position: absolute;
+  inset: auto 0 0;
+  border-radius: 2px;
+}
+
+.run-meter-bar-fill {
+  height: calc(var(--bar-height, 0) * 100%);
+  background: color-mix(in srgb, var(--color-fg-subtle) 55%, transparent);
+}
+
+.run-meter-bar[data-kind='error'] .run-meter-bar-fill,
+.run-meter-bar[data-kind='timeout'] .run-meter-bar-fill {
+  height: 3px;
+  background: var(--color-value-error);
+}
+
+.run-meter-bar[data-kind='stopped'] .run-meter-bar-fill {
+  height: 3px;
+}
+
+.run-meter-bar[data-latest='true'][data-kind='ok'] .run-meter-bar-fill { background: var(--color-pulse); }
+
+.run-meter-bar[data-kind='live'] .run-meter-bar-fill {
+  background: var(--color-pulse);
+  transition: height var(--duration-fast) linear;
+}
+
+.run-meter-bar-expected {
+  z-index: 1;
+  height: calc(var(--bar-expected, 0) * 100%);
+  border: 1px dashed color-mix(in srgb, var(--color-pulse-fg) 60%, transparent);
+}
+
+.run-meter-bar-number {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.run-meter-bar[data-kind='error'] .run-meter-bar-number,
+.run-meter-bar[data-kind='timeout'] .run-meter-bar-number { color: var(--color-value-error); }
+.run-meter-bar[data-latest='true'] .run-meter-bar-number { font-weight: 700; }
+.run-meter-bar[data-latest='true']:is([data-kind='ok'], [data-kind='live']) .run-meter-bar-number { color: var(--color-pulse-fg); }
+
+.run-meter-foot {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--color-fg-subtle);
+}
+
+.run-meter-foot > :first-child { min-width: 0; }
+
+.run-meter-link {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  white-space: nowrap;
+  color: var(--color-fg-subtle);
+  cursor: pointer;
+}
+
+.run-meter-link:hover { color: var(--color-fg-base); }
+.run-meter-link:focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.run-meter-compare { flex: none; color: var(--color-fg-muted); }
+
+/* Mid-width docks keep Compare as its glyph; the label stays its accessible name. */
+@container dock (max-width: 900px) {
+  .run-meter { width: 220px; padding-inline: 14px; }
+  .run-meter-bars { gap: 6px; }
+  .run-meter-compare-label { display: none; }
+}
+
+/* Narrow or beside-the-editor docks: the meter becomes one row above the tabs. */
+@container dock (max-width: 560px) {
+  .dock-shell-row { flex-direction: column; }
+
+  .run-meter {
+    container: none;
+    display: flex;
+    width: auto;
+    height: 40px;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .run-meter-state { flex: 0 1 auto; }
+  .run-meter-numeral { flex: none; align-items: center; }
+  .run-meter-numeral .result-numeral { gap: 4px; }
+  .run-meter-numeral .result-numeral-value { font-size: 19px; line-height: 1; }
+  .run-meter-numeral .result-numeral-unit { font-family: var(--font-ui); font-size: 12.5px; }
+  .run-meter-bars { display: none; }
+  .run-meter-foot { flex: 1 1 auto; justify-content: flex-end; margin: 0; }
+  .run-meter-compare { display: none; }
+}
+
+.run-meter-bar[data-latest='true'][data-kind='ok'] .run-meter-bar-fill {
+  transform-origin: bottom;
+  animation: run-meter-bar-rise var(--duration-normal) var(--curve-spring);
+}
+
+@keyframes run-meter-bar-rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-meter-bar .run-meter-bar-fill { transition: none; animation: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .run-meter { background: var(--color-bg-panel); }
+}

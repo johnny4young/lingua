@@ -5,7 +5,7 @@
  * terminated.
  */
 
-import { executionKind } from '../../utils/executionOutcome';
+import { executionKind, primaryExecutionError } from '../../utils/executionOutcome';
 import { toConsoleEntry } from '../../hooks/runnerOutput';
 import { createConsoleEntryBatcher, scheduleNextFrame } from '../../stores/consoleEntryBatcher';
 import { useConsoleStore } from '../../stores/consoleStore';
@@ -73,7 +73,7 @@ export async function runAndCollect(
     setLineResults,
     setLineTimings,
     setRunDeadlineAt,
-    setRunTermination,
+    settleTabRun,
   } = useResultStore.getState();
 
   const streamedStdout: ConsoleOutput[] = [];
@@ -141,19 +141,17 @@ export async function runAndCollect(
       ? output : { ...output, captureOrder };
   };
   result = { ...result, stdout: result.stdout.map(retainObservedOrder), stderr: result.stderr.map(retainObservedOrder) };
+  if (isCurrent()) {
+    // Runners that don't set `kind` default to a best-effort guess based on `error` / `cancelled`.
+    const line = primaryExecutionError(result)?.line;
+    settleTabRun(
+      activeTab.id,
+      { kind: executionKind(result), timeoutPreset: result.timeoutPreset, timeoutMs: result.timeoutMs },
+      { durationMs: result.executionTime ?? null, publish: showsResults(), ...(line ? { line } : {}) }
+    );
+  }
   if (!showsResults()) return { result, streamedConsoleCount };
-  // Tear down the in-flight deadline immediately; the pill flips to the
-  // termination variant on the next render.
   setRunDeadlineAt(null);
-  // Propagate the termination summary so `<RunStatusPill>`
-  // can render the right variant. Runners that don't set `kind` default to a
-  // best-effort guess based on `error` / `cancelled`.
-  const terminationKind = executionKind(result);
-  setRunTermination({
-    kind: terminationKind,
-    timeoutPreset: result.timeoutPreset,
-    timeoutMs: result.timeoutMs,
-  });
 
   return { result, streamedConsoleCount };
 }

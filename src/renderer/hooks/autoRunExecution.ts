@@ -1,6 +1,6 @@
 import { useTimelineStore } from '../stores/timelineStore';
 import { useRunRegionStore } from '../stores/runRegionStore';
-import { executionKind } from '../utils/executionOutcome';
+import { executionKind, primaryExecutionError } from '../utils/executionOutcome';
 import { webExecutionBoundary } from '../utils/runtimeModeSupport';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { isNativeToolchainMissing } from '../stores/nativeToolchainStore';
@@ -52,7 +52,6 @@ export async function executeAutoRun({
     setExecutionSource,
     setIsAutoRunning,
     setAutoRunGateReason,
-    setRunTermination,
     setRunDeadlineAt,
     restoreLastSuccessfulSnapshot,
   } = useResultStore.getState();
@@ -147,6 +146,7 @@ export async function executeAutoRun({
   useRunRegionStore.getState().clearTab(activeTab.id);
 
   let armedDeadlineAt: number | null = null;
+  let settled = false;
   try {
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner || shouldDiscard()) {
@@ -221,12 +221,15 @@ export async function executeAutoRun({
     if (runtimeMode === 'browser-preview' && result.cancelled) {
       return;
     }
-    setRunTermination({
-      kind: executionKind(result),
-      timeoutPreset: result.timeoutPreset,
-      timeoutMs: result.timeoutMs,
-    });
+    const failedLine = primaryExecutionError(result)?.line;
+    settled = true;
+    const runNumber = useResultStore.getState().settleTabRun(
+      activeTab.id,
+      { kind: executionKind(result), timeoutPreset: result.timeoutPreset, timeoutMs: result.timeoutMs },
+      { durationMs: result.executionTime ?? null, ...(failedLine ? { line: failedLine } : {}) }
+    );
     applyAutoRunResult({
+      runNumber,
       autoLogEnabled,
       code,
       language,
@@ -238,6 +241,8 @@ export async function executeAutoRun({
       setRunDeadlineAt(null);
     }
     if (!shouldDiscard()) {
+      // Counts like a manual run that throws, so the meter never keeps the previous run's state.
+      if (!settled) useResultStore.getState().settleTabRun(activeTab.id, { kind: 'error' }, { durationMs: null });
       setError({
         message: error instanceof Error ? error.message : String(error),
       });

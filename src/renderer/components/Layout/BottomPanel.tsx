@@ -49,7 +49,8 @@ import { DockHeaderControls } from './DockHeaderControls';
 import { DockOutputReport } from './DockOutputReport';
 import { MissingToolchainPanel } from './MissingToolchainPanel';
 import { useMissingActiveToolchain } from '../../hooks/useMissingActiveToolchain';
-import { RunHistoryStrip } from './RunHistoryStrip';
+import { RunMeter } from '../RunMeter/RunMeter';
+import { executionModeForLanguage } from '../../utils/languageMeta';
 
 // Lazy so the `DiffEditor` import inside GitDiffPanel does not drag the
 // full monaco chunk into the INITIAL bundle — the git-diff tab is
@@ -130,6 +131,11 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const { tabs: availability, debuggerLive } = useLayoutAvailability();
   const activeTabId = useEditorStore(s => s.activeTabId);
   const activeLanguage = useEditorStore(s => getActiveTab(s)?.language);
+  // The meter follows code tabs; SQL, HTTP, notebooks and utilities carry their own result headers.
+  const meterTabId = useEditorStore(s => {
+    const tab = getActiveTab(s);
+    return tab && !tab.kind && executionModeForLanguage(tab.language) === 'run' ? tab.id : null;
+  });
   const missingToolchain = useMissingActiveToolchain(activeLanguage ?? '');
   const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
   const consoleVisible = useUIStore(state => state.consoleVisible);
@@ -201,161 +207,171 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
       aria-label={t('bottomPanel.tabs.label')}
       data-testid="results-dock"
       data-expanded={expanded ? 'true' : 'false'}
-      className="flex h-full min-h-0 flex-col bg-bg-panel"
+      className="dock-shell h-full min-h-0 bg-bg-panel"
     >
-      <div className="flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt">
-        <div
-          role="tablist"
-          aria-label={t('bottomPanel.tabs.listLabel')}
-          className="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
-        >
-          {availableDockTabs(availability).map(id => {
-            const meta = DOCK_TAB_META[id];
-            const Icon = meta.icon;
-            const selected = expanded && effectiveTab === id;
-            const count = counts[id] ?? 0;
-            return (
+      <div className="dock-shell-row">
+        {expanded && meterTabId ? (
+          <RunMeter
+            tabId={meterTabId}
+            {...(availability.compare ? { onCompare: () => openBottomPanel('compare') } : {})}
+          />
+        ) : null}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            data-testid="results-dock-tab-row"
+            className="flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt"
+          >
+            <div
+              role="tablist"
+              aria-label={t('bottomPanel.tabs.listLabel')}
+              className="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
+            >
+              {availableDockTabs(availability).map(id => {
+                const meta = DOCK_TAB_META[id];
+                const Icon = meta.icon;
+                const selected = expanded && effectiveTab === id;
+                const count = counts[id] ?? 0;
+                return (
+                  <Tooltip
+                    key={id}
+                    content={t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues)}
+                    side="top"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      id={id === 'console' ? 'bottom-panel-console-tab' : undefined}
+                      data-testid={`bottom-panel-${id}-tab`}
+                      aria-selected={selected}
+                      onClick={() => openBottomPanel(id)}
+                      className={cn(
+                        'dock-tab relative inline-flex h-[34px] shrink-0 items-center gap-[7px] border-b-2 px-3.5 text-caption font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-fg',
+                        selected
+                          ? 'border-accent text-fg-base'
+                          : 'border-transparent text-fg-muted hover:text-fg-base'
+                      )}
+                    >
+                      <Icon
+                        size={13}
+                        aria-hidden="true"
+                        className={selected ? 'text-accent-fg' : 'text-fg-subtle'}
+                      />
+                      {t(meta.labelKey)}
+                      {count > 0 ? (
+                        <span
+                          data-testid={`bottom-panel-${id}-count`}
+                          className={cn(
+                            'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-nano font-bold leading-none text-fg-on-accent tabular-nums',
+                            id === 'tests' ? 'bg-error-fg' : 'bg-accent'
+                          )}
+                        >
+                          {count}
+                        </span>
+                      ) : null}
+                    </button>
+                  </Tooltip>
+                );
+              })}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5 pl-2 pr-2">
+              <DockHeaderControls />
               <Tooltip
-                key={id}
-                content={t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues)}
-                side="top"
+                content={t(expanded ? 'bottomPanel.actions.hide' : 'bottomPanel.actions.show', {
+                  combo: dockCombo ?? '',
+                })}
+                side="bottom"
               >
                 <button
                   type="button"
-                  role="tab"
-                  id={id === 'console' ? 'bottom-panel-console-tab' : undefined}
-                  data-testid={`bottom-panel-${id}-tab`}
-                  aria-selected={selected}
-                  onClick={() => openBottomPanel(id)}
-                  className={cn(
-                    'dock-tab relative inline-flex h-[34px] shrink-0 items-center gap-[7px] border-b-2 px-3.5 text-caption font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-fg',
-                    selected
-                      ? 'border-accent text-fg-base'
-                      : 'border-transparent text-fg-muted hover:text-fg-base'
-                  )}
+                  data-testid={expanded ? 'bottom-panel-hide' : 'bottom-panel-restore'}
+                  aria-label={t(expanded ? 'bottomPanel.actions.hide' : 'bottomPanel.actions.show', {
+                    combo: dockCombo ?? '',
+                  })}
+                  aria-expanded={expanded}
+                  onClick={() =>
+                    expanded ? setConsoleVisible(false) : openBottomPanel(activeBottomPanel)
+                  }
+                  className="icon-button h-7 w-7 rounded-md"
                 >
-                  <Icon
-                    size={13}
-                    aria-hidden="true"
-                    className={selected ? 'text-accent-fg' : 'text-fg-subtle'}
-                  />
-                  {t(meta.labelKey)}
-                  {count > 0 ? (
-                    <span
-                      data-testid={`bottom-panel-${id}-count`}
-                      className={cn(
-                        'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-nano font-bold leading-none text-fg-on-accent tabular-nums',
-                        id === 'tests' ? 'bg-error-fg' : 'bg-accent'
-                      )}
-                    >
-                      {count}
-                    </span>
-                  ) : null}
+                  {expanded ? (
+                    <ChevronDown size={14} aria-hidden="true" />
+                  ) : (
+                    <ChevronUp size={14} aria-hidden="true" />
+                  )}
                 </button>
               </Tooltip>
-            );
-          })}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 pl-2 pr-2">
-          <DockHeaderControls />
-          <Tooltip
-            content={t(expanded ? 'bottomPanel.actions.hide' : 'bottomPanel.actions.show', {
-              combo: dockCombo ?? '',
-            })}
-            side="bottom"
-          >
-            <button
-              type="button"
-              data-testid={expanded ? 'bottom-panel-hide' : 'bottom-panel-restore'}
-              aria-label={t(expanded ? 'bottomPanel.actions.hide' : 'bottomPanel.actions.show', {
-                combo: dockCombo ?? '',
-              })}
-              aria-expanded={expanded}
-              onClick={() =>
-                expanded ? setConsoleVisible(false) : openBottomPanel(activeBottomPanel)
-              }
-              className="icon-button h-7 w-7 rounded-md"
-            >
-              {expanded ? (
-                <ChevronDown size={14} aria-hidden="true" />
+            </div>
+          </div>
+          {expanded ? (
+            <div key={effectiveTab} className="dock-tab-body flex min-h-0 flex-1 flex-col overflow-hidden">
+              {effectiveTab === 'debugger' ? (
+                <DebuggerDrawerHost activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
+              ) : effectiveTab === 'browser-preview' ? (
+                <BrowserPreviewPanel />
+              ) : effectiveTab === 'stdin' ? (
+                <StdinInputPanel />
+              ) : effectiveTab === 'timeline' ? (
+                <Suspense fallback={null}>
+                  <TimelinePanel />
+                </Suspense>
+              ) : effectiveTab === 'compare' && runCompareActive ? (
+                <Suspense fallback={null}>
+                  <RunComparePanel activeTabId={activeTabId ?? null} />
+                </Suspense>
+              ) : effectiveTab === 'compare' ? (
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <CompareResultsPanelHost
+                    key={activeTabId ?? 'none'}
+                    language={activeLanguage ?? 'javascript'}
+                  />
+                </div>
+              ) : effectiveTab === 'variables' ? (
+                <VariableInspectorPanel language={activeLanguage ?? 'javascript'} />
+              ) : effectiveTab === 'dependencies' ? (
+                <DependenciesPanel />
+              ) : effectiveTab === 'git-diff' ? (
+                <Suspense fallback={null}>
+                  <GitDiffPanel />
+                </Suspense>
+              ) : effectiveTab === 'project-terminal' && currentProject ? (
+                <Suspense
+                  fallback={
+                    <div
+                      role="status"
+                      className="flex h-full items-center justify-center text-caption text-muted"
+                    >
+                      {t('projectTerminal.loading')}
+                    </div>
+                  }
+                >
+                  <ProjectTerminalPanel
+                    binding={{
+                      rootId: currentProject.rootId,
+                      projectName: currentProject.name,
+                    }}
+                  />
+                </Suspense>
+              ) : effectiveTab === 'tests' ? (
+                <Suspense fallback={null}>
+                  <TestsPanel />
+                </Suspense>
+              ) : effectiveTab === 'recipe' ? (
+                <Suspense fallback={null}>
+                  <RecipeRunPanel />
+                </Suspense>
               ) : (
-                <ChevronUp size={14} aria-hidden="true" />
+                <>
+                  {missingToolchain ? <MissingToolchainPanel toolchain={missingToolchain} /> : null}
+                  <DockOutputReport />
+                  <div className="min-h-0 flex-1">
+                    <ConsolePanel quietEmpty={missingToolchain !== null} />
+                  </div>
+                </>
               )}
-            </button>
-          </Tooltip>
+            </div>
+          ) : null}
         </div>
       </div>
-      {expanded ? (
-        <div key={effectiveTab} className="dock-tab-body flex min-h-0 flex-1 flex-col overflow-hidden">
-          {effectiveTab === 'debugger' ? (
-            <DebuggerDrawerHost activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
-          ) : effectiveTab === 'browser-preview' ? (
-            <BrowserPreviewPanel />
-          ) : effectiveTab === 'stdin' ? (
-            <StdinInputPanel />
-          ) : effectiveTab === 'timeline' ? (
-            <Suspense fallback={null}>
-              <TimelinePanel />
-            </Suspense>
-          ) : effectiveTab === 'compare' && runCompareActive ? (
-            <Suspense fallback={null}>
-              <RunComparePanel activeTabId={activeTabId ?? null} />
-            </Suspense>
-          ) : effectiveTab === 'compare' ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <CompareResultsPanelHost
-                key={activeTabId ?? 'none'}
-                language={activeLanguage ?? 'javascript'}
-              />
-            </div>
-          ) : effectiveTab === 'variables' ? (
-            <VariableInspectorPanel language={activeLanguage ?? 'javascript'} />
-          ) : effectiveTab === 'dependencies' ? (
-            <DependenciesPanel />
-          ) : effectiveTab === 'git-diff' ? (
-            <Suspense fallback={null}>
-              <GitDiffPanel />
-            </Suspense>
-          ) : effectiveTab === 'project-terminal' && currentProject ? (
-            <Suspense
-              fallback={
-                <div
-                  role="status"
-                  className="flex h-full items-center justify-center text-caption text-muted"
-                >
-                  {t('projectTerminal.loading')}
-                </div>
-              }
-            >
-              <ProjectTerminalPanel
-                binding={{
-                  rootId: currentProject.rootId,
-                  projectName: currentProject.name,
-                }}
-              />
-            </Suspense>
-          ) : effectiveTab === 'tests' ? (
-            <Suspense fallback={null}>
-              <TestsPanel />
-            </Suspense>
-          ) : effectiveTab === 'recipe' ? (
-            <Suspense fallback={null}>
-              <RecipeRunPanel />
-            </Suspense>
-          ) : (
-            <>
-              {missingToolchain ? <MissingToolchainPanel toolchain={missingToolchain} /> : null}
-              <DockOutputReport />
-              <div className="min-h-0 flex-1">
-                <ConsolePanel quietEmpty={missingToolchain !== null} />
-              </div>
-              <RunHistoryStrip
-                onCompare={availability.compare ? () => openBottomPanel('compare') : undefined}
-              />
-            </>
-          )}
-        </div>
-      ) : null}
     </section>
   );
 }

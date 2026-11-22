@@ -30,14 +30,8 @@ import { useTranslation } from 'react-i18next';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { StatusBadge } from '../ui/StatusBadge';
-
-function formatMmSs(remainingMs: number): string {
-  const safeMs = Math.max(0, Math.floor(remainingMs));
-  const seconds = Math.floor(safeMs / 1000);
-  const mm = Math.floor(seconds / 60);
-  const ss = seconds % 60;
-  return `${mm}:${ss.toString().padStart(2, '0')}`;
-}
+import { formatCountdown } from '../../utils/timeLabels';
+import { timeoutTooltip } from '../../utils/runTerminationCopy';
 
 export function RunStatusPill({ compact = false }: { compact?: boolean } = {}) {
   const { t } = useTranslation();
@@ -61,7 +55,7 @@ export function RunStatusPill({ compact = false }: { compact?: boolean } = {}) {
   // alarm yet), so it adopts the quiet `neutral` StatusBadge tone.
   if (showCountdown && runDeadlineAt !== null) {
     const remaining = runDeadlineAt - now;
-    const label = formatMmSs(Math.max(0, remaining));
+    const label = formatCountdown(remaining);
     return (
       <span
         data-result-kind="run-status-pill"
@@ -81,25 +75,9 @@ export function RunStatusPill({ compact = false }: { compact?: boolean } = {}) {
   if (!runTermination) return null;
   if (runTermination.kind === 'success') return null;
 
-  const presetKey = runTermination.timeoutPreset;
-  const presetLabel =
-    presetKey && presetKey !== 'override'
-      ? t(`runtime.timeout.preset.${presetKey}.label`)
-      : '';
-  const seconds = runTermination.timeoutMs
-    ? Math.max(1, Math.round(runTermination.timeoutMs / 1000))
-    : null;
-
   switch (runTermination.kind) {
     case 'timeout': {
-      const tooltip = seconds
-        ? presetLabel
-          ? t('runtime.statusPill.timeout.tooltip', {
-              preset: presetLabel,
-              seconds,
-            })
-          : t('runtime.statusPill.timeout.tooltipOverride', { seconds })
-        : t('runtime.statusPill.timeout.label');
+      const tooltip = timeoutTooltip(t, runTermination);
       return (
         <span
           data-result-kind="run-status-pill"

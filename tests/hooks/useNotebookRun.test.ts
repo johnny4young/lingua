@@ -573,6 +573,7 @@ describe('useNotebookRun', () => {
     const cancel = vi.fn();
     const session: ManualRunSession = {
       tabId: 'editor-tab',
+      startedAt: 0,
       isCurrent: () => true,
       onCancel: () => () => {},
       cancel,
