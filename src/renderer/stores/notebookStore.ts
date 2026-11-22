@@ -35,6 +35,7 @@ import {
   type NotebookCellKind,
   type NotebookCellLanguage,
   type NotebookCellOutputV1,
+  type NotebookLineAnswerV1,
   type NotebookCellV1,
   type NotebookV1,
 } from '../../shared/notebook';
@@ -192,11 +193,12 @@ export interface NotebookState {
   ) => void;
   /** Reorder cells — move from index `fromIdx` to `toIdx`. */
   moveCell: (tabId: string, fromIdx: number, toIdx: number) => void;
-  /** Set the outputs of a cell after a Run+settle. */
+  /** Set the outputs and per-line answers of a cell after a Run+settle. */
   setCellOutputs: (
     tabId: string,
     cellId: string,
-    outputs: ReadonlyArray<NotebookCellOutputV1>
+    outputs: ReadonlyArray<NotebookCellOutputV1>,
+    answers?: ReadonlyArray<NotebookLineAnswerV1>
   ) => void;
   /** Flip the run status. */
   setCellRunStatus: (

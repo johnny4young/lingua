@@ -74,10 +74,15 @@ describe('NotebookCodeCellRow — SQL cell ', () => {
     expect(sqlOption!.disabled).toBe(false);
   });
 
-  it('renders the shared-engine hint (i18n key resolves)', () => {
-    render(<NotebookCodeCellRow {...rowProps(makeSqlCell([]))} />);
-    const hint = screen.getByTestId('notebook-code-cell-sql-hint');
-    expect(hint.textContent).toContain('DuckDB');
+  it('names the table a cell made and the tables it uses', () => {
+    render(
+      <NotebookCodeCellRow
+        {...rowProps(makeSqlCell([]))}
+        varFlow={{ uses: ['orders'], produces: ['by_city'] }}
+      />
+    );
+    expect(screen.getByTestId('notebook-code-cell-produces').textContent).toBe('makes by_city');
+    expect(screen.getByTestId('notebook-code-cell-uses').textContent).toBe('uses orders');
   });
 
   it('renders a SQL result set (JSON-array stdout) as a table grid', () => {

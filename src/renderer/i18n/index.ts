@@ -40,6 +40,7 @@ async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> 
     import('./locales/es/capsuleImport.json'),
     import('./locales/es/start.json'),
     import('./locales/es/explorer.json'),
+    import('./locales/es/notebook.json'),
   ]).then(
     (catalogs) => Object.assign({}, ...catalogs.map((catalog) => catalog.default)) as CommonCatalog
   );

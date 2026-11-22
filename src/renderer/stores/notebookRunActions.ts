@@ -1,8 +1,14 @@
-import { MAX_OUTPUTS_PER_CELL } from '../../shared/notebook';
+import { withCellRunResults, type NotebookCellV1 } from '../../shared/notebook';
 import type { NotebookState } from './notebookStore';
 import type { NotebookSet } from './notebookStoreContext';
 import { isNotebookCellRunStatus } from './notebookStorePrimitives';
 import { markExecutedNotebookCellsStale } from './notebookReactivity';
+
+function hasRunResults(
+  cell: NotebookCellV1
+): cell is Extract<NotebookCellV1, { kind: 'code' }> {
+  return cell.kind === 'code' && (cell.outputs.length > 0 || cell.answers !== undefined);
+}
 
 /**
  * Notebook run-state action factory.
@@ -27,7 +33,7 @@ export function createRunActions(
   | 'restartNotebookSession'
 > {
   return {
-    setCellOutputs: (tabId, cellId, outputs) =>
+    setCellOutputs: (tabId, cellId, outputs, answers) =>
       set((state) => {
         const slice = state.notebooks[tabId];
         if (!slice) return state;
@@ -35,9 +41,8 @@ export function createRunActions(
         if (idx === -1) return state;
         const existing = slice.notebook.cells[idx]!;
         if (existing.kind !== 'code') return state;
-        const trimmed = outputs.slice(0, MAX_OUTPUTS_PER_CELL);
         const next = slice.notebook.cells.slice();
-        next[idx] = { ...existing, outputs: trimmed };
+        next[idx] = withCellRunResults(existing, outputs, answers);
         return {
           notebooks: {
             ...state.notebooks,
@@ -165,9 +170,9 @@ export function createRunActions(
         if (!slice) return state;
         let mutated = false;
         const next = slice.notebook.cells.map((cell) => {
-          if (cell.kind !== 'code' || cell.outputs.length === 0) return cell;
+          if (!hasRunResults(cell)) return cell;
           mutated = true;
-          return { ...cell, outputs: [] };
+          return withCellRunResults(cell, []);
         });
         if (!mutated) return state;
         return {
@@ -188,11 +193,9 @@ export function createRunActions(
         const idx = slice.notebook.cells.findIndex((c) => c.id === cellId);
         if (idx === -1) return state;
         const existing = slice.notebook.cells[idx]!;
-        if (existing.kind !== 'code' || existing.outputs.length === 0) {
-          return state;
-        }
+        if (!hasRunResults(existing)) return state;
         const next = slice.notebook.cells.slice();
-        next[idx] = { ...existing, outputs: [] };
+        next[idx] = withCellRunResults(existing, []);
         return {
           notebooks: {
             ...state.notebooks,
@@ -218,9 +221,7 @@ export function createRunActions(
         const slice = state.notebooks[tabId];
         if (!slice) return state;
         const next = slice.notebook.cells.map((cell) =>
-          cell.kind === 'code' && cell.outputs.length > 0
-            ? { ...cell, outputs: [] }
-            : cell
+          hasRunResults(cell) ? withCellRunResults(cell, []) : cell
         );
         return {
           notebooks: {

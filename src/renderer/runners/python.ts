@@ -668,7 +668,8 @@ export class PythonRunner implements LanguageRunner {
         // walks frames for origin.
         richConsoleEnabled: true,
         sourceMappingEnabled: true,
-        autoLog: context?.autoLog === true,
+        autoLog: context?.autoLog === true || context?.autoLog === 'assignments',
+        autoLogAssignments: context?.autoLog === 'assignments',
         askStdin: context?.askStdin === true,
         network,
       });

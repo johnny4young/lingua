@@ -23,7 +23,9 @@ System Access handles and close-to-commit, not an atomic rename promise. Browser
 without a save picker cannot save a project document; export remains a separate
 download. Web handle grants do not survive app reload: session recovery retains
 cells/output evidence, but reselect a file with Save As before saving again.
-Document v1 and existing import/export formats remain unchanged. Local recovery
+Document v1 and existing import/export formats remain unchanged; a code cell
+may carry an optional `answers` list (what each line answered on its last run),
+which older builds ignore and which never makes a notebook fail to open. Local recovery
 is not disk autosave, a backup service, or a guarantee against external-process
 races; expected hashes detect optimistic conflicts at commit time.
 

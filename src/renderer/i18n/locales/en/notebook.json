@@ -1,0 +1,12 @@
+{
+  "notebookAnswers.region": "Answers for cell {{index}}",
+  "notebookAnswers.rows_one": "row",
+  "notebookAnswers.rows_other": "rows",
+  "notebookAnswers.columns_one": "{{count}} column",
+  "notebookAnswers.columns_other": "{{count}} columns",
+  "notebookAnswers.outputToggle_one": "{{count}} output line",
+  "notebookAnswers.outputToggle_other": "{{count}} output lines",
+  "notebookAnswers.run": "Run {{n}}",
+  "notebookAnswers.runLabel": "run",
+  "notebookAnswers.notRun": "Not run"
+}

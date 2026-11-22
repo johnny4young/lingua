@@ -79,6 +79,25 @@ function deriveUsesKeys(
   return [...referenced];
 }
 
+/**
+ * Python and SQL keep no JS sandbox: what a cell can use is what other cells
+ * of the same kernel made (Python names, DuckDB tables).
+ */
+function namesMadeBySameKernel(
+  tabId: string,
+  cellId: string,
+  language: NotebookCellLanguage
+): string[] {
+  const slice = useNotebookStore.getState().notebooks[tabId];
+  if (!slice) return [];
+  const names = new Set<string>();
+  for (const cell of slice.notebook.cells) {
+    if (cell.id === cellId || cell.kind !== 'code' || cell.language !== language) continue;
+    for (const name of slice.cellVarFlow?.[cell.id]?.produces ?? []) names.add(name);
+  }
+  return [...names];
+}
+
 /** A manual editor, Recipe or Debug run is executing on this cell's runner. */
 function isRunnerUsedByManualRun(language: NotebookCellLanguage): boolean {
   const key = notebookCellRunnerKey(language);
@@ -179,7 +198,9 @@ export function useNotebookRun(): UseNotebookRunResult {
       // Snapshot the sandbox keys BEFORE the run so the
       // `uses` chip reflects what this cell consumed from earlier
       // cells (the run itself will add this cell's own declarations).
-      const priorSandboxKeys = getNotebookSessionKeys(tabId);
+      const priorSandboxKeys = notebookCellRunnerKey(cell.language) === 'javascript'
+        ? getNotebookSessionKeys(tabId)
+        : namesMadeBySameKernel(tabId, cell.id, cell.language);
       const startedAt = performance.now();
 
       try {
@@ -228,7 +249,7 @@ export function useNotebookRun(): UseNotebookRunResult {
             text,
           })),
         ];
-        store.setCellOutputs(tabId, cellId, outputs);
+        store.setCellOutputs(tabId, cellId, outputs, outcome.answers);
         store.setCellRunStatus(tabId, cellId, outcome.status);
         // Signal-Slate — stamp the Jupyter `[N]` execution number on
         // every settled run (ok / error / stopped). A `stopped` run

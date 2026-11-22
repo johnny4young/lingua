@@ -1,9 +1,9 @@
 import { parse } from 'acorn';
 import { parseJsErrorStack, type ClickableStackFrame } from '../../shared/errorStack';
-import { createSourcePositionMapper } from '../../shared/sourcePosition';
+import { JS_WORKER_USER_SOURCE, createSourcePositionMapper } from '../../shared/sourcePosition';
 import type { ExecutionError } from '../types/execution';
 
-const USER_SOURCE = 'lingua-user-code';
+const USER_SOURCE = JS_WORKER_USER_SOURCE;
 const PROBE_SOURCE = 'lingua-coordinate-probe';
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
@@ -20,7 +20,7 @@ export async function createJsWorkerSourceMapper(
     : undefined;
   const offset = probeLine ? Number(probeLine) - 1 : null;
   const mapPosition = createSourcePositionMapper(maps, lineCount);
-  const locationPattern = () => /lingua-user-code:(\d+):(\d+)/g;
+  const locationPattern = () => new RegExp(`${USER_SOURCE}:(\\d+):(\\d+)`, 'g');
   const positionFor = (line: string, column: string) => {
     if (offset === null) return null;
     const generatedLine = Number(line) - offset;

@@ -45,6 +45,7 @@ vi.mock('../../../src/renderer/runtime/duckdbClient', () => {
 });
 
 import {
+  composeNotebookCellProgram,
   composeNotebookCellSource,
   disposeNotebookSession,
   extractSerializableDelta,
@@ -60,6 +61,7 @@ import {
   transpileTypescriptCell,
 } from '../../../src/renderer/runtime/notebookSession';
 import { runnerManager } from '../../../src/renderer/runners';
+import { JS_WORKER_USER_SOURCE } from '../../../src/shared/sourcePosition';
 import {
   claimNotebookRunner,
   notebookRunnerOwner,
@@ -1099,5 +1101,223 @@ describe('runNotebookCell — SQL cells ', () => {
     expect(result.outcome.status).toBe('error');
     expect(result.outcome.errorMessage).toBe('Catalog Error: no table');
     expect(result.outcome.stderr).toEqual(['Catalog Error: no table']);
+  });
+});
+
+describe('per-line answers', () => {
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
+    body: string
+  ) => () => Promise<unknown>;
+
+  /** Run the composed body the way the JS worker does, under its sourceURL. */
+  function runLikeWorker(code: string): Promise<unknown> {
+    return new AsyncFunction(`${code}\n//# sourceURL=${JS_WORKER_USER_SOURCE}`)();
+  }
+
+  beforeEach(() => {
+    resetNotebookSessionsForTests();
+    mockExecute.mockReset();
+    mockExecuteQuery.mockReset();
+  });
+  afterEach(() => {
+    resetNotebookSessionsForTests();
+  });
+
+  it('splices the cell in line for line and reports where it starts', async () => {
+    const cell = 'const a = 1\nlet b = 2; // note\nfunction f() {}\nvar later;';
+    const program = await composeNotebookCellProgram(cell, { prior: 3 });
+    const lines = program.source.split('\n');
+    expect(lines[program.userStartLine - 1]).toMatch(/^const a = 1;try \{ _sessionDelta\.a = a;/);
+    expect(lines[program.userStartLine]).toMatch(/^let b = 2;;try .*\/\/ note$/);
+    expect(lines[program.userStartLine + 2]).toBe('var later;');
+    expect(lines[program.userStartLine - 2]).toBe('  const prior = 3;');
+  });
+
+  it('runs a JavaScript cell and answers expressions and console lines on their lines', async () => {
+    mockExecute.mockImplementation(async (_language: string, code: string) => ({
+      stdout: [],
+      stderr: [],
+      executionTime: 1,
+      structuredResult: await runLikeWorker(code),
+    }));
+    const result = await runNotebookCell({
+      tabId: 'tab-answers',
+      language: 'javascript',
+      source: [
+        "console.log('ready')",
+        'const tickets = [151.2, 146.9]',
+        'function warn() {',
+        "  console.error('careful')",
+        '}',
+        'warn()',
+        'tickets.length * 2',
+        "'done'",
+      ].join('\n'),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.stdout).toEqual(['ready']);
+    expect(result.outcome.answers).toEqual([
+      { line: 1, kind: 'output', text: 'ready' },
+      { line: 4, kind: 'error', text: 'careful' },
+      { line: 7, kind: 'value', text: '4', type: 'number' },
+      { line: 8, kind: 'value', text: '"done"', type: 'string' },
+    ]);
+    expect(getNotebookSessionKeys('tab-answers')).toEqual(['tickets']);
+  });
+
+  it('describes collections and errors by type', async () => {
+    mockExecute.mockImplementation(async (_language: string, code: string) => ({
+      stdout: [],
+      stderr: [],
+      executionTime: 1,
+      structuredResult: await runLikeWorker(code),
+    }));
+    const result = await runNotebookCell({
+      tabId: 'tab-types',
+      language: 'javascript',
+      source: "[1, 2, 3];\n({ a: 1 });\nnew Map([[1, 2]]);\nnew Error('nope');\nnull",
+    });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.outcome.answers).toEqual([
+      { line: 1, kind: 'value', text: '[1,2,3]', type: 'array', size: 3 },
+      { line: 2, kind: 'value', text: '{"a":1}', type: 'object', size: 1 },
+      { line: 3, kind: 'value', text: '[[1,2]]', type: 'map', size: 1 },
+      { line: 4, kind: 'error', text: 'Error: nope', type: 'error' },
+      { line: 5, kind: 'value', text: 'null', type: 'null' },
+    ]);
+  });
+
+  it('maps TypeScript answers back to the typed cell through the source map', async () => {
+    mockExecute.mockImplementation(async (_language: string, code: string) => ({
+      stdout: [],
+      stderr: [],
+      executionTime: 1,
+      structuredResult: await runLikeWorker(code),
+    }));
+    const result = await runNotebookCell({
+      tabId: 'tab-ts-answers',
+      language: 'typescript',
+      source: [
+        'interface Order {',
+        '  total: number;',
+        '}',
+        'const order: Order = { total: 21 };',
+        '',
+        'console.log(order.total)',
+        'order.total * 2',
+      ].join('\n'),
+    });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.outcome.answers).toEqual([
+      { line: 6, kind: 'output', text: '21' },
+      { line: 7, kind: 'value', text: '42', type: 'number' },
+    ]);
+  });
+
+  it('answers a JavaScript error on the line that threw', async () => {
+    mockExecute.mockImplementation(async (_language: string, code: string) => ({
+      stdout: [],
+      stderr: [],
+      executionTime: 1,
+      error: { message: 'boom', line: code.split('\n').findIndex(line => line.includes('throw')) + 1 },
+    }));
+    const result = await runNotebookCell({
+      tabId: 'tab-throw',
+      language: 'javascript',
+      source: "const a = 1\nthrow new Error('boom')",
+    });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.outcome.answers).toEqual([{ line: 2, kind: 'error', text: 'boom' }]);
+  });
+
+  it('asks Python for assignment answers and reports the names it made', async () => {
+    mockExecute.mockResolvedValue({
+      stdout: [{ type: 'log', args: ['ready'], line: 1 }],
+      stderr: [],
+      executionTime: 1,
+      magicResults: [
+        { line: 2, value: '[151.2, 146.9, 130.86]', kind: 'autoLog' },
+        { line: 3, value: '142.98666666666668', kind: 'autoLog' },
+      ],
+    });
+    const result = await runNotebookCell({
+      tabId: 'tab-py-answers',
+      language: 'python',
+      source: "print('ready')\ntickets = [151.2, 146.9, 130.86]\navg: float = mean(tickets)",
+    });
+    if (!result.ok) throw new Error('rejected');
+    expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({ autoLog: 'assignments' });
+    expect(result.outcome.answers).toEqual([
+      { line: 1, kind: 'output', text: 'ready' },
+      { line: 2, kind: 'value', text: '[151.2, 146.9, 130.86]', type: 'list', size: 3 },
+      { line: 3, kind: 'value', text: '142.98666666666668', type: 'float' },
+    ]);
+    expect(result.outcome.producedKeys).toEqual(['tickets', 'avg']);
+  });
+
+  it('answers a CREATE TABLE with the table name and its rows × columns', async () => {
+    mockExecuteQuery
+      .mockResolvedValueOnce(sqlOutcome({ rows: [{ Count: '6' }], columns: [{}], rowCount: 1 }))
+      .mockResolvedValueOnce(sqlOutcome({ rows: [{ c: 3 }], rowCount: 1 }));
+    const result = await runNotebookCell({
+      tabId: 'tab-sql-made',
+      language: 'sql',
+      source: 'CREATE TABLE by_city AS\nSELECT * FROM orders;',
+    });
+    if (!result.ok) throw new Error('rejected');
+    // DuckDB reported the row count, so only the columns are asked for.
+    expect(mockExecuteQuery.mock.calls[1]?.[0]).toBe('SELECT (SELECT count(*) FROM (DESCRIBE by_city)) AS c');
+    expect(result.outcome.answers).toEqual([
+      { line: 2, kind: 'table', text: 'by_city', rows: 6, columns: 3 },
+    ]);
+    expect(result.outcome.producedKeys).toEqual(['by_city']);
+  });
+
+  it('counts a made table when DuckDB reports no row count, and never counts a view', async () => {
+    mockExecuteQuery
+      .mockResolvedValueOnce(sqlOutcome())
+      .mockResolvedValueOnce(sqlOutcome({ rows: [{ n: 0, c: 1 }], rowCount: 1 }));
+    const table = await runNotebookCell({ tabId: 'tab-sql-empty', language: 'sql', source: 'CREATE TABLE t (a INT)' });
+    if (!table.ok) throw new Error('rejected');
+    expect(mockExecuteQuery.mock.calls[1]?.[0]).toBe(
+      'SELECT (SELECT count(*) FROM t) AS n, (SELECT count(*) FROM (DESCRIBE t)) AS c'
+    );
+    expect(mockExecuteQuery).toHaveBeenCalledTimes(2);
+    expect(table.outcome.answers).toEqual([{ line: 1, kind: 'table', text: 't', rows: 0, columns: 1 }]);
+
+    mockExecuteQuery.mockReset();
+    mockExecuteQuery.mockResolvedValueOnce(sqlOutcome()).mockResolvedValueOnce(sqlOutcome({ rows: [{ c: 2 }], rowCount: 1 }));
+    const view = await runNotebookCell({ tabId: 'tab-sql-view', language: 'sql', source: 'CREATE VIEW v AS SELECT 1, 2' });
+    if (!view.ok) throw new Error('rejected');
+    expect(mockExecuteQuery.mock.calls[1]?.[0]).toBe('SELECT (SELECT count(*) FROM (DESCRIBE v)) AS c');
+    expect(view.outcome.answers).toEqual([{ line: 1, kind: 'table', text: 'v', columns: 2 }]);
+  });
+
+  it('answers a query with its rows × columns on its first line', async () => {
+    mockExecuteQuery.mockResolvedValue(
+      sqlOutcome({ rows: [{ city: 'Cali', revenue: 1 }], columns: [{}, {}], rowCount: 12 })
+    );
+    const result = await runNotebookCell({
+      tabId: 'tab-sql-read',
+      language: 'sql',
+      source: 'SELECT city,\n  revenue\nFROM by_city',
+    });
+    if (!result.ok) throw new Error('rejected');
+    expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
+    expect(result.outcome.answers).toEqual([
+      { line: 1, kind: 'result', text: '', rows: 12, columns: 2 },
+    ]);
+  });
+
+  it('answers a SQL error on the line DuckDB names', async () => {
+    mockExecuteQuery.mockResolvedValue(
+      sqlOutcome({ status: 'sql-error', errorMessage: 'Parser Error: syntax error at "FRM"\n\nLINE 2: FRM t' })
+    );
+    const result = await runNotebookCell({ tabId: 'tab-sql-error', language: 'sql', source: 'SELECT *\nFRM t' });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.outcome.answers).toEqual([
+      { line: 2, kind: 'error', text: 'Parser Error: syntax error at "FRM"' },
+    ]);
   });
 });

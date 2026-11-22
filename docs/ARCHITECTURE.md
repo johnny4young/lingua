@@ -1026,6 +1026,33 @@ refresh replays SQL statements in order but cannot roll back tables or other
 side effects that already reached that shared connection. The UI and capability
 matrix describe this rather than promising notebook-isolated SQL snapshots.
 
+## Notebook per-line answers
+
+Each kernel reports what a cell answered line by line, stored on the code cell
+as an optional `answers` list next to `outputs` (`NotebookLineAnswerV1`: line,
+kind `value | output | error | table`, text, and type, size, rows, columns when
+known). The field is additive: a notebook without it opens unchanged, a cell
+that never answered serializes as before, and malformed answers are dropped on
+read instead of rejecting the document. Answers are dropped when the cell's
+source or language changes, because their lines no longer match.
+
+- **JavaScript / TypeScript** — `notebookAnswers.instrumentJsAnswers` wraps each
+  top-level expression as `__notebook_answer(line, (expr))` on its own line, and
+  the composed cell body splices the cell in line for line (the session-delta
+  captures go on the declaration's line), so a composed line maps back by a
+  fixed offset. Console capture reads its caller's line from the stack under the
+  worker's `sourceURL`. TypeScript lines map back through esbuild's source map.
+- **Python** — the run sets `autoLog` plus `autoLogAssignments`: the worker's
+  AST pass answers module-level expressions and assignments by name, skips
+  generated `__` names, and compiles with top-level await allowed.
+- **SQL** — the last statement answers: a query with rows × columns on its first
+  line, `CREATE TABLE | VIEW` with the made name and size on its last line
+  (sized by `LIMIT 0` and, for a table without DuckDB's row count, `count(*)`;
+  a view never runs twice), a write with its row count, and an error on the
+  line DuckDB names.
+
+When a kernel only gives the last expression, only that line answers.
+
 ## Renderer type boundaries
 
 `src/renderer/types/index.ts` is a compatibility-only facade. Production

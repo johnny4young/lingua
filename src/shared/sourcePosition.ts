@@ -6,6 +6,9 @@ export interface SourcePosition {
 }
 
 /** Trace newest-to-oldest maps. Missing mappings stay unknown, never guessed. */
+/** The `sourceURL` the JS worker runs user code under; stack frames name it. */
+export const JS_WORKER_USER_SOURCE = 'lingua-user-code';
+
 export function createSourcePositionMapper(maps: readonly string[], lineCount?: number) {
   let tracers: TraceMap[];
   try {

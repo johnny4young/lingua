@@ -125,6 +125,18 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Editor/EditorEmptyState.tsx'), 'utf8')).toContain("import '../../i18n/startCatalog'");
   });
 
+  it('keeps the notebook answer copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('notebookAnswers.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/notebook.json');
+    expect(rendererI18n).toContain("import('./locales/es/notebook.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/notebookCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/notebook.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Notebook/NotebookCellAnswers.tsx'), 'utf8')).toContain("import '../../i18n/notebookCatalog'");
+  });
+
   it('keeps the run regions copy out of the English boot catalog', () => {
     const bootCatalog = JSON.parse(
       readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')

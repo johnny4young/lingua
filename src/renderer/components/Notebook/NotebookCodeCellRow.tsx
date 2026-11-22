@@ -13,7 +13,7 @@ import { registerNotebookDocumentDraft } from '../../stores/notebookDocumentDraf
  * surface contract (source string, language, run handler) stays unchanged.
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Play, Trash2 } from 'lucide-react';
 import {
@@ -33,6 +33,10 @@ import { NotebookCellEditor } from './NotebookCellEditor';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { NotebookCellAnswers } from './NotebookCellAnswers';
+import type { NotebookCellLeader } from './NotebookCellEditor';
+import { answersByLine, lineLength, notebookLineHeight } from './notebookAnswerView';
 
 export interface NotebookCodeCellRowProps {
   readonly notebookTabId?: string;
@@ -334,11 +338,35 @@ function NotebookCodeCellRowImpl({
   // of a bespoke raw-palette map, so JS/TS/PY tints can never drift from
   // the rest of the app and carry no hardcoded Tailwind scale.
   const languageTone = languageBadgeTone(cell.language);
-  // The OUTPUT region is collapsible. Default expanded so the
-  // surface matches today's always-visible output list; this is purely
-  // a view toggle and never touches run/store state.
-  const [outputsCollapsed, setOutputsCollapsed] = useState(false);
+  // The output is a view toggle; while the lines answer, it starts folded.
+  const answers = cell.answers;
+  const hasAnswers = answers !== undefined;
+  const [collapseOverride, setCollapseOverride] = useState<boolean | null>(null);
+  const outputsCollapsed = collapseOverride ?? hasAnswers;
+  const toggleOutputs = () => setCollapseOverride(!outputsCollapsed);
   const hasOutputs = cell.outputs.length > 0;
+  const explainsError = status === 'error' && canExplainError;
+  const fontSize = useSettingsStore(s => s.fontSize);
+  const lineHeight = notebookLineHeight(fontSize);
+  // Answers belong to the source they ran; a draft not yet saved moves the lines.
+  const showAnswers = hasAnswers && source === cell.source;
+  const outputTables = useMemo(
+    () => cell.outputs.map(output => (output.stream === 'stdout' ? tableFromOutputText(output.text) : null)),
+    [cell.outputs]
+  );
+  const answerRows = useMemo(() => (answers ? answersByLine(answers) : []), [answers]);
+  const { leaders, lineCount } = useMemo(() => {
+    const lines = cell.source.split('\n');
+    const placed: NotebookCellLeader[] = answerRows.map(answer => ({
+      line: answer.line,
+      chars: lineLength(lines[answer.line - 1] ?? ''),
+      ...(answer.kind === 'error' ? { tone: 'error' as const } : {}),
+    }));
+    return { leaders: placed, lineCount: lines.length };
+  }, [answerRows, cell.source]);
+  const answerTable = answerRows.some(answer => answer.kind === 'result')
+    ? (outputTables.find(table => table !== null) ?? null)
+    : null;
   // While the cell is running we keep the bare output list (no header):
   // the top cell-header chip already owns the spinner, and a "Success"
   // badge would be premature. The header reappears once a terminal
@@ -378,6 +406,8 @@ function NotebookCodeCellRowImpl({
   }, [editRequestNonce]);
 
   return (
+    <div className="flex items-start">
+    <NotebookRunMargin executionOrder={executionOrder} />
     <article
       ref={shellRef}
       data-testid="notebook-code-cell-row"
@@ -395,7 +425,7 @@ function NotebookCodeCellRowImpl({
       onMouseDown={() => onActivate(cell.id)}
       onFocus={() => onActivate(cell.id)}
       className={cn(
-        'relative grid gap-2 rounded-md border bg-background-elevated/60 p-3 pl-4 transition-colors outline-none',
+        'relative grid min-w-0 flex-1 gap-2 rounded-md border bg-background-elevated/60 p-3 pl-4 transition-colors outline-none',
         isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/60',
         isActive && mode === 'edit' && 'bg-primary-soft/25',
         'focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/25'
@@ -438,72 +468,21 @@ function NotebookCodeCellRowImpl({
           >
             {t('notebook.cell.indexLabel', { index: cellIndex + 1 })}
           </span>
-          {/* Signal-Slate — Jupyter `[N]` execution stamp. Mono, muted,
-              and only present once the cell has run. */}
-          {executionOrder !== null ? (
-            <span
-              className="font-mono text-eyebrow text-fg-subtle"
-              data-testid="notebook-code-cell-execution-order"
-            >
-              {t('notebook.cell.executionOrder', { n: executionOrder })}
-            </span>
-          ) : null}
-          {/* Canonical StatusBadge (was a bespoke pill). The
-              latency rides inside the badge as a mono suffix, mirroring
-              the proto's `StatusBadge … · 1.2 ms`. */}
-          <span data-testid="notebook-code-cell-status" data-status={status}>
-            <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
-              {t(`notebook.status.${statusKey(status)}`)}
-              {latencyLabel ? t('notebook.cell.latencySuffix', { ms: latencyLabel }) : ''}
-            </StatusBadge>
-          </span>
-          {/* inter-cell variable flow. `uses` is an
-              accent-soft chip (the DS `info` ramp is the canonical
-              accent-tinted soft surface); `produces` is a muted mono
-              `→` list. Both are token-only and render only when
-              populated. */}
-          {usesKeys.length > 0 ? (
-            <span
-              data-testid="notebook-code-cell-uses"
-              className="inline-flex h-5 items-center rounded border border-info-border/40 bg-info-bg px-2 font-mono text-micro text-info-fg"
-            >
-              {t('notebook.cell.usesChip', { names: usesKeys.join(', ') })}
-            </span>
-          ) : null}
+          {/* What this cell takes from earlier cells and what it leaves for later ones. */}
           {producesKeys.length > 0 ? (
             <span
               data-testid="notebook-code-cell-produces"
-              className="inline-flex h-5 items-center font-mono text-micro text-fg-subtle"
+              className="inline-flex h-5 max-w-[16rem] items-center truncate rounded border border-border-default px-2 font-mono text-micro text-fg-muted"
             >
-              {t('notebook.cell.producesChip', {
-                names: producesKeys.join(', '),
-              })}
+              {t('notebook.cell.producesChip', { names: producesKeys.join(', ') })}
             </span>
           ) : null}
-          {/* Python cells share a per-notebook
-              kernel scope, so cell 2 sees cell 1's imports/vars (Restart
-              kernel clears it). The chip truncates; the full sentence is
-              the hover title. */}
-          {cell.language === 'python' ? (
+          {usesKeys.length > 0 ? (
             <span
-              data-testid="notebook-code-cell-python-hint"
-              className="max-w-[14rem] truncate text-micro text-fg-subtle"
-              title={t('notebook.cell.pythonIndependentHint')}
+              data-testid="notebook-code-cell-uses"
+              className="inline-flex h-5 max-w-[16rem] items-center truncate rounded border border-border-default px-2 font-mono text-micro text-fg-muted"
             >
-              {t('notebook.cell.pythonIndependentHint')}
-            </span>
-          ) : null}
-          {/* SQL cells run on the shared DuckDB engine, so tables
-              created in one cell persist to later SQL cells (and the SQL
-              workspace). The chip truncates; the hover title carries the
-              full sentence. */}
-          {cell.language === 'sql' ? (
-            <span
-              data-testid="notebook-code-cell-sql-hint"
-              className="max-w-[14rem] truncate text-micro text-fg-subtle"
-              title={t('notebook.cell.sqlSharedHint')}
-            >
-              {t('notebook.cell.sqlSharedHint')}
+              {t('notebook.cell.usesChip', { names: usesKeys.join(', ') })}
             </span>
           ) : null}
         </div>
@@ -520,6 +499,16 @@ function NotebookCodeCellRowImpl({
               {t(mode === 'edit' ? 'notebook.command.modeEdit' : 'notebook.command.modeCommand')}
             </span>
           ) : null}
+          <span
+            data-testid="notebook-code-cell-status"
+            data-status={status}
+            title={status === 'stale' ? t('notebook.reactivity.cellStaleHint') : undefined}
+          >
+            <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
+              {t(`notebook.status.${statusKey(status)}`)}
+              {latencyLabel ? t('notebook.cell.latencySuffix', { ms: latencyLabel }) : ''}
+            </StatusBadge>
+          </span>
           <button
             type="button"
             onClick={() => runWithFlush(onRunCell)}
@@ -567,7 +556,10 @@ function NotebookCodeCellRowImpl({
           notebook never mounts more than ~1 editor. The run / Esc keybinds
           and the draft-flush-before-run contract are preserved through the
           callbacks below. A plain Enter inside Monaco inserts a newline. */}
+      <div className="notebook-cell-body" data-answers={showAnswers ? 'true' : undefined}>
       <NotebookCellEditor
+        lineHeight={lineHeight}
+        leaders={showAnswers && !editing ? leaders : undefined}
         cellId={cell.id}
         language={cell.language}
         value={source}
@@ -605,17 +597,29 @@ function NotebookCodeCellRowImpl({
           shellRef.current?.focus();
         }}
       />
-      {status === 'stale' ? (
-        <p
-          data-testid="notebook-code-cell-stale-hint"
-          className="rounded border border-warning-border/60 bg-warning-bg px-2.5 py-2 text-caption text-warning-fg"
-        >
-          {t('notebook.reactivity.cellStaleHint')}
-        </p>
+      {showAnswers ? (
+        <NotebookCellAnswers
+          rows={answerRows}
+          lineCount={lineCount}
+          lineHeight={lineHeight}
+          language={cell.language}
+          cellIndex={cellIndex}
+          stale={status === 'stale'}
+          table={answerTable}
+        />
       ) : null}
-      {hasOutputs ? (
+      </div>
+      {hasOutputs && showAnswers ? (
+        <OutputToggle
+          collapsed={outputsCollapsed}
+          controls={outputsRegionId}
+          onToggle={toggleOutputs}
+          label={t('notebookAnswers.outputToggle', { count: cell.outputs.length })}
+        />
+      ) : null}
+      {hasOutputs && !(showAnswers && outputsCollapsed && !explainsError) ? (
         <div className="overflow-hidden rounded border border-border/40 bg-background-elevated/50">
-          {showOutputHeader ? (
+          {showOutputHeader && !showAnswers ? (
             <ResultHeader
               status={
                 <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
@@ -633,29 +637,16 @@ function NotebookCodeCellRowImpl({
                     })
               }
               trailing={
-                <button
-                  type="button"
-                  onClick={() => setOutputsCollapsed(prev => !prev)}
-                  aria-expanded={!outputsCollapsed}
-                  aria-controls={outputsRegionId}
-                  aria-label={
-                    outputsCollapsed
-                      ? t('notebook.cell.expandOutput')
-                      : t('notebook.cell.collapseOutput')
-                  }
-                  data-testid="notebook-code-cell-output-toggle"
-                  className="focus-ring inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base"
-                >
-                  {outputsCollapsed ? (
-                    <ChevronRight size={12} aria-hidden="true" />
-                  ) : (
-                    <ChevronDown size={12} aria-hidden="true" />
-                  )}
-                </button>
+                <OutputToggle
+                  collapsed={outputsCollapsed}
+                  controls={outputsRegionId}
+                  onToggle={toggleOutputs}
+                  ariaLabel={t(outputsCollapsed ? 'notebook.cell.expandOutput' : 'notebook.cell.collapseOutput')}
+                />
               }
             />
           ) : null}
-          {showOutputHeader && outputsCollapsed ? null : (
+          {outputsCollapsed && (showOutputHeader || showAnswers) ? null : (
             <ul
               role="list"
               id={outputsRegionId}
@@ -667,7 +658,7 @@ function NotebookCodeCellRowImpl({
                 // objects renders as a table (mirroring the console's
                 // auto-table), instead of raw JSON text. stderr always
                 // stays plain error-toned text.
-                const table = output.stream === 'stdout' ? tableFromOutputText(output.text) : null;
+                const table = outputTables[idx] ?? null;
                 if (table) {
                   return (
                     <li
@@ -694,7 +685,7 @@ function NotebookCodeCellRowImpl({
               })}
             </ul>
           )}
-          {status === 'error' && canExplainError ? (
+          {explainsError ? (
             <div className="px-2 pb-2">
               <ExplainErrorButton
                 errorMessage={cell.outputs
@@ -726,6 +717,58 @@ function NotebookCodeCellRowImpl({
         </div>
       ) : null}
     </article>
+    </div>
+  );
+}
+
+/** Folds the output list; a text label in answer mode, an icon in the output header. */
+function OutputToggle({
+  collapsed,
+  controls,
+  onToggle,
+  label,
+  ariaLabel,
+}: {
+  readonly collapsed: boolean;
+  readonly controls: string;
+  readonly onToggle: () => void;
+  readonly label?: string;
+  readonly ariaLabel?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={!collapsed}
+      aria-controls={controls}
+      aria-label={ariaLabel}
+      data-testid="notebook-code-cell-output-toggle"
+      className={cn(
+        'focus-ring inline-flex items-center rounded hover:bg-bg-panel-alt hover:text-fg-base',
+        label
+          ? 'h-6 gap-1 justify-self-start px-1.5 text-micro text-fg-muted'
+          : 'h-5 w-5 justify-center text-fg-subtle'
+      )}
+    >
+      {collapsed ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+      {label}
+    </button>
+  );
+}
+
+/** The run number in the cell's margin, or a dash before its first run. */
+export function NotebookRunMargin({ executionOrder }: { readonly executionOrder: number | null }) {
+  const { t } = useTranslation();
+  const label = executionOrder === null ? t('notebookAnswers.notRun') : t('notebookAnswers.run', { n: executionOrder });
+  return (
+    <div className="notebook-run-margin pr-3" data-testid="notebook-code-cell-execution-order" aria-label={label} role="note">
+      <span className="notebook-run-margin-numeral" aria-hidden="true">
+        {executionOrder ?? '–'}
+      </span>
+      <span className="notebook-run-margin-label" aria-hidden="true">
+        {executionOrder === null ? t('notebookAnswers.notRun') : t('notebookAnswers.runLabel')}
+      </span>
+    </div>
   );
 }
 

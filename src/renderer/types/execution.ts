@@ -48,8 +48,8 @@ export interface ExecutionContext {
    * reads the tab's sibling css / html tabs from the editor store.
    */
   tabId?: string;
-  /** JS / TS auto-log: bare top-level expressions become `__mc(line, value)` captures. Auto-run only. */
-  autoLog?: boolean;
+  /** Bare top-level expressions become `__mc(line, value)` captures; `'assignments'` (Python notebook cells) adds assignments. */
+  autoLog?: boolean | 'assignments';
   /**
    * per-line timing via the Settings toggle. When
    * `true` the JS / TS runner prefixes every top-level statement with

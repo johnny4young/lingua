@@ -1,0 +1,288 @@
+/* Notebook answers load with the notebook chunk, so their sizes ship here instead of in the boot stylesheet. */
+
+.notebook-cell-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.notebook-cell-body[data-answers='true'] {
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 44%);
+  column-gap: 12px;
+}
+
+.notebook-answer-leader {
+  position: absolute;
+  right: 12px;
+  height: 2px;
+  pointer-events: none;
+  background: radial-gradient(circle, var(--color-border-strong) 0.9px, transparent 1.1px) 0 0 / 7px 2px repeat-x;
+}
+
+.notebook-answer-leader[data-tone='error'] {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--color-value-error) 60%, transparent) 0.9px, transparent 1.1px);
+}
+
+.notebook-answers {
+  display: grid;
+  min-width: 0;
+  padding-right: 4px;
+  font-family: var(--font-code);
+  font-size: 12.5px;
+}
+
+.notebook-answer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.notebook-answer[data-kind='result'] {
+  align-items: flex-start;
+}
+
+.notebook-answer-tag {
+  flex: none;
+  width: 60px;
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
+.notebook-answer[data-kind='result'] .notebook-answer-tag {
+  line-height: var(--notebook-line-height);
+}
+
+.notebook-answer-tag[data-tone='error'] {
+  color: var(--color-value-error);
+}
+
+.notebook-answer-pill {
+  --notebook-answer-tone: var(--color-fg-base);
+  display: inline-flex;
+  min-width: 0;
+  height: 19px;
+  flex: none;
+  max-width: 100%;
+  align-items: center;
+  padding: 0 7px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--notebook-answer-tone) 14%, transparent);
+  color: var(--notebook-answer-tone);
+  font-weight: 560;
+  text-overflow: ellipsis;
+}
+
+.notebook-answer-pill[data-tone='number'],
+.notebook-answer-value[data-tone='number'] {
+  --notebook-answer-tone: var(--color-value-number);
+}
+
+.notebook-answer-pill[data-tone='string'] {
+  --notebook-answer-tone: var(--color-value-string);
+}
+
+.notebook-answer-pill[data-tone='boolean'] {
+  --notebook-answer-tone: var(--color-value-boolean);
+}
+
+.notebook-answer-pill[data-tone='error'] {
+  --notebook-answer-tone: var(--color-value-error);
+}
+
+.notebook-answer-pill[data-tone='nil'] {
+  --notebook-answer-tone: var(--color-fg-muted);
+  background: var(--color-bg-panel-alt);
+}
+
+.notebook-answer-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--notebook-answer-tone, var(--color-fg-base));
+  font-weight: 560;
+  text-overflow: ellipsis;
+}
+
+.notebook-answer-text,
+.notebook-answer-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-fg-base);
+  text-overflow: ellipsis;
+}
+
+.notebook-answer-name {
+  flex: none;
+  max-width: 50%;
+  font-weight: 560;
+}
+
+.notebook-answer-text[data-kind='output'] {
+  color: var(--color-fg-muted);
+}
+
+.notebook-answer-bars {
+  display: inline-flex;
+  height: 16px;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.notebook-answer-bars i {
+  display: block;
+  width: 6px;
+  border-radius: 1px;
+  background: var(--color-value-number);
+  opacity: 0.85;
+}
+
+.notebook-answer-table {
+  width: 100%;
+  min-width: 0;
+  max-height: 16rem;
+  margin-top: 1px;
+  overflow: auto;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  background: var(--color-bg-inset);
+  font-size: 12px;
+}
+
+.notebook-answer-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.notebook-answer-table th {
+  height: 21px;
+  padding: 0 12px 0 0;
+  background: var(--color-bg-panel-alt);
+  color: var(--color-fg-muted);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 560;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.notebook-answer-table td {
+  height: 22px;
+  padding: 0 12px 0 0;
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-value-string);
+  font-weight: 560;
+}
+
+.notebook-answer-table td[data-numeric='true'] {
+  color: var(--color-value-number);
+  text-align: right;
+}
+
+.notebook-answer-table .notebook-answer-table-index {
+  width: 32px;
+  padding-right: 14px;
+  color: var(--color-fg-subtle);
+  font-size: 11px;
+  font-weight: 400;
+  text-align: right;
+}
+
+.notebook-answer-cellbar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.notebook-answer-track {
+  position: relative;
+  display: block;
+  width: min(9rem, 12vw);
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-bg-panel-alt);
+}
+
+.notebook-answer-track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--color-value-number);
+}
+
+/* A dated run: every answer reads in the subtle text token, never by opacity, to keep its contrast. */
+.notebook-answers[data-stale='true'] .notebook-answer-pill,
+.notebook-answers[data-stale='true'] .notebook-answer-value,
+.notebook-answers[data-stale='true'] .notebook-answer-text,
+.notebook-answers[data-stale='true'] .notebook-answer-name,
+.notebook-answers[data-stale='true'] .notebook-answer-table td {
+  --notebook-answer-tone: var(--color-fg-muted);
+  color: var(--color-fg-muted);
+}
+
+.notebook-answers[data-stale='true'] .notebook-answer-bars i,
+.notebook-answers[data-stale='true'] .notebook-answer-track i {
+  background: var(--color-fg-subtle);
+}
+
+.notebook-run-margin {
+  display: flex;
+  width: 4.625rem;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-top: 0.25rem;
+}
+
+.notebook-run-margin-numeral {
+  color: var(--color-fg-muted);
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-style: italic;
+  font-weight: 420;
+  line-height: 36px;
+}
+
+.notebook-run-margin-label {
+  color: var(--color-fg-muted);
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Narrow cells list their answers under the code; the line grid would leave gaps. */
+@media (max-width: 720px) {
+  .notebook-cell-body[data-answers='true'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .notebook-cell-body .notebook-answers {
+    grid-template-rows: none !important;
+    padding-top: 6px !important;
+  }
+
+  .notebook-cell-body .notebook-answer {
+    grid-row: auto !important;
+  }
+
+  .notebook-answer-leader {
+    display: none;
+  }
+
+  .notebook-run-margin {
+    display: none;
+  }
+}

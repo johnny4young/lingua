@@ -186,6 +186,27 @@ describe('Python execution worker adapter', () => {
     });
   });
 
+  it('asks the auto-log pass for assignments when a notebook cell runs', async () => {
+    const harness = createPythonExecutionHarness();
+    const source = 'tickets = [1, 2]\nawait asyncio.sleep(0)';
+    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source, true));
+    expect(buildPythonAutoLogExecutionSource(source, true)).toBe(
+      `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals(), True)`
+    );
+    // Assignments and top-level await are part of the helper contract.
+    expect(PYTHON_AUTO_LOG_HELPERS_SOURCE).toContain('def __lingua_assigned_value(node):');
+    expect(PYTHON_AUTO_LOG_HELPERS_SOURCE).toContain('PyCF_ALLOW_TOP_LEVEL_AWAIT');
+    const runPythonAsync = vi.fn(async (incoming: string) =>
+      incoming === PYTHON_STREAM_STATE_SOURCE
+        ? JSON.stringify({ stdout: '', stderr: '', magic: [], print_entries: [] })
+        : null
+    );
+    harness.runtimeValue.runPythonAsync = runPythonAsync;
+    const handle = createPythonExecutionHandler(harness.port, harness.runtime);
+    await handle({ type: 'execute', runId: 'python-assign-1', code: source, autoLog: true, autoLogAssignments: true });
+    expect(runPythonAsync).toHaveBeenCalledWith(executionSource, { filename: '<lingua-execution>' });
+  });
+
   it('preserves Python auto-log error classification from the worker', async () => {
     const harness = createPythonExecutionHarness();
     harness.runtimeValue.runPythonAsync = vi.fn(async (incoming: string) => {
