@@ -100,6 +100,9 @@ function harness() {
     removeLine: () => {
       lineCount = 0;
     },
+    setLineCount: (value: number) => {
+      lineCount = value;
+    },
     insertLineAbove: () => {
       lineCount += 1;
       // Enter at column 1 inserts line 2, so Monaco leaves a zone after line 1.
@@ -218,6 +221,16 @@ describe('inline results line up in the answer column', () => {
     // 70 px need four 20 px lines; its own line and line 2 are free, so 30 px are reserved.
     expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 1, heightInPx: 30 }]);
     expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.style.top).toBe('0px');
+  });
+
+  it('counts unrendered lines below a tall answer as free, so scrolling does not move its row', () => {
+    tall(70);
+    const h = harness();
+    h.setLineCount(6);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    // Line 2 is rendered and free; lines 3 and 4 are past the viewport and count as free too.
+    expect(h.zones.size).toBe(0);
   });
 
   it('does not spread a tall answer over a line that has its own answer', () => {

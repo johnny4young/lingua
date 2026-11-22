@@ -258,7 +258,12 @@ function useInlineResultWidgets(
           // Two pixels may overhang into the next line's leading.
           const needed = Math.ceil((height - 2) / lineHeight) - 1;
           for (let next = widget.line + 1; free < needed && next <= model.getLineCount(); next += 1) {
-            if (widgetsRef.current.has(next) || !isVisible(next)) break;
+            if (widgetsRef.current.has(next)) break;
+            // An unrendered line cannot be measured; counting it free keeps the row steady while scrolling.
+            if (!isVisible(next)) {
+              free += 1;
+              continue;
+            }
             const nextRoom = leaderRoom(next);
             if (nextRoom === null || nextRoom < 0) break;
             free += 1;
@@ -386,6 +391,7 @@ function useInlineResultWidgets(
           widget.domNode.setAttribute('data-line', String(line));
           moved.set(line, widget);
         }
+        if (moved.size !== widgetsRef.current.size) setMounted([...moved.values()]);
         widgetsRef.current = moved;
         const retained: RetainedZone[] = [];
         for (const item of retainedZonesRef.current) {

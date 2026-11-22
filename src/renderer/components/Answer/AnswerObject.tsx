@@ -136,8 +136,8 @@ function Picture({ picture }: { readonly picture: AnswerPicture }) {
     case 'scale':
       return (
         <span className="answer-object-scale" data-testid="answer-picture-scale">
-          {picture.entries.map(entry => (
-            <span key={entry.label} className="answer-object-kv">
+          {picture.entries.map((entry, index) => (
+            <span key={index} className="answer-object-kv">
               <span className="answer-object-key">{replaceUnsafeText(entry.label)}</span>
               <span className="answer-object-hbar" aria-hidden style={{ width: Math.max(2, (entry.width / 100) * SCALE_WIDTH) }} />
               <span className="answer-object-value" data-tone="number">
@@ -151,8 +151,8 @@ function Picture({ picture }: { readonly picture: AnswerPicture }) {
     case 'keys':
       return (
         <span className="answer-object-keys" data-testid="answer-picture-keys">
-          {picture.keys.map(key => (
-            <span key={key} className="answer-object-value" data-tone="string" data-pill="">
+          {picture.keys.map((key, index) => (
+            <span key={index} className="answer-object-value" data-tone="string" data-pill="">
               {`"${replaceUnsafeText(key)}"`}
             </span>
           ))}

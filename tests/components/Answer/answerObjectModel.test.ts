@@ -65,6 +65,9 @@ describe('detectors', () => {
     expect(detectIsoDate('2026-11-11T14:02:00.000Z')).toBe(Date.UTC(2026, 10, 11, 14, 2));
     expect(detectIsoDate('2026-11-11')).not.toBeNull();
     expect(detectIsoDate('11/11/2026')).toBeNull();
+    // A bare date is that day in local time, not UTC midnight.
+    expect(detectIsoDate('2026-11-11')).toBe(new Date(2026, 10, 11).getTime());
+    expect(detectIsoDate('2026-02-30')).toBeNull();
   });
 
   it('gauges a number against a threshold written in the statement', () => {
@@ -75,6 +78,9 @@ describe('detectors', () => {
     expect(detectGauge('x = 2024 - 1990', 34)).toBeNull();
     expect(detectGauge('x = 0 - y', 3)).toBeNull();
     expect(detectGauge('x = y * 2', 3)).toBeNull();
+    expect(detectGauge('const last = items.length - 1;', 4)).toBeNull();
+    expect(detectGauge('last = len(xs) - 1', 4)).toBeNull();
+    expect(detectGauge('prev = i - 1', 4)).toBeNull();
   });
 });
 
@@ -210,5 +216,28 @@ describe('readAnswer', () => {
     expect(formatAnswerNumber(0.1 + 0.2)).toBe('0.3');
     expect(formatAnswerNumber(42, '42')).toBe('42');
     expect(formatAnswerNumber(Number.NaN, 'nan')).toBe('nan');
+    expect(formatAnswerNumber(12345678901.5, '12345678901.5')).toBe('12345678901.5');
+    expect(formatAnswerNumber(1e30, '1000000000000000000000000000000')).toBe('1000000000000000000000000000000');
+    expect(formatAnswerNumber(1, '1.0')).toBe('1.0');
+  });
+
+  it('keeps a console.table payload on console output', () => {
+    const payload: RichOutputPayload = { kind: 'table', columns: ['a'], rows: [[num('1')], [num('2')]] };
+    expect(read({ text: 'Table(2×1)', role: 'stdout', payload }).picture?.kind).toBe('table');
+    expect(read({ text: 'hello', role: 'stdout' }).kind).toBe('stdout');
+    expect(read({ text: 'hello', role: 'stdout', payload: { kind: 'primitive', type: 'string', repr: '"hello"' } }).kind).toBe('stdout');
+  });
+
+  it('reads pretty-printed JSON too large to parse as an array, not a string', () => {
+    const model = read(JSON.stringify(Array.from({ length: 3000 }, (_, i) => i), null, 2));
+    expect([model.kind, model.tag]).toEqual(['array', 'array']);
+  });
+
+  it('drops the open quote of a clamped string repr and keeps unreadable table cells', () => {
+    const object: RichOutputPayload = { kind: 'object', previewType: 'Object', entries: [{ key: 'a', value: str('"abcdefg') }] };
+    expect(read({ text: 'x', payload: object }).value).toBe('{a: "abcdefg"}');
+    const table: RichOutputPayload = { kind: 'table', columns: ['f'], rows: [[{ kind: 'function', name: 'go' }]] };
+    const picture = read({ text: 'x', payload: table }).picture;
+    expect(picture?.kind === 'table' ? picture.rows[0]![0]!.text : null).toBe('[Function: go]');
   });
 });

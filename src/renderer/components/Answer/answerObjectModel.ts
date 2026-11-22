@@ -136,10 +136,14 @@ interface Reading {
   readonly context: AnswerContext;
 }
 
-/** Ten significant digits keep a value as written and drop float noise. */
+/** Ten significant digits keep a value as written and drop float noise, never integer digits. */
 export function formatAnswerNumber(value: number, raw?: string): string {
   if (!Number.isFinite(value)) return raw ?? String(value);
-  if (Number.isInteger(value) && Math.abs(value) < 1e21) return raw && !raw.includes('.') ? raw : String(value);
+  if (Number.isInteger(value)) {
+    if (raw && (!raw.includes('.') || /\.0+$/.test(raw))) return raw;
+    if (Math.abs(value) < 1e21) return String(value);
+  }
+  if (Math.abs(value) >= 1e10) return raw ?? String(value);
   return String(Number(value.toPrecision(10)));
 }
 
@@ -417,7 +421,8 @@ function literalOfScope(value: ScopeValue): Literal | undefined {
       if (value.type === 'null' || value.type === 'undefined') return { t: 'none', raw: value.repr };
       if (value.type === 'string') {
         const read = readLiteral(value.repr);
-        return read?.t === 'str' ? read : { t: 'str', v: value.repr };
+        // A clamped repr loses its closing quote.
+        return read?.t === 'str' ? read : { t: 'str', v: value.repr.replace(/^"/, '') };
       }
       return undefined;
     case 'array': {
@@ -430,6 +435,20 @@ function literalOfScope(value: ScopeValue): Literal | undefined {
     }
     default:
       return undefined;
+  }
+}
+
+/** A cell no literal reads (function, bigint, symbol, error) keeps its text instead of going blank. */
+function opaqueCell(value: ScopeValue): Literal {
+  switch (value.kind) {
+    case 'primitive':
+      return { t: 'none', raw: value.repr };
+    case 'function':
+      return { t: 'none', raw: `[Function: ${value.name}]` };
+    case 'error':
+      return { t: 'none', raw: value.message };
+    default:
+      return { t: 'none', raw: '…' };
   }
 }
 
@@ -451,7 +470,7 @@ function payloadAnswer(payload: RichOutputPayload, text: string, reading: Readin
     case 'table': {
       const total = payload.rows.length + (payload.truncatedRowCount ?? 0);
       const columns = payload.columns.slice(0, MAX_TABLE_COLUMNS);
-      const rows = payload.rows.slice(0, MAX_TABLE_ROWS).map(row => row.slice(0, MAX_TABLE_COLUMNS).map(literalOfScope));
+      const rows = payload.rows.slice(0, MAX_TABLE_ROWS).map(row => row.slice(0, MAX_TABLE_COLUMNS).map(cell => literalOfScope(cell) ?? opaqueCell(cell)));
       const tag = `table·${total}`;
       return { tag, kind: 'table', tone: 'plain', value: '', pill: false, fold: 0, picture: tablePicture(columns, rows, total, reading), summary: payload.columns.join(', ') };
     }
@@ -513,6 +532,8 @@ function payloadAnswer(payload: RichOutputPayload, text: string, reading: Readin
   }
 }
 
+const STRUCTURED_KINDS = new Set<RichOutputPayload['kind']>(['table', 'map', 'set', 'array', 'object', 'date']);
+
 const PY_DATETIME = /^datetime\.(?:datetime|date)\((\d{4}), (\d{1,2}), (\d{1,2})(?:, (\d{1,2}), (\d{1,2})(?:, (\d{1,2}))?)?/;
 
 /** Reads a run's answer for a line into the shape every answer surface draws. */
@@ -523,11 +544,13 @@ export function readAnswer(input: AnswerInput, context: AnswerContext): AnswerMo
   if (input.role === 'error' || input.payload?.kind === 'error') {
     return foldedAnswer('error', 'error', 'error', input.payload?.kind === 'error' ? input.payload.message : text, true);
   }
-  if (input.role === 'stdout' || input.role === 'stderr') return foldedAnswer(input.role, input.role, 'plain', text, false);
-  if (input.payload) {
+  // Console output keeps a structured payload (console.table, a Map) and otherwise prints as text.
+  const printed = input.role === 'stdout' || input.role === 'stderr';
+  if (input.payload && (!printed || STRUCTURED_KINDS.has(input.payload.kind))) {
     const model = payloadAnswer(input.payload, text, reading);
     if (model) return model;
   }
+  if (input.role === 'stdout' || input.role === 'stderr') return foldedAnswer(input.role, input.role, 'plain', text, false);
   const literal = readLiteral(text);
   if (literal) return answerFromLiteral(literal, reading);
   const trimmed = text.length > 256 ? '' : text.trim();
@@ -540,6 +563,13 @@ export function readAnswer(input: AnswerInput, context: AnswerContext): AnswerMo
   if (fn) return plainAnswer('function', 'function', fn[1]!);
   // A Python value that is not a literal is an object repr; a script string arrives without quotes.
   if (python) return plainAnswer('object', 'object', firstLine(text).line);
+  // Pretty-printed JSON too large to read is still an array or object, not a string.
+  const head = firstLine(text);
+  const opener = head.line.trim();
+  if (head.rest > 0 && (opener === '[' || opener === '{')) {
+    const preview = truncateText(text.slice(0, 400).replace(/\s+/g, ' ').trim(), 120);
+    return plainAnswer(opener === '[' ? reading.words.list : reading.words.dict, opener === '[' ? 'array' : 'object', preview);
+  }
   return stringAnswer(text, reading);
 }
 

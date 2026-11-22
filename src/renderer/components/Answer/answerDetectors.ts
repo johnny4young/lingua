@@ -19,6 +19,12 @@ export function detectIsoDate(text: string): number | null {
   if (text.length > 40) return null;
   const value = text.trim();
   if (!ISO_DATE.test(value)) return null;
+  // Date.parse reads a bare date as UTC midnight, which is the previous day west of UTC.
+  if (value.length === 10) {
+    const [y, m, d] = value.split('-').map(Number);
+    const local = new Date(y!, m! - 1, d!);
+    return local.getMonth() === m! - 1 ? local.getTime() : null;
+  }
   const time = Date.parse(value);
   return Number.isNaN(time) ? null : time;
 }
@@ -47,6 +53,8 @@ function stripComment(source: string): string {
 }
 
 const NUMBER_ONLY = new RegExp(String.raw`^${NUM}$`);
+// `items.length - 1` or `len(xs) - 1` is an index, not a budget.
+const COUNT_TERM = /(?:\.length|\.size|\bsize|\bcount|\blen\(.*\))$/i;
 
 /** True when an operand is one non-literal term: no top-level arithmetic (brackets and calls are fine). */
 function isSingleTerm(operand: string): boolean {
@@ -74,14 +82,14 @@ export function detectGauge(source: string, value: number): Gauge | null {
   const lead = new RegExp(String.raw`^(${NUM})\s*-\s*(.+)$`).exec(expression);
   if (lead && isSingleTerm(lead[2]!.trim())) {
     const threshold = Number(lead[1]);
-    if (threshold <= 0) return null;
+    if (threshold <= 1) return null;
     const measured = threshold - value;
     return { threshold, measured, over: measured > threshold };
   }
   const trail = new RegExp(String.raw`^(.+?)\s*-\s*(${NUM})$`).exec(expression);
-  if (trail && isSingleTerm(trail[1]!.trim())) {
+  if (trail && isSingleTerm(trail[1]!.trim()) && !COUNT_TERM.test(trail[1]!.trim())) {
     const threshold = Number(trail[2]);
-    if (threshold <= 0) return null;
+    if (threshold <= 1) return null;
     const measured = value + threshold;
     return { threshold, measured, over: measured > threshold };
   }
