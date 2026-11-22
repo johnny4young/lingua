@@ -35,14 +35,17 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { NotebookCellAnswers } from './NotebookCellAnswers';
+import { IconButton } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import type { NotebookCellLeader } from './NotebookCellEditor';
 import { answersByLine, lineLength, notebookLineHeight } from './notebookAnswerView';
 import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
+import { hasNotebookExecutionEvidence } from '../../stores/notebookReactivity';
 
-function countLines(text: string): number {
-  let lines = 1;
-  for (let index = text.indexOf('\n'); index !== -1; index = text.indexOf('\n', index + 1)) lines += 1;
-  return lines;
+/** The last line with code on it (1-based), or 0 for an empty cell. */
+function lastCodeLine(lines: ReadonlyArray<string>): number {
+  for (let index = lines.length - 1; index >= 0; index -= 1) if (lines[index]!.trim()) return index + 1;
+  return 0;
 }
 
 export interface NotebookCodeCellRowProps {
@@ -73,7 +76,7 @@ export interface NotebookCodeCellRowProps {
   readonly executionOrder?: number | null;
   /**
    * Signal-Slate — true when this is the active cell (keyboard target).
-   * Drives the left accent bar + the Command/Edit mode label.
+   * Drives the active outline + the Command/Edit mode label.
    */
   readonly isActive: boolean;
   /**
@@ -141,23 +144,6 @@ function formatLatencyMs(ms: number): string {
   return ms >= 100 ? Math.round(ms).toString() : ms.toFixed(1);
 }
 
-function statusKey(status: NotebookCellRunStatus): string {
-  switch (status) {
-    case 'idle':
-      return 'idle';
-    case 'running':
-      return 'running';
-    case 'ok':
-      return 'ok';
-    case 'error':
-      return 'error';
-    case 'stopped':
-      return 'stopped';
-    case 'stale':
-      return 'stale';
-  }
-}
-
 /**
  * The OUTPUT-region ResultHeader prefers the friendlier
  * `notebook.status.success` / `notebook.status.errored` copy for the
@@ -172,7 +158,7 @@ function outputStatusKey(status: NotebookCellRunStatus): string {
     case 'error':
       return 'errored';
     default:
-      return statusKey(status);
+      return status;
   }
 }
 
@@ -229,8 +215,8 @@ function NotebookCodeCellRowImpl({
   const canExplainError = useEntitlement('LOCAL_AI');
   // Signal-Slate — derived mode for the active cell. EDIT when the live
   // Monaco editor is mounted (the caret is in the cell); COMMAND when only
-  // the static view shows and focus sits on the shell. The header label +
-  // accent bar read off this.
+  // the static view shows and focus sits on the shell. The header label and
+  // the edit tint read off this.
   const [editing, setEditing] = useState(false);
   const mode: 'command' | 'edit' = editing ? 'edit' : 'command';
 
@@ -355,25 +341,31 @@ function NotebookCodeCellRowImpl({
   const explainsError = status === 'error' && canExplainError;
   const fontSize = useSettingsStore(s => s.fontSize);
   const lineHeight = notebookLineHeight(fontSize);
-  // Answers belong to the source they ran; a draft not yet saved moves the lines.
-  // An editor taller than its cap scrolls inside, where the column cannot follow.
-  const scrollsInEditor =
-    editing && hasAnswers && countLines(cell.source) * lineHeight + 16 > NOTEBOOK_CELL_EDITOR_MAX_HEIGHT;
-  const showAnswers = hasAnswers && source === cell.source && !scrollsInEditor;
   const outputTables = useMemo(
     () => cell.outputs.map(output => (output.stream === 'stdout' ? tableFromOutputText(output.text) : null)),
     [cell.outputs]
   );
   const answerRows = useMemo(() => (answers ? answersByLine(answers) : []), [answers]);
-  const { leaders, lineCount } = useMemo(() => {
-    const lines = cell.source.split('\n');
-    const placed: NotebookCellLeader[] = answerRows.map(answer => ({
+  const neverRan = !hasNotebookExecutionEvidence(cell, status, executionOrder ?? undefined);
+  // A cell that never ran has no answers to pin, so its hint follows the draft.
+  const answerSource = neverRan ? source : cell.source;
+  const { leaders, lineCount, hintLine } = useMemo(() => {
+    const lines = answerSource.split('\n');
+    const hint = neverRan ? lastCodeLine(lines) : 0;
+    const answered: ReadonlyArray<{ line: number; kind?: string }> = hint ? [{ line: hint }] : answerRows;
+    const placed: NotebookCellLeader[] = answered.map(answer => ({
       line: answer.line,
       chars: lineLength(lines[answer.line - 1] ?? ''),
       ...(answer.kind === 'error' ? { tone: 'error' as const } : {}),
     }));
-    return { leaders: placed, lineCount: lines.length };
-  }, [answerRows, cell.source]);
+    return { leaders: placed, lineCount: lines.length, hintLine: hint };
+  }, [answerRows, answerSource, neverRan]);
+  // Answers belong to the source they ran; a draft not yet saved moves the lines.
+  // An editor taller than its cap scrolls inside, where the column cannot follow.
+  const answerColumn =
+    ((hasAnswers && source === cell.source) || hintLine > 0) &&
+    !(editing && lineCount * lineHeight + 16 > NOTEBOOK_CELL_EDITOR_MAX_HEIGHT);
+  const showAnswers = hasAnswers && answerColumn;
   const answerTable = answerRows.some(answer => answer.kind === 'result')
     ? (outputTables.find(table => table !== null) ?? null)
     : null;
@@ -509,26 +501,41 @@ function NotebookCodeCellRowImpl({
               {t(mode === 'edit' ? 'notebook.command.modeEdit' : 'notebook.command.modeCommand')}
             </span>
           ) : null}
-          <span
-            data-testid="notebook-code-cell-status"
-            data-status={status}
-            title={status === 'stale' ? t('notebook.reactivity.cellStaleHint') : undefined}
-          >
-            <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
-              {t(`notebook.status.${statusKey(status)}`)}
-              {latencyLabel ? t('notebook.cell.latencySuffix', { ms: latencyLabel }) : ''}
-            </StatusBadge>
-          </span>
-          <button
-            type="button"
-            onClick={() => runWithFlush(onRunCell)}
-            disabled={disabled || status === 'running'}
-            data-testid="notebook-code-cell-run"
-            className="focus-ring inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Play size={9} aria-hidden="true" />
-            {t(status === 'stale' ? 'notebook.reactivity.refreshCell' : 'notebook.cell.runCell')}
-          </button>
+          {/* Before the first run the margin says so; the badge would repeat it. */}
+          {neverRan ? null : (
+            <span
+              data-testid="notebook-code-cell-status"
+              data-status={status}
+              title={status === 'stale' ? t('notebook.reactivity.cellStaleHint') : undefined}
+            >
+              <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
+                {t(`notebook.status.${status}`)}
+                {latencyLabel ? t('notebook.cell.latencySuffix', { ms: latencyLabel }) : ''}
+              </StatusBadge>
+            </span>
+          )}
+          {status === 'stale' ? (
+            <button
+              type="button"
+              onClick={() => runWithFlush(onRunCell)}
+              disabled={disabled}
+              data-testid="notebook-code-cell-run"
+              className="focus-ring inline-flex h-6 items-center rounded border border-border-default px-2 text-caption font-medium text-fg-base hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t('notebook.reactivity.refreshCell')}
+            </button>
+          ) : (
+            <IconButton
+              size="sm"
+              tooltip={t('notebook.cell.runCell')}
+              onClick={() => runWithFlush(onRunCell)}
+              disabled={disabled || status === 'running'}
+              data-testid="notebook-code-cell-run"
+              className="focus-ring"
+            >
+              <Play size={ICON_GLYPH.sm} aria-hidden="true" />
+            </IconButton>
+          )}
           <button
             type="button"
             onClick={() => onMoveUp(cell.id)}
@@ -566,10 +573,10 @@ function NotebookCodeCellRowImpl({
           notebook never mounts more than ~1 editor. The run / Esc keybinds
           and the draft-flush-before-run contract are preserved through the
           callbacks below. A plain Enter inside Monaco inserts a newline. */}
-      <div className="notebook-cell-body" data-answers={showAnswers ? 'true' : undefined}>
+      <div className="notebook-cell-body" data-answers={answerColumn ? 'true' : undefined}>
       <NotebookCellEditor
         lineHeight={lineHeight}
-        leaders={showAnswers && !editing ? leaders : undefined}
+        leaders={answerColumn && !editing ? leaders : undefined}
         cellId={cell.id}
         language={cell.language}
         value={source}
@@ -607,14 +614,16 @@ function NotebookCodeCellRowImpl({
           shellRef.current?.focus();
         }}
       />
-      {showAnswers ? (
+      {answerColumn ? (
         <NotebookCellAnswers
           rows={answerRows}
+          hintLine={hintLine}
           lineCount={lineCount}
           lineHeight={lineHeight}
           language={cell.language}
           cellIndex={cellIndex}
           stale={status === 'stale'}
+          runNumber={executionOrder}
           table={answerTable}
         />
       ) : null}

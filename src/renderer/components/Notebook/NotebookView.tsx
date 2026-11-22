@@ -37,7 +37,6 @@ import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 import { useNotebookCommandMode } from './useNotebookCommandMode';
 import { NotebookToolbar } from './NotebookToolbar';
 import { NotebookCommandBar } from './NotebookCommandBar';
-import { NotebookReactivityBanner } from './NotebookReactivityBanner';
 import { NotebookCellList } from './NotebookCellList';
 import { useNotebookExportActions } from './useNotebookExportActions';
 import { coerceNotebookCellLanguage, notebookTitleFromTabName } from './notebookViewModel';
@@ -652,7 +651,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     <div
       data-testid="notebook-view"
       data-notebook-id={notebook.id}
-      className="grid h-full min-h-0 grid-rows-[auto_auto_1fr] bg-background"
+      className="grid h-full min-h-0 grid-rows-[auto_1fr] bg-background"
     >
       <NotebookCommandBar
         title={notebook.title}
@@ -706,8 +705,6 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         setShortcutsOpen={setShortcutsOpen}
         shortcutsOpen={shortcutsOpen}
       />
-
-      <NotebookReactivityBanner staleCount={staleCount} />
 
       <NotebookCellList
         tabId={tabId}

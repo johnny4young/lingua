@@ -13,12 +13,16 @@ const NOTEBOOK_CODE_INSET = 9;
 export interface NotebookCellAnswersProps {
   /** One answer per line, sorted by line. */
   readonly rows: ReadonlyArray<NotebookLineAnswerV1>;
+  /** A cell that never ran offers the key that runs it on this line (0 for none). */
+  readonly hintLine: number;
   readonly lineCount: number;
   readonly lineHeight: number;
   readonly language: NotebookCellLanguage;
   readonly cellIndex: number;
   /** The run is older than a change above it; answers read as dated. */
   readonly stale: boolean;
+  /** The run the answers came from, named when they read as dated. */
+  readonly runNumber: number | null;
   /** A query's result set, drawn beside the cell instead of summarized. */
   readonly table: RichOutputTable | null;
 }
@@ -26,14 +30,26 @@ export interface NotebookCellAnswersProps {
 /** The answer column: what each line answered, on that line. */
 export const NotebookCellAnswers = memo(function NotebookCellAnswers({
   rows,
+  hintLine,
   lineCount,
   lineHeight,
   language,
   cellIndex,
   stale,
+  runNumber,
   table,
 }: NotebookCellAnswersProps) {
   const { t } = useTranslation();
+  const lines = Math.max(1, lineCount);
+  const last = rows.length - 1;
+  const lastSpansTable = last >= 0 && rows[last]!.kind === 'result' && table !== null;
+  // A table runs to the end of the column, so its date gets a footer row of its own.
+  const footer = stale && lastSpansTable;
+  const dated = stale ? (
+    <span className="notebook-answer-pill" data-tone="dated" data-testid="notebook-cell-answer-dated">
+      {runNumber === null ? t('notebookAnswers.dated') : t('notebookAnswers.datedRun', { n: runNumber })}
+    </span>
+  ) : null;
   return (
     <div
       role="group"
@@ -44,10 +60,10 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
       style={{
         ['--notebook-line-height' as string]: `${lineHeight}px`,
         paddingTop: NOTEBOOK_CODE_INSET,
-        gridTemplateRows: `repeat(${Math.max(1, lineCount)}, ${lineHeight}px) auto`,
+        gridTemplateRows: `repeat(${lines}, ${lineHeight}px) auto${footer ? ` ${lineHeight}px` : ''}`,
       }}
     >
-      {rows.map((answer) => {
+      {rows.map((answer, index) => {
         const spansTable = answer.kind === 'result' && table !== null;
         return (
           <div
@@ -57,7 +73,7 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
             data-kind={answer.kind}
             className="notebook-answer"
             style={{
-              gridRow: spansTable ? `${answer.line} / -1` : answer.line,
+              gridRow: spansTable ? `${answer.line} / ${lines + 2}` : answer.line,
               ...(spansTable ? {} : { height: lineHeight }),
             }}
           >
@@ -65,9 +81,29 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
               {answerTag(answer, language)}
             </span>
             {spansTable ? <AnswerTable table={table} /> : <AnswerValue answer={answer} />}
+            {index === last && !spansTable ? dated : null}
           </div>
         );
       })}
+      {footer ? (
+        <div className="notebook-answer" style={{ gridRow: lines + 2, height: lineHeight }}>
+          <span className="notebook-answer-tag" />
+          {dated}
+        </div>
+      ) : null}
+      {hintLine > 0 ? (
+        <p
+          data-testid="notebook-cell-run-hint"
+          className="notebook-answer"
+          style={{ gridRow: hintLine, height: lineHeight }}
+        >
+          <span className="notebook-answer-tag" aria-hidden="true" />
+          <kbd className="notebook-answer-kbd" role="img" aria-label={t('notebookAnswers.runHintKeys')}>
+            ⇧↵
+          </kbd>
+          <span className="notebook-answer-text">{t('notebookAnswers.runHint')}</span>
+        </p>
+      ) : null}
     </div>
   );
 });

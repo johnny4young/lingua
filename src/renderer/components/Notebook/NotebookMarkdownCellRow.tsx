@@ -29,7 +29,7 @@ export interface NotebookMarkdownCellRowProps {
   readonly cellIndex: number;
   /**
    * Signal-Slate — true when this is the active cell (keyboard target).
-   * Drives the left accent bar + the Command/Edit mode label so markdown
+   * Drives the active outline + the Command/Edit mode label so markdown
    * cells participate in the same command/edit model as code cells.
    */
   readonly isActive: boolean;
