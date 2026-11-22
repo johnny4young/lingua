@@ -366,7 +366,7 @@ export function SqlResultPreview({
     [tableShown, shownColumns, filteredRows, linkedColumns]
   );
 
-  const { paneRef, headerRef, bodyRef, pinRef, layout: gridFirst, pinned } = useSqlResultPaneLayout(
+  const { paneRef, headerRef, bodyRef, pinRef, layout: gridFirst, pinned, short } = useSqlResultPaneLayout(
     (response?.status === 'success' || response?.status === 'too-large') && activeTab !== 'profile' && shownRows.length > 0,
     // Staged writes stay in sight on a short pane.
     rowEdits !== undefined && stagedCount(rowEdits.edits) > 0,
@@ -448,6 +448,7 @@ export function SqlResultPreview({
           total={{ count: knownTotal, lowerBound: totalIsLowerBound }}
           shownInView={displayRows.length < knownTotal || totalIsLowerBound ? displayRows.length : null}
           statementPosition={statementPosition}
+          density={short ? 'compact' : 'pane'}
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={(id) => {

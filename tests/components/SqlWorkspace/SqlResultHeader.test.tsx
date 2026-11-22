@@ -26,6 +26,19 @@ function response(overrides: Partial<SqlResponseV1> = {}): SqlResponseV1 {
 }
 
 describe('SQL result header', () => {
+  it('turns compact on a pane too short for the full header and a grid row', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(104);
+    try {
+      const { rerender } = render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={1000} />);
+      expect(screen.getByTestId('result-header').dataset.density).toBe('compact');
+      height.mockReturnValue(480);
+      rerender(<SqlResultPreview response={response({ durationMs: 40 })} isExecuting={false} rowDisplayLimit={1000} />);
+      expect(screen.getByTestId('result-header').dataset.density).toBe('pane');
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('reads the row count as the numeral, then time and the statement on screen', () => {
     render(
       <SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={1000} statementPosition={{ index: 1, total: 2 }} />

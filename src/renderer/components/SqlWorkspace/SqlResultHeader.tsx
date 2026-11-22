@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
-import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
+import { ResultHeader, type ResultHeaderProps, type ResultHeaderTab } from '../ui/ResultHeader';
 import { StatusBadge } from '../ui/StatusBadge';
 import { sqlPhaseSplit } from './sqlPhaseSplit';
 import { toneForSqlStatus } from './sqlStatusTone';
@@ -23,6 +23,8 @@ export interface SqlResultHeaderProps {
   /** Rows the grid shows, when fewer than the total. */
   shownInView: number | null;
   statementPosition?: { index: number; total: number } | undefined;
+  /** `compact` on a pane too short for the full header and a row of the grid. */
+  density?: ResultHeaderProps['density'];
   tabs?: ReadonlyArray<ResultHeaderTab> | undefined;
   activeTab: string;
   onTabChange: (id: string) => void;
@@ -32,7 +34,7 @@ export interface SqlResultHeaderProps {
 }
 
 /** SQL, the row count, time and statement over the phase bar, the views and the grid's actions. */
-export function SqlResultHeader({ response, total, shownInView, statementPosition, tabs, activeTab, onTabChange, grid, onExport }: SqlResultHeaderProps) {
+export function SqlResultHeader({ response, total, shownInView, statementPosition, density, tabs, activeTab, onTabChange, grid, onExport }: SqlResultHeaderProps) {
   const { t, i18n } = useTranslation();
   const num = (value: number) => formatNumber(value, i18n.language);
   const tone = toneForSqlStatus(response.status);
@@ -50,6 +52,7 @@ export function SqlResultHeader({ response, total, shownInView, statementPositio
   return (
     <ResultHeader
       workspace="sql"
+      density={density}
       numeral={
         hasRows
           ? {

@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 
 // The grid header and a row or two. With less room than this the grid takes the pane.
 const MIN_GRID_PX = 72;
+// Below the pane header's 66 px plus the grid minimum, the header turns compact.
+const SHORT_PANE_PX = 66 + MIN_GRID_PX;
 
 /** Sizes of the grid-first layout, or `null` when the bands and the grid fit together. */
 export interface SqlGridFirstLayout {
@@ -45,12 +47,16 @@ export function useSqlResultPaneLayout(hasRows: boolean, hasPin: boolean, showGr
   const bodyRef = useRef<HTMLDivElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<SqlGridFirstLayout | null>(null);
+  // Read off the pane alone, so the header's own height never flips it.
+  const [short, setShort] = useState(false);
 
   // Every commit: a band can mount, unmount or wrap, and each one moves the grid.
   useLayoutEffect(() => {
     const update = () => {
       const next = hasRows ? measure(paneRef.current, headerRef.current, bodyRef.current, hasPin ? pinRef.current : null) : null;
       setLayout((current) => (sameLayout(current, next) ? current : next));
+      const height = paneRef.current?.clientHeight ?? 0;
+      setShort(height > 0 && height < SHORT_PANE_PX);
     };
     update();
     const pane = paneRef.current;
@@ -71,5 +77,5 @@ export function useSqlResultPaneLayout(hasRows: boolean, hasPin: boolean, showGr
     pane.scrollTop = body.offsetTop - covered;
   }, [gridFirst, pinned, showGridKey]);
 
-  return { paneRef, headerRef, bodyRef, pinRef, layout, pinned };
+  return { paneRef, headerRef, bodyRef, pinRef, layout, pinned, short };
 }
