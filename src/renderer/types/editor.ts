@@ -10,6 +10,7 @@ import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import type { Language } from './language';
+import type { LastAnswer } from '../utils/lastAnswer';
 
 /**
  * per-tab execution lifecycle.
@@ -68,6 +69,8 @@ export interface FileTab {
   notebookDocumentHash?: string | null;
   /** Last execution outcome. Drives the status dot in EditorTabs. */
   executionState?: TabExecutionState;
+  /** Small summary of the last run's answer for Start and the palette; persisted with the session. */
+  lastAnswer?: LastAnswer;
   /**
    * Last surfaced parse / runtime error message. Truncated by the
    * tab bar via `title` attribute; the editor store clears it on
@@ -219,8 +222,13 @@ export interface EditorState {
    * Grandfather an array of tabs into the store without consulting the
    * tier ceiling. Only the session-restore path should use this
    * so users' prior workspaces are never truncated by a Free downgrade.
+   * `append` keeps the open tabs and skips restored ids already open.
    */
-  restoreTabs: (tabs: Array<Omit<FileTab, 'isDirty'>>, activeTabId?: string | null) => void;
+  restoreTabs: (
+    tabs: Array<Omit<FileTab, 'isDirty'>>,
+    activeTabId?: string | null,
+    options?: { append?: boolean }
+  ) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   /**

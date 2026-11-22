@@ -27,7 +27,7 @@ vi.mock('../../src/renderer/runners', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/consoleStore', () => {
-  const state = { addEntry: vi.fn(), addEntries: vi.fn(), clear: vi.fn() };
+  const state = { addEntry: vi.fn(), addEntries: vi.fn(), clear: vi.fn(), beginRun: vi.fn(), dropRunAnchor: vi.fn() };
   return { useConsoleStore: { getState: () => state } };
 });
 
@@ -62,6 +62,7 @@ vi.mock('../../src/renderer/hooks/useEntitlement', () => ({
 }));
 
 import { useResultStore } from '../../src/renderer/stores/resultStore';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useRunRegionStore } from '../../src/renderer/stores/runRegionStore';
@@ -120,6 +121,18 @@ describe('executeTabManually — run regions', () => {
     await executeTabManually({ ...tab, stdinBuffer: 'a\nb' }, { region, maskedStdin: [{ index: 1, value: 's' }] });
     expect(mockRunnerExecute.mock.calls[0]![1]).toMatchObject({ askStdin: true, stdin: 'a\ns\nb' });
     expect(useRunRegionStore.getState().last).toMatchObject({ ok: true, request: { message: 'Name?', line: 3 } });
+  });
+
+  it('keeps the answer of a whole-file run on the tab, not of a region run', async () => {
+    useEditorStore.setState({ tabs: [tab], activeTabId: tab.id });
+    const lastAnswer = () => useEditorStore.getState().tabs[0]?.lastAnswer;
+
+    await executeTabManually(tab, { region: parseRunRegions(SOURCE, 'javascript')[1]! });
+    expect(lastAnswer()).toBeUndefined();
+
+    await executeTabManually(tab);
+    await vi.waitFor(() => expect(lastAnswer()).toMatchObject({ kind: 'code', status: 'ok', numeral: 'above', durationMs: 3 }));
+    useEditorStore.setState({ tabs: [], activeTabId: null });
   });
 
   it('drops the region result when the tab runs as a whole', async () => {

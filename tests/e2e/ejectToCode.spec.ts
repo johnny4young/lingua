@@ -45,7 +45,7 @@ for (const language of ['en', 'es'] as const) {
   test(`opens a request as a JS tab without its secret (${language})`, async ({ page }) => {
     const seen = await openRequest(page, language);
     // The secret is really in play: Send would resolve it.
-    await expect(page.getByRole('combobox').filter({ hasText: 'prod' }).first()).toHaveValue('prod');
+    await expect(page.getByTestId('http-environment-selector')).toContainText('prod');
     await page.getByTestId('http-request-editor-copy-menu').click();
     await page.getByTestId('http-request-editor-open-tab').click();
 

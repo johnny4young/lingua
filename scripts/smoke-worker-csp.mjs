@@ -387,7 +387,7 @@ try {
     await page.reload();
     await page.getByTestId('app-chrome').waitFor({ timeout: 60_000 });
     assert.equal(await page.evaluate(() => document.documentElement.lang), locale);
-    await page.getByTestId('empty-state-quick-start-javascript').click();
+    await page.getByTestId('start-new-javascript').click();
     await page.locator('.monaco-editor').first().click();
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
     await page.keyboard.insertText('\nconst = 1;');

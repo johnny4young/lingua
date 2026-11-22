@@ -7,8 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   FilePlus,
-  Folder,
-  FolderOpen,
   FolderPlus,
   Trash2,
 } from 'lucide-react';
@@ -24,6 +22,8 @@ import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { FileTreeContextMenu, type FileTreeContextMenuItem } from './FileTreeContextMenu';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
+import { TestTallyMark } from './TestTallyMark';
+import type { GitMark, TestTally } from './fileTreeMarks';
 
 interface FileTreeNodeProps {
   node: ProjectFileTreeNode;
@@ -51,6 +51,10 @@ interface FileTreeNodeProps {
    * to `editorStore.activeTabId`.
    */
   activeFileKey?: string | null;
+  /** Uncommitted state of this path in Git. */
+  gitMark?: GitMark;
+  /** Result of the last project test run for this file. */
+  testTally?: TestTally;
   onFileClick: (node: ProjectFileTreeNode) => void;
   onDelete: (node: ProjectFileTreeNode) => void;
   onNewFileIn?: (node: ProjectFileTreeNode) => void;
@@ -65,12 +69,19 @@ interface FileTreeNodeProps {
 
 const EMPTY_DIRTY_SET: ReadonlySet<string> = new Set<string>();
 
+const GIT_MARK: Record<GitMark, { letter: string; tone: string }> = {
+  modified: { letter: 'M', tone: 'text-warning-fg' },
+  untracked: { letter: 'U', tone: 'text-success-fg' },
+};
+
 export function FileTreeNode({
   node,
   depth,
   rowRef,
   dirtyTabPaths = EMPTY_DIRTY_SET,
   activeFileKey = null,
+  gitMark,
+  testTally,
   onFileClick,
   onDelete,
   onNewFileIn,
@@ -113,10 +124,8 @@ export function FileTreeNode({
     currentProject !== null &&
     dirtyTabPaths.has(dirtyTabKey(currentProject.rootId, node.path));
 
-  // Proto active-row accent. A file row lights up
-  // (accent-soft bg + 2px accent left border) when it backs the active
-  // editor tab, matched by the same `rootId::relativePath` key used for
-  // the dirty dot. Directories never carry the active accent.
+  // A file row backing the active editor tab gets the accent-soft
+  // background, matched by the same key as the dirty dot.
   const isActiveFile =
     !node.isDirectory &&
     currentProject !== null &&
@@ -271,26 +280,7 @@ export function FileTreeNode({
           <span className="w-3 shrink-0" />
         )}
 
-        {node.isDirectory ? (
-          <button
-            onClick={handleToggle}
-            aria-label={t(
-              node.isExpanded
-                ? 'fileTree.actions.collapseFolder'
-                : 'fileTree.actions.expandFolder',
-              { name: node.name }
-            )}
-            className="focus-ring shrink-0 rounded"
-          >
-            {node.isExpanded ? (
-              <FolderOpen size={13} className="text-warning" />
-            ) : (
-              <Folder size={13} className="text-warning" />
-            )}
-          </button>
-        ) : (
-          <FileTreeGlyph language={node.language ?? PLAINTEXT_LANGUAGE} />
-        )}
+        {!node.isDirectory && <FileTreeGlyph language={node.language ?? PLAINTEXT_LANGUAGE} />}
 
         {renaming ? (
           <FileTreeInlineInput
@@ -332,8 +322,25 @@ export function FileTreeNode({
           </span>
         )}
 
+        {testTally && !renaming && (
+          <span className="shrink-0 pl-1">
+            <TestTallyMark tally={testTally} testId={`file-tree-tests-${node.path}`} />
+          </span>
+        )}
+
+        {gitMark && !renaming && (
+          <span
+            role="img"
+            aria-label={t(`editor.git.tooltip.${gitMark}`)}
+            data-testid={`file-tree-git-${node.path}`}
+            className={`w-3 shrink-0 pl-1 text-center font-mono text-caption font-semibold ${GIT_MARK[gitMark].tone}`}
+          >
+            {GIT_MARK[gitMark].letter}
+          </span>
+        )}
+
         {(hovered || focusWithin) && !renaming && (
-          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-0.5">
             {node.isDirectory && onNewFileIn && (
               <Tooltip content={t('fileTree.actions.newFile')}>
                 <button

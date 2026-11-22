@@ -1,0 +1,178 @@
+/* Test answers load with their chunk, so their sizes ship here instead of in the boot stylesheet. */
+
+.test-answer-widget {
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.test-answer {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  align-items: center;
+  font-family: var(--font-code);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.test-answer-leader {
+  flex: none;
+  width: var(--test-answer-leader, 26px);
+  height: 2px;
+  margin: 0 12px 0 14px;
+  background: radial-gradient(circle, var(--color-border-strong) 0.9px, transparent 1.1px) 0 0 / 7px 2px repeat-x;
+}
+
+.test-answer-leader[data-tone='error'] {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--color-value-error) 60%, transparent) 0.9px, transparent 1.1px);
+}
+
+.test-answer-body {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.test-answer-tag {
+  flex: none;
+  min-width: 64px;
+  color: var(--color-fg-muted);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.test-answer-tag[data-tone='error'] {
+  color: var(--color-value-error);
+}
+
+.test-answer-pill {
+  --test-answer-tone: var(--color-fg-base);
+  display: inline-flex;
+  min-width: 0;
+  height: 19px;
+  flex: none;
+  align-items: center;
+  padding: 0 7px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--test-answer-tone) 14%, transparent);
+  color: var(--test-answer-tone);
+  font-weight: 560;
+  text-overflow: ellipsis;
+}
+
+.test-answer-pill[data-tone='ok'],
+.test-answer-pill[data-tone='string'] {
+  --test-answer-tone: var(--color-value-string);
+}
+
+.test-answer-pill[data-tone='error'] {
+  --test-answer-tone: var(--color-value-error);
+  font-size: 13px;
+}
+
+.test-answer-pill[data-tone='number'],
+.test-answer-pill[data-tone='array'] {
+  --test-answer-tone: var(--color-value-number);
+}
+
+.test-answer-pill[data-tone='boolean'] {
+  --test-answer-tone: var(--color-value-boolean);
+}
+
+.test-answer-pill[data-tone='null'],
+.test-answer-pill[data-tone='undefined'] {
+  --test-answer-tone: var(--color-fg-muted);
+}
+
+.test-answer-mark {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: var(--color-value-string);
+  opacity: 0.6;
+}
+
+.test-answer-mark[data-status='failed'] {
+  background: var(--color-value-error);
+  opacity: 1;
+}
+
+.test-answer-mark[data-status='skipped'] {
+  background: var(--color-fg-subtle);
+  opacity: 0.5;
+}
+
+.test-answer-link {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  color: var(--color-fg-subtle);
+  text-overflow: ellipsis;
+}
+
+.test-answer-link:hover {
+  color: var(--color-fg-base);
+}
+
+.test-answer-link:focus-visible,
+.test-answer-chip:focus-visible {
+  outline: 2px solid var(--color-pulse-fg);
+  outline-offset: 1px;
+}
+
+.test-answer-chip {
+  display: inline-flex;
+  height: 20px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: var(--color-bg-panel-alt);
+  color: var(--color-fg-base);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.test-answer-chip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-fg-base) 10%, var(--color-bg-panel-alt));
+}
+
+.test-answer-chip:disabled {
+  opacity: 0.5;
+}
+
+.test-change-row {
+  padding: 0 12px;
+}
+
+.test-change-row[data-kind='remove'] {
+  background: color-mix(in srgb, var(--color-value-error) 12%, transparent);
+}
+
+.test-change-row[data-kind='add'] {
+  background: color-mix(in srgb, var(--color-value-string) 12%, transparent);
+}
+
+.test-change-sign {
+  display: inline-block;
+  width: 2ch;
+}
+
+.test-change-row[data-kind='remove'] .test-change-sign {
+  color: var(--color-value-error);
+}
+
+.test-change-row[data-kind='add'] .test-change-sign {
+  color: var(--color-value-string);
+}

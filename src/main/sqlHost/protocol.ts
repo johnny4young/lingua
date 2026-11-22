@@ -4,7 +4,7 @@
  * config per request; the host keeps one session per connection id.
  */
 
-import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
+import type { SqlColumnMetadata, SqlPhaseTimings } from '../../shared/sqlWorkspace';
 import type { SqlConnectionD1, SqlRemoteEngine, SqlSshAuth, SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbHostKey, SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlDriverError } from '../../shared/sqlDriver';
@@ -120,6 +120,8 @@ export interface HostExecuteResult {
   rowCountIsLowerBound: boolean;
   hasMore: boolean;
   affectedRows?: number;
+  /** Plan, execute and fetch milliseconds; absent when the engine cannot tell them apart. */
+  phases?: SqlPhaseTimings;
 }
 
 export interface HostFetchResult {

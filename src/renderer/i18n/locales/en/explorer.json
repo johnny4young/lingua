@@ -1,0 +1,9 @@
+{
+  "explorer.files": "Files",
+  "explorer.changed_one": "{{shown}} changed",
+  "explorer.changed_other": "{{shown}} changed",
+  "explorer.searchInFiles": "Search in files",
+  "explorer.testTally_one": "{{passed}} of {{count}} test passed",
+  "explorer.testTally_other": "{{passed}} of {{count}} tests passed",
+  "explorer.terminalActive": "active"
+}

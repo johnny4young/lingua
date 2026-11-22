@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   armPendingSessionRestoreSnapshot,
   clearPendingSessionRestoreSnapshot,
+  getPendingSessionRestoreSnapshot,
   getPendingSessionRestoreTabCount,
   sessionSnapshotEqual,
   useSessionStore,
@@ -20,6 +21,7 @@ import {
   useWorkspaceToolStore,
 } from '@/stores/workspaceToolStore';
 import { createBlankSqlQuery } from '#src/shared/sqlWorkspace';
+import { getSessionTabAnswers, lastAnswerForPath } from '@/stores/lastAnswerSelectors';
 import { createBlankHttpRequest } from '#src/shared/httpWorkspace';
 
 describe('sessionStore', () => {
@@ -491,6 +493,90 @@ describe('sessionStore', () => {
     expect(useRecipeStore.getState().getBindingForTab(tabs[0].id)).toBe('js-sort-objects');
   });
 
+  it('restores each tab with its last answer and drops a malformed one', async () => {
+    const answer = { kind: 'code', status: 'ok', numeral: '1 – 64', unit: 'items', total: 8, ranAt: 1_700_000_000_000 } as const;
+    useSessionStore.setState({
+      savedTabs: [
+        { name: 'squares.js', language: 'javascript', content: '[1, 2].map(n => n * n)', lastAnswer: answer },
+        { name: 'SQL', language: 'sql', content: '', kind: 'sql', workspaceTabId: SQL_WORKSPACE_TAB_ID, lastAnswer: { ...answer, kind: 'sql', numeral: '12', unit: 'rows' } },
+        { name: 'legacy.py', language: 'python', content: 'print(1)' },
+        { name: 'tampered.js', language: 'javascript', content: '', lastAnswer: { kind: 'shell', numeral: 1 } as never },
+      ],
+      savedActiveIndex: 0,
+    });
+
+    await useSessionStore.getState().restoreSession();
+
+    const tabs = useEditorStore.getState().tabs;
+    expect(tabs.map(tab => tab.lastAnswer?.numeral)).toEqual(['1 – 64', '12', undefined, undefined]);
+    expect(tabs[0]?.lastAnswer).toEqual(answer);
+    expect(tabs[2]).not.toHaveProperty('lastAnswer');
+    expect(tabs[3]).not.toHaveProperty('lastAnswer');
+  });
+
+  it('lists the answers a restore would bring back and finds one by file path', () => {
+    const answer = { kind: 'code', status: 'ok', numeral: '1.24', label: 's', ranAt: 1_700_000_000_000 } as const;
+    useSessionStore.setState({
+      savedTabs: [
+        { name: 'latencies.py', language: 'python', content: '', filePath: '/work/latencies.py', lastAnswer: answer },
+        { name: 'never-ran.js', language: 'javascript', content: '' },
+      ],
+      savedActiveIndex: 0,
+    });
+    armPendingSessionRestoreSnapshot();
+    useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
+
+    expect(getSessionTabAnswers()).toEqual([
+      { index: 0, name: 'latencies.py', language: 'python', filePath: '/work/latencies.py', lastAnswer: answer },
+    ]);
+    expect(lastAnswerForPath('/work/latencies.py')).toEqual(answer);
+    expect(lastAnswerForPath('/work/other.py')).toBeUndefined();
+  });
+
+  it('reopens one saved tab beside the open ones and keeps the rest offered', async () => {
+    useSessionStore.setState({
+      savedTabs: [
+        { name: 'first.js', language: 'javascript', content: '1' },
+        { name: 'second.py', language: 'python', content: '2' },
+        { name: 'third.ts', language: 'typescript', content: '3' },
+      ],
+      savedActiveIndex: 0,
+    });
+    useEditorStore.getState().restoreTabs([{ id: 'open', name: 'open.js', language: 'javascript', content: 'x' }], 'open');
+
+    await useSessionStore.getState().restoreSession({ only: 1 });
+
+    const tabs = useEditorStore.getState().tabs;
+    expect(tabs.map(tab => tab.name)).toEqual(['open.js', 'second.py']);
+    expect(useEditorStore.getState().activeTabId).toBe(tabs[1]?.id);
+    expect(getPendingSessionRestoreSnapshot()?.savedTabs.map(tab => tab.name)).toEqual(['first.js', 'third.ts']);
+
+    await useSessionStore.getState().restoreSession({ only: 5 });
+    expect(useEditorStore.getState().tabs).toHaveLength(2);
+
+    await useSessionStore.getState().restoreSession();
+    const restored = useEditorStore.getState().tabs;
+    expect(restored.map(tab => tab.name)).toEqual(['open.js', 'second.py', 'first.js', 'third.ts']);
+    expect(useEditorStore.getState().activeTabId).toBe(restored[2]?.id);
+    expect(getPendingSessionRestoreSnapshot()).toBeNull();
+    expect(useSessionStore.getState().pendingRestoreTabs).toBe(0);
+  });
+
+  it('runs one restore at a time, so a double click opens one copy', async () => {
+    useSessionStore.setState({
+      savedTabs: [{ name: 'only.js', language: 'javascript', content: '1', lastAnswer: { kind: 'code', status: 'ok', numeral: '1', ranAt: 1_700_000_000_000 } }],
+      savedActiveIndex: 0,
+    });
+    armPendingSessionRestoreSnapshot();
+
+    await Promise.all([
+      useSessionStore.getState().restoreSession({ only: 0 }),
+      useSessionStore.getState().restoreSession({ only: 0 }),
+    ]);
+
+    expect(useEditorStore.getState().tabs.map(tab => tab.name)).toEqual(['only.js']);
+  });
+
   it('restores the Recipe panel when the active restored tab has a recipe binding', async () => {
     useSessionStore.setState({
       savedTabs: [
@@ -888,6 +974,7 @@ describe('sessionStore', () => {
       ['activeInputSetId', { activeInputSetId: 'set-1' }],
       ['inputArgs', { inputArgs: ['--fast'] }],
       ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
+      ['lastAnswer', { lastAnswer: { kind: 'code', status: 'ok', numeral: '64', ranAt: 1_700_000_000_000 } }],
       ['kind', { kind: 'notebook' }],
     ] as const)('flips on persisted tab field: %s', (_label, override) => {
       const a = snapshot([baseTab()]);
@@ -941,6 +1028,7 @@ describe('sessionStore', () => {
       ['activeInputSetId', { activeInputSetId: 'set-1' }],
       ['inputArgs', { inputArgs: ['--fast'] }],
       ['recipeBindingId', { recipeBindingId: 'js-sort-objects' }],
+      ['lastAnswer', { lastAnswer: { kind: 'code', status: 'ok', numeral: '64', ranAt: 1_700_000_000_000 } }],
       ['kind (notebook, also feeds notebookTabId)', { kind: 'notebook' }],
       ['kind (sql, also feeds workspaceTabId)', { kind: 'sql' }],
     ] as const)(

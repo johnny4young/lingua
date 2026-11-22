@@ -1,0 +1,340 @@
+/* Start loads lazily, so its one-off sizes ship here instead of in the boot stylesheet. */
+
+.start-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 36px 16px 64px;
+}
+
+.start-headline {
+  font-size: 44px;
+  font-weight: 380;
+  line-height: 1.2;
+}
+
+.start-headline-dot {
+  color: var(--color-pulse-fg);
+}
+
+.start-chip {
+  height: 19px;
+  padding: 0 7px;
+  font-size: 11.5px;
+}
+
+.start-prompt {
+  --start-prompt-wash: color-mix(in srgb, var(--color-pulse) 14%, transparent);
+  display: flex;
+  min-height: 112px;
+  margin-top: 10px;
+  padding: 12px 14px 12px 0;
+  flex-direction: column;
+  justify-content: center;
+  border: 1.5px solid var(--color-pulse-fg);
+  border-radius: 14px;
+  background: var(--color-bg-panel);
+  box-shadow: 0 0 0 4px var(--start-prompt-wash), 0 22px 40px -28px rgb(0 20 30 / 0.5);
+  cursor: text;
+}
+
+.start-prompt:focus-within {
+  --start-prompt-wash: color-mix(in srgb, var(--color-pulse) 30%, transparent);
+}
+
+.start-prompt-line {
+  display: flex;
+  height: 40px;
+  min-width: 0;
+  align-items: center;
+}
+
+.start-prompt-caret {
+  flex: none;
+  width: 26px;
+  margin-right: 10px;
+  color: var(--color-pulse-fg);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.start-prompt-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+}
+
+/* Sized to the typed text so the leader runs from the line's end to the answer. */
+.start-prompt-field[data-sized] {
+  flex: 0 1 auto;
+  min-width: min(30%, 12ch);
+}
+
+.start-prompt-field .monaco-editor {
+  --vscode-editor-background: transparent;
+  --vscode-editorGutter-background: transparent;
+}
+
+.start-prompt-answer {
+  display: flex;
+  max-width: 70%;
+  min-width: 0;
+  flex: 1 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.start-prompt-tag {
+  display: none;
+  flex: none;
+  color: var(--color-fg-muted);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.start-prompt-picture {
+  display: none;
+  flex: none;
+}
+
+.start-prompt-value {
+  min-width: 0;
+  color: var(--color-fg-base);
+  font-size: 20px;
+}
+
+.start-prompt-answer[data-kind='number'] .start-prompt-value,
+.start-prompt-answer[data-kind='array'] .start-prompt-value {
+  color: var(--color-value-number);
+}
+
+.start-prompt-answer[data-kind='string'] .start-prompt-value {
+  color: var(--color-value-string);
+}
+
+.start-prompt-answer[data-kind='boolean'] .start-prompt-value {
+  color: var(--color-value-boolean);
+}
+
+.start-prompt-answer:not([data-status='ok']) .start-prompt-value {
+  color: var(--color-value-error);
+}
+
+.start-prompt-hints {
+  display: flex;
+  min-height: 26px;
+  margin: 8px 0 0 36px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  white-space: nowrap;
+}
+
+.start-section {
+  margin-top: 40px;
+}
+
+.start-section-first {
+  margin-top: 44px;
+}
+
+.start-heading {
+  font-size: 25px;
+  font-weight: 460;
+}
+
+.start-rule {
+  border-top: 1.5px solid var(--color-fg-base);
+}
+
+.start-row-name {
+  font-size: 15px;
+}
+
+.start-row-detail {
+  display: none;
+}
+
+.start-numeral {
+  font-size: 31px;
+  font-weight: 380;
+  line-height: 40px;
+  color: var(--color-fg-base);
+}
+
+.start-numeral[data-empty] {
+  font-size: 22px;
+}
+
+.start-numeral[data-failed] {
+  color: var(--color-value-error);
+}
+
+.start-unit {
+  font-size: 17px;
+}
+
+.start-detail {
+  display: none;
+  width: 214px;
+  padding-left: 18px;
+}
+
+.start-small {
+  font-size: 12px;
+}
+
+.start-delta {
+  height: 19px;
+  font-size: 10.5px;
+}
+
+.start-bar {
+  fill: var(--color-value-number);
+}
+
+.start-phases {
+  display: flex;
+  width: 104px;
+  height: 8px;
+  gap: 1.5px;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.start-phases > i {
+  background: var(--color-fg-subtle);
+}
+
+.start-phases > i[data-phase='0'] {
+  background: var(--color-border-strong);
+}
+
+.start-phases > i[data-phase='2'] {
+  background: var(--color-fg-muted);
+}
+
+.start-phases > i[data-phase='3'] {
+  background: var(--color-pulse-fg);
+}
+
+.start-cell {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--color-border-strong);
+}
+
+.start-cell[data-code='0'] {
+  background: var(--color-value-string);
+  opacity: 0.55;
+}
+
+.start-cell[data-code='1'] {
+  background: var(--color-value-error);
+}
+
+.start-languages,
+.start-workspaces {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+}
+
+.start-workspaces {
+  margin-top: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.start-tile {
+  height: 58px;
+  gap: 9px;
+  padding: 0 11px;
+}
+
+.start-tile[data-default] {
+  border-color: var(--color-fg-base);
+  box-shadow: inset 0 0 0 0.5px var(--color-fg-base);
+}
+
+.start-tile-name,
+.start-template {
+  font-size: 13px;
+}
+
+.start-tile-sub {
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--color-fg-muted);
+}
+
+.start-tile-sub[data-warn] {
+  color: var(--color-value-number);
+}
+
+.start-templates-list {
+  display: grid;
+  column-gap: 56px;
+  padding-top: 4px;
+}
+
+@media (min-width: 640px) {
+  .start-inner {
+    padding-inline: 48px;
+  }
+
+  .start-prompt {
+    padding-right: 22px;
+  }
+
+  .start-prompt-caret {
+    width: 34px;
+    margin-right: 12px;
+  }
+
+  .start-prompt-hints {
+    margin-left: 46px;
+  }
+
+  .start-prompt-picture,
+  .start-prompt-tag {
+    display: block;
+  }
+
+  .start-headline {
+    font-size: 60px;
+  }
+}
+
+@media (min-width: 700px) {
+  .start-row-detail {
+    display: inline;
+  }
+}
+
+@media (min-width: 760px) {
+  .start-templates-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .start-detail {
+    display: flex;
+  }
+}
+
+@media (min-width: 1024px) {
+  .start-inner {
+    padding-inline: 96px;
+  }
+
+  .start-headline {
+    font-size: 74px;
+    line-height: 96px;
+  }
+}

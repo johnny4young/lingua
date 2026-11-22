@@ -47,6 +47,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from './CapsuleImportPreview';
 import { openCapsuleWorkspaceFileInNewTab } from '../../utils/openCapsuleTab';
 import type { CapsuleWorkspaceFileV1 } from '../../../shared/capsuleWorkspace';
+import '../../i18n/capsuleImportCatalog';
 
 export interface CapsuleImportOverlayProps {
   onClose: () => void;

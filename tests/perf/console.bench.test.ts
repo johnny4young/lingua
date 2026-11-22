@@ -35,7 +35,7 @@ function resetStore(): void {
   useConsoleStore.setState({
     entries: [],
     collapsedEntries: [],
-    activeFilters: new Set(['log', 'info', 'warn', 'error', 'result']),
+    level: 'all',
     hiddenPayloadKinds: new Set(),
     showTimestamps: true,
   });

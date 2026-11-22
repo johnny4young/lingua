@@ -115,7 +115,7 @@ test('holds sends while offline, sends reads by themselves and leaves writes for
   const send = page.getByTestId('http-request-editor-send');
   await url.fill(`${API}/users`);
   await context.setOffline(true);
-  await expect(send).toHaveText('Queue and send when online');
+  await expect(send).toHaveAccessibleName('Queue and send when online');
   // A narrow pane keeps the URL usable: the long label gives way first.
   await page.setViewportSize({ width: 1024, height: 700 });
   expect((await url.boundingBox())!.width).toBeGreaterThanOrEqual(100);
@@ -126,16 +126,16 @@ test('holds sends while offline, sends reads by themselves and leaves writes for
   await expect(page.getByTestId('http-response-preview-body-tree')).toHaveCount(0);
   await context.setOffline(false);
   await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
-  await expect(send).toHaveText('Send');
+  await expect(send).toHaveAccessibleName('Send');
 
   await page.getByTestId('http-request-editor-method').selectOption('POST');
   await context.setOffline(true);
   await send.click();
   await expect(page.getByTestId('http-request-editor-queued')).toBeVisible();
   await context.setOffline(false);
-  await expect(send).toHaveText('Send now');
+  await expect(send).toHaveAccessibleName('Send now');
   await send.click();
-  await expect(send).toHaveText('Send');
+  await expect(send).toHaveAccessibleName('Send');
 });
 
 test('resolves collection, environment and request variables and copies a missing one from another environment', async ({ page }) => {
@@ -158,6 +158,7 @@ test('resolves collection, environment and request variables and copies a missin
   });
   await page.getByTestId('http-request-editor-url').fill('{{base}}/repos/{{owner}}?per_page={{pageSize}}&t={{token}}');
 
+  await page.getByTestId('http-environment-selector').click();
   await page.getByTestId('http-environment-manage').click();
   await page.getByTestId('http-environment-collection-tab').click();
   const collection = page.getByTestId('http-environment-collection');

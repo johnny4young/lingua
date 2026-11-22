@@ -56,10 +56,15 @@ export interface ProjectTestCase {
   path: string[];
   status: ProjectTestCaseStatus;
   durationMs?: number;
+  /** 1-based line of the test's declaration in `file`, when the runner reports it. */
+  declarationLine?: number;
   /** Where the failing assertion is, project-relative, when the runner says. */
   failureFile?: string;
   failureLine?: number;
   failureMessage?: string;
+  /** The compared values of the failing assertion, set together and capped in length. */
+  expected?: string;
+  received?: string;
   /** False for cases the runner cannot select on their own (Rust doc tests). */
   runnable?: boolean;
 }
@@ -70,6 +75,8 @@ export type ProjectTestScope =
   | { kind: 'test'; file: string; path: string[] };
 
 export const PROJECT_TEST_MAX_CASES = 5_000;
+/** Length cap for a case's `expected` and `received` values. */
+export const PROJECT_TEST_VALUE_LIMIT = 120;
 
 export interface ProjectTestRunResult {
   kind: ProjectTestRunKind;
@@ -139,4 +146,12 @@ export function parseProjectTestScope(value: unknown): ProjectTestScope | null {
     return { kind: 'test', file: record.file, path: [...(record.path as string[])] };
   }
   return null;
+}
+
+// Runner naming conventions: Vitest/Jest/Mocha, Go, pytest.
+const TEST_FILE = /(\.(test|spec)\.[cm]?[jt]sx?$)|(_test\.(go|py)$)|(^test_[^/]*\.py$)/;
+
+/** Whether a project-relative path is named like a test file. */
+export function isLikelyTestFile(relativePath: string): boolean {
+  return TEST_FILE.test(relativePath.slice(relativePath.lastIndexOf('/') + 1));
 }

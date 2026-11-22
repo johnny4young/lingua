@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { BookOpenText, ChevronDown } from 'lucide-react';
 import type { EditorState } from '../../types/editor';
 import type { Language } from '../../types/language';
-import { languageCapabilityBadgeKey, languageBadgeTone, languageLabel } from '../../utils/languageMeta';
+import { languageCapabilityBadgeKey, languageLabel } from '../../utils/languageMeta';
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import type { LicenseTier } from '../../../shared/license';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
@@ -18,6 +18,7 @@ import {
   nativeLanguageToolchainHintKey,
 } from '../../utils/nativeLanguageToolchainStatus';
 import { Kbd } from '../ui/chrome';
+import { SurfaceBadge } from '../Chrome/CommandBarSlotHost';
 import { MonoBadge } from '../ui/primitives';
 import type { ActionPillMenu, ActionPillMenuSetter } from './useFloatingActionPill';
 
@@ -26,41 +27,6 @@ const LANGUAGE_LIST: Language[] = LANGUAGE_PACKS.filter(
     (pack.execution === 'run' || pack.execution === 'compile') &&
     pack.templateIds.length > 0
 ).map((pack) => pack.id as Language);
-
-function LanguageChip({
-  language,
-  size = 'pill',
-}: {
-  language: Language;
-  size?: 'pill' | 'menu';
-}) {
-  const meta = languageBadgeTone(language);
-  const dimension = size === 'menu' ? 22 : 18;
-  // Most badge codes are 2–3 glyphs (JS, TS, GO, PY, SQL). A 4-glyph
-  // code (e.g. HTTP) overflows the fixed square at the base 9px size,
-  // so tighten the type for long codes instead of widening the box —
-  // keeps every chip a uniform square. Length-driven so it covers any
-  // future 4-char code, not just HTTP.
-  const isLongCode = meta.code.length >= 4;
-  const baseFont = size === 'menu' ? 9.5 : 9;
-  return (
-    <span
-      className="inline-flex items-center justify-center font-mono font-bold"
-      style={{
-        width: dimension,
-        height: dimension,
-        borderRadius: size === 'menu' ? 5 : 4,
-        fontSize: isLongCode ? baseFont - 1.5 : baseFont,
-        letterSpacing: isLongCode ? '0' : '0.04em',
-        background: meta.background,
-        color: meta.foreground,
-      }}
-      aria-hidden
-    >
-      {meta.code}
-    </span>
-  );
-}
 
 interface LanguageSegmentProps {
   language: Language;
@@ -94,7 +60,7 @@ export function FloatingActionPillLanguageSegment({
         onClick={() => setOpenMenu(openMenu === 'lang' ? null : 'lang')}
         data-testid="action-pill-lang"
       >
-        <LanguageChip language={language} />
+        <SurfaceBadge language={language} />
         <span className="action-pill-language-label">{languageLabel(language)}</span>
         <ChevronDown size={10} className="text-fg-subtle" aria-hidden />
       </button>
@@ -116,7 +82,7 @@ export function FloatingActionPillLanguageSegment({
                 className="dropdown-rich-row w-full"
                 onClick={() => onPickLanguage(lang)}
               >
-                <LanguageChip language={lang} size="menu" />
+                <SurfaceBadge language={lang} size="menu" />
                 <span className="row-label flex flex-col justify-center">
                   <span>{languageLabel(lang)}</span>
                   {toolchainHint ? <span className="text-caption font-normal text-muted">{toolchainHint}</span> : null}

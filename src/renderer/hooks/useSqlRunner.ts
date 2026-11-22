@@ -27,21 +27,25 @@ import type { SqlDbConnectionView, SqlDbSecretKind } from '../../shared/sqlDb';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
-import { e2eFixedDurationMs } from '../testing/e2eDurations';
+import { withE2eSqlDuration } from '../testing/e2eDurations';
 import type { SqlRunRequest } from '../components/SqlWorkspace/SqlQueryEditor';
 import { useAnnounce } from './useAnnounce';
 import { trackSqlQueryExecuted } from './sqlWorkspaceTelemetry';
 import { appPlatform } from '../utils/appPlatform';
+import { recordTabLastAnswer } from '../stores/tabLastAnswer';
+import { SQL_WORKSPACE_TAB_ID } from '../stores/editorTabUtils';
 import '../i18n/sqlConnectionsCatalog';
 
-export function toSqlResponse(outcome: DuckDbExecuteOutcome): SqlResponseV1 {
+export function toSqlResponse(measured: DuckDbExecuteOutcome): SqlResponseV1 {
+  const outcome = withE2eSqlDuration(measured);
   return {
     version: 1,
     status: outcome.status,
     rows: outcome.rows,
     columns: outcome.columns,
     rowCount: outcome.rowCount,
-    durationMs: e2eFixedDurationMs(outcome.durationMs),
+    durationMs: outcome.durationMs,
+    ...(outcome.phases ? { phases: outcome.phases } : {}),
     tooLarge: outcome.tooLarge,
     ...(outcome.rowCountIsLowerBound ? { rowCountIsLowerBound: true } : {}),
     statementCount: outcome.statementCount,
@@ -277,6 +281,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChan
       for (const id of sessionRunSources.keys()) if (!liveIds.has(id)) sessionRunSources.delete(id);
       sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql, ...(remote ? { connectionId: remote.connection.id } : {}) });
       useWorkspaceSqlStore.getState().recordResponse(query.id, last.response);
+      void recordTabLastAnswer(SQL_WORKSPACE_TAB_ID, ({ sqlLastAnswer }, ranAt) => sqlLastAnswer(last.response, query.name, ranAt));
       const cursor = outcomes[outcomes.length - 1]?.cursor;
       const key = moreRowsKey(query.id, last.response.recordedAt);
       if (cursor) activeCursor = { key, cursor };

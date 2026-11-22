@@ -1,6 +1,7 @@
 /**
  * Center column: edit the active SQL query (Monaco on the `sql` language),
- * with the split Run, Cancel, format and a 500 ms debounced auto-save.
+ * with format and a 500 ms debounced auto-save. The split Run and Cancel
+ * render into the command bar's verb slot.
  *
  * Runs resolve here into a list of statements: the statement under the
  * cursor (Mod+Enter, toolbar Run, gutter Run), the selection
@@ -36,6 +37,7 @@ import type { InstantSqlChannel } from './instantSqlChannel';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor, type SqlEditorCursor, type SqlRunContext } from './SqlMonacoEditor';
 import { SqlRunMenu, type SqlRunMenuMode } from './SqlRunMenu';
+import { CommandBarSlot } from '../Chrome/CommandBarSlot';
 import type { SqlSchemaTable } from './sqlExplorerModel';
 import type { SqlEngineKind } from '../../../shared/sqlConnections';
 import { sqlDialect } from '../../../shared/sqlDialect';
@@ -375,13 +377,15 @@ export function SqlQueryEditor({
           <Wand2 size={11} aria-hidden="true" />
           <span>{t('sqlWorkspace.editor.format')}</span>
         </button>
-        <SqlRunMenu
-          onRun={runFromToolbar}
-          onCancel={onCancel}
-          isExecuting={isExecuting}
-          disabled={isBusy || overCap || statements.length === 0}
-          hasSelection={hasSelection}
-        />
+        <CommandBarSlot slot="verb">
+          <SqlRunMenu
+            onRun={runFromToolbar}
+            onCancel={onCancel}
+            isExecuting={isExecuting}
+            disabled={isBusy || overCap || statements.length === 0}
+            hasSelection={hasSelection}
+          />
+        </CommandBarSlot>
       </header>
       <SqlMonacoEditor
         value={text}

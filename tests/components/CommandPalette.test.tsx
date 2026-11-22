@@ -13,6 +13,7 @@ import {
 } from '../../src/renderer/stores/sessionStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useCommandHistoryStore } from '../../src/renderer/stores/commandHistoryStore';
+import { useRecentFilesStore } from '../../src/renderer/stores/recentFilesStore';
 import { setActiveEditor } from '../../src/renderer/runtime/editorAccess';
 import { useAiExplainCodeStore } from '../../src/renderer/stores/aiExplainCodeStore';
 import { useConsoleStore } from '../../src/renderer/stores/consoleStore';
@@ -35,11 +36,15 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
       openFileFromDisk: vi.fn().mockResolvedValue(undefined),
       saveActiveTabAs: vi.fn().mockResolvedValue(undefined),
       duplicateActiveTab: vi.fn(),
+      setActiveTab: vi.fn(),
       tabs: [] as Array<{
         id: string;
+        name?: string;
         language: string;
         content: string;
-        kind?: 'notebook';
+        lastEditedAt?: number;
+        lastAnswer?: { kind: 'code' | 'sql'; status: 'ok'; numeral: string; unit?: 'rows'; subject?: string; ranAt: number };
+        kind?: 'notebook' | 'sql';
         runtimeMode?: 'worker' | 'node' | 'browser-preview';
         compareWithSnapshotEnabled?: boolean;
         variableInspectorEnabled?: boolean;
@@ -240,6 +245,7 @@ describe('CommandPalette', () => {
     settingsState.variableInspectorSurface = 'floating';
     settingsState.consoleRichRenderingEnabled = true;
     useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
+    useRecentFilesStore.setState({ recentFiles: [] });
     clearPendingSessionRestoreSnapshot();
     useUIStore.setState({
       activeBottomPanel: 'console',
@@ -312,6 +318,53 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Actions')).toBeTruthy();
     expect(screen.getByText('Templates')).toBeTruthy();
     expect(screen.queryByText('Snippets')).toBeNull();
+  });
+
+  it('leads with recent files and their last answer, and Enter opens the selected one', () => {
+    const onClose = vi.fn();
+    editorState.tabs = [
+      { id: 'py', name: 'latencies.py', language: 'python', content: '', lastAnswer: { kind: 'code', status: 'ok', numeral: '1.24', ranAt: 30 } },
+      { id: 'sql', name: 'SQL', language: 'sql', kind: 'sql', content: '', lastAnswer: { kind: 'sql', status: 'ok', numeral: '12', unit: 'rows', subject: 'orders by city', ranAt: 20 } },
+      { id: 'js', name: 'notes.js', language: 'javascript', content: '', lastEditedAt: 10 },
+    ];
+    render(
+      <CommandPalette
+        onClose={onClose}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('command-palette-group-recent').textContent).toBe('Recent — with its last answer');
+    const rows = screen.getAllByTestId('command-palette-recent-file');
+    expect(rows.map(row => row.textContent)).toEqual(['PYlatencies.py1.24↵', 'SQLorders by city12rows', 'JSnotes.js']);
+    expect(screen.getAllByTestId('command-palette-recent-answer')).toHaveLength(2);
+    expect(screen.getByTestId('command-palette-recent-commands-hint').textContent).toContain('recent commands');
+
+    const input = screen.getByRole('combobox');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onClose).toHaveBeenCalled();
+    expect(editorState.setActiveTab).toHaveBeenCalledWith('sql');
+  });
+
+  it('drops the recent files once a query is typed', () => {
+    editorState.tabs = [{ id: 'py', name: 'latencies.py', language: 'python', content: '', lastEditedAt: 5 }];
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('command-palette-group-recent')).toBeTruthy();
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'layout' } });
+    expect(screen.queryByTestId('command-palette-group-recent')).toBeNull();
+    expect(screen.queryByTestId('command-palette-recent-file')).toBeNull();
   });
 
   it('exposes the result count as a polite live region (accessibility pass)', () => {

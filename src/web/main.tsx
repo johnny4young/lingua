@@ -105,6 +105,8 @@ async function bootstrapWeb(): Promise<void> {
     searchParams.get('e2e') === 'rich-console-gallery';
   const isProjectTestsE2eFixture =
     __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-tests';
+  const isProjectTestsEditorE2eFixture =
+    __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-tests-editor';
   const isProjectTerminalE2eFixture =
     __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-terminal';
   const isLocalMcpE2eFixture =
@@ -159,6 +161,22 @@ async function bootstrapWeb(): Promise<void> {
     createRoot(root).render(
       <StrictMode>
         <ProjectTestsE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
+  if (isProjectTestsEditorE2eFixture) {
+    await initI18n(searchParams.get('locale') === 'es' ? 'es' : 'en');
+    const { prepareProjectTestsEditorE2eFixture } = await import(
+      '../renderer/testing/projectTestsEditorE2eFixtureSetup'
+    );
+    prepareProjectTestsEditorE2eFixture();
+    createRoot(root).render(
+      <StrictMode>
+        <App />
       </StrictMode>
     );
     markBootPhase('react-mount');

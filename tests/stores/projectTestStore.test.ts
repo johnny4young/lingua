@@ -11,6 +11,7 @@ import type {
 import { mergeProjectTestCases, useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useProjectStore } from '../../src/renderer/stores/projectStore';
+import { projectLastAnswer } from '../../src/renderer/stores/lastAnswerSelectors';
 
 type ActiveProject = NonNullable<ReturnType<typeof useProjectStore.getState>['currentProject']>;
 import { useNativeExecutionGateStore } from '../../src/renderer/stores/nativeExecutionGateStore';
@@ -95,6 +96,39 @@ describe('projectTestStore', () => {
       'first\nwarning\nlast\n'
     );
     expect(unsubscribe).toHaveBeenCalledOnce();
+  });
+  it('keeps the last whole-project run as the recent project answer, not a scoped run', async () => {
+    const report = (kind: ProjectTestRunResult['kind'], statuses: Array<'passed' | 'failed'>): ProjectTestRunResult => ({
+      kind,
+      framework: 'vitest',
+      command: 'vitest run',
+      stdout: '',
+      stderr: '',
+      exitCode: kind === 'success' ? 0 : 1,
+      executionTime: 900,
+      timeoutMs: 300000,
+      cases: statuses.map((status, index) => ({ file: `t${index}.test.ts`, path: ['t'], status })),
+    });
+    const run = vi.fn();
+    installBridge({ run });
+    useProjectStore.setState({
+      currentProject: { id: 'alpha', name: 'Alpha', rootPath: '/code/alpha', openedAt: 1, rootId: rootA } as ActiveProject,
+      recentProjects: [{ id: 'alpha', name: 'Alpha', rootPath: '/code/alpha', openedAt: 1 }],
+    });
+    useProjectTestStore.setState({ rootId: rootA, status: 'ready', selectedFramework: 'vitest' });
+    const binding = { rootId: rootA, projectName: 'Alpha' };
+
+    run.mockResolvedValueOnce(report('failed', ['passed', 'failed', 'passed']));
+    await useProjectTestStore.getState().run(binding);
+    await vi.waitFor(() => expect(useProjectStore.getState().recentProjects[0]?.lastAnswer).toBeDefined());
+    run.mockResolvedValueOnce(report('success', ['passed']));
+    await useProjectTestStore.getState().run(binding, { kind: 'file', file: 't0.test.ts' });
+
+    const recent = useProjectStore.getState().recentProjects[0]!;
+    expect(recent.testRunner).toBe('vitest');
+    expect(recent.lastAnswer).toMatchObject({ kind: 'tests', status: 'error', numeral: '1', unit: 'failed', total: 3, subject: 't1.test.ts' });
+    expect(projectLastAnswer(recent)).toEqual(recent.lastAnswer);
+    expect(projectLastAnswer({ lastAnswer: { kind: 'tests', numeral: 7 } as never })).toBeUndefined();
   });
   it('selects the first available detected runner', async () => {
     vi.mocked(window.lingua!.projectTests!.detect).mockResolvedValue({
@@ -583,6 +617,17 @@ describe('projectTestStore focused failure', () => {
     expect(useProjectTestStore.getState().focusedFailure).toEqual(test);
     await useProjectTestStore.getState().run({ rootId: rootA, projectName: 'a' }, { kind: 'test', ...test });
     expect(useProjectTestStore.getState().focusedFailure).toBeNull();
+  });
+
+  it('opens the card on the first failure of a file run, but not after a full run', async () => {
+    const failing = { ...test, status: 'failed' as const, failureFile: test.file, failureLine: 10 };
+    const result = { ...runResult('failed'), cases: [{ file: test.file, path: ['cartTotal', 'adds'], status: 'passed' as const }, failing] };
+    installBridge({ run: vi.fn().mockResolvedValue(result) });
+    useProjectTestStore.setState({ rootId: rootA, projectName: 'a', status: 'ready', selectedFramework: 'vitest', cases: null, focusedFailure: null });
+    await useProjectTestStore.getState().run({ rootId: rootA, projectName: 'a' });
+    expect(useProjectTestStore.getState().focusedFailure).toBeNull();
+    await useProjectTestStore.getState().run({ rootId: rootA, projectName: 'a' }, { kind: 'file', file: test.file });
+    expect(useProjectTestStore.getState().focusedFailure).toEqual(test);
   });
 
   it('forgets the card when the project or runner changes', async () => {

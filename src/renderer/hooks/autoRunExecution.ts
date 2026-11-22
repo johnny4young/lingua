@@ -231,6 +231,7 @@ export async function executeAutoRun({
       code,
       language,
       result,
+      tabId: activeTab.id,
     });
   } catch (error) {
     if (armedDeadlineAt !== null && useResultStore.getState().runDeadlineAt === armedDeadlineAt) {

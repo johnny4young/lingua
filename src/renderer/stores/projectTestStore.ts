@@ -17,12 +17,17 @@ import type { RootId } from '../../shared/fs/brandedIds';
 import { useSettingsStore } from './settingsStore';
 import { useNativeExecutionGateStore } from './nativeExecutionGateStore';
 import { useProjectStore } from './projectStore';
+import { loadLastAnswer } from './tabLastAnswer';
 
 /**
  * Renderer-only markers; never runner-reported outcomes or persisted state.
  * `reportedBy` is the scoped file whose run reported an off-scope diagnostic.
  */
 export type ProjectTestDisplayCase = ProjectTestCase & { stale?: true; reportedBy?: string };
+
+/** A failure the editor can show: a current result with the assertion's file and line. */
+export const opensInEditor = (entry: ProjectTestDisplayCase): boolean =>
+  !entry.stale && entry.status === 'failed' && Boolean(entry.failureFile) && Boolean(entry.failureLine);
 
 export const isProjectTestRunFailure = (entry: ProjectTestCase): boolean =>
   entry.status === 'failed' && entry.runnable === false && entry.path.length === 0;
@@ -60,8 +65,25 @@ interface ProjectTestState {
   focusFailure: (test: Pick<ProjectTestCase, 'file' | 'path'> | null) => void;
 }
 
-const sameTest = (a: Pick<ProjectTestCase, 'file' | 'path'>, b: Pick<ProjectTestCase, 'file' | 'path'>) =>
+const ANSWERING_RUNS = new Set<ProjectTestRunResult['kind']>(['success', 'failed', 'timed-out', 'stopped']);
+
+async function recordProjectTestAnswer(projectId: string, result: ProjectTestRunResult): Promise<void> {
+  const ranAt = Date.now();
+  const answers = await loadLastAnswer().catch(() => null);
+  if (!answers) return;
+  const { testsLastAnswer, withDelta, sanitizeLastAnswer } = answers;
+  const previous = useProjectStore.getState().recentProjects.find(entry => entry.id === projectId)?.lastAnswer;
+  useProjectStore.getState().setRecentTestAnswer(projectId, withDelta(testsLastAnswer(result, ranAt), sanitizeLastAnswer(previous)));
+}
+
+export const sameTest = (a: Pick<ProjectTestCase, 'file' | 'path'>, b: Pick<ProjectTestCase, 'file' | 'path'>) =>
   a.file === b.file && a.path.length === b.path.length && a.path.every((part, index) => part === b.path[index]);
+
+const testRef = (test: Pick<ProjectTestCase, 'file' | 'path'>) => ({ file: test.file, path: [...test.path] });
+
+/** Whether a scoped run covers a test: its file for a file run, the test itself for a single-test run. */
+const inScope = (scope: Exclude<ProjectTestScope, { kind: 'all' }>, entry: ProjectTestCase) =>
+  scope.kind === 'test' ? sameTest(entry, scope) : entry.file === scope.file;
 
 /**
  * A scoped run updates only its own part of the list: a file run replaces that
@@ -75,10 +97,8 @@ export function mergeProjectTestCases(
 ): ProjectTestDisplayCase[] {
   if (scope.kind === 'all') return [...incoming];
   const prior = previous ?? [];
-  const inScope = (entry: ProjectTestCase) =>
-    scope.kind === 'test' ? sameTest(entry, scope) : entry.file === scope.file;
   const failures = incoming.filter(isProjectTestRunFailure);
-  const fresh = incoming.filter(entry => inScope(entry) || isProjectTestRunFailure(entry));
+  const fresh = incoming.filter(entry => inScope(scope, entry) || isProjectTestRunFailure(entry));
   // Each scoped run replaces the diagnostics its earlier runs reported, dependency ones included.
   const cleared = prior.filter(
     entry => !(isProjectTestRunFailure(entry) && (entry.file === scope.file || entry.reportedBy === scope.file))
@@ -89,7 +109,7 @@ export function mergeProjectTestCases(
     // results outside the scope were not touched by this run.
     return [
       ...cleared.filter(entry => !fresh.some(next => sameTest(entry, next)))
-        .map(entry => (inScope(entry) ? { ...entry, stale: true as const } : entry)),
+        .map(entry => (inScope(scope, entry) ? { ...entry, stale: true as const } : entry)),
       ...fresh.map(entry => (entry.file === scope.file ? entry : { ...entry, reportedBy: scope.file })),
     ];
   }
@@ -142,7 +162,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   focusedFailure: null,
 
   setFilter: filter => set({ filter }),
-  focusFailure: test => set({ focusedFailure: test ? { file: test.file, path: [...test.path] } : null }),
+  focusFailure: test => set({ focusedFailure: test ? testRef(test) : null }),
 
   detect: async binding => {
     const generation = ++detectionGeneration;
@@ -230,13 +250,24 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       const result = await bridge.run(binding.rootId, framework, runId, scope);
       if (get().activeRunId !== runId) return;
       const project = useProjectStore.getState().currentProject;
-      if (project?.rootId === binding.rootId) useProjectStore.getState().setRecentTestRunner(project.id, framework);
+      if (project?.rootId === binding.rootId) {
+        useProjectStore.getState().setRecentTestRunner(project.id, framework);
+        // A scoped run answers for part of the project, not the folder.
+        if (scope.kind === 'all' && ANSWERING_RUNS.has(result.kind)) void recordProjectTestAnswer(project.id, result);
+      }
       set(state => {
         if (!result.cases) return { status: 'ready', activeRunId: null, runningScope: null, result };
         const cases = mergeProjectTestCases(state.cases, scope, result.cases);
         const focused = state.focusedFailure;
         // The card closes once its test stops failing.
         const stillFailing = focused && cases.some(entry => sameTest(entry, focused) && entry.status === 'failed');
+        // A run of one file or test opens the card on its first failure, so the editor shows why at once.
+        const firstFailure =
+          scope.kind === 'all'
+            ? undefined
+            : cases.find(
+                entry => opensInEditor(entry) && inScope(scope, entry)
+              );
         return {
           status: 'ready',
           activeRunId: null,
@@ -244,7 +275,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
           result,
           cases,
           casesTruncated: scope.kind === 'all' ? result.casesTruncated === true : state.casesTruncated,
-          focusedFailure: stillFailing ? focused : null,
+          focusedFailure: stillFailing ? focused : firstFailure ? testRef(firstFailure) : null,
         };
       });
     } catch {

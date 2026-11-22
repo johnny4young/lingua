@@ -210,6 +210,7 @@ describe('project test discovery', () => {
           '--colors=false',
           '--json',
           expect.stringMatching(/^--outputFile=.+report\.json$/u),
+          '--testLocationInResults',
         ],
       })
     );
@@ -409,12 +410,32 @@ describe('project test execution', () => {
     );
   });
 
+  it('asks Vitest 3 and later for test locations, and older versions for none', async () => {
+    const argv = async (version: string) => {
+      await write('node_modules/vitest/package.json', JSON.stringify({ version }));
+      let args: string[] = [];
+      await runProjectTests(rootPath, 'vitest', `run-version-${version}`, {
+        env: { PATH: binPath },
+        spawnImpl: async options => {
+          args = options.args;
+          return { stdout: '', stderr: '', exitCode: 0, executionTime: 1, timedOut: false, killed: false };
+        },
+      });
+      return args;
+    };
+    expect(await argv('3.2.4')).toContain('--includeTaskLocation');
+    expect(await argv('5.0.3')).toContain('--includeTaskLocation');
+    expect(await argv('2.1.9')).not.toContain('--includeTaskLocation');
+    expect(await argv('next')).not.toContain('--includeTaskLocation');
+  });
+
   it('executes a real detected Vitest suite through the fixed local entrypoint', async () => {
     const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
     await write(
       'node_modules/vitest/vitest.mjs',
       `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`
     );
+    await write('node_modules/vitest/package.json', await readFile(path.resolve('node_modules/vitest/package.json'), 'utf8'));
     await write('vitest.config.mjs', 'export default { test: { globals: true } };\n');
     await write(
       'test/example.test.js',
@@ -426,6 +447,7 @@ describe('project test execution', () => {
     expect(result.kind).toBe('success');
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('1 passed');
+    expect(result.cases).toEqual([expect.objectContaining({ file: 'test/example.test.js', declarationLine: 1 })]);
   });
 
   it('re-detects the requested framework and rejects unsupported input', async () => {
@@ -632,7 +654,7 @@ describe('scoped project test runs', () => {
       '^cart(?: | > )rounds \\(a\\|b\\)$',
     ]);
     const jest = await argvFor('jest', { kind: 'file', file: 'src/cart.test.ts' });
-    expect(jest.args?.slice(4)).toEqual(['--runTestsByPath', 'src/cart.test.ts']);
+    expect(jest.args?.slice(5)).toEqual(['--runTestsByPath', 'src/cart.test.ts']);
     const pytest = await argvFor('pytest', { kind: 'test', file: 'tests/test_cart.py', path: ['TestCheckout', 'test_flow[1]'] });
     expect(pytest.args?.slice(-1)).toEqual(['tests/test_cart.py::TestCheckout::test_flow[1]']);
     expect(pytest.args).toContain('junit_family=xunit1');
@@ -764,7 +786,14 @@ describe('scoped project test runs', () => {
       ['cart sums', 'skipped'],
       ['cart rounds (a|b)', 'failed'],
     ]);
-    expect(result.cases?.[1]).toMatchObject({ failureFile: 'src/cart.test.ts', failureLine: 3 });
+    expect(result.cases?.[1]).toMatchObject({
+      failureFile: 'src/cart.test.ts',
+      failureLine: 3,
+      declarationLine: 3,
+      expected: '1210.5',
+      received: '1211',
+    });
+    expect(result.cases?.[0]).toMatchObject({ declarationLine: 2 });
   });
 
   it('drops cases whose paths a report places outside the project', async () => {

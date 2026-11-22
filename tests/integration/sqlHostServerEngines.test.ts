@@ -32,7 +32,7 @@ async function ok<T>(body: HostRequest): Promise<T> {
   return response.value as T;
 }
 
-type Rows = { rows: Array<Record<string, unknown>>; columns: Array<{ name: string; type: string }>; hasMore: boolean; affectedRows?: number };
+type Rows = { rows: Array<Record<string, unknown>>; columns: Array<{ name: string; type: string }>; hasMore: boolean; affectedRows?: number; phases?: Record<string, number> };
 
 function configFrom(url: string | undefined, engine: 'sqlserver' | 'clickhouse', connectionId: string, readOnly = false): HostSessionConfig | null {
   if (!url) return null;
@@ -103,6 +103,12 @@ describe.skipIf(!mssql)('sqlserver host', () => {
     expect(seen).toBe(2_500);
     const write = await run("UPDATE dbo.lingua_it_orders SET city = N'Envigado' WHERE id = 1");
     expect(write.affectedRows).toBe(1);
+  });
+
+  it('reports execute and fetch for a streamed read, and only the total for a write or an explained plan', async () => {
+    expect(Object.keys((await run('SELECT id, city FROM dbo.lingua_it_orders ORDER BY id')).phases ?? {})).toEqual(['execute', 'fetch']);
+    expect((await run("UPDATE dbo.lingua_it_orders SET city = city WHERE id = 3")).phases).toBeUndefined();
+    expect((await run('EXPLAIN SELECT id FROM dbo.lingua_it_orders')).phases).toBeUndefined();
   });
 
   it('lists the catalog level by level and details a table, a view and a procedure', async () => {
@@ -300,6 +306,11 @@ describe.skipIf(!clickhouse)('clickhouse host', () => {
       if (page.done) break;
     }
     expect(seen).toBe(2_500);
+  });
+
+  it('reports execute and fetch for a streamed read, and only the total for a write', async () => {
+    expect(Object.keys((await run('SELECT id, city FROM lingua_it_events ORDER BY id')).phases ?? {})).toEqual(['execute', 'fetch']);
+    expect((await run('CREATE TABLE IF NOT EXISTS lingua_it_phases (id UInt8) ENGINE = Memory')).phases).toBeUndefined();
   });
 
   it('lists databases, tables and views, and details a table with its sorting key and DDL', async () => {

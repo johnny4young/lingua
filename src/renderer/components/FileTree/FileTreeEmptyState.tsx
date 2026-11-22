@@ -76,7 +76,7 @@ export function FileTreeEmptyState({
         )}
       </div>
 
-      <FileTreeOpenTabs onNavigate={onSelectTab} />
+      <FileTreeOpenTabs onNavigate={onSelectTab} className="border-t border-border/70" />
     </div>
   );
 }

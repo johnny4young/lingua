@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { UtilityPanelActiveContext } from '../../hooks/utilityPanelActive';
 import { DEVELOPER_UTILITY_PANEL_COMPONENTS } from './UtilityPanelRegistry';
+import { CommandBarSlotScope, useCommandBarSlotScope } from '../Chrome/commandBarSlotScope';
 
 /**
  * Suspense fallback shown while a tool's lazily-imported panel chunk
@@ -41,6 +42,7 @@ export const DeveloperUtilityPanelCache = memo(function DeveloperUtilityPanelCac
   mountedToolIds,
   active = true,
 }: DeveloperUtilityPanelCacheProps) {
+  const slotScope = useCommandBarSlotScope();
   const visibleToolIds = mountedToolIds.includes(toolId)
     ? mountedToolIds
     : [...mountedToolIds, toolId];
@@ -60,9 +62,12 @@ export const DeveloperUtilityPanelCache = memo(function DeveloperUtilityPanelCac
             data-testid={`utility-panel-cache-${mountedToolId}`}
           >
             <UtilityPanelActiveContext.Provider value={panelActive}>
-              <Suspense fallback={<UtilityPanelFallback />}>
-                <Panel />
-              </Suspense>
+              {/* A hidden tool keeps its state but gives up the command bar. */}
+              <CommandBarSlotScope value={slotScope === 'inline' ? 'inline' : panelActive ? 'bar' : 'off'}>
+                <Suspense fallback={<UtilityPanelFallback />}>
+                  <Panel />
+                </Suspense>
+              </CommandBarSlotScope>
             </UtilityPanelActiveContext.Provider>
           </div>
         );

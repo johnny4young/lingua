@@ -22,6 +22,10 @@
  * installed base instead of only new installs.
  */
 
+import type { FileTab } from '../types/editor';
+import type { Language } from '../types/language';
+import { createDefaultTab } from '../stores/editorTabUtils';
+
 export { SEEDED_SCRATCHPAD_VERSION } from './seedScratchpadMetadata';
 export const SEEDED_SCRATCHPAD_NAME = 'welcome.js';
 export const SEEDED_SCRATCHPAD_LANGUAGE = 'javascript';
@@ -34,3 +38,12 @@ const fruits = [
 const sorted = [...fruits].sort((a, b) => a.kcal - b.kcal);
 console.table(sorted);
 `;
+
+/** The seeded welcome tab, for the first-launch seed and Start's or-try chip. */
+export function seededScratchpadTab(): Omit<FileTab, 'isDirty'> {
+  return {
+    ...createDefaultTab(SEEDED_SCRATCHPAD_LANGUAGE as Language),
+    name: SEEDED_SCRATCHPAD_NAME,
+    content: SEEDED_SCRATCHPAD_SOURCE,
+  };
+}

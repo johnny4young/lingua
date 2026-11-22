@@ -1635,6 +1635,27 @@
     animation: lingua-console-row-pulse 1500ms ease-out forwards;
   }
 
+  /* Console tape live row: the bar fades out towards the waiting label. */
+  .console-waiting-bar {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-accent) 55%, transparent),
+      transparent
+    );
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .console-waiting-bar {
+      animation: lingua-console-waiting 1.2s ease-in-out infinite;
+    }
+  }
+
+  @keyframes lingua-console-waiting {
+    50% {
+      opacity: 0.45;
+    }
+  }
+
   @keyframes lingua-console-row-pulse {
     0% {
       background: color-mix(in srgb, var(--app-accent, #38bdf8) 18%, transparent);
@@ -1884,7 +1905,8 @@
 
   @media (max-width: 900px) {
     .action-pill .action-pill-direct-actions,
-    .action-pill .action-pill-direct-settings {
+    .action-pill .action-pill-direct-settings,
+    .action-pill .action-pill-context-detail {
       display: none;
     }
 
@@ -1896,7 +1918,8 @@
     }
 
     .action-pill-language-label,
-    .action-pill-runtime-label {
+    .action-pill-runtime-label,
+    .action-pill-context[data-has-badge='true'] .action-pill-context-name {
       display: none;
     }
   }

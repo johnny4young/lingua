@@ -46,10 +46,12 @@ import {
   OPFS_SQL_DB_FILE,
   type SqlColumnMetadata,
   type SqlImportFormat,
+  type SqlPhaseTimings,
   type SqlQueryStatus,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
 import { quoteSqlTableReference } from '../../shared/sqlQuote';
+import { runClock } from '../../shared/sqlDriver';
 import { createRowAccumulator } from '../../shared/sqlResultRows';
 import { splitSqlStatements } from '../../shared/sqlStatements';
 import type { RowEditFailure } from '../../shared/sqlRowEdits';
@@ -77,6 +79,8 @@ export interface DuckDbExecuteOutcome {
   columns: SqlColumnMetadata[];
   rowCount: number;
   durationMs: number;
+  /** Execute and fetch milliseconds of a streamed statement. */
+  phases?: SqlPhaseTimings;
   tooLarge: boolean;
   /** Reading stopped at the row window, so `rowCount` is a lower bound. */
   rowCountIsLowerBound?: boolean;
@@ -1141,6 +1145,8 @@ async function runOnConnection(
   try {
     // One statement streams, so it can stop at the row window and be cancelled.
     const stream = statementCount === 1 ? connection.stream : undefined;
+    // A stream answers once DuckDB has a result to read: execute ends there and fetch begins.
+    const clock = stream ? runClock() : undefined;
     const queryPromise: Promise<{
       columns: SqlColumnMetadata[];
       rows: Array<Record<string, unknown>>;
@@ -1149,9 +1155,10 @@ async function runOnConnection(
       rowCountIsLowerBound?: boolean;
       cursor?: SqlResultCursor;
     }> = stream
-      ? stream(trimmed).then((result) =>
-          readResultStream(result, connection.cancel, options.keepCursor ? { keepOpen: releaseCursor(connection) } : {})
-        )
+      ? stream(trimmed).then((result) => {
+          clock?.ran();
+          return readResultStream(result, connection.cancel, options.keepCursor ? { keepOpen: releaseCursor(connection) } : {});
+        })
       : connection.query(trimmed);
     // The connection closes after the caller is done, so a query that loses the race rejects late.
     void queryPromise.catch(() => {});
@@ -1174,12 +1181,14 @@ async function runOnConnection(
       return stopped(status, !settled);
     }
     const { columns, rows, rowCount, tooLarge } = raceResult;
+    const phases = clock?.phases({ columns });
     return {
       status: tooLarge ? 'too-large' : 'success',
       rows,
       columns,
       rowCount,
       durationMs: Math.round(performance.now() - start),
+      ...(phases ? { phases } : {}),
       tooLarge,
       ...(raceResult.rowCountIsLowerBound ? { rowCountIsLowerBound: true } : {}),
       ...(raceResult.cursor ? { cursor: raceResult.cursor } : {}),

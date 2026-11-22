@@ -20,7 +20,7 @@ import { useRunCompareActive } from './useRunCompareActive';
 import { useTimelineStore } from '../stores/timelineStore';
 
 export interface DockShell {
-  /** False in the editor-only layout and on full-screen Utilities tabs. */
+  /** False in the editor-only layout, on full-screen Utilities tabs and on Start without a project. */
   dockShown: boolean;
   /** The dock body is open: the user opened it, or a live session claims it. */
   dockExpanded: boolean;
@@ -46,7 +46,10 @@ export function useDockShell(): DockShell {
   const runtimeMode = useEditorStore(s => getActiveTab(s)?.runtimeMode);
   const debuggerLive = useDebuggerStore(s => s.session !== null && s.session.tabId === activeTabId);
   const browserPreview = languageHasRuntimeModes(language) && runtimeMode === 'browser-preview';
-  const dockShown = layoutPreset !== 'editor-only' && activeKind !== 'utilities';
+  // With a project open, Start keeps the dock so its Terminal and Tests stay reachable.
+  const hasProject = useProjectStore(s => s.currentProject !== null);
+  const dockShown =
+    (activeTabId !== null || hasProject) && layoutPreset !== 'editor-only' && activeKind !== 'utilities';
   const claimed = browserPreview || (debuggerLive && languageSupportsDebugger(language));
   return {
     dockShown,

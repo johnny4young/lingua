@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/renderer/stores/sessionStore', () => ({
   armPendingSessionRestoreSnapshot: () => 2,
+  RESTORE_SESSION_PROMPT_KEY: 'editor.restoreSession.prompt',
   useSessionStore: { getState: () => ({ savedTabs: [], restoreSession: vi.fn() }) },
 }));
 

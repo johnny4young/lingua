@@ -1,4 +1,4 @@
-import { Download, Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SQL_IMPORT_FILE_ACCEPT } from '../../../shared/sqlWorkspace';
@@ -9,14 +9,17 @@ interface SqlImportButtonProps {
   onImportFile: (file: File) => void;
   /** Lets another control (the folded rail) open the same picker. */
   inputRef?: RefObject<HTMLInputElement | null>;
+  /** Only the file input, for when the button itself is not on screen. */
+  inputOnly?: boolean;
 }
 
-/** Import data in the connection bar: the keyboard path into the import flow. */
+/** Import data at the foot of the explorer: the keyboard path into the import flow. */
 export function SqlImportButton({
   isBusy,
   isPreviewing,
   onImportFile,
   inputRef: externalRef,
+  inputOnly = false,
 }: SqlImportButtonProps) {
   const { t } = useTranslation();
   const ownRef = useRef<HTMLInputElement | null>(null);
@@ -24,23 +27,25 @@ export function SqlImportButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={isBusy}
-        aria-label={t('sqlWorkspace.import.buttonAria')}
-        data-testid="sql-workspace-import"
-        className="focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {isPreviewing ? (
-          <Loader2 size={12} aria-hidden="true" className="animate-spin" />
-        ) : (
-          <Download size={12} aria-hidden="true" />
-        )}
-        {isPreviewing
-          ? t('sqlWorkspace.import.loadingPreview')
-          : t('sqlWorkspace.import.button')}
-      </button>
+      {inputOnly ? null : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={isBusy}
+          aria-label={t('sqlWorkspace.import.buttonAria')}
+          data-testid="sql-workspace-import"
+          className="focus-ring flex h-9 w-full items-center gap-2 px-2.5 text-body-sm text-fg-muted transition-colors hover:bg-bg-panel-alt hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {isPreviewing ? (
+            <Loader2 size={12} aria-hidden="true" className="animate-spin" />
+          ) : (
+            <Plus size={12} aria-hidden="true" />
+          )}
+          {isPreviewing
+            ? t('sqlWorkspace.import.loadingPreview')
+            : t('sqlWorkspace.import.button')}
+        </button>
+      )}
       <input
         ref={inputRef}
         type="file"

@@ -16,6 +16,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { SqlQueryV1, SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { buildSampleTable } from '../../../shared/sqlSampleTable';
+import { useSqlSampleRequest } from './pendingSqlSample';
 import { splitSqlStatements } from '../../../shared/sqlStatements';
 import {
   executeQuery,
@@ -49,7 +50,8 @@ import { SqlStarterPrompts } from './SqlStarterPrompts';
 import { SqlExplorer } from './SqlExplorer';
 import { SqlExplorerRail } from './SqlExplorerRail';
 import { ResizeHandle } from '../ui/ResizeHandle';
-import { SqlConnectionBar } from './SqlConnectionBar';
+import { SqlConnectionPicker } from './SqlConnectionPicker';
+import { CommandBarSlot } from '../Chrome/CommandBarSlot';
 import { SqlImportButton } from './SqlImportButton';
 import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlExplorerModel';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
@@ -476,7 +478,11 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     canLeave: canLeaveTable,
   });
   const { activeConnection } = remote;
+  useSqlSampleRequest(catalogLoaded, activeConnection ? null : handleTrySample);
   const instantSql = useInstantSqlChannel(!activeConnection);
+
+  // Stays mounted while the explorer is folded: the rail's Import clicks its input.
+  const importButton = <SqlImportButton inputRef={importInputRef} isBusy={importBusy} isPreviewing={sqlImport.isPreviewing} onImportFile={(file) => handleStartImport(file, 'picker')} inputOnly={explorerFolded} />;
 
   const explorer = (
     <SqlExplorer
@@ -497,6 +503,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       filter={explorerFilter}
       onFilterChange={setExplorerFilter}
       {...(remote.renderRemoteTree ? { renderRemoteTree: remote.renderRemoteTree } : {})}
+      footer={importButton}
     >
       <SqlQueryList
         queries={queries}
@@ -696,21 +703,14 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       data-testid="sql-workspace-panel"
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
-      <SqlConnectionBar
-        remote={remote.barRemote}
-        actions={
-          <SqlImportButton
-            inputRef={importInputRef}
-            isBusy={importBusy}
-            isPreviewing={sqlImport.isPreviewing}
-            onImportFile={(file) => handleStartImport(file, 'picker')}
-          />
-        }
-      />
+      <CommandBarSlot slot="context">
+        <SqlConnectionPicker remote={remote.barRemote} />
+      </CommandBarSlot>
       {activeConnection?.env === 'prod' ? <SqlProdBanner name={activeConnection.name} readOnly={activeConnection.readOnly} /> : null}
       <div className="flex min-h-0 flex-1">
         {explorerFolded ? (
           <>
+            {importButton}
             <SqlExplorerRail
               onUnfold={toggleFolded}
               onCreate={() => handleCreate()}

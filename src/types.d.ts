@@ -1045,13 +1045,13 @@ interface LinguaAPI {
    *   - `detect` resolves binary + repo root + branch for a folder.
    *   - `status` returns the per-file porcelain status bucket.
    *   - `diff` returns paired strings for Monaco's diff editor.
-   * A later change will add `add`/`commit`/`branch` write surfaces behind
-   * an explicit gate.
+   *   - `changes` lists changed paths under an approved folder, or null.
    */
   git?: {
     detect: (folderPath?: string) => Promise<GitDetectResult>;
     status: (repoRoot: string, filePath: string) => Promise<GitFileStatus>;
     diff: (repoRoot: string, filePath: string) => Promise<GitFileDiff>;
+    changes?: (repoRoot: string, folderPath: string) => Promise<import('./shared/gitTypes').GitFolderChanges | null>;
     // Reveal repo root in OS file manager. Returns
     // false when the OS refused the open or the path vanished.
     reveal: (repoRoot: string) => Promise<boolean>;
