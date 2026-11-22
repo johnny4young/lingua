@@ -86,7 +86,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<CapsuleResultFilter>('all');
-  const { lastRunId, rows: filtered } = useMemo(() => pinLastRun(filterCapsuleRows(rows, query, filter)), [rows, query, filter]);
+  // Pin before filtering so a search or filter can never promote an earlier run to the last one.
+  const pinned = useMemo(() => pinLastRun(rows), [rows]);
+  const { lastRunId } = pinned;
+  const filtered = useMemo(() => filterCapsuleRows(pinned.rows, query, filter), [pinned, query, filter]);
   // Free opens only its last run; the earlier ones stay listed but locked.
   const [selectable, locked] = useMemo(
     () => (canBrowse ? [filtered, []] : [filtered.filter((row) => row.id === lastRunId), filtered.filter((row) => row.id !== lastRunId)]),
@@ -212,9 +215,11 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     (row: CapsuleBrowserRow) => {
       let undo: () => void;
       if (row.kind === 'run') {
-        const runCompare = useExecutionHistoryStore.getState().entries.find((entry) => entry.id === row.id)?.runCompare;
+        const entry = useExecutionHistoryStore.getState().entries.find((candidate) => candidate.id === row.id);
+        const runCompare = entry?.runCompare;
+        const resultSummary = entry?.resultSummary;
         clearCapsule(row.id);
-        undo = () => restoreCapsule(row.id, row.capsule, runCompare);
+        undo = () => restoreCapsule(row.id, row.capsule, runCompare, resultSummary);
       } else {
         const store = useImportedCapsuleStore.getState();
         const index = store.entries.findIndex((entry) => entry.id === row.id);
@@ -414,7 +419,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
               </div>
             ) : null}
             <div className="min-h-0 flex-1 overflow-auto">
-              {lastRunId !== null ? (
+              {lastRunId !== null && filtered[0]?.id === lastRunId ? (
                 <div className="flex h-6 items-center px-3.5">
                   <TypeTag>{t('capsuleList.gate.lastRun')}</TypeTag>
                 </div>
@@ -433,7 +438,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                   {selectable.map(renderRow)}
                 </div>
               ) : null}
-              {canBrowse ? null : <CapsuleFreeGate kept={rows.length} />}
+              {canBrowse ? null : <CapsuleFreeGate kept={rows.length} earlier={locked.length} />}
               {locked.length > 0 ? (
                 <ul aria-label={t('capsuleList.lockedLabel')} data-testid="capsule-list-locked">
                   {locked.map((row) => (

@@ -76,6 +76,17 @@ describe('execution history for Compare runs', () => {
     expect(find().runCompare?.code).toBe('secret code');
   });
 
+  it('drops the result summary with its capsule, brings it back on undo and clears it with captured data', () => {
+    const entry = record('select 1', { kind: 'rows', count: 1, columns: ['secret_column'] });
+    const find = () => useExecutionHistoryStore.getState().entries.find(item => item.id === entry.id)!;
+    useExecutionHistoryStore.getState().clearCapsule(entry.id);
+    expect(find().resultSummary).toBeUndefined();
+    useExecutionHistoryStore.getState().restoreCapsule(entry.id, entry.lastCapsule!, entry.runCompare, entry.resultSummary);
+    expect(find().resultSummary).toEqual({ kind: 'rows', count: 1, columns: ['secret_column'] });
+    useExecutionHistoryStore.getState().clearCapturedData();
+    expect(find().resultSummary).toBeUndefined();
+  });
+
   it('clears every capsule, compare record and code snapshot but keeps the run rows', () => {
     record('one');
     useExecutionHistoryStore.getState().record({

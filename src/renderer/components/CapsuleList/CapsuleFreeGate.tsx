@@ -4,9 +4,8 @@ import { TypeTag } from '../ui/answer';
 import { CAPSULE_LRU_CAP } from '../../stores/executionHistoryStore';
 
 /** Free keeps its own last run open; the PRO chip says the rest of the list is the paid part. */
-export function CapsuleFreeGate({ kept }: { kept: number }) {
+export function CapsuleFreeGate({ kept, earlier }: { kept: number; earlier: number }) {
   const { t } = useTranslation();
-  const earlier = Math.max(0, kept - 1);
   return (
     <div data-testid="capsule-list-upsell" className="m-3.5 shrink-0 rounded-[10px] border border-border-default bg-bg-base p-3.5">
       <div className="flex items-center gap-2 whitespace-nowrap">

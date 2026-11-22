@@ -473,6 +473,17 @@ describe('CapsuleListOverlay — Free gate', () => {
     expect(trackEvent).toHaveBeenCalledWith('capsule.browse_opened', { surface: 'palette', tier: 'free' });
   });
 
+  it('keeps an earlier run locked when a search or filter hides the last one', () => {
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS, FIXTURE_PYTHON_ERROR);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('capsule-list-search'), { target: { value: FIXTURE_FULL_TS.tab.name } });
+    expect(screen.queryByTestId('capsule-list-row')).toBeNull();
+    expect(screen.queryByTestId('capsule-detail')).toBeNull();
+    expect(screen.queryByText('Your last run')).toBeNull();
+    expect(screen.getAllByTestId('capsule-list-row-locked')).toHaveLength(1);
+    expect(screen.getByTestId('capsule-list-upsell').textContent).toContain('1 earlier run from this session is below.');
+  });
+
   it('sends Compare, Export and Capsule Workspace to Compare plans', () => {
     const compare = vi.fn();
     subscribeCommand('plans.compare', compare);

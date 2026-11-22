@@ -137,10 +137,12 @@ export function CapsuleListShortcut() {
   );
 }
 
+const isFile = (item: File | DataTransferItem) => item instanceof File || item.kind === 'file';
+
 /** Opens Import on click and hands a dropped file straight to it. */
 export function CapsuleImportStrip({ onImport, onDropFile }: { onImport: () => void; onDropFile: (file: File) => void }) {
   const { t } = useTranslation();
-  const { state, handlers } = useFileDropZone({ onFile: onDropFile });
+  const { state, handlers } = useFileDropZone({ onFile: onDropFile, accept: isFile });
   const over = state === 'over';
   return (
     <button
