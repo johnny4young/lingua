@@ -140,12 +140,16 @@ async function executeOwnedTab(
   // path so a long failed prepare / execute cannot capture a later
   // sibling-terminal checkout instead.
   const gitSnapshot = snapshotGitPosture();
+  // runAndCollect settles the tab's run; a later throw must not count it twice.
+  let collected = false;
 
   try {
     const runner = await acquireRunner(activeTab, plan, lifecycle);
     if (!session.isCurrent()) return cancelledSummary();
     if (!runner) {
       bootstrap.fail();
+      // Settled so the Console's run number is not handed to the next run too.
+      useResultStore.getState().settleTabRun(activeTab.id, { kind: 'error' }, { durationMs: null, publish: showsResults() });
       return publishMissingRunner(language, runConsole);
     }
     runnerPrepared = true;
@@ -176,6 +180,7 @@ async function executeOwnedTab(
     } finally {
       unregisterStop();
     }
+    collected = true;
     if (!session.isCurrent()) return cancelledSummary();
     if (run.result.cancelled) {
       return publishCancelledRun(runTab, run, runConsole, showsResults);
@@ -204,7 +209,8 @@ async function executeOwnedTab(
       error,
       gitSnapshot,
       session.isCurrent,
-      showsResults
+      showsResults,
+      collected
     );
     if (!session.isCurrent()) return cancelledSummary();
     if (plan.region) publishRegion(activeTab.id, plan.region, message, null, false);

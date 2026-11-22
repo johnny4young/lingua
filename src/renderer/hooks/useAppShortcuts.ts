@@ -15,6 +15,7 @@ import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/s
 import { trackEvent } from '../utils/telemetry';
 import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
 import { toggleCompareDock } from '../utils/compareDock';
+import { executionModeForLanguage } from '../utils/languageMeta';
 import {
   nextVariableInspectorEnabled,
   syncVariableInspectorSurfaceAfterToggle,
@@ -172,8 +173,10 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       // The run meter owns the popover. A folded dock opens first when the tab
       // has runs; otherwise a notice keeps the keystroke from being silent.
       if (toggleRecentRunsPopover()) return;
-      const tabId = useEditorStore.getState().activeTabId;
-      const hasRuns = tabId !== null && useExecutionHistoryStore.getState().entries.some(entry => entry.tabId === tabId);
+      const tab = getActiveTab(useEditorStore.getState());
+      // Only code tabs mount the meter, so only they can take the queued open.
+      const meterTab = tab && !tab.kind && executionModeForLanguage(tab.language) === 'run' ? tab.id : null;
+      const hasRuns = meterTab !== null && useExecutionHistoryStore.getState().entries.some(entry => entry.tabId === meterTab);
       if (hasRuns && !useUIStore.getState().consoleVisible) {
         openRecentRunsPopoverWhenReady();
         useUIStore.getState().openBottomPanel('console');

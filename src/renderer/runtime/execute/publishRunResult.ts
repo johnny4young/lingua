@@ -355,13 +355,15 @@ export async function publishRunFailure(
   error: unknown,
   gitSnapshot: GitSnapshot | undefined,
   isCurrent: () => boolean = () => true,
-  showsResults: () => boolean = isCurrent
+  showsResults: () => boolean = isCurrent,
+  alreadySettled = false
 ): Promise<string> {
   const { setRunDeadlineAt, settleTabRun } = useResultStore.getState();
   const message = error instanceof Error ? error.message : String(error);
   // Surface the failure via the pill too.
   // Settle first so the history entry carries this run's number.
-  if (isCurrent()) settleTabRun(activeTab.id, { kind: 'error' }, { durationMs: null, publish: showsResults() });
+  if (isCurrent() && !alreadySettled) settleTabRun(activeTab.id, { kind: 'error' }, { durationMs: null, publish: showsResults() });
+  else if (isCurrent() && showsResults()) useResultStore.setState({ runTermination: { kind: 'error' } });
   if (plan.recordHistory) {
     await recordFailedRun(activeTab, message, gitSnapshot, isCurrent);
   }

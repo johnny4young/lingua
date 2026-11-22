@@ -72,8 +72,16 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
   const { t } = useTranslation();
   const { running, ranAt, deadlineAt, log } = useResultStore(
     useShallow(state => ({
-      running: state.isManualRunning || state.isAutoRunning,
-      ranAt: state.ranCode?.tabId === tabId ? state.ranCode.at : null,
+      // Another tab's run, or a run whose ranCode a tab switch cleared, must not read as this tab's.
+      running:
+        (state.isManualRunning && (state.manualRunSession?.tabId ?? tabId) === tabId) ||
+        (state.isAutoRunning && state.ranCode?.tabId === tabId),
+      ranAt:
+        state.ranCode?.tabId === tabId
+          ? state.ranCode.at
+          : state.manualRunSession?.tabId === tabId
+            ? state.manualRunSession.startedAt
+            : null,
       deadlineAt: state.runDeadlineAt,
       log: state.tabRuns[tabId] ?? EMPTY_LOG,
     }))
@@ -98,7 +106,6 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
   const state = meterState({ running, paused, stale, last });
   const live = state === 'running' || state === 'paused';
   const now = useClock(state === 'running');
-  // Every run stamps its start on ranCode, so a meter mounted mid-run still reads from it.
   const elapsedMs = live && ranAt !== null ? Math.max(0, now - ranAt) : null;
   const number = live ? log.count + 1 : log.count;
   const numeral = splitRunDuration(live ? elapsedMs : (last?.durationMs ?? null));
@@ -243,7 +250,7 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
                 aria-label={t('runMeter.bar.open', { label })}
                 title={historyCombo ? `${label} · ${historyCombo}` : label}
                 aria-haspopup="dialog"
-                aria-expanded={open && popover?.focusId === entry?.id}
+                aria-expanded={open && entry !== undefined && popover?.focusId === entry.id}
                 onClick={() => toggle(entry?.id)}
               >
                 {body}

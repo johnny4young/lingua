@@ -56,7 +56,8 @@ export function meterBars(
   slots: number = METER_BARS
 ): MeterBar[] {
   const settled = runs.slice(-(live ? slots - 1 : slots));
-  const previous = runs.at(-1)?.durationMs ?? null;
+  // A failed or stopped run's time says nothing about how long this one should take.
+  const previous = runs.filter(run => run.kind === 'success').at(-1)?.durationMs ?? null;
   const scaled = [
     ...settled.filter(run => run.kind === 'success').map(run => run.durationMs ?? 0),
     ...(live ? [live.elapsedMs, previous ?? 0] : []),

@@ -187,6 +187,21 @@ export function ExecutionHistoryPopover({
     return () => window.clearInterval(interval);
   }, [open]);
 
+  // Kept inside the viewport: on a narrow dock the trigger sits at the right end of the meter row.
+  const measureAnchor = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(352, window.innerWidth * 0.9);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    setAnchor({ bottom: window.innerHeight - rect.top + 8, left });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener('resize', measureAnchor);
+    return () => window.removeEventListener('resize', measureAnchor);
+  }, [measureAnchor, open]);
+
   // Dismiss on outside click or Escape — standard popover hygiene, same
   // pattern the other lightweight dropdowns in the shell use.
   useEffect(() => {
@@ -260,8 +275,7 @@ export function ExecutionHistoryPopover({
     setNow(Date.now());
     // Filtering only applies when the tab has runs; otherwise the toggle is hidden and the list would sit empty.
     setThisTabOnly(defaultThisTabOnly && entries.some((entry) => entry.tabId !== undefined && entry.tabId === activeTabId));
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) setAnchor({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
+    measureAnchor();
     setOpen(true);
   };
 

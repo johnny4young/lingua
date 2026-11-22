@@ -50,3 +50,16 @@ describe('stopping a manual run', () => {
     expect(state.runTermination).toEqual({ kind: 'stopped' });
   });
 });
+
+describe('a run failure after the runner settled', () => {
+  it('publishes the error without counting the run twice', async () => {
+    const { publishRunFailure } = await import('@/runtime/execute/publishRunResult');
+    const tab = { id: 'fail-tab', name: 'a.js', language: 'javascript', content: '', isDirty: false };
+    useResultStore.getState().settleTabRun('fail-tab', { kind: 'success' }, { durationMs: 3 });
+    await publishRunFailure(tab as never, { recordHistory: false } as never, new Error('boom'), undefined, () => true, () => true, true);
+    expect(useResultStore.getState().tabRuns['fail-tab']?.count).toBe(1);
+    expect(useResultStore.getState().runTermination).toEqual({ kind: 'error' });
+    await publishRunFailure(tab as never, { recordHistory: false } as never, new Error('boom'));
+    expect(useResultStore.getState().tabRuns['fail-tab']?.count).toBe(2);
+  });
+});

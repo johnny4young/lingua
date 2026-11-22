@@ -10,6 +10,8 @@ import type { FileTab } from '../types/editor';
 /** In-memory ownership only: never serialized into tabs, history or capsules. */
 export interface ManualRunSession {
   readonly tabId: string | null;
+  /** When the run was claimed; the run meter's clock falls back to it after a tab switch clears `ranCode`. */
+  readonly startedAt: number;
   isCurrent: () => boolean;
   onCancel: (stop: () => void) => () => void;
   cancel: () => void;
@@ -54,6 +56,7 @@ export function beginManualRun(tab?: FileTab, debug = false): ManualRunSession |
   };
   const session: ManualRunSession = {
     tabId: tab?.id ?? null,
+    startedAt: claimedAt,
     isCurrent: () => !revoked && useResultStore.getState().manualRunSession === session,
     onCancel: stop => {
       if (session.isCurrent()) cancellations.add(stop);

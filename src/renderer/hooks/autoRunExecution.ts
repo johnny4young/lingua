@@ -146,6 +146,7 @@ export async function executeAutoRun({
   useRunRegionStore.getState().clearTab(activeTab.id);
 
   let armedDeadlineAt: number | null = null;
+  let settled = false;
   try {
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner || shouldDiscard()) {
@@ -221,6 +222,7 @@ export async function executeAutoRun({
       return;
     }
     const failedLine = primaryExecutionError(result)?.line;
+    settled = true;
     const runNumber = useResultStore.getState().settleTabRun(
       activeTab.id,
       { kind: executionKind(result), timeoutPreset: result.timeoutPreset, timeoutMs: result.timeoutMs },
@@ -239,6 +241,8 @@ export async function executeAutoRun({
       setRunDeadlineAt(null);
     }
     if (!shouldDiscard()) {
+      // Counts like a manual run that throws, so the meter never keeps the previous run's state.
+      if (!settled) useResultStore.getState().settleTabRun(activeTab.id, { kind: 'error' }, { durationMs: null });
       setError({
         message: error instanceof Error ? error.message : String(error),
       });

@@ -128,6 +128,21 @@ describe('RunMeter', () => {
     expect(screen.getByTestId('execution-history-toggle').textContent).toBe('2 runs this session');
   });
 
+  it('keeps another tab\'s run off this meter and times its own run after a tab switch', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    seedRuns([ok(1, 5)]);
+    const session = { tabId: 'other-tab', startedAt: 9_000 } as never;
+    useResultStore.setState({ isManualRunning: true, manualRunSession: session, ranCode: null });
+    const { unmount } = render(<RunMeter tabId="tab-js" />);
+    expect(screen.getByTestId('run-meter-state').textContent).toBe('Done· run 1');
+    unmount();
+    useResultStore.setState({ manualRunSession: { tabId: 'tab-js', startedAt: 9_000 } as never });
+    render(<RunMeter tabId="tab-js" />);
+    expect(screen.getByTestId('run-meter-state').textContent).toBe('Running· run 2');
+    expect(screen.getByTestId('dock-execution-time').textContent).toBe('1.00s');
+  });
+
   it('holds the numeral and names the line while the debugger is paused', () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
