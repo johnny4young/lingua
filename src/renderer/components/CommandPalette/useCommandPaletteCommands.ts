@@ -746,6 +746,7 @@ export function useCommandPaletteCommands({
     setTabRuntimeMode,
     addTab,
     setLayoutPreset,
+    identityThemeTarget,
     togglePresenterMode,
     onClose,
     onOpenSettings,

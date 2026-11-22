@@ -29,6 +29,11 @@ describe('themePreset', () => {
     expect(preset.layout.layoutPreset).toBe('horizontal');
   });
 
+  it.each(['lingua-ink', 'lingua-paper'])('round-trips a preset exported on %s', (editorTheme) => {
+    const parsed = parseThemePreset(serializeThemePreset(buildThemePreset({ ...BASE_INPUT, editorTheme })));
+    expect(parsed.ok && parsed.preset.appearance.editorTheme).toBe(editorTheme);
+  });
+
   it('serializes with stable 2-space indentation and a trailing newline', () => {
     const serialized = serializeThemePreset(buildThemePreset(BASE_INPUT));
     expect(serialized.endsWith('\n')).toBe(true);

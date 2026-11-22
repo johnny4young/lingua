@@ -67,6 +67,12 @@ describe.each(HTML_ENTRIES)('theme bootstrap in %s with Ink and Paper', (entry) 
     expect(palette()).toBeNull();
   });
 
+  it('paints Ink when the stored settings cannot be parsed, as the store falls back to its initial state', () => {
+    localStorage.setItem('lingua-settings', '{bad json');
+    expect(runBootstrap(entry, true)).toBe('dark');
+    expect(palette()).toBe('ink');
+  });
+
   it('follows the OS within Ink and Paper under System', () => {
     localStorage.setItem(
       'lingua-settings',

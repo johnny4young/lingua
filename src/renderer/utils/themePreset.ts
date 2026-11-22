@@ -1,4 +1,5 @@
 import type { LayoutPreset, SettingsState } from '../types/settings';
+import { EDITOR_THEMES } from './editorThemeCatalog';
 
 export const THEME_PRESET_VERSION = 2;
 
@@ -50,18 +51,6 @@ export interface ThemePresetInputs {
 
 const LAYOUT_PRESETS: readonly LayoutPreset[] = ['horizontal', 'vertical', 'editor-only'];
 const APPEARANCE_THEMES: readonly SettingsState['theme'][] = ['dark', 'light', 'system'];
-const EDITOR_THEMES = [
-  'lingua-dark',
-  'lingua-light',
-  'dracula',
-  'one-dark-pro',
-  'monokai',
-  'nord-night',
-  'vs-dark',
-  'vs',
-  'solarized-light',
-  'hc-black',
-] as const;
 
 /** Snapshot the theming-related subset of settings into the preset schema. */
 export function buildThemePreset(input: ThemePresetInputs): ThemePreset {
@@ -104,7 +93,7 @@ function isAppearanceTheme(value: unknown): value is SettingsState['theme'] {
 }
 
 function isEditorTheme(value: unknown): value is string {
-  return typeof value === 'string' && (EDITOR_THEMES as readonly string[]).includes(value);
+  return typeof value === 'string' && EDITOR_THEMES.some((theme) => theme.id === value);
 }
 
 function isNonEmptyString(value: unknown): value is string {

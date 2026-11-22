@@ -247,9 +247,7 @@
             if (persistedTheme === 'dark' || persistedTheme === 'light') {
               return persistedTheme;
             }
-          } catch {
-            identity = false;
-          }
+          } catch {}
 
           return 'dark';
         };

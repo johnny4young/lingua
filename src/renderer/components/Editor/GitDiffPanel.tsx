@@ -25,6 +25,7 @@
  */
 
 import { DiffEditor } from '@monaco-editor/react';
+import { defineCustomThemes } from './editorThemes';
 import type * as monaco from 'monaco-editor';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -274,7 +275,9 @@ export function GitDiffPanel() {
           original={diff.originalContent}
           modified={diff.modifiedContent}
           language={monacoLanguage}
-          theme={theme === 'lingua-dark' ? 'vs-dark' : 'vs'}
+          // Monaco themes are global: the user's theme keeps every open editor on it.
+          beforeMount={defineCustomThemes}
+          theme={theme}
           options={{
             readOnly: true,
             renderSideBySide: true,
