@@ -1,9 +1,11 @@
 import { Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LineResult } from '../../stores/resultStore';
 import { replaceUnsafeText } from '../../utils/unsafeText';
 import { AnswerObject } from '../Answer/AnswerObject';
 import type { AnswerRole } from '../Answer/answerObjectModel';
 import { DotLeader } from '../ui/answer';
+import '../../i18n/answersCatalog';
 
 const MAX_ITEMS_PER_LINE = 3;
 /** The magic-comment keyword a pinned watch comes from; code, not copy. */
@@ -26,6 +28,13 @@ function roleOf(result: LineResult): AnswerRole {
   return 'value';
 }
 
+/** Unnamed answers of one kind on one line, such as a loop printing each pass. */
+function isRepeat(items: readonly LineResult[]): boolean {
+  if (items.length < 2) return false;
+  const role = roleOf(items[0]!);
+  return items.every(item => !item.name && item.type !== 'watch' && roleOf(item) === role);
+}
+
 /** Sub-100 ms keeps one decimal so quick statements do not all read as 0 ms. */
 function formatTimingMs(durationMs: number): string {
   return `${durationMs >= 100 ? Math.round(durationMs).toString() : durationMs.toFixed(1)} ms`;
@@ -33,12 +42,15 @@ function formatTimingMs(durationMs: number): string {
 
 /**
  * One line's answers in the editor's answer column, after the leader from the
- * line's text. A single answer draws its picture; several on one line share the
- * row as values only.
+ * line's text. A single answer draws its picture; a line that answered the same
+ * kind several times shows its latest answer and the count; mixed answers share
+ * the row as values only.
  */
 export function InlineAnswerLine({ items, timing, language, source }: InlineAnswerLineProps) {
-  const visible = items.slice(0, MAX_ITEMS_PER_LINE);
-  const dropped = items.length - visible.length;
+  const { t } = useTranslation();
+  const repeat = isRepeat(items);
+  const visible = repeat ? items.slice(-1) : items.slice(0, MAX_ITEMS_PER_LINE);
+  const dropped = repeat ? 0 : items.length - visible.length;
   const single = visible.length === 1;
   return (
     <>
@@ -62,6 +74,11 @@ export function InlineAnswerLine({ items, timing, language, source }: InlineAnsw
             {index < visible.length - 1 ? <span className="lingua-inline-result-separator">·</span> : null}
           </Fragment>
         ))}
+        {repeat ? (
+          <span className="lingua-inline-result-repeat" data-testid="lingua-inline-result-repeat">
+            {t('answers.lastOf', { count: items.length })}
+          </span>
+        ) : null}
         {dropped > 0 ? (
           <span className="lingua-inline-result-overflow" data-testid="lingua-inline-result-overflow">
             +{dropped}

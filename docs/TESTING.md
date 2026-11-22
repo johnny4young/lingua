@@ -454,7 +454,7 @@ Use this order when automating:
 | ✅ | `TC-068` | `BOTH` | `developer` | Toggle log/info/warn/error filters | Visible entries change correctly |
 | ✅ | `TC-069` | `BOTH` | `developer` | Toggle timestamps | Timestamps show/hide |
 | ✅ | `TC-070` | `BOTH` | `developer` | Click clear console | Console becomes empty |
-| ✅ | `TC-071` | `BOTH` | `developer` | Inspect inline results | Values align with editor lines in one answer column, each with a dotted leader, its type and a picture for lists, dicts, tables, colours, dates and thresholds |
+| ✅ | `TC-071` | `BOTH` | `developer` | Inspect inline results | Values align with editor lines in one answer column under a You write / Lingua answers header, each with a dotted leader, its type and a picture for lists, dicts, tables, colours, dates and thresholds; a line answered on every pass of a loop shows its latest answer and the count |
 | ✅ | `TC-072` | `BOTH` | `developer` | Run a Go or JSON tab | Output or the validation report shows in the dock Console tab |
 | ✅ | `TC-073` | `BOTH` | `developer` | Toggle `undef` | Undefined results hide/show |
 | ✅ | `TC-074` | `BOTH` | `developer` | Run failing code | Error is visible with line info if available |
@@ -620,7 +620,12 @@ Inline results line up in a fixed answer column at the editor's right, joined
 to their line by a dotted leader. When the source reaches the column, or wraps,
 a Monaco view zone reserves a row below the source and the leader hides. An
 answer taller than its line spreads over the free lines below and reserves a
-zone only for what still does not fit. Model line numbers stay unchanged. Until the next run
+zone after the last of them only for what still does not fit; one that cannot
+stand beside its whole multi-line statement moves under the statement's last
+line. When the code has less than 360 px beside the column, every answer moves
+under its line at the code's indent and the column header hides. Answers wrap
+rather than squeeze, and an answer still wider than its column is marked with a
+fade and an ellipsis. Model line numbers stay unchanged. Until the next run
 replaces them, results and rows follow their source through edits, and results
 on deleted lines are dropped. A run that clears results keeps the rows reserved
 while it is in flight, then releases the rows its results did not reuse. Tests

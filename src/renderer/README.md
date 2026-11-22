@@ -356,8 +356,12 @@ presentation:
 - [`components/Editor/InlineResultWidgets.tsx`](components/Editor/InlineResultWidgets.tsx)
   owns the overlay shells and their placement in the answer column: a dotted
   leader from the line's text, a view zone under the line when its text reaches
-  the column, and a zone only for what a tall answer cannot spread over the free
-  lines below. Each line's answers portal in through `InlineAnswerLine.tsx`.
+  the column, and a zone after the last free line for what a tall answer cannot
+  spread over. A tall answer that cannot stand beside its whole multi-line
+  statement moves under the statement's last line, and narrow editors put every
+  answer under its line at the code's indent. It also portals the column header
+  (`AnswerColumnHeader.tsx`) into a slot above the editor. Each line's answers
+  portal in through `InlineAnswerLine.tsx`.
   Failed chunk delivery reports localized reload guidance instead of silently
   dropping execution output.
 - Structured runtime and transpile failures also project one bounded red inline

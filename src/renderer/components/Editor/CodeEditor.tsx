@@ -105,6 +105,7 @@ export function CodeEditor() {
   // commands, and editor-access cleanup.
   const [editorInstance, setEditorInstance] = useState<Parameters<OnMount>[0] | null>(null);
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
+  const [answerHeaderSlot, setAnswerHeaderSlot] = useState<HTMLDivElement | null>(null);
   const { applyDiagnostics, clearMarkers } = useExecutionMarkers();
   const pausedFrame = useDebuggerStore(state => state.pausedFrame);
   const previousPause = useDebuggerStore(state => state.previousPause);
@@ -513,6 +514,7 @@ export function CodeEditor() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <RunRegionsHost editor={editorInstance} monaco={monacoInstance} />
+      <div ref={setAnswerHeaderSlot} className="contents" />
       <div
         ref={runStateRef}
         className={runStale.stale ? 'run-stale min-h-0 flex-1' : 'min-h-0 flex-1'}
@@ -542,6 +544,7 @@ export function CodeEditor() {
           lineTimings={lineTimings}
           lineEndReserve={errorActionsReserve}
           language={activeTab?.language}
+          headerSlot={answerHeaderSlot}
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />

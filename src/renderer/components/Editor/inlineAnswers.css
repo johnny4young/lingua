@@ -1,0 +1,61 @@
+/* Loads with the inline answers overlay, so the web initial bundle stays inside its budget. */
+@layer components {
+  .answer-column-header {
+    position: relative;
+    flex: none;
+    height: 28px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .answer-column-header-code,
+  .answer-column-header-answers {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .answer-column-header-answers {
+    display: inline-flex;
+    gap: 6px;
+  }
+
+  .answer-column-header-title {
+    color: var(--color-fg-base);
+    font-weight: 620;
+  }
+
+  /* Answers wrap to another row instead of squeezing each other to a letter. */
+  .lingua-inline-result-body {
+    flex-wrap: wrap;
+    row-gap: 3px;
+  }
+
+  .lingua-inline-result-part {
+    max-width: 100%;
+  }
+
+  .lingua-inline-result-repeat {
+    flex: none;
+    padding: 0 6px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--color-fg-base) 7%, transparent);
+    color: var(--color-fg-muted);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    line-height: 17px;
+  }
+
+  /* An answer wider than its column (a table, a long picture) fades out and says so. */
+  .lingua-inline-result[data-clipped] .lingua-inline-result-body {
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+
+  .lingua-inline-result[data-clipped]::after {
+    content: '…';
+    align-self: flex-start;
+    margin-left: 2px;
+    color: var(--color-fg-muted);
+    font-family: var(--font-ui);
+    line-height: var(--inline-line-height, 19px);
+  }
+}

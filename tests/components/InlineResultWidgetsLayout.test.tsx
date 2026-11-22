@@ -20,6 +20,9 @@ function harness() {
   let wrapped = false;
   let visible = true;
   let lineCount = 2;
+  let contentWidth = 714;
+  let version = 1;
+  let lines: Record<number, string> = {};
   let nextZone = 0;
   let inSelectionTransaction = false;
   let emitZoneEvents = false;
@@ -34,7 +37,11 @@ function harness() {
   const model = {
     getLineCount: () => lineCount,
     getLineMaxColumn: () => 90,
-    getLineContent: () => 'value',
+    getLineContent: (line: number) => lines[line] ?? 'value',
+    getValue: () => Array.from({ length: lineCount }, (_, index) => lines[index + 1] ?? 'value').join('\n'),
+    getLineFirstNonWhitespaceColumn: (line: number) => (lines[line]?.search(/\S/) ?? 0) + 1,
+    getVersionId: () => version,
+    getLanguageId: () => 'javascript',
   };
   const editor = {
     getModel: () => model,
@@ -42,15 +49,16 @@ function harness() {
     getLayoutInfo: () => ({
       width: 800,
       contentLeft: 60,
-      contentWidth: 714,
+      contentWidth,
       minimap: { minimapWidth: 0 },
       verticalScrollbarWidth: 14,
     }),
     getScrollTop: () => 0,
     getScrollLeft: () => scrollLeft,
-    getOffsetForColumn: vi.fn(() => {
+    getOffsetForColumn: vi.fn((line: number, column: number) => {
       if (inSelectionTransaction) throw new Error('Monaco selection transaction is incomplete');
-      return offset;
+      // A line's indentation is measured at its first non-blank column: 8 px a character.
+      return column < 90 ? (column - 1) * 8 : offset;
     }),
     getTopForLineNumber: (line: number) => (line - 1) * 20,
     getBottomForLineNumber: (line: number) => line * 20 + (wrapped ? 20 : 0),
@@ -87,6 +95,13 @@ function harness() {
     zones,
     setOffset: (value: number) => {
       offset = value;
+    },
+    setContentWidth: (value: number) => {
+      contentWidth = value;
+    },
+    setLines: (value: Record<number, string>) => {
+      lines = value;
+      version += 1;
     },
     setScrollLeft: (value: number) => {
       scrollLeft = value;
@@ -218,8 +233,8 @@ describe('inline results line up in the answer column', () => {
     const h = harness();
     render(<InlineResultWidgets {...props} editor={h.editor} />);
     flushFrames();
-    // 70 px need four 20 px lines; its own line and line 2 are free, so 30 px are reserved.
-    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 1, heightInPx: 30 }]);
+    // 70 px need four 20 px lines; its own line and line 2 are free, so 30 px are reserved after line 2.
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 2, heightInPx: 30 }]);
     expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.style.top).toBe('0px');
   });
 
@@ -554,5 +569,147 @@ describe('inline results avoid source collisions', () => {
     expect(h.zones.size).toBe(1);
     expect(frames.size).toBe(0);
     expect(h.measure).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('answers span their statement, fall back under narrow editors and never clip silently', () => {
+  const tall = (height: number) =>
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const h = this.classList.contains('lingua-inline-result') ? height : 24;
+      return { width: 180, height: h, top: 0, left: 0, right: 180, bottom: h, x: 0, y: 0, toJSON() {} };
+    });
+
+  it('moves a tall answer under its statement when a line inside reaches the column', () => {
+    tall(70);
+    const h = harness();
+    h.setLineCount(5);
+    h.setLines({ 1: 'console.table([', 2: '  { a: 1 },', 3: '  { a: 2 },', 4: '])', 5: 'next' });
+    // Line 2 reaches the column; lines 1, 3 and 4 do not.
+    const offsets: Record<number, number> = { 1: 100, 2: 700, 3: 100, 4: 100, 5: 100 };
+    vi.mocked(h.measure).mockImplementation((line: number, column: number) => (column < 90 ? 0 : offsets[line]!));
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: 'table' }]} editor={h.editor} />);
+    flushFrames();
+    const widget = document.querySelector<HTMLElement>('.lingua-inline-result')!;
+    expect(widget.hasAttribute('data-below')).toBe(true);
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 4, heightInPx: 76 }]);
+    expect(widget.style.top).toBe('80px');
+  });
+
+  it('keeps an off-screen row under its statement when a line is added inside it', () => {
+    tall(70);
+    const h = harness();
+    h.setLineCount(5);
+    h.setLines({ 1: 'console.table([', 2: '  { a: 1 },', 3: '  { a: 2 },', 4: '])', 5: 'next' });
+    const offsets: Record<number, number> = { 1: 100, 2: 700, 3: 100, 4: 100, 5: 100 };
+    vi.mocked(h.measure).mockImplementation((line: number, column: number) => (column < 90 ? 0 : offsets[line]!));
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: 'table' }]} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 4 }]);
+    h.setVisible(false);
+    h.editLines({ startLineNumber: 3, endLineNumber: 3, startColumn: 1 }, '\n', 1);
+    h.fire('content');
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 5 }]);
+  });
+
+  it('keeps a tall answer beside its statement when every line leaves room', () => {
+    tall(70);
+    const h = harness();
+    h.setLineCount(5);
+    h.setLines({ 1: 'console.table([', 2: '  { a: 1 },', 3: '  { a: 2 },', 4: '])', 5: 'next' });
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: 'table' }]} editor={h.editor} />);
+    flushFrames();
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.hasAttribute('data-below')).toBe(false);
+    expect(h.zones.size).toBe(0);
+  });
+
+  it('puts every answer under its line at the code indent in a narrow editor', () => {
+    const h = harness();
+    h.setContentWidth(500);
+    h.setLines({ 1: '    value', 2: 'value' });
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    const widget = document.querySelector<HTMLElement>('.lingua-inline-result')!;
+    expect(widget.hasAttribute('data-narrow')).toBe(true);
+    expect(widget.hasAttribute('data-below')).toBe(true);
+    // Four spaces of 8 px after the 60 px gutter; the answer takes the rest of the width.
+    expect(widget.style.left).toBe('92px');
+    expect(widget.style.getPropertyValue('--answer-column-width')).toBe('446px');
+  });
+
+  it('marks an answer wider than its column', () => {
+    const h = harness();
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('lingua-inline-result-body') ? 400 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('lingua-inline-result-body') ? 300 : 0;
+    });
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.hasAttribute('data-clipped')).toBe(true);
+  });
+
+  it('marks an answer that was off-screen when its size was last checked', () => {
+    const h = harness();
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('lingua-inline-result-body') ? 400 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('lingua-inline-result-body') ? 300 : 0;
+    });
+    h.setVisible(false);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    h.setVisible(true);
+    h.fire('scroll');
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.hasAttribute('data-clipped')).toBe(true);
+  });
+
+  it('plays the answer motion only for a new or changed answer', () => {
+    const h = harness();
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    const entering = () => document.querySelector<HTMLElement>('.lingua-inline-result')?.hasAttribute('data-enter');
+    expect(entering()).toBe(true);
+    // A run clears its results, then publishes the same answer: nothing replays.
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    view.rerender(<InlineResultWidgets {...props} lineResults={[...props.lineResults]} editor={h.editor} />);
+    flushFrames();
+    expect(entering()).toBe(false);
+    view.rerender(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'error', value: 'Changed' }]} editor={h.editor} />);
+    flushFrames();
+    expect(entering()).toBe(true);
+  });
+
+  it('labels the columns above the editor while it answers, and steps aside when narrow', () => {
+    const h = harness();
+    const slot = document.createElement('div');
+    document.body.append(slot);
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} headerSlot={slot} />);
+    flushFrames();
+    const header = slot.querySelector<HTMLElement>('[data-testid="answer-column-header"]')!;
+    expect(header.textContent).toContain('You write');
+    expect(header.textContent).toContain('Lingua answers');
+    // The answers label starts where the column does.
+    expect(header.querySelector<HTMLElement>('.answer-column-header-answers')?.style.left).toBe('452px');
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} headerSlot={slot} />);
+    expect(slot.querySelector('[data-testid="answer-column-header"]')).toBeNull();
+    h.setContentWidth(500);
+    view.rerender(<InlineResultWidgets {...props} editor={h.editor} headerSlot={slot} />);
+    act(() => h.callbacks.get('layout')?.());
+    expect(slot.querySelector('[data-testid="answer-column-header"]')).toBeNull();
+    slot.remove();
+  });
+});
+
+describe('a short answer under its line', () => {
+  it('stays under its own line inside a multi-line statement', () => {
+    const h = harness();
+    h.setLineCount(4);
+    h.setLines({ 1: 'items.forEach(item => {', 2: '  use(item)', 3: '})', 4: 'next' });
+    h.setOffset(700);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 1 }]);
   });
 });

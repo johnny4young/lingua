@@ -9,5 +9,10 @@
   "answers.running": "corriendo",
   "answers.onThisLine": "en esta línea",
   "answers.loop": "ciclo",
-  "answers.pass": "{{iteration}} de {{total}}"
+  "answers.pass": "{{iteration}} de {{total}}",
+  "answers.lastOf": "la última de {{count}}",
+  "answers.header.code": "Tú escribes",
+  "answers.header.answers": "Lingua responde",
+  "answers.header.run": "ejecución {{number}}",
+  "answers.header.runLive": "ejecución {{number}}, en vivo"
 }
