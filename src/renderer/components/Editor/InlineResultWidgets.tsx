@@ -3,9 +3,12 @@ import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
 import type { LineResult } from '../../stores/resultStore';
 import type { LineTimingEntry } from '../../types/execution';
+import { AnswerColumnHeader } from './AnswerColumnHeader';
 import { InlineAnswerLine } from './InlineAnswerLine';
-import { answerColumnBand, lineEnd } from './answerColumnGeometry';
+import { answerColumnBand, belowAnswerWidth, jsStatementEndLine, lineEnd, lineIndent, statementEndLine, type JsLineDepth } from './answerColumnGeometry';
+import { walkTopLevelLines } from '../../utils/magicComments/jsLexer';
 import { createInlineResultNode } from './inlineResultWidgetDom';
+import './inlineAnswers.css';
 
 const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
 /** Space either side of the leader, and its shortest length before the answer moves below. */
@@ -24,6 +27,8 @@ export interface InlineResultWidgetsProps {
   // Room another widget takes right after a line's text (the failing-line actions); a result that no longer fits beside it moves to its own row.
   readonly lineEndReserve?: { readonly line: number; readonly width: number } | null;
   readonly language?: string;
+  /** Where the column header renders, above the editor. */
+  readonly headerSlot?: HTMLElement | null;
 }
 
 /**
@@ -42,10 +47,17 @@ export function InlineResultWidgets({
   running = false,
   lineEndReserve = null,
   language,
+  headerSlot = null,
 }: InlineResultWidgetsProps) {
   const widgets = useInlineResultWidgets(editor, monaco, lineResults, tabId, lineTimings, running, lineEndReserve);
+  const answering = widgets.some(widget => widget.items.length > 0);
+  // A run clears its answers before publishing new ones; the header holds through it.
+  const [header, setHeader] = useState(false);
+  const showHeader = answering || (running && header);
+  if (showHeader !== header) setHeader(showHeader);
   return (
     <>
+      {header && editor && headerSlot ? createPortal(<AnswerColumnHeader editor={editor} tabId={tabId} />, headerSlot) : null}
       {widgets.map(widget =>
         createPortal(
           <InlineAnswerLine items={widget.items} timing={widget.timing} language={language} source={widget.source} />,
@@ -72,14 +84,35 @@ interface InlineWidget {
   zone?: InlineZone;
   /** The answer sits on its own row under the line instead of after a leader. */
   below: boolean;
+  /** Lines from `line` to the line its row follows: the statement's end, or the last free line. */
+  zoneOffset: number;
+  /** Where an answer under its line starts, from the last pass. */
+  indent: number;
+  /** Wider than its column, as of the last time its size or the column changed. */
+  clipped: boolean;
   items: readonly LineResult[];
   timing?: { durationMs: number; slowest: boolean };
   source?: string;
 }
 
+interface LineCache {
+  version: number;
+  ends: Map<number, number>;
+  indents: Map<number, number>;
+  js?: JsLineDepth[];
+}
+
 interface RetainedZone {
   line: number;
   zone: InlineZone;
+}
+
+function isClipped(element: Element | null): boolean {
+  return element instanceof HTMLElement && element.scrollWidth > element.clientWidth + 1;
+}
+
+function answerSignature(items: readonly LineResult[]): string {
+  return items.map(item => `${item.type}\u0000${item.name ?? ''}\u0000${item.value}`).join('\u0001');
 }
 
 function newlineCount(text: string): number {
@@ -142,6 +175,12 @@ function useInlineResultWidgets(
   // Every run clears results before it publishes new ones. Keeping the old
   // rows reserved until the run finishes stops the source below from jumping.
   const retainedZonesRef = useRef<RetainedZone[]>([]);
+  // Statement ends and indents per line for one model version and font.
+  const lineCacheRef = useRef<LineCache>({ version: -1, ends: new Map(), indents: new Map() });
+  // Clipping only changes with an answer's size or the column; vertical scrolling skips the check.
+  const clipDirtyRef = useRef(true);
+  // What each line answered last time, so only a new or changed answer plays the answer motion.
+  const answeredRef = useRef<Map<number, string>>(new Map());
 
   const cancelMeasurement = useCallback(() => {
     measurementGenerationRef.current += 1;
@@ -203,6 +242,46 @@ function useInlineResultWidgets(
       const layout = editor.getLayoutInfo();
       const band = answerColumnBand(layout);
       const columnLeft = layout.contentLeft + band.start;
+      const scrollLeft = editor.getScrollLeft();
+      const version = model.getVersionId();
+      if (lineCacheRef.current.version !== version) lineCacheRef.current = { version, ends: new Map(), indents: new Map() };
+      const cache = lineCacheRef.current;
+      // The statement starting on a line, cut short when another answer sits inside it.
+      const spanEnd = (line: number) => {
+        let end = cache.ends.get(line);
+        if (end === undefined) {
+          const language = model.getLanguageId();
+          if (language === 'javascript' || language === 'typescript') {
+            if (!cache.js) {
+              const depths: JsLineDepth[] = [];
+              walkTopLevelLines(model.getValue(), info => depths.push(info));
+              cache.js = depths;
+            }
+            end = jsStatementEndLine(cache.js, line);
+          } else {
+            end = statementEndLine(at => model.getLineContent(at), line, model.getLineCount(), language);
+          }
+          cache.ends.set(line, end);
+        }
+        for (let inner = line + 1; inner <= end; inner += 1) if (widgetsRef.current.has(inner)) return line;
+        return end;
+      };
+      const indentOf = (widget: InlineWidget) => {
+        let indent = cache.indents.get(widget.line);
+        if (indent === undefined) {
+          indent = lineIndent(editor, widget.line) ?? widget.indent;
+          cache.indents.set(widget.line, indent);
+        }
+        return indent;
+      };
+      // Scrolled sideways, an answer under its line stays at the editor's left edge instead of leaving with its code.
+      const placeUnder = (widget: InlineWidget) => {
+        const shown = Math.max(0, widget.indent - scrollLeft);
+        widget.domNode.style.left = `${layout.contentLeft + shown}px`;
+        widget.domNode.style.setProperty('--answer-column-width', `${belowAnswerWidth(layout, shown)}px`);
+      };
+      const checkClipping = clipDirtyRef.current;
+      clipDirtyRef.current = false;
       const visibleRanges = editor.getVisibleRanges();
       const isVisible = (line: number) =>
         visibleRanges.some(range => line >= range.startLineNumber && line <= range.endLineNumber);
@@ -211,7 +290,7 @@ function useInlineResultWidgets(
         const end = lineEnd(editor, line);
         if (end === null) return null;
         const reserved = lineEndReserveRef.current?.line === line ? lineEndReserveRef.current.width : 0;
-        return band.start - end + editor.getScrollLeft() - reserved - LEADER_MARGIN * 2;
+        return band.start - end + scrollLeft - reserved - LEADER_MARGIN * 2;
       };
       const orphans = orphanZonesRef.current;
       orphanZonesRef.current = [];
@@ -220,38 +299,42 @@ function useInlineResultWidgets(
           for (const zone of orphans) accessor.removeZone(zone.id);
         });
       }
-      const changes: Array<{ widget: InlineWidget; height: number }> = [];
-      const measured: Array<{ widget: InlineWidget; lineHeight: number; height: number; room: number | null; wrapped: boolean; free: number }> = [];
+      const changes: Array<{ widget: InlineWidget; height: number; anchor: number }> = [];
+      const measured: Array<{ widget: InlineWidget; lineHeight: number; height: number; room: number | null; wrapped: boolean; free: number; spanBlocked: boolean; indent: number }> = [];
       // Write first, then read everything, then write again: one layout per pass.
       for (const widget of widgetsRef.current.values()) {
         const visible = widget.line >= 1 && widget.line <= model.getLineCount() && isVisible(widget.line);
         widget.domNode.style.visibility = visible ? '' : 'hidden';
-        widget.domNode.style.left = `${columnLeft}px`;
-        widget.domNode.style.setProperty('--answer-column-width', `${band.width}px`);
+        widget.domNode.toggleAttribute('data-narrow', band.narrow);
+        if (band.narrow) placeUnder(widget);
+        else {
+          widget.domNode.style.left = `${columnLeft}px`;
+          widget.domNode.style.setProperty('--answer-column-width', `${band.width}px`);
+        }
         if (visible) {
           const lineHeight = editor.getLineHeightForPosition({ lineNumber: widget.line, column: 1 });
           widget.domNode.style.setProperty('--inline-line-height', `${lineHeight}px`);
         }
       }
       for (const widget of widgetsRef.current.values()) {
-        // An edit at the start of a result line moves its source but not
-        // Monaco's zone, so the row has to follow the source.
-        const misplaced = widget.zone !== undefined && widget.zone.line !== widget.line;
         const valid = widget.line >= 1 && widget.line <= model.getLineCount();
         // Monaco cannot measure columns on an unrendered line. Preserve its
-        // reserved row while scrolling, avoiding document-height oscillation.
+        // reserved row while scrolling, avoiding document-height oscillation;
+        // an edit above it can still move the zone, so the row follows its source.
         if (valid && widget.domNode.style.visibility === 'hidden') {
-          if (misplaced) changes.push({ widget, height: widget.zone!.height });
+          const anchor = widget.line + widget.zoneOffset;
+          if (widget.zone && widget.zone.line !== anchor) changes.push({ widget, height: widget.zone.height, anchor });
           continue;
         }
         if (!valid) {
-          if (widget.zone) changes.push({ widget, height: 0 });
+          if (widget.zone) changes.push({ widget, height: 0, anchor: widget.line });
           continue;
         }
         const lineHeight = editor.getLineHeightForPosition({ lineNumber: widget.line, column: 1 });
         const height = widget.domNode.getBoundingClientRect().height;
         const wrapped = editor.getBottomForLineNumber(widget.line) - editor.getTopForLineNumber(widget.line) > lineHeight + 1;
-        const room = leaderRoom(widget.line);
+        const room = band.narrow ? null : leaderRoom(widget.line);
+        let spanBlocked = false;
         let free = 0;
         if (room !== null && room >= MIN_LEADER && height > lineHeight * 1.5) {
           // A tall answer spreads over the free lines below before it takes a row.
@@ -268,42 +351,62 @@ function useInlineResultWidgets(
             if (nextRoom === null || nextRoom < 0) break;
             free += 1;
           }
+          // A tall answer that cannot stand beside its whole statement moves under it rather than splitting it.
+          spanBlocked = free < Math.min(needed, spanEnd(widget.line) - widget.line);
         }
-        measured.push({ widget, lineHeight, height, room, wrapped, free });
+        if (checkClipping) {
+          const body = widget.domNode.querySelector('.lingua-inline-result-body');
+          // A table keeps its frame and cuts columns inside it, so it is checked on its own.
+          widget.clipped = isClipped(body) || isClipped(body?.querySelector('.answer-object-table table') ?? null);
+        }
+        const indent = band.narrow ? indentOf(widget) : widget.indent;
+        measured.push({ widget, lineHeight, height, room, wrapped, free, spanBlocked, indent });
       }
-      for (const { widget, lineHeight, height: answerHeight, room, wrapped, free } of measured) {
-        widget.below = room === null || wrapped || room < MIN_LEADER;
+      for (const { widget, lineHeight, height: answerHeight, room, wrapped, free, spanBlocked, indent } of measured) {
+        widget.below = room === null || wrapped || room < MIN_LEADER || spanBlocked;
         widget.domNode.toggleAttribute('data-below', widget.below);
+        widget.domNode.toggleAttribute('data-clipped', widget.clipped);
+        if (indent !== widget.indent) {
+          widget.indent = indent;
+          placeUnder(widget);
+        }
         let height = 0;
+        // Under its statement, or after the last free line it spreads over, so a statement never splits.
+        let anchor = widget.line;
         if (widget.below) {
           height = Math.ceil(Math.max(lineHeight, answerHeight + 6));
+          anchor = spanEnd(widget.line);
         } else {
           widget.domNode.style.setProperty('--answer-leader', `${room}px`);
           const short = answerHeight - lineHeight * (1 + free);
-          if (answerHeight > lineHeight * 1.5 && short > 2) height = Math.ceil(short);
+          if (answerHeight > lineHeight * 1.5 && short > 2) {
+            height = Math.ceil(short);
+            anchor = widget.line + free;
+          }
         }
+        widget.zoneOffset = anchor - widget.line;
         const zoneHeight = widget.zone?.height ?? 0;
-        const misplaced = widget.zone !== undefined && widget.zone.line !== widget.line;
-        if (zoneHeight !== height || (misplaced && zoneHeight > 0)) {
-          changes.push({ widget, height });
+        const misplaced = widget.zone !== undefined && widget.zone.line !== anchor;
+        if (zoneHeight !== height || (misplaced && height > 0)) {
+          changes.push({ widget, height, anchor });
         }
       }
       if (changes.length > 0) {
         editor.changeViewZones(accessor => {
-          for (const { widget, height } of changes) {
+          for (const { widget, height, anchor } of changes) {
             if (widget.zone) accessor.removeZone(widget.zone.id);
             widget.zone = undefined;
             if (height > 0) {
               const spacer = document.createElement('div');
               spacer.setAttribute('aria-hidden', 'true');
               const delegate = {
-                afterLineNumber: widget.line,
+                afterLineNumber: anchor,
                 heightInPx: height,
                 domNode: spacer,
                 suppressMouseDown: true,
               };
               const id = accessor.addZone(delegate);
-              widget.zone = { id, height, line: widget.line, delegate };
+              widget.zone = { id, height, line: anchor, delegate };
             }
           }
         });
@@ -314,7 +417,7 @@ function useInlineResultWidgets(
         if (widget.domNode.style.visibility === 'hidden') continue;
         const top =
           widget.zone && widget.below
-            ? editor.getBottomForLineNumber(widget.line)
+            ? editor.getBottomForLineNumber(widget.zone.line)
             : editor.getTopForLineNumber(widget.line);
         widget.domNode.style.top = `${top - scrollTop}px`;
       }
@@ -358,8 +461,20 @@ function useInlineResultWidgets(
     };
     const disposables: monacoTypes.IDisposable[] = [];
     disposables.push(editor.onDidScrollChange(schedule));
-    disposables.push(editor.onDidLayoutChange(schedule));
-    disposables.push(editor.onDidChangeConfiguration(schedule));
+    disposables.push(
+      editor.onDidLayoutChange(() => {
+        clipDirtyRef.current = true;
+        schedule();
+      })
+    );
+    disposables.push(
+      editor.onDidChangeConfiguration(() => {
+        // A font change moves every indent.
+        lineCacheRef.current = { version: -1, ends: new Map(), indents: new Map() };
+        clipDirtyRef.current = true;
+        schedule();
+      })
+    );
     // Editor-level events follow `setModel` (a same-tab rename or save-as
     // swaps the model), unlike a listener bound to the model seen at mount.
     disposables.push(
@@ -443,9 +558,13 @@ function useInlineResultWidgets(
       if (!grouped.has(entry.line)) grouped.set(entry.line, []);
     }
     const model = editor.getModel();
+    const answered = new Map<number, string>();
     for (const [line, items] of grouped) {
       const timingMs = timingByLine.get(line);
       const domNode = createInlineResultNode(line);
+      const signature = answerSignature(items);
+      answered.set(line, signature);
+      domNode.toggleAttribute('data-enter', items.length > 0 && answeredRef.current.get(line) !== signature);
       // Overlay widgets are absolutely-positioned children of the
       // editor's overlay layer. We control position via inline style;
       // Monaco only places the host element on the page.
@@ -458,6 +577,9 @@ function useInlineResultWidgets(
         domNode,
         line,
         below: false,
+        zoneOffset: 0,
+        indent: 0,
+        clipped: false,
         items,
         timing: timingMs === undefined ? undefined : { durationMs: timingMs, slowest: line === slowestLine },
         source: model && line <= model.getLineCount() ? model.getLineContent(line) : undefined,
@@ -475,13 +597,17 @@ function useInlineResultWidgets(
         getPosition: () => null,
       });
     }
+    // An empty publish is a run clearing its results, not an answer going away.
+    if (grouped.size > 0) answeredRef.current = answered;
     setMounted([...widgetsRef.current.values()]);
     let active = true;
+    clipDirtyRef.current = true;
     scheduleReposition();
     const observer =
       typeof ResizeObserver === 'undefined'
         ? null
         : new ResizeObserver(() => {
+            clipDirtyRef.current = true;
             if (active) scheduleReposition();
           });
     for (const widget of widgetsRef.current.values()) observer?.observe(widget.domNode);

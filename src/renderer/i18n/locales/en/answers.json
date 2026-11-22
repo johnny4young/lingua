@@ -9,5 +9,10 @@
   "answers.running": "running",
   "answers.onThisLine": "on this line",
   "answers.loop": "loop",
-  "answers.pass": "{{iteration}} of {{total}}"
+  "answers.pass": "{{iteration}} of {{total}}",
+  "answers.lastOf": "last of {{count}}",
+  "answers.header.code": "You write",
+  "answers.header.answers": "Lingua answers",
+  "answers.header.run": "run {{number}}",
+  "answers.header.runLive": "run {{number}}, live"
 }

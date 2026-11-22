@@ -20,9 +20,12 @@
     --answer-wash: 10%;
   }
 
+  /* A tag labels the first row of an answer that wraps. */
   .answer-object-tag {
     flex: none;
+    align-self: flex-start;
     min-width: 60px;
+    line-height: var(--inline-line-height, 19px);
   }
 
   /* A table hangs from its tag, which sits level with the header row. */
@@ -44,6 +47,15 @@
     text-overflow: ellipsis;
     color: var(--answer-tone);
     font-weight: 560;
+  }
+
+  /* Text wraps up to three lines rather than being cut at the column edge. */
+  .answer-object > .answer-object-value:not([data-pill]) {
+    display: -webkit-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
   }
 
   .answer-object-value[data-tone='number'] { --answer-tone: var(--color-value-number); font-variant-numeric: tabular-nums; }
@@ -135,20 +147,18 @@
 
   .answer-object-pulse circle { fill: var(--color-pulse-fg); }
 
-  /* Items that do not fit wrap onto a hidden row, so none is cut in half. */
+  /* Items that do not fit wrap whole onto another row, so none is cut in half or hidden. */
   .answer-object-scale,
   .answer-object-keys {
     display: inline-flex;
     flex-wrap: wrap;
     min-width: 0;
-    height: 19px;
     align-items: center;
-    gap: 10px;
-    overflow: hidden;
+    gap: 3px 10px;
   }
 
-  .answer-object-scale { gap: 14px; }
-  .answer-object-keys { gap: 8px; }
+  .answer-object-scale { column-gap: 14px; }
+  .answer-object-keys { column-gap: 8px; }
 
   .answer-object-kv {
     display: inline-flex;

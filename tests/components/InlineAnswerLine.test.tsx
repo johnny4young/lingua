@@ -35,6 +35,14 @@ describe('InlineAnswerLine', () => {
     expect(screen.getAllByTestId('answer-object-value').map(value => value.textContent)).toEqual(['1 – 3', '4 – 6']);
   });
 
+  it('shows the latest of a line answered on every pass, with the count', () => {
+    const items = Array.from({ length: 12 }, (_, index) => ({ line: 3, value: `tick ${index}`, type: 'log' as const }));
+    const { container } = render(<InlineAnswerLine items={items} />);
+    expect(screen.getAllByTestId('answer-object-value').map(value => value.textContent)).toEqual(['tick 11']);
+    expect(screen.getByTestId('lingua-inline-result-repeat').textContent).toBe('last of 12');
+    expect(container.querySelector('[data-testid="lingua-inline-result-overflow"]')).toBeNull();
+  });
+
   it('names the variable of a paused value and shows control characters as spaces', () => {
     const { container } = render(<InlineAnswerLine items={[{ line: 2, name: 'a‮b', value: '1', type: 'log' }]} />);
     expect(container.querySelector('.lingua-inline-result-name')?.textContent).toBe('a b:');
@@ -56,8 +64,8 @@ describe('InlineAnswerLine', () => {
     expect(container.querySelector('[data-result-kind="log"] [data-kind="stdout"]')).not.toBeNull();
   });
 
-  it('counts answers past the third', () => {
-    const items = [1, 2, 3, 4, 5].map(n => ({ line: 1, value: String(n), type: 'log' as const }));
+  it('counts mixed answers past the third', () => {
+    const items = [1, 2, 3, 4, 5].map(n => ({ line: 1, value: String(n), type: n % 2 ? ('log' as const) : ('autoLog' as const) }));
     render(<InlineAnswerLine items={items} />);
     expect(screen.getByTestId('lingua-inline-result-overflow').textContent).toContain('+2');
   });

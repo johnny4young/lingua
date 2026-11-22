@@ -115,11 +115,13 @@
     white-space: nowrap;
   }
 
-  .leader-row[data-enter] .dot-leader {
+  .leader-row[data-enter] .dot-leader,
+  .lingua-inline-result[data-enter] .lingua-inline-result-leader {
     animation: leader-draw var(--motion-answer) var(--motion-answer-curve) both;
   }
 
-  .leader-row[data-enter] .leader-row-value {
+  .leader-row[data-enter] .leader-row-value,
+  .lingua-inline-result[data-enter] .lingua-inline-result-body {
     animation: answer-rise var(--motion-answer) var(--motion-answer-curve) both;
   }
 
