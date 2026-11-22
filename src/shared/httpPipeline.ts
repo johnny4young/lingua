@@ -27,7 +27,7 @@ type HttpPipelineStepStatus =
   | 'skipped';
 
 /** Why a step has no response: the runner's closed vocabulary, read by the step row. */
-export type HttpPipelineStepMessage = 'missing-request' | 'live-transport' | 'no-response' | 'cancelled' | 'stopped-on-failure';
+type HttpPipelineStepMessage = 'missing-request' | 'live-transport' | 'no-response' | 'cancelled' | 'stopped-on-failure';
 
 export interface HttpPipelineStepResult {
   readonly stepId: string;
@@ -50,7 +50,7 @@ export interface HttpPipelineCapture {
 }
 
 /** The check a step row reads out: the first failing assertion, else the first one. */
-export interface HttpPipelineCheck {
+interface HttpPipelineCheck {
   readonly expression: string;
   readonly pass: boolean;
   /** The value the response gave, as a literal; absent when it had none. */

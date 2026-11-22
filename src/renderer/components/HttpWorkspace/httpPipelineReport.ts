@@ -100,7 +100,7 @@ export function readPipelineStep(
 }
 
 /** Where a run halted, as a pipeline position (1-based), for the header's meta line. */
-export interface PipelineRunHalt {
+interface PipelineRunHalt {
   readonly key: 'runningStep' | 'stoppedAt' | 'cancelledAt';
   readonly index: number;
 }
