@@ -2436,34 +2436,6 @@
   }
 }
 
-/* One accent sweep down the editor per completed run. */
-.run-sweep {
-  pointer-events: none;
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  z-index: 30;
-  height: 2px;
-  opacity: 0;
-  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
-  animation: run-sweep var(--duration-slow) var(--curve-ease-out);
-}
-
-@keyframes run-sweep {
-  0% {
-    top: 0;
-    opacity: 0;
-  }
-  15%,
-  85% {
-    opacity: 0.6;
-  }
-  100% {
-    top: 100%;
-    opacity: 0;
-  }
-}
-
 .run-history-bar[data-run-last='true'] {
   transform-origin: bottom;
   animation: run-bar-rise var(--duration-normal) var(--curve-spring);
@@ -2483,10 +2455,6 @@
   .run-history-bar,
   .modal-rise {
     animation: none !important;
-  }
-
-  .run-sweep {
-    display: none;
   }
 
   .action-pill-run:not(:disabled):active {

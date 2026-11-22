@@ -20,6 +20,7 @@ describe('getEditorOptions', () => {
       fontVariations: false,
       fontLigatures: true,
       glyphMargin: true,
+      lineDecorationsWidth: 32,
       // Line numbers are baseline editor primitive; always on.
       lineNumbers: 'on',
       wordWrap: 'on',
