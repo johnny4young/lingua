@@ -235,7 +235,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
         // background fills so longer outputs stay readable.
         <div className="flex-1 overflow-y-auto" data-testid="compare-rows">
           <table className="w-full font-mono text-caption">
-            <thead className="sticky top-0 z-10 bg-bg-panel-alt/95 text-left text-micro uppercase tracking-[0.12em] text-fg-subtle backdrop-blur">
+            <thead className="sticky top-0 z-10 bg-bg-panel-alt text-left text-micro uppercase tracking-[0.12em] text-fg-subtle">
               <tr>
                 <th className="w-10 px-3 py-1.5 font-semibold">{t('compare.row.line')}</th>
                 <th className="px-2 py-1.5 font-semibold">{t('compare.row.before')}</th>

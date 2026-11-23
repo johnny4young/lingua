@@ -1027,6 +1027,7 @@ Examples already in the codebase:
 - Value colours mark type only: booleans and `None` stay neutral, and `error` is the only red, so a gauge past its threshold fills in the number colour.
 - No left accent bars: show state with a tint, weight, icon, full border or elevation. `tests/build/identityGlyphsMotion.test.ts` catches the border and inset-shadow forms; pseudo-element and positioned strips still need review.
 - Motion: the pulse lights each line in 120 ms and the tick stays lit; an answer takes 160 ms (the leader draws, the value rises 4 px). Reduced motion removes the travel and values appear in place.
+- Reduce Transparency: `index.css` resets every `backdrop-filter` from the base layer, so new blurs are covered. A blurred surface with a translucent fill also needs a solid fill under the preference: `--app-panel` becomes `--color-bg-panel`, overlay cards take `bg-surface`, and components add `reduce-transparency:bg-…` next to a translucent `bg-…/NN`. Glows such as the running dot drop their shadow. `tests/build/reducedTransparency.test.ts` enforces both.
 
 ### How `index.css` is organized
 

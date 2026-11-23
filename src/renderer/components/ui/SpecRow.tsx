@@ -54,12 +54,13 @@ export function SpecRow({
       data-settings-search-target={searchTargetId}
       tabIndex={searchTargetId ? -1 : undefined}
       className={cn(
-        'spec-row flex justify-between gap-4 rounded-md py-2.5 outline-none',
+        'spec-row flex flex-wrap justify-between gap-x-4 gap-y-2 rounded-md py-2.5 outline-none',
         searchTargetId && 'focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-bg-base',
         last ? '' : 'border-b border-border-subtle'
       )}
     >
-      <div className="min-w-0">
+      {/* A control wider than the row wraps under its label instead of crushing it. */}
+      <div className="spec-row-label min-w-0 flex-1 basis-48">
         <div
           id={labelId}
           className={cn(

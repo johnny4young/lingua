@@ -17,6 +17,7 @@
 @source '../shared';
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant reduce-transparency (@media (prefers-reduced-transparency: reduce));
 
 /* -------------------------------------------------------------------------- */
 /* Theme tokens — Lingua · Signal-Slate                                        */
@@ -581,6 +582,13 @@
   --app-panel: color-mix(in srgb, var(--color-paper-panel) 82%, transparent);
 }
 
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-palette] {
+    --app-panel: var(--color-bg-panel);
+  }
+}
+
 /* With the pack's Recursive editor font, values and the console share Monaco's code face:
    Recursive's MONO axis turns the UI face into the code face. */
 [data-palette][data-code-font='recursive'] {
@@ -836,6 +844,15 @@
 }
 
 @layer base {
+  /* Important in the lowest layer beats every blur utility and component class. */
+  @media (prefers-reduced-transparency: reduce) {
+    *,
+    ::before,
+    ::after {
+      backdrop-filter: none !important;
+    }
+  }
+
   /* App root sizing */
   html,
   body,
@@ -1002,6 +1019,17 @@
   .overlay-card {
     @apply animate-shell-fade overflow-hidden rounded-4xl border border-border-strong/80 bg-surface/88 backdrop-blur-xl;
     box-shadow: var(--app-shadow);
+  }
+
+  /* Ink and Paper shells are solid: muted text on them must keep 4.5:1. */
+  :root[data-palette] .overlay-card {
+    @apply bg-surface;
+  }
+
+  /* Dialog scrim shared by ModalShell, ConfirmDialog and the compact explorer drawer. */
+  .scrim {
+    background-color: color-mix(in oklab, var(--color-overlay) 70%, transparent);
+    backdrop-filter: blur(24px);
   }
 
   /* Icon buttons.
@@ -2012,7 +2040,7 @@
   /* Rich dropdown — used by lang / mode / run pickers. Each row has
      icon · label · description and a trailing badge (ACTUAL/PRO/kbd). */
   .dropdown-rich {
-    @apply rounded-xl border border-border/80 bg-bg-panel p-1.5 backdrop-blur-xl;
+    @apply rounded-xl border border-border/80 bg-bg-panel p-1.5;
     box-shadow: var(--shadow-e3);
   }
 
@@ -2119,6 +2147,31 @@
   .floating-variables-card {
     @apply w-[260px] overflow-hidden rounded-xl border border-border/80 bg-bg-panel/95 backdrop-blur-xl;
     box-shadow: var(--shadow-e3);
+  }
+
+  /* Reduce Transparency: translucent materials become solid (blur is reset in base). */
+  @media (prefers-reduced-transparency: reduce) {
+    .overlay-backdrop {
+      background-color: rgb(0 0 0 / 0.72);
+    }
+
+    .scrim {
+      background-color: color-mix(in oklab, var(--color-overlay) 85%, transparent);
+    }
+
+    .surface-panel-strong,
+    .overlay-card {
+      @apply bg-surface;
+    }
+
+    .action-pill,
+    .floating-variables-card {
+      @apply bg-bg-panel;
+    }
+
+    .tooltip-content {
+      background: var(--app-surface) !important;
+    }
   }
 
   .dark .floating-variables-card,
@@ -2312,6 +2365,9 @@
     .settings-modal-panel .spec-row-control {
       min-width: 0;
       width: 100%;
+    }
+    .settings-modal-panel .spec-row-label {
+      flex-basis: auto;
     }
   }
 }
