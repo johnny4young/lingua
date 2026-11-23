@@ -57,6 +57,8 @@ type SeedOptions = {
    */
   primeProLicense?: boolean;
   restoreSessionMode?: 'always' | 'ask' | 'never';
+  /** Theme and editor theme seeded together, e.g. dark + lingua-ink for the Ink palette. */
+  appearance?: { theme: 'dark' | 'light'; editorTheme: string };
 };
 
 type SeededSnippet = {
@@ -264,6 +266,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
     showStatusBar,
     workflowModeDefaultsByLanguage,
     restoreSessionMode,
+    appearance,
   } = options;
 
   await page.addInitScript(
@@ -280,6 +283,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededLastSeenVersion,
       seededLicenseToken,
       seededRestoreMode,
+      seededAppearance,
     }) => {
       // Guard: only prime storage when it's empty. Init scripts run on
       // every navigation (including reloads), so re-seeding each time
@@ -306,6 +310,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
             hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
             ...(seededRestoreMode === undefined ? {} : { restoreSessionMode: seededRestoreMode }),
+            ...(seededAppearance ?? {}),
             ...(seededShowStatusBar === undefined ? {} : { showStatusBar: seededShowStatusBar }),
             ...(seededWorkflowModeDefaults === undefined
               ? {}
@@ -345,6 +350,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededSnippets: buildSeededSnippets(snippetCount),
       seededShowStatusBar: showStatusBar,
       seededRestoreMode: restoreSessionMode,
+      seededAppearance: appearance ?? null,
       seededWorkflowModeDefaults: workflowModeDefaultsByLanguage,
       shouldSuppressWhatsNew: suppressWhatsNew,
       seededLastSeenVersion: lastSeenVersion,

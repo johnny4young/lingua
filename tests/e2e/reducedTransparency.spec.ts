@@ -17,13 +17,7 @@ async function emulateTransparency(page: Page) {
 }
 
 async function openSettingsIn(page: Page, palette: keyof typeof PACKS) {
-  await seedSession(page, { language: 'en' });
-  // Runs after the seed on the same navigation, before the settings store hydrates.
-  await page.addInitScript(pack => {
-    const stored = JSON.parse(window.localStorage.getItem('lingua-settings') ?? '{}');
-    stored.state = { ...stored.state, ...pack };
-    window.localStorage.setItem('lingua-settings', JSON.stringify(stored));
-  }, PACKS[palette]);
+  await seedSession(page, { language: 'en', appearance: PACKS[palette] });
   await gotoApp(page);
   await expect(page.locator('html')).toHaveAttribute('data-palette', palette);
   await openSettings(page);

@@ -60,7 +60,7 @@ export function SpecRow({
       )}
     >
       {/* A control wider than the row wraps under its label instead of crushing it. */}
-      <div className="spec-row-label min-w-0 flex-1 basis-48">
+      <div className="spec-row-label min-w-0">
         <div
           id={labelId}
           className={cn(

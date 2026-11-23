@@ -2291,6 +2291,10 @@
   .spec-row {
     align-items: center;
   }
+  /* In the components layer, so the narrow column layout below can reset the basis. */
+  .spec-row-label {
+    flex: 1 1 12rem;
+  }
   /* Settings selects: 30 px, radius 6, sized to their options. */
   .settings-select {
     @apply h-[30px] max-w-[230px] rounded-md border border-border-default bg-bg-panel pl-3 pr-8 text-body-sm text-fg-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/40;
