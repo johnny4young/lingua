@@ -1,0 +1,89 @@
+/* Lazy with the Settings modal, so its layout stays out of the boot stylesheet. */
+@layer components {
+  .settings-modal-shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+
+  .settings-modal-rail-slot {
+    grid-row: 1 / span 4;
+  }
+  /* Explicit rows, so a tab without section chips leaves row 2 empty. */
+  .settings-modal-topbar {
+    grid-row: 1;
+  }
+  .settings-section-chips {
+    grid-row: 2;
+  }
+  .settings-modal-panel {
+    grid-row: 3;
+  }
+  .settings-modal-breadcrumb {
+    display: flex;
+  }
+  .settings-modal-panel {
+    padding: 20px 24px;
+  }
+
+  /* At 200% zoom a 1024px window has only 512 CSS pixels. Keep the Settings
+     navigation horizontally scrollable rather than shrinking the content
+     column behind the fixed-width rail. */
+  @media (max-width: 760px) {
+    .settings-modal-shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    }
+    .settings-section-chips {
+      grid-row: 3;
+    }
+
+    .settings-modal-rail-slot {
+      grid-row: 2;
+      min-width: 0;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .settings-modal-topbar {
+      grid-row: 1;
+      min-width: 0;
+    }
+    .settings-modal-panel {
+      grid-row: 4;
+      padding: 16px;
+    }
+    .settings-modal-breadcrumb,
+    .settings-rail-group-label,
+    .settings-rail-shortcut {
+      display: none;
+    }
+
+    .settings-rail {
+      width: max-content;
+      min-width: 100%;
+      height: auto;
+      flex-direction: row;
+      border-right: 0;
+    }
+
+    .settings-rail-group {
+      display: flex;
+      flex: none;
+      padding: 0;
+    }
+    .settings-rail-row {
+      display: inline-flex;
+      width: auto;
+      height: 44px;
+      flex: none;
+      white-space: nowrap;
+      border-left: 0;
+      border-bottom: 2px solid transparent;
+      padding-inline: 12px;
+    }
+    .settings-rail-row[data-active='true'] {
+      border-bottom-color: var(--color-accent);
+    }
+  }
+}

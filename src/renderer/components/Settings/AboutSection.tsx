@@ -4,6 +4,7 @@ import { useAppInfo } from '../../hooks/useAppInfo';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateStore } from '../../stores/updateStore';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import './about.css';
 import { Toggle } from './shared';
 import { ProfileSection } from './ProfileSection';
 
@@ -84,7 +85,7 @@ export function AboutSection({
       <SettingsSection eyebrow={t('about.title')}>
         {/* Hero identity tile — LG glyph + product name, above the spec card. */}
         <div className="flex items-start gap-3 rounded-lg border border-border-subtle bg-bg-inset p-4">
-          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-4xl bg-primary text-body font-semibold text-primary-foreground shadow-[0_14px_35px_color-mix(in_srgb,var(--color-accent)_25%,transparent)] reduce-transparency:shadow-none">
+          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-4xl bg-primary text-body font-semibold text-primary-foreground about-glyph">
             LG
           </div>
           <div className="min-w-0 flex-1">

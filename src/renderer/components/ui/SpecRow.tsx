@@ -9,6 +9,7 @@ import {
 import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
+import './specRow.css';
 
 /* -------------------------------------------------------------- SpecRow */
 
