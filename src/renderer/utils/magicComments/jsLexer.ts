@@ -582,7 +582,7 @@ function startsWithKeyword(value: string, keyword: string): boolean {
   return Number.isNaN(next) || !isAsciiIdentifierPart(next);
 }
 
-export function endsWithTrailingContinuation(line: string): boolean {
+function endsWithTrailingContinuation(line: string): boolean {
   return AUTO_LOG_TRAILING_CONTINUATION_CHARS.includes(line[line.length - 1] ?? '');
 }
 
