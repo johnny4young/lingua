@@ -31,6 +31,8 @@ const ASSIGNMENT = /^([A-Za-z_$][\w$]*)\s*(?:\*\*|>>>|<<|>>|&&|\|\||\?\?|[-+*/%&
 const NON_NAMES = new Set(['this', 'super', 'null', 'true', 'false', 'undefined', 'await', 'yield']);
 const FUNCTION_VALUE = /(?:async|function|class)\b|<|[A-Za-z_$][\w$]*\s*=>/y;
 const ARROW_AFTER_PARAMS = /\s*(?:=>|:)/y;
+// A braceless `if` / loop / `else` / `do` header: the capture would run outside its body.
+const CONTROL_HEADER = /^(?:(?:\}\s*)?else\s+if|if|for|while|with)\b.*\)$|^(?:\}\s*)?else$|^do$/;
 
 /** First index from `from` that is not whitespace or `;`, or the text's length. */
 function skipBlank(text: string, from: number): number {
@@ -59,9 +61,13 @@ function valueStart(text: string, from: number, afterEquals: boolean): number {
     else if (start < 0) {
       if (c === '<') angles++;
       else if (c === '>' && text[i - 1] !== '=') angles--;
-      else if (c === '=' && text[i + 1] !== '=' && text[i + 1] !== '>') start = i + 1;
-      else if (c === ';' || (c === ',' && angles <= 0)) return -1;
-    } else if (c === ',' || (c === ';' && skipBlank(text, i + 1) < text.length)) return -1;
+      else if (c === '=' && text[i + 1] !== '=' && text[i + 1] !== '>') {
+        start = i + 1;
+        angles = 0;
+      } else if (c === ';' || (c === ',' && angles <= 0)) return -1;
+    } else if (c === '<') angles++;
+    else if (c === '>' && text[i - 1] !== '=') angles--;
+    else if ((c === ',' && angles <= 0) || (c === ';' && skipBlank(text, i + 1) < text.length)) return -1;
   }
   return start;
 }
@@ -101,16 +107,19 @@ export function detectJSAssignmentAnswers(
 ): JSAssignmentAnswer[] {
   const out: JSAssignmentAnswer[] = [];
   let previousEnded = true;
+  let previousText = '';
   for (let index = 0; index < lines.length; index++) {
     const info = lines[index]!;
     if (info.depthAtStart !== 0 || info.openTokenAtStart) {
       previousEnded = endsTopLevelStatement(info);
+      previousText = trimLine(info.stripped) || previousText;
       continue;
     }
     const text = trimLine(info.stripped);
     if (text.length === 0) continue;
-    const startsStatement = previousEnded;
+    const startsStatement = previousEnded && !CONTROL_HEADER.test(previousText);
     previousEnded = endsTopLevelStatement(info);
+    previousText = text;
     if (!startsStatement) continue;
     const declaration = DECLARATION.exec(text);
     const match = declaration ?? ASSIGNMENT.exec(text);
@@ -125,6 +134,7 @@ export function detectJSAssignmentAnswers(
     // Lines inside the statement cannot start another one.
     index = end;
     previousEnded = true;
+    previousText = trimLine(lines[end]!.stripped);
   }
   return out;
 }

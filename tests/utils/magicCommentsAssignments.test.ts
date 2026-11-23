@@ -74,8 +74,17 @@ describe('JS/TS assignment answers', () => {
     ['blocks below the top level', 'if (ok) {\n  const inner = 1;\n}'],
     ['a statement the next line continues', 'const total = items\n  .map((x) => x)\n  .length;'],
     ['two statements on one line', 'const a = 1; console.log(a);'],
+    ['bodies of braceless if, loop and else headers', 'if (debug)\n  config = {\n    verbose: true,\n  }\nfor (const n of list)\n  var last = n\nif (a) b()\nelse\n  var c = 1'],
   ])('skips %s', (_label, code) => {
     expect(detectJSAssignmentAnswers(code)).toEqual([]);
+  });
+
+  it('reads generic type arguments in the value past their commas', () => {
+    expect(detectJSAssignmentAnswers('const seen = new Map<string, number>();').map(({ name }) => name)).toEqual(['seen']);
+  });
+
+  it('does not capture a binding outside a braceless if body', async () => {
+    expect(await runScratchpad('if (false)\n  config = {\n    verbose: true,\n  }\nconst after = 1')).toEqual([{ line: 5, value: 1 }]);
   });
 
   it('leaves lines claimed by //=> and @watch to the magic comment', async () => {

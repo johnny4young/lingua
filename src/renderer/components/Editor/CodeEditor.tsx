@@ -125,7 +125,9 @@ export function CodeEditor() {
 
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
   const compactGutter = useCompactGutter(editorInstance);
-  const answersShowColors = useAutoLogActiveLanguage() !== null;
+  // Only the Worker runtime (and Python) answers, so other runtimes keep Monaco's swatches.
+  const onWorkerRuntime = useEditorStore(state => (getActiveTab(state)?.runtimeMode ?? 'worker') === 'worker');
+  const answersShowColors = useAutoLogActiveLanguage() !== null && onWorkerRuntime;
   // Stable options object: @monaco-editor/react diffs `options` by
   // identity and calls `editor.updateOptions` (a relayout) whenever it
   // changes, so it must only change when one of its inputs does.
