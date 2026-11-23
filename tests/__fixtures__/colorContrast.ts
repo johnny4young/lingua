@@ -91,6 +91,13 @@ export function readCssBlock(css: string, selector: RegExp): Map<string, string>
   return vars;
 }
 
+/** Body of the first rule written exactly as `selector {`, up to its first `}`. */
+export function readCssRule(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  if (start < 0) throw new Error(`Rule not found: ${selector}`);
+  return css.slice(start, css.indexOf('}', start));
+}
+
 /** Resolves `var(--x)` chains inside one block, falling back to `base`. */
 export function resolveToken(name: string, block: Map<string, string>, base?: Map<string, string>): string {
   let value = block.get(name) ?? base?.get(name);

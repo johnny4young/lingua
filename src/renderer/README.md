@@ -1063,8 +1063,13 @@ If you add a new global class, place it in the closest subsection instead of app
   focus is a 2px gap plus a 2px ring in the control's hue (`ring-accent-fg`,
   `ring-error-fg` for destructive). Transitions use `--duration-*` and
   `--curve-*`, which drop to 0ms under reduced motion.
-- One saturated control per surface: `.button-primary` (and Run) fill with the
-  accent and take ink by contrast (`--color-fg-on-accent`); `.button-secondary`
+- One saturated control per surface: `.button-primary` fills with the accent
+  and takes ink by contrast (`--color-fg-on-accent`). `.action-pill-run` (Run,
+  its chevron, SQL Run, HTTP Send, capsule Import) and RuntimeSelector's run
+  segment use `--color-run*`, which is the accent in Classic
+  and the pulse under `--color-pulse-on` in Ink and Paper; Scratchpad uses
+  `--color-run-scratch*`. `tests/build/themeTokenContrast.test.ts` holds every
+  workflow pair at 4.5:1 per theme. `.button-secondary`
   is surface plus hairline; `.button-ghost` is accent text with a tint on hover;
   `.button-danger` is red text until it sits inside a confirmation, where
   `.button-danger-solid` fills. Disabled primary uses the muted pair
