@@ -237,6 +237,8 @@ export interface BuildCommandPaletteModelArgs {
    */
   onToggleAutoLogOnActiveTab?: () => void;
   activeAutoLogResolved?: boolean;
+  /** Opens Monaco's color picker at the cursor; wired while a code editor is active. */
+  onPickColor?: () => void;
   /**
    * Focus the Input tab on the bottom
    * panel from the command palette. The caller in `CommandPalette.tsx`

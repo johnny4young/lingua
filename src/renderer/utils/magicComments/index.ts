@@ -35,7 +35,7 @@ export {
   lineTimingRequestedByMagicComment,
   originSuppressedByMagicComment,
 } from './directives';
-export { detectJSAutoLogLines, transformJSAutoLog } from './jsAutoLog';
+export { applyJSAutoLog, detectJSAutoLogLines, transformJSAutoLog } from './jsAutoLog';
 export { detectJSMagicComments, transformJSMagicComments } from './jsDetect';
 export { detectJSStatementStartLines, transformJSLineTiming } from './jsLineTiming';
 // `MagicCommentTransformOptions` stays internal to ./kinds: it is the

@@ -4,7 +4,7 @@
  * Locks the user-visible contract:
  *
  *   - With auto-log enabled for Scratchpad worker languages via `localStorage`,
- *     bare expressions on their own line surface a
+ *     bare expressions and top-level assignments on their own line surface a
  *     `data-result-kind="autoLog"` row.
  *   - Magic-comment arrow precedence is preserved: a line with `//=>`
  *     stays `data-result-kind="magic"`, not auto-log.
@@ -47,6 +47,51 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
 }
 
 /**
+ * Type a buffer line by line, replacing Monaco's auto-indent with each line's
+ * own indentation so Python blocks land exactly as written.
+ */
+async function typeEditorLines(page: Page, source: string): Promise<void> {
+  await replaceEditorText(page, '');
+  for (const [index, line] of source.split('\n').entries()) {
+    if (index > 0) {
+      await page.keyboard.insertText('\n');
+      await page.keyboard.press('Shift+Home');
+      await page.keyboard.press('Delete');
+    }
+    if (line) await page.keyboard.insertText(line);
+  }
+}
+
+const LATENCIES_PY = [
+  'from statistics import mean, quantiles',
+  'from random import gauss',
+  'from time import sleep',
+  '',
+  'api    = [38, 41, 35, 44, 39, 52, 37]',
+  'worker = [12, 14, 11, 13, 19, 12, 11]',
+  'db     = [92, 88, 97, 131, 90, 86, 94]',
+  'latencies = {"api": api, "worker": worker, "db": db}',
+  'palette = {"api": "#7FD8C4", "worker": "#C8A6FF", "db": "#FF7566"}',
+  '',
+  'averages = {n: round(mean(s), 1) for n, s in latencies.items()}',
+  'p95 = {n: round(quantiles(s, n=20)[-1], 1) for n, s in latencies.items()}',
+  '',
+  'report = [',
+  '    {"service": n, "avg": averages[n], "p95": p95[n], "ok": p95[n] < 120}',
+  '    for n in latencies',
+  ']',
+  '',
+  'slowest = max(averages, key=averages.get)',
+  'budget = 120 - p95[slowest]',
+  '',
+  'for name in latencies:',
+  '    live = [gauss(averages[name], 4) for _ in range(50)]',
+  '    print(f"{name:<7} {mean(live):5.1f} ms")',
+  '',
+  'print(f"slowest path: {slowest}")',
+].join('\n');
+
+/**
  * Seed the auto-log Settings flag for the next page navigation via an
  * init script (runs BEFORE the renderer loads, same shape as
  * `seedSession`). Reads any existing `lingua-settings` payload and
@@ -87,10 +132,10 @@ test.describe('expression auto-log ', () => {
     // debounced auto-run; no fixed wait needed.
     const rows = page.locator('[data-result-kind="autoLog"]');
     await expect(rows.first()).toBeVisible();
-    // Two bare expressions → two auto-log rows surfaced.
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0)).toContainText('15');
-    await expect(rows.nth(1)).toContainText('50');
+    // Two declarations and two bare expressions, each on its own line.
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(2)).toContainText('15');
+    await expect(rows.nth(3)).toContainText('50');
   });
 
   test('preserves magic-arrow precedence on a shared line', async ({
@@ -108,13 +153,11 @@ test.describe('expression auto-log ', () => {
     );
     await page.waitForTimeout(1_400);
 
-    // The arrow line emits as `magic`, not `autoLog`.
-    await expect(
-      page.locator('[data-result-kind="autoLog"]')
-    ).toHaveCount(0);
-    await expect(
-      page.locator('text=42').first()
-    ).toBeVisible();
+    // The arrow line emits as `magic`; only the declaration above it auto-logs.
+    const line = (n: number) => page.locator(`[data-testid="lingua-inline-result"][data-line="${n}"]`);
+    await expect(line(2).locator('[data-result-kind="magic"]')).toContainText('42');
+    await expect(line(2).locator('[data-result-kind="autoLog"]')).toHaveCount(0);
+    await expect(line(1).locator('[data-result-kind="autoLog"]')).toContainText('42');
   });
 
   test('AutoLog status pill mirrors the resolved gate', async ({ page }) => {
@@ -221,4 +264,69 @@ test.describe('expression auto-log ', () => {
     await expect(valueRows.nth(0)).toContainText('42');
     await expect(valueRows.nth(1)).toContainText('2');
   });
+
+  test('answers top-level JS declarations, multi-line ones on their first line', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await enableAutoLogForScratchpadLanguages(page);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+
+    await replaceEditorText(
+      page,
+      [
+        'const double = (n) => n * 2;',
+        'const api = [38, 41, 35];',
+        'const report = api.map((ms) => ({',
+        '  ms,',
+        '}));',
+        'const { length } = api;',
+        'let slowest;',
+        'slowest = Math.max(...api)',
+      ].join('\n')
+    );
+
+    const line = (n: number) => page.locator(`[data-testid="lingua-inline-result"][data-line="${n}"]`);
+    await expect(line(2).locator('[data-result-kind="autoLog"]')).toContainText('array·3');
+    await expect(line(3).locator('[data-testid="answer-picture-table"]')).toBeVisible();
+    await expect(line(8).locator('[data-result-kind="autoLog"]')).toContainText('41');
+    // Arrow values, destructuring and declarations without a value stay quiet.
+    for (const quiet of [1, 6, 7]) await expect(line(quiet)).toHaveCount(0);
+  });
+
+  test('answers every top-level assignment of the Python latencies file', async ({ page }) => {
+    // Same staged budget as the CPython auto-log test: boot, run, then rows.
+    test.setTimeout(210_000);
+    await seedSession(page, { language: 'en' });
+    await enableAutoLogForScratchpadLanguages(page);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createLanguageTab(page, /^Python\b/i, /PY .*\.py/i);
+    await typeEditorLines(page, LATENCIES_PY);
+
+    await expect
+      .poll(() => page.evaluate(() => window.__linguaE2e?.pythonRuntimeBooted?.() ?? false), {
+        timeout: 100_000,
+        intervals: [1_000],
+      })
+      .toBe(true);
+    const line = (n: number) => page.locator(`[data-testid="lingua-inline-result"][data-line="${n}"]`);
+    await expect(line(20)).toBeAttached({ timeout: 60_000 });
+    // Typing left the editor scrolled to the end; bring the top lines into view.
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
+
+    await expect(line(5)).toContainText('list·7');
+    await expect(line(5).locator('[data-testid="answer-picture-bars"]')).toBeVisible();
+    await expect(line(8)).toContainText('dict·3');
+    await expect(line(8).locator('[data-testid="answer-picture-keys"]')).toBeVisible();
+    await expect(line(9).locator('[data-testid="answer-picture-colours"]')).toContainText('#C8A6FF');
+    await expect(line(14).locator('[data-testid="answer-picture-table"]')).toBeVisible();
+    await expect(line(20).locator('[data-testid="answer-picture-gauge"]')).toBeVisible();
+    // The loop body is not module level, and print lines keep their stdout answer.
+    await expect(line(23)).toHaveCount(0);
+    await expect(line(26).locator('[data-result-kind="log"]')).toContainText('slowest path: db');
+    // Colour answers replace Monaco's inline swatches, so each colour shows once.
+    await expect(page.locator('.monaco-editor .colorpicker-color-decoration')).toHaveCount(0);
+  });
 });
+

@@ -35,6 +35,7 @@ describe('getEditorOptions', () => {
       cursorSmoothCaretAnimation: 'on',
       renderLineHighlight: 'line',
       bracketPairColorization: { enabled: true },
+      colorDecorators: true,
       autoClosingBrackets: 'always',
       autoClosingQuotes: 'always',
       formatOnPaste: true,
@@ -50,6 +51,12 @@ describe('getEditorOptions', () => {
       wordBasedSuggestions: 'currentDocument',
       tabSize: 2,
     });
+  });
+
+  it('drops the inline colour swatches while answers draw colour chips', () => {
+    const base = { fontSize: 14, fontFamily: 'JetBrains Mono', fontLigatures: false, wordWrap: false, minimap: false };
+    expect(getEditorOptions({ ...base, answersShowColors: true }).colorDecorators).toBe(false);
+    expect(getEditorOptions(base).colorDecorators).toBe(true);
   });
 
   it('drops the glyph margin and folding in a compact gutter but keeps the run rail', () => {

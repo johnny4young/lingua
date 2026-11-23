@@ -86,6 +86,7 @@ const HISTORICAL_STATIC_ACTION_ORDER = [
   'action-add-watch',
   'action-focus-stdin-panel',
   'action-toggle-auto-log',
+  'action-pick-color',
   'action-run-with-extended-timeout',
   'action-toggle-compare-with-snapshot',
   'action-toggle-variable-inspector',

@@ -152,7 +152,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
 
         try {
           const executionSource = buildPythonBoundedExecutionSource(
-            msg.autoLog ? buildPythonAutoLogExecutionSource(code, msg.autoLogAssignments === true) : code
+            msg.autoLog ? buildPythonAutoLogExecutionSource(code, msg.autoLogMode) : code
           );
           if (typeof scopeId === 'string' && scopeId.length > 0) {
             // Run user code against the notebook's persistent scope

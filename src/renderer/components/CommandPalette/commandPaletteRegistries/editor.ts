@@ -13,6 +13,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     stdinPanelAvailable = false,
     onToggleAutoLogOnActiveTab,
     activeAutoLogResolved = false,
+    onPickColor,
     onSetActiveLanguageTimeoutPreset,
     activeTimeoutLanguage = null,
     activeTimeoutPreset = null,
@@ -121,6 +122,20 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
             () => {
               onToggleAutoLogOnActiveTab();
               onClose();
+            }
+          ),
+        ]
+      : []),
+    ...(onPickColor
+      ? [
+          buildActionCommand(
+            'action-pick-color',
+            translate('start.palette.pickColor'),
+            '',
+            ['color', 'colour', 'picker', 'swatch', 'hex', 'rgb', 'hsl', 'color picker'],
+            () => {
+              onClose();
+              onPickColor();
             }
           ),
         ]

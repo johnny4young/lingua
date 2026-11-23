@@ -448,13 +448,78 @@ export function walkTopLevelLines(
   finishLine(len);
 }
 
+/**
+ * First characters that mark a physical line as the CONTINUATION of the
+ * previous statement (member chains, ternaries, operators, call/index
+ * brackets, template tags) rather than a fresh statement. Prefixing a
+ * tick there would change program meaning or break the parse, so such
+ * lines are never instrumented.
+ */
+const STATEMENT_START_BLOCKED_CHARS = '.?:)]},=+-*/%&|^<>!~`([@';
+
+/**
+ * Leading keywords that continue a compound statement. `while` is here
+ * for the rare split `do {…}\n while (…)` tail — excluding it costs a
+ * standalone while-loop its own marker (its time folds into the
+ * previous statement) but can never produce invalid code, which is the
+ * bias this detector wants.
+ */
+const STATEMENT_START_BLOCKED_KEYWORDS = new Set([
+  'else',
+  'catch',
+  'finally',
+  'while',
+  'case',
+  'default',
+  'extends',
+  'implements',
+  'instanceof',
+  'in',
+  'of',
+  'as',
+  'satisfies',
+]);
+
+export function startsNewTopLevelStatement(trimmed: string): boolean {
+  const first = trimmed[0] ?? '';
+  if (first.length === 0) return false;
+  if (STATEMENT_START_BLOCKED_CHARS.includes(first)) return false;
+  const wordMatch = trimmed.match(/^[A-Za-z_$][A-Za-z0-9_$]*/u);
+  if (wordMatch && STATEMENT_START_BLOCKED_KEYWORDS.has(wordMatch[0])) {
+    return false;
+  }
+  return true;
+}
+
+/** Every line's facts from one walk, for detectors that look ahead or share it. */
+export function walkLines(code: string): TopLevelLineInfo[] {
+  const lines: TopLevelLineInfo[] = [];
+  walkTopLevelLines(code, (info) => lines.push(info));
+  return lines;
+}
+
+/** The line closes its statement: back at depth 0, outside any token, with no trailing continuation. */
+export function endsTopLevelStatement(info: TopLevelLineInfo): boolean {
+  if (info.depthAtEnd !== 0 || info.openTokenAtEnd) return false;
+  const text = info.stripped;
+  let end = text.length;
+  while (end > 0) {
+    const code = text.charCodeAt(end - 1);
+    if (code !== 59 && code > 32 && code !== 160 && code !== 0xfeff) break;
+    end--;
+  }
+  return end === 0 || !AUTO_LOG_TRAILING_CONTINUATION_CHARS.includes(text[end - 1]!);
+}
+
+/** `lines`, when given, is the walk of `code` a caller already made. */
 export function scanAutoLogCandidates(
   code: string,
-  magicLines: ReadonlySet<number>
+  magicLines: ReadonlySet<number>,
+  lines?: readonly TopLevelLineInfo[]
 ): number[] {
   const out: number[] = [];
   const hasMagicLines = magicLines.size > 0;
-  walkTopLevelLines(code, (info) => {
+  const visit = (info: TopLevelLineInfo) => {
     if (
       (!hasMagicLines || !magicLines.has(info.lineNumber)) &&
       isAutoLogCandidateLine(
@@ -469,7 +534,9 @@ export function scanAutoLogCandidates(
     ) {
       out.push(info.lineNumber);
     }
-  });
+  };
+  if (lines) lines.forEach(visit);
+  else walkTopLevelLines(code, visit);
   return out;
 }
 
@@ -515,7 +582,7 @@ function startsWithKeyword(value: string, keyword: string): boolean {
   return Number.isNaN(next) || !isAsciiIdentifierPart(next);
 }
 
-export function endsWithTrailingContinuation(line: string): boolean {
+function endsWithTrailingContinuation(line: string): boolean {
   return AUTO_LOG_TRAILING_CONTINUATION_CHARS.includes(line[line.length - 1] ?? '');
 }
 

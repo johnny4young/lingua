@@ -28,14 +28,14 @@ ns["__mc"] = __mc
 scope = {k: v for k, v in ns.items() if k.startswith("__lingua") or k == "__mc"}
 outcome = "ok"
 try:
-    asyncio.run(ns["__lingua_execute_auto_log"](sys.argv[1], scope, sys.argv[2] == "1"))
+    asyncio.run(ns["__lingua_execute_auto_log"](sys.argv[1], scope, sys.argv[2] or None))
 except Exception as error:
     outcome = type(error).__name__
 print(json.dumps({"outcome": outcome, "answers": answers, "names": sorted(k for k in scope if not k.startswith("__"))}))
 `;
 
-function run(code: string, assignments: boolean): { outcome: string; answers: unknown[]; names: string[] } {
-  const result = spawnSync('python3', ['-I', '-c', HARNESS, code, assignments ? '1' : '0'], {
+function run(code: string, mode: '' | 'assignments' | 'cell'): { outcome: string; answers: unknown[]; names: string[] } {
+  const result = spawnSync('python3', ['-I', '-c', HARNESS, code, mode], {
     input: PYTHON_AUTO_LOG_HELPERS_SOURCE,
     encoding: 'utf8',
   });
@@ -45,7 +45,7 @@ function run(code: string, assignments: boolean): { outcome: string; answers: un
 
 describe.skipIf(!hasPython)('Python auto-log under CPython', () => {
   it('answers notebook assignments and expressions on their lines', () => {
-    const result = run('tickets = [151.2, 146.9]\na, b = 1, 2\n__lp0 = 0\nlen(tickets)', true);
+    const result = run('tickets = [151.2, 146.9]\na, b = 1, 2\n__lp0 = 0\nlen(tickets)', 'cell');
     expect(result).toMatchObject({
       outcome: 'ok',
       answers: [
@@ -57,13 +57,13 @@ describe.skipIf(!hasPython)('Python auto-log under CPython', () => {
   });
 
   it('lets a failing notebook expression stop the cell', () => {
-    expect(run("1/0\nprint('after')", true)).toMatchObject({ outcome: 'ZeroDivisionError', answers: [] });
+    expect(run("1/0\nprint('after')", 'cell')).toMatchObject({ outcome: 'ZeroDivisionError', answers: [] });
   });
 
   it('keeps walrus bindings, async comprehensions and awaits at module scope', () => {
     const result = run(
       'import asyncio\n(y := 5)\nasync def agen():\n    yield 1\n[x async for x in agen()]\nz = await asyncio.sleep(0, result=9)',
-      true
+      'cell'
     );
     expect(result.outcome).toBe('ok');
     expect(result.answers).toEqual([
@@ -75,12 +75,49 @@ describe.skipIf(!hasPython)('Python auto-log under CPython', () => {
   });
 
   it('keeps Scratchpad auto-log as before: expressions only, errors recorded', () => {
-    expect(run('value = 21\nvalue * 2\n1/0', false)).toMatchObject({
+    expect(run('value = 21\nvalue * 2\n1/0', '')).toMatchObject({
       outcome: 'ok',
       answers: [
         [2, '42'],
         [3, 'error', 'division by zero'],
       ],
     });
+  });
+
+  it('answers Scratchpad assignments and keeps expression errors recorded', () => {
+    const code = [
+      'api = [38, 41]',
+      'report = [',
+      '    {"service": n}',
+      '    for n in ["api", "db"]',
+      ']',
+      'a, b = 1, 2',
+      'total = 1',
+      'total += 1',
+      '__lp0 = 0',
+      'hidden: int',
+      'for name in ["x"]:',
+      '    inner = name',
+      '1/0',
+    ].join('\n');
+    expect(run(code, 'assignments')).toMatchObject({
+      outcome: 'ok',
+      answers: [
+        [1, '[38, 41]'],
+        [2, "[{'service': 'api'}, {'service': 'db'}]"],
+        [6, '(1, 2)'],
+        [7, '1'],
+        [8, '2'],
+        [13, 'error', 'division by zero'],
+      ],
+    });
+  });
+
+  it('lets an explicit capture on the line win over its assignment answer', () => {
+    const watched = 'x = 5; __mc(1, lambda: (x * 10))\ny = 2';
+    expect(run(watched, 'assignments').answers).toEqual([
+      [1, '50'],
+      [2, '2'],
+    ]);
   });
 });

@@ -43,6 +43,7 @@
   "start.palette.settings": "Settings",
   "start.palette.themeInk": "Theme: switch to Lingua Ink",
   "start.palette.themePaper": "Theme: switch to Lingua Paper",
+  "start.palette.pickColor": "Pick a color",
   "start.new.title": "New",
   "start.new.scratch": "New {{language}} scratch file, {{availability}}",
   "start.availability.offline": "offline",

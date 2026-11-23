@@ -15,6 +15,8 @@ interface EditorOptionInput {
   minimap: boolean;
   /** Narrow editors drop the glyph margin and folding so the code keeps the width; the run rail stays. */
   compactGutter?: boolean;
+  /** Answers draw colour chips, so Monaco's inline swatches would show each colour twice. */
+  answersShowColors?: boolean;
 }
 
 /** Editor width, in px, under which the gutter goes compact. */
@@ -71,6 +73,7 @@ export function getEditorOptions({
   wordWrap,
   minimap,
   compactGutter = false,
+  answersShowColors = false,
 }: EditorOptionInput) {
   return {
     fontSize,
@@ -96,6 +99,7 @@ export function getEditorOptions({
     cursorSmoothCaretAnimation: 'on',
     renderLineHighlight: 'line',
     bracketPairColorization: { enabled: true },
+    colorDecorators: !answersShowColors,
     autoClosingBrackets: 'always',
     autoClosingQuotes: 'always',
     formatOnPaste: true,

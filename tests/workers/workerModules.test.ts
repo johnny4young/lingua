@@ -189,9 +189,15 @@ describe('Python execution worker adapter', () => {
   it('asks the auto-log pass for assignments when a notebook cell runs', async () => {
     const harness = createPythonExecutionHarness();
     const source = 'tickets = [1, 2]\nawait asyncio.sleep(0)';
-    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source, true));
-    expect(buildPythonAutoLogExecutionSource(source, true)).toBe(
-      `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals(), True)`
+    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source, 'cell'));
+    expect(buildPythonAutoLogExecutionSource(source, 'cell')).toBe(
+      `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals(), "cell")`
+    );
+    expect(buildPythonAutoLogExecutionSource(source, 'assignments')).toBe(
+      `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals(), "assignments")`
+    );
+    expect(buildPythonAutoLogExecutionSource(source)).toBe(
+      `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals())`
     );
     // Assignments and top-level await are part of the helper contract.
     expect(PYTHON_AUTO_LOG_HELPERS_SOURCE).toContain('def __lingua_assigned_value(node):');
@@ -205,7 +211,7 @@ describe('Python execution worker adapter', () => {
     );
     harness.runtimeValue.runPythonAsync = runPythonAsync;
     const handle = createPythonExecutionHandler(harness.port, harness.runtime);
-    await handle({ type: 'execute', runId: 'python-assign-1', code: source, autoLog: true, autoLogAssignments: true });
+    await handle({ type: 'execute', runId: 'python-assign-1', code: source, autoLog: true, autoLogMode: 'cell' });
     expect(runPythonAsync).toHaveBeenCalledWith(executionSource, { filename: '<lingua-execution>' });
   });
 

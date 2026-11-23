@@ -5,14 +5,35 @@
  */
 
 import MagicString from 'magic-string';
+import type { ExecutionContext } from '../../types/execution';
 import { finishSourceTransform, wrapSourceExpression, type RecordSourceMap } from '../sourceTransform';
 
+import { detectJSAssignmentAnswers, type JSAssignmentAnswer } from './jsAssignments';
 import {
   EMPTY_MAGIC_LINES,
   scanAutoLogCandidates,
   stripTrailingSemicolons,
   trimLine,
+  walkLines,
 } from './jsLexer';
+
+/** Which top-level statements answer: bare expressions, plus bindings for `'assignments'`. */
+type JSAutoLogMode = ExecutionContext['autoLog'];
+
+interface JSAutoLogPlan {
+  expressionLines: number[];
+  bindings: JSAssignmentAnswer[];
+}
+
+function planJSAutoLog(code: string, magicLines: ReadonlySet<number>, mode: JSAutoLogMode): JSAutoLogPlan {
+  if (code.length === 0 || (mode !== true && mode !== 'assignments')) return { expressionLines: [], bindings: [] };
+  if (mode === true) return { expressionLines: scanAutoLogCandidates(code, magicLines), bindings: [] };
+  const walked = walkLines(code);
+  const expressionLines = scanAutoLogCandidates(code, magicLines, walked);
+  const claimed = new Set(expressionLines);
+  const bindings = detectJSAssignmentAnswers(code, magicLines, walked).filter((answer) => !claimed.has(answer.line));
+  return { expressionLines, bindings };
+}
 
 /**
  * Detect 1-based line numbers in a JS / TS buffer that are
@@ -23,13 +44,35 @@ import {
  *   or `// @watch` magic-comment. The detector excludes them so
  *   auto-log never double-wraps the same line — arrow / watch keep
  *   their explicit precedence.
+ * @param mode `'assignments'` also answers top-level bindings (Scratchpad auto-runs).
  */
 export function detectJSAutoLogLines(
   code: string,
-  magicLines: ReadonlySet<number> = EMPTY_MAGIC_LINES
+  magicLines: ReadonlySet<number> = EMPTY_MAGIC_LINES,
+  mode: JSAutoLogMode = true
 ): number[] {
-  if (code.length === 0) return [];
-  return scanAutoLogCandidates(code, magicLines);
+  const { expressionLines, bindings } = planJSAutoLog(code, magicLines, mode);
+  return bindings.length === 0 ? expressionLines : [...expressionLines, ...bindings.map((answer) => answer.line)];
+}
+
+/**
+ * The runner-side pass: detect on `source` (before magic-comment rewrites)
+ * and transform `code`. Returns the rewritten code and every answering line;
+ * modes other than `true` and `'assignments'` leave the code as it is.
+ */
+export function applyJSAutoLog(
+  source: string,
+  code: string,
+  magicLines: ReadonlySet<number>,
+  mode: JSAutoLogMode,
+  recordMap?: RecordSourceMap
+): { code: string; lines: number[] } {
+  const { expressionLines, bindings } = planJSAutoLog(source, magicLines, mode);
+  if (expressionLines.length === 0 && bindings.length === 0) return { code, lines: [] };
+  return {
+    code: transformJSAutoLog(code, expressionLines, recordMap, bindings),
+    lines: [...expressionLines, ...bindings.map((answer) => answer.line)],
+  };
 }
 
 /**
@@ -111,18 +154,23 @@ function splitTrailingLineComment(line: string): {
  *
  * Call this AFTER `transformJSMagicComments` so magic-comment lines
  * (which `detectJSAutoLogLines` already excludes) keep their
- * specialised transform shape.
+ * specialised transform shape. Each of `assignments` reads its name back
+ * with `__mc` right after its statement, before any trailing comment.
  */
 export function transformJSAutoLog(
   code: string,
   autoLogLines: ReadonlyArray<number>,
-  recordMap?: RecordSourceMap
+  recordMap?: RecordSourceMap,
+  assignments: ReadonlyArray<JSAssignmentAnswer> = []
 ): string {
-  if (autoLogLines.length === 0) return code;
+  if (autoLogLines.length === 0 && assignments.length === 0) return code;
   const source = new MagicString(code);
   const targets = new Set(autoLogLines);
+  const capturesByEndLine = new Map(assignments.map((answer) => [answer.endLine, answer]));
   let offset = 0;
   for (const [index, original] of code.split('\n').entries()) {
+    const capture = capturesByEndLine.get(index + 1);
+    if (capture) source.appendLeft(offset + capture.endColumn, `;void __mc(${capture.line}, ${capture.name});`);
     if (targets.has(index + 1)) {
       const { code: expressionCode, comment } = original.includes('//')
         ? splitTrailingLineComment(original)

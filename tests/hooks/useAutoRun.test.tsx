@@ -1107,7 +1107,7 @@ describe('useAutoRun', () => {
     });
     expect(execute).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
-      autoLog: true,
+      autoLog: 'assignments',
       language: 'javascript',
       tabId: 'tab-js-auto-log-toggle',
       captureScope: true,
@@ -1148,7 +1148,7 @@ describe('useAutoRun', () => {
     });
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
-      autoLog: true,
+      autoLog: 'assignments',
       language: 'javascript',
       tabId: 'tab-js-stdin-toggle',
       captureScope: true,
@@ -1177,7 +1177,7 @@ describe('useAutoRun', () => {
     });
     expect(execute).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
-      autoLog: true,
+      autoLog: 'assignments',
       language: 'javascript',
       tabId: 'tab-js-stdin-toggle',
       stdin: 'Ada',

@@ -41,6 +41,7 @@ import { openEditSelectionForEditor } from '../../stores/aiEditSelectionStore';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { useCompactGutter } from './useCompactGutter';
+import { useAutoLogActiveLanguage } from './dockNotices';
 import { defineCustomThemes } from './editorThemes';
 import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
@@ -124,6 +125,9 @@ export function CodeEditor() {
 
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
   const compactGutter = useCompactGutter(editorInstance);
+  // Only the Worker runtime (and Python) answers, so other runtimes keep Monaco's swatches.
+  const onWorkerRuntime = useEditorStore(state => (getActiveTab(state)?.runtimeMode ?? 'worker') === 'worker');
+  const answersShowColors = useAutoLogActiveLanguage() !== null && onWorkerRuntime;
   // Stable options object: @monaco-editor/react diffs `options` by
   // identity and calls `editor.updateOptions` (a relayout) whenever it
   // changes, so it must only change when one of its inputs does.
@@ -138,8 +142,9 @@ export function CodeEditor() {
         wordWrap,
         minimap,
         compactGutter,
+        answersShowColors,
       }),
-    [presenterActive, fontSize, fontFamily, effectiveFontLigatures, wordWrap, minimap, compactGutter]
+    [presenterActive, fontSize, fontFamily, effectiveFontLigatures, wordWrap, minimap, compactGutter, answersShowColors]
   );
 
   const activeTab = useActiveTab();

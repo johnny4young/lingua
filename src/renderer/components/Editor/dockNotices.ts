@@ -5,18 +5,25 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { resolveAutoLogEnabled } from '../../hooks/autoRunModel';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
-/** The active tab's language label while Scratchpad auto-log is on for it; null otherwise. */
-export function useAutoLogLanguage(): string | null {
-  const { t } = useTranslation();
-  // Primitive selectors, so typing in the tab does not re-render the dock row.
+/** The active tab's language while Scratchpad auto-log is on for it; null otherwise. */
+export function useAutoLogActiveLanguage(): string | null {
+  // Primitive selectors, so typing in the tab does not re-render the caller.
   const language = useEditorStore((state) => getActiveTab(state)?.language);
   const workflowMode = useEditorStore((state) => getActiveTab(state)?.workflowMode);
   const tabOverride = useEditorStore((state) => getActiveTab(state)?.autoLogEnabled);
   const defaults = useSettingsStore((state) => state.scratchpadAutoLogByLanguage);
 
   if (!language) return null;
-  const enabled = resolveAutoLogEnabled(language, workflowMode ?? defaultWorkflowMode(language), tabOverride, defaults);
-  return enabled ? t(`workflowMode.languageLabel.${language}`) : null;
+  return resolveAutoLogEnabled(language, workflowMode ?? defaultWorkflowMode(language), tabOverride, defaults)
+    ? language
+    : null;
+}
+
+/** The active tab's language label while Scratchpad auto-log is on for it; null otherwise. */
+export function useAutoLogLanguage(): string | null {
+  const { t } = useTranslation();
+  const language = useAutoLogActiveLanguage();
+  return language ? t(`workflowMode.languageLabel.${language}`) : null;
 }
 
 export interface AutoRunGateCopy {

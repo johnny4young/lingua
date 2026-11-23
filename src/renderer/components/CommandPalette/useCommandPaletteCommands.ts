@@ -475,6 +475,12 @@ export function useCommandPaletteCommands({
             ? useSettingsStore.getState().scratchpadAutoLogByLanguage[activeTab.language] === true
             : activeTab.autoLogEnabled === true
           : false,
+      // With auto-log on, answers replace Monaco's inline swatches, so the picker needs a way in.
+      onPickColor: activeTab
+        ? () => {
+            void getActiveEditor()?.getAction('editor.action.showOrFocusStandaloneColorPicker')?.run();
+          }
+        : undefined,
       // Focus the Input bottom-panel tab.
       // Hidden when the master Settings toggle is OFF or when the
       // active tab's language can't consume stdin (anything outside

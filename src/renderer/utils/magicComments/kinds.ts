@@ -16,9 +16,10 @@ export interface MagicCommentTransformOptions {
   /**
    * Replace every top-level bare expression statement with an
    * `__mc(line, value)` capture, in addition to any explicit `//=>`
-   * arrows and `// @watch` watches. JS / TS only.
+   * arrows and `// @watch` watches. JS / TS only. `'assignments'` also
+   * answers top-level bindings, as Scratchpad auto-runs do.
    */
-  autoLog?: boolean;
+  autoLog?: boolean | 'assignments';
 }
 
 /**
@@ -55,7 +56,7 @@ export function magicCommentKindsByLine(
   }
   if (options.autoLog && language !== 'python') {
     const magicLines = new Set<number>(detected.map((entry) => entry.line));
-    for (const line of detectJSAutoLogLines(code, magicLines)) {
+    for (const line of detectJSAutoLogLines(code, magicLines, options.autoLog)) {
       // Arrow / watch already in the map — `detectJSAutoLogLines`
       // received `magicLines` and would not yield those lines. The
       // explicit guard below makes the precedence reviewable.

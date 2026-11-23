@@ -8,52 +8,11 @@ import MagicString from 'magic-string';
 import { finishSourceTransform, type RecordSourceMap } from '../sourceTransform';
 
 import {
-  endsWithTrailingContinuation,
-  stripTrailingSemicolons,
+  endsTopLevelStatement,
+  startsNewTopLevelStatement,
   trimLine,
   walkTopLevelLines,
 } from './jsLexer';
-
-/**
- * First characters that mark a physical line as the CONTINUATION of the
- * previous statement (member chains, ternaries, operators, call/index
- * brackets, template tags) rather than a fresh statement. Prefixing a
- * tick there would change program meaning or break the parse, so such
- * lines are never instrumented.
- */
-const STATEMENT_START_BLOCKED_CHARS = '.?:)]},=+-*/%&|^<>!~`([@';
-
-/**
- * Leading keywords that continue a compound statement. `while` is here
- * for the rare split `do {…}\n while (…)` tail — excluding it costs a
- * standalone while-loop its own marker (its time folds into the
- * previous statement) but can never produce invalid code, which is the
- * bias this detector wants.
- */
-const STATEMENT_START_BLOCKED_KEYWORDS = new Set([
-  'else',
-  'catch',
-  'finally',
-  'while',
-  'case',
-  'default',
-  'extends',
-  'implements',
-  'instanceof',
-  'in',
-  'of',
-]);
-
-function startsNewTopLevelStatement(trimmed: string): boolean {
-  const first = trimmed[0] ?? '';
-  if (first.length === 0) return false;
-  if (STATEMENT_START_BLOCKED_CHARS.includes(first)) return false;
-  const wordMatch = trimmed.match(/^[A-Za-z_$][A-Za-z0-9_$]*/u);
-  if (wordMatch && STATEMENT_START_BLOCKED_KEYWORDS.has(wordMatch[0])) {
-    return false;
-  }
-  return true;
-}
 
 /**
  * 1-based line numbers where a NEW top-level statement begins.
@@ -93,11 +52,7 @@ export function detectJSStatementStartLines(code: string): number[] {
       inDirectivePrologue = false;
     }
 
-    const tail = stripTrailingSemicolons(trimmed);
-    previousEndedStatement =
-      info.depthAtEnd === 0 &&
-      !info.openTokenAtEnd &&
-      (tail.length === 0 || !endsWithTrailingContinuation(tail));
+    previousEndedStatement = endsTopLevelStatement(info);
   });
 
   return out;

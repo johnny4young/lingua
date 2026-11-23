@@ -191,7 +191,8 @@ export async function executeAutoRun({
       language,
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
       tabId: activeTab.id,
-      autoLog: autoLogEnabled,
+      // Scratchpad auto-runs also answer top-level bindings.
+      autoLog: autoLogEnabled && 'assignments',
       // Settings-level per-line timing; the runner also honors
       // an in-buffer // @time directive on its own.
       ...(useSettingsStore.getState().showLineTiming ? { lineTiming: true } : {}),
