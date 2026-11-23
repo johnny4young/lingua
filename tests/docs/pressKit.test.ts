@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { SITE } from '../../website/src/lib/site';
 
 const KIT_DIR = resolve(__dirname, '../../docs/press-kit');
 
@@ -55,6 +56,7 @@ describe('docs/press-kit', () => {
     const entries = zipEntryNames(zip);
 
     expect(entries).toContain('README.txt');
+    for (const filename of SITE.press.assets) expect(entries).toContain(filename);
     for (const filename of EXPECTED_FILES) {
       expect(entries).toContain(`editorial/${filename}`);
     }

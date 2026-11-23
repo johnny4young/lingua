@@ -1,5 +1,6 @@
 ---
 import { Icon } from 'astro-icon/components';
+import BrandLink from './BrandLink.astro';
 import LanguageSelect from './LanguageSelect.astro';
 import { NAV, SITE } from '~/lib/site';
 import { type Locale, localizePath, stripLocaleFromPath, t } from '~/lib/i18n';
@@ -22,10 +23,7 @@ function isActive(href: string): boolean {
 
 <header class="site-header">
   <div class="container header-inner">
-    <a href={localizePath(locale, '/')} class="brand" aria-label={copy.common.homeAria}>
-      <Icon name="lucide:terminal" class="brand-mark" />
-      <span class="brand-name">Lingua</span>
-    </a>
+    <BrandLink href={localizePath(locale, '/')} label={copy.common.homeAria} placement="header" />
 
     <nav class="primary-nav" aria-label={copy.common.primaryNav}>
       {
@@ -87,26 +85,6 @@ function isActive(href: string): boolean {
       0 24px 70px -36px rgb(0 0 0 / 0.92);
     backdrop-filter: blur(24px) saturate(140%);
     pointer-events: auto;
-  }
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.625rem;
-    font-family: var(--font-display);
-    font-weight: 780;
-    letter-spacing: -0.045em;
-  }
-  .brand-mark {
-    width: 30px;
-    height: 30px;
-    padding: 6px;
-    border-radius: 9px;
-    color: var(--color-accent-ink);
-    background: linear-gradient(135deg, var(--color-accent), var(--color-signal));
-    box-shadow: 0 0 28px -8px var(--color-accent);
-  }
-  .brand-name {
-    font-size: 1.18rem;
   }
   .primary-nav {
     display: none;

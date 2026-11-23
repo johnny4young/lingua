@@ -11,6 +11,9 @@ import {
   packBits,
   wordmarkGeometry,
 } from '../../scripts/brand/generate-brand-assets.mjs';
+import { en } from '../../website/src/i18n/en';
+import { es } from '../../website/src/i18n/es';
+import { SITE } from '../../website/src/lib/site';
 
 const root = process.cwd();
 const read = (file: string) => readFileSync(path.join(root, file));
@@ -120,6 +123,36 @@ describe('brand assets', () => {
     }
     expect(text('assets/brand/wordmark.svg')).toContain('fill="#00BFDF"');
     expect(text('website/scripts/og-wordmark.svg')).toBe(text('assets/brand/wordmark-inverse.svg'));
+  });
+
+  it('publishes the brand files in the website press kit', () => {
+    // The SVG copies are covered by the drift check; the raster is not.
+    expect(read('website/public/press/icon.png').equals(read('assets/icon.png'))).toBe(true);
+    for (const file of SITE.press.assets) {
+      expect(existsSync(path.join(root, 'website/public/press', file))).toBe(true);
+      expect(en.press.assets.files[file]).toBeTruthy();
+      expect(es.press.assets.files[file]).toBeTruthy();
+      expect(text('website/public/press/README.txt')).toContain(file);
+    }
+  });
+
+  it('sets the site header and footer with the outlined wordmark', () => {
+    const site = text('website/src/assets/brand/wordmark.svg');
+    const letters = (svg: string) => svg.match(/<path d="([^"]+)"/u)?.[1];
+    expect(letters(site)).toBe(letters(text('assets/brand/wordmark.svg')));
+    expect(site).toContain('fill="currentColor"');
+    expect(site).toContain('fill="#00BFDF"');
+    // BrandLink sizes the SVG and its clear space from these em ratios.
+    const { bounds, xHeight } = wordmarkGeometry();
+    const brandLink = text('website/src/components/BrandLink.astro');
+    expect(brandLink).toContain("from '~/assets/brand/wordmark.svg'");
+    expect(brandLink).toContain(`* ${((bounds.maxY - bounds.minY) / 100).toFixed(3)})`);
+    expect(brandLink).toContain(`* ${(xHeight / 200).toFixed(3)})`);
+    for (const component of ['Header', 'Footer']) {
+      const source = text(`website/src/components/${component}.astro`);
+      expect(source).not.toContain('lucide:terminal');
+      expect(source).toContain('<BrandLink ');
+    }
   });
 
   it('sits the drawn dot 0.05 em above the x-height', () => {

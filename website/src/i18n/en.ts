@@ -640,7 +640,7 @@ export const en = {
       'Boilerplate descriptions, founder bio, pricing summary, and the press kit ZIP download. For journalists and partners writing about Lingua.',
     eyebrow: 'Press',
     heading: 'Press kit',
-    lede: 'Everything you need to write about Lingua honestly: drop-in copy at three lengths, founder bio, pricing context, and a contact address. The current ZIP is an editorial kit; a dedicated brand-asset pack is not published yet.',
+    lede: 'Everything you need to write about Lingua honestly: drop-in copy at three lengths, founder bio, pricing context, and a contact address. The ZIP bundles the editorial kit and the logo files.',
     downloadZip: 'Download press kit (ZIP)',
     contact: 'Press contact',
     contactMetaStart: 'Press contact —',
@@ -685,9 +685,17 @@ export const en = {
         'The desktop app runs fully offline. The web build needs network for the first page load.',
       ],
     },
-    brand: {
+    assets: {
       title: 'Brand assets',
-      body: 'A dedicated logo, monochrome icon, color-token, and typography asset pack is not published yet. Contact us if you need approved visual assets for coverage.',
+      usage:
+        'Always lower case and italic, with the dot in pulse #00BFDF. Set it on Ink, white, or pulse, with half an x-height of clear space on every side.',
+      files: {
+        'wordmark.svg': 'Wordmark for light grounds (SVG)',
+        'wordmark-inverse.svg': 'Wordmark for Ink grounds (SVG)',
+        'wordmark-mono.svg': 'One-color wordmark (SVG)',
+        'mark-mono.svg': 'One-color mark (SVG)',
+        'icon.png': 'App icon, 1024 px (PNG)',
+      },
     },
   },
 } as const;

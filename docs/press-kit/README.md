@@ -12,10 +12,9 @@ directly from this directory.
 - `founder-bio.md` — short + medium founder bio.
 - `launch-copy.md` — drafts for Show HN, Product Hunt, r/golang,
   r/rust, r/Python.
-- `assets/` — canonical icons, logos, and screenshots. **Stay
-  empty in git** until the final shoot; check in only
-  production-ready PNG/SVG/MP4 to avoid bloating history with WIP
-  files.
+- Logo files are not kept here: `scripts/brand/generate-brand-assets.mjs`
+  writes them from `assets/brand/` into `website/public/press/`, and the
+  ZIP picks them up from there.
 
 ## Rules for every file here
 

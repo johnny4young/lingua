@@ -12,6 +12,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BRAND } from '../../scripts/brand/generate-brand-assets.mjs';
 
 const websiteRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = join(websiteRoot, 'public');
@@ -28,6 +29,16 @@ function wordmarkAt(x, y, height) {
   const scale = height / boxHeight;
   return `<g transform="translate(${x} ${y}) scale(${scale.toFixed(4)}) translate(${-minX} ${-minY})">${wordmarkShapes}</g>`;
 }
+
+// Brand Ink ground and pulse; the muted tones keep 4.5:1 or more on both gradient stops.
+const OG = {
+  from: BRAND.groundFrom,
+  to: BRAND.groundTo,
+  pulse: BRAND.pulse,
+  paper: BRAND.paper,
+  muted: '#A9BABD',
+  subtle: '#8FA2A6',
+};
 
 const DEFAULTS = {
   en: {
@@ -90,27 +101,27 @@ function cardSvg({ hero = false, title = '', subtitle, tag }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0c1017"/>
-      <stop offset="100%" stop-color="#11161f"/>
+      <stop offset="0%" stop-color="${OG.from}"/>
+      <stop offset="100%" stop-color="${OG.to}"/>
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
   ${hero ? wordmarkAt(80, 170, 132) : wordmarkAt(80, 84, 56)}
-  ${tag ? `<text x="1120" y="130" text-anchor="end" font-family="${mono}" font-size="24" fill="#67e8f9">${escapeXml(tag)}</text>` : ''}
+  ${tag ? `<text x="1120" y="130" text-anchor="end" font-family="${mono}" font-size="24" fill="${OG.pulse}">${escapeXml(tag)}</text>` : ''}
   ${titleLines
     .map(
       (line, index) =>
-        `<text x="80" y="${titleY + index * 84}" font-family="${sans}" font-size="72" font-weight="800" fill="#e5e7eb" letter-spacing="-2">${escapeXml(line)}</text>`
+        `<text x="80" y="${titleY + index * 84}" font-family="${sans}" font-size="72" font-weight="800" fill="${OG.paper}" letter-spacing="-2">${escapeXml(line)}</text>`
     )
     .join('\n  ')}
   ${subtitleLines
     .map(
       (line, index) =>
-        `<text x="80" y="${subtitleY + index * 44}" font-family="${sans}" font-size="32" font-weight="500" fill="#9ca3af">${escapeXml(line)}</text>`
+        `<text x="80" y="${subtitleY + index * 44}" font-family="${sans}" font-size="32" font-weight="500" fill="${OG.muted}">${escapeXml(line)}</text>`
     )
     .join('\n  ')}
-  <rect x="80" y="560" width="80" height="4" fill="#67e8f9"/>
-  <text x="180" y="572" font-family="${mono}" font-size="20" fill="#6b7280">linguacode.dev</text>
+  <rect x="80" y="560" width="80" height="4" fill="${OG.pulse}"/>
+  <text x="180" y="572" font-family="${mono}" font-size="20" fill="${OG.subtle}">linguacode.dev</text>
 </svg>`;
 }
 
