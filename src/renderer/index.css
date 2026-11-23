@@ -1885,6 +1885,7 @@
   }
 
   .action-pill-run[data-workflow='debug'] {
+    --run-halo: var(--color-debug-fill);
     background: var(--color-debug-fill);
     color: var(--color-debug-fg);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 22%, transparent);
@@ -1895,19 +1896,25 @@
 
   .action-pill-run[data-workflow='scratchpad'] {
     --scratch-rim: color-mix(in srgb, var(--color-run-scratch-on) 40%, transparent);
+    /* Rim on top, bottom and the chevron's end; the runtime border and the
+       chevron divider close the other sides. run-pulse keeps it too. */
+    --run-rim: inset 0 1px 0 var(--scratch-rim), inset 0 -1px 0 var(--scratch-rim),
+      inset var(--scratch-end, 0) 0 0 var(--scratch-rim);
+    --run-halo: var(--color-run-scratch-on);
     background: var(--color-run-scratch);
     color: var(--color-run-scratch-on);
-    /* Rim on top, bottom and the chevron's end; the runtime border and the
-       chevron divider close the other sides. */
     box-shadow:
-      inset 0 1px 0 var(--scratch-rim),
-      inset 0 -1px 0 var(--scratch-rim),
-      inset var(--scratch-end, 0) 0 0 var(--scratch-rim),
+      var(--run-rim),
       0 0 0 3px color-mix(in srgb, var(--color-run-scratch-on) 12%, transparent);
   }
   .action-pill-run[data-workflow='scratchpad']:not(:disabled):hover {
     --scratch-rim: color-mix(in srgb, var(--color-run-scratch-on) 75%, transparent);
     background: var(--color-run-scratch-hover);
+  }
+  /* The workflow rules above repaint box-shadow, which would drop the ring. */
+  .action-pill-run[data-workflow='debug']:focus-visible,
+  .action-pill-run[data-workflow='scratchpad']:focus-visible {
+    @apply ring-2 ring-inset;
   }
 
   .action-pill-run-menu[data-workflow='debug'] {
@@ -2465,10 +2472,10 @@
 @keyframes run-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-run) 18%, transparent);
+    box-shadow: var(--run-rim, 0 0 transparent), 0 0 0 3px color-mix(in srgb, var(--run-halo, var(--color-run)) 18%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-run) 14%, transparent);
+    box-shadow: var(--run-rim, 0 0 transparent), 0 0 0 7px color-mix(in srgb, var(--run-halo, var(--color-run)) 14%, transparent);
   }
 }
 

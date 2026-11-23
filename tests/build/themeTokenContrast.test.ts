@@ -103,6 +103,20 @@ describe('run pulse', () => {
     expect(keyframes).toContain('var(--color-run)');
     expect(keyframes).not.toContain('success');
   });
+
+  it('keeps the scratchpad rim and each workflow halo while it pulses', () => {
+    const keyframes = /@keyframes run-pulse\s*\{[\s\S]*?\n\}/.exec(css)?.[0] ?? '';
+    expect(keyframes).toContain('var(--run-rim');
+    expect(keyframes).toContain('var(--run-halo, var(--color-run))');
+    expect(readCssRule(css, ".action-pill-run[data-workflow='scratchpad']")).toMatch(/--run-rim:[\s\S]*--run-halo:/);
+    expect(readCssRule(css, ".action-pill-run[data-workflow='debug']")).toContain('--run-halo: var(--color-debug-fill)');
+  });
+
+  it('restores the focus ring over the workflow shadows', () => {
+    const rule = readCssRule(css, ".action-pill-run[data-workflow='scratchpad']:focus-visible");
+    expect(css.indexOf(rule)).toBeGreaterThan(css.indexOf(".action-pill-run[data-workflow='scratchpad'] {"));
+    expect(rule).toContain('ring-2');
+  });
 });
 
 describe('action pill workflow colours', () => {

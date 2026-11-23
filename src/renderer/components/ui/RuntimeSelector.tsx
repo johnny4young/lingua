@@ -97,8 +97,7 @@ export function RuntimeSelector({
         data-running={running ? 'true' : 'false'}
         className={cn(
           SEGMENT_BASE,
-          'action-pill-run gap-[7px] px-[14px] py-[7px] font-medium',
-          running && 'animate-glow-pulse'
+          'action-pill-run gap-[7px] px-[14px] py-[7px] font-medium'
         )}
       >
         {running ? <Square size={11} aria-hidden /> : <Play size={11} aria-hidden />}
