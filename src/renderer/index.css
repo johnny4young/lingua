@@ -111,17 +111,15 @@
   /* Pulse is a fill under dark text on both grounds; text and lines use -fg. */
   --color-pulse: #00bfdf;
   --color-pulse-on: #041014;
-
-  /* Recursive's MONO axis turns the UI face into the code face. */
-  --font-code-recursive: 'Recursive', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  --font-code-recursive-axes: 'MONO' 1;
+  /* On :root alone, so a nested .light never resets the Recursive override. */
+  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-code-axes: normal;
 }
 
 :root,
 .light {
   --font-ui: 'Recursive', 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-display-stack: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
-  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --color-pulse-fg: var(--color-paper-pulse-fg);
   --color-value-number: var(--color-paper-value-number);
@@ -583,6 +581,13 @@
   --app-panel: color-mix(in srgb, var(--color-paper-panel) 82%, transparent);
 }
 
+/* With the pack's Recursive editor font, values and the console share Monaco's code face:
+   Recursive's MONO axis turns the UI face into the code face. */
+[data-palette][data-code-font='recursive'] {
+  --font-code: 'Recursive', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-code-axes: 'MONO' 1;
+}
+
 /* Keywords and comments take Recursive's cursive forms; the comment rule's
    underline marker becomes the casual axis instead. */
 [data-palette] .mtki {
@@ -951,9 +956,13 @@
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
-@utility font-code-recursive {
-  font-family: var(--font-code-recursive);
-  font-variation-settings: var(--font-code-recursive-axes);
+/* font-variation-settings inherits: the code face turns MONO on and the UI face turns it back off. */
+@utility font-mono {
+  font-variation-settings: var(--font-code-axes);
+}
+
+@utility font-sans {
+  font-variation-settings: normal;
 }
 
 @layer components {
@@ -1347,6 +1356,7 @@
     flex-shrink: 0;
     color: var(--color-fg-muted);
     font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
     font-size: 12.5px;
   }
 
@@ -1354,6 +1364,7 @@
     flex: none;
     color: var(--color-accent);
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -1368,6 +1379,7 @@
     flex: none;
     color: var(--color-fg-muted);
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 11px;
   }
 

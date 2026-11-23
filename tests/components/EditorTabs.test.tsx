@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const mockSetActiveTab = vi.fn();
@@ -284,9 +284,7 @@ describe('EditorTabs', () => {
     render(<EditorTabs />);
 
     const tab = screen.getByRole('button', { name: 'JS untitled.js' });
-    // The filename span lives inside the file button; targeting the button
-    // node bubbles to it without depending on a fragile testid.
-    const filename = tab.querySelector('span.font-mono') as HTMLElement;
+    const filename = within(tab).getByTestId('editor-tab-filename');
     await user.dblClick(filename);
 
     const input = screen.getByTestId('editor-tab-rename-input') as HTMLInputElement;
@@ -304,7 +302,7 @@ describe('EditorTabs', () => {
     render(<EditorTabs />);
 
     const tab = screen.getByRole('button', { name: 'JS untitled.js' });
-    const filename = tab.querySelector('span.font-mono') as HTMLElement;
+    const filename = within(tab).getByTestId('editor-tab-filename');
     await user.dblClick(filename);
 
     const input = screen.getByTestId('editor-tab-rename-input') as HTMLInputElement;

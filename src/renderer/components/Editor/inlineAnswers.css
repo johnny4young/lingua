@@ -65,6 +65,7 @@
     border: 1px dotted var(--color-border-strong);
     border-radius: 5px;
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 10.5px;
     font-weight: 560;
     line-height: 17px;
@@ -77,6 +78,7 @@
     background: color-mix(in srgb, var(--color-fg-base) 7%, transparent);
     color: var(--color-fg-muted);
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 11px;
     line-height: 17px;
   }
@@ -92,6 +94,7 @@
     margin-left: 2px;
     color: var(--color-fg-muted);
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     line-height: var(--inline-line-height, 19px);
   }
 }

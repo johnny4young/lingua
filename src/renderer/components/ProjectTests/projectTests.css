@@ -11,6 +11,7 @@
   min-width: 0;
   align-items: center;
   font-family: var(--font-code);
+  font-variation-settings: var(--font-code-axes);
   font-size: 12.5px;
   white-space: nowrap;
 }
@@ -37,6 +38,7 @@
   min-width: 64px;
   color: var(--color-fg-muted);
   font-family: var(--font-ui);
+  font-variation-settings: normal;
   font-size: 10px;
   font-weight: 560;
   letter-spacing: 0.09em;
@@ -135,6 +137,7 @@
   background: var(--color-bg-panel-alt);
   color: var(--color-fg-base);
   font-family: var(--font-ui);
+  font-variation-settings: normal;
   font-size: 11.5px;
   white-space: nowrap;
 }

@@ -1089,9 +1089,14 @@ If you add a new global class, place it in the closest subsection instead of app
 - Type and radius come from the tokens, with radii 4, 6, 10 and 14. Fonts are
   bundled in `public/fonts/` (rebuilt by `scripts/fonts/build-variable-fonts.sh`):
   `font-sans` is Recursive (MONO 0, weights 420–720), `font-display` is Fraunces
-  (weights 340–520, no synthetic bold), `font-mono` stays JetBrains Mono, and
-  `font-code-recursive` is Recursive with MONO 1 for the theme packs that use it.
-  Inter stays bundled as the UI fallback; the editor font is a user setting.
+  (weights 340–520, no synthetic bold), and `font-mono` (`--font-code`) is
+  JetBrains Mono. Under Ink or Paper with Recursive as the editor font,
+  `useAppTheme` sets `data-code-font="recursive"` on the root and `--font-code`
+  becomes Recursive with `--font-code-axes: 'MONO' 1`, so values and the console
+  match Monaco. The axes inherit: pair every `var(--font-code)` rule with
+  `font-variation-settings: var(--font-code-axes)` and every `var(--font-ui)` rule
+  with `normal` (`tests/build/codeFontAxes.test.ts` enforces both). Inter stays
+  bundled as the UI fallback; the editor font is a user setting.
 
   | Role | Size / weight | Font |
   | --- | --- | --- |

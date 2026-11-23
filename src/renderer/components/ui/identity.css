@@ -50,6 +50,7 @@
   /* Small caps for labels only, never for values or counts. */
   .type-tag {
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 10px;
     font-weight: 560;
     line-height: 1.2;
@@ -84,6 +85,7 @@
   /* Fraunces only at 17 px and up; smaller units use the UI italic. */
   .result-numeral-unit {
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-style: italic;
     line-height: 1;
     color: var(--color-fg-muted);

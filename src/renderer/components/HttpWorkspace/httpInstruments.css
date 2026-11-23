@@ -1,7 +1,7 @@
 @layer components {
   /* Leaves in the response tree share the answer grammar at the tree's own size. */
   .json-leaf,
-  .json-leaf-chip { font-family: var(--font-code); }
+  .json-leaf-chip { font-family: var(--font-code); font-variation-settings: var(--font-code-axes); }
 
   .json-leaf[data-pill],
   .json-leaf-chip {
@@ -15,6 +15,7 @@
     margin-left: 10px;
     color: var(--color-fg-muted);
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 11.5px;
     white-space: nowrap;
   }
@@ -36,6 +37,7 @@
     border-collapse: separate;
     border-spacing: 0;
     font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
     font-size: 12px;
   }
 
@@ -45,6 +47,7 @@
     background: var(--color-bg-inset);
     color: var(--color-fg-muted);
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 10.5px;
     font-weight: 560;
     letter-spacing: 0.08em;
@@ -156,6 +159,7 @@
     overflow: hidden;
     color: var(--color-fg-base);
     font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
     font-size: 12.5px;
     text-align: left;
     text-overflow: ellipsis;
@@ -176,6 +180,7 @@
     align-items: center;
     gap: 10px;
     font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
     font-size: 12.5px;
     white-space: nowrap;
   }
@@ -216,6 +221,7 @@
     background: color-mix(in srgb, var(--color-fg-base) 7%, transparent);
     color: var(--color-fg-muted);
     font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
     font-size: 11.5px;
     font-variant-ligatures: none;
   }

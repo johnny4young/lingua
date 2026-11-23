@@ -44,7 +44,9 @@ export function ensureThemeColorMeta(doc: Document): HTMLMetaElement {
 export function applyAppTheme(
   theme: AppTheme,
   doc: Document = document,
-  palette: IdentityPalette | null = null
+  palette: IdentityPalette | null = null,
+  /** The editor font is Recursive: values and the console follow it under Ink and Paper. */
+  recursiveCode = false
 ): void {
   const root = doc.documentElement;
   root.classList.remove('dark', 'light');
@@ -53,6 +55,8 @@ export function applyAppTheme(
   root.style.colorScheme = theme;
   if (palette) root.dataset.palette = palette;
   else delete root.dataset.palette;
+  if (recursiveCode) root.dataset.codeFont = 'recursive';
+  else delete root.dataset.codeFont;
 
   const themeColorMeta = ensureThemeColorMeta(doc);
   themeColorMeta.setAttribute('content', palette ? PALETTE_THEME_COLOR[palette] : APP_THEME_COLOR[theme]);

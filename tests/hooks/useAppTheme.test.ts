@@ -70,3 +70,45 @@ describe('useAppTheme with Ink and Paper', () => {
     unmount();
   });
 });
+
+describe('useAppTheme code font', () => {
+  it('marks the root while the editor font is Recursive and clears it for any other face', async () => {
+    const { renderHook, act } = await import('@testing-library/react');
+    const { useAppTheme } = await import('../../src/renderer/hooks/useAppTheme');
+    const { useSettingsStore } = await import('../../src/renderer/stores/settingsStore');
+    const { RECURSIVE_MONO_FONT_FAMILY } = await import('../../src/renderer/data/themePacks');
+    useSettingsStore.setState({ theme: 'dark', editorTheme: 'lingua-ink', fontFamily: RECURSIVE_MONO_FONT_FAMILY });
+    const { unmount } = renderHook(() => useAppTheme());
+    expect(document.documentElement.dataset.codeFont).toBe('recursive');
+    act(() => useSettingsStore.setState({ fontFamily: "'Fira Code', monospace" }));
+    expect(document.documentElement.dataset.palette).toBe('ink');
+    expect(document.documentElement.dataset.codeFont).toBeUndefined();
+    unmount();
+  });
+});
+
+describe('useAppTheme timing', () => {
+  it('marks the root before any sibling paints', async () => {
+    const { render } = await import('@testing-library/react');
+    const { createElement, Fragment, useLayoutEffect } = await import('react');
+    const { useAppTheme } = await import('../../src/renderer/hooks/useAppTheme');
+    const { useSettingsStore } = await import('../../src/renderer/stores/settingsStore');
+    const { RECURSIVE_MONO_FONT_FAMILY } = await import('../../src/renderer/data/themePacks');
+    delete document.documentElement.dataset.codeFont;
+    useSettingsStore.setState({ theme: 'dark', editorTheme: 'lingua-ink', fontFamily: RECURSIVE_MONO_FONT_FAMILY });
+    let seen: string | undefined;
+    const Theme = () => {
+      useAppTheme();
+      return null;
+    };
+    const Probe = () => {
+      useLayoutEffect(() => {
+        seen = document.documentElement.dataset.codeFont;
+      }, []);
+      return null;
+    };
+    const { unmount } = render(createElement(Fragment, null, createElement(Theme), createElement(Probe)));
+    expect(seen).toBe('recursive');
+    unmount();
+  });
+});
