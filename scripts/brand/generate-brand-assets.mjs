@@ -174,15 +174,14 @@ export function wordmarkGeometry() {
 }
 
 /** Outlined wordmark, viewBox tight to the letterforms; clear space is documented, not baked in. */
-export function wordmarkSvg({ letters, dot }) {
+export function wordmarkSvg({ letters, dot, title = true }) {
   const { d, dot: geometry, bounds } = wordmarkGeometry();
   const x = round(bounds.minX);
   const y = round(bounds.minY);
   const width = round(bounds.maxX - bounds.minX);
   const height = round(bounds.maxY - bounds.minY);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${width} ${height}" width="${Math.round(width * 2)}" height="${Math.round(height * 2)}">
-  <title>lingua</title>
-  <path d="${d}" fill="${letters}"/>
+${title ? '  <title>lingua</title>\n' : ''}  <path d="${d}" fill="${letters}"/>
   ${circle(geometry.cx, geometry.cy, geometry.r, dot)}
 </svg>
 `;
@@ -190,23 +189,31 @@ export function wordmarkSvg({ letters, dot }) {
 
 export function svgOutputs() {
   const favicon = appIconSvg({ radius: RADIUS.web, px: 32 });
-  const inverse = wordmarkSvg({ letters: BRAND.paper, dot: BRAND.pulse });
+  const brand = {
+    'wordmark.svg': wordmarkSvg({ letters: BRAND.ink, dot: BRAND.pulse }),
+    'wordmark-inverse.svg': wordmarkSvg({ letters: BRAND.paper, dot: BRAND.pulse }),
+    'wordmark-mono.svg': wordmarkSvg({ letters: 'currentColor', dot: 'currentColor' }),
+    'mark-mono.svg': markMonoSvg(),
+  };
+  const copies = prefix => Object.fromEntries(Object.entries(brand).map(([name, svg]) => [`${prefix}/${name}`, svg]));
   return {
     'assets/icon.svg': appIconSvg({ radius: RADIUS.mac }),
-    'assets/brand/wordmark.svg': wordmarkSvg({ letters: BRAND.ink, dot: BRAND.pulse }),
-    'assets/brand/wordmark-inverse.svg': inverse,
-    'assets/brand/wordmark-mono.svg': wordmarkSvg({ letters: 'currentColor', dot: 'currentColor' }),
-    'assets/brand/mark-mono.svg': markMonoSvg(),
+    ...copies('assets/brand'),
     'public/favicon.svg': favicon,
     'website/public/favicon.svg': favicon,
-    'website/scripts/og-wordmark.svg': inverse,
+    'website/scripts/og-wordmark.svg': brand['wordmark-inverse.svg'],
+    // Header and footer: letters follow the site theme; the link's label names it, so no title tooltip.
+    'website/src/assets/brand/wordmark.svg': wordmarkSvg({ letters: 'currentColor', dot: BRAND.pulse, title: false }),
+    ...copies('website/public/press'),
   };
 }
 
 /** PNG rasters, one SVG per pixel size so the lite mark takes over at 32 px. */
 function rasters() {
+  const master = appIconSvg({ radius: RADIUS.web, px: 1024 });
   return {
-    'assets/icon.png': appIconSvg({ radius: RADIUS.web, px: 1024 }),
+    'assets/icon.png': master,
+    'website/public/press/icon.png': master,
     'public/icon-192.png': appIconSvg({ radius: RADIUS.web, px: 192 }),
     'public/icon-512.png': appIconSvg({ radius: RADIUS.web, px: 512 }),
     'public/icon-maskable-512.png': appIconSvg({ radius: RADIUS.maskable, px: 512, maskable: true }),
@@ -315,7 +322,11 @@ async function writeAll() {
     await writeFile(target, content);
   };
   for (const [relative, svg] of Object.entries(svgOutputs())) await write(relative, svg);
-  for (const [relative, svg] of Object.entries(rasters())) await write(relative, await rasterize(sharp, svg));
+  const rendered = new Map();
+  for (const [relative, svg] of Object.entries(rasters())) {
+    if (!rendered.has(svg)) rendered.set(svg, await rasterize(sharp, svg));
+    await write(relative, rendered.get(svg));
+  }
   const cache = new Map();
   const png = async (radius, px) => {
     const key = `${radius}:${px}`;

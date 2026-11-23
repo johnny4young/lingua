@@ -12,6 +12,12 @@ Every SVG here, the app icons in `assets/` and the favicons are written by
 | `../icon.svg` | Master app icon, macOS squircle |
 | `../../public/favicon.svg` | Lite mark, browser tab |
 
+The generator also writes the website's copies: the four wordmark and mark
+SVGs above and the 1024 px icon into `website/public/press/` (linked from the
+press page and bundled in its ZIP), the inverse wordmark for the social cards,
+and a `currentColor` wordmark with a pulse dot and no title for the site header
+and footer (`website/src/assets/brand/wordmark.svg`).
+
 ## Wordmark
 
 Fraunces Italic, weight 520, optical size 144, SOFT 100, WONK 1, tracking −1 %,

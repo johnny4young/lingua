@@ -14,6 +14,8 @@ export const SITE = {
   securityEmail: 'security@linguacode.dev',
   press: {
     contactEmail: 'hello@linguacode.dev',
+    /** Brand files in public/press, written by the repo's brand generator. */
+    assets: ['wordmark.svg', 'wordmark-inverse.svg', 'wordmark-mono.svg', 'mark-mono.svg', 'icon.png'],
   },
   social: {
     githubUrl: 'https://github.com/johnny4young/lingua',

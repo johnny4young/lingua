@@ -1,0 +1,40 @@
+---
+import Wordmark from '~/assets/brand/wordmark.svg';
+
+interface Props {
+  href: string;
+  label: string;
+  placement: 'header' | 'footer';
+}
+
+const { href, label, placement } = Astro.props;
+---
+
+<a href={href} class:list={['brand-link', placement]} aria-label={label} data-testid="brand-wordmark">
+  <Wordmark aria-hidden="true" focusable="false" class="brand-wordmark" />
+</a>
+
+<style>
+  /* Type sizes stay above the 14 px brand minimum. */
+  .header {
+    --wordmark-em: 28px;
+  }
+  .footer {
+    --wordmark-em: 24px;
+  }
+  /* Clear space is half an x-height (0.446 em) on every side; the viewBox is 0.972 em tall. */
+  .brand-link {
+    --wordmark-clear: calc(var(--wordmark-em) * 0.223);
+    display: inline-flex;
+    flex: none;
+    padding: var(--wordmark-clear);
+    margin-inline-start: calc(var(--wordmark-clear) * -1);
+    border-radius: 0.5rem;
+    color: var(--color-text);
+  }
+  .brand-wordmark {
+    display: block;
+    width: auto;
+    height: calc(var(--wordmark-em) * 0.972);
+  }
+</style>

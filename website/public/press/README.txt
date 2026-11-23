@@ -4,9 +4,22 @@ Lingua — press kit
 Source: https://linguacode.dev/press
 Contact: hello@linguacode.dev
 
-This bundle contains the launch boilerplate, founder bio, and pricing summary
-for Lingua. A dedicated logo, monochrome icon, color-token, and typography
-asset pack is not published yet; contact us for approved visual assets.
+This bundle contains the launch boilerplate, founder bio, pricing summary,
+and logo files for Lingua.
+
+Logo files (outlined, no font needed):
+- wordmark.svg          wordmark for light grounds: Ink letters, pulse dot
+- wordmark-inverse.svg  wordmark for Ink grounds: Paper letters, pulse dot
+- wordmark-mono.svg     one-color wordmark, for pulse grounds and print
+- mark-mono.svg         one-color mark, for print and watermarks
+- icon.png              app icon, 1024 px
+
+The wordmark is always lower case and italic, with the dot in pulse #00BFDF.
+Set it on Ink or white, or the one-color version on pulse, with half an
+x-height of clear space on every side. Don't recolor the dot except in
+one-color use, stretch the logo, or set it on a busy ground. The one-color
+files fill with currentColor, which most tools show as black; recolor them as
+a whole.
 
 Use the descriptions verbatim or trim to fit. Please don't describe Lingua as
 "open source" — the LICENSE is source-available, which is a legally distinct

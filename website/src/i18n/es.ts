@@ -642,7 +642,7 @@ export const es = {
       'Descripciones, bio del fundador, resumen de precios y ZIP del press kit. Para periodistas y partners que escriben sobre Lingua.',
     eyebrow: 'Prensa',
     heading: 'Kit de prensa',
-    lede: 'Todo lo necesario para escribir sobre Lingua con precisión: textos en tres extensiones, bio del fundador, contexto de precios y contacto. El ZIP actual es editorial; todavía no publicamos un paquete dedicado de recursos de marca.',
+    lede: 'Todo lo necesario para escribir sobre Lingua con precisión: textos en tres extensiones, bio del fundador, contexto de precios y contacto. El ZIP incluye el kit editorial y los archivos del logo.',
     downloadZip: 'Descargar press kit (ZIP)',
     contact: 'Contacto de prensa',
     contactMetaStart: 'Contacto de prensa —',
@@ -687,9 +687,17 @@ export const es = {
         'La app desktop funciona completamente offline. La versión web necesita red para la primera carga.',
       ],
     },
-    brand: {
+    assets: {
       title: 'Assets de marca',
-      body: 'Todavía no publicamos un paquete dedicado con logo, icono monocromático, tokens de color y tipografía. Contáctanos si necesitas recursos visuales aprobados para una publicación.',
+      usage:
+        'Siempre en minúscula e itálica, con el punto en pulso #00BFDF. Úsalo sobre Ink o blanco, o la versión de un color sobre pulso, con media altura x de espacio libre en cada lado.',
+      files: {
+        'wordmark.svg': 'Wordmark para fondos claros (SVG)',
+        'wordmark-inverse.svg': 'Wordmark para fondos Ink (SVG)',
+        'wordmark-mono.svg': 'Wordmark de un color (SVG)',
+        'mark-mono.svg': 'Marca de un color (SVG)',
+        'icon.png': 'Ícono de la app, 1024 px (PNG)',
+      },
     },
   },
 } as const;

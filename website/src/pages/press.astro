@@ -56,9 +56,19 @@ const copy = t(locale).press;
       </ul>
     </section>
 
-    <section class="press-section brand-pending">
-      <h2>{copy.brand.title}</h2>
-      <p>{copy.brand.body}</p>
+    <section class="press-section" data-testid="press-brand-assets">
+      <h2>{copy.assets.title}</h2>
+      <p>{copy.assets.usage}</p>
+      <ul class="asset-list">
+        {SITE.press.assets.map((file) => (
+          <li>
+            <a href={`/press/${file}`} download>
+              <Icon name="lucide:download" />
+              {copy.assets.files[file]}
+            </a>
+          </li>
+        ))}
+      </ul>
     </section>
 
     <hr />
@@ -91,7 +101,7 @@ const copy = t(locale).press;
     gap: 0.75rem;
     flex-wrap: wrap;
   }
-  .press-actions .btn svg { width: 16px; height: 16px; }
+  .press-actions .btn svg, .asset-list svg { width: 16px; height: 16px; flex: none; }
   .press-section {
     margin-block: 2.5rem;
   }
@@ -114,15 +124,17 @@ const copy = t(locale).press;
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .brand-pending {
-    padding: 1rem 1.25rem;
-    border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
-    color: var(--color-text-muted);
+  .press-section .asset-list {
+    list-style: none;
+    padding: 0;
+    margin: 1.25rem 0 0;
+    display: grid;
+    gap: 0.5rem;
   }
-  .brand-pending h2 {
-    color: var(--color-warning);
+  .asset-list a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
   }
   .press-meta {
     color: var(--color-text-subtle);
