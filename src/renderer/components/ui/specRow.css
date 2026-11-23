@@ -1,0 +1,24 @@
+/* Lazy with Settings, so the row layout stays out of the boot stylesheet. */
+@layer components {
+  .spec-row {
+    align-items: center;
+  }
+  .spec-row-label {
+    flex: 1 1 12rem;
+  }
+
+  @media (max-width: 760px) {
+    .settings-modal-panel .spec-row {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .settings-modal-panel .spec-row-control {
+      min-width: 0;
+      width: 100%;
+    }
+    .settings-modal-panel .spec-row-label {
+      flex-basis: auto;
+    }
+  }
+}

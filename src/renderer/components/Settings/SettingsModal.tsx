@@ -57,6 +57,7 @@ import {
   searchSettings,
   type SettingsSearchResult,
 } from './settingsSearchModel';
+import './settingsModal.css';
 
 /**
  * Signal-Slate v2 — Settings modal with a left rail.

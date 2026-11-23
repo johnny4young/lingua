@@ -1,0 +1,12 @@
+/* Lazy with Settings, so the glyph glow stays out of the boot stylesheet. */
+@layer components {
+  .about-glyph {
+    box-shadow: 0 14px 35px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .about-glyph {
+      box-shadow: none;
+    }
+  }
+}

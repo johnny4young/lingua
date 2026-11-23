@@ -17,6 +17,7 @@
 @source '../shared';
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant reduce-transparency (@media (prefers-reduced-transparency: reduce));
 
 /* -------------------------------------------------------------------------- */
 /* Theme tokens — Lingua · Signal-Slate                                        */
@@ -581,6 +582,13 @@
   --app-panel: color-mix(in srgb, var(--color-paper-panel) 82%, transparent);
 }
 
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-palette] {
+    --app-panel: var(--color-bg-panel);
+  }
+}
+
 /* With the pack's Recursive editor font, values and the console share Monaco's code face:
    Recursive's MONO axis turns the UI face into the code face. */
 [data-palette][data-code-font='recursive'] {
@@ -836,6 +844,15 @@
 }
 
 @layer base {
+  /* Important in the lowest layer beats every blur utility and component class. */
+  @media (prefers-reduced-transparency: reduce) {
+    *,
+    ::before,
+    ::after {
+      backdrop-filter: none !important;
+    }
+  }
+
   /* App root sizing */
   html,
   body,
@@ -1002,6 +1019,17 @@
   .overlay-card {
     @apply animate-shell-fade overflow-hidden rounded-4xl border border-border-strong/80 bg-surface/88 backdrop-blur-xl;
     box-shadow: var(--app-shadow);
+  }
+
+  /* Ink and Paper shells are solid: muted text on them must keep 4.5:1. */
+  :root[data-palette] .overlay-card {
+    @apply bg-surface;
+  }
+
+  /* Dialog scrim shared by ModalShell, ConfirmDialog and the compact explorer drawer. */
+  .scrim {
+    background-color: color-mix(in oklab, var(--color-overlay) 70%, transparent);
+    backdrop-filter: blur(24px);
   }
 
   /* Icon buttons.
@@ -2012,7 +2040,7 @@
   /* Rich dropdown — used by lang / mode / run pickers. Each row has
      icon · label · description and a trailing badge (ACTUAL/PRO/kbd). */
   .dropdown-rich {
-    @apply rounded-xl border border-border/80 bg-bg-panel p-1.5 backdrop-blur-xl;
+    @apply rounded-xl border border-border/80 bg-bg-panel p-1.5;
     box-shadow: var(--shadow-e3);
   }
 
@@ -2121,6 +2149,31 @@
     box-shadow: var(--shadow-e3);
   }
 
+  /* Reduce Transparency: translucent materials become solid (blur is reset in base). */
+  @media (prefers-reduced-transparency: reduce) {
+    .overlay-backdrop {
+      background-color: rgb(0 0 0 / 0.72);
+    }
+
+    .scrim {
+      background-color: color-mix(in oklab, var(--color-overlay) 85%, transparent);
+    }
+
+    .surface-panel-strong,
+    .overlay-card {
+      @apply bg-surface;
+    }
+
+    .action-pill,
+    .floating-variables-card {
+      @apply bg-bg-panel;
+    }
+
+    .tooltip-content {
+      background: var(--app-surface) !important;
+    }
+  }
+
   .dark .floating-variables-card,
   [data-theme='dark'] .floating-variables-card {
     box-shadow: var(--shadow-e3);
@@ -2210,109 +2263,10 @@
     @apply max-h-64 overflow-auto p-4 font-mono text-caption leading-relaxed text-fg-base;
   }
 
-  .settings-modal-shell {
-    display: grid;
-    grid-template-columns: 220px minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
-  }
-
-  .settings-modal-rail-slot {
-    grid-row: 1 / span 4;
-  }
-  /* Explicit rows, so a tab without section chips leaves row 2 empty. */
-  .settings-modal-topbar {
-    grid-row: 1;
-  }
-  .settings-section-chips {
-    grid-row: 2;
-  }
-  .settings-modal-panel {
-    grid-row: 3;
-  }
-  .settings-modal-breadcrumb {
-    display: flex;
-  }
-  .settings-modal-panel {
-    padding: 20px 24px;
-  }
-  .spec-row {
-    align-items: center;
-  }
   /* Settings selects: 30 px, radius 6, sized to their options. */
   .settings-select {
     @apply h-[30px] max-w-[230px] rounded-md border border-border-default bg-bg-panel pl-3 pr-8 text-body-sm text-fg-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/40;
     transition: border-color var(--duration-fast) var(--curve-ease-out);
-  }
-
-  /* At 200% zoom a 1024px window has only 512 CSS pixels. Keep the Settings
-     navigation horizontally scrollable rather than shrinking the content
-     column behind the fixed-width rail. */
-  @media (max-width: 760px) {
-    .settings-modal-shell {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-    }
-    .settings-section-chips {
-      grid-row: 3;
-    }
-
-    .settings-modal-rail-slot {
-      grid-row: 2;
-      min-width: 0;
-      overflow-x: auto;
-      border-bottom: 1px solid var(--color-border-default);
-    }
-
-    .settings-modal-topbar {
-      grid-row: 1;
-      min-width: 0;
-    }
-    .settings-modal-panel {
-      grid-row: 4;
-      padding: 16px;
-    }
-    .settings-modal-breadcrumb,
-    .settings-rail-group-label,
-    .settings-rail-shortcut {
-      display: none;
-    }
-
-    .settings-rail {
-      width: max-content;
-      min-width: 100%;
-      height: auto;
-      flex-direction: row;
-      border-right: 0;
-    }
-
-    .settings-rail-group {
-      display: flex;
-      flex: none;
-      padding: 0;
-    }
-    .settings-rail-row {
-      display: inline-flex;
-      width: auto;
-      height: 44px;
-      flex: none;
-      white-space: nowrap;
-      border-left: 0;
-      border-bottom: 2px solid transparent;
-      padding-inline: 12px;
-    }
-    .settings-rail-row[data-active='true'] {
-      border-bottom-color: var(--color-accent);
-    }
-
-    .settings-modal-panel .spec-row {
-      align-items: stretch;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .settings-modal-panel .spec-row-control {
-      min-width: 0;
-      width: 100%;
-    }
   }
 }
 

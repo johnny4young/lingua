@@ -107,3 +107,19 @@ test('Local data clears the audited stores after one confirmation', async ({ pag
   expect(await page.evaluate(() => window.localStorage.getItem('lingua-workspace-sql-state'))).toBeNull();
   await expect(page.getByTestId('privacy-local-stores-size-lingua-snippets')).toHaveText('0 B');
 });
+
+for (const width of [768, 700]) {
+  test(`a row's buttons wrap under its label instead of covering it at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await openSettings(page);
+
+    const row = page.locator('.spec-row', { hasText: 'Release actions' });
+    const label = row.locator('.spec-row-label');
+    const tour = row.getByTestId('about-start-tour');
+    const [labelBox, tourBox] = await Promise.all([label.boundingBox(), tour.boundingBox()]);
+    expect(labelBox!.height).toBeLessThan(48);
+    expect(tourBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height);
+  });
+}

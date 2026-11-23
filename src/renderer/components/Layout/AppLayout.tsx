@@ -678,7 +678,7 @@ export function AppLayout({
         <OverlayBackdrop
           align="top"
           onClose={() => setSidebarVisible(false)}
-          className="justify-start bg-overlay/70 p-2 pt-18 backdrop-blur-sm sm:p-3 sm:pt-20"
+          className="scrim justify-start p-2 pt-18 sm:p-3 sm:pt-20"
         >
           <div
             ref={compactDrawerRef}

@@ -276,7 +276,7 @@ export function ModalShell({
       data-scrim={scrim}
       className={cn(
         'fixed inset-0 z-50 flex items-start justify-center pt-[10vh]',
-        scrim === 'veil' ? 'bg-overlay/55' : 'bg-overlay/70 backdrop-blur-xl'
+        scrim === 'veil' ? 'bg-overlay/55' : 'scrim'
       )}
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       onClick={(event) => {
