@@ -733,6 +733,38 @@ describe('changes since the previous run', () => {
     slot.remove();
   });
 
+  it('keeps the header and its switch over the kept answers while the next run is in flight', () => {
+    const h = harness();
+    const slot = document.createElement('div');
+    document.body.append(slot);
+    const lineResults = [{ line: 1, type: 'log' as const, value: '131' }];
+    useResultStore.setState({
+      tabAnswers: {
+        tab: {
+          previous: { number: 6, results: [{ line: 1, type: 'log', value: '118' }], sources: { 1: 'value' } },
+          latest: { number: 7, results: lineResults, sources: { 1: 'value' } },
+        },
+      },
+    });
+    const view = render(<InlineResultWidgets {...props} lineResults={lineResults} editor={h.editor} headerSlot={slot} />);
+    flushFrames();
+    view.rerender(
+      <InlineResultWidgets
+        {...props}
+        lineResults={[]}
+        running
+        keptRun={7}
+        editor={h.editor}
+        headerSlot={slot}
+      />
+    );
+    flushFrames();
+    expect(slot.querySelector('[data-testid="answer-column-header"]')).not.toBeNull();
+    expect(slot.querySelector('[data-testid="answer-column-header-changes"]')?.textContent).toContain('Changes since run 6');
+    expect(document.querySelector('[data-testid="lingua-inline-result"][data-kept]')).not.toBeNull();
+    slot.remove();
+  });
+
   it('keeps only the switch over a narrow editor', () => {
     const h = harness();
     h.setContentWidth(500);
@@ -793,5 +825,89 @@ describe('a short answer under its line', () => {
     render(<InlineResultWidgets {...props} editor={h.editor} />);
     flushFrames();
     expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 1 }]);
+  });
+});
+
+describe('the previous run holds its answers while the next run is in flight', () => {
+  const previous = [
+    { line: 1, type: 'autoLog' as const, value: '1' },
+    { line: 2, type: 'autoLog' as const, value: '2' },
+  ];
+  const row = (line: number) => document.querySelector<HTMLElement>(`[data-testid="lingua-inline-result"][data-line="${line}"]`);
+
+  function holding() {
+    const h = harness();
+    h.setLineCount(3);
+    h.setLines({ 1: 'a = 1', 2: 'b = 2', 3: 'print(b)' });
+    const view = render(<InlineResultWidgets {...props} lineResults={previous} editor={h.editor} />);
+    flushFrames();
+    const hold = () => {
+      view.rerender(<InlineResultWidgets {...props} lineResults={[]} running keptRun={3} editor={h.editor} />);
+      flushFrames();
+    };
+    return { h, view, hold };
+  }
+
+  it('keeps every answer, dimmed, and names its run once, until this run reaches the line', () => {
+    const { hold } = holding();
+    const first = row(1);
+    hold();
+    expect(row(1)).toBe(first);
+    for (const line of [1, 2]) {
+      expect(row(line)?.hasAttribute('data-kept')).toBe(true);
+      expect(row(line)?.hasAttribute('data-enter')).toBe(false);
+    }
+    expect(document.querySelectorAll('[data-testid="lingua-inline-result-kept"]')).toHaveLength(1);
+    expect(row(1)?.querySelector('[data-testid="lingua-inline-result-kept"]')?.textContent).toBe('from run 3 · not reached yet');
+    expect(document.querySelector('[data-testid="answer-delta"]')).toBeNull();
+  });
+
+  it('replaces a kept answer when its line answers and drops the rest when the run settles', () => {
+    const { h, view, hold } = holding();
+    hold();
+    const streamed = [{ line: 1, type: 'autoLog' as const, value: '10' }];
+    view.rerender(<InlineResultWidgets {...props} lineResults={streamed} running keptRun={3} editor={h.editor} />);
+    flushFrames();
+    expect(row(1)?.hasAttribute('data-kept')).toBe(false);
+    expect(row(1)?.textContent).toContain('10');
+    expect(row(2)?.hasAttribute('data-kept')).toBe(true);
+    expect(row(2)?.querySelector('[data-testid="lingua-inline-result-kept"]')).not.toBeNull();
+    view.rerender(<InlineResultWidgets {...props} lineResults={streamed} editor={h.editor} />);
+    flushFrames();
+    expect(row(1)).not.toBeNull();
+    expect(row(2)).toBeNull();
+  });
+
+  it('moves a kept answer with its code and drops one whose line changed before the run', () => {
+    const { h, hold } = holding();
+    // A line opens above both answers, then line 3 (was 2) changes.
+    h.setLineCount(4);
+    h.setLines({ 1: '', 2: 'a = 1', 3: 'b = 2', 4: 'print(b)' });
+    h.editLines({ startLineNumber: 1, endLineNumber: 1, startColumn: 1 }, '\n', 1);
+    h.fire('content');
+    h.setLines({ 1: '', 2: 'a = 1', 3: 'b = 20', 4: 'print(b)' });
+    hold();
+    expect(row(2)?.hasAttribute('data-kept')).toBe(true);
+    expect(row(2)?.textContent).toContain('1');
+    expect(row(1)).toBeNull();
+    expect(row(3)).toBeNull();
+  });
+
+  it('drops a kept answer as soon as its line is edited during the run', () => {
+    const { h, hold } = holding();
+    hold();
+    h.setLines({ 1: 'a = 10', 2: 'b = 2', 3: 'print(b)' });
+    h.editLines({ startLineNumber: 1, endLineNumber: 1, startColumn: 6 }, '0', 0);
+    h.fire('content');
+    expect(row(1)).toBeNull();
+    expect(row(2)?.hasAttribute('data-kept')).toBe(true);
+  });
+
+  it('keeps nothing without a held run, as for a debug run', () => {
+    const { h, view } = holding();
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    flushFrames();
+    expect(row(1)).toBeNull();
+    expect(row(2)).toBeNull();
   });
 });

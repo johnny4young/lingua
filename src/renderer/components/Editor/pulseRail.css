@@ -132,6 +132,13 @@
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
+/* The previous run's marks while the next run has not answered: subtle until it publishes. */
+.lingua-pulse-rail-host.run-held {
+  --rail-lit: var(--color-fg-subtle);
+  --rail-tick: var(--color-fg-subtle);
+  --rail-glow: none;
+}
+
 /* Older code than the editor holds: the rail fades and ticks go hollow. */
 .lingua-pulse-rail-host.run-stale {
   --rail-lit: color-mix(in srgb, var(--color-fg-subtle) 55%, transparent);

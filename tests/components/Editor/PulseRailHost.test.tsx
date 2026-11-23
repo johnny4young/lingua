@@ -116,6 +116,20 @@ describe('PulseRailHost', () => {
     });
   });
 
+  it('keeps the previous run\'s marks while the next run has not answered', () => {
+    const model = new FakeModel(source);
+    const editor = fakeEditor(model);
+    const view = render(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
+    publishRun([4]);
+    const settled = model.rail();
+    view.rerender(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" held />);
+    publishRun([], { isAutoRunning: true, runTermination: null });
+    expect(model.rail()).toEqual(settled);
+    publishRun([1]);
+    view.rerender(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
+    expect(model.rail()[1]).toBe('lingua-rail lingua-rail--answered');
+  });
+
   it('ignores results another tab produced', () => {
     const model = new FakeModel(source);
     render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t2" />);

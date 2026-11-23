@@ -59,12 +59,15 @@ export function PulseRailHost({
   monaco,
   tabId,
   stale = false,
+  held = false,
 }: {
   editor: monacoTypes.editor.IStandaloneCodeEditor | null;
   monaco: typeof monacoTypes | null;
   tabId: string | null;
   /** The editor holds other code than the run: line numbers no longer match, so the marks stay where Monaco moved them. */
   stale?: boolean;
+  /** A run in flight has not answered yet: the previous run's marks stay where they are. */
+  held?: boolean;
 }) {
   const results = useResultStore(
     useShallow(state => ({
@@ -131,11 +134,11 @@ export function PulseRailHost({
 
   // Rebuilt when the run or its frontier changes, never on edits: Monaco carries the marks with the text.
   const rail = useMemo(
-    () => (model && source ? buildPulseRail({ ...source, lines: model.getLinesContent() }) : []),
-    [model, source]
+    () => (model && source && !held ? buildPulseRail({ ...source, lines: model.getLinesContent() }) : []),
+    [model, source, held]
   );
   useEffect(() => {
-    if (!editor || !monaco || stale) return;
+    if (!editor || !monaco || stale || held) return;
     // The trail fades with distance above the selected step, not from the top of the rail.
     const front = rail.find(line => line.state === 'running')?.line;
     const top = rail.find(line => line.slot !== null)?.line ?? 1;
@@ -146,7 +149,7 @@ export function PulseRailHost({
     const next = rail.map(line => railDecoration(monaco, line, travelRun !== null, trailSlot(line)));
     if (decorations.current) decorations.current.set(next);
     else decorations.current = editor.createDecorationsCollection(next);
-  }, [editor, monaco, rail, travelRun, stale]);
+  }, [editor, monaco, rail, travelRun, stale, held]);
 
   // The held ring follows the pause even while the rail is stale, so it always marks the line the debugger holds.
   const hold = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);

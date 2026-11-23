@@ -371,6 +371,8 @@ export function CodeEditor() {
   }, []);
 
   const runStale = useRunStale();
+  // A run in flight keeps the previous run's marks, dimmed, until it answers.
+  const runHeld = useResultStore(state => (state.isAutoRunning || state.isManualRunning) && state.keptAnswers?.tabId === activeTabId);
   const runStateRef = useRef<HTMLDivElement>(null);
   useRunStaleAgeProperty(runStateRef, runStale.ranAt);
 
@@ -547,7 +549,7 @@ export function CodeEditor() {
       <div ref={setAnswerHeaderSlot} className="contents" />
       <div
         ref={runStateRef}
-        className={cn('lingua-pulse-rail-host min-h-0 flex-1', runStale.stale && 'run-stale')}
+        className={cn('lingua-pulse-rail-host min-h-0 flex-1', runStale.stale && 'run-stale', runHeld && 'run-held')}
         style={RAIL_STYLE}
         data-testid="editor-run-state"
         data-stale={runStale.stale ? 'true' : undefined}
@@ -579,7 +581,7 @@ export function CodeEditor() {
         />
         <DebuggerStepHudHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
         <TimelineLineHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} />
-        <PulseRailHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} stale={runStale.stale} />
+        <PulseRailHost editor={editorInstance} monaco={monacoInstance} tabId={activeTabId} stale={runStale.stale} held={runHeld} />
         <TestLineAnswersHost editor={editorInstance} monaco={monacoInstance} />
         <ErrorLineRowHost
           editor={editorInstance}

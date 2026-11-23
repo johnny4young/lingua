@@ -58,6 +58,24 @@
 
   .lingua-inline-result-part[data-depth] .lingua-inline-result-name { color: var(--color-fg-muted); }
 
+  /* The previous run's answer while this run has not reached its line: every value tone reads as subtle text. */
+  .lingua-inline-result[data-kept] {
+    --color-fg-base: var(--color-fg-subtle);
+    --color-fg-muted: var(--color-fg-subtle);
+    --color-value-number: var(--color-fg-subtle);
+    --color-value-string: var(--color-fg-subtle);
+    --color-value-boolean: var(--color-fg-subtle);
+    --color-value-date: var(--color-fg-subtle);
+    --color-value-none: var(--color-fg-subtle);
+    --color-value-error: var(--color-fg-subtle);
+    --color-pulse-fg: var(--color-fg-subtle);
+    --color-pulse: var(--color-fg-subtle);
+  }
+
+  .lingua-inline-result[data-kept] .answer-object-value[data-pill] { background: transparent; }
+
+  .lingua-inline-result-kept { border-style: dotted; }
+
   .lingua-inline-result-depth {
     flex: none;
     margin-left: 6px;

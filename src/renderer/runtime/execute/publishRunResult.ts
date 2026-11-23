@@ -17,6 +17,7 @@ import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { formatExecutionSummary, toConsoleEntries, toConsoleEntry } from '../../hooks/runnerOutput';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { nextTabRunNumber, runInputKey, useResultStore } from '../../stores/resultStore';
+import { holdVisibleResults } from '../../stores/holdVisibleResults';
 import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import { toResultDiagnostics } from '../../utils/executionDiagnostics';
@@ -159,7 +160,9 @@ export function publishRunStart(
     number: nextTabRunNumber(useResultStore.getState(), activeTab.id),
   });
   if (showsResults()) {
-    clearVisibleResults();
+    // A debug run shows the paused frame's values instead of the previous run's answers.
+    if (plan.debugRequested) clearVisibleResults();
+    else holdVisibleResults(activeTab.id);
     setExecutionSource('manual');
     setDiagnostics([]);
     useResultStore.getState().setRanCode({

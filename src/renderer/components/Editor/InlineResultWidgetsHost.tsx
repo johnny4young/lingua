@@ -20,6 +20,7 @@ export function InlineResultWidgetsHost(props: InlineResultWidgetsProps) {
   const [failed, setFailed] = useState(false);
   const { error: pushErrorNotice } = useStatusNotice();
   const running = useResultStore(state => state.isAutoRunning || state.isManualRunning);
+  const keptRun = useResultStore(state => (running && state.keptAnswers?.tabId === props.tabId ? state.keptAnswers.run : null));
 
   useEffect(() => {
     if (!enabled || Widgets || failed) return;
@@ -42,5 +43,5 @@ export function InlineResultWidgetsHost(props: InlineResultWidgetsProps) {
 
   // Stay mounted once loaded: a run's transient empty results must not tear
   // down the reserved rows the overlay reconciles when results return.
-  return Widgets ? <Widgets {...props} running={running} /> : null;
+  return Widgets ? <Widgets {...props} running={running} keptRun={keptRun} /> : null;
 }
