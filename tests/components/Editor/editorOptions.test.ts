@@ -20,6 +20,9 @@ describe('getEditorOptions', () => {
       fontVariations: false,
       fontLigatures: true,
       glyphMargin: true,
+      folding: true,
+      lightbulb: { enabled: 'onCode' },
+      lineNumbersMinChars: 5,
       lineDecorationsWidth: 32,
       // Line numbers are baseline editor primitive; always on.
       lineNumbers: 'on',
@@ -47,6 +50,19 @@ describe('getEditorOptions', () => {
       wordBasedSuggestions: 'currentDocument',
       tabSize: 2,
     });
+  });
+
+  it('drops the glyph margin and folding in a compact gutter but keeps the run rail', () => {
+    const base = { fontSize: 14, fontFamily: 'JetBrains Mono', fontLigatures: false, wordWrap: false, minimap: false };
+    const compact = getEditorOptions({ ...base, compactGutter: true });
+    expect(compact).toMatchObject({
+      glyphMargin: false,
+      folding: false,
+      lightbulb: { enabled: 'off' },
+      lineNumbersMinChars: 3,
+      lineDecorationsWidth: 32,
+    });
+    expect(getEditorOptions(base)).toMatchObject({ glyphMargin: true, folding: true, lineNumbersMinChars: 5 });
   });
 
   it('turns on the MONO axis when the stack leads with Recursive', () => {

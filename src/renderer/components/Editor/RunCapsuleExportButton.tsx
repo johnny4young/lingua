@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../stores/uiStore';
-import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
+import { exportCapsuleWithNotice } from '../../utils/exportCapsule';
 import type { RunCapsuleExportButtonProps } from './runCapsuleExportLoader';
 
 /**
@@ -45,7 +44,6 @@ const FEEDBACK_RESET_MS = 1000;
 
 export function RunCapsuleExportButton({ capsule }: RunCapsuleExportButtonProps) {
   const { t } = useTranslation();
-  const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const [justCopied, setJustCopied] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -60,27 +58,16 @@ export function RunCapsuleExportButton({ capsule }: RunCapsuleExportButtonProps)
   }, []);
 
   const handleClick = useCallback(async () => {
-    const result = await exportCapsuleToClipboard(capsule, 'result-panel-export');
-    if (result.ok) {
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'settings.account.runCapsules.copiedNotice',
-      });
-      setJustCopied(true);
-      if (resetTimerRef.current !== null) {
-        clearTimeout(resetTimerRef.current);
-      }
-      resetTimerRef.current = setTimeout(() => {
-        setJustCopied(false);
-        resetTimerRef.current = null;
-      }, FEEDBACK_RESET_MS);
-      return;
+    if (!(await exportCapsuleWithNotice(capsule))) return;
+    setJustCopied(true);
+    if (resetTimerRef.current !== null) {
+      clearTimeout(resetTimerRef.current);
     }
-    pushStatusNotice({
-      tone: 'warning',
-      messageKey: 'results.actions.exportCapsule.clipboardUnavailable',
-    });
-  }, [capsule, pushStatusNotice]);
+    resetTimerRef.current = setTimeout(() => {
+      setJustCopied(false);
+      resetTimerRef.current = null;
+    }, FEEDBACK_RESET_MS);
+  }, [capsule]);
 
   const hasRichOutputs =
     Array.isArray(capsule.result.richOutputs) && capsule.result.richOutputs.length > 0;

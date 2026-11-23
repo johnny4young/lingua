@@ -21,7 +21,7 @@ import {
 } from './sqlResultFilters';
 import type { SqlSortState } from './sqlResultGrid';
 import { saveSqlSnippet } from './sqlSnippet';
-import { useFloatingPosition } from './useFloatingPosition';
+import { useFloatingPosition } from '../../hooks/useFloatingPosition';
 
 const CHIP =
   'focus-ring inline-flex h-6 shrink-0 items-center gap-1 rounded-full border px-2.5 text-caption transition-colors';

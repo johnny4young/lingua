@@ -1,6 +1,4 @@
-import { useTranslation } from 'react-i18next';
-import { useActiveTab } from '../../hooks/useActiveTab';
-import { useResultStore } from '../../stores/resultStore';
+import { useAutoRunGateCopy } from './dockNotices';
 
 /**
  * Ambient footer notice for the auto-run completion
@@ -17,30 +15,19 @@ import { useResultStore } from '../../stores/resultStore';
  * not the console refresh.
  */
 export function AutoRunGateNotice() {
-  const { t } = useTranslation();
-  const reason = useResultStore((state) => state.autoRunGateReason);
-  const activeTab = useActiveTab();
-
-  if (reason !== 'incomplete') return null;
-
-  const isBrowserPreview = activeTab?.runtimeMode === 'browser-preview';
-  const titleKey = isBrowserPreview
-    ? 'autoRun.gate.incomplete.titleBrowserPreview'
-    : 'autoRun.gate.incomplete.title';
-  const descriptionKey = isBrowserPreview
-    ? 'autoRun.gate.incomplete.descriptionBrowserPreview'
-    : 'autoRun.gate.incomplete.description';
+  const gate = useAutoRunGateCopy();
+  if (!gate) return null;
 
   return (
     <span
       role="status"
       aria-live="polite"
       data-testid="auto-run-gate-notice"
-      data-gate-variant={isBrowserPreview ? 'browser-preview' : 'default'}
+      data-gate-variant={gate.variant}
       className="status-pill border-warning/30 bg-warning/10 px-2 py-0.5 text-eyebrow font-medium tracking-[0.02em] text-warning"
-      title={t(descriptionKey)}
+      title={gate.description}
     >
-      {t(titleKey)}
+      {gate.title}
     </span>
   );
 }

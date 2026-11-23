@@ -11,7 +11,7 @@ import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDependencyDetectionStore } from '../stores/dependencyDetectionStore';
-import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
+import { pushInfoNotice, pushWarningNotice } from '../utils/statusNotice';
 import { trackEvent } from '../utils/telemetry';
 import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
 import { toggleCompareDock } from '../utils/compareDock';
@@ -304,16 +304,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         return;
       }
       void loadCapsuleExporter()
-        .then(({ exportCapsuleToClipboard }) =>
-          exportCapsuleToClipboard(capsule, 'result-panel-export')
-        )
-        .then(result => {
-          if (result.ok) {
-            pushSuccessNotice('settings.account.runCapsules.copiedNotice');
-          } else {
-            pushWarningNotice('results.actions.exportCapsule.clipboardUnavailable');
-          }
-        })
+        .then(({ exportCapsuleWithNotice }) => exportCapsuleWithNotice(capsule))
         .catch((error: unknown) => {
           console.error('[run-capsule] failed to load the export pipeline', error);
           pushWarningNotice('results.actions.exportCapsule.loadFailed');

@@ -48,6 +48,9 @@ export const isDockSplitTab = (id: DockTabId): id is 'tests' | 'project-terminal
 /** Dock width from which the pair opens side by side; narrower docks show one tab at a time. */
 export const DOCK_SPLIT_MIN_WIDTH = 1100;
 
+/** At or below this width the dock goes compact (data-compact): glyph tabs and an actions menu. RunMeter.css folds the meter at the same width. */
+export const DOCK_COMPACT_MAX_WIDTH = 560;
+
 /** Whether the dock shows Tests and Terminal side by side: wide, both apply, and one of them is selected. */
 export function isDockSplit(shown: DockTabId, availability: DockTabAvailability, wide: boolean): boolean {
   return (

@@ -143,23 +143,17 @@ describe('useAppShortcuts', () => {
     expect(mocks.pushInfoNotice).toHaveBeenCalledWith('results.actions.exportCapsule.noCapsule');
   });
 
-  it('loads the exporter on demand and reports success', async () => {
-    const exportCapsuleToClipboard = vi.fn().mockResolvedValue({ ok: true, json: '{}' });
+  it('loads the exporter on demand and exports through the shared notice flow', async () => {
+    const exportCapsuleWithNotice = vi.fn().mockResolvedValue(true);
     mocks.capsule.current = FIXTURE_MINIMAL_JS;
-    mocks.loadExporter.mockResolvedValue({ exportCapsuleToClipboard });
+    mocks.loadExporter.mockResolvedValue({ exportCapsuleWithNotice });
     renderHook(() => useAppShortcuts(makeDeps()));
 
     registeredOptions().exportLatestCapsule();
     await act(async () => undefined);
 
     expect(mocks.loadExporter).toHaveBeenCalledTimes(1);
-    expect(exportCapsuleToClipboard).toHaveBeenCalledWith(
-      FIXTURE_MINIMAL_JS,
-      'result-panel-export'
-    );
-    expect(mocks.pushSuccessNotice).toHaveBeenCalledWith(
-      'settings.account.runCapsules.copiedNotice'
-    );
+    expect(exportCapsuleWithNotice).toHaveBeenCalledWith(FIXTURE_MINIMAL_JS);
   });
 
   it('surfaces a failed exporter chunk through localized recovery copy', async () => {

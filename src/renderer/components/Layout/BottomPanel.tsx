@@ -47,6 +47,7 @@ import { cn } from '../../utils/cn';
 import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import {
   availableDockTabs,
+  DOCK_COMPACT_MAX_WIDTH,
   DOCK_SPLIT_MIN_WIDTH,
   isDockSplit,
   isDockSplitTab,
@@ -110,22 +111,26 @@ const TestsDockControls = lazy(async () => {
   return { default: module.TestsDockControls };
 });
 
-/** True while the element is at least `min` px wide; re-renders only when that flips. */
-function useWiderThan(ref: RefObject<HTMLElement | null>, min: number): boolean {
-  const [wide, setWide] = useState(false);
+/** How many of the ascending widths the element reaches; re-renders only when that count changes. */
+function useWidthTier(ref: RefObject<HTMLElement | null>, widths: readonly number[]): number {
+  const [tier, setTier] = useState(0);
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node) return;
-    setWide(node.getBoundingClientRect().width >= min);
+    const measure = (width: number) => setTier(widths.filter(min => width >= min).length);
+    measure(node.getBoundingClientRect().width);
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWide(entry.contentRect.width >= min);
+      if (entry) measure(entry.contentRect.width);
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [ref, min]);
-  return wide;
+  }, [ref, widths]);
+  return tier;
 }
+
+// Compact runs up to and including DOCK_COMPACT_MAX_WIDTH, like a CSS max-width query.
+const DOCK_WIDTH_TIERS = [DOCK_COMPACT_MAX_WIDTH + 1, DOCK_SPLIT_MIN_WIDTH] as const;
 
 interface DockTabMeta {
   icon: LucideIcon;
@@ -191,7 +196,10 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
       : null
   );
   const shellRef = useRef<HTMLElement>(null);
-  const wide = useWiderThan(shellRef, DOCK_SPLIT_MIN_WIDTH);
+  const widthTier = useWidthTier(shellRef, DOCK_WIDTH_TIERS);
+  const compact = widthTier === 0;
+  const wide = widthTier === DOCK_WIDTH_TIERS.length;
+  const tabListRef = useRef<HTMLDivElement>(null);
   const consoleCount = useConsoleStore(state => state.entries.length);
   const failedTests = useProjectTestStore(state => state.cases?.filter(isCurrentFailure).length ?? 0);
   // Lines staged for the next run, so the Input tab says so before it is opened.
@@ -229,6 +237,18 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   );
 
   const split = expanded && currentProject !== null && isDockSplit(effectiveTab, availability, wide);
+
+  // A tab picked from elsewhere (a shortcut, the debugger) scrolls into the row's own track.
+  // Scrolls the row only; scrollIntoView would also move the page.
+  useEffect(() => {
+    const list = tabListRef.current;
+    const tab = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !tab) return;
+    const row = list.getBoundingClientRect();
+    const box = tab.getBoundingClientRect();
+    if (box.left < row.left) list.scrollLeft -= row.left - box.left;
+    else if (box.right > row.right) list.scrollLeft += box.right - row.right;
+  }, [effectiveTab, compact]);
   const shown = (id: DockTabId) => expanded && (effectiveTab === id || (split && isDockSplitTab(id)));
   // The Tests meter and controls answer for the project while its tests are on screen.
   const testsOnScreen = currentProject !== null && shown('tests');
@@ -279,6 +299,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
       data-testid="results-dock"
       data-expanded={expanded ? 'true' : 'false'}
       data-split={split ? 'true' : undefined}
+      data-compact={compact ? 'true' : undefined}
       className="dock-shell h-full min-h-0 bg-bg-panel"
     >
       <div className="dock-shell-row">
@@ -298,6 +319,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
             className="flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt"
           >
             <div
+              ref={tabListRef}
               role="tablist"
               aria-label={t('bottomPanel.tabs.listLabel')}
               aria-multiselectable={split || undefined}
@@ -308,10 +330,12 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                 const Icon = meta.icon;
                 const selected = shown(id);
                 const count = counts[id] ?? 0;
+                const hint = t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues);
                 return (
                   <Tooltip
                     key={id}
-                    content={t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues)}
+                    // Compact tabs show only their glyph, so the tooltip names them.
+                    content={compact ? `${t(meta.labelKey)} · ${hint}` : hint}
                     side="top"
                   >
                     <button
@@ -333,7 +357,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                         aria-hidden="true"
                         className={selected ? 'text-accent-fg' : 'text-fg-subtle'}
                       />
-                      {t(meta.labelKey)}
+                      <span className={compact ? 'sr-only' : undefined}>{t(meta.labelKey)}</span>
                       {id === 'project-terminal' && terminalShell !== null ? (
                         <span
                           data-testid="bottom-panel-project-terminal-live"
@@ -369,7 +393,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                   <DebuggerDockControls tabId={activeTabId ?? null} />
                 </Suspense>
               ) : null}
-              <DockHeaderControls />
+              <DockHeaderControls compact={compact} />
               <Tooltip
                 content={t(expanded ? 'bottomPanel.actions.hide' : 'bottomPanel.actions.show', {
                   combo: dockCombo ?? '',
