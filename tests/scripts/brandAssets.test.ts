@@ -11,9 +11,7 @@ import {
   packBits,
   wordmarkGeometry,
 } from '../../scripts/brand/generate-brand-assets.mjs';
-import { en } from '../../website/src/i18n/en';
-import { es } from '../../website/src/i18n/es';
-import { SITE } from '../../website/src/lib/site';
+import { localePressFiles, sitePressAssets } from '../__fixtures__/websitePress';
 
 const root = process.cwd();
 const read = (file: string) => readFileSync(path.join(root, file));
@@ -128,10 +126,12 @@ describe('brand assets', () => {
   it('publishes the brand files in the website press kit', () => {
     // The SVG copies are covered by the drift check; the raster is not.
     expect(read('website/public/press/icon.png').equals(read('assets/icon.png'))).toBe(true);
-    for (const file of SITE.press.assets) {
+    const assets = sitePressAssets();
+    const labels = [localePressFiles('en'), localePressFiles('es')];
+    expect(assets).toContain('wordmark.svg');
+    for (const file of assets) {
       expect(existsSync(path.join(root, 'website/public/press', file))).toBe(true);
-      expect(en.press.assets.files[file]).toBeTruthy();
-      expect(es.press.assets.files[file]).toBeTruthy();
+      for (const files of labels) expect(files[file]).toBeTruthy();
       expect(text('website/public/press/README.txt')).toContain(file);
     }
   });
