@@ -40,8 +40,6 @@
 
   .recipe-showcase-modal { height: 320px; }
 
-  .recipe-showcase-headers > :last-child { border-bottom: 0; }
-
   /* A narrow cell moves the answer under its line instead of clipping either. */
   .recipe-showcase-markers > div {
     display: flex;
@@ -62,3 +60,6 @@
 
 /* Unlayered to beat the scrim's viewport offset utility, which would push the footer rail out of the box. */
 .recipe-showcase-modal > [data-scrim] { padding-top: 24px; }
+
+/* Unlayered too: ResultHeader's border-b utility outranks the components layer. */
+.recipe-showcase-headers > :last-child { border-bottom-width: 0; }

@@ -1,11 +1,19 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecipeShowcase } from '../../../src/renderer/devShowcase/RecipeShowcase';
 
 const root = document.documentElement;
 
+// jsdom has no canvas; returning null skips the swatch readout without its not-implemented noise.
+beforeEach(() => {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+});
+
 afterEach(() => {
+  vi.restoreAllMocks();
   root.className = '';
+  root.style.colorScheme = '';
+  document.head.querySelector('meta[name="theme-color"]')?.remove();
   for (const key of ['theme', 'palette', 'codeFont']) delete root.dataset[key];
 });
 

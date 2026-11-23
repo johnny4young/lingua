@@ -21,6 +21,8 @@ describe('InlineMarker', () => {
     ['None', 'none'],
     ['date', 'date'],
     ['error', 'error'],
+    ['KeyError', 'error'],
+    ['NoneType', 'none'],
     ['constructor', undefined],
   ])('maps the %s type to the %s tone', (type, tone) => {
     render(<InlineMarker value="x" type={type} />);

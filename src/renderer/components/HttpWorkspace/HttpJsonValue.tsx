@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { AnswerContext } from '../Answer/answerObjectModel';
 import { capturePath, isContainer, jsonPointer, normalizeCapturePath, primitiveText, type JsonSearch, type JsonSegment } from './httpJsonTreeModel';
 import { containerSummary, readJsonLeaf, type JsonTableShape } from './httpJsonAnswer';
+import '../ui/identity.css';
 import '../Answer/answerObject.css';
 import './httpInstruments.css';
 

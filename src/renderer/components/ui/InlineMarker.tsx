@@ -28,11 +28,13 @@ const TONE_BY_TYPE = new Map(Object.entries({
   null: 'none',
   undefined: 'none',
   none: 'none',
+  nonetype: 'none',
 }));
 
 /** Dot leader, type, then the value in its type colour: the answer grammar on one line. */
 export function InlineMarker({ value, type, watch = false, className }: InlineMarkerProps) {
-  const tone = TONE_BY_TYPE.get(type.toLowerCase());
+  // Exception classes (KeyError, TypeError) read as errors too.
+  const tone = TONE_BY_TYPE.get(type.toLowerCase()) ?? (/(?:error|exception)$/i.test(type) ? 'error' : undefined);
   return (
     <span data-testid="inline-marker" className={cn('flex flex-1 items-center font-mono', className)}>
       <DotLeader tone={tone === 'error' ? 'error' : 'neutral'} />

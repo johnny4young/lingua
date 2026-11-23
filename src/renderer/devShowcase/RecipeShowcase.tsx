@@ -117,10 +117,13 @@ function readSwatchColours(): Map<string, [number, number, number]> | null {
   const styles = getComputedStyle(document.documentElement);
   const colours = new Map<string, [number, number, number]>();
   for (const token of [...SWATCHES.map((swatch) => swatch.token), '--color-pulse-on']) {
+    // An empty or unparsable value leaves the pixel clear instead of repeating the last colour.
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = 'transparent';
     context.fillStyle = styles.getPropertyValue(token).trim();
     context.fillRect(0, 0, 1, 1);
-    const [r = 0, g = 0, b = 0] = context.getImageData(0, 0, 1, 1).data;
-    colours.set(token, [r, g, b]);
+    const [r = 0, g = 0, b = 0, a = 0] = context.getImageData(0, 0, 1, 1).data;
+    if (a > 0) colours.set(token, [r, g, b]);
   }
   return colours;
 }
