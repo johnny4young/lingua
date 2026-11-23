@@ -5,12 +5,22 @@ import {
   contrastRatio,
   parseColor,
   readCssBlock,
+  readCssRule,
   resolveToken,
 } from '../__fixtures__/colorContrast';
 
 const css = readFileSync(resolve(__dirname, '../../src/renderer/index.css'), 'utf8');
+const root = readCssBlock(css, /^:root\s*\{/m);
 const light = readCssBlock(css, /:root,\s*\n\.light\s*\{/);
 const dark = readCssBlock(css, /\.dark,\s*\n\[data-theme='dark'\]\s*\{/);
+/** Every token an Ink or Paper window resolves, in cascade order. */
+const packShell = (set: 'ink' | 'paper') =>
+  new Map([
+    ...root,
+    ...light,
+    ...(set === 'ink' ? dark : []),
+    ...readCssBlock(css, new RegExp(`^\\[data-palette='${set}'\\]\\s*\\{`, 'm')),
+  ]);
 
 // [foreground token, background token, role]; every pair is text and must clear 4.5:1.
 const PAIRS: ReadonlyArray<readonly [string, string, string]> = [
@@ -88,16 +98,71 @@ describe('accent as text', () => {
 });
 
 describe('run pulse', () => {
-  it('rings the Run button in the accent, not the success hue', () => {
+  it('rings the Run button in its own fill, not the success hue', () => {
     const keyframes = /@keyframes run-pulse\s*\{[\s\S]*?\n\}/.exec(css)?.[0] ?? '';
-    expect(keyframes).toContain('var(--color-accent)');
+    expect(keyframes).toContain('var(--color-run)');
     expect(keyframes).not.toContain('success');
   });
 });
 
+describe('action pill workflow colours', () => {
+  const THEMES: ReadonlyArray<readonly [string, Map<string, string>]> = [
+    ['Classic light', new Map([...root, ...light])],
+    ['Classic dark', new Map([...root, ...light, ...dark])],
+    ['Ink', packShell('ink')],
+    ['Paper', packShell('paper')],
+  ];
+  const RUN = ".action-pill-run:not([data-workflow='debug']):not([data-workflow='scratchpad']):not(:disabled)";
+  // [workflow, rule that sets the label, rules that set each fill].
+  const WORKFLOWS: ReadonlyArray<readonly [string, string, readonly string[]]> = [
+    ['run', '.action-pill-run', ['.action-pill-run', `${RUN}:hover`, `${RUN}:active`]],
+    ...(['scratchpad', 'debug'] as const).map((workflow) => {
+      const rule = `.action-pill-run[data-workflow='${workflow}']`;
+      return [workflow, rule, [rule, `${rule}:not(:disabled):hover`]] as const;
+    }),
+  ];
+
+  /** The var() a rule assigns to `property`, so a theme can resolve it. */
+  function ruleToken(selector: string, property: 'background' | 'color'): string {
+    const body = readCssRule(css, selector);
+    const value = new RegExp(`[\\s;{]${property}:\\s*var\\((--[\\w-]+)\\)`).exec(body)?.[1];
+    if (!value) throw new Error(`${selector} sets no ${property} token`);
+    return value;
+  }
+
+  const hex = (token: string, theme: Map<string, string>) => parseColor(resolveToken(token, theme));
+
+  describe.each(THEMES)('%s', (_name, theme) => {
+    it.each(WORKFLOWS)('%s label clears 4.5:1 on every fill state', (_workflow, labelRule, fillRules) => {
+      const label = hex(ruleToken(labelRule, 'color'), theme);
+      for (const rule of fillRules) {
+        expect(contrastRatio(label, hex(ruleToken(rule, 'background'), theme)), rule).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it('keeps scratchpad and debug distinct from Run', () => {
+      const run = resolveToken(ruleToken('.action-pill-run', 'background'), theme);
+      for (const workflow of ['scratchpad', 'debug']) {
+        expect(resolveToken(ruleToken(`.action-pill-run[data-workflow='${workflow}']`, 'background'), theme)).not.toBe(run);
+      }
+    });
+  });
+
+  it.each(['Ink', 'Paper'])('fills Run with the pulse under dark ink in %s', (name) => {
+    const theme = THEMES.find(([label]) => label === name)![1];
+    expect(resolveToken('--color-run', theme)).toBe(root.get('--color-pulse'));
+    expect(resolveToken('--color-run-on', theme)).toBe(root.get('--color-pulse-on'));
+  });
+
+  it.each(['Classic light', 'Classic dark'])('keeps the accent Run in %s', (name) => {
+    const theme = THEMES.find(([label]) => label === name)![1];
+    expect(resolveToken('--color-run', theme)).toBe(resolveToken('--color-accent', theme));
+    expect(resolveToken('--color-run-on', theme)).toBe(resolveToken('--color-fg-on-accent', theme));
+  });
+});
+
 describe('Ink and Paper palettes', () => {
-  const palette = readCssBlock(css, /^:root\s*\{/m);
-  const hex = (token: string) => parseColor(resolveToken(token, palette));
+  const hex = (token: string) => parseColor(resolveToken(token, root));
   const ROLES = ['text-1', 'text-2', 'text-3', 'pulse-fg', ...['number', 'string', 'boolean', 'error', 'date', 'none'].map((v) => `value-${v}`)];
 
   it.each(['ink', 'paper'])('%s text and value colours clear 4.5:1 on ground and panel', (set) => {
@@ -122,9 +187,8 @@ describe('Ink and Paper palettes', () => {
 });
 
 describe.each(['ink', 'paper'] as const)('%s pack shell', (set) => {
-  const root = readCssBlock(css, /^:root\s*\{/m);
   const block = readCssBlock(css, new RegExp(`^\\[data-palette='${set}'\\]\\s*\\{`, 'm'));
-  const shell = new Map([...root, ...light, ...(set === 'ink' ? dark : []), ...block]);
+  const shell = packShell(set);
 
   it.each(PAIRS)('%s on %s (%s) clears 4.5:1', (fg, bg) => {
     expect(contrastRatio(parseColor(resolveToken(fg, shell)), parseColor(resolveToken(bg, shell)))).toBeGreaterThanOrEqual(4.5);

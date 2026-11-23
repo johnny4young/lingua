@@ -1,13 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readCssRule } from '../__fixtures__/colorContrast';
 
 const css = readFileSync(resolve(__dirname, '../../src/renderer/index.css'), 'utf8');
-const rule = (selector: string) => {
-  const start = css.indexOf(`${selector} {`);
-  expect(start).toBeGreaterThanOrEqual(0);
-  return css.slice(start, css.indexOf('}', start));
-};
+const rule = (selector: string) => readCssRule(css, selector);
 
 describe('spring motion', () => {
   it('moves the dock body on the spring curve', () => {

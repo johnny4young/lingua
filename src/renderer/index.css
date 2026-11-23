@@ -188,6 +188,14 @@
   /* DS parity (design-sync apply) — soft pill / selected-row / focus-ring tint
      that DS primitives (Badge accent, IconButton active) reference. */
   --color-accent-tint: oklch(0.97 0.018 210);
+  /* Run control: the accent here, the pulse in Ink and Paper. */
+  --color-run: var(--color-accent);
+  --color-run-hover: var(--color-accent-hover);
+  --color-run-pressed: var(--color-accent-pressed);
+  --color-run-on: var(--color-fg-on-accent);
+  --color-run-scratch: var(--color-slate-300);
+  --color-run-scratch-hover: var(--color-slate-400);
+  --color-run-scratch-on: var(--color-slate-900);
 
   /* Overlay scrim base — the modal backdrop tint. A scrim must DIM the
      content beneath it, so even on light surfaces it is a dark neutral
@@ -435,6 +443,14 @@
   --color-accent-fg: oklch(0.85 0.14 210);
   /* DS parity (design-sync apply) — dark accent tint. */
   --color-accent-tint: oklch(0.22 0.035 210);
+  --color-run: var(--color-accent);
+  --color-run-hover: var(--color-accent-hover);
+  --color-run-pressed: var(--color-accent-pressed);
+  --color-run-on: var(--color-fg-on-accent);
+  /* The dark slate scale inverts, so the light step is the label. */
+  --color-run-scratch: var(--color-slate-300);
+  --color-run-scratch-hover: var(--color-slate-200);
+  --color-run-scratch-on: var(--color-slate-900);
 
   /* Overlay scrim base (dark) — drops nearly to black so the blurred
      backdrop reads as "everything behind is dimmed". Matches the
@@ -514,6 +530,13 @@
   --color-border-subtle: var(--color-ink-rule);
   --color-border-default: var(--color-ink-rule-2);
   --color-accent-tint: var(--color-ink-select);
+  --color-run: var(--color-pulse);
+  --color-run-hover: #33cce6;
+  --color-run-pressed: #00aecb;
+  --color-run-on: var(--color-pulse-on);
+  --color-run-scratch: var(--color-bg-panel-alt);
+  --color-run-scratch-hover: var(--color-accent-tint);
+  --color-run-scratch-on: var(--color-pulse-fg);
   --color-syntax-keyword: #8ccbd8;
   --color-syntax-string: #8fbfa3;
   --color-syntax-number: #d4b07a;
@@ -539,6 +562,13 @@
   --color-border-subtle: var(--color-paper-rule);
   --color-border-default: var(--color-paper-rule-2);
   --color-accent-tint: var(--color-paper-select);
+  --color-run: var(--color-pulse);
+  --color-run-hover: #00aecb;
+  --color-run-pressed: #00a3bf;
+  --color-run-on: var(--color-pulse-on);
+  --color-run-scratch: var(--color-bg-base);
+  --color-run-scratch-hover: var(--color-bg-panel);
+  --color-run-scratch-on: var(--color-pulse-fg);
   --color-syntax-keyword: #0a6f8c;
   --color-syntax-string: #2e7352;
   --color-syntax-number: #8f5e12;
@@ -992,7 +1022,7 @@
   /* Button families on one state rule: hover lifts 1px and steps the fill,
      pressed steps it again and settles, disabled drops the shadow, and focus
      is a 2px gap plus a 2px ring in the control's hue. One saturated control
-     per surface: primary (and Run) fill with the accent, secondary is surface
+     per surface: primary fills with the accent (Run with --color-run), secondary is surface
      plus hairline, ghost is accent text, danger is red text until it sits
      inside a confirmation (`.button-danger-solid`). */
   .button-primary,
@@ -1750,13 +1780,16 @@
   /* Keyboard focus ring — adopt the DS slate ring every other ui/
      primitive uses (ResultHeader tabs, RuntimeSelector segments,
      ModalShell close, .icon-button) instead of the browser's default
-     UA outline. `ring-inset` because the pill clips its children; the
-     run segment keeps its accent glow alongside this ring. */
+     UA outline. `ring-inset` because the pill clips its children. */
   .action-pill-segment:focus-visible,
   .action-pill-run:focus-visible,
   .action-pill-icon-button:focus-visible,
   .action-pill-drag-handle:focus-visible {
     @apply outline-none ring-2 ring-ring/70 ring-inset;
+  }
+  /* The accent ring vanishes on an accent or pulse fill; the label ink shows. */
+  .action-pill-run:focus-visible {
+    --tw-ring-color: color-mix(in srgb, currentColor 70%, transparent);
   }
 
   @media (max-width: 1279px) {
@@ -1820,14 +1853,10 @@
     }
   }
 
-  /* Unified mode-aware action button.
-     The button colours itself by the active workflow:
-       · run        → accent
-       · debug      → red-soft
-       · scratchpad → slate accent (matches the workflow chip's
-                      previous colour so users feel continuity)
-     `data-workflow` is set both on the button AND its parent group
-     so the chevron menu picks up the same colour pair. */
+  /* Unified mode-aware action button, coloured by the workflow:
+     run → --color-run (the accent, or the pulse in Ink and Paper),
+     debug → the debug fill, scratchpad → a quieter fill with a rim.
+     `data-workflow` sits on the button AND the chevron so both match. */
   .action-pill-run {
     display: inline-flex;
     height: 32px;
@@ -1844,56 +1873,49 @@
       background-color var(--duration-fast) var(--curve-ease-out),
       box-shadow var(--duration-fast) var(--curve-ease-out),
       transform var(--duration-fast) var(--curve-spring);
-    /* Run is the surface's one saturated control: the accent fill with ink
-       chosen by contrast (`--color-fg-on-accent` is dark in dark, white in
-       light). RuntimeSelector and SQL Run share the same pair. */
-    background: var(--color-accent);
-    color: var(--color-fg-on-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+    background: var(--color-run);
+    color: var(--color-run-on);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-run) 18%, transparent);
   }
   .action-pill-run:not([data-workflow='debug']):not([data-workflow='scratchpad']):not(:disabled):hover {
-    background: var(--color-accent-hover);
+    background: var(--color-run-hover);
   }
   .action-pill-run:not([data-workflow='debug']):not([data-workflow='scratchpad']):not(:disabled):active {
-    background: var(--color-accent-pressed);
+    background: var(--color-run-pressed);
   }
 
   .action-pill-run[data-workflow='debug'] {
     background: var(--color-debug-fill);
     color: var(--color-debug-fg);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 20%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 22%, transparent);
   }
   .action-pill-run[data-workflow='debug']:not(:disabled):hover {
     background: var(--color-debug-fill-hover);
   }
 
   .action-pill-run[data-workflow='scratchpad'] {
-    background: var(--color-slate-300);
-    color: var(--color-slate-900);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-300) 30%, transparent);
+    --scratch-rim: color-mix(in srgb, var(--color-run-scratch-on) 40%, transparent);
+    background: var(--color-run-scratch);
+    color: var(--color-run-scratch-on);
+    /* Rim on top, bottom and the chevron's end; the runtime border and the
+       chevron divider close the other sides. */
+    box-shadow:
+      inset 0 1px 0 var(--scratch-rim),
+      inset 0 -1px 0 var(--scratch-rim),
+      inset var(--scratch-end, 0) 0 0 var(--scratch-rim),
+      0 0 0 3px color-mix(in srgb, var(--color-run-scratch-on) 12%, transparent);
   }
   .action-pill-run[data-workflow='scratchpad']:not(:disabled):hover {
-    background: var(--color-slate-400);
-  }
-
-  .dark .action-pill-run[data-workflow='debug'],
-  [data-theme='dark'] .action-pill-run[data-workflow='debug'] {
-    background: var(--color-debug-fill);
-    color: var(--color-debug-fg);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 25%, transparent);
-  }
-  .dark .action-pill-run[data-workflow='scratchpad'],
-  [data-theme='dark'] .action-pill-run[data-workflow='scratchpad'] {
-    background: var(--color-slate-400);
-    color: var(--color-slate-900);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-400) 30%, transparent);
+    --scratch-rim: color-mix(in srgb, var(--color-run-scratch-on) 75%, transparent);
+    background: var(--color-run-scratch-hover);
   }
 
   .action-pill-run-menu[data-workflow='debug'] {
-    border-left-color: color-mix(in srgb, oklch(0.22 0.16 22) 22%, transparent);
+    border-left-color: color-mix(in srgb, var(--color-debug-fg) 22%, transparent);
   }
   .action-pill-run-menu[data-workflow='scratchpad'] {
-    border-left-color: color-mix(in srgb, var(--color-slate-900) 20%, transparent);
+    --scratch-end: -1px;
+    border-left-color: color-mix(in srgb, var(--color-run-scratch-on) 30%, transparent);
   }
 
   .action-pill-run-group {
@@ -1907,7 +1929,7 @@
 
   .action-pill-run-menu {
     width: 32px;
-    border-left: 1px solid color-mix(in srgb, var(--color-fg-on-accent) 18%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--color-run-on) 18%, transparent);
     border-radius: 0 999px 999px 0;
   }
 
@@ -2443,10 +2465,10 @@
 @keyframes run-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-run) 18%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-accent) 14%, transparent);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-run) 14%, transparent);
   }
 }
 
