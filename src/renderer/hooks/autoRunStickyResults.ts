@@ -79,7 +79,7 @@ function currentStickyKinds(
 ): Record<number, 'arrow' | 'watch' | 'autoLog'> {
   if (!isMagicCommentLanguage(language)) return {};
   return magicCommentKindsByLine(language, code, {
-    autoLog: autoLogEnabled,
+    autoLog: autoLogEnabled && 'assignments',
   });
 }
 

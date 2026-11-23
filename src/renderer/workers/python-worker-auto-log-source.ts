@@ -3,9 +3,10 @@
  *
  * Pyodide already embeds CPython's parser, so Python source is transformed via
  * `ast` inside the worker instead of duplicating a fragile indentation/string
- * scanner in TypeScript. Only module-level expression statements are wrapped;
- * declarations, control flow, function bodies, docstrings, and explicit
- * `#=>` / `# @watch` captures keep their original semantics.
+ * scanner in TypeScript. Only module-level statements are instrumented:
+ * expressions, plus assignments when a mode asks for them. Control flow,
+ * function bodies, docstrings, and explicit `#=>` / `# @watch` captures keep
+ * their original semantics.
  */
 export const PYTHON_AUTO_LOG_HELPERS_SOURCE = `
 import ast as __lingua_ast
@@ -66,11 +67,13 @@ def __lingua_assigned_value(node):
     loads = [__lingua_ast.Name(id=name.id, ctx=__lingua_ast.Load()) for name in names]
     return loads[0] if len(loads) == 1 else __lingua_ast.Tuple(elts=loads, ctx=__lingua_ast.Load())
 
-def __lingua_auto_log_compile(source, assignments=False):
+def __lingua_auto_log_compile(source, mode=None):
     tree = __lingua_ast.parse(source, filename="<exec>", mode="exec")
+    # An explicit #=> or @watch on the line wins over its assignment answer.
+    explicit_lines = {node.lineno for node in tree.body if __lingua_is_explicit_capture(node)}
     next_body = []
     for index, node in enumerate(tree.body):
-        if assignments:
+        if mode is not None and node.lineno not in explicit_lines:
             assigned = __lingua_assigned_value(node)
             if assigned is not None:
                 next_body.append(node)
@@ -85,7 +88,7 @@ def __lingua_auto_log_compile(source, assignments=False):
         if not isinstance(node, __lingua_ast.Expr) or is_docstring or __lingua_is_explicit_capture(node):
             next_body.append(node)
             continue
-        if assignments:
+        if mode == "cell":
             # Notebook cells: the expression runs as written, so errors stop the cell
             # and walrus, await and dir() keep module scope; only its value is captured.
             call = __lingua_ast.Call(
@@ -103,14 +106,14 @@ def __lingua_auto_log_compile(source, assignments=False):
     __lingua_ast.fix_missing_locations(tree)
     return compile(tree, "<exec>", "exec", flags=__lingua_ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
-async def __lingua_execute_auto_log(source, namespace, assignments=False):
+async def __lingua_execute_auto_log(source, namespace, mode=None):
     # Top-level await compiles to a coroutine; plain code runs on eval.
-    pending = eval(__lingua_auto_log_compile(source, assignments), namespace, namespace)
+    pending = eval(__lingua_auto_log_compile(source, mode), namespace, namespace)
     if __lingua_inspect.iscoroutine(pending):
         await pending
 `;
 
-/** `assignments` also answers module-level assignments (notebook cells). */
-export function buildPythonAutoLogExecutionSource(code: string, assignments = false): string {
-  return `await __lingua_execute_auto_log(${JSON.stringify(code)}, globals()${assignments ? ', True' : ''})`;
+/** `mode` also answers module-level assignments: Scratchpad auto-runs, or notebook cells (`'cell'`). */
+export function buildPythonAutoLogExecutionSource(code: string, mode?: 'assignments' | 'cell'): string {
+  return `await __lingua_execute_auto_log(${JSON.stringify(code)}, globals()${mode ? `, ${JSON.stringify(mode)}` : ''})`;
 }

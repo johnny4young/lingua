@@ -6,10 +6,9 @@ import type {
 import {
   transformJSMagicComments,
   detectJSMagicComments,
-  detectJSAutoLogLines,
+  applyJSAutoLog,
   detectJSStatementStartLines,
   lineTimingRequestedByMagicComment,
-  transformJSAutoLog,
   transformJSLineTiming,
 } from '../utils/magicComments';
 import { buildMagicLineMaps, markAutoLogLines } from './magicLineMap';
@@ -119,13 +118,11 @@ export class JavaScriptRunner implements LanguageRunner {
     // produce a richer view of the program state, and silent
     // injections under a paused frame would surprise the user.
     let codeWithAutoLog = magicTransformed;
-    if (context?.autoLog === true && !debug) {
+    if (context?.autoLog && !debug) {
       const magicLines = new Set<number>(magicEntries.map((entry) => entry.line));
-      const autoLogLines = detectJSAutoLogLines(protectedCode, magicLines);
-      if (autoLogLines.length > 0) {
-        codeWithAutoLog = transformJSAutoLog(magicTransformed, autoLogLines, recordMap);
-        markAutoLogLines(magicKindByLine, autoLogLines);
-      }
+      const autoLog = applyJSAutoLog(protectedCode, magicTransformed, magicLines, context.autoLog, recordMap);
+      codeWithAutoLog = autoLog.code;
+      markAutoLogLines(magicKindByLine, autoLog.lines);
     }
 
     // per-statement timing markers, AFTER auto-log

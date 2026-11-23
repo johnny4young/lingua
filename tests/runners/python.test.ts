@@ -937,6 +937,39 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     runner.stop();
   });
 
+  it('tells the worker which assignments answer: Scratchpad auto-runs, notebook cells or none', async () => {
+    const sent: Array<Record<string, unknown>> = [];
+    class RecordingWorker {
+      private handler?: (event: MessageEvent) => void;
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.handler = handler;
+      }
+      removeEventListener(): void {}
+      terminate(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.handler?.({ data: { type: 'ready' } } as MessageEvent);
+        } else if (message.type === 'execute') {
+          sent.push(message);
+          this.handler?.({ data: { type: 'done', executionTime: 1, runId: message.runId } } as MessageEvent);
+        }
+      }
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: RecordingWorker, writable: true, configurable: true });
+    const runner = new PythonRunner();
+    await runner.execute('x = 1', { autoLog: 'assignments' });
+    await runner.execute('x = 1', { autoLog: 'cell' });
+    await runner.execute('x = 1', { autoLog: true });
+    await runner.execute('x = 1', {});
+    expect(sent.map(({ autoLog, autoLogMode }) => ({ autoLog, autoLogMode }))).toEqual([
+      { autoLog: true, autoLogMode: 'assignments' },
+      { autoLog: true, autoLogMode: 'cell' },
+      { autoLog: true, autoLogMode: undefined },
+      { autoLog: false, autoLogMode: undefined },
+    ]);
+    runner.stop();
+  });
+
   it('upgrades a magic-comment chart directive to a typed payload', async () => {
     class ChartDirectiveWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();

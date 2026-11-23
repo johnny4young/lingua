@@ -964,8 +964,8 @@ Run regions split a JS / TS / Python tab at `%%` markers
 (`utils/runRegions.ts`: top-level `//` comments found with the magic-comment
 line walker, or `#` at column 0 outside triple-quoted strings). A region run
 threads `region` through the manual run like Record run: `resolveRunPlan`
-drops it under Debug or Record, turns history off and asks for auto-log (which
-the Worker JS / TS runners and Python honor), and
+drops it under Debug or Record, turns history off and asks for auto-log of bare
+expressions (`autoLog: true`, which the Worker JS / TS runners and Python honor), and
 `executeTabManually` hands the runner the tab cut after the region's last line,
 so line numbers and the regions above stay as they are. The run state, the
 console and the result store see a normal run, except that it records no
@@ -1049,12 +1049,14 @@ that would pass the document size limit only because of them writes without them
   captures go on the declaration's line), so a composed line maps back by a
   fixed offset. Console capture reads its caller's line from the stack under the
   worker's `sourceURL`. TypeScript lines map back through esbuild's source map.
-- **Python** — the run sets `autoLog: 'assignments'`: the worker's AST pass
+- **Python** — the run sets `autoLog: 'cell'`: the worker's AST pass
   answers module-level assignments by name (skipping generated `__` names) and
   passes each expression's value to a capture as a plain argument, so an error
   still stops the cell and walrus, await and `dir()` keep module scope.
-  Scratchpad auto-log keeps its lambda capture. Compiled with top-level await
-  allowed.
+  Scratchpad auto-runs set `autoLog: 'assignments'`: the same assignment
+  answers, while expressions keep the lambda capture so one failing expression
+  does not stop the run. An explicit `#=>` or `@watch` capture on a line wins
+  over its assignment answer. Compiled with top-level await allowed.
 - **SQL** — the last statement answers: a query with rows × columns on its first
   line, `CREATE TABLE | VIEW` with the made name and size on its last line
   (columns read from `DESCRIBE` and, for a table without DuckDB's row count,

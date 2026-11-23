@@ -574,6 +574,34 @@ describe('buildCommandPaletteModel', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('exposes Pick a color only while answers replace the inline swatches', () => {
+    const onPickColor = vi.fn();
+    const onClose = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({ id: `tab-${language}`, name: language, language, content: '', isDirty: false }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    expect(buildCommandPaletteModel(baseArgs).find((c) => c.id === 'action-pick-color')).toBeUndefined();
+    const command = buildCommandPaletteModel({ ...baseArgs, onPickColor }).find((c) => c.id === 'action-pick-color');
+    expect(command?.keywords).toContain('color');
+    command?.action();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onPickColor).toHaveBeenCalledOnce();
+  });
+
   it('exposes the project search action only when the opener is wired in', () => {
     const onOpenProjectSearch = vi.fn();
     const baseArgs = {

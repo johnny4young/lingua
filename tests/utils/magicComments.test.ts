@@ -904,6 +904,9 @@ describe('lineTimingRequestedByMagicComment', () => {
 });
 
 describe('detectJSStatementStartLines', () => {
+  it('treats a TypeScript as or satisfies line as the statement above it', () => {
+    expect(detectJSStatementStartLines('const a = value\n  as Shape\nconst b = config\n  satisfies Config')).toEqual([1, 3]);
+  });
   it('marks each top-level statement start, spanning multi-line statements', () => {
     const code = [
       'const a = 1;', // 1 ✓

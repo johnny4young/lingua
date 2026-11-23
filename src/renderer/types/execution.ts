@@ -48,8 +48,8 @@ export interface ExecutionContext {
    * reads the tab's sibling css / html tabs from the editor store.
    */
   tabId?: string;
-  /** Bare top-level expressions become `__mc(line, value)` captures; `'assignments'` (Python notebook cells) adds assignments. */
-  autoLog?: boolean | 'assignments';
+  /** Bare top-level expressions answer; `'assignments'` (Scratchpad auto-run) adds bindings; `'cell'` (Python notebook) also runs expressions as written. */
+  autoLog?: boolean | 'assignments' | 'cell';
   /**
    * per-line timing via the Settings toggle. When
    * `true` the JS / TS runner prefixes every top-level statement with

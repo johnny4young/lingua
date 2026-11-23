@@ -180,10 +180,11 @@ auto-derived — do not edit by hand.
 - **Browser WASM via Pyodide stays Primary.** Works in both shells; avoids
   a Python toolchain requirement on desktop.
 - **Scratchpad auto-log uses CPython's AST in the Pyodide worker.** Only
-  module-level expression statements are wrapped, preserving source lines and
-  leaving declarations, control flow, function bodies, docstrings, and
-  explicit magic captures unchanged. Expression failures become inline error
-  rows without preventing later top-level expressions from being evaluated.
+  module-level statements are instrumented, preserving source lines: auto-runs
+  capture each expression and read each assignment's names back after it runs,
+  leaving control flow, function bodies, docstrings, and explicit magic
+  captures unchanged. Expression failures become inline error rows without
+  preventing later top-level expressions from being evaluated.
 - **Desktop-native CPython remains a research target**, only interesting if
   users demand arbitrary `pip install` beyond `micropip`. This pairs with
   native dependency management and should not begin before that work moves.

@@ -9,10 +9,9 @@ import type {
 import {
   transformJSMagicComments,
   detectJSMagicComments,
-  detectJSAutoLogLines,
+  applyJSAutoLog,
   detectJSStatementStartLines,
   lineTimingRequestedByMagicComment,
-  transformJSAutoLog,
   transformJSLineTiming,
 } from '../utils/magicComments';
 import { buildMagicLineMaps, markAutoLogLines } from './magicLineMap';
@@ -189,13 +188,11 @@ export class TypeScriptRunner implements LanguageRunner {
     // annotations downstream while preserving `__mc(line, …)` calls
     // verbatim, which carry the original line number.
     let codeForTranspile = magicTransformed;
-    if (context?.autoLog === true && !debug) {
+    if (context?.autoLog && !debug) {
       const magicLines = new Set<number>(magicEntries.map((entry) => entry.line));
-      const autoLogLines = detectJSAutoLogLines(processedCode, magicLines);
-      if (autoLogLines.length > 0) {
-        codeForTranspile = transformJSAutoLog(magicTransformed, autoLogLines, recordMap);
-        markAutoLogLines(magicKindByLine, autoLogLines);
-      }
+      const autoLog = applyJSAutoLog(processedCode, magicTransformed, magicLines, context.autoLog, recordMap);
+      codeForTranspile = autoLog.code;
+      markAutoLogLines(magicKindByLine, autoLog.lines);
     }
 
     // Timing markers BEFORE transpile, mirroring the

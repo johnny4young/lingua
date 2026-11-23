@@ -835,7 +835,7 @@ export async function runNotebookCell(
       const result = await runnerManager.execute('python', request.source, {
         language: 'python',
         // Every module-level expression and assignment answers on its line.
-        autoLog: 'assignments',
+        autoLog: 'cell',
         // Run this cell against the notebook's persistent Python
         // kernel scope (keyed by tabId) so cells in this notebook share
         // state, isolated from the editor scratchpad + other notebooks.

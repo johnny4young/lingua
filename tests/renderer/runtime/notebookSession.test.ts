@@ -1260,7 +1260,7 @@ describe('per-line answers', () => {
       source: "print('ready')\ntickets = [151.2, 146.9, 130.86]\navg: float = mean(tickets)",
     });
     if (!result.ok) throw new Error('rejected');
-    expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({ autoLog: 'assignments' });
+    expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({ autoLog: 'cell' });
     expect(result.outcome.answers).toEqual([
       { line: 1, kind: 'output', text: 'ready' },
       { line: 2, kind: 'value', text: '[151.2, 146.9, 130.86]', type: 'list', size: 3 },
