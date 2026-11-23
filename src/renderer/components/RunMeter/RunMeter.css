@@ -368,3 +368,17 @@ button.run-meter-bar:focus-visible {
 @media (prefers-reduced-transparency: reduce) {
   .run-meter { background: var(--color-bg-panel); }
 }
+
+/* BottomPanel sets data-compact at DOCK_COMPACT_MAX_WIDTH: tabs read as glyphs, their labels screen-reader only. */
+.dock-shell[data-compact] .dock-tab { gap: 4px; padding-inline: 9px; }
+.dock-shell[data-compact] .dock-tab > svg { display: block; }
+.dock-shell[data-compact] .console-toolbar { padding-inline: 8px; }
+.dock-shell[data-compact] .console-level > button { padding-inline: 6px; }
+.dock-shell[data-compact] .console-types-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

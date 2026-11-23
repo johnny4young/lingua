@@ -31,7 +31,7 @@ export function ConsoleLevelSegment({
     <div
       role="group"
       aria-label={t('console.level.label')}
-      className="flex overflow-hidden rounded-md border border-border-subtle text-[11.5px]"
+      className="console-level flex overflow-hidden rounded-md border border-border-subtle text-[11.5px]"
     >
       {LEVELS.map(option => (
         <button
@@ -83,7 +83,7 @@ export function ConsoleSearch({
           placeholder={t('console.search.placeholder')}
           aria-label={t('console.search.placeholder')}
           data-testid="console-search-input"
-          className="focus-ring h-6 w-44 rounded-md border border-border-subtle bg-transparent px-2 text-[11.5px] text-foreground placeholder:text-fg-subtle"
+          className="focus-ring h-6 w-44 min-w-0 shrink rounded-md border border-border-subtle bg-transparent px-2 text-[11.5px] text-foreground placeholder:text-fg-subtle"
         />
       ) : null}
       <IconButton

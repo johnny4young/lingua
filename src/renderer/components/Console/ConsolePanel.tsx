@@ -537,8 +537,8 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
     <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
       {/* Toolbar only: the dock tab above names the panel and carries the
           count, and its hide button carries the shortcut. */}
-      <div className="flex min-h-9 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
-        <div className="ml-auto flex items-center gap-1.5">
+      <div className="console-toolbar flex min-h-9 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 py-1">
           <ConsoleLevelSegment entries={entries} level={level} onSelect={setLevel} />
           <ConsoleSearch query={query} onQueryChange={setQuery} />
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
@@ -565,7 +565,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
                 }`}
               >
                 <ListFilter size={14} aria-hidden />
-                {t('console.rich.payloadKinds.label')}
+                <span className="console-types-label">{t('console.rich.payloadKinds.label')}</span>
                 {hiddenPayloadKinds.size > 0 ? (
                   <span className="opacity-70">{hiddenPayloadKinds.size}</span>
                 ) : null}

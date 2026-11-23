@@ -40,6 +40,7 @@ import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
 import { openEditSelectionForEditor } from '../../stores/aiEditSelectionStore';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
+import { useCompactGutter } from './useCompactGutter';
 import { defineCustomThemes } from './editorThemes';
 import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
@@ -122,6 +123,7 @@ export function CodeEditor() {
   );
 
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
+  const compactGutter = useCompactGutter(editorInstance);
   // Stable options object: @monaco-editor/react diffs `options` by
   // identity and calls `editor.updateOptions` (a relayout) whenever it
   // changes, so it must only change when one of its inputs does.
@@ -135,8 +137,9 @@ export function CodeEditor() {
         fontLigatures: effectiveFontLigatures,
         wordWrap,
         minimap,
+        compactGutter,
       }),
-    [presenterActive, fontSize, fontFamily, effectiveFontLigatures, wordWrap, minimap]
+    [presenterActive, fontSize, fontFamily, effectiveFontLigatures, wordWrap, minimap, compactGutter]
   );
 
   const activeTab = useActiveTab();

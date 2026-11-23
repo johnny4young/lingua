@@ -6,41 +6,19 @@
  * everywhere" without forcing them to look at Settings.
  *
  * Mirrors the visual language of
- * `<AutoRunGateNotice>` so the row stays scannable. Reads the per-tab
- * override layered on top of the per-language Settings
- * default — the same resolution `useAutoRun.ts` uses.
+ * `<AutoRunGateNotice>` so the row stays scannable.
  */
 
 import { MoveRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useActiveTab } from '../../hooks/useActiveTab';
-import { useSettingsStore } from '../../stores/settingsStore';
-import { defaultWorkflowMode } from '../../../shared/workflowMode';
-import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { StatusBadge } from '../ui/StatusBadge';
+import { useAutoLogLanguage } from './dockNotices';
 
 export function AutoLogStatusPill() {
   const { t } = useTranslation();
-  const activeTab = useActiveTab();
-  const scratchpadAutoLogByLanguage = useSettingsStore(
-    (state) => state.scratchpadAutoLogByLanguage
-  );
+  const languageLabel = useAutoLogLanguage();
+  if (languageLabel === null) return null;
 
-  if (!activeTab) return null;
-  const language = activeTab.language;
-  if (!isWorkerRunnerLanguage(language)) return null;
-
-  const workflowMode =
-    activeTab.workflowMode ?? defaultWorkflowMode(language);
-  if (workflowMode !== 'scratchpad') return null;
-
-  const enabled =
-    activeTab.autoLogEnabled === undefined
-      ? scratchpadAutoLogByLanguage[language] === true
-      : activeTab.autoLogEnabled === true;
-  if (!enabled) return null;
-
-  const languageLabel = t(`workflowMode.languageLabel.${language}`);
   // UI refinement — the file extension already says JS/TS; the pill
   // only needs to communicate "auto-log is on". Drop the language
   // tag from the visible label; keep it in the tooltip so screen

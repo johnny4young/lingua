@@ -34,6 +34,7 @@ import {
   type RunCapsuleV1,
 } from '../../shared/runCapsule';
 import { trackEvent } from './telemetry';
+import { pushSuccessNotice, pushWarningNotice } from './statusNotice';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 import { getLanguagePackById } from '../../shared/languagePacks';
 
@@ -116,4 +117,12 @@ export async function exportCapsuleToClipboard(
   } catch {
     return { ok: false, reason: 'clipboard-rejected', json };
   }
+}
+
+/** The results-dock export: copy the capsule and report the outcome as a status notice; true when it was copied. */
+export async function exportCapsuleWithNotice(capsule: RunCapsuleV1): Promise<boolean> {
+  const result = await exportCapsuleToClipboard(capsule, 'result-panel-export');
+  if (result.ok) pushSuccessNotice('settings.account.runCapsules.copiedNotice');
+  else pushWarningNotice('results.actions.exportCapsule.clipboardUnavailable');
+  return result.ok;
 }

@@ -5,7 +5,11 @@ import { initI18n } from '@/i18n';
 import { AutoLogStatusPill } from '@/components/Editor/AutoLogStatusPill';
 
 const { activeTabMock } = vi.hoisted(() => ({ activeTabMock: vi.fn() }));
-vi.mock('@/hooks/useActiveTab', () => ({ useActiveTab: () => activeTabMock() }));
+vi.mock('@/stores/editorStore', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/stores/editorStore')>()),
+  useEditorStore: (selector: (state: unknown) => unknown) => selector({}),
+  getActiveTab: () => activeTabMock(),
+}));
 
 describe('AutoLogStatusPill', () => {
   beforeEach(async () => {

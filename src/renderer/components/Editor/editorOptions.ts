@@ -1,4 +1,5 @@
 import { editorFontVariations } from '../../utils/editorFontVariations';
+import type { editor } from 'monaco-editor';
 import { PULSE_RAIL_WIDTH } from '../../utils/pulseRail';
 
 interface EditorOptionInput {
@@ -12,7 +13,12 @@ interface EditorOptionInput {
   fontLigatures: boolean;
   wordWrap: boolean;
   minimap: boolean;
+  /** Narrow editors drop the glyph margin and folding so the code keeps the width; the run rail stays. */
+  compactGutter?: boolean;
 }
+
+/** Editor width, in px, under which the gutter goes compact. */
+export const COMPACT_GUTTER_MAX_WIDTH = 480;
 
 /**
  * Shared option builder for the
@@ -64,13 +70,19 @@ export function getEditorOptions({
   fontLigatures,
   wordWrap,
   minimap,
+  compactGutter = false,
 }: EditorOptionInput) {
   return {
     fontSize,
     fontFamily,
     fontVariations: editorFontVariations(fontFamily),
     fontLigatures,
-    glyphMargin: true,
+    glyphMargin: !compactGutter,
+    folding: !compactGutter,
+    // Without the glyph margin the lightbulb would sit on the code.
+    lightbulb: { enabled: (compactGutter ? 'off' : 'onCode') as editor.ShowLightbulbIconMode },
+    // Monaco's default is 5.
+    lineNumbersMinChars: compactGutter ? 3 : 5,
     // Monaco's default 10 px, plus the run rail beside the code.
     lineDecorationsWidth: 10 + PULSE_RAIL_WIDTH,
     // Line numbers are baseline editor primitive; always on.

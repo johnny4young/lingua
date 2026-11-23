@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { MAX_SQL_FOLDER_LENGTH } from '../../../shared/sqlWorkspace';
-import { useFloatingPosition } from './useFloatingPosition';
+import { useFloatingPosition } from '../../hooks/useFloatingPosition';
 
 const NEW_FOLDER = '\u0000new';
 const FIELD =

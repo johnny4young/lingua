@@ -11,7 +11,7 @@ interface RunCapsuleExportButtonModule {
 
 type CapsuleExporterModule = Pick<
   typeof import('../../utils/exportCapsule'),
-  'exportCapsuleToClipboard'
+  'exportCapsuleToClipboard' | 'exportCapsuleWithNotice'
 >;
 
 let buttonPromise: Promise<RunCapsuleExportButtonModule> | null = null;
