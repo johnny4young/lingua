@@ -29,6 +29,10 @@ describe('useCompactGutter', () => {
     expect(result.current).toBe(true);
     act(() => editor.resize(480));
     expect(result.current).toBe(false);
+    // A hidden editor lays out at 0 and keeps its last answer.
+    act(() => editor.resize(375));
+    act(() => editor.resize(0));
+    expect(result.current).toBe(true);
 
     unmount();
     expect(editor.listenerCount()).toBe(0);

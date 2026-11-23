@@ -330,10 +330,12 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                 const Icon = meta.icon;
                 const selected = shown(id);
                 const count = counts[id] ?? 0;
+                const hint = t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues);
                 return (
                   <Tooltip
                     key={id}
-                    content={t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues)}
+                    // Compact tabs show only their glyph, so the tooltip names them.
+                    content={compact ? `${t(meta.labelKey)} · ${hint}` : hint}
                     side="top"
                   >
                     <button

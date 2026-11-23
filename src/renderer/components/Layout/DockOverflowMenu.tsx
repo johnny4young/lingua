@@ -51,6 +51,11 @@ export function DockOverflowMenu() {
       id: 'export-capsule',
       icon: <Package size={ICON_GLYPH.md} />,
       label: t('results.actions.exportCapsule.aria'),
+      title: t(
+        Array.isArray(capsule.result.richOutputs) && capsule.result.richOutputs.length > 0
+          ? 'results.actions.exportCapsule.proBadge'
+          : 'results.actions.exportCapsule.tooltip'
+      ),
       run: () => {
         loadCapsuleExporter()
           .then(module => module.exportCapsuleWithNotice(capsule))
@@ -69,8 +74,24 @@ export function DockOverflowMenu() {
       run: () => emitCommand('share.trigger', { trigger: 'button' }),
     });
   }
-  // Unmounting the menu with its last row drops its open state.
-  return rows.length > 0 ? <OverflowMenu rows={rows} /> : null;
+  if (rows.length === 0) return null;
+  return (
+    <>
+      {/* Unmounting the menu with its last row drops its open state. */}
+      <OverflowMenu rows={rows} />
+      {gate ? (
+        <span
+          role="status"
+          aria-live="polite"
+          data-testid="auto-run-gate-notice"
+          data-gate-variant={gate.variant}
+          className="sr-only"
+        >
+          {gate.title}
+        </span>
+      ) : null}
+    </>
+  );
 }
 
 function OverflowMenu({ rows }: { rows: Row[] }) {
@@ -82,7 +103,7 @@ function OverflowMenu({ rows }: { rows: Row[] }) {
   const position = useFloatingPosition(triggerRef, open, 'below');
   // A hidden menu cannot take focus, so keyboard handling starts once it is placed.
   useMenuKeyboard(open && position.visibility !== 'hidden', menuRef);
-  const gate = rows.find(row => row.id === 'gate')?.label ?? null;
+  const gated = rows.some(row => row.id === 'gate');
 
   useEffect(() => {
     if (!open) return;
@@ -99,8 +120,9 @@ function OverflowMenu({ rows }: { rows: Row[] }) {
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
-      triggerRef.current?.focus();
     }
+    // Tab continues from the trigger; the portaled menu sits at the end of the page.
+    triggerRef.current?.focus();
     setOpen(false);
   };
 
@@ -117,15 +139,10 @@ function OverflowMenu({ rows }: { rows: Row[] }) {
         className="relative"
       >
         <MoreHorizontal size={ICON_GLYPH.md} />
-        {gate ? (
+        {gated ? (
           <span aria-hidden="true" className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-warning" />
         ) : null}
       </IconButton>
-      {gate ? (
-        <span role="status" aria-live="polite" data-testid="auto-run-gate-notice" className="sr-only">
-          {gate}
-        </span>
-      ) : null}
       {open
         ? createPortal(
             <div

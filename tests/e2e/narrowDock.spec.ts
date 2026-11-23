@@ -108,6 +108,9 @@ for (const palette of ['ink', 'paper'] as const) {
     await expect(page.getByRole('tab', { name: /^Console/ })).toBeVisible();
     await expect(page.getByTestId('results-dock')).toHaveAttribute('data-compact', 'true');
     await expect(page.getByTestId('bottom-panel-console-tab').locator('.sr-only')).toHaveCount(1);
+    await page.getByTestId('bottom-panel-stdin-tab').hover();
+    await expect(page.getByRole('tooltip')).toContainText(/^Input · /);
+    await page.mouse.move(0, 0);
 
     // Share leaves the row for the overflow menu.
     await expect(page.getByTestId('result-panel-share-link')).toHaveCount(0);

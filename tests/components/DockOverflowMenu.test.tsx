@@ -46,6 +46,7 @@ describe('DockOverflowMenu', () => {
   it('lists the notices as inert rows and runs share and export from the menu', async () => {
     render(<DockOverflowMenu />);
     expect(screen.getByRole('status').textContent).toBe('Live updates paused');
+    expect(screen.getByRole('status').getAttribute('data-gate-variant')).toBe('default');
 
     const trigger = screen.getByRole('button', { name: 'More dock actions' });
     fireEvent.click(trigger);
@@ -60,6 +61,7 @@ describe('DockOverflowMenu', () => {
     expect(items[1]?.getAttribute('aria-disabled')).toBe('true');
     expect(items[1]?.getAttribute('role')).toBe('menuitemcheckbox');
     expect(items[1]?.getAttribute('aria-checked')).toBe('true');
+    expect(items[2]?.getAttribute('title')).toBe('Export this run as a JSON capsule');
     // Focus starts on the checked row, as in every app menu.
     expect(document.activeElement).toBe(items[1]);
 
@@ -87,6 +89,15 @@ describe('DockOverflowMenu', () => {
     const trigger = screen.getByRole('button', { name: 'More dock actions' });
     fireEvent.click(trigger);
     fireEvent.keyDown(screen.getAllByRole('menuitem')[0]!, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('hands focus back to its trigger on Tab, so Tab continues from there', () => {
+    render(<DockOverflowMenu />);
+    const trigger = screen.getByRole('button', { name: 'More dock actions' });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getAllByRole('menuitem')[0]!, { key: 'Tab' });
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });

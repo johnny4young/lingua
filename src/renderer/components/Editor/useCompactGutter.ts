@@ -9,7 +9,10 @@ export function useCompactGutter(editor: Parameters<OnMount>[0] | null): boolean
   useLayoutEffect(() => {
     if (!editor) return;
     // Layout width is the whole editor, so toggling the gutter never flips it back.
-    const update = (width: number) => setCompact(width > 0 && width < COMPACT_GUTTER_MAX_WIDTH);
+    // A hidden editor lays out at 0; keep the last answer so it does not relayout twice on reshow.
+    const update = (width: number) => {
+      if (width > 0) setCompact(width < COMPACT_GUTTER_MAX_WIDTH);
+    };
     update(editor.getLayoutInfo().width);
     const listener = editor.onDidLayoutChange(info => update(info.width));
     return () => listener.dispose();
