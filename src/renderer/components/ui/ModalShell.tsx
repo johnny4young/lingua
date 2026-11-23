@@ -152,7 +152,7 @@ export type ModalShellProps = ModalShellBaseProps & ModalShellCloseProps;
 function DefaultFooterLegend() {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-[14px]">
+    <div className="flex flex-wrap items-center gap-[14px]">
       <span className="flex items-center gap-[6px] text-caption text-fg-subtle">
         <Kbd>↑↓</Kbd>
         {t('modal.legend.navigate')}
@@ -346,9 +346,9 @@ export function ModalShell({
 
         {/* FOOTER */}
         {footer ? (
-          <div className="flex items-center justify-between border-t border-border-subtle bg-bg-inset px-[18px] py-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border-subtle bg-bg-inset px-[18px] py-[11px]">
             {footerLegend ?? <DefaultFooterLegend />}
-            {trailing ? <span className="shrink-0">{trailing}</span> : null}
+            {trailing ? <span className="ml-auto shrink-0">{trailing}</span> : null}
           </div>
         ) : null}
       </div>

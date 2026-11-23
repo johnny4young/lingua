@@ -54,7 +54,7 @@ export function ModalFooterLegend({
   const { t } = useTranslation();
 
   return (
-    <div className={className ?? 'flex items-center gap-[14px]'}>
+    <div className={className ?? 'flex flex-wrap items-center gap-[14px]'}>
       {navigate ? <LegendPair glyph={GLYPH_ARROWS} label={t('modal.legend.navigate')} /> : null}
       {select ? <LegendPair glyph={GLYPH_RETURN} label={t('modal.legend.select')} /> : null}
       {open ? <LegendPair glyph={GLYPH_RETURN} label={t('modal.legend.open')} /> : null}

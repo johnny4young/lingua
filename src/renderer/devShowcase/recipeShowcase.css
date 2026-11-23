@@ -1,0 +1,64 @@
+/* Lazy with the showcase chunk, so its layout never grows the boot stylesheet. */
+@layer components {
+  .recipe-showcase {
+    min-height: 100vh;
+    padding: 64px;
+  }
+
+  .recipe-showcase-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 64px;
+  }
+
+  .recipe-showcase-grid { align-items: start; }
+
+  .recipe-showcase-cell { padding: 20px; }
+
+  .recipe-showcase-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 6px;
+  }
+
+  .recipe-showcase-swatch {
+    display: flex;
+    min-height: 48px;
+    flex-direction: column;
+    justify-content: flex-end;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+
+  .recipe-showcase-modal { height: 320px; }
+
+  .recipe-showcase-headers > :last-child { border-bottom: 0; }
+
+  /* A narrow cell moves the answer under its line instead of clipping either. */
+  .recipe-showcase-markers > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 4px;
+  }
+
+  .recipe-showcase-leaders .leader-row-label { white-space: normal; }
+
+  @media (max-width: 639px) {
+    .recipe-showcase { padding: 32px 16px; }
+    .recipe-showcase-header { margin-bottom: 32px; }
+    .recipe-showcase-cell { padding: 16px; }
+    .recipe-showcase-modal { height: 420px; }
+  }
+}
+
+/* Unlayered to beat the scrim's viewport offset utility, which would push the footer rail out of the box. */
+.recipe-showcase-modal > [data-scrim] { padding-top: 24px; }

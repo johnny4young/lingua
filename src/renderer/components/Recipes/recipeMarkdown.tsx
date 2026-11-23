@@ -160,14 +160,14 @@ function renderInline(text: string): ReactNode {
   return parts;
 }
 
-interface InlineMarker {
+interface InlineSpan {
   kind: 'code' | 'bold';
   index: number;
   end: number;
   body: string;
 }
 
-function findNextMarker(text: string, start: number): InlineMarker | null {
+function findNextMarker(text: string, start: number): InlineSpan | null {
   const codeIdx = text.indexOf('`', start);
   const boldIdx = text.indexOf('**', start);
   const pickCode =
