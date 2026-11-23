@@ -111,6 +111,8 @@
   /* Pulse is a fill under dark text on both grounds; text and lines use -fg. */
   --color-pulse: #00bfdf;
   --color-pulse-on: #041014;
+  /* On :root alone, so a nested .light never resets the Recursive override. */
+  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --font-code-axes: normal;
 }
 
@@ -118,7 +120,6 @@
 .light {
   --font-ui: 'Recursive', 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-display-stack: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
-  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --color-pulse-fg: var(--color-paper-pulse-fg);
   --color-value-number: var(--color-paper-value-number);

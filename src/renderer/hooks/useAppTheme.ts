@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { identityPaletteFor, isDarkEditorTheme } from '../utils/editorThemeCatalog';
 import { useSettingsStore } from '../stores/settingsStore';
 import { applyAppTheme, systemEditorTheme } from '../utils/appTheme';
@@ -34,7 +34,8 @@ export function useAppTheme() {
   const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme);
   const palette = identityPaletteFor(editorTheme);
 
-  useEffect(() => {
+  // Before paint, so code text never shows a frame in the other face.
+  useLayoutEffect(() => {
     applyAppTheme(effectiveTheme, document, palette, recursiveCode);
   }, [effectiveTheme, palette, recursiveCode]);
 

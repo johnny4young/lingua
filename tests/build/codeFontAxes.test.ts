@@ -5,7 +5,9 @@ import { readCssBlock, resolveToken } from '../__fixtures__/colorContrast';
 
 const rendererDir = path.join(process.cwd(), 'src/renderer');
 const read = (file: string) => readFileSync(path.join(rendererDir, file), 'utf8');
-const cssFiles = readdirSync(rendererDir, { recursive: true, encoding: 'utf8' }).filter((file) => file.endsWith('.css'));
+const rendererFiles = readdirSync(rendererDir, { recursive: true, encoding: 'utf8' });
+const cssFiles = rendererFiles.filter((file) => file.endsWith('.css'));
+const tsxFiles = rendererFiles.filter((file) => file.endsWith('.tsx'));
 const indexCss = read('index.css');
 
 /** Every `selector { … }` block without nested braces, with its selector text. */
@@ -17,7 +19,8 @@ function ruleBlocks(css: string): Array<{ selector: string; body: string }> {
   }));
 }
 
-const rootTokens = new Map([...readCssBlock(indexCss, /^:root\s*\{/m), ...readCssBlock(indexCss, /:root,\s*\n\.light\s*\{/)]);
+const lightTokens = readCssBlock(indexCss, /:root,\s*\n\.light\s*\{/);
+const rootTokens = new Map([...readCssBlock(indexCss, /^:root\s*\{/m), ...lightTokens]);
 const recursiveTokens = readCssBlock(indexCss, /^\[data-palette\]\[data-code-font='recursive'\]\s*\{/m);
 
 describe('code face for values and the console', () => {
@@ -26,6 +29,8 @@ describe('code face for values and the console', () => {
     expect(resolveToken('--font-code-axes', recursiveTokens, rootTokens)).toBe("'MONO' 1");
     expect(resolveToken('--font-code', rootTokens)).toMatch(/^'JetBrains Mono'/u);
     expect(resolveToken('--font-code-axes', rootTokens)).toBe('normal');
+    // A nested .light (theme swatches) must not reset the override back to JetBrains Mono.
+    expect(lightTokens.has('--font-code')).toBe(false);
   });
 
   it('routes the Tailwind mono and sans utilities through the same axes', () => {
@@ -47,6 +52,11 @@ describe('code face for values and the console', () => {
         if (axes !== expected) offenders.push(`${file} ${selector}`);
       }
     }
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps inline code-face styles off components, which would skip the MONO axes', () => {
+    const offenders = tsxFiles.filter((file) => /fontFamily:\s*['"`]var\(--font-(code|mono)\)/u.test(read(file)));
     expect(offenders).toEqual([]);
   });
 });
