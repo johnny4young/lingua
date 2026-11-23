@@ -688,7 +688,7 @@ export const en = {
     assets: {
       title: 'Brand assets',
       usage:
-        'Always lower case and italic, with the dot in pulse #00BFDF. Set it on Ink, white, or pulse, with half an x-height of clear space on every side.',
+        'Always lower case and italic, with the dot in pulse #00BFDF. Set it on Ink or white, or the one-color version on pulse, with half an x-height of clear space on every side.',
       files: {
         'wordmark.svg': 'Wordmark for light grounds (SVG)',
         'wordmark-inverse.svg': 'Wordmark for Ink grounds (SVG)',

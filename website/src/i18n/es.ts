@@ -690,7 +690,7 @@ export const es = {
     assets: {
       title: 'Assets de marca',
       usage:
-        'Siempre en minúscula e itálica, con el punto en pulso #00BFDF. Úsalo sobre Ink, blanco o pulso, con media altura x de espacio libre en cada lado.',
+        'Siempre en minúscula e itálica, con el punto en pulso #00BFDF. Úsalo sobre Ink o blanco, o la versión de un color sobre pulso, con media altura x de espacio libre en cada lado.',
       files: {
         'wordmark.svg': 'Wordmark para fondos claros (SVG)',
         'wordmark-inverse.svg': 'Wordmark para fondos Ink (SVG)',

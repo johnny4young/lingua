@@ -142,6 +142,7 @@ describe('brand assets', () => {
     expect(letters(site)).toBe(letters(text('assets/brand/wordmark.svg')));
     expect(site).toContain('fill="currentColor"');
     expect(site).toContain('fill="#00BFDF"');
+    expect(site).not.toContain('<title>');
     // BrandLink sizes the SVG and its clear space from these em ratios.
     const { bounds, xHeight } = wordmarkGeometry();
     const brandLink = text('website/src/components/BrandLink.astro');

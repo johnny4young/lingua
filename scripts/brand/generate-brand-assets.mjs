@@ -174,15 +174,14 @@ export function wordmarkGeometry() {
 }
 
 /** Outlined wordmark, viewBox tight to the letterforms; clear space is documented, not baked in. */
-export function wordmarkSvg({ letters, dot }) {
+export function wordmarkSvg({ letters, dot, title = true }) {
   const { d, dot: geometry, bounds } = wordmarkGeometry();
   const x = round(bounds.minX);
   const y = round(bounds.minY);
   const width = round(bounds.maxX - bounds.minX);
   const height = round(bounds.maxY - bounds.minY);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${width} ${height}" width="${Math.round(width * 2)}" height="${Math.round(height * 2)}">
-  <title>lingua</title>
-  <path d="${d}" fill="${letters}"/>
+${title ? '  <title>lingua</title>\n' : ''}  <path d="${d}" fill="${letters}"/>
   ${circle(geometry.cx, geometry.cy, geometry.r, dot)}
 </svg>
 `;
@@ -203,8 +202,8 @@ export function svgOutputs() {
     'public/favicon.svg': favicon,
     'website/public/favicon.svg': favicon,
     'website/scripts/og-wordmark.svg': brand['wordmark-inverse.svg'],
-    // The site header and footer follow the site theme: letters take the text colour.
-    'website/src/assets/brand/wordmark.svg': wordmarkSvg({ letters: 'currentColor', dot: BRAND.pulse }),
+    // Header and footer: letters follow the site theme; the link's label names it, so no title tooltip.
+    'website/src/assets/brand/wordmark.svg': wordmarkSvg({ letters: 'currentColor', dot: BRAND.pulse, title: false }),
     ...copies('website/public/press'),
   };
 }

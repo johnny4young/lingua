@@ -15,9 +15,11 @@ Logo files (outlined, no font needed):
 - icon.png              app icon, 1024 px
 
 The wordmark is always lower case and italic, with the dot in pulse #00BFDF.
-Set it on Ink, white, or pulse, with half an x-height of clear space on every
-side. Don't recolor the dot except in one-color use, stretch the logo, or
-set it on a busy ground.
+Set it on Ink or white, or the one-color version on pulse, with half an
+x-height of clear space on every side. Don't recolor the dot except in
+one-color use, stretch the logo, or set it on a busy ground. The one-color
+files fill with currentColor, which most tools show as black; recolor them as
+a whole.
 
 Use the descriptions verbatim or trim to fit. Please don't describe Lingua as
 "open source" — the LICENSE is source-available, which is a legally distinct
