@@ -6,6 +6,7 @@
     flex-direction: column;
     padding: 10px 16px 0 18px;
     font-family: var(--font-ui);
+    font-variation-settings: normal;
   }
 
   .run-trace-head {
@@ -58,6 +59,7 @@
 
   .run-trace-tick {
     font-family: var(--font-mono);
+    font-variation-settings: var(--font-code-axes);
     font-size: 9.5px;
     fill: var(--color-fg-subtle);
   }
@@ -161,6 +163,7 @@
     font-variant-ligatures: none;
     text-overflow: ellipsis;
     font-family: var(--font-mono);
+    font-variation-settings: var(--font-code-axes);
     color: var(--color-fg-base);
   }
 }

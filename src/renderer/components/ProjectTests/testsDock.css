@@ -91,7 +91,7 @@
 @container dock (max-width: 560px) {
   .tests-meter-runs { display: none; }
   .tests-meter-numeral .result-numeral-value { font-size: 19px; line-height: 1; }
-  .tests-meter-numeral .result-numeral-unit { font-family: var(--font-ui); font-size: 12.5px; }
+  .tests-meter-numeral .result-numeral-unit { font-family: var(--font-ui); font-variation-settings: normal; font-size: 12.5px; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

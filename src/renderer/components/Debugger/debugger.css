@@ -95,6 +95,7 @@
     gap: 10px;
     border-top: 1px solid var(--color-border-subtle);
     font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
     font-size: 12.5px;
     white-space: nowrap;
     color: var(--color-fg-base);
@@ -145,6 +146,7 @@
 
   .debugger-muted {
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 12px;
     white-space: normal;
     color: var(--color-fg-muted);
@@ -159,6 +161,7 @@
   .debugger-footnote {
     margin-top: 6px;
     font-family: var(--font-ui);
+    font-variation-settings: normal;
     font-size: 11px;
     line-height: 1.45;
     white-space: normal;
@@ -204,6 +207,7 @@
     border-radius: 4px;
     background: transparent;
     font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
     font-size: 12.5px;
     font-style: italic;
     color: var(--color-fg-base);

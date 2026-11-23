@@ -32,6 +32,7 @@
   gap: 6px;
   overflow: hidden;
   font-family: var(--font-ui);
+  font-variation-settings: normal;
   font-size: 10px;
   font-weight: 560;
   letter-spacing: 0.09em;
@@ -163,6 +164,7 @@ button.run-meter-bar:focus-visible {
 
 .run-meter-bar-number {
   font-family: var(--font-ui);
+  font-variation-settings: normal;
   font-size: 9.5px;
   line-height: 1;
   text-align: center;
@@ -275,6 +277,7 @@ button.run-meter-bar:focus-visible {
   padding: 0 10px;
   border-radius: 6px;
   font-family: var(--font-code);
+  font-variation-settings: var(--font-code-axes);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -288,6 +291,7 @@ button.run-meter-bar:focus-visible {
 .run-meter-stack-more {
   height: 20px;
   font-family: var(--font-ui);
+  font-variation-settings: normal;
   font-size: 11px;
   color: var(--color-fg-subtle);
 }
@@ -339,7 +343,7 @@ button.run-meter-bar:focus-visible {
   .run-meter-numeral { flex: none; align-items: center; }
   .run-meter-numeral .result-numeral { gap: 4px; }
   .run-meter-numeral .result-numeral-value { font-size: 19px; line-height: 1; }
-  .run-meter-numeral .result-numeral-unit { font-family: var(--font-ui); font-size: 12.5px; }
+  .run-meter-numeral .result-numeral-unit { font-family: var(--font-ui); font-variation-settings: normal; font-size: 12.5px; }
   .run-meter-bars { display: none; }
   .run-meter-stack,
   .run-meter-where { display: none; }

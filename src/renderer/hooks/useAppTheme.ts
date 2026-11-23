@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { identityPaletteFor, isDarkEditorTheme } from '../utils/editorThemeCatalog';
 import { useSettingsStore } from '../stores/settingsStore';
 import { applyAppTheme, systemEditorTheme } from '../utils/appTheme';
+import { isRecursiveFontFamily } from '../utils/editorFontVariations';
 import type { ThemePreference } from '../types/settings';
 
 /**
@@ -28,13 +29,14 @@ export function resolveEffectiveShellTheme(
 export function useAppTheme() {
   const theme = useSettingsStore((state) => state.theme);
   const editorTheme = useSettingsStore((state) => state.editorTheme);
+  const recursiveCode = useSettingsStore((state) => isRecursiveFontFamily(state.fontFamily));
 
   const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme);
   const palette = identityPaletteFor(editorTheme);
 
   useEffect(() => {
-    applyAppTheme(effectiveTheme, document, palette);
-  }, [effectiveTheme, palette]);
+    applyAppTheme(effectiveTheme, document, palette, recursiveCode);
+  }, [effectiveTheme, palette, recursiveCode]);
 
   // System keeps the Lingua editor theme in step with the OS preference.
   useEffect(() => {

@@ -622,7 +622,7 @@ function TabLanguageChip({
   return (
     <span
       data-testid="editor-tab-lang-chip"
-      className="shrink-0 rounded-sm font-bold leading-none"
+      className="shrink-0 rounded-sm font-mono font-bold leading-none"
       style={{
         minWidth: size === 'menu' ? 24 : 21,
         height: size === 'menu' ? 22 : 17,
@@ -630,7 +630,6 @@ function TabLanguageChip({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: 'var(--font-mono)',
         fontSize: size === 'menu' ? 9.5 : 9,
         letterSpacing: '0.04em',
         background: tone.background,
