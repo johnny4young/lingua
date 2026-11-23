@@ -196,6 +196,55 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().isAutoRunning).toBe(false);
   });
 
+  it('runs again when an edit undone before the debounce aborted the run in flight', async () => {
+    let settle: (value: unknown) => void = () => {};
+    const execute = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise(resolve => (settle = resolve)))
+      .mockResolvedValue({ stdout: [], stderr: [], result: undefined, executionTime: 5, error: null });
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({ runner: { execute }, initialized: false } as never);
+    const tab = { id: 'tab-js', name: 'a.js', language: 'javascript' as const, content: 'const a = 1;', isDirty: false, workflowMode: 'scratchpad' as const };
+    useEditorStore.setState({ tabs: [tab], activeTabId: 'tab-js' });
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    act(() => useEditorStore.setState({ tabs: [{ ...tab, content: 'const a = 1;x' }] }));
+    act(() => useEditorStore.setState({ tabs: [tab] }));
+    await act(async () => {
+      settle({ stdout: [], stderr: [], result: undefined, executionTime: 5, error: null });
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS);
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+  });
+
+  it('drops the answers it kept once the run settles', async () => {
+    mockSuccessfulRunner();
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-js', name: 'a.js', language: 'javascript', content: 'const a = 2;', isDirty: false, workflowMode: 'scratchpad' }],
+      activeTabId: 'tab-js',
+    });
+    renderHook(() => useAutoRun());
+    act(() =>
+      useResultStore.setState({
+        lineResults: [{ line: 1, type: 'autoLog', value: '1' }],
+        ranCode: { tabId: 'tab-js', code: 'const a = 1;', input: '', at: 0 },
+        tabRuns: { 'tab-js': { count: 1, runs: [] } },
+      })
+    );
+    const kept: unknown[] = [];
+    const unsubscribe = useResultStore.subscribe(state => kept.push(state.keptAnswers));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS);
+    });
+    unsubscribe();
+    expect(kept).toContainEqual({ tabId: 'tab-js', run: 1 });
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+    expect(useResultStore.getState().keptAnswers).toBeNull();
+  });
+
   it('drops the tab recording when Scratchpad runs again', async () => {
     mockSuccessfulRunner();
     useEditorStore.setState({

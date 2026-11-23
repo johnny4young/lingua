@@ -1,5 +1,5 @@
 import { DEBUGGER_HUD_HEIGHT, stepHudLine } from '../Debugger/debuggerHudGeometry';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
 import { useResultStore, type LineResult } from '../../stores/resultStore';
@@ -48,6 +48,8 @@ export interface InlineResultWidgetsProps {
   readonly language?: string;
   /** Where the column header renders, above the editor. */
   readonly headerSlot?: HTMLElement | null;
+  /** While a run is in flight: the run whose answers stay on the lines it has not answered yet. */
+  readonly keptRun?: number | null;
 }
 
 /**
@@ -67,8 +69,9 @@ export function InlineResultWidgets({
   lineEndReserve = null,
   language,
   headerSlot = null,
+  keptRun = null,
 }: InlineResultWidgetsProps) {
-  const widgets = useInlineResultWidgets(editor, monaco, lineResults, tabId, lineTimings, running, lineEndReserve);
+  const widgets = useInlineResultWidgets(editor, monaco, lineResults, tabId, lineTimings, running, lineEndReserve, keptRun);
   const answering = widgets.some(widget => widget.items.length > 0);
   // A run clears its answers before publishing new ones; the header holds through it.
   const [header, setHeader] = useState(false);
@@ -81,16 +84,19 @@ export function InlineResultWidgets({
   const onScreen = useMemo(() => answers !== undefined && sameAnswers(lineResults, answers.latest.results), [answers, lineResults]);
   const previous = showChanges && onScreen ? answers?.previous : undefined;
   // A run clears the answers before it publishes, so the switch holds through it.
-  const since = onScreen || lineResults.length === 0 ? (answers?.previous?.number ?? null) : null;
+  const since = onScreen || lineResults.length === 0 || keptRun !== null ? (answers?.previous?.number ?? null) : null;
   const changes = useMemo(() => {
     const byLine = new Map<number, { delta: AnswerDelta; since: number }>();
     if (!answers || !previous) return byLine;
     for (const widget of widgets) {
+      if (widget.kept) continue;
       const delta = lineAnswerDelta(widget.line, widget.items, previous, answers.latest.sources[widget.line]);
       if (delta) byLine.set(widget.line, { delta, since: previous.number });
     }
     return byLine;
   }, [answers, previous, widgets]);
+  // The run the kept answers come from is said once, where this run has not reached yet.
+  const firstKept = widgets.reduce((first, widget) => (widget.kept && widget.line < first ? widget.line : first), Infinity);
   return (
     <>
       {header && editor && headerSlot ? createPortal(<AnswerColumnHeader editor={editor} tabId={tabId} since={since} />, headerSlot) : null}
@@ -102,6 +108,7 @@ export function InlineResultWidgets({
             language={language}
             source={widget.source}
             change={changes.get(widget.line) ?? null}
+            keptFrom={widget.line === firstKept ? (keptRun ?? undefined) : undefined}
           />,
           widget.domNode,
           widget.id
@@ -137,6 +144,10 @@ interface InlineWidget {
   items: readonly LineResult[];
   timing?: { durationMs: number; slowest: boolean };
   source?: string;
+  /** The line as the run that answered it executed it; null when that code is unknown. */
+  ranSource: string | null;
+  /** The previous run's answer, waiting for this run to reach the line. */
+  kept: boolean;
 }
 
 interface LineCache {
@@ -150,6 +161,11 @@ interface LineCache {
 interface RetainedZone {
   line: number;
   zone: InlineZone;
+}
+
+/** A kept answer belongs to the code its run saw; once its line changes, it goes. */
+function holdsItsSource(model: monacoTypes.editor.ITextModel | null, widget: InlineWidget): boolean {
+  return model !== null && widget.line <= model.getLineCount() && model.getLineContent(widget.line) === widget.ranSource;
 }
 
 function isClipped(element: Element | null): boolean {
@@ -213,9 +229,18 @@ function useInlineResultWidgets(
   // widget for lines with no value result). Empty = feature inactive.
   lineTimings: readonly LineTimingEntry[],
   running: boolean,
-  lineEndReserve: { readonly line: number; readonly width: number } | null
+  lineEndReserve: { readonly line: number; readonly width: number } | null,
+  keptRun: number | null
 ) {
   const widgetsRef = useRef<Map<number, InlineWidget>>(new Map());
+  // The last results' widgets, mounted still, until the next results decide which stay as kept answers.
+  const detachedRef = useRef<InlineWidget[]>([]);
+  // Read by the widget effect, which must not rebuild every widget when the hold ends.
+  const keptRunRef = useRef(keptRun);
+  useLayoutEffect(() => {
+    keptRunRef.current = keptRun;
+  }, [keptRun]);
+  const nextIdRef = useRef(0);
   const [mounted, setMounted] = useState<readonly InlineWidget[]>([]);
   const lineEndReserveRef = useRef(lineEndReserve);
   const repositioningRef = useRef(false);
@@ -270,16 +295,28 @@ function useInlineResultWidgets(
     [editor]
   );
 
-  // Removes the overlays but keeps their rows reserved for the next results.
+  // Removes an overlay but keeps its row reserved for the next results.
+  const releaseWidget = useCallback(
+    (widget: InlineWidget) => {
+      if (widget.zone) retainedZonesRef.current.push({ line: widget.line, zone: widget.zone });
+      removeOverlay(widget);
+    },
+    [removeOverlay]
+  );
+
+  // The next results replace these widgets or keep them as the previous run's answers.
   const detachWidgets = useCallback(() => {
     cancelMeasurement();
     if (!editor) return;
-    for (const w of widgetsRef.current.values()) {
-      if (w.zone) retainedZonesRef.current.push({ line: w.line, zone: w.zone });
-      removeOverlay(w);
-    }
+    detachedRef.current.push(...widgetsRef.current.values());
     widgetsRef.current.clear();
-  }, [editor, cancelMeasurement, removeOverlay]);
+  }, [editor, cancelMeasurement]);
+
+  const releaseDetached = useCallback(() => {
+    const detached = detachedRef.current;
+    detachedRef.current = [];
+    for (const widget of detached) releaseWidget(widget);
+  }, [releaseWidget]);
 
   // Recompute every widget's `top` (and right gutter offset) when
   // anything that can shift line positions happens: scroll, layout,
@@ -553,15 +590,16 @@ function useInlineResultWidgets(
         };
         const moved = new Map<number, InlineWidget>();
         const byLine = [...widgetsRef.current.values()].sort((a, b) => a.line - b.line);
+        const model = editor.getModel();
         for (const widget of byLine) {
           if (widget.zone) followZone(widget.zone);
           const line = followSource(widget.line);
-          if (line === null || moved.has(line)) {
+          if (line !== null) widget.line = line;
+          if (line === null || moved.has(line) || (widget.kept && !holdsItsSource(model, widget))) {
             if (widget.zone) orphanZonesRef.current.push(widget.zone);
             removeOverlay(widget);
             continue;
           }
-          widget.line = line;
           // The zone followed its own line; an edit inside the statement must not pull it back.
           if (widget.zone) widget.zoneOffset = Math.max(0, widget.zone.line - line);
           widget.domNode.setAttribute('data-line', String(line));
@@ -619,6 +657,29 @@ function useInlineResultWidgets(
       if (!grouped.has(entry.line)) grouped.set(entry.line, []);
     }
     const model = editor.getModel();
+    // While a run is in flight, the last results stay on the lines it has not answered and whose code is unchanged.
+    const holding = keptRunRef.current !== null;
+    // Only the run start's empty publish keeps fresh widgets; later publishes are this run's own answers.
+    const starting = grouped.size === 0;
+    const detached = detachedRef.current;
+    detachedRef.current = [];
+    for (const widget of detached) {
+      if (
+        !holding ||
+        !(widget.kept || starting) ||
+        grouped.has(widget.line) ||
+        widgetsRef.current.has(widget.line) ||
+        !holdsItsSource(model, widget)
+      ) {
+        releaseWidget(widget);
+        continue;
+      }
+      widget.domNode.removeAttribute('data-enter');
+      widget.domNode.setAttribute('data-kept', '');
+      widgetsRef.current.set(widget.line, { ...widget, kept: true });
+    }
+    const ranCode = useResultStore.getState().ranCode;
+    const ranLines = ranCode && ranCode.tabId === tabId ? ranCode.code.split('\n') : null;
     const answeredKey = tabId ?? '';
     const previousAnswers = answeredRef.current.get(answeredKey);
     const answered = new Map<number, string>();
@@ -634,7 +695,8 @@ function useInlineResultWidgets(
       domNode.style.position = 'absolute';
       domNode.style.pointerEvents = 'none';
       domNode.style.visibility = 'hidden';
-      const id = `${INLINE_RESULT_WIDGET_PREFIX}.${tabId ?? 'none'}.${line}`;
+      // A kept answer may have moved onto another line, so ids never reuse a line number.
+      const id = `${INLINE_RESULT_WIDGET_PREFIX}.${tabId ?? 'none'}.${line}.${(nextIdRef.current += 1)}`;
       const widget: InlineWidget = {
         id,
         domNode,
@@ -647,6 +709,8 @@ function useInlineResultWidgets(
         items,
         timing: timingMs === undefined ? undefined : { durationMs: timingMs, slowest: line === slowestLine },
         source: model && line <= model.getLineCount() ? model.getLineContent(line) : undefined,
+        ranSource: ranLines?.[line - 1] ?? null,
+        kept: false,
       };
       const retainedIndex = retainedZonesRef.current.findIndex(item => item.line === line);
       if (retainedIndex >= 0) {
@@ -688,17 +752,37 @@ function useInlineResultWidgets(
     lineTimings,
     tabId,
     detachWidgets,
+    releaseWidget,
     scheduleReposition,
   ]);
+
+  // The run settled or stopped holding: the answers it never reached go.
+  useEffect(() => {
+    if (keptRun !== null) return;
+    let dropped = false;
+    for (const [line, widget] of widgetsRef.current) {
+      if (!widget.kept) continue;
+      releaseWidget(widget);
+      widgetsRef.current.delete(line);
+      dropped = true;
+    }
+    if (dropped) setMounted([...widgetsRef.current.values()]);
+  }, [keptRun, releaseWidget]);
 
   // Runs after the widget effect has adopted the rows its results still need.
   useEffect(() => {
     if (!running) removeRetainedZones();
-  }, [running, lineResults, lineTimings, removeRetainedZones]);
+  }, [running, keptRun, lineResults, lineTimings, removeRetainedZones]);
 
   // Declared after the widget effect so its cleanup runs last and also
-  // removes the rows that cleanup just retained.
-  useEffect(() => removeRetainedZones, [removeRetainedZones]);
+  // removes the overlays and rows that cleanup just detached.
+  useEffect(
+    () => () => {
+      releaseDetached();
+      removeRetainedZones();
+    },
+    [releaseDetached, removeRetainedZones]
+  );
 
   return mounted;
 }

@@ -11,6 +11,7 @@
   "answers.loop": "loop",
   "answers.pass": "{{iteration}} of {{total}}",
   "answers.lastOf": "last of {{count}}",
+  "answers.kept": "from run {{number}} · not reached yet",
   "answers.header.code": "You write",
   "answers.header.answers": "Lingua answers",
   "answers.header.run": "run {{number}}",

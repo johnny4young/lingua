@@ -10,6 +10,7 @@ import { defaultRuntimeTimeoutPreset, presetToMs } from '../../shared/runtimeTim
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
 import { runInputKey, useResultStore } from '../stores/resultStore';
+import { holdVisibleResults } from '../stores/holdVisibleResults';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { FileTab } from '../types/editor';
 import { executionModeForLanguage } from '../utils/languageMeta';
@@ -43,7 +44,6 @@ export async function executeAutoRun({
 }: ExecuteAutoRunOptions): Promise<void> {
   const {
     clear,
-    clearVisibleResults,
     setLineResults,
     setFullOutput,
     setError,
@@ -137,8 +137,8 @@ export async function executeAutoRun({
     return;
   }
 
+  holdVisibleResults(activeTab.id);
   setIsAutoRunning(true);
-  clearVisibleResults();
   setExecutionSource('auto');
   setAutoRunGateReason(gate.reason);
   useResultStore.getState().setRanCode({ tabId: activeTab.id, code, input: runInputKey(stdinBuffer, activeTab.inputArgs), at: Date.now() });
@@ -250,6 +250,8 @@ export async function executeAutoRun({
       setDiagnostics([]);
     }
   } finally {
+    // A run that settled drops the answers it kept; a discarded one leaves them to the run replacing it.
+    if (!shouldDiscard()) useResultStore.setState({ keptAnswers: null });
     finish();
   }
 }

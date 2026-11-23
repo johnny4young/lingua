@@ -21,6 +21,8 @@ export interface InlineAnswerLineProps {
   readonly source?: string;
   /** How the answer moved since run `change.since`. */
   readonly change?: { readonly delta: AnswerDelta; readonly since: number } | null;
+  /** The run this answer is kept from, while the current run has not reached the line. */
+  readonly keptFrom?: number;
 }
 
 function roleOf(result: LineResult): AnswerRole {
@@ -50,7 +52,7 @@ function formatTimingMs(durationMs: number): string {
  * kind several times shows its latest answer and the count; mixed answers share
  * the row as values only.
  */
-export function InlineAnswerLine({ items, timing, language, source, change }: InlineAnswerLineProps) {
+export function InlineAnswerLine({ items, timing, language, source, change, keptFrom }: InlineAnswerLineProps) {
   const { t } = useTranslation();
   const repeat = isRepeat(items);
   const visible = repeat ? items.slice(-1) : items.slice(0, MAX_ITEMS_PER_LINE);
@@ -104,6 +106,11 @@ export function InlineAnswerLine({ items, timing, language, source, change }: In
         ) : null}
         {lineDepth !== undefined ? <DepthChip label={t('answers.paused.depth', { depth: lineDepth })} /> : null}
         {change ? <AnswerDeltaChip delta={change.delta} since={change.since} /> : null}
+        {keptFrom !== undefined ? (
+          <span className="answer-delta lingua-inline-result-kept" data-testid="lingua-inline-result-kept">
+            {t('answers.kept', { number: keptFrom })}
+          </span>
+        ) : null}
         {timing ? (
           <span className="lingua-inline-result-timing" data-testid="lingua-inline-timing" data-slowest={timing.slowest ? 'true' : undefined}>
             {`▸ ${formatTimingMs(timing.durationMs)}`}

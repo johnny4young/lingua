@@ -48,6 +48,12 @@ interface TabAnswers {
   previous?: RunAnswers;
 }
 
+/** A run of `tabId` is in flight while the answers of run `run` stay on the lines it has not reached. */
+interface KeptAnswers {
+  tabId: string;
+  run: number;
+}
+
 /** Tabs whose last two runs stay in memory; the least recently run one goes first. */
 export const TAB_ANSWERS_CAP = 12;
 
@@ -282,6 +288,8 @@ interface ResultState {
   tabRuns: Record<string, TabRunLog>;
   /** Each tab's last two published answers, for the change since the previous run. Memory only. */
   tabAnswers: Record<string, TabAnswers>;
+  /** The run whose answers stay on screen while a run of the same tab is in flight; shown only while one is. */
+  keptAnswers: KeptAnswers | null;
   /** Changes since the previous run show on the answers. */
   showRunChanges: boolean;
   setShowRunChanges: (show: boolean) => void;
@@ -373,6 +381,23 @@ interface ResultState {
    */
   clearVisibleResults: () => void;
 }
+
+/** Visible results cleared at run start and on transient empty buffers; snapshots and scope stay. */
+const CLEARED_VISIBLE_RESULTS = {
+  lineResults: [],
+  lineTimings: [],
+  fullOutput: '',
+  stdinConsumed: null,
+  error: null,
+  diagnostics: [],
+  executionTime: null,
+  executionSource: null,
+  autoRunGateReason: null,
+  // The pill never stays stuck on a stale variant.
+  runTermination: null,
+  runDeadlineAt: null,
+  keptAnswers: null,
+} satisfies Partial<ResultState>;
 
 /**
  * True when at least one comparator snapshot in the ring was
@@ -476,6 +501,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
   scopeSnapshot: null,
   tabRuns: {},
   tabAnswers: {},
+  keptAnswers: null,
   showRunChanges: true,
 
   setShowRunChanges: (showRunChanges) => set({ showRunChanges }),
@@ -603,6 +629,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
       executionTime: snapshot.executionTime,
       error: null,
       diagnostics: [],
+      keptAnswers: null,
     });
     return true;
   },
@@ -647,56 +674,19 @@ export const useResultStore = create<ResultState>((set, get) => ({
   },
   clear: () =>
     set({
+      ...CLEARED_VISIBLE_RESULTS,
       ranCode: null,
-      lineResults: [],
-      lineTimings: [],
-      fullOutput: '',
-      stdinConsumed: null,
-      error: null,
-      diagnostics: [],
-      executionTime: null,
-      executionSource: null,
-      // Clear the gate banner + the snapshot so a
-      // tab switch starts fresh.
-      autoRunGateReason: null,
+      // A tab switch starts fresh: the snapshot ring, its comparator target and
+      // the variable scope are tab-scoped.
       lastSuccessfulSnapshot: null,
-      // Tab switches drop the entire snapshot
-      // ring and the selected comparator target. The ring is tab-
-      // scoped; the active result store is one source of truth for
-      // the current tab only.
       snapshotRing: [],
       selectedCompareTargetCapturedAt: null,
-      // Tab switches drop the per-run pill state
-      // too so the new tab's panel header starts quiet.
-      runTermination: null,
-      runDeadlineAt: null,
-      // Drop the variable inspector snapshot on tab
-      // switch so the new tab's toggle starts disabled.
       scopeSnapshot: null,
     }),
   clearVisibleResults: () =>
-    // Same shape as `clear()` but DOES NOT touch
-    // `lastSuccessfulSnapshot` or the `snapshotRing`. Useful
-    // when the active buffer transits through an empty state
-    // (Cmd+A → Backspace) and when a new run is starting; the
-    // accumulated snapshots should survive until the run either
-    // captures a new stable result or the user switches tabs.
-    // Scope snapshots also stay intact here; the Variables surface should not
-    // disappear just because a transient run-start clears visible output.
-    set({
-      lineResults: [],
-      lineTimings: [],
-      fullOutput: '',
-      stdinConsumed: null,
-      error: null,
-      diagnostics: [],
-      executionTime: null,
-      executionSource: null,
-      autoRunGateReason: null,
-      // Clear the pill on transient empty states
-      // too; the snapshot survives, but the pill never gets stuck
-      // displaying a stale variant.
-      runTermination: null,
-      runDeadlineAt: null,
-    }),
+    // Same shape as `clear()` but DOES NOT touch `lastSuccessfulSnapshot`,
+    // the `snapshotRing` or the scope snapshot: they survive a transient
+    // empty buffer (Cmd+A → Backspace) and a run start until the run captures
+    // a new stable result or the user switches tabs.
+    set(CLEARED_VISIBLE_RESULTS),
 }));
