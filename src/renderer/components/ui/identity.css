@@ -60,6 +60,16 @@
     color: var(--color-fg-subtle);
   }
 
+  /* Value colours by type, shared by the Answer renderer and InlineMarker. */
+  .value-tone { color: var(--answer-tone, var(--color-fg-base)); }
+  :is(.answer-object-value, .value-tone)[data-tone='number'] { --answer-tone: var(--color-value-number); font-variant-numeric: tabular-nums; }
+  :is(.answer-object-value, .value-tone)[data-tone='string'] { --answer-tone: var(--color-value-string); }
+  :is(.answer-object-value, .value-tone)[data-tone='boolean'] { --answer-tone: var(--color-value-boolean); }
+  :is(.answer-object-value, .value-tone)[data-tone='date'] { --answer-tone: var(--color-value-date); }
+  :is(.answer-object-value, .value-tone)[data-tone='none'] { --answer-tone: var(--color-value-none); }
+  :is(.answer-object-value, .value-tone)[data-tone='error'] { --answer-tone: var(--color-value-error); }
+  :is(.answer-object-value, .value-tone)[data-tone='pulse'] { --answer-tone: var(--color-pulse-fg); }
+
   /* Counts stay neutral; only an error takes a value colour. */
   .result-numeral {
     display: inline-flex;

@@ -75,13 +75,7 @@
   .answer-object[data-muted] .answer-object-value { --answer-tone: var(--color-fg-muted); }
   .answer-object[data-muted] .answer-object-value[data-pill] { background: transparent; }
 
-  .answer-object-value[data-tone='number'] { --answer-tone: var(--color-value-number); font-variant-numeric: tabular-nums; }
-  .answer-object-value[data-tone='string'] { --answer-tone: var(--color-value-string); }
-  .answer-object-value[data-tone='boolean'] { --answer-tone: var(--color-value-boolean); }
-  .answer-object-value[data-tone='date'] { --answer-tone: var(--color-value-date); }
-  .answer-object-value[data-tone='none'] { --answer-tone: var(--color-value-none); }
-  .answer-object-value[data-tone='error'] { --answer-tone: var(--color-value-error); }
-  .answer-object-value[data-tone='pulse'] { --answer-tone: var(--color-pulse-fg); }
+  /* Tone colours live in ui/identity.css, shared with InlineMarker. */
   .answer-object-value[data-tone='plain'] { font-weight: 400; }
 
   .answer-object-value[data-pill] {
