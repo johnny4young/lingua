@@ -29,7 +29,8 @@ const SLOW_CODE = [
   'console.log(`slowest path: ${slowest}`);',
 ].join('\n');
 
-const KEPT_TAG = { en: 'from run 1 · not reached yet', es: 'de la ejecución 1 · aún sin alcanzar' };
+const keptTag = (language: 'en' | 'es', run: number) =>
+  language === 'en' ? `from run ${run} · not reached yet` : `de la ejecución ${run} · aún sin alcanzar`;
 
 async function enableAutoLog(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -53,12 +54,17 @@ async function openSlowScratchpad(page: Page, language: 'en' | 'es') {
   const line = (n: number) => page.locator(`[data-testid="lingua-inline-result"][data-line="${n}"]`);
   await expect(line(9)).toBeAttached({ timeout: 30_000 });
   await expect.poll(() => autoRunSettled(page), { timeout: 30_000 }).toBe(true);
-  return line;
+  // The new tab's own code can finish an auto-run first, so the answers on screen are not always run 1.
+  await expect(page.getByTestId('answer-column-header-run')).toBeVisible();
+  const header = (await page.getByTestId('answer-column-header-run').textContent()) ?? '';
+  const run = Number(header.match(/\d+/)?.[0]);
+  expect(run).toBeGreaterThan(0);
+  return { line, run };
 }
 
 for (const language of ['en', 'es'] as const) {
   test(`a Scratchpad edit keeps the other answers until the run reaches them (${language})`, async ({ page }) => {
-    const line = await openSlowScratchpad(page, language);
+    const { line, run } = await openSlowScratchpad(page, language);
     await expect(page.getByTestId('answer-column-header-run')).toBeVisible();
 
     // Edit the worker list: its answer goes, the rest wait for the run.
@@ -74,7 +80,7 @@ for (const language of ['en', 'es'] as const) {
     await expect(line(2)).toHaveCount(0);
     const tags = page.getByTestId('lingua-inline-result-kept');
     await expect(tags).toHaveCount(1);
-    await expect(line(1).getByTestId('lingua-inline-result-kept')).toHaveText(KEPT_TAG[language]);
+    await expect(line(1).getByTestId('lingua-inline-result-kept')).toHaveText(keptTag(language, run));
     await expect(page.getByTestId('answer-column-header-run')).toBeVisible();
 
     await expect.poll(() => autoRunSettled(page), { timeout: 30_000 }).toBe(true);
@@ -84,11 +90,11 @@ for (const language of ['en', 'es'] as const) {
 }
 
 test('a manual run keeps the previous answers dimmed until it publishes', async ({ page }) => {
-  const line = await openSlowScratchpad(page, 'en');
+  const { line, run } = await openSlowScratchpad(page, 'en');
   await clickRun(page);
   await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'true');
   await expect(line(4)).toHaveAttribute('data-kept', '');
-  await expect(line(1).getByTestId('lingua-inline-result-kept')).toHaveText(KEPT_TAG.en);
+  await expect(line(1).getByTestId('lingua-inline-result-kept')).toHaveText(keptTag('en', run));
   await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'false', { timeout: 30_000 });
   await expect(page.locator('[data-testid="lingua-inline-result"][data-kept]')).toHaveCount(0);
   await expect(line(9)).toContainText('slowest path: api');
