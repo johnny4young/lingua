@@ -745,6 +745,7 @@ describe('changes since the previous run', () => {
           latest: { number: 7, results: lineResults, sources: { 1: 'value' } },
         },
       },
+      ranCode: { tabId: 'tab', code: 'value', input: '', at: 0 },
     });
     const view = render(<InlineResultWidgets {...props} lineResults={lineResults} editor={h.editor} headerSlot={slot} />);
     flushFrames();
@@ -834,8 +835,11 @@ describe('the previous run holds its answers while the next run is in flight', (
     { line: 2, type: 'autoLog' as const, value: '2' },
   ];
   const row = (line: number) => document.querySelector<HTMLElement>(`[data-testid="lingua-inline-result"][data-line="${line}"]`);
+  const initial = useResultStore.getState();
+  afterEach(() => useResultStore.setState(initial, true));
 
   function holding() {
+    useResultStore.setState({ ranCode: { tabId: 'tab', code: 'a = 1\nb = 2\nprint(b)', input: '', at: 0 } });
     const h = harness();
     h.setLineCount(3);
     h.setLines({ 1: 'a = 1', 2: 'b = 2', 3: 'print(b)' });
@@ -878,6 +882,18 @@ describe('the previous run holds its answers while the next run is in flight', (
     expect(row(2)).toBeNull();
   });
 
+  it('never keeps an answer this run streamed when a later publish leaves its line out', () => {
+    const { h, view, hold } = holding();
+    hold();
+    const streamed = [{ line: 3, type: 'log' as const, value: '2' }];
+    view.rerender(<InlineResultWidgets {...props} lineResults={streamed} running keptRun={3} editor={h.editor} />);
+    flushFrames();
+    view.rerender(<InlineResultWidgets {...props} lineResults={[previous[0]!]} running keptRun={3} editor={h.editor} />);
+    flushFrames();
+    expect(row(3)).toBeNull();
+    expect(row(2)?.hasAttribute('data-kept')).toBe(true);
+  });
+
   it('moves a kept answer with its code and drops one whose line changed before the run', () => {
     const { h, hold } = holding();
     // A line opens above both answers, then line 3 (was 2) changes.
@@ -891,6 +907,20 @@ describe('the previous run holds its answers while the next run is in flight', (
     expect(row(2)?.textContent).toContain('1');
     expect(row(1)).toBeNull();
     expect(row(3)).toBeNull();
+  });
+
+  it('compares with the code the run executed, not the text the line held when its answer appeared', () => {
+    useResultStore.setState({ ranCode: { tabId: 'tab', code: 'a = 1\nb = 2\nprint(b)', input: '', at: 0 } });
+    const h = harness();
+    h.setLineCount(3);
+    // Line 1 was edited while that run was in flight.
+    h.setLines({ 1: 'a = 10', 2: 'b = 2', 3: 'print(b)' });
+    const view = render(<InlineResultWidgets {...props} lineResults={previous} editor={h.editor} />);
+    flushFrames();
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running keptRun={3} editor={h.editor} />);
+    flushFrames();
+    expect(row(1)).toBeNull();
+    expect(row(2)?.hasAttribute('data-kept')).toBe(true);
   });
 
   it('drops a kept answer as soon as its line is edited during the run', () => {

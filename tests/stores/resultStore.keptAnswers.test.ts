@@ -48,6 +48,15 @@ describe('kept answers', () => {
     expect(useResultStore.getState().keptAnswers).toBeNull();
   });
 
+  it('names the run whose answers are on screen, such as an earlier one restored after a failed run', () => {
+    publishRunOf('a');
+    useResultStore.getState().recordTabAnswers('a', useResultStore.getState().lineResults, 'x\n42\ny');
+    useResultStore.getState().settleTabRun('a', { kind: 'error' }, { durationMs: 5 });
+    useResultStore.getState().recordTabAnswers('a', [], 'x');
+    startRun('a');
+    expect(useResultStore.getState().keptAnswers).toEqual({ tabId: 'a', run: 1 });
+  });
+
   it('never keeps another tab\'s answers, and drops them on a tab switch or an empty buffer', () => {
     publishRunOf('a');
     startRun('b');

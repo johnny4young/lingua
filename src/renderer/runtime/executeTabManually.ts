@@ -221,7 +221,8 @@ async function executeOwnedTab(
   } finally {
     bootstrap.dispose();
     runConsole.flush();
-    if (session.isCurrent()) useResultStore.getState().setIsManualRunning(false);
+    // The settled run drops the answers it kept.
+    if (session.isCurrent()) useResultStore.setState({ isManualRunning: false, keptAnswers: null });
     lifecycle.setIsRunning?.(false);
     lifecycle.setIsInitializing?.(false);
     lifecycle.setLoadingMessage?.(null);

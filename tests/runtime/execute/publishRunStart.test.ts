@@ -32,6 +32,13 @@ describe('publishRunStart', () => {
     expect(state.keptAnswers).toMatchObject({ tabId: 'a', run: 1 });
   });
 
+  it('never brings back what an earlier run kept once a run settled without answering', () => {
+    previousRun();
+    useResultStore.setState({ lineResults: [], keptAnswers: { tabId: 'a', run: 1 }, isManualRunning: true });
+    publishRunStart(tab, plan, runConsole);
+    expect(useResultStore.getState().keptAnswers).toBeNull();
+  });
+
   it('clears them for a debug run, which shows the paused frame instead', () => {
     previousRun();
     publishRunStart(tab, { ...plan, debugRequested: true }, runConsole);

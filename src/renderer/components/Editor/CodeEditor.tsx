@@ -372,7 +372,13 @@ export function CodeEditor() {
 
   const runStale = useRunStale();
   // A run in flight keeps the previous run's marks, dimmed, until it answers.
-  const runHeld = useResultStore(state => (state.isAutoRunning || state.isManualRunning) && state.keptAnswers?.tabId === activeTabId);
+  const runHeld = useResultStore(
+    state =>
+      (state.isAutoRunning || state.isManualRunning) &&
+      state.keptAnswers?.tabId === activeTabId &&
+      state.lineResults.length === 0 &&
+      state.lineTimings.length === 0
+  );
   const runStateRef = useRef<HTMLDivElement>(null);
   useRunStaleAgeProperty(runStateRef, runStale.ranAt);
 

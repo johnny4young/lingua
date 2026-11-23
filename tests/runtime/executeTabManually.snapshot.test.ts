@@ -276,3 +276,23 @@ describe('executeTabManually — snapshot gate', () => {
     expect(entry?.tabId).toBe('tab-fail');
   });
 });
+
+describe('executeTabManually — kept answers', () => {
+  const initialResultState = useResultStore.getState();
+  afterEach(() => useResultStore.setState(initialResultState, true));
+
+  it('keeps the previous answers while it runs and drops them once it settles', async () => {
+    runOk();
+    useResultStore.setState({
+      lineResults: [{ line: 1, type: 'log', value: 'hi' }],
+      ranCode: { tabId: 'tab-1', code: 'console.log("hi")', input: '', at: 0 },
+      tabRuns: { 'tab-1': { count: 1, runs: [] } },
+    });
+    const kept: unknown[] = [];
+    const unsubscribe = useResultStore.subscribe(state => kept.push(state.keptAnswers));
+    await executeTabManually({ id: 'tab-1', name: 'main.js', language: 'javascript', content: 'console.log("hi")', isDirty: false });
+    unsubscribe();
+    expect(kept).toContainEqual({ tabId: 'tab-1', run: 1 });
+    expect(useResultStore.getState().keptAnswers).toBeNull();
+  });
+});

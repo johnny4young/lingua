@@ -84,7 +84,7 @@ export function InlineResultWidgets({
   const onScreen = useMemo(() => answers !== undefined && sameAnswers(lineResults, answers.latest.results), [answers, lineResults]);
   const previous = showChanges && onScreen ? answers?.previous : undefined;
   // A run clears the answers before it publishes, so the switch holds through it.
-  const since = onScreen || lineResults.length === 0 ? (answers?.previous?.number ?? null) : null;
+  const since = onScreen || lineResults.length === 0 || keptRun !== null ? (answers?.previous?.number ?? null) : null;
   const changes = useMemo(() => {
     const byLine = new Map<number, { delta: AnswerDelta; since: number }>();
     if (!answers || !previous) return byLine;
@@ -144,6 +144,8 @@ interface InlineWidget {
   items: readonly LineResult[];
   timing?: { durationMs: number; slowest: boolean };
   source?: string;
+  /** The line as the run that answered it executed it; null when that code is unknown. */
+  ranSource: string | null;
   /** The previous run's answer, waiting for this run to reach the line. */
   kept: boolean;
 }
@@ -163,7 +165,7 @@ interface RetainedZone {
 
 /** A kept answer belongs to the code its run saw; once its line changes, it goes. */
 function holdsItsSource(model: monacoTypes.editor.ITextModel | null, widget: InlineWidget): boolean {
-  return model !== null && widget.line <= model.getLineCount() && model.getLineContent(widget.line) === widget.source;
+  return model !== null && widget.line <= model.getLineCount() && model.getLineContent(widget.line) === widget.ranSource;
 }
 
 function isClipped(element: Element | null): boolean {
@@ -657,10 +659,18 @@ function useInlineResultWidgets(
     const model = editor.getModel();
     // While a run is in flight, the last results stay on the lines it has not answered and whose code is unchanged.
     const holding = keptRunRef.current !== null;
+    // Only the run start's empty publish keeps fresh widgets; later publishes are this run's own answers.
+    const starting = grouped.size === 0;
     const detached = detachedRef.current;
     detachedRef.current = [];
     for (const widget of detached) {
-      if (!holding || grouped.has(widget.line) || widgetsRef.current.has(widget.line) || !holdsItsSource(model, widget)) {
+      if (
+        !holding ||
+        !(widget.kept || starting) ||
+        grouped.has(widget.line) ||
+        widgetsRef.current.has(widget.line) ||
+        !holdsItsSource(model, widget)
+      ) {
         releaseWidget(widget);
         continue;
       }
@@ -668,6 +678,8 @@ function useInlineResultWidgets(
       widget.domNode.setAttribute('data-kept', '');
       widgetsRef.current.set(widget.line, { ...widget, kept: true });
     }
+    const ranCode = useResultStore.getState().ranCode;
+    const ranLines = ranCode && ranCode.tabId === tabId ? ranCode.code.split('\n') : null;
     const answeredKey = tabId ?? '';
     const previousAnswers = answeredRef.current.get(answeredKey);
     const answered = new Map<number, string>();
@@ -697,6 +709,7 @@ function useInlineResultWidgets(
         items,
         timing: timingMs === undefined ? undefined : { durationMs: timingMs, slowest: line === slowestLine },
         source: model && line <= model.getLineCount() ? model.getLineContent(line) : undefined,
+        ranSource: ranLines?.[line - 1] ?? null,
         kept: false,
       };
       const retainedIndex = retainedZonesRef.current.findIndex(item => item.line === line);

@@ -250,6 +250,8 @@ export async function executeAutoRun({
       setDiagnostics([]);
     }
   } finally {
+    // A run that settled drops the answers it kept; a discarded one leaves them to the run replacing it.
+    if (!shouldDiscard()) useResultStore.setState({ keptAnswers: null });
     finish();
   }
 }

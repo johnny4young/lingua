@@ -140,7 +140,9 @@ export function useAutoRun() {
       browserPreviewRefreshIntervalMs: autoRunSchedule.browserPreviewRefreshIntervalMs,
       stdinBuffer,
     };
-    if (isSameAutoRunInput(lastRunInputRef.current, input)) return;
+    // An edit undone before the debounce still aborted the run in flight, so that input runs again.
+    const abandoned = abortRef.current && useResultStore.getState().isAutoRunning;
+    if (isSameAutoRunInput(lastRunInputRef.current, input) && !abandoned) return;
 
     if (timerRef.current) clearTimeout(timerRef.current);
     abortRef.current = true;
