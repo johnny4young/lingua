@@ -1,0 +1,16 @@
+{
+  "extends": "johnny4young/centinela-memory/base.json@main",
+  "issues": {
+    "productName": "Lingua"
+  },
+  "ai": {
+    "rules": [
+      "AGENTS.md",
+      "CLAUDE.md",
+      "CONTRIBUTING.md"
+    ]
+  },
+  "links": {
+    "security": "SECURITY.md"
+  }
+}
