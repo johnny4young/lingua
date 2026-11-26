@@ -35,10 +35,12 @@ export function parseConventionalSubject(subject) {
   };
 }
 
+export const COMMIT_LOG_FORMAT = '%x1e%H%x1f%s%x1f%b%x1f';
+
 /**
- * Parse `git log --format=%H%x1f%s%x1f%b%x1e` output into records without
- * trusting newlines as separators. The unit/record separators keep multiline
- * commit bodies intact so `Changelog:` trailers can still be read.
+ * Parse `git log --name-only --format=COMMIT_LOG_FORMAT` output. The unit and
+ * record separators keep multiline bodies intact so `Changelog:` trailers can
+ * still be read; the optional fourth field holds the changed paths.
  */
 export function parseCommitLog(raw) {
   return raw
@@ -46,14 +48,32 @@ export function parseCommitLog(raw) {
     .map((record) => record.trim())
     .filter(Boolean)
     .map((record) => {
-      const [hash = '', subject = '', body = ''] = record.split('\x1f');
+      const [hash = '', subject = '', body = '', files = ''] = record.split('\x1f');
       return {
         hash,
         shortHash: hash.slice(0, 7),
         subject,
-        body,
+        body: body.trim(),
+        files: files
+          .split(/\r?\n/u)
+          .map((file) => file.trim())
+          .filter(Boolean),
       };
     });
+}
+
+const NON_SHIPPING_PREFIXES = ['.github/', '.githooks/', 'docs/', 'tests/'];
+
+/** True when every path is CI, docs or test material that never reaches a user. */
+export function touchesOnlyNonShippingPaths(files = []) {
+  return (
+    files.length > 0 &&
+    files.every(
+      (file) =>
+        NON_SHIPPING_PREFIXES.some((prefix) => file.startsWith(prefix)) ||
+        /^[^/]+\.md$/u.test(file)
+    )
+  );
 }
 
 function parseChangelogTrailer(body) {
@@ -105,14 +125,17 @@ function cleanDescription(description) {
  *
  * Commit bodies can opt out with `Changelog: none` / `skip`, or override both
  * section and public copy with `Changelog: Added - ...`. Without a trailer, the
- * classifier includes only user-facing conventional types and strips private
- * planning labels from the subject.
+ * classifier includes only user-facing conventional types, skips commits that
+ * touch only CI, docs or tests, and strips private planning labels.
  */
 export function classifyCommit(commit) {
   const parsed = parseConventionalSubject(commit.subject);
   const trailer = parseChangelogTrailer(commit.body);
 
   if (trailer?.include === false) {
+    return null;
+  }
+  if (!trailer && touchesOnlyNonShippingPaths(commit.files)) {
     return null;
   }
 
@@ -189,7 +212,10 @@ export function renderChangelogDraft({ commits, from, to, generatedAt = new Date
  */
 export function collectGitCommits({ from, to = 'HEAD', cwd = process.cwd() } = {}) {
   const range = from ? `${from}..${to}` : to;
-  const raw = runGit(['log', '--format=%H%x1f%s%x1f%b%x1e', range], { cwd });
+  const raw = runGit(
+    ['-c', 'core.quotePath=false', 'log', '--name-only', `--format=${COMMIT_LOG_FORMAT}`, range],
+    { cwd }
+  );
   return parseCommitLog(raw);
 }
 
