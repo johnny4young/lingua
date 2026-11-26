@@ -84,9 +84,9 @@ export function validateChangelogState({
 }) {
   const errors = [];
   const topVersion = parseTopChangelogVersion(changelogText);
-  const userFacingCommits = commitsSinceLatestTag
-    .map((commit) => classifyCommit(commit))
-    .filter(Boolean);
+  const userFacingCommits = commitsSinceLatestTag.filter((commit) =>
+    classifyCommit(commit)
+  );
 
   try {
     parseVersion(packageVersion);
@@ -126,7 +126,12 @@ export function validateChangelogState({
       const changelogIsAheadOfTag = compareVersions(topVersion, latestTagVersion) > 0;
       if (userFacingCommits.length > 0 && !changelogIsAheadOfTag) {
         errors.push(
-          `${userFacingCommits.length} user-facing commit(s) since ${latestTag} need a new CHANGELOG.md release entry or "Changelog: none".`
+          [
+            `${userFacingCommits.length} user-facing commit(s) since ${latestTag} need a new CHANGELOG.md release entry or "Changelog: none":`,
+            ...userFacingCommits.map((commit) => `  ${commit.shortHash} ${commit.subject}`),
+            'Fix: add a "Changelog: none" line to each commit body (git commit --amend, or git rebase -i for older ones),',
+            'or open the next version in CHANGELOG.md and package.json.',
+          ].join('\n')
         );
       }
     } catch {

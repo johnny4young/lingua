@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readdir, readFile, rm, symlink, unlink } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, symlink, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { isDirectInvocation } from '../../scripts/lib/isDirectInvocation.mjs';
+import { removeTempDir } from '../__fixtures__/tempDir';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const helperRelative = path.join('scripts', 'lib', 'isDirectInvocation.mjs');
@@ -26,7 +27,7 @@ describe('isDirectInvocation', () => {
   afterAll(async () => {
     // Drop the link first so cleanup never depends on rm not following it into the repo.
     await unlink(linkedRepo).catch(() => undefined);
-    await rm(tempRoot, { recursive: true, force: true });
+    await removeTempDir(tempRoot);
   });
 
   it('matches the module through its real path and through a symlinked path', () => {

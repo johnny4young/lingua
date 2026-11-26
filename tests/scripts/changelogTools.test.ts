@@ -5,6 +5,7 @@ import {
   main as draftMain,
   parseCommitLog,
   renderChangelogDraft,
+  touchesOnlyNonShippingPaths,
 } from '../../scripts/changelog-draft.mjs';
 import {
   main as checkMain,
@@ -65,6 +66,43 @@ describe('changelog automation scripts', () => {
     });
   });
 
+  it('reads changed paths from name-only git log records', () => {
+    const [commit] = parseCommitLog(
+      '\x1e8888888888888888888888888888888888888888\x1ffix(ci): grant job permissions\x1fChangelog: none\n\x1f\n\n.github/workflows/ci.yml\ntests/ci.test.ts\n'
+    );
+
+    expect(commit).toMatchObject({
+      shortHash: '8888888',
+      subject: 'fix(ci): grant job permissions',
+      body: 'Changelog: none',
+      files: ['.github/workflows/ci.yml', 'tests/ci.test.ts'],
+    });
+  });
+
+  it('treats commits that touch only CI, docs or tests as non user-facing', () => {
+    expect(touchesOnlyNonShippingPaths(['.github/workflows/ci.yml', 'docs/USAGE.md'])).toBe(true);
+    expect(touchesOnlyNonShippingPaths(['tests/main/a.test.ts', 'README.md'])).toBe(true);
+    expect(touchesOnlyNonShippingPaths(['.github/workflows/ci.yml', 'src/main/index.ts'])).toBe(
+      false
+    );
+    expect(touchesOnlyNonShippingPaths(['website/README.md'])).toBe(false);
+    expect(touchesOnlyNonShippingPaths([])).toBe(false);
+
+    const base = {
+      hash: '9999999999999999999999999999999999999999',
+      shortHash: '9999999',
+      subject: 'fix(centinela): grant caller permissions',
+      files: ['.github/workflows/centinela-execute.yml'],
+    };
+    expect(classifyCommit({ ...base, body: '' })).toBeNull();
+    expect(classifyCommit({ ...base, body: 'Changelog: Fixed - Safer CI.' })).toMatchObject({
+      section: 'Fixed',
+    });
+    expect(classifyCommit({ ...base, files: undefined, body: '' })).toMatchObject({
+      section: 'Fixed',
+    });
+  });
+
   it('fails when package.json is behind the latest git tag', () => {
     const result = validateChangelogState({
       packageVersion: '0.2.2',
@@ -94,6 +132,7 @@ describe('changelog automation scripts', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('need a new CHANGELOG.md release entry');
+    expect(result.errors.join('\n')).toContain('5555555 feat(settings): add profile backup');
   });
 
   it('passes when the top changelog entry and package version are ahead of the latest tag', () => {
