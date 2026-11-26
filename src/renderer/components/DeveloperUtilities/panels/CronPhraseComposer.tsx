@@ -18,6 +18,7 @@ import { Check, Sparkles, TriangleAlert } from 'lucide-react';
 import { FieldLabel, StatusMessage, UtilityInput } from '../panelPrimitives';
 import { phraseToCron } from '../../../utils/cronPhrase';
 import type { CronPhraseNote, CronPhraseResult } from '../../../utils/cronPhrase';
+import '../../../i18n/cronPhraseCatalog';
 import { parseCronExpression } from '../../../utils/cronParser';
 import { runChatCompletion } from '../../../runtime/aiClient';
 import { aiFailureMessage } from '../../../runtime/aiFailureMessage';

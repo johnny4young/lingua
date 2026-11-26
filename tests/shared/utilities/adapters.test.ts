@@ -48,6 +48,7 @@ import {
 } from '../../../src/shared/utilities/cronPhraseAdapter';
 import enCommon from '../../../src/renderer/i18n/locales/en/common.json';
 import esCommon from '../../../src/renderer/i18n/locales/es/common.json';
+import enCronPhrase from '../../../src/renderer/i18n/locales/en/cronPhrase.json';
 
 describe('UTILITY_ADAPTER_REGISTRY', () => {
   it('exposes all 24 closed-enum adapters', () => {
@@ -120,7 +121,7 @@ describe('cronPhraseAdapter', () => {
     // English. A key missing from the table would surface raw, so the table
     // must cover every assumption, caveat, and unsupported key in the
     // renderer locale files.
-    const engineNoteKeys = Object.keys(enCommon).filter(key =>
+    const engineNoteKeys = Object.keys(enCronPhrase).filter(key =>
       /^utilities\.tool\.cron\.phrase\.(assumption|caveat|unsupported)\./u.test(key)
     );
     expect(engineNoteKeys.length).toBeGreaterThan(0);
