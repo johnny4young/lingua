@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import {
   stopProjectTests,
 } from '../../src/main/projectTests';
 import { detectNode } from '../../src/main/node-runner';
+import { removeTempDir } from '../__fixtures__/tempDir';
 
 vi.mock('../../src/main/node-runner', () => ({ detectNode: vi.fn() }));
 
@@ -45,7 +46,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   disposeProjectTestRuns();
-  await rm(rootPath, { recursive: true, force: true });
+  await removeTempDir(rootPath);
 });
 
 describe('project test discovery', () => {
