@@ -151,8 +151,11 @@ export async function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}
     const seconds = (result.ms / 1000).toFixed(1);
     console.log(`${result.ok ? '✓' : '✗'} ${result.gate.name} (${seconds}s)`);
   };
+  // The first pnpm run may install stale or missing deps; parallel gates would race that install.
+  const [warmup, ...rest] = parallel;
   const results = [
-    ...(await runPool(parallel, jobs, cwd, report)),
+    ...(await runPool(warmup ? [warmup] : [], 1, cwd, report)),
+    ...(await runPool(rest, jobs, cwd, report)),
     ...(await runPool(sequential, 1, cwd, report)),
   ];
 
