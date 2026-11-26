@@ -132,10 +132,16 @@ and any blocked validation rather than claiming an unavailable tool ran.
 
 ## Workflow conventions
 
-- Run `pnpm test -- --run`, `pnpm exec tsc --noEmit`,
-  `pnpm run typecheck:tests`, `pnpm run lint`, `pnpm run check:i18n`, and
-  `pnpm run check:i18n:copy` before declaring a slice done. The
-  `check:i18n` guards catch untranslated keys and hardcoded renderer copy.
+- Run `pnpm test -- --run` and `pnpm run preflight` before declaring a
+  slice done. Preflight runs the static CI gates (changelog, tsc for src and
+  test guards, lint, both i18n guards, knip) and reports every failure;
+  add `--full` when the change can move the web bundle budget. The
+  versioned pre-push hook (`.githooks/pre-push`, wired by `pnpm install`)
+  runs the default set; `git push --no-verify` skips it once.
+- Every `feat`, `fix`, `perf` or breaking commit needs a CHANGELOG.md entry
+  for the next version or a `Changelog: none` body line. Commits that touch
+  only `.github/`, `.githooks/`, `docs/`, `tests/` or root Markdown are
+  exempt.
 - The root `tsconfig.json` includes `src/**` only, and `pnpm test` runs
   vitest in transpile-only mode, so neither default gate type-checks
   files under `tests/`. A `// @ts-expect-error` in a test is therefore

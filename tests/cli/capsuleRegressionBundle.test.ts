@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import { removeTempDirSync } from '../__fixtures__/tempDir';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 
 describe('built CLI current-target verification', () => {
@@ -69,8 +70,8 @@ describe('built CLI current-target verification', () => {
       expect(targetRefusal.status).toBe(1);
       expect(JSON.parse(targetRefusal.stdout).reason).toBe('invalid-regression-target');
     } finally {
-      rmSync(root, { recursive: true, force: true });
-      rmSync(outside, { recursive: true, force: true });
+      removeTempDirSync(root);
+      removeTempDirSync(outside);
     }
   });
 });

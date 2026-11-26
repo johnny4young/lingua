@@ -141,6 +141,7 @@ describe('Script naming docs guard', () => {
       // conventional commits and block version/changelog drift.
       'changelog:draft',
       'changelog:check',
+      'preflight',
       'test',
       // Instrumented v8 coverage with ratcheted thresholds (vitest.config.mts).
       'test:coverage',

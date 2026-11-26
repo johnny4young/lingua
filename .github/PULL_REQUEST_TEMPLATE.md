@@ -22,8 +22,6 @@ contribution grant in LICENSE (see CONTRIBUTING.md). Keep PRs focused.
 ## Checklist
 
 - [ ] `pnpm test -- --run` passes
-- [ ] `pnpm exec tsc --noEmit` passes
-- [ ] `pnpm run lint` passes
-- [ ] `pnpm run check:i18n` and `pnpm run check:i18n:copy` pass (if UI/i18n touched)
+- [ ] `pnpm run preflight` passes (add `--full` if the web bundle can change)
 - [ ] User-facing changes were verified in a running build (web or desktop)
 - [ ] Docs updated if shortcuts, execution, or workflow behavior changed

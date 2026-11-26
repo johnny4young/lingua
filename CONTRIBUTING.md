@@ -27,12 +27,17 @@ Before proposing a non-trivial change, run the relevant local checks:
 
 ```bash
 pnpm test -- --run
-pnpm exec tsc --noEmit
-pnpm run lint
-pnpm run check:i18n
-pnpm run check:i18n:copy
-pnpm run build:web
+pnpm run preflight --full
 ```
+
+`preflight` runs the static CI gates (changelog, type checks, lint, i18n, dead
+code) and, with `--full`, the web build and performance budget. The pre-push
+hook installed by `pnpm install` runs it without `--full`.
+
+A `feat`, `fix` or `perf` commit that changes shipped code needs a CHANGELOG.md
+entry for the next version or a `Changelog: none` line in its body. Commits that
+touch only `.github/`, `.githooks/`, `docs/`, `tests/` or root Markdown are
+exempt.
 
 Renderer-facing changes also need a running-app smoke pass. The default path is
 the web preview plus a browser console check for zero errors. Desktop-only IPC,
