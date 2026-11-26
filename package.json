@@ -48,6 +48,7 @@
     "check:performance": "node ./scripts/performance-report.mjs --check",
     "changelog:draft": "node ./scripts/changelog-draft.mjs",
     "changelog:check": "node ./scripts/changelog-check.mjs",
+    "preflight": "node ./scripts/preflight.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check:deadcode": "knip --treat-config-hints-as-errors",
@@ -71,7 +72,7 @@
     "make:desktop:linux": "pnpm run build:desktop-bundles && electron-builder --linux --publish never -c.extraMetadata.linguaBuildChannel=local -c.appId=com.lingua.app.local",
     "make:desktop:win": "pnpm run build:desktop-bundles && electron-builder --win --publish never -c.extraMetadata.linguaBuildChannel=local -c.appId=com.lingua.app.local",
     "publish:desktop": "pnpm run build:desktop-bundles && electron-builder --publish always",
-    "prepare": "node ./scripts/ensure-node-pty-helper-mode.mjs && node ./scripts/build-cli.mjs"
+    "prepare": "node ./scripts/ensure-node-pty-helper-mode.mjs && node ./scripts/build-cli.mjs && node ./scripts/install-git-hooks.mjs"
   },
   "repository": {
     "type": "git",
