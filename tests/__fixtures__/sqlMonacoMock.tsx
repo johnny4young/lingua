@@ -38,6 +38,8 @@ export const sqlMonacoHarness: {
   decorations: Array<Array<{ range: unknown; options: Record<string, unknown> }>>;
   /** Offset the host last moved the cursor to. */
   movedTo: number | null;
+  /** Editor width the fake layout reports. */
+  layoutWidth: number;
   completionProvider:
     | {
         provideCompletionItems: (
@@ -56,6 +58,7 @@ export const sqlMonacoHarness: {
   onCursor: null,
   decorations: [],
   movedTo: null,
+  layoutWidth: 800,
   completionProvider: null,
 };
 
@@ -68,6 +71,7 @@ export function resetSqlMonacoHarness(): void {
   sqlMonacoHarness.onCursor = null;
   sqlMonacoHarness.decorations = [];
   sqlMonacoHarness.movedTo = null;
+  sqlMonacoHarness.layoutWidth = 800;
   sqlMonacoHarness.completionProvider = null;
   sqlModels.clear();
 }
@@ -194,6 +198,8 @@ function MonacoEditor({
     },
     onMouseDown: () => disposable,
     onDidDispose: () => {},
+    getLayoutInfo: () => ({ width: sqlMonacoHarness.layoutWidth }),
+    onDidLayoutChange: () => disposable,
   };
   const monaco = {
     KeyMod: SQL_KEYMOD,

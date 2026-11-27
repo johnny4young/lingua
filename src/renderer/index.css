@@ -1832,8 +1832,9 @@
     --tw-ring-color: color-mix(in srgb, currentColor 70%, transparent);
   }
 
+  /* A hidden control takes its tooltip wrapper along, so the row keeps no empty gap. */
   @media (max-width: 1279px) {
-    .action-pill .action-pill-meta,
+    .action-pill > :has(> .action-pill-meta),
     .action-pill .action-pill-meta-divider {
       display: none !important;
     }
@@ -1875,6 +1876,7 @@
   @media (max-width: 900px) {
     .action-pill .action-pill-direct-actions,
     .action-pill .action-pill-direct-settings,
+    .action-pill > :has(> .action-pill-direct-settings),
     .action-pill .action-pill-context-detail {
       display: none;
     }
@@ -1994,6 +1996,25 @@
     font-size: 10px;
     font-weight: 700;
     line-height: 1;
+  }
+
+  /* Phone widths: the verb keeps its name, the shortcut stays in its menu and tooltip. */
+  @media (max-width: 479px) {
+    .action-pill.action-pill-docked {
+      gap: 6px;
+    }
+
+    .action-pill-docked .action-pill-lang {
+      padding: 0 8px;
+    }
+
+    .action-pill-docked .action-pill-run-main {
+      padding: 0 10px;
+    }
+
+    .action-pill-docked .action-pill-run .kbd-shell {
+      display: none;
+    }
   }
 
   .action-pill-run[data-running='true'] {

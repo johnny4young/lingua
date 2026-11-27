@@ -151,7 +151,11 @@ export function SqlQueryList({
             }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') event.currentTarget.blur();
-              else if (event.key === 'Escape') setRenamingId(null);
+              else if (event.key === 'Escape') {
+                // Handled here: the compact Explorer drawer must not close with the rename.
+                event.preventDefault();
+                setRenamingId(null);
+              }
             }}
           />
         ) : (

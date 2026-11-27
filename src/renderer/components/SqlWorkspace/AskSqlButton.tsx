@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
+import { SqlHeaderButton } from './SqlHeaderButton';
 import { AskSqlDialog } from './AskSqlDialog';
 import type { NlToSqlTable } from '../../../shared/ai/nlToSql';
 import { useEntitlement } from '../../hooks/useEntitlement';
@@ -18,6 +19,8 @@ export interface AskSqlButtonProps {
   readonly tables: ReadonlyArray<NlToSqlTable>;
   readonly dialect?: string;
   readonly onInsert: (sql: string) => void;
+  /** Glyph only, named by its tooltip, on a row too narrow for the label. */
+  readonly iconOnly?: boolean;
   /** Test seam forwarded to the dialog. */
   readonly runChatCompletionImpl?: typeof runChatCompletion;
 }
@@ -26,6 +29,7 @@ export function AskSqlButton({
   tables,
   dialect,
   onInsert,
+  iconOnly = false,
   runChatCompletionImpl,
 }: AskSqlButtonProps) {
   const { t } = useTranslation();
@@ -37,17 +41,14 @@ export function AskSqlButton({
 
   return (
     <>
-      <button
-        type="button"
+      <SqlHeaderButton
+        icon={Sparkles}
+        label={t('ai.askSql.trigger')}
+        name={t('ai.askSql.title')}
+        iconOnly={iconOnly}
         onClick={() => useAskSqlStore.getState().open()}
         data-testid="ask-sql-trigger"
-        aria-label={t('ai.askSql.title')}
-        title={t('ai.askSql.title')}
-        className="focus-ring inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base"
-      >
-        <Sparkles size={11} aria-hidden="true" />
-        <span>{t('ai.askSql.trigger')}</span>
-      </button>
+      />
       {question !== null ? (
         <AskSqlDialog
           initialQuestion={question}

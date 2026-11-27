@@ -38,6 +38,9 @@ export interface SqlResultHeaderProps {
   runs?: ComponentProps<typeof SqlRunPicker> | undefined;
 }
 
+/** Narrower than this, the views fold into a menu so the header keeps one row. */
+const SQL_HEADER_ONE_ROW_WIDTH = 640;
+
 /** SQL, the row count, time and statement over the phase bar, the views and the grid's actions. */
 export function SqlResultHeader({ response, total, shownInView, statementPosition, density, tabs, activeTab, onTabChange, grid, onExport, runs }: SqlResultHeaderProps) {
   const { t, i18n } = useTranslation();
@@ -99,6 +102,7 @@ export function SqlResultHeader({ response, total, shownInView, statementPositio
         ) : undefined
       }
       phases={phases ? sqlPhaseSplit(phases, t) : undefined}
+      foldViewsBelow={SQL_HEADER_ONE_ROW_WIDTH}
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={onTabChange}
@@ -120,7 +124,7 @@ export function SqlResultHeader({ response, total, shownInView, statementPositio
           : []),
       ]}
       trailing={
-        grid ? (
+        grid ? (folded: boolean) => (
           <button
             type="button"
             aria-pressed={grid.railShown}
@@ -133,7 +137,7 @@ export function SqlResultHeader({ response, total, shownInView, statementPositio
             )}
           >
             <Columns3 size={12} aria-hidden="true" />
-            {t('sqlWorkspace.rail.label')}
+            <span className={folded ? 'sr-only' : undefined}>{t('sqlWorkspace.rail.label')}</span>
           </button>
         ) : undefined
       }

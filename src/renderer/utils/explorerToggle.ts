@@ -10,9 +10,9 @@ export function toggleExplorerOrToolList(): Promise<void> | void {
     return;
   }
   if (kind === 'sql') {
-    // The SQL store stays out of the initial bundle; an open SQL tab has already loaded it.
-    return import('../stores/workspaceSqlStore')
-      .then(({ useWorkspaceSqlStore }) => useWorkspaceSqlStore.getState().toggleExplorerFolded())
+    // The SQL stores stay out of the initial bundle; an open SQL tab has already loaded them.
+    return import('../stores/sqlExplorerDrawerStore')
+      .then(({ toggleSqlExplorer }) => toggleSqlExplorer())
       .catch(() => undefined);
   }
   useUIStore.getState().toggleSidebar();

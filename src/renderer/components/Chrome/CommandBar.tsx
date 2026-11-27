@@ -60,7 +60,7 @@ export function CommandBar({
         platform === 'darwin' ? 'pl-[84px]' : 'pl-3'
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="mr-auto flex min-w-0 items-center gap-2">
         {/* Below 480 px the docked controls need the whole row. */}
         <Wordmark className="max-[479px]:hidden" />
         <span className="hidden text-border-strong min-[760px]:inline" aria-hidden="true">
@@ -82,7 +82,6 @@ export function CommandBar({
           />
         ) : null}
       </div>
-      <div className="flex-1" />
       {showControls ? (
         <FloatingActionPill
           docked
