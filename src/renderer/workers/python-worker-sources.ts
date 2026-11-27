@@ -1,6 +1,7 @@
 import type { PythonWorkerExecuteMessage } from './python-worker-protocol';
 import { PYTHON_ASK_STDIN_SOURCE, PYTHON_RESTORE_INPUT_SOURCE } from './python-worker-stdin-request';
 import { PYTHON_DISPLAY_SOURCE } from './python-worker-display';
+import { PYTHON_PRINT_STREAM_SOURCE } from './python-worker-print-stream';
 
 /** Build the Python bootstrap installed before each user-code execution. */
 export function buildPythonExecutionBootstrapSource(
@@ -37,6 +38,7 @@ __lingua_rich_console_enabled = ${message.richConsoleEnabled === false ? 'False'
 __lingua_console_source_mapping_enabled = ${message.sourceMappingEnabled === false ? 'False' : 'True'}
 __lingua_print_entries = []
 __lingua_print_entries_cap = 5000
+${PYTHON_PRINT_STREAM_SOURCE}
 
 
 class __LinguaCaptureStream(io.StringIO):
@@ -46,11 +48,10 @@ class __LinguaCaptureStream(io.StringIO):
 
     def write(self, text):
         written = super().write(text)
-        entries = globals().get("__lingua_print_entries")
-        rich_enabled = globals().get("__lingua_rich_console_enabled")
-        cap = globals().get("__lingua_print_entries_cap", 0)
-        if rich_enabled and isinstance(entries, list) and text and len(entries) < cap:
-            entries.append({"text": str(text), "method": self._lingua_method, "payloads": []})
+        # Names inside a class body are mangled, so module helpers are read from globals().
+        g = globals()
+        if g.get("__lingua_rich_console_enabled") and text and g["__lingua_print_count"] < g["__lingua_print_entries_cap"]:
+            g["__lingua_push_print_entry"]({"text": str(text), "method": self._lingua_method, "payloads": []})
         return written
 
 
@@ -280,7 +281,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
         return
 
     text = sep_actual.join(str(arg) for arg in args) + end_actual
-    if len(__lingua_print_entries) >= __lingua_print_entries_cap:
+    if __lingua_print_count >= __lingua_print_entries_cap:
         return
     method = "error" if file is sys.stderr else "log"
     # per-arg payload capture: each positional arg becomes its
@@ -304,7 +305,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
         line = __lingua_caller_line()
         if line is not None:
             entry["line"] = line
-    __lingua_print_entries.append(entry)
+    __lingua_push_print_entry(entry)
 
 
 # Override 'print' in the user namespace (globals) — leaves
@@ -326,7 +327,7 @@ def __lingua_displayhook(value):
     if not __lingua_rich_console_enabled:
         sys.stdout.write(text)
         return
-    if len(__lingua_print_entries) >= __lingua_print_entries_cap:
+    if __lingua_print_count >= __lingua_print_entries_cap:
         return
     payload = __lingua_console_serialize(value)
     if payload is None:
@@ -341,7 +342,7 @@ def __lingua_displayhook(value):
         line = __lingua_caller_line()
         if line is not None:
             entry["line"] = line
-    __lingua_print_entries.append(entry)
+    __lingua_push_print_entry(entry)
 
 
 sys.displayhook = __lingua_displayhook
@@ -401,25 +402,29 @@ def __mc(line, expr_fn, directive=None, kind=None):
 #     // JS:       lingua.chart({ ... })
 #     // Python:   __lingua.chart({ ... })
 # Validation lives in JS (shared shared/richOutput.ts validators) so
-# the rules stay single-sourced; these Python shims just forward.
+# the rules stay single-sourced; these Python shims just forward, after the
+# pending prints so the media keeps its place in the console.
 import types as __lingua_types
 
 def __lingua_chart_helper(spec):
     fn = globals().get("__lingua_emit_chart")
     if fn is None:
         return None
+    __lingua_flush_prints()
     fn(spec)
 
 def __lingua_image_helper(src, mime=None):
     fn = globals().get("__lingua_emit_image")
     if fn is None:
         return None
+    __lingua_flush_prints()
     fn(src, mime)
 
 def __lingua_html_helper(html):
     fn = globals().get("__lingua_emit_html")
     if fn is None:
         return None
+    __lingua_flush_prints()
     fn(html)
 
 __lingua = __lingua_types.SimpleNamespace(
@@ -481,6 +486,7 @@ finally:
     sys.stdout = __lingua_prev_stdout
     sys.stderr = __lingua_prev_stderr
     sys.displayhook = sys.__displayhook__
+    __lingua_time.sleep = __lingua_time._lingua_sleep
     __lingua_magic_results = []
     __lingua_print_entries = []
 _lingua_state

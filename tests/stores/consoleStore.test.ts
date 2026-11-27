@@ -50,13 +50,6 @@ describe('consoleStore', () => {
     expect(state.entries[0].line).toBe(5);
   });
 
-  it('should add entry with optional executionTime', () => {
-    useConsoleStore.getState().addEntry({ type: 'info', content: 'Done', executionTime: 42.5 });
-
-    const state = useConsoleStore.getState();
-    expect(state.entries[0].executionTime).toBe(42.5);
-  });
-
   it('should clear all entries', () => {
     useConsoleStore.getState().addEntry({ type: 'log', content: 'First' });
     useConsoleStore.getState().addEntry({ type: 'error', content: 'Second' });
@@ -246,6 +239,18 @@ describe('consoleStore', () => {
     const state = useConsoleStore.getState();
     expect(state.previousRun).toBeNull();
     expect(state.currentRun).toEqual({ tabId: 'a', number: 2, startedAt: null });
+  });
+
+  it('a run that reuses an unsettled run number keeps the run before it as the stand-in', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 1_000, number: 6 });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'run 6', line: 3 });
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 2_000, number: 7 });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'superseded 7', line: 3 });
+    useConsoleStore.getState().beginRun({ tabId: 'a', startedAt: 3_000, number: 7 });
+    const state = useConsoleStore.getState();
+    expect(state.entries).toEqual([]);
+    expect(state.previousRun?.number).toBe(6);
+    expect(state.previousRun?.rows.map(row => row.entry.content)).toEqual(['run 6']);
   });
 
   it('beginRun without keepPrevious keeps the count but no stand-ins', () => {

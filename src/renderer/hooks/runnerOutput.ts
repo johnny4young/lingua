@@ -144,11 +144,10 @@ export function toConsoleEntries(
     entries.push(executionError);
   }
 
-  entries.push({
-    type: 'info',
-    content: formatExecutionSummary(result),
-    executionTime: result.executionTime,
-  });
+  // The run meter shows a finished run and its time; only an unfinished one gets a row.
+  if (executionKind(result) !== 'success') {
+    entries.push({ type: 'info', content: formatExecutionSummary(result) });
+  }
 
   return entries;
 }

@@ -15,8 +15,7 @@ describe('runnerOutput helpers', () => {
       stderr: [{ type: 'error' as const, args: ['first'], captureOrder: 0 }], executionTime: 0,
     };
     expect(toConsoleEntries(result).slice(0, 2).map(entry => entry.content)).toEqual(['first', 'middle']);
-    expect(toConsoleEntries(result, 'javascript', { streamed: true }).map(entry => entry.content))
-      .toEqual(['Completed in 0.0 ms']);
+    expect(toConsoleEntries(result, 'javascript', { streamed: true })).toEqual([]);
   });
 
   it('does not duplicate a primary browser failure that was already streamed', () => {
@@ -42,8 +41,12 @@ describe('runnerOutput helpers', () => {
     expect(entries.at(-1)?.content).toBe('Failed in 4.0 ms');
   });
 
+  it('leaves a successful run without a summary row, since the run meter shows it', () => {
+    expect(toConsoleEntries({ stdout: [], stderr: [], executionTime: 4, kind: 'success' })).toEqual([]);
+  });
+
   it.each([
-    ['success', 'Completed'], ['error', 'Failed'], ['stopped', 'Stopped'], ['timeout', 'Timed out'],
+    ['error', 'Failed'], ['stopped', 'Stopped'], ['timeout', 'Timed out'],
   ] as const)('labels %s distinctly even without a top-level error', (kind, label) => {
     const entries = toConsoleEntries({ stdout: [], stderr: [], executionTime: 4, kind });
     expect(entries.at(-1)?.content).toBe(`${label} in 4.0 ms`);
@@ -65,7 +68,7 @@ describe('runnerOutput helpers', () => {
     const entries = toConsoleEntries({
       stdout: [], stderr: [{ type: 'error', args: ['intentional log'] }], executionTime: 4,
     });
-    expect(entries.at(-1)?.content).toBe('Completed in 4.0 ms');
+    expect(entries.map(entry => [entry.type, entry.content])).toEqual([['error', 'intentional log']]);
   });
 
   it('formats initialization messages for known and custom languages', () => {
@@ -97,7 +100,7 @@ describe('runnerOutput helpers', () => {
       { type: 'warn', content: 'careful', line: undefined },
       { type: 'result', content: '42' },
       { type: 'error', content: 'Boom (line 8:3)' },
-      { type: 'info', content: 'Failed in 1.50 s', executionTime: 1500 },
+      { type: 'info', content: 'Failed in 1.50 s' },
     ]);
   });
 

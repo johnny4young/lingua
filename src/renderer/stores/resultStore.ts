@@ -183,7 +183,7 @@ export function runInputKey(stdin: string | undefined, args: readonly string[] |
   return JSON.stringify([stdin ?? '', args ?? []]);
 }
 
-interface ResultState {
+export interface ResultState {
   /** Per-line results for dynamic languages */
   lineResults: LineResult[];
   ranCode: RanCode | null;

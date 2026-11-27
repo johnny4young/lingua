@@ -45,15 +45,25 @@ describe('Python display', () => {
     expect((await execute('display([{"a": 1}], as_="json")')).console[0]).toMatchObject({ payload: [{ kind: 'array' }] });
   });
 
-  it('keeps one entry per progress bar with its last value', async () => {
+  it('sends a progress bar when it starts and again with its last value', async () => {
     const result = await execute('bar = display.progress("import")\nfor i in range(1, 101):\n    bar.update(i / 100, f"{i} / 100")\ndef update():\n    print("user update")\nupdate()');
-    expect(result.console).toHaveLength(2);
-    expect(result.console[0]).toMatchObject({
+    const bars = result.console.filter(message => message.payload?.[0]?.kind === 'progress');
+    expect(bars[0]).toMatchObject({ line: 1, payload: [{ id: 'py-display:progress-1', value: 0 }] });
+    expect(bars.at(-1)).toMatchObject({
       line: 1,
       args: ['import 100% · 100 / 100'],
       payload: [{ kind: 'progress', id: 'py-display:progress-1', value: 1, text: '100 / 100' }],
     });
-    expect(result.console[1]).toMatchObject({ args: ['user update'], line: 5 });
+    expect(result.console.filter(message => message.payload?.[0]?.kind !== 'progress')).toMatchObject([
+      { args: ['user update'], line: 5 },
+    ]);
+  });
+
+  it('leaves a bar kept from an earlier run out of the next one', async () => {
+    await execute('kept_bar = display.progress("old")');
+    const result = await execute('fresh = display.progress("new")\nkept_bar.update(0.5)');
+    const bars = result.console.filter(message => message.payload?.[0]?.kind === 'progress');
+    expect(bars.map(message => message.args[0])).toEqual([expect.stringContaining('new')]);
   });
 
   it('shows a multi-line string on one row', async () => {

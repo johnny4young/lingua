@@ -52,9 +52,10 @@ for (const language of ['en', 'es'] as const) {
     await replaceEditorText(page, 'console.log(3)');
     await run.click();
     await expect(rows.filter({ has: page.getByText('3', { exact: true }) })).toHaveCount(1);
+    await expect(page.getByTestId('run-meter')).toHaveAttribute('data-state', 'done');
     await expect(
       rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })
-    ).toHaveCount(1);
+    ).toHaveCount(0);
     await expect(run).toHaveAttribute('data-running', 'false');
 
     await openSettings(page);

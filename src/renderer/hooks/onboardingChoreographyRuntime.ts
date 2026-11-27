@@ -1,7 +1,7 @@
 import { SEEDED_SCRATCHPAD_VERSION, seededScratchpadTab } from '../onboarding/seedScratchpad';
-import { useConsoleStore } from '../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
+import { useResultStore, type ResultState } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { getPendingSessionRestoreTabCount, useSessionStore } from '../stores/sessionStore';
 import { useSnippetsStore } from '../stores/snippetsStore';
@@ -79,22 +79,19 @@ export function startOnboardingChoreography({
     handleFirstSuccessfulRun(track, latest.language);
   });
 
-  const initialConsoleEntries = useConsoleStore.getState().entries;
-  const initialConsoleEntry = initialConsoleEntries[initialConsoleEntries.length - 1];
-  if (
-    initialConsoleEntry &&
-    initialConsoleEntry.type !== 'error' &&
-    typeof initialConsoleEntry.executionTime === 'number'
-  ) {
-    handleFirstSuccessfulRun(track, initialConsoleEntry.language ?? 'javascript');
-  }
-  const unsubConsole = useConsoleStore.subscribe((state, prev) => {
-    if (state.entries === prev.entries) return;
-    if (state.entries.length <= prev.entries.length) return;
-    const latest = state.entries[state.entries.length - 1];
-    if (!latest || latest.type === 'error') return;
-    if (typeof latest.executionTime !== 'number') return;
-    handleFirstSuccessfulRun(track, latest.language ?? 'javascript');
+  // Scratchpad runs leave no history entry, so a settled successful tab run counts too.
+  const tabLanguage = (tabId: string) =>
+    useEditorStore.getState().tabs.find(tab => tab.id === tabId)?.language ?? 'javascript';
+  const successfulTabRun = (tabRuns: ResultState['tabRuns'], previous?: ResultState['tabRuns']) =>
+    Object.entries(tabRuns).find(
+      ([tabId, log]) => log !== previous?.[tabId] && log.runs.at(-1)?.kind === 'success'
+    )?.[0];
+  const initialTabRun = successfulTabRun(useResultStore.getState().tabRuns);
+  if (initialTabRun !== undefined) handleFirstSuccessfulRun(track, tabLanguage(initialTabRun));
+  const unsubTabRuns = useResultStore.subscribe((state, prev) => {
+    if (state.tabRuns === prev.tabRuns) return;
+    const tabId = successfulTabRun(state.tabRuns, prev.tabRuns);
+    if (tabId !== undefined) handleFirstSuccessfulRun(track, tabLanguage(tabId));
   });
 
   let lastSnippetCount = useSnippetsStore.getState().snippets.length;
@@ -113,7 +110,7 @@ export function startOnboardingChoreography({
 
   return () => {
     unsubHistory();
-    unsubConsole();
+    unsubTabRuns();
     unsubSnippets();
   };
 }

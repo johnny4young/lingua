@@ -7,8 +7,7 @@ def __lingua_display_entry(payload, text):
         line = __lingua_caller_line()
         if line is not None:
             entry["line"] = line
-    if len(__lingua_print_entries) < __lingua_print_entries_cap:
-        __lingua_print_entries.append(entry)
+    __lingua_push_print_entry(entry)
     return entry
 
 
@@ -32,18 +31,25 @@ def __lingua_display(value, as_=None):
 
 
 class __LinguaProgress:
-    __slots__ = ("_payload",)
+    __slots__ = ("_entry", "_run")
 
-    def __init__(self, payload):
-        self._payload = payload
+    def __init__(self, entry):
+        self._entry = entry
+        self._run = globals()["__lingua_print_run"]
 
     def update(self, fraction, text=None):
+        payload = self._entry["payloads"][0]
         try:
-            self._payload["value"] = min(1.0, max(0.0, float(fraction)))
+            payload["value"] = min(1.0, max(0.0, float(fraction)))
         except Exception:  # noqa: BLE001
-            self._payload["value"] = 0.0
+            payload["value"] = 0.0
         if text is not None:
-            self._payload["text"] = str(text)[:80]
+            payload["text"] = str(text)[:80]
+        # A bar already on the console is sent again; the console redraws its row. A bar kept
+        # from an earlier run stays out, since its id can match a bar of this run.
+        if self._entry.get("_sent") and self._run is globals()["__lingua_print_run"]:
+            self._entry = {key: value for key, value in self._entry.items() if key != "_sent"}
+            globals()["__lingua_push_print_entry"](self._entry)
 
 
 __lingua_progress_count = [0]
@@ -52,8 +58,7 @@ __lingua_progress_count = [0]
 def __lingua_display_progress(label=""):
     __lingua_progress_count[0] += 1
     payload = {"kind": "progress", "id": "progress-%d" % __lingua_progress_count[0], "label": str(label)[:80], "value": 0.0}
-    __lingua_display_entry(payload, str(label))
-    return __LinguaProgress(payload)
+    return __LinguaProgress(__lingua_display_entry(payload, str(label)))
 
 
 __lingua_display.progress = __lingua_display_progress

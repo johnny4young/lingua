@@ -1079,7 +1079,7 @@ describe('ConsolePanel', () => {
 
   describe('tape', () => {
     afterEach(() => {
-      useResultStore.setState({ isManualRunning: false, manualRunMode: null, ranCode: null });
+      useResultStore.setState({ isManualRunning: false, isAutoRunning: false, manualRunMode: null, ranCode: null });
     });
 
     const previousRows = ['api', 'worker', 'db'].map((name, index) => ({
@@ -1118,6 +1118,40 @@ describe('ConsolePanel', () => {
       expect(ghosts).toHaveLength(1);
       expect(ghosts[0]?.textContent).toContain('slowest path: db');
       expect(ghosts[0]?.textContent).toContain('run 6');
+    });
+
+    it('times a Scratchpad run from its start and stands in the previous run while it goes', () => {
+      resetState({
+        entries: [
+          { id: 'now-1', type: 'log', content: 'api', timestamp: 1_440, line: 5 },
+          { id: 'now-2', type: 'log', content: 'worker', timestamp: 1_840, line: 5 },
+        ],
+        showTimestamps: true,
+        currentRun: { tabId: 'tab', number: 7, startedAt: 1_000 },
+        previousRun: { number: 6, rows: [...previousRows, summaryRow] },
+      });
+      useResultStore.setState({
+        isAutoRunning: true,
+        ranCode: { tabId: 'tab', code: 'a\nb\nc\nd\n  print(name)\n', input: '', at: 0 },
+      });
+      render(<ConsolePanel />);
+
+      expect(screen.getAllByTestId('console-row-stamp').map(stamp => stamp.textContent)).toEqual(['+0.44 s', '+0.84 s']);
+      expect(screen.getByTestId('console-waiting-row').textContent).toContain('waiting on print(name)');
+      expect(screen.getAllByTestId('console-ghost-row').map(row => row.textContent)).toEqual([
+        expect.stringContaining('slowest path: db'),
+      ]);
+    });
+
+    it('keeps a debug run free of ghost and waiting rows', () => {
+      resetState({
+        currentRun: { tabId: 'tab', number: 7, startedAt: 1_000 },
+        previousRun: { number: 6, rows: [...previousRows, summaryRow] },
+      });
+      useResultStore.setState({ isManualRunning: true, manualRunMode: 'debug' });
+      render(<ConsolePanel />);
+      expect(screen.queryByTestId('console-waiting-row')).toBeNull();
+      expect(screen.queryByTestId('console-ghost-row')).toBeNull();
     });
 
     it('drops ghost and waiting rows once the run is over', () => {

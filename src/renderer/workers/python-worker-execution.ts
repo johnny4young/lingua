@@ -17,7 +17,7 @@ import {
   capturePythonScope,
   parsePythonWorkerError,
   postPythonBufferedOutput,
-  postPythonPrintEntries,
+  createPythonPrintPoster,
   primePythonBootGlobalsIfNeeded,
   truncatePythonWorkerValue,
   type PythonPrintEntry,
@@ -134,6 +134,13 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         py.globals.set('__lingua_emit_chart', richMediaBridge.chart);
         py.globals.set('__lingua_emit_image', richMediaBridge.image);
         py.globals.set('__lingua_emit_html', richMediaBridge.html);
+        // The preamble hands over print batches while the run goes.
+        const postPrintEntries = createPythonPrintPoster(runId);
+        let printBatchesPosted = false;
+        py.globals.set('__lingua_flush_print_entries', (batch: string) => {
+          printBatchesPosted = true;
+          postPrintEntries(JSON.parse(batch) as PythonPrintEntry[]);
+        });
 
         const bootstrapSource = msg.autoLog
           ? `${buildPythonExecutionBootstrapSource(msg)}\n${PYTHON_AUTO_LOG_HELPERS_SOURCE}`
@@ -214,13 +221,12 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         // When the Python preamble produced typed
         // print entries (the common case once the override is in place),
         // post those instead of splitting the buffered stdout. The
-        // buffered text path remains the fallback when print_entries is
-        // empty (e.g. the user opted out via Settings, or stdout was
-        // written via sys.stdout.write directly bypassing the override).
+        // buffered text path remains the fallback when no entry was
+        // produced (e.g. the user opted out via Settings).
         const printEntries = Array.isArray(streams.print_entries) ? streams.print_entries : [];
         if (printEntries.length > 0) {
-          postPythonPrintEntries(runId, printEntries);
-        } else {
+          postPrintEntries(printEntries);
+        } else if (!printBatchesPosted) {
           postPythonBufferedOutput(runId, 'log', streams.stdout);
           postPythonBufferedOutput(runId, 'error', streams.stderr);
         }
