@@ -277,7 +277,8 @@ classified by message truthiness. Ordered print entries are emitted once, not
 replayed again from the stderr buffer. The preamble hands them to the worker in
 batches while user code runs: a print flushes the pending batch once 50 ms have
 passed since the last one, a wrapped `time.sleep` flushes before sleeping (and is
-restored after the run), and the end-of-run dump carries the rest. Capture order
+restored after the run), rich media flushes before it posts, and the end-of-run
+dump carries the rest. Capture order
 continues across batches, the 5000-entry cap counts every entry posted, and a
 progress bar already sent is sent again on update for the console to redraw. Python's innermost user frame owns the
 primary coordinate; synthetic worker frames are not filesystem links. Real local

@@ -60,4 +60,20 @@ describe('beginAutoRunConsole', () => {
     expect(contents()).toEqual(['fresh']);
     expect(useConsoleStore.getState().previousRun?.number).toBe(6);
   });
+
+  it('reverts past a dropped run that a failed newer run replaced', () => {
+    const dropped = beginAutoRunConsole('tab', 'python', () => false, true);
+    dropped.onConsole({ type: 'log', args: ['stale'], line: 5 });
+    const newer = beginAutoRunConsole('tab', 'python', () => true, true);
+    dropped.revert();
+    newer.revert();
+    expect(contents()).toEqual(['api']);
+    expect(useConsoleStore.getState().currentRun).toEqual({ tabId: 'tab', number: 6, startedAt: 1_000 });
+  });
+
+  it('gives a Browser preview refresh that never settles its anchor back', () => {
+    const run = beginAutoRunConsole('tab', 'javascript', () => true, false);
+    run.revert();
+    expect(useConsoleStore.getState().currentRun).toEqual({ tabId: 'tab', number: 6, startedAt: 1_000 });
+  });
 });

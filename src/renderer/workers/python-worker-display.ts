@@ -31,10 +31,11 @@ def __lingua_display(value, as_=None):
 
 
 class __LinguaProgress:
-    __slots__ = ("_entry",)
+    __slots__ = ("_entry", "_run")
 
     def __init__(self, entry):
         self._entry = entry
+        self._run = globals()["__lingua_print_run"]
 
     def update(self, fraction, text=None):
         payload = self._entry["payloads"][0]
@@ -44,8 +45,9 @@ class __LinguaProgress:
             payload["value"] = 0.0
         if text is not None:
             payload["text"] = str(text)[:80]
-        # A bar already on the console is sent again; the console redraws its row.
-        if self._entry.get("_sent"):
+        # A bar already on the console is sent again; the console redraws its row. A bar kept
+        # from an earlier run stays out, since its id can match a bar of this run.
+        if self._entry.get("_sent") and self._run is globals()["__lingua_print_run"]:
             self._entry = {key: value for key, value in self._entry.items() if key != "_sent"}
             globals()["__lingua_push_print_entry"](self._entry)
 

@@ -1,9 +1,10 @@
 // Print entries reach the console while a run goes: a print flushes the pending batch to the
 // worker's __lingua_flush_print_entries once 50 ms have passed since the last flush, and so
-// does time.sleep(); the rest wait for the end-of-run dump.
+// do time.sleep() and rich media; the rest wait for the next flush or the end-of-run dump.
 export const PYTHON_PRINT_STREAM_SOURCE = `
 __lingua_print_count = 0
 __lingua_print_flushed_at = float("-inf")
+__lingua_print_run = object()
 import functools as __lingua_functools
 import time as __lingua_time
 if not hasattr(__lingua_time, "_lingua_sleep"):
@@ -16,6 +17,8 @@ def __lingua_flush_prints():
     entries = __lingua_print_entries
     if not entries or sink is None:
         return
+    # Set first, so a batch that cannot be dumped is retried at most every 50 ms.
+    __lingua_print_flushed_at = __lingua_time.monotonic()
     try:
         batch = __lingua_json.dumps(entries)
     except Exception:  # noqa: BLE001 — the end-of-run dump reports it
@@ -23,7 +26,6 @@ def __lingua_flush_prints():
     for entry in entries:
         entry["_sent"] = True
     entries.clear()
-    __lingua_print_flushed_at = __lingua_time.monotonic()
     sink(batch)
 
 

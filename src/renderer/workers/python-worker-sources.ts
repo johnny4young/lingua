@@ -402,25 +402,29 @@ def __mc(line, expr_fn, directive=None, kind=None):
 #     // JS:       lingua.chart({ ... })
 #     // Python:   __lingua.chart({ ... })
 # Validation lives in JS (shared shared/richOutput.ts validators) so
-# the rules stay single-sourced; these Python shims just forward.
+# the rules stay single-sourced; these Python shims just forward, after the
+# pending prints so the media keeps its place in the console.
 import types as __lingua_types
 
 def __lingua_chart_helper(spec):
     fn = globals().get("__lingua_emit_chart")
     if fn is None:
         return None
+    __lingua_flush_prints()
     fn(spec)
 
 def __lingua_image_helper(src, mime=None):
     fn = globals().get("__lingua_emit_image")
     if fn is None:
         return None
+    __lingua_flush_prints()
     fn(src, mime)
 
 def __lingua_html_helper(html):
     fn = globals().get("__lingua_emit_html")
     if fn is None:
         return None
+    __lingua_flush_prints()
     fn(html)
 
 __lingua = __lingua_types.SimpleNamespace(

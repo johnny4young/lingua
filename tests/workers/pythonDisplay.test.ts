@@ -59,6 +59,13 @@ describe('Python display', () => {
     ]);
   });
 
+  it('leaves a bar kept from an earlier run out of the next one', async () => {
+    await execute('kept_bar = display.progress("old")');
+    const result = await execute('fresh = display.progress("new")\nkept_bar.update(0.5)');
+    const bars = result.console.filter(message => message.payload?.[0]?.kind === 'progress');
+    expect(bars.map(message => message.args[0])).toEqual([expect.stringContaining('new')]);
+  });
+
   it('shows a multi-line string on one row', async () => {
     expect((await execute('display("a\\nb")')).console).toHaveLength(1);
   });

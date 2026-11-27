@@ -64,6 +64,13 @@ describe('Python print batches', () => {
     expect(run.console.map(entry => entry.message.args[0])).toEqual(['one', 'two']);
   });
 
+  it('posts the prints waiting before a chart ahead of it', async () => {
+    const run = await execute(
+      'print("a")\nprint("b")\n__lingua.chart({"mark": "bar", "data": {"values": [{"x": 1}]}, "encoding": {}})'
+    );
+    expect(run.console.map(entry => entry.message.args[0]?.startsWith('[chart') ? 'chart' : entry.message.args[0])).toEqual(['a', 'b', 'chart']);
+  });
+
   it('gives time.sleep back after the run', async () => {
     await execute('import time\ntime.sleep(0)');
     expect(py.runPython('import time\ntime.sleep is time._lingua_sleep')).toBe(true);
