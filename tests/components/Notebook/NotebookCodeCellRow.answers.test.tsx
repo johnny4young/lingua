@@ -225,8 +225,22 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(run.getAttribute('aria-label')).toBe('Run cell');
     expect(run.textContent).toBe('');
     rerender(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale')} />);
-    expect(screen.getByTestId('notebook-code-cell-run').textContent).toBe('Refresh cell');
-    expect(screen.getByTestId('notebook-code-cell-run').getAttribute('aria-label')).toBeNull();
+    // The same element: a click that blurs an editor and stales this cell still lands.
+    expect(screen.getByTestId('notebook-code-cell-run')).toBe(run);
+    expect(run.textContent).toBe('Refresh cell');
+    expect(run.getAttribute('aria-label')).toBeNull();
+    expect(run.dataset.action).toBe('refresh');
+  });
+
+  it('keeps Run on a stale cell that runs in place', () => {
+    const { rerender } = render(<NotebookCodeCellRow {...rowProps(pythonCell)} />);
+    const run = screen.getByTestId('notebook-code-cell-run');
+    rerender(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale')} runsInPlace />);
+    expect(screen.getByTestId('notebook-code-cell-run')).toBe(run);
+    expect(run.dataset.action).toBe('run');
+    expect(run.getAttribute('aria-label')).toBe('Run cell');
+    rerender(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale')} />);
+    expect(run.dataset.action).toBe('refresh');
   });
 
   it('heads a plain output with the run time as its numeral and drops it from the cell badge', () => {

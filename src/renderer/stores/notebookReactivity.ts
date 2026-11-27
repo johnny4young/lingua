@@ -54,6 +54,20 @@ export function markExecutedNotebookCellsStale(
   return next ?? current;
 }
 
+/**
+ * The stale cell that runs in place: the first stale code cell, when its own
+ * edit made it stale. Nothing above it is stale, so the kernels already hold
+ * what it reads; every other stale cell needs a replay.
+ */
+export function notebookCellRunningInPlace(
+  cells: ReadonlyArray<NotebookCellV1>,
+  statuses: Readonly<Record<string, NotebookCellRunStatus>> | undefined,
+  editedSinceRun: Readonly<Record<string, true>> | undefined
+): string | null {
+  const first = cells.find((cell) => cell.kind === 'code' && statuses?.[cell.id] === 'stale');
+  return first && editedSinceRun?.[first.id] ? first.id : null;
+}
+
 export function staleNotebookStatusesFromPersistedState(
   cells: ReadonlyArray<NotebookCellV1>,
   executionOrder: Readonly<Record<string, number>> = {}

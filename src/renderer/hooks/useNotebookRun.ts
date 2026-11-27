@@ -102,6 +102,11 @@ function namesMadeBySameKernel(
   return [...names];
 }
 
+/** Tables and views a SQL cell made in this session; a notebook file never decides what gets dropped. */
+function relationsMadeBy(tabId: string, cellId: string): ReadonlyArray<string> {
+  return useNotebookStore.getState().notebooks[tabId]?.cellVarFlow?.[cellId]?.produces ?? [];
+}
+
 /** A manual editor, Recipe or Debug run is executing on this cell's runner. */
 function isRunnerUsedByManualRun(language: NotebookCellLanguage): boolean {
   const key = notebookCellRunnerKey(language);
@@ -212,6 +217,7 @@ export function useNotebookRun(): UseNotebookRunResult {
           tabId,
           language: cell.language,
           source: cell.source,
+          ...(cell.language === 'sql' ? { replaces: relationsMadeBy(tabId, cell.id) } : {}),
         });
         // Measure only the kernel round-trip; timing lives in
         // the hook, never in `notebookSession`, to keep the kernel file
@@ -451,11 +457,15 @@ export function useNotebookRun(): UseNotebookRunResult {
       ) {
         return;
       }
+      // The JS/TS sandbox and Python scope are rebuilt, so every executed cell
+      // of theirs replays. DuckDB is shared and survives the rebuild: a current
+      // SQL cell's tables are still there, and only stale SQL cells run again.
       const replay = slice.notebook.cells
         .slice(0, lastStaleIndex + 1)
         .filter(
           (cell) =>
             cell.kind === 'code' &&
+            (cell.language !== 'sql' || slice.cellRunStatus[cell.id] === 'stale') &&
             hasNotebookExecutionEvidence(
               cell,
               slice.cellRunStatus[cell.id],
@@ -463,11 +473,15 @@ export function useNotebookRun(): UseNotebookRunResult {
             )
         );
       if (replay.length === 0) return;
+      // Current SQL cells read only DuckDB, so the JS/Python replay above them leaves them current.
+      const currentSql = slice.notebook.cells.flatMap((cell, index) => {
+        const status = slice.cellRunStatus[cell.id];
+        return cell.kind === 'code' && cell.language === 'sql' && status !== undefined && status !== 'stale'
+          ? [{ id: cell.id, index, status }]
+          : [];
+      });
+      let firstRerunSqlIndex = Infinity;
 
-      // Rebuild the notebook-owned JS/TS sandbox and Python scope before
-      // replaying the executed prefix. SQL uses Lingua's shared DuckDB
-      // connection, so its statements are replayed in order without claiming
-      // per-notebook rollback of external/shared database side effects.
       disposeNotebookSession(tabId);
       let runCount = 0;
       let terminalStatus: NotebookCellRunOutcome['status'] | null = null;
@@ -475,12 +489,24 @@ export function useNotebookRun(): UseNotebookRunResult {
       try {
         for (const cell of replay) {
           if (stopRequestedRef.current) break;
+          if (cell.kind === 'code' && cell.language === 'sql') {
+            firstRerunSqlIndex = Math.min(firstRerunSqlIndex, slice.notebook.cells.indexOf(cell));
+          }
           const outcome = await runCellInternal(tabId, cell.id, false);
           if (!outcome) break;
           runCount += 1;
           terminalStatus = outcome.status;
           if (outcome.status === 'error' || outcome.status === 'stopped') {
             break;
+          }
+        }
+        const store = useNotebookStore.getState();
+        const sameNotebook = store.notebooks[tabId]?.notebook.id === slice.notebook.id;
+        for (const kept of sameNotebook ? currentSql : []) {
+          // A SQL cell that ran again above it may have changed what it reads.
+          if (kept.index > firstRerunSqlIndex) continue;
+          if (store.getCellRunStatus(tabId, kept.id) === 'stale') {
+            store.setCellRunStatus(tabId, kept.id, kept.status);
           }
         }
         if (runCount > 0 && terminalStatus) {

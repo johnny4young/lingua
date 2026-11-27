@@ -295,6 +295,10 @@ describe('<NotebookView />', () => {
 
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByTestId('notebook-reactivity-banner')).toBeNull());
+    // The live region stays mounted and empty, ready to announce the next notice.
+    const slot = screen.getByTestId('notebook-stale-notice-slot');
+    expect(slot.getAttribute('role')).toBe('status');
+    expect(slot.childElementCount).toBe(0);
   });
 
   it('the cell language selector switches JS to TS and emits the adoption event', async () => {

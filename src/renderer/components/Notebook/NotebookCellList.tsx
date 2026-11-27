@@ -23,6 +23,8 @@ interface NotebookCellListProps {
   readonly cellDurationMsMap: Readonly<Record<string, number>> | undefined;
   readonly cellVarFlowMap: Readonly<Record<string, NotebookCellVarFlow>> | undefined;
   readonly cellExecutionOrderMap: Readonly<Record<string, number>> | undefined;
+  /** The stale cell whose Run runs it in place instead of refreshing. */
+  readonly runInPlaceCellId: string | null;
   readonly activeCellId: string | null;
   readonly editRequest: { readonly cellId: string; readonly nonce: number } | null;
   readonly disabled: boolean;
@@ -54,6 +56,7 @@ export function NotebookCellList(props: NotebookCellListProps) {
     cellDurationMsMap,
     cellVarFlowMap,
     cellExecutionOrderMap,
+    runInPlaceCellId,
     activeCellId,
     editRequest,
     disabled,
@@ -162,6 +165,7 @@ export function NotebookCellList(props: NotebookCellListProps) {
                   durationMs={durationMs}
                   varFlow={varFlow}
                   executionOrder={cellExecutionOrderMap?.[cell.id] ?? null}
+                  runsInPlace={runInPlaceCellId === cell.id}
                   isActive={isActive}
                   editRequestNonce={editRequest?.cellId === cell.id ? editRequest.nonce : null}
                   canMoveUp={canMoveUp}

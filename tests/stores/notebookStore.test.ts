@@ -209,6 +209,13 @@ describe('useNotebookStore CRUD', () => {
     expect(store.getCellRunStatus('tab-reactive', first.id)).toBe('stale');
     expect(store.getCellRunStatus('tab-reactive', pythonId)).toBe('stale');
     expect(store.getCellRunStatus('tab-reactive', sqlId)).toBe('idle');
+    // Only the edited cell is marked as edited since its run, until it runs again.
+    const edited = () => useNotebookStore.getState().notebooks['tab-reactive']!.cellEditedSinceRun;
+    expect(edited()).toEqual({ [first.id]: true });
+    store.updateCellSource('tab-reactive', sqlId, 'select 2');
+    expect(edited()).toEqual({ [first.id]: true });
+    store.setCellRunStatus('tab-reactive', first.id, 'running');
+    expect(edited()).toEqual({});
   });
 
   it('marks executed cells below a deleted executed cell stale', () => {

@@ -229,7 +229,36 @@ function lastLine(message: string): string {
 }
 
 const CREATE_RE =
-  /^\s*create\s+(?:or\s+replace\s+)?((?:temp|temporary)\s+)?(table|view)\s+(?:if\s+not\s+exists\s+)?((?:"[^"]+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][\w$]*))*)/i;
+  /^\s*create\s+(?<replace>or\s+replace\s+)?(?<temp>(?:temp|temporary)\s+)?(?<kind>table|view)\s+(?<ifNotExists>if\s+not\s+exists\s+)?(?<name>(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))*)(?=[\s(;]|$)/i;
+
+/** A table or view a SQL statement leaves for the cells below. */
+export interface SqlMadeRelation {
+  readonly kind: 'table' | 'view';
+  /** The name as written, quotes kept. */
+  readonly name: string;
+  /** The name without quotes, as the produces chip shows it. */
+  readonly label: string;
+  /** Plain `CREATE`: running it again fails while the relation exists. */
+  readonly plain: boolean;
+}
+
+/**
+ * What a statement (leading comments already skipped) creates, if anything.
+ * The name must end at a boundary: a partly read one would make a rerun drop another relation.
+ */
+function madeRelation(text: string): SqlMadeRelation | undefined {
+  const groups = CREATE_RE.exec(text)?.groups;
+  // Only trust a CREATE seen in code, not one inside a string or comment.
+  // A temporary relation ends with the engine's per-query connection, so it makes nothing.
+  if (!groups || groups.temp || !/^\s*create\b/i.test(sqlCodeOnly(text))) return undefined;
+  const name = groups.name!.replace(/\s*\.\s*/g, '.');
+  return {
+    kind: groups.kind!.toLowerCase() as 'table' | 'view',
+    name,
+    label: name.replace(/"((?:[^"]|"")+)"/g, (_quoted, inner: string) => inner.replace(/""/g, '"')),
+    plain: !groups.replace && !groups.ifNotExists,
+  };
+}
 
 /** What a SQL cell's last statement was, and where its answer goes. */
 export interface SqlAnswerTarget {
@@ -237,8 +266,8 @@ export interface SqlAnswerTarget {
   readonly firstLine: number;
   /** Line of the last statement's last line. */
   readonly lastLine: number;
-  /** `CREATE TABLE | VIEW <name>`: the name as written, and its display form (unquoted). */
-  readonly made?: { readonly kind: 'table' | 'view'; readonly name: string; readonly label: string };
+  /** `CREATE TABLE | VIEW <name>` on the last statement. */
+  readonly made?: SqlMadeRelation;
   readonly isRead: boolean;
 }
 
@@ -270,24 +299,31 @@ export function sqlAnswerTarget(source: string): SqlAnswerTarget | null {
   const text = last.text.slice(codeStart);
   const firstLine = last.startLine + newlines(last.text.slice(0, codeStart));
   const lastLine = firstLine + newlines(text);
-  const code = sqlCodeOnly(text);
-  const created = CREATE_RE.exec(text);
-  // Only trust a CREATE seen in code, not one inside a string or comment.
-  // A temporary relation ends with the engine's per-query connection, so it makes nothing.
-  if (created && !created[1] && /^\s*create\b/i.test(code)) {
-    const name = created[3]!.replace(/\s*\.\s*/g, '.');
-    return {
-      firstLine,
-      lastLine,
-      made: {
-        kind: created[2]!.toLowerCase() as 'table' | 'view',
-        name,
-        label: name.replace(/"/g, ''),
-      },
-      isRead: false,
-    };
-  }
+  const made = madeRelation(text);
+  if (made) return { firstLine, lastLine, made, isRead: false };
   return { firstLine, lastLine, isRead: isReadOnlySqlStatement(text) };
+}
+
+// Transaction control, and statements DuckDB refuses inside a transaction.
+const TRANSACTION_RE =
+  /^\s*(?:begin|commit|rollback|abort|end|start\s+transaction|(?:force\s+)?checkpoint|vacuum|attach|detach)\b/i;
+
+/** Every relation a SQL cell creates, and whether it manages its own transaction or cannot run inside one. */
+export interface SqlCellEffects {
+  readonly made: ReadonlyArray<SqlMadeRelation>;
+  readonly ownsTransaction: boolean;
+}
+
+export function sqlCellEffects(source: string): SqlCellEffects {
+  const made: SqlMadeRelation[] = [];
+  let ownsTransaction = false;
+  for (const statement of splitSqlStatements(source)) {
+    const text = statement.text.slice(leadingCommentsEnd(statement.text));
+    const relation = madeRelation(text);
+    if (relation) made.push(relation);
+    else if (TRANSACTION_RE.test(sqlCodeOnly(text))) ownsTransaction = true;
+  }
+  return { made, ownsTransaction };
 }
 
 /** DuckDB reports a parse error position as `LINE n:` of the text it ran. */

@@ -55,7 +55,7 @@ import { parse } from 'acorn';
 import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
 import { loadEsbuild } from '../runners/esbuildLoader';
 import { runnerManager } from '../runners';
-import { executeQuery } from './duckdbClient';
+import { executeQuery, executeSqlInTransaction, type DuckDbExecuteOutcome } from './duckdbClient';
 import {
   claimNotebookRunner,
   notebookCellRunnerKey,
@@ -76,7 +76,10 @@ import {
   jsAnswers,
   pythonAnswers,
   sqlAnswerTarget,
+  sqlCellEffects,
   sqlErrorLine,
+  type SqlCellEffects,
+  type SqlMadeRelation,
   type NotebookJsAnswerCapture,
   type SqlAnswerTarget,
 } from './notebookAnswers';
@@ -706,6 +709,8 @@ export interface NotebookCellRunRequest {
   readonly source: string;
   /** Optional timeout ms; falls back to the runner default. */
   readonly timeoutMs?: number;
+  /** SQL: relations this cell made on its last run, replaced instead of failing as existing. */
+  readonly replaces?: ReadonlyArray<string>;
 }
 
 /**
@@ -756,8 +761,11 @@ export async function runNotebookCell(
     // `producedKeys` is empty.
     if (request.language === 'sql') {
       const sandboxKeyCount = Object.keys(session.sandbox).length;
-      const outcome = await executeQuery(
+      const effects = sqlCellEffects(request.source);
+      const replaced = replacedRelations(effects, request.replaces);
+      const outcome = await executeSqlCell(
         request.source,
+        replaced,
         request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}
       );
       if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
@@ -777,7 +785,8 @@ export async function runNotebookCell(
             stderr: [errorMessage],
             errorMessage,
             sandboxKeyCount,
-            producedKeys: [],
+            // The failed run rolled back, so what it would have replaced is still there for the next run.
+            producedKeys: [...new Set(replaced.map((relation) => relation.label))],
             answers: [
               {
                 line: sqlErrorLine(errorMessage, request.source),
@@ -818,7 +827,7 @@ export async function runNotebookCell(
           stderr: [],
           sandboxKeyCount,
           // A CREATE leaves a table for the cells below.
-          producedKeys: target?.made ? [target.made.label] : [],
+          producedKeys: [...new Set(effects.made.map((relation) => relation.label))],
           answers,
         },
       };
@@ -1199,6 +1208,35 @@ function assignedNames(
     for (const name of match?.[1]?.split(',') ?? []) names.add(name.trim());
   }
   return [...names];
+}
+
+/**
+ * The plain CREATEs whose relation this cell made last time, so running it
+ * again replaces them. A cell with its own transaction runs as written.
+ */
+function replacedRelations(
+  effects: SqlCellEffects,
+  replaces: ReadonlyArray<string> | undefined
+): ReadonlyArray<SqlMadeRelation> {
+  if (!replaces?.length || effects.ownsTransaction) return [];
+  const previous = new Set(replaces.map((label) => label.toLowerCase()));
+  return effects.made.filter((relation) => relation.plain && previous.has(relation.label.toLowerCase()));
+}
+
+/**
+ * Run a SQL cell. Relations it replaces are dropped in the same transaction,
+ * so a failing cell rolls back and keeps the previous ones.
+ */
+async function executeSqlCell(
+  source: string,
+  replaced: ReadonlyArray<SqlMadeRelation>,
+  options: { timeoutMs?: number }
+): Promise<DuckDbExecuteOutcome> {
+  if (replaced.length === 0) return executeQuery(source, options);
+  const drops = replaced.map((relation) => `DROP ${relation.kind.toUpperCase()} IF EXISTS ${relation.name}`);
+  const outcomes = await executeSqlInTransaction([...drops, source], options);
+  const failed = outcomes.find((outcome) => outcome.status !== 'success' && outcome.status !== 'too-large');
+  return failed ?? outcomes[drops.length]!;
 }
 
 /** Count DuckDB reports for a write: one `Count` row. */
