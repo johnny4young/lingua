@@ -12,6 +12,7 @@ import {
   executeQuery,
 } from './duckdbClient';
 import { MAX_QUERY_BYTES, utf8ByteLength, type SqlQueryStatus } from '../../shared/sqlWorkspace';
+import { sqlCodeOnly, trimSqlComments } from '../../shared/sqlStatements';
 
 export interface SqlColumnProfile {
   columnName: string;
@@ -45,23 +46,26 @@ const MUTATING_SQL_KEYWORDS =
   /\b(?:alter|analyze|attach|begin|call|checkpoint|commit|copy|create|delete|detach|drop|export|grant|import|insert|install|load|merge|pragma|revoke|rollback|set|truncate|update|use|vacuum)\b/i;
 
 /**
- * Only a single read query is safe to run again for a profile. DuckDB's
- * `SUMMARIZE` accepts a query by prefixing it (`SUMMARIZE SELECT …`), not by
- * wrapping it in parentheses. Keep this guard deliberately conservative: a
- * false negative merely hides an optional action, while a false positive could
- * repeat a user mutation.
+ * The source as one read query that is safe to run again, without the
+ * comments and terminator around it, or null. Keep this guard deliberately
+ * conservative: a false negative merely hides an optional action, while a
+ * false positive could repeat a user mutation.
+ */
+export function profileableReadSql(query: string): string | null {
+  const trimmed = trimSqlComments(query);
+  if (trimmed.length === 0 || !PROFILEABLE_QUERY_START.test(trimmed)) return null;
+  if (countSqlStatements(trimmed) !== 1) return null;
+  if (MUTATING_SQL_KEYWORDS.test(sqlCodeOnly(trimmed))) return null;
+  return trimSqlComments(trimmed.replace(/;$/, ''));
+}
+
+/**
+ * DuckDB's `SUMMARIZE` accepts a query by prefixing it (`SUMMARIZE SELECT …`),
+ * not by wrapping it in parentheses.
  */
 export function buildColumnProfileQuery(query: string): string | null {
-  const trimmed = query.trim();
-  if (trimmed.length === 0 || !PROFILEABLE_QUERY_START.test(trimmed)) {
-    return null;
-  }
-
-  if (countSqlStatements(trimmed) !== 1) return null;
-  if (MUTATING_SQL_KEYWORDS.test(stripSqlLiteralsAndComments(trimmed))) {
-    return null;
-  }
-  const withoutTrailingSemicolon = trimmed.replace(/;\s*$/, '');
+  const withoutTrailingSemicolon = profileableReadSql(query);
+  if (withoutTrailingSemicolon === null) return null;
 
   // Wrap SUMMARIZE in a subquery to project a stable column set AND cast
   // null_percentage: SUMMARIZE emits it as DECIMAL(9,2), which arrives from
@@ -120,59 +124,4 @@ function valueToText(value: unknown): string | null {
     return String(value);
   }
   return null;
-}
-
-/**
- * The profiler deliberately favors false negatives: remove strings, quoted
- * identifiers, and comments before looking for a mutation keyword. That keeps
- * a value such as `SELECT 'delete'` profileable while refusing a CTE that ends
- * in `DELETE`, `INSERT`, or other side-effecting SQL before it can run twice.
- */
-function stripSqlLiteralsAndComments(source: string): string {
-  let result = '';
-  let index = 0;
-  while (index < source.length) {
-    const current = source[index] ?? '';
-    const next = source[index + 1] ?? '';
-
-    if (current === "'" || current === '"') {
-      const quote = current;
-      result += ' ';
-      index += 1;
-      while (index < source.length) {
-        const quoted = source[index] ?? '';
-        if (quoted === quote && source[index + 1] === quote) {
-          index += 2;
-          continue;
-        }
-        index += 1;
-        if (quoted === quote) break;
-      }
-      continue;
-    }
-
-    if (current === '-' && next === '-') {
-      result += ' ';
-      index += 2;
-      while (index < source.length && source[index] !== '\n') index += 1;
-      continue;
-    }
-
-    if (current === '/' && next === '*') {
-      result += ' ';
-      index += 2;
-      while (
-        index < source.length &&
-        !(source[index] === '*' && source[index + 1] === '/')
-      ) {
-        index += 1;
-      }
-      index += 2;
-      continue;
-    }
-
-    result += current;
-    index += 1;
-  }
-  return result;
 }

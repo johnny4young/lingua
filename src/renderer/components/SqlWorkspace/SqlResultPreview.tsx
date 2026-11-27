@@ -13,6 +13,7 @@ import {
   type SqlColumnProfileOutcome,
 } from '../../runtime/sqlColumnProfile';
 import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
+import type { SqlStatementPosition } from './SqlQueryEditor';
 import { arrowTypeToDuckDb } from '../../../shared/sqlTypeNames';
 import type { SqlForeignKey } from '../../runtime/sqlForeignKeys';
 import { cn } from '../../utils/cn';
@@ -109,7 +110,7 @@ export interface SqlResultPreviewProps {
   /** Staged edits on an Explorer table, when Edit table rows is on. */
   rowEdits?: SqlRowEdits;
   /** Which statement of a multi-statement run is on screen (1-based). */
-  statementPosition?: { index: number; total: number };
+  statementPosition?: SqlStatementPosition | undefined;
 }
 
 type ResultBodyTab = 'table' | 'json' | 'profile';

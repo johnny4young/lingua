@@ -28,7 +28,7 @@ import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
 import { withE2eSqlDuration } from '../testing/e2eDurations';
-import type { SqlRunRequest } from '../components/SqlWorkspace/SqlQueryEditor';
+import type { SqlRunRequest, SqlStatementPosition } from '../components/SqlWorkspace/SqlQueryEditor';
 import { useAnnounce } from './useAnnounce';
 import { trackSqlQueryExecuted } from './sqlWorkspaceTelemetry';
 import { appPlatform } from '../utils/appPlatform';
@@ -74,7 +74,10 @@ export interface SqlPlanResult {
 export type SqlResultView = { kind: 'result'; index: number } | { kind: 'messages' } | { kind: 'plan' };
 
 /** The SQL behind each query's newest response, so Profile and the strip use exactly what ran. */
-export const sessionRunSources = new Map<string, { recordedAt: string; query: string; connectionId?: string }>();
+export const sessionRunSources = new Map<
+  string,
+  { recordedAt: string; query: string; connectionId?: string; position?: SqlStatementPosition }
+>();
 
 /** Rows read past the window with Load more, for one response; session only. */
 interface SqlMoreRows {
@@ -241,7 +244,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChan
       query: SqlQueryV1,
       statements: string[],
       signal: AbortSignal,
-      remote?: { connection: SqlDbConnectionView; confirmName?: string }
+      remote?: { connection: SqlDbConnectionView; confirmName?: string },
+      position?: SqlStatementPosition
     ) => {
       const results: SqlRunSet['results'] = [];
       const onStatement = (index: number, outcome: DuckDbExecuteOutcome) => {
@@ -279,7 +283,12 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChan
       if (outcomes.some((outcome) => outcome.stillRunning)) setRunState({ stuck: true });
       const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
       for (const id of sessionRunSources.keys()) if (!liveIds.has(id)) sessionRunSources.delete(id);
-      sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql, ...(remote ? { connectionId: remote.connection.id } : {}) });
+      sessionRunSources.set(query.id, {
+        recordedAt: last.response.recordedAt,
+        query: last.sql,
+        ...(remote ? { connectionId: remote.connection.id } : {}),
+        ...(position ? { position } : {}),
+      });
       useWorkspaceSqlStore.getState().recordResponse(query.id, last.response);
       void recordTabLastAnswer(SQL_WORKSPACE_TAB_ID, ({ sqlLastAnswer }, ranAt) => sqlLastAnswer(last.response, query.name, ranAt));
       const cursor = outcomes[outcomes.length - 1]?.cursor;
@@ -331,7 +340,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChan
 
   const run = useCallback(
     async (request: SqlRunRequest) => {
-      const { query, mode, statements } = request;
+      const { query, mode, statements, position } = request;
       if (activeController !== null || statements.length === 0 || confirmResolve !== null) return;
       if (canStartRun && !canStartRun()) return;
       const enabled = sqlDbBridge() !== null;
@@ -369,9 +378,9 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChan
       onBeforeRun();
       try {
         if (connection) {
-          await runStatements(query, toRun, controller.signal, { connection, ...(confirmName !== undefined ? { confirmName } : {}) });
+          await runStatements(query, toRun, controller.signal, { connection, ...(confirmName !== undefined ? { confirmName } : {}) }, position);
         } else if (mode === 'explain') await runExplain(query, statements[0]!, controller.signal);
-        else await runStatements(query, statements, controller.signal);
+        else await runStatements(query, statements, controller.signal, undefined, position);
       } catch (err) {
         // The engine calls settle; this is defensive.
         useUIStore.getState().pushStatusNotice({

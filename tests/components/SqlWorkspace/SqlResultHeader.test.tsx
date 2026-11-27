@@ -48,8 +48,11 @@ describe('SQL result header', () => {
     expect(numeral.textContent).toBe('2rows');
     expect(numeral.getAttribute('title')).toBe('Success');
     expect(numeral.dataset.status).toBe('success');
-    expect(screen.getByText('38 ms')).toBeTruthy();
-    expect(screen.getByTestId('sql-result-preview-statement-count').textContent).toBe(' · statement 1 of 2');
+    const statement = screen.getByTestId('sql-result-preview-statement-count');
+    expect(statement.textContent).toBe('statement 1 of 2');
+    expect(statement.parentElement?.textContent).toBe('38 ms · statement 1 of 2');
+    // A narrow pane breaks the line only after a separator, never inside a reading.
+    expect(statement.previousElementSibling?.className).toBe('whitespace-normal');
   });
 
   it('keeps the status badge when there is no row count', () => {
@@ -67,7 +70,7 @@ describe('SQL result header', () => {
         statementPosition={{ index: 2, total: 3 }}
       />
     );
-    expect(screen.getByTestId('sql-result-preview-statement-count').textContent).toBe('statement 2 of 3');
+    expect(screen.getByTestId('sql-result-preview-statement-count').parentElement?.textContent).toBe('statement 2 of 3');
   });
 
   it('opens and closes the filter bar from the header, and never closes it on rows it narrows', async () => {

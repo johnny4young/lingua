@@ -3548,7 +3548,7 @@
   "sqlWorkspace.handoff.copyBadValue": "La columna {{column}} tiene un valor que no es un {{type}} válido, así que no se creó ninguna tabla.",
   "sqlWorkspace.handoff.copyRepeatedName": "Dos columnas se llaman {{name}}; dale otro nombre a una con AS y vuelve a copiar.",
   "sqlWorkspace.schema.refresh": "Actualizar tablas",
-  "sqlWorkspace.import.button": "Importar datos",
+  "sqlWorkspace.import.button": "Importa datos",
   "sqlWorkspace.import.buttonAria": "Importa un archivo CSV, JSON o Parquet como tabla",
   "sqlWorkspace.import.modalTitle": "Importar archivo como tabla",
   "sqlWorkspace.import.formatLabel": "Formato",

@@ -166,6 +166,27 @@ const READ_LEAD = /^(select|from|values|table|with|summarize|describe|show|pivot
 const WRITE_WORD =
   /\b(insert|update|delete|merge|create|drop|alter|attach|detach|copy|truncate|rename|install|load|checkpoint|vacuum|set|reset|call|export|import|use|exec)\b/i;
 
+/** The SQL without the whitespace and comments before and after it. */
+export function trimSqlComments(sql: string): string {
+  let start = -1;
+  let end = 0;
+  let i = 0;
+  while (i < sql.length) {
+    if (/\s/.test(sql[i]!)) {
+      i += 1;
+      continue;
+    }
+    const comment = sql.startsWith('--', i) || sql.startsWith('/*', i);
+    const next = Math.max(skipSqlToken(sql, i), i + 1);
+    if (!comment) {
+      if (start === -1) start = i;
+      end = next;
+    }
+    i = next;
+  }
+  return start === -1 ? '' : sql.slice(start, end);
+}
+
 /** Blanks out strings, quoted identifiers and comments so keyword checks see only code. */
 export function sqlCodeOnly(sql: string): string {
   let out = '';

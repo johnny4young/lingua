@@ -49,6 +49,9 @@ The format follows Keep a Changelog and groups changes by release.
 - Notebook cells answer beside their lines: an expression, and in Python an assignment, shows its value and type, a list of numbers its bars and range, a printed line its text, and an error the line that failed. A SQL query draws its result table beside the cell, and a CREATE TABLE names the table with its rows × columns. The run number sits in the margin, cells show the names they make and use, and a cell's output folds behind its line count while its lines answer. Answers are saved in the .linguanb file and older notebooks open unchanged.
 - A stale notebook says so once, at the end of its toolbar, with Refresh n beside it instead of a banner row across the notebook. A stale cell keeps its answers dimmed and dates them, such as from run 3 · may be out of date, and offers Refresh cell. A cell that never ran shows ⇧↵ run and move on on its last line. Each cell runs from a quiet play button, and Run all in the toolbar no longer competes with the command bar's Run cell.
 ### Fixed
+- In Lingua Ink and Lingua Paper, SQL strings, built-in functions such as count and sum, and operators take the theme's colours instead of Monaco's red and magenta.
+- Run statement in a SQL editor with more than one statement says which one ran in the result header, such as statement 1 of 2, as Run all already did.
+- The SQL Profile view is offered for a query that starts or ends with a comment, and a trailing line comment no longer breaks the profile.
 - In a narrow window, a dialog's footer wraps its key legend and result count onto more lines instead of running them together or past the edge.
 - In a narrow Settings window, a row with several buttons, such as Release actions in General, moves them under its label instead of overlapping it.
 - A long line in a notebook cell scrolls inside the cell instead of pushing the cell's buttons past the edge of the window.
