@@ -34,6 +34,8 @@ describe('assertionValues', () => {
     expect(assertionValues('jest', 'AssertionError: expected -0 to be +0 // Object.is equality')).toEqual({ received: '-0', expected: '0' });
     expect(assertionValues('jest', 'AssertionError: expected [ +0, 1 ] to deeply equal [ +0, 2 ]')).toEqual({ received: '[ 0, 1 ]', expected: '[ 0, 2 ]' });
     expect(assertionValues('jest', "AssertionError: expected 'v+0' to be +0.5")).toEqual({ received: "'v+0'", expected: '+0.5' });
+    expect(assertionValues('jest', "AssertionError: expected '+0' to be +0")).toEqual({ received: "'+0'", expected: '0' });
+    expect(assertionValues('jest', "AssertionError: expected 'a +0 \\' b' to be 'c'")).toEqual({ received: "'a +0 \\' b'", expected: "'c'" });
   });
 
   it('clips long values', () => {

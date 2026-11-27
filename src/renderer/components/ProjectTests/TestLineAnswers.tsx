@@ -7,7 +7,10 @@ import '../../i18n/testsCatalog';
 import '../ui/identity.css';
 import './projectTests.css';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
+import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useResultStore } from '../../stores/resultStore';
+import { useTimelineStore } from '../../stores/timelineStore';
+import { isHiddenUndefinedLineResult } from '../../hooks/inlineResultVisibility';
 import { sameTest, useProjectTestStore, type ProjectTestDisplayCase } from '../../stores/projectTestStore';
 import { parentDirOf } from '../../utils/filePath';
 import { formatWholeDuration } from '../../utils/latencyScale';
@@ -60,15 +63,23 @@ export function TestLineAnswers({ editor, monaco, headerSlot = null }: TestLineA
   const entry = focusedAnswer?.kind === 'assertion' ? focusedAnswer.test : undefined;
   const lookup = useCodeUnderTestChange(entry);
   const change = lookup.status === 'done' ? lookup.change : null;
-  const nodes = useAnswerColumnWidgets(editor, monaco, answers);
+  const { nodes, crowded } = useAnswerColumnWidgets(editor, monaco, answers);
   const answeredLines = useMemo(() => answers.map(answer => answer.line), [answers]);
   // A code run of this file owns the header and the rail while it runs and while its answers are on screen.
   const codeAnswers = useResultStore(
     state =>
       tab.id !== undefined &&
       state.ranCode?.tabId === tab.id &&
-      (state.isAutoRunning || state.isManualRunning || state.lineResults.length > 0 || state.lineTimings.length > 0 || state.error !== null)
+      (state.isAutoRunning ||
+        state.isManualRunning ||
+        state.lineResults.some(result => !isHiddenUndefinedLineResult(result)) ||
+        state.lineTimings.length > 0 ||
+        state.error !== null)
   );
+  // The run rail also draws a recorded run or a debugger pause of this file.
+  const codeRail = useTimelineStore(state => state.recording?.tabId === tab.id);
+  const codePause = useDebuggerStore(state => state.pausedFrame?.tabId === tab.id);
+  const railOwned = codeAnswers || codeRail || codePause;
 
   useEffect(() => {
     if (!editor || !monaco) return;
@@ -77,15 +88,21 @@ export function TestLineAnswers({ editor, monaco, headerSlot = null }: TestLineA
         const range = new monaco.Range(answer.line, 1, answer.line, 1);
         const tint = {
           range,
-          options: { isWholeLine: true, className: 'test-error-line', marginClassName: 'test-error-margin', lineNumberClassName: 'test-error-number' },
+          options: {
+            isWholeLine: true,
+            // A line that runs into the column keeps the tint under all of its code.
+            className: crowded.has(answer.key) ? 'test-error-line test-error-line--full' : 'test-error-line',
+            marginClassName: 'test-error-margin',
+            lineNumberClassName: 'test-error-number',
+          },
         };
         const state = answerRailState(answer);
-        const rail = codeAnswers || state === null ? [] : [railDecoration(monaco, { line: answer.line, state, slot: null }, false, null)];
+        const rail = railOwned || state === null ? [] : [railDecoration(monaco, { line: answer.line, state, slot: null }, false, null)];
         return answer.kind === 'assertion' ? [tint, ...rail] : rail;
       })
     );
     return () => marks.clear();
-  }, [editor, monaco, answers, codeAnswers]);
+  }, [editor, monaco, answers, railOwned, crowded]);
 
   if (!file) return null;
   return (

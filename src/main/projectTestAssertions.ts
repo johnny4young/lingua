@@ -16,7 +16,9 @@ interface AssertionValues {
 type Pattern = (message: string) => AssertionValues | null;
 
 // Chai prints positive zero as +0 so it differs from -0; plain 0 reads the same and keeps -0 apart.
-const plainZero = (value: string) => value.replace(/(?<![\w.])\+0(?![\w.])/gu, '0');
+// Quoted strings are matched first so a +0 inside one stays as printed.
+const plainZero = (value: string) =>
+  value.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|(?<![\w.])\+0(?![\w.])/gu, match => (match === '+0' ? '0' : match));
 
 // Chai, used by Vitest: expected 1211 to be 1210.5 // Object.is equality
 const chai: Pattern = message => {

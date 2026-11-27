@@ -39,7 +39,10 @@ export function useColorizedLines(
     Promise.all(filled.map(block => monaco.editor.colorize(block.join('\n'), languageId, { tabSize })))
       .then(html => {
         const lines = html.flatMap((block, index) => linesFromColorizedHtml(block).slice(0, filled[index]!.length));
-        if (active && lines.length === filled.flat().length) setColored({ key, lines });
+        const source = filled.flat();
+        // Tabs come back as spaces; any other difference means a token was dropped, so the text stays plain.
+        const same = (tokens: ColorToken[], text: string) => tokens.map(token => token.text).join('').replace(/\s/gu, '') === text.replace(/\s/gu, '');
+        if (active && lines.length === source.length && lines.every((tokens, index) => same(tokens, source[index]!))) setColored({ key, lines });
       })
       .catch(() => undefined);
     return () => {

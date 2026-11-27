@@ -195,6 +195,10 @@
   background: linear-gradient(to right, var(--test-error-tint) var(--test-error-tint-end), transparent var(--test-error-tint-end));
 }
 
+.monaco-editor .test-error-line--full {
+  background: var(--test-error-tint);
+}
+
 .monaco-editor .test-error-margin {
   background: var(--test-error-tint);
 }

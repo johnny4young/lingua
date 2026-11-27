@@ -8,6 +8,7 @@ import { useGitStore } from '../../../src/renderer/stores/gitStore';
 import { useProjectStore } from '../../../src/renderer/stores/projectStore';
 import { useProjectTestStore, type ProjectTestDisplayCase } from '../../../src/renderer/stores/projectTestStore';
 import { useResultStore } from '../../../src/renderer/stores/resultStore';
+import { useTimelineStore } from '../../../src/renderer/stores/timelineStore';
 import { asRootId } from '../../../src/shared/fs/brandedIds';
 import { fakeEditor } from './fakeEditor';
 
@@ -16,6 +17,7 @@ const initialProject = useProjectStore.getState();
 const initialTests = useProjectTestStore.getState();
 const initialGit = useGitStore.getState();
 const initialResults = useResultStore.getState();
+const initialTimeline = useTimelineStore.getState();
 const originalLingua = window.lingua;
 
 const source = [
@@ -100,6 +102,7 @@ describe('TestLineAnswers', () => {
     useProjectTestStore.setState(initialTests, true);
     useGitStore.setState(initialGit, true);
     useResultStore.setState(initialResults, true);
+    useTimelineStore.setState(initialTimeline, true);
   });
 
   it('answers the suite, each test and the failing assertion on their lines', async () => {
@@ -149,6 +152,38 @@ describe('TestLineAnswers', () => {
     expect(slot.querySelector('[data-testid="answer-column-header"]')).toBeNull();
     const marks = vi.mocked(fake.editor.createDecorationsCollection).mock.calls.at(-1)![0]!;
     expect(marks.some(mark => mark.options.linesDecorationsClassName)).toBe(false);
+    unmount();
+    slot.remove();
+  });
+
+  it('keeps the tint under all of a failing line that runs into the column', async () => {
+    const fake = fakeEditor({ lines: source.split('\n'), contentWidth: 600 });
+    render(<TestLineAnswers editor={fake.editor} monaco={fake.monaco} />);
+    const tintOf = () =>
+      vi
+        .mocked(fake.editor.createDecorationsCollection)
+        .mock.calls.at(-1)![0]!
+        .find(mark => mark.options.marginClassName === 'test-error-margin')?.options.className;
+    await waitFor(() => expect(tintOf()).toBe('test-error-line test-error-line--full'));
+  });
+
+  it('leaves the rail to a recorded run or a debugger pause of the file', async () => {
+    useTimelineStore.setState({ recording: { tabId: 'tab' } as never });
+    const fake = fakeEditor({ lines: source.split('\n') });
+    render(<TestLineAnswers editor={fake.editor} monaco={fake.monaco} />);
+    await waitFor(() => expect(fake.editor.createDecorationsCollection).toHaveBeenCalled());
+    const marks = vi.mocked(fake.editor.createDecorationsCollection).mock.calls.at(-1)![0]!;
+    expect(marks.some(mark => mark.options.linesDecorationsClassName)).toBe(false);
+    expect(marks.some(mark => mark.options.marginClassName === 'test-error-margin')).toBe(true);
+  });
+
+  it('keeps the header when a code run left only hidden undefined results', async () => {
+    useResultStore.setState({ ranCode: { tabId: 'tab' } as never, lineResults: [{ line: 6, type: 'result', value: 'undefined' }] as never });
+    const fake = fakeEditor({ lines: source.split('\n') });
+    const slot = document.createElement('div');
+    document.body.appendChild(slot);
+    const { unmount } = render(<TestLineAnswers editor={fake.editor} monaco={fake.monaco} headerSlot={slot} />);
+    await waitFor(() => expect(slot.querySelector('[data-testid="answer-column-header"]')).not.toBeNull());
     unmount();
     slot.remove();
   });
