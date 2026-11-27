@@ -4061,7 +4061,7 @@
   "notebook.cell.markdownSourcePlaceholder": "Escribe markdown — párrafos, encabezados, listas y bloques de código.",
   "notebook.cell.outputMeta_one": "{{count}} línea",
   "notebook.cell.outputMeta_other": "{{count}} líneas",
-  "notebook.cell.latencySuffix": " · {{ms}} ms",
+  "notebook.cell.latencySuffix": " · {{duration}}",
   "notebook.cell.usesChip": "usa {{names}}",
   "notebook.cell.producesChip": "crea {{names}}",
   "notebook.cell.collapseOutput": "Contrae la salida",

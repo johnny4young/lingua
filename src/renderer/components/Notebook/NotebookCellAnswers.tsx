@@ -60,21 +60,24 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
       style={{
         ['--notebook-line-height' as string]: `${lineHeight}px`,
         paddingTop: NOTEBOOK_CODE_INSET,
-        gridTemplateRows: `repeat(${lines}, ${lineHeight}px) auto${footer ? ` ${lineHeight}px` : ''}`,
+        gridTemplateRows: `repeat(${lines}, ${lineHeight}px) auto${footer ? ' auto' : ''}`,
       }}
     >
       {rows.map((answer, index) => {
         const spansTable = answer.kind === 'result' && table !== null;
+        // The last answer has the lines below it free, so long text wraps into them.
+        const wraps = index === last && !spansTable;
         return (
           <div
             key={`${answer.line}:${answer.kind}`}
             data-testid="notebook-cell-answer"
             data-line={answer.line}
             data-kind={answer.kind}
+            data-wrap={wraps ? 'true' : undefined}
             className="notebook-answer"
             style={{
-              gridRow: spansTable ? `${answer.line} / ${lines + 2}` : answer.line,
-              ...(spansTable ? {} : { height: lineHeight }),
+              gridRow: spansTable || wraps ? `${answer.line} / ${lines + 2}` : answer.line,
+              ...(spansTable || wraps ? {} : { height: lineHeight }),
             }}
           >
             <span className="notebook-answer-tag" data-tone={answer.kind === 'error' ? 'error' : undefined}>
@@ -86,7 +89,7 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
         );
       })}
       {footer ? (
-        <div className="notebook-answer" style={{ gridRow: lines + 2, height: lineHeight }}>
+        <div className="notebook-answer" data-wrap="true" style={{ gridRow: lines + 2 }}>
           <span className="notebook-answer-tag" />
           {dated}
         </div>
@@ -167,7 +170,8 @@ function AnswerValue({ answer }: { readonly answer: NotebookLineAnswerV1 }) {
 }
 
 function AnswerTable({ table }: { readonly table: RichOutputTable }) {
-  const grid = useMemo(() => answerGrid(table.columns, table.rows), [table]);
+  const { i18n } = useTranslation();
+  const grid = useMemo(() => answerGrid(table.columns, table.rows, i18n.language), [table, i18n.language]);
   return (
     <div className="notebook-answer-table" data-testid="notebook-cell-answer-table">
       <table>

@@ -106,6 +106,7 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     const table = screen.getByTestId('notebook-cell-answer-table');
     expect(within(table).getAllByRole('row')).toHaveLength(3);
     expect(table.textContent).toContain('Medellín');
+    expect(table.textContent).toContain('818,294.40');
     // The last measurable numeric column carries the bars.
     expect(table.querySelectorAll('.notebook-answer-track')).toHaveLength(2);
     expect(screen.getByTestId('notebook-cell-answer').style.gridRow).toBe('1 / 5');
@@ -257,6 +258,16 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
   it('keeps the time on the cell badge while answers replace the output header', () => {
     render(<NotebookCodeCellRow {...rowProps(pythonCell)} durationMs={12.5} />);
     expect(screen.queryByTestId('result-header')).toBeNull();
-    expect(screen.getByTestId('notebook-code-cell-status').textContent).toBe('Ok · 12.5 ms');
+    expect(screen.getByTestId('notebook-code-cell-status').textContent).toBe('Ok · 13 ms');
+  });
+
+  it('lets the last answer wrap into the free lines below it', () => {
+    render(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale')} />);
+    const answers = screen.getAllByTestId('notebook-cell-answer');
+    expect(answers.map(answer => answer.dataset.wrap)).toEqual([undefined, undefined, 'true']);
+    expect(answers[2]!.style.gridRow).toBe('4 / 6');
+    expect(answers[2]!.style.height).toBe('');
+    expect(answers[1]!.style.height).not.toBe('');
+    expect(within(answers[2]!).getByTestId('notebook-cell-answer-dated').textContent).toBe('from run 4 · may be out of date');
   });
 });

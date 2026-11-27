@@ -1,5 +1,149 @@
 /* Notebook answers load with the notebook chunk, so their sizes ship here instead of in the boot stylesheet. */
 
+/* Each code cell is a size container: its header and answers fold by the cell's width, not the window's. */
+.notebook-cell-shell {
+  container: notebook-cell / inline-size;
+}
+
+.notebook-cell-header {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'lang chips state actions';
+  align-items: start;
+  gap: 4px 8px;
+}
+
+.notebook-cell-header-lang {
+  display: flex;
+  min-height: 24px;
+  grid-area: lang;
+  align-items: center;
+  gap: 8px;
+  padding: 1px;
+}
+
+.notebook-cell-language-name {
+  color: var(--color-fg-base);
+  font-family: var(--font-ui);
+  font-variation-settings: normal;
+  font-size: 13px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.notebook-cell-header-chips {
+  display: flex;
+  min-width: 0;
+  grid-area: chips;
+  flex-wrap: wrap;
+  padding-top: 2px;
+  gap: 4px 6px;
+}
+
+/* Names wrap instead of truncating, so every variable a cell makes or uses stays readable. */
+.notebook-cell-chip {
+  display: inline-flex;
+  min-height: 20px;
+  max-width: 100%;
+  align-items: center;
+  padding: 1px 7px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  color: var(--color-fg-muted);
+  font-family: var(--font-code);
+  font-variation-settings: var(--font-code-axes);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.notebook-cell-header-state {
+  display: flex;
+  min-height: 24px;
+  grid-area: state;
+  align-items: center;
+  justify-self: end;
+  gap: 8px;
+}
+
+.notebook-cell-header-actions {
+  display: flex;
+  grid-area: actions;
+  align-items: center;
+  justify-self: end;
+  gap: 4px;
+}
+
+/* Status reads as text, as written: sentence case and a lowercase unit. */
+.notebook-cell-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-fg-muted);
+  font-family: var(--font-ui);
+  font-variation-settings: normal;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.notebook-cell-status[data-status='error'] {
+  color: var(--color-error-fg);
+}
+
+.notebook-cell-status:is([data-status='stale'], [data-status='stopped']) {
+  color: var(--color-warning-fg);
+}
+
+.notebook-cell-status[data-status='running'] {
+  color: var(--color-pulse-fg);
+}
+
+/* The shared run dot has no idle or stopped state. */
+.notebook-cell-status .run-dot[data-run-dot='idle'] {
+  box-shadow: inset 0 0 0 1.2px var(--color-fg-subtle);
+}
+
+.notebook-cell-status .run-dot[data-run-dot='stopped'] {
+  background: var(--color-warning-fg);
+}
+
+.notebook-cell-run[data-action='refresh'] {
+  padding: 0 4px 0 8px;
+}
+
+/* A narrow cell keeps its buttons beside the language and drops chips and status to a second row. */
+@container notebook-cell (max-width: 720px) {
+  .notebook-cell-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'lang actions'
+      'chips state';
+  }
+}
+
+@container notebook-cell (max-width: 560px) {
+  .notebook-cell-mode {
+    display: none;
+  }
+
+  .notebook-cell-refresh-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .notebook-cell-run[data-action='refresh'] {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+  }
+}
+
 .notebook-cell-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -205,7 +349,7 @@
 .notebook-answer-track {
   position: relative;
   display: block;
-  width: min(9rem, 12vw);
+  width: clamp(2.5rem, 14cqi, 9rem);
   height: 6px;
   border-radius: 2px;
   background: var(--color-bg-panel-alt);
@@ -286,25 +430,163 @@
   white-space: nowrap;
 }
 
-/* Narrow cells list their answers under the code; the line grid would leave gaps. */
-@media (max-width: 720px) {
+/* Long text wraps to three lines: the last answer of a cell, and every answer once they sit under the code. */
+.notebook-answer[data-wrap='true'] {
+  min-height: var(--notebook-line-height);
+  align-items: flex-start;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  padding-top: calc((var(--notebook-line-height) - 19px) / 2);
+  white-space: normal;
+}
+
+.notebook-answer[data-wrap='true'] .notebook-answer-tag {
+  line-height: 19px;
+}
+
+.notebook-answer[data-wrap='true'] :is(.notebook-answer-text, .notebook-answer-pill, .notebook-answer-value, .notebook-answer-name) {
+  display: -webkit-box;
+  height: auto;
+  min-height: 19px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-height: 19px;
+  overflow-wrap: anywhere;
+}
+
+.notebook-answer[data-wrap='true'] .notebook-answer-pill {
+  max-width: 100%;
+}
+
+/* A narrow cell lists its answers under the code at full width; a table needs more room than a value. */
+@container notebook-cell (max-width: 720px) {
   .notebook-cell-body[data-answers='true'] {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .notebook-cell-body .notebook-answers {
+  .notebook-cell-body[data-answers='true'] .notebook-answers {
     grid-template-rows: none !important;
+    row-gap: 4px;
     padding-top: 6px !important;
   }
 
-  .notebook-cell-body .notebook-answer {
+  .notebook-cell-body[data-answers='true'] .notebook-answer {
+    height: auto !important;
+    min-height: var(--notebook-line-height);
     grid-row: auto !important;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding-top: calc((var(--notebook-line-height) - 19px) / 2);
+    white-space: normal;
   }
 
-  .notebook-answer-leader {
+  .notebook-cell-body[data-answers='true'] .notebook-answer-tag {
+    line-height: 19px;
+  }
+
+  .notebook-cell-body[data-answers='true'] :is(.notebook-answer-text, .notebook-answer-pill, .notebook-answer-value, .notebook-answer-name) {
+    display: -webkit-box;
+    height: auto;
+    min-height: 19px;
+    max-width: 100%;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-height: 19px;
+    overflow-wrap: anywhere;
+  }
+
+  .notebook-cell-body[data-answers='true'] .notebook-answer-leader {
     display: none;
   }
 
+  .notebook-cell-body[data-answers='true'] .notebook-answer-table {
+    width: fit-content;
+    max-width: 100%;
+  }
+}
+
+@container notebook-cell (max-width: 960px) {
+  .notebook-cell-body[data-table='true'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .notebook-cell-body[data-table='true'] .notebook-answers {
+    grid-template-rows: none !important;
+    row-gap: 4px;
+    padding-top: 6px !important;
+  }
+
+  .notebook-cell-body[data-table='true'] .notebook-answer {
+    height: auto !important;
+    min-height: var(--notebook-line-height);
+    grid-row: auto !important;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding-top: calc((var(--notebook-line-height) - 19px) / 2);
+    white-space: normal;
+  }
+
+  .notebook-cell-body[data-table='true'] .notebook-answer-tag {
+    line-height: 19px;
+  }
+
+  .notebook-cell-body[data-table='true'] :is(.notebook-answer-text, .notebook-answer-pill, .notebook-answer-value, .notebook-answer-name) {
+    display: -webkit-box;
+    height: auto;
+    min-height: 19px;
+    max-width: 100%;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-height: 19px;
+    overflow-wrap: anywhere;
+  }
+
+  .notebook-cell-body[data-table='true'] .notebook-answer-leader {
+    display: none;
+  }
+
+  .notebook-cell-body[data-table='true'] .notebook-answer-table {
+    width: fit-content;
+    max-width: 100%;
+  }
+}
+
+@container notebook-cell (max-width: 560px) {
+  .notebook-answer-table th,
+  .notebook-answer-table td {
+    padding-right: 8px;
+  }
+
+  .notebook-answer-table .notebook-answer-table-index {
+    width: 24px;
+    padding-right: 8px;
+  }
+
+  .notebook-answer-table td[data-numeric='true'] {
+    padding-left: 8px;
+  }
+}
+
+/* Under 768 px a code cell's margin keeps only the numeral; its label stays in the margin's accessible name. */
+@media (max-width: 768px) {
+  .notebook-run-margin {
+    width: 2.75rem;
+    padding-right: 8px;
+  }
+
+  .notebook-run-margin-numeral {
+    font-size: 24px;
+    line-height: 30px;
+  }
+
+  .notebook-run-margin[role='note'] .notebook-run-margin-label {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
   .notebook-run-margin {
     display: none;
   }

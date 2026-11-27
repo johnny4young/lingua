@@ -27,8 +27,8 @@ import { RichTableGrid } from '../Console/RichTableGrid';
 import { cn } from '../../utils/cn';
 import { languageBadgeTone, languageLabel } from '../../utils/languageMeta';
 import { ResultHeader, type ResultHeaderNumeral } from '../ui/ResultHeader';
-import { splitRunDuration } from '../../utils/timeLabels';
-import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
+import { formatRunDuration, splitRunDuration } from '../../utils/timeLabels';
+import '../ui/identity.css';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
 import { NotebookCellEditor } from './NotebookCellEditor';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
@@ -116,25 +116,6 @@ export interface NotebookCodeCellRowProps {
   onLanguageChange: (cellId: string, language: NotebookCellLanguage) => void;
 }
 
-/** Cell run status onto a badge tone; token-only so both themes resolve. */
-const STATUS_BADGE_TONE: Record<NotebookCellRunStatus, StatusBadgeTone> = {
-  idle: 'neutral',
-  running: 'info',
-  ok: 'success',
-  error: 'error',
-  stopped: 'warning',
-  stale: 'warning',
-};
-
-/**
- * Render the per-cell latency as a compact mono suffix
- * (" · 1.2 ms"), matching the proto's `StatusBadge … · 1.2 ms`. One
- * decimal keeps sub-millisecond runs legible without noisy precision.
- * `performance.now()` deltas are already in ms.
- */
-function formatLatencyMs(ms: number): string {
-  return ms >= 100 ? Math.round(ms).toString() : ms.toFixed(1);
-}
 
 /** The output header's numeral: the run time, red when the cell failed. */
 function latencyNumeral(durationMs: number, status: NotebookCellRunStatus): ResultHeaderNumeral {
@@ -194,6 +175,7 @@ function NotebookCodeCellRowImpl({
   const { t } = useTranslation();
   const shellRef = useRef<HTMLElement | null>(null);
   const label = languageLabel(cell.language);
+  const cellName = t('notebook.cell.indexLabel', { index: cellIndex + 1 });
   // "Explain this error": on an errored cell, LOCAL_AI users get the
   // consent-gated AI trigger (shared ExplainErrorButton owns the dialog +
   // open state). `canExplainError` gates the wrapper so Free users don't get
@@ -373,7 +355,7 @@ function NotebookCodeCellRowImpl({
     status !== 'idle';
   const outputHeaderShown = hasOutputs && showOutputHeader && !showAnswers;
   // The output header carries the time as its numeral; the cell badge drops it then.
-  const latencyLabel = hasLatency && !outputHeaderShown ? formatLatencyMs(durationMs) : null;
+  const latencyLabel = hasLatency && !outputHeaderShown ? formatRunDuration(durationMs) : null;
   const outputNumeral = hasLatency && outputHeaderShown ? latencyNumeral(durationMs, status) : null;
   const usesKeys = varFlow?.uses ?? [];
   const producesKeys = varFlow?.produces ?? [];
@@ -415,20 +397,19 @@ function NotebookCodeCellRowImpl({
       // with j/k. The notebook's container `onKeyDown` reads command-mode
       // keys here (editable descendants swallow their own keys).
       tabIndex={-1}
+      aria-label={cellName}
       onMouseDown={() => onActivate(cell.id)}
       onFocus={() => onActivate(cell.id)}
       className={cn(
-        'relative grid min-w-0 flex-1 gap-2 rounded-md border bg-background-elevated/60 p-3 pl-4 transition-colors outline-none',
+        'notebook-cell-shell relative grid min-w-0 flex-1 gap-2 rounded-md border bg-background-elevated/60 p-3 pl-4 transition-colors outline-none',
         isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/60',
         isActive && mode === 'edit' && 'bg-primary-soft/25',
         'focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/25'
       )}
     >
-      <header className="flex min-w-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden p-px">
-          {/* Language selector. JS / TS / Python are all
-              runnable now (Python runs independently per cell). Styled as
-              the canonical language-tone pill. */}
+      <header className="notebook-cell-header">
+        <div className="notebook-cell-header-lang">
+          {/* The language pill is the selector; disabled entries are schema languages without a runner yet. */}
           <select
             className="h-5 cursor-pointer appearance-none rounded px-1.5 text-eyebrow font-bold uppercase tracking-wider outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed"
             style={{
@@ -444,48 +425,39 @@ function NotebookCodeCellRowImpl({
             }
           >
             {NOTEBOOK_CELL_LANGUAGES.map(lang => (
-              // Disable any schema language the runner can't execute yet,
-              // so the selector stays consistent with handleLanguageChange
-              // (view) + setCellLanguage (store). Today all four (JS / TS /
-              // Python / SQL) run, so this is a no-op guard that
-              // future-proofs the next language added to the schema before
-              // it is wired to a runner.
               <option key={lang} value={lang} disabled={!isNotebookRunnableLanguage(lang)}>
                 {languageBadgeTone(lang).code}
               </option>
             ))}
           </select>
-          <span
-            className="text-eyebrow uppercase tracking-wider text-muted"
-            data-testid="notebook-code-cell-index"
-          >
-            {t('notebook.cell.indexLabel', { index: cellIndex + 1 })}
-          </span>
-          {/* What this cell takes from earlier cells and what it leaves for later ones. */}
-          {producesKeys.length > 0 ? (
-            <span
-              data-testid="notebook-code-cell-produces"
-              className="inline-flex h-5 max-w-[16rem] items-center truncate rounded border border-border-default px-2 font-mono text-micro text-fg-muted"
-            >
-              {t('notebook.cell.producesChip', { names: producesKeys.join(', ') })}
+          <Tooltip content={cellName}>
+            <span className="notebook-cell-language-name" data-testid="notebook-code-cell-language-name">
+              {label}
             </span>
-          ) : null}
-          {usesKeys.length > 0 ? (
-            <span
-              data-testid="notebook-code-cell-uses"
-              className="inline-flex h-5 max-w-[16rem] items-center truncate rounded border border-border-default px-2 font-mono text-micro text-fg-muted"
-            >
-              {t('notebook.cell.usesChip', { names: usesKeys.join(', ') })}
-            </span>
-          ) : null}
+          </Tooltip>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        {/* What this cell takes from earlier cells and what it leaves for later ones. */}
+        {producesKeys.length > 0 || usesKeys.length > 0 ? (
+          <div className="notebook-cell-header-chips">
+            {producesKeys.length > 0 ? (
+              <span data-testid="notebook-code-cell-produces" className="notebook-cell-chip">
+                {t('notebook.cell.producesChip', { names: producesKeys.join(', ') })}
+              </span>
+            ) : null}
+            {usesKeys.length > 0 ? (
+              <span data-testid="notebook-code-cell-uses" className="notebook-cell-chip">
+                {t('notebook.cell.usesChip', { names: usesKeys.join(', ') })}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="notebook-cell-header-state">
           {isActive ? (
             <span
               data-testid="notebook-cell-mode"
               data-mode={mode}
               className={cn(
-                'mr-1 hidden rounded px-1.5 text-micro font-semibold uppercase tracking-wider sm:inline',
+                'notebook-cell-mode rounded px-1.5 text-micro font-semibold uppercase tracking-wider',
                 mode === 'edit' ? 'bg-primary/15 text-primary' : 'bg-bg-panel-alt text-fg-subtle'
               )}
             >
@@ -497,14 +469,16 @@ function NotebookCodeCellRowImpl({
             <span
               data-testid="notebook-code-cell-status"
               data-status={status}
+              className="notebook-cell-status"
               title={status === 'stale' ? t('notebook.reactivity.cellStaleHint') : undefined}
             >
-              <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
-                {t(`notebook.status.${status}`)}
-                {latencyLabel ? t('notebook.cell.latencySuffix', { ms: latencyLabel }) : ''}
-              </StatusBadge>
+              <span aria-hidden="true" className="run-dot" data-run-dot={status} />
+              {t(`notebook.status.${status}`)}
+              {latencyLabel ? t('notebook.cell.latencySuffix', { duration: latencyLabel }) : ''}
             </span>
           )}
+        </div>
+        <div className="notebook-cell-header-actions">
           {/* One element in both states: a click that blurs the editor flips the label without moving the glyph. */}
           <Tooltip
             content={t(refreshes ? 'notebook.reactivity.refreshHint' : 'notebook.cell.runCell')}
@@ -518,14 +492,14 @@ function NotebookCodeCellRowImpl({
               data-testid="notebook-code-cell-run"
               data-action={refreshes ? 'refresh' : 'run'}
               className={cn(
-                'icon-button focus-ring disabled:cursor-not-allowed disabled:opacity-40',
+                'notebook-cell-run icon-button focus-ring disabled:cursor-not-allowed disabled:opacity-40',
                 refreshes
-                  ? 'h-5 gap-1.5 rounded border-border-default px-1 text-caption sm:pl-2 font-medium text-fg-base'
+                  ? 'h-5 gap-1.5 rounded border-border-default text-caption font-medium text-fg-base'
                   : ICON_BUTTON_BOX.sm
               )}
             >
-              {/* Narrow windows keep only the glyph; the name stays for screen readers. */}
-              {refreshes ? <span className="sr-only sm:not-sr-only">{t('notebook.reactivity.refreshCell')}</span> : null}
+              {/* Narrow cells keep only the glyph; the name stays for screen readers. */}
+              {refreshes ? <span className="notebook-cell-refresh-label">{t('notebook.reactivity.refreshCell')}</span> : null}
               <Play size={ICON_GLYPH.sm} aria-hidden="true" />
             </button>
           </Tooltip>
@@ -566,7 +540,11 @@ function NotebookCodeCellRowImpl({
           notebook never mounts more than ~1 editor. The run / Esc keybinds
           and the draft-flush-before-run contract are preserved through the
           callbacks below. A plain Enter inside Monaco inserts a newline. */}
-      <div className="notebook-cell-body" data-answers={answerColumn ? 'true' : undefined}>
+      <div
+        className="notebook-cell-body"
+        data-answers={answerColumn ? 'true' : undefined}
+        data-table={answerColumn && answerTable ? 'true' : undefined}
+      >
       <NotebookCellEditor
         lineHeight={lineHeight}
         leaders={answerColumn && !editing ? leaders : undefined}
