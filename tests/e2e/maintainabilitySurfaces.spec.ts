@@ -44,7 +44,7 @@ test.describe('maintainability split — preserved UI surfaces', () => {
 
     await page.keyboard.press('ControlOrMeta+Alt+N');
     await expect(page.getByTestId('notebook-view')).toBeVisible();
-    await expect(page.getByTestId('notebook-toolbar-add-code')).toBeVisible();
+    await expect(page.getByTestId('notebook-cells-append-code')).toBeVisible();
     if (captureEnabled()) {
       await page.screenshot({ path: `${evidenceDir}/web-en-notebook.png` });
     }
@@ -67,9 +67,7 @@ test.describe('maintainability split — preserved UI surfaces', () => {
     await seedSession(page, { language: 'es', primeProLicense: true });
     await gotoApp(page);
     await page.keyboard.press('ControlOrMeta+Alt+N');
-    await expect(page.getByTestId('notebook-toolbar-add-code')).toContainText(
-      'Agregar código'
-    );
+    await expect(page.getByTestId('notebook-cells-append-code')).toHaveAccessibleName('Agregar código');
     await openCommandPalette(page);
     if (captureEnabled()) {
       mkdirSync(evidenceDir, { recursive: true });

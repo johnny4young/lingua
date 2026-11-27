@@ -3,10 +3,11 @@
  *
  * Replaces the Monaco editor when `activeTab.kind === 'notebook'`.
  * Layout:
- *   - Toolbar: Add markdown / Add code / Run all / Run above / Stop /
- *     language-aware script export.
+ *   - Toolbar: document actions, title, Run all (Stop while running),
+ *     run ranges, kernel actions and export, folding into ⋯ when narrow.
  *   - Cell list: scrollable column of `<NotebookMarkdownCellRow>` +
- *     `<NotebookCodeCellRow>` interspersed in user-defined order.
+ *     `<NotebookCodeCellRow>` in user-defined order, with + Code and
+ *     + Markdown at its foot.
  *
  * An earlier change mount-virtualized the Monaco editor (only the active cell
  * hosts a live editor). The view now windows the ROW COUNT via the shared
@@ -26,6 +27,7 @@ import {
   type NotebookCellLanguage,
 } from '../../../shared/notebook';
 import { useEditorStore } from '../../stores/editorStore';
+import { flushNotebookDocumentDrafts } from '../../stores/notebookDocumentDrafts';
 import { useNotebookStore } from '../../stores/notebookStore';
 import { notebookCellRunningInPlace } from '../../stores/notebookReactivity';
 import { useUIStore } from '../../stores/uiStore';
@@ -202,7 +204,6 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   }, [backingTabName, createNotebookForTab, notebook, tabId]);
 
   useDismissible(shortcutsOpen, shortcutsAnchorRef, setShortcutsOpen);
-  useDismissible(exportMenuOpen, exportMenuAnchorRef, setExportMenuOpen);
 
   const handleAddMarkdown = useCallback(() => {
     if (!notebook) return;
@@ -289,6 +290,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   );
   const runCellRespectingReactivity = useCallback(
     (cellId: string) => {
+      // Flushed before the stale read below, which picks between Refresh and Run.
+      flushNotebookDocumentDrafts(tabId);
       const slice = useNotebookStore.getState().notebooks[tabId];
       const stale = slice?.cellRunStatus[cellId] === 'stale';
       const inPlace =
@@ -637,7 +640,6 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     );
   }
 
-  const lastCellId = notebook.cells[notebook.cells.length - 1]?.id ?? null;
   const lastCodeCellId = [...notebook.cells].reverse().find(isNotebookCodeCell)?.id ?? null;
   const disabled = isAnyCellRunning;
   const activeCellIndex =
@@ -683,10 +685,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         setTitleDraft={setTitleDraft}
         handleTitleCommit={handleTitleCommit}
         codeCellsCount={codeCellsCount}
-        handleAddMarkdown={handleAddMarkdown}
         disabled={disabled}
-        handleAddCode={handleAddCode}
-        preferredCodeLanguage={preferredCodeLanguage}
         activeCellId={activeCellId}
         runAbove={runAbove}
         tabId={tabId}
@@ -739,7 +738,6 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         handleMoveDown={handleMoveDown}
         handleDelete={handleDelete}
         handleLanguageChange={handleLanguageChange}
-        lastCellId={lastCellId}
         handleAddCode={handleAddCode}
         preferredCodeLanguage={preferredCodeLanguage}
         handleAddMarkdown={handleAddMarkdown}

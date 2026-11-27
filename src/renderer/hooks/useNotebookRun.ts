@@ -42,6 +42,7 @@ import {
 import i18next from 'i18next';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
+import { flushNotebookDocumentDrafts } from '../stores/notebookDocumentDrafts';
 import { useNotebookStore } from '../stores/notebookStore';
 import { editorRunnerKey, notebookCellRunnerKey } from '../stores/notebookRunnerLockStore';
 import { useResultStore } from '../stores/resultStore';
@@ -322,9 +323,15 @@ export function useNotebookRun(): UseNotebookRunResult {
     [beginBusy, endBusy]
   );
 
+  // Every run reads the cells' source, so an edit still in a cell's debounced draft lands first.
+  const beginRun = useCallback((tabId: string) => {
+    stopRequestedRef.current = false;
+    flushNotebookDocumentDrafts(tabId);
+  }, []);
+
   const runCell = useCallback(
     async (tabId: string, cellId: string): Promise<void> => {
-      stopRequestedRef.current = false;
+      beginRun(tabId);
       const outcome = await runCellInternal(tabId, cellId);
       // accessibility pass — announce the cell-run result to screen readers; the
       // `[N]` stamp + output region only convey it visually. Resolve the
@@ -339,7 +346,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         );
       }
     },
-    [runCellInternal, announce]
+    [beginRun, runCellInternal, announce]
   );
 
   /**
@@ -357,7 +364,7 @@ export function useNotebookRun(): UseNotebookRunResult {
       startCellId: string | null,
       throughCellId: string | null
     ): Promise<void> => {
-      stopRequestedRef.current = false;
+      beginRun(tabId);
       const notebook: NotebookV1 | undefined = useNotebookStore
         .getState()
         .getNotebookForTab(tabId);
@@ -413,7 +420,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         endBusy();
       }
     },
-    [runCellInternal, announce, beginBusy, endBusy]
+    [beginRun, runCellInternal, announce, beginBusy, endBusy]
   );
 
   const runAll = useCallback(
@@ -431,7 +438,7 @@ export function useNotebookRun(): UseNotebookRunResult {
 
   const refreshStale = useCallback(
     async (tabId: string, throughCellId?: string): Promise<void> => {
-      stopRequestedRef.current = false;
+      beginRun(tabId);
       const slice = useNotebookStore.getState().notebooks[tabId];
       if (!slice) return;
       const staleIndexes = slice.notebook.cells
@@ -528,7 +535,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         endBusy();
       }
     },
-    [announce, runCellInternal, beginBusy, endBusy]
+    [announce, beginRun, runCellInternal, beginBusy, endBusy]
   );
 
   const stop = useCallback(() => {

@@ -1,4 +1,4 @@
-/** Mounted cell drafts flush synchronously before manual document save or close. */
+/** Mounted cell drafts flush synchronously before anything reads cell source: a run, a save or a close. */
 const drafts = new Map<string, Set<() => void>>();
 export function registerNotebookDocumentDraft(tabId: string, flush: () => void): () => void {
   const owned = drafts.get(tabId) ?? new Set<() => void>();

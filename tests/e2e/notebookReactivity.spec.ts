@@ -30,7 +30,7 @@ async function editCell(page: Page, row: Locator, code: string): Promise<void> {
 async function createStaleNotebook(page: Page): Promise<void> {
   await page.keyboard.press('ControlOrMeta+Alt+N');
   await expect(page.getByTestId('notebook-view')).toBeVisible();
-  await page.getByTestId('notebook-toolbar-add-code').click();
+  await page.getByTestId('notebook-cells-append-code').click();
   await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
 
   const first = page.getByTestId('notebook-code-cell-row').first();
@@ -116,7 +116,7 @@ for (const locale of ['en', 'es'] as const) {
     );
     const refresh = page.getByTestId('notebook-toolbar-refresh-stale');
     await expect(refresh).toContainText(
-      locale === 'es' ? 'Actualiza 2' : 'Refresh 2'
+      locale === 'es' ? 'Actualizar 2' : 'Refresh 2'
     );
     await expect
       .poll(() =>
@@ -205,7 +205,7 @@ const CREATE_SQL = [
 async function addCodeCell(page: Page, language: 'sql' | 'python'): Promise<Locator> {
   const rows = page.getByTestId('notebook-code-cell-row');
   const before = await rows.count();
-  await page.getByTestId('notebook-toolbar-add-code').click();
+  await page.getByTestId('notebook-cells-append-code').click();
   await expect(rows).toHaveCount(before + 1);
   const row = rows.nth(before);
   await row.getByTestId('notebook-code-cell-language').selectOption(language);

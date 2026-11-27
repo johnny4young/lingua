@@ -47,9 +47,9 @@ test.describe('Notebook foundation — Mod+Alt+N binding', () => {
     // The blank notebook starts with one markdown + one code cell.
     await expect(page.getByTestId('notebook-markdown-cell-row')).toHaveCount(1);
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(1);
-    // Toolbar reachable.
-    await expect(page.getByTestId('notebook-toolbar-add-code')).toBeVisible();
-    await expect(page.getByTestId('notebook-toolbar-add-markdown')).toBeVisible();
+    // Cells are added from the foot of the list.
+    await expect(page.getByTestId('notebook-cells-append-code')).toBeVisible();
+    await expect(page.getByTestId('notebook-cells-append-markdown')).toBeVisible();
   });
 
   test('localizes the toolbar in Spanish (tuteo)', async ({ page }) => {
@@ -59,12 +59,11 @@ test.describe('Notebook foundation — Mod+Alt+N binding', () => {
     await page.keyboard.press('ControlOrMeta+Alt+N');
 
     await expect(page.getByTestId('notebook-view')).toBeVisible();
-    await expect(page.getByTestId('notebook-toolbar-add-code')).toContainText(
-      'Agregar código'
-    );
-    await expect(page.getByTestId('notebook-toolbar-add-markdown')).toContainText(
-      'Agregar markdown'
-    );
+    await expect(page.getByTestId('notebook-cells-append-code')).toHaveAccessibleName('Agregar código');
+    await expect(page.getByTestId('notebook-cells-append-markdown')).toHaveAccessibleName('Agregar markdown');
+    await expect(page.getByTestId('notebook-toolbar-run-all')).toContainText('Ejecutar todo');
+    await expect(page.getByTestId('notebook-toolbar-restart')).toContainText('Reiniciar el kernel');
+    await expect(page.getByTestId('notebook-toolbar-clear-outputs')).toContainText('Limpiar las salidas');
   });
 
   test('Add code button appends a JS code cell', async ({ page }) => {
@@ -74,7 +73,7 @@ test.describe('Notebook foundation — Mod+Alt+N binding', () => {
     await page.keyboard.press('ControlOrMeta+Alt+N');
     await expect(page.getByTestId('notebook-view')).toBeVisible();
 
-    await page.getByTestId('notebook-toolbar-add-code').click();
+    await page.getByTestId('notebook-cells-append-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
   });
 });
@@ -104,7 +103,7 @@ test.describe('Notebook — cross-cell variable sharing ', () => {
     ).toContainText('shared');
 
     // Cell 2 — read the cross-cell binding through the real worker.
-    await page.getByTestId('notebook-toolbar-add-code').click();
+    await page.getByTestId('notebook-cells-append-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
     const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
     await editCell(page, secondRow, "console.log('shared is', shared * 2);");
@@ -146,7 +145,7 @@ test.describe('Notebook — cross-cell variable sharing ', () => {
       firstRow.getByTestId('notebook-code-cell-produces')
     ).toContainText('data');
 
-    await page.getByTestId('notebook-toolbar-add-code').click();
+    await page.getByTestId('notebook-cells-append-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
     const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
     await editCell(page, secondRow, "console.log('first is', data[0]);");
@@ -197,7 +196,7 @@ test.describe('Notebook — TypeScript cells ', () => {
 
     // A JS cell reads the binding the TS cell declared — cross-cell sharing
     // is language-agnostic (the sandbox round-trips plain JSON values).
-    await page.getByTestId('notebook-toolbar-add-code').click();
+    await page.getByTestId('notebook-cells-append-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
     const secondRow = page.getByTestId('notebook-code-cell-row').nth(1);
     await editCell(page, secondRow, "console.log('doubled is', doubled + 1);");
@@ -301,7 +300,7 @@ test.describe('Notebook — Monaco cells + mount-virtualization ', () => {
 
     // Two code cells, neither edited yet — every cell is a static colorized
     // view, so NO Monaco editor is mounted.
-    await page.getByTestId('notebook-toolbar-add-code').click();
+    await page.getByTestId('notebook-cells-append-code').click();
     await expect(page.getByTestId('notebook-code-cell-row')).toHaveCount(2);
     await expect(page.locator('.monaco-editor')).toHaveCount(0);
 
@@ -346,10 +345,10 @@ test.describe('Notebook — row virtualization ', () => {
     await expect(page.getByTestId('notebook-view')).toBeVisible();
 
     // Grow the notebook well past a viewport's worth of cells via the
-    // toolbar add-code button (the seam other notebook e2e tests already
+    // add-code button at the foot of the list (the seam other notebook e2e tests already
     // drive). The seeded notebook starts with 1 markdown + 1 code cell.
     const TARGET_CODE_CELLS = 60;
-    const addCode = page.getByTestId('notebook-toolbar-add-code');
+    const addCode = page.getByTestId('notebook-cells-append-code');
     for (let i = 1; i < TARGET_CODE_CELLS; i += 1) {
       await addCode.click();
     }

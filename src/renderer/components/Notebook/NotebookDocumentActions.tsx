@@ -1,5 +1,7 @@
 import { FilePlus2, FolderOpen, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { IconButton } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { useEditorStore } from '../../stores/editorStore';
 import { notebookDocumentNotice } from '../../stores/notebookDocumentPersistence';
 
@@ -11,11 +13,9 @@ export function NotebookDocumentActions({ tabId }: { tabId: string }) {
   );
   return (
     <div className="flex shrink-0 items-center gap-1" data-testid="notebook-document-actions">
-      <button
-        type="button"
-        className="button-ghost h-7 w-7 p-1"
-        aria-label={t('commandPalette.action.openFile.label')}
-        title={t('commandPalette.action.openFile.label')}
+      <IconButton
+        tooltipSide="bottom"
+        tooltip={t('commandPalette.action.openFile.label')}
         data-testid="notebook-document-open"
         onClick={() => {
           void useEditorStore
@@ -24,13 +24,11 @@ export function NotebookDocumentActions({ tabId }: { tabId: string }) {
             .catch(() => notebookDocumentNotice('openFailed'));
         }}
       >
-        <FolderOpen size={14} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="button-ghost h-7 w-7 p-1"
-        aria-label={t('shortcuts.item.save.label')}
-        title={t('shortcuts.item.save.label')}
+        <FolderOpen size={ICON_GLYPH.md} aria-hidden="true" />
+      </IconButton>
+      <IconButton
+        tooltipSide="bottom"
+        tooltip={t('shortcuts.item.save.label')}
         data-testid="notebook-document-save"
         onClick={() => {
           void useEditorStore
@@ -39,13 +37,11 @@ export function NotebookDocumentActions({ tabId }: { tabId: string }) {
             .catch(() => notebookDocumentNotice('writeFailed'));
         }}
       >
-        <Save size={14} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="button-ghost h-7 w-7 p-1"
-        aria-label={t('commandPalette.action.saveAs.label')}
-        title={t('commandPalette.action.saveAs.label')}
+        <Save size={ICON_GLYPH.md} aria-hidden="true" />
+      </IconButton>
+      <IconButton
+        tooltipSide="bottom"
+        tooltip={t('commandPalette.action.saveAs.label')}
         data-testid="notebook-document-save-as"
         onClick={() => {
           void useEditorStore
@@ -54,8 +50,8 @@ export function NotebookDocumentActions({ tabId }: { tabId: string }) {
             .catch(() => notebookDocumentNotice('writeFailed'));
         }}
       >
-        <FilePlus2 size={14} aria-hidden="true" />
-      </button>
+        <FilePlus2 size={ICON_GLYPH.md} aria-hidden="true" />
+      </IconButton>
       {isDirty && (
         <span
           className="h-1.5 w-1.5 rounded-full bg-warning"

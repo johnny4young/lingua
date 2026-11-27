@@ -139,10 +139,13 @@ describe('<NotebookView />', () => {
       'notebook-markdown-cell-delete',
       'notebook-toolbar-run-all',
       'notebook-toolbar-stop',
-      'notebook-toolbar-shortcuts',
+      'notebook-cells-append-code',
+      'notebook-cells-append-markdown',
     ]) {
       expect(screen.getByTestId(testId).className).toContain('focus-ring');
     }
+    // Icon buttons carry the ring through the shared IconButton primitive.
+    expect(screen.getByTestId('notebook-toolbar-shortcuts').className).toContain('icon-button');
   });
 
   it('gives the code-output collapse toggle the shared focus ring (accessibility pass)', () => {
@@ -166,17 +169,17 @@ describe('<NotebookView />', () => {
     expect(screen.getByTestId('notebook-view-empty')).toBeTruthy();
   });
 
-  it('adds a markdown cell via the toolbar', async () => {
+  it('adds a markdown cell from the foot of the list', async () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
-    await user.click(screen.getByTestId('notebook-toolbar-add-markdown'));
+    await user.click(screen.getByTestId('notebook-cells-append-markdown'));
     expect(screen.getAllByTestId('notebook-markdown-cell-row')).toHaveLength(2);
   });
 
-  it('adds a code cell via the toolbar', async () => {
+  it('adds a code cell from the foot of the list', async () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
-    await user.click(screen.getByTestId('notebook-toolbar-add-code'));
+    await user.click(screen.getByTestId('notebook-cells-append-code'));
     expect(screen.getAllByTestId('notebook-code-cell-row')).toHaveLength(2);
   });
 
@@ -197,7 +200,7 @@ describe('<NotebookView />', () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
 
-    await user.click(screen.getByTestId('notebook-toolbar-add-code'));
+    await user.click(screen.getByTestId('notebook-cells-append-code'));
 
     const codeCells = useNotebookStore
       .getState()
@@ -533,6 +536,34 @@ describe('<NotebookView />', () => {
     expect(useNotebookStore.getState().getNotebookForTab(TAB_ID)?.title).toBe('Analysis');
   });
 
+  it('previews the markdown cell from its toggle after an edit', async () => {
+    const user = userEvent.setup();
+    render(<NotebookView tabId={TAB_ID} />);
+    await user.click(screen.getByTestId('notebook-markdown-cell-toggle-edit'));
+    await user.click(screen.getByTestId('notebook-markdown-cell-source'));
+    await user.keyboard('X');
+    await user.click(screen.getByTestId('notebook-markdown-cell-toggle-edit'));
+    await act(async () => {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    });
+    expect(screen.queryByTestId('notebook-markdown-cell-source')).toBeNull();
+    const markdown = useNotebookStore
+      .getState()
+      .getNotebookForTab(TAB_ID)!
+      .cells.find(c => c.kind === 'markdown');
+    expect(markdown?.source.endsWith('X')).toBe(true);
+  });
+
+  it('counts a single cell in the singular', async () => {
+    seedNotebookCells([{ kind: 'code', id: 'c1', language: 'javascript', source: '1', outputs: [] } as NotebookCellV1]);
+    render(<NotebookView tabId={TAB_ID} />);
+    expect(screen.getByTestId('notebook-toolbar-summary').textContent).toBe('1 cell · 1 code');
+    await act(async () => {
+      await i18next.changeLanguage('es');
+    });
+    expect(screen.getByTestId('notebook-toolbar-summary').textContent).toBe('1 celda · 1 código');
+  });
+
   it('toggles the markdown cell into edit mode and persists edits', async () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
@@ -552,10 +583,10 @@ describe('<NotebookView />', () => {
   it('renders ES locale copy when language is set to es', async () => {
     await i18next.changeLanguage('es');
     render(<NotebookView tabId={TAB_ID} />);
-    expect(screen.getByTestId('notebook-toolbar-add-code').textContent).toContain('Agregar código');
-    expect(screen.getByTestId('notebook-toolbar-add-markdown').textContent).toContain(
-      'Agregar markdown'
-    );
+    expect(screen.getByRole('button', { name: 'Agregar código' }).textContent).toContain('Código');
+    expect(screen.getByRole('button', { name: 'Agregar markdown' }).textContent).toContain('Markdown');
+    expect(screen.getByTestId('notebook-toolbar-restart').textContent).toContain('Reiniciar el kernel');
+    expect(screen.getByTestId('notebook-toolbar-run-all').textContent).toContain('Ejecutar todo');
   });
 
   it('renders the lazy reactivity guidance in neutral Spanish', async () => {
@@ -579,7 +610,7 @@ describe('<NotebookView />', () => {
       /1 celda desactualizada/i
     );
     expect(screen.getByTestId('notebook-toolbar-refresh-stale').textContent).toMatch(
-      /actualiza 1/i
+      /actualizar 1/i
     );
     expect(screen.getByTestId('notebook-code-cell-status').getAttribute('title')).toMatch(
       /puede estar desactualizado/i

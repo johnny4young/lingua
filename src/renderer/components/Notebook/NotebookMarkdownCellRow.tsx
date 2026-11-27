@@ -22,6 +22,7 @@ import { RecipeMarkdown } from '../Recipes/recipeMarkdown';
 import { StatusBadge } from '../ui/StatusBadge';
 import { cn } from '../../utils/cn';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
+import './notebookProse.css';
 
 export interface NotebookMarkdownCellRowProps {
   readonly notebookTabId?: string;
@@ -164,143 +165,159 @@ function NotebookMarkdownCellRowImpl({
     return () => cancelAnimationFrame(id);
   }, [editRequestNonce]);
 
+  // Opening the editor puts the caret in it, so a double-click edits straight away.
+  const startEditing = () => {
+    setEditing(true);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+  const revealed = editing || isActive ? 'true' : undefined;
   return (
-    <article
-      ref={shellRef}
-      data-testid="notebook-markdown-cell-row"
-      data-notebook-cell-shell="true"
-      data-cell-id={cell.id}
-      data-cell-kind="markdown"
-      data-cell-mode={isActive ? mode : undefined}
-      data-active={isActive ? 'true' : undefined}
-      tabIndex={-1}
-      onMouseDown={() => onActivate(cell.id)}
-      onFocus={() => onActivate(cell.id)}
-      className={cn(
-        'relative grid gap-2 rounded-md border bg-surface/30 p-3 pl-4 outline-none transition-colors',
-        isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/40',
-        isActive && mode === 'edit' && 'bg-primary-soft/25'
-      )}
-    >
-      <header className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {/* The MD type badge reuses the canonical
-              StatusBadge (neutral tone) so the markdown + code cell
-              headers share one chip primitive, matching the proto's
-              MD/JS glyph treatment. Token-only. */}
-          <span data-testid="notebook-markdown-cell-kind">
-            <StatusBadge tone="neutral">MD</StatusBadge>
-          </span>
-          <span
-            className="text-eyebrow uppercase tracking-wider text-muted"
-            data-testid="notebook-markdown-cell-index"
-          >
-            {t('notebook.cell.indexLabel', { index: cellIndex + 1 })}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {isActive ? (
-            <span
-              data-testid="notebook-cell-mode"
-              data-mode={mode}
-              className={cn(
-                'mr-1 hidden rounded px-1.5 text-micro font-semibold uppercase tracking-wider sm:inline',
-                mode === 'edit' ? 'bg-primary/15 text-primary' : 'bg-bg-panel-alt text-fg-subtle'
+    <div className="notebook-prose-row flex items-start">
+      <div className="notebook-run-margin notebook-prose-chrome pr-3" data-revealed={revealed}>
+        <span data-testid="notebook-markdown-cell-kind">
+          <StatusBadge tone="neutral">MD</StatusBadge>
+        </span>
+        <span className="notebook-run-margin-label mt-1" data-testid="notebook-markdown-cell-index">
+          {t('notebook.cell.indexLabel', { index: cellIndex + 1 })}
+        </span>
+      </div>
+      <article
+        ref={shellRef}
+        data-testid="notebook-markdown-cell-row"
+        data-notebook-cell-shell="true"
+        data-cell-id={cell.id}
+        data-cell-kind="markdown"
+        data-cell-mode={isActive ? mode : undefined}
+        data-active={isActive ? 'true' : undefined}
+        tabIndex={-1}
+        onMouseDown={() => onActivate(cell.id)}
+        onFocus={() => onActivate(cell.id)}
+        className={cn(
+          'relative min-w-0 flex-1 rounded-md border outline-none transition-colors',
+          editing ? 'notebook-prose-editing grid bg-surface/30 p-3' : 'px-3 py-1',
+          isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-transparent',
+          isActive && mode === 'edit' && 'bg-primary-soft/25'
+        )}
+      >
+        {/* Preview reads as prose: the cell chrome shows on hover, focus or in command mode. */}
+        <header
+          data-revealed={revealed}
+          className="notebook-prose-chrome absolute right-2 top-1.5 z-10 flex items-center"
+        >
+          <div className="notebook-prose-actions flex shrink-0 items-center gap-1">
+            {isActive ? (
+              <span
+                data-testid="notebook-cell-mode"
+                data-mode={mode}
+                className={cn(
+                  'mr-1 hidden rounded px-1.5 text-micro font-semibold uppercase tracking-wider sm:inline',
+                  mode === 'edit' ? 'bg-primary/15 text-primary' : 'bg-bg-panel-alt text-fg-subtle'
+                )}
+              >
+                {t(mode === 'edit' ? 'notebook.command.modeEdit' : 'notebook.command.modeCommand')}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              // Keeps the textarea's blur from closing the editor first, so the click previews instead of reopening.
+              onMouseDown={event => {
+                if (editing) event.preventDefault();
+              }}
+              onClick={() => {
+                if (!editing) return startEditing();
+                flushDraft();
+                setEditing(false);
+              }}
+              disabled={disabled}
+              aria-label={t(
+                editing ? 'notebook.cell.previewMarkdown' : 'notebook.cell.editMarkdown'
               )}
+              data-testid="notebook-markdown-cell-toggle-edit"
+              aria-pressed={editing}
+              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {t(mode === 'edit' ? 'notebook.command.modeEdit' : 'notebook.command.modeCommand')}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setEditing(current => !current)}
-            disabled={disabled}
-            aria-label={t(editing ? 'notebook.cell.previewMarkdown' : 'notebook.cell.editMarkdown')}
-            data-testid="notebook-markdown-cell-toggle-edit"
-            aria-pressed={editing}
-            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Pencil size={11} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onMoveUp(cell.id)}
-            disabled={!canMoveUp || disabled}
-            aria-label={t('notebook.cell.moveUp')}
-            data-testid="notebook-markdown-cell-move-up"
-            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <ArrowUp size={11} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onMoveDown(cell.id)}
-            disabled={!canMoveDown || disabled}
-            aria-label={t('notebook.cell.moveDown')}
-            data-testid="notebook-markdown-cell-move-down"
-            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <ArrowDown size={11} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(cell.id)}
-            disabled={disabled}
-            aria-label={t('notebook.cell.delete')}
-            data-testid="notebook-markdown-cell-delete"
-            className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Trash2 size={11} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
-      {editing ? (
-        <textarea
-          ref={textareaRef}
-          value={draft}
-          onChange={event => handleDraftChange(event.target.value)}
-          onKeyDown={event => {
-            // Esc renders the markdown back to preview + drops into
-            // command mode (focus the shell), matching the code cell's
-            // Esc → command behavior and Jupyter's render-on-Esc.
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
+              <Pencil size={11} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMoveUp(cell.id)}
+              disabled={!canMoveUp || disabled}
+              aria-label={t('notebook.cell.moveUp')}
+              data-testid="notebook-markdown-cell-move-up"
+              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ArrowUp size={11} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMoveDown(cell.id)}
+              disabled={!canMoveDown || disabled}
+              aria-label={t('notebook.cell.moveDown')}
+              data-testid="notebook-markdown-cell-move-down"
+              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ArrowDown size={11} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(cell.id)}
+              disabled={disabled}
+              aria-label={t('notebook.cell.delete')}
+              data-testid="notebook-markdown-cell-delete"
+              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-error-bg hover:text-error-fg disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 size={11} aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+        {editing ? (
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={event => handleDraftChange(event.target.value)}
+            onKeyDown={event => {
+              // Esc renders the markdown back to preview + drops into
+              // command mode (focus the shell), matching the code cell's
+              // Esc → command behavior and Jupyter's render-on-Esc.
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                flushDraft();
+                if (draft.length > 0) setEditing(false);
+                shellRef.current?.focus();
+              }
+            }}
+            onBlur={() => {
               flushDraft();
               if (draft.length > 0) setEditing(false);
-              shellRef.current?.focus();
-            }
-          }}
-          onBlur={() => {
-            flushDraft();
-            if (draft.length > 0) setEditing(false);
-          }}
-          disabled={disabled}
-          data-testid="notebook-markdown-cell-source"
-          placeholder={t('notebook.cell.markdownSourcePlaceholder')}
-          rows={3}
-          spellCheck
-          className={cn(
-            'min-h-[48px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-body-sm text-foreground outline-none',
-            'focus:border-border-strong disabled:cursor-not-allowed'
-          )}
-        />
-      ) : (
-        <div
-          data-testid="notebook-markdown-cell-preview"
-          onDoubleClick={() => setEditing(true)}
-          className="cursor-text rounded border border-transparent p-2 hover:border-border/40"
-        >
-          {cell.source.length === 0 ? (
-            <p className="text-caption italic text-muted">
-              {t('notebook.cell.markdownSourcePlaceholder')}
-            </p>
-          ) : (
-            <RecipeMarkdown source={cell.source} />
-          )}
-        </div>
-      )}
-    </article>
+            }}
+            disabled={disabled}
+            data-testid="notebook-markdown-cell-source"
+            placeholder={t('notebook.cell.markdownSourcePlaceholder')}
+            rows={3}
+            spellCheck
+            className={cn(
+              'min-h-[48px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-body-sm text-foreground outline-none',
+              'focus:border-border-strong disabled:cursor-not-allowed'
+            )}
+          />
+        ) : (
+          <div
+            data-testid="notebook-markdown-cell-preview"
+            onDoubleClick={startEditing}
+            className="notebook-prose cursor-text"
+          >
+            {cell.source.length === 0 ? (
+              <p className="text-caption italic text-muted">
+                {t('notebook.cell.markdownSourcePlaceholder')}
+              </p>
+            ) : (
+              <RecipeMarkdown source={cell.source} />
+            )}
+          </div>
+        )}
+      </article>
+    </div>
   );
 }
 

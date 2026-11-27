@@ -1,0 +1,59 @@
+.notebook-prose-chrome {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--curve-ease-out);
+}
+
+.notebook-prose-row:hover .notebook-prose-chrome,
+.notebook-prose-row:focus-within .notebook-prose-chrome,
+.notebook-prose-chrome[data-revealed] {
+  opacity: 1;
+}
+
+.notebook-prose-editing {
+  padding-top: 2.5rem;
+}
+
+.notebook-prose-actions {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-background) 90%, transparent);
+}
+
+/* Fraunces only at 17 px and up; the h3 keeps the UI face. */
+.notebook-prose h1,
+.notebook-prose h2 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-synthesis: none;
+  font-variation-settings: normal;
+  font-weight: 420;
+  letter-spacing: -0.02em;
+}
+
+.notebook-prose h1 {
+  font-size: 34px;
+  line-height: 44px;
+}
+
+.notebook-prose h2 {
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.notebook-prose p,
+.notebook-prose ul {
+  color: var(--color-fg-muted);
+  font-size: 13.5px;
+  line-height: 20px;
+}
+
+@media (max-width: 720px) {
+  .notebook-prose h1 {
+    font-size: 26px;
+    line-height: 34px;
+  }
+
+  .notebook-prose h2 {
+    font-size: 19px;
+    line-height: 26px;
+  }
+}
