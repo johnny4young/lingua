@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   literalText,
+  pipelineHost,
   readPipelineStep,
   shownPath,
   summarizePipelineRun,
@@ -228,6 +229,14 @@ describe('pipeline step text', () => {
     expect(shownPath('{{baseUrl}}v1')).toBe('{{baseUrl}}v1');
     expect(shownPath('{{baseUrl}}{{path}}')).toBe('{{baseUrl}}{{path}}');
     expect(shownPath('/relative')).toBe('/relative');
+  });
+
+  it('reads the host of a resolved URL, and none while a token is left in it', () => {
+    expect(pipelineHost('https://api.staging.acme.dev/v1/deploys')).toBe('api.staging.acme.dev');
+    expect(pipelineHost('https://user:pw@hooks.example.com:8443/x')).toBe('hooks.example.com:8443');
+    expect(pipelineHost('{{baseUrl}}/x')).toBeNull();
+    expect(pipelineHost('https://{{host}}/x')).toBeNull();
+    expect(pipelineHost('/relative')).toBeNull();
   });
 
   it('writes values as literals and cuts long ones', () => {
