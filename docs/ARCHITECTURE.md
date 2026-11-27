@@ -832,6 +832,17 @@ asynchronous syntax fail closed. This separation is intentional even though
 the containing worker already executes user code: debugger input must not gain
 ambient authority or side effects merely because it arrives during a pause.
 
+### JS debugger pause frames
+
+The debug instrumenter puts `await __lingua_dbg_yield(line, locals, endLine?)`
+before each top-level statement of the program and of awaitable function
+bodies. The worker's frame stack starts with a `<module>` frame. The yield
+records the statement as the top frame's current line before any breakpoint
+check, and the statement's line span as reached after any pause on it resumes.
+A `paused` message carries the frames newest first with their current line
+(and declaration line for functions), ending in `<module>`, and the sorted
+lines reached so far. Stepping still compares frame counts only.
+
 ### Native debugger boundary
 
 Python **Run** still uses the Pyodide worker in both shells. Python **Debug** is

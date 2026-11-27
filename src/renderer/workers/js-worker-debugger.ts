@@ -24,14 +24,29 @@ export function sanitizeJsWorkerWatches(value: unknown): string[] {
 
 export type JsWorkerStepMode = 'none' | 'over' | 'into' | 'out';
 
+export type JsWorkerBreakpoint = Omit<DebuggerBreakpointPayload, 'line'>;
+
+interface JsWorkerDebuggerFrame {
+  functionName: string;
+  /** Absent on the top-level frame. */
+  declarationLine?: number;
+  /** The statement the frame is running: the call site of the frame above it. */
+  line: number;
+}
+
+/** The top level is the outermost frame, as native runtimes report it; its line is 0 until a statement runs. */
+const moduleFrame = (): JsWorkerDebuggerFrame => ({ functionName: '<module>', line: 0 });
+
 export interface JsWorkerDebuggerSession {
   runId: string;
   enabled: boolean;
-  breakpoints: Map<number, Omit<DebuggerBreakpointPayload, 'line'>>;
+  breakpoints: Map<number, JsWorkerBreakpoint>;
   watches: string[];
   stepMode: JsWorkerStepMode;
   stepDepth: number;
-  frames: { functionName: string; line: number }[];
+  frames: JsWorkerDebuggerFrame[];
+  /** First line of each statement that ran, mapped to its last line. */
+  reached: Map<number, number>;
   resumeResolver: (() => void) | null;
   pausedScope: DebuggerScopeSnapshot | null;
   resultMarker: string;
@@ -45,7 +60,8 @@ export function createJsWorkerDebuggerSession(runId: string): JsWorkerDebuggerSe
     watches: [],
     stepMode: 'none',
     stepDepth: 0,
-    frames: [],
+    frames: [moduleFrame()],
+    reached: new Map(),
     resumeResolver: null,
     pausedScope: null,
     resultMarker: '',
@@ -75,7 +91,35 @@ export function applyJsWorkerExecutePayload(
   session.watches = sanitizeJsWorkerWatches(message.watches);
   session.stepMode = 'none';
   session.stepDepth = 0;
-  session.frames = [];
+  session.frames = [moduleFrame()];
+  session.reached = new Map();
   session.resumeResolver = null;
   session.pausedScope = null;
+}
+
+/** Records the statement about to run as its frame's current line. */
+export function noteJsWorkerDebugLine(session: JsWorkerDebuggerSession, line: number): void {
+  session.frames.at(-1)!.line = line;
+}
+
+/** Records that the statement spanning `line`..`endLine` ran. */
+export function reachJsWorkerDebugLines(session: JsWorkerDebuggerSession, line: number, endLine: number): void {
+  const known = session.reached.get(line);
+  if (known === undefined || known < endLine) session.reached.set(line, endLine);
+}
+
+/** The pause's view of the run: frames newest first with their current line, and every line that ran. */
+export function jsWorkerPauseFrames(session: JsWorkerDebuggerSession): {
+  callStack: JsWorkerDebuggerFrame[];
+  reachedLines: number[];
+} {
+  const reached = new Set<number>();
+  for (const [start, end] of session.reached) {
+    for (let line = start; line <= end; line += 1) reached.add(line);
+  }
+  return {
+    // Copies, since the frames keep moving after the pause is posted.
+    callStack: session.frames.map(frame => ({ ...frame })).reverse(),
+    reachedLines: [...reached].sort((a, b) => a - b),
+  };
 }

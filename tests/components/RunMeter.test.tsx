@@ -156,7 +156,11 @@ describe('RunMeter', () => {
         line: 2,
         reason: 'user-breakpoint',
         locals: {},
-        callStack: [{ functionName: 'sort', line: 1 }, { functionName: 'sort', line: 1 }],
+        callStack: [
+          { functionName: 'sort', line: 2, declarationLine: 1 },
+          { functionName: 'sort', line: 4, declarationLine: 1 },
+          { functionName: '<module>', line: 9 },
+        ],
         watchResults: {},
       },
       pauseVisits: { 'tab-js:2': 2 },
@@ -172,7 +176,7 @@ describe('RunMeter', () => {
     const stack = screen.getByTestId('debugger-callstack');
     expect(stack.textContent).toContain('Call stack · 3 deep');
     const rows = within(stack).getAllByRole('listitem');
-    expect(rows.map(row => row.textContent)).toEqual(['(top level)', 'sort:1', 'sort:1']);
+    expect(rows.map(row => row.textContent)).toEqual(['<module>:9', 'sort:4', 'sort:2']);
     expect(rows[2]!.getAttribute('aria-current')).toBe('step');
   });
 

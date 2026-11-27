@@ -372,29 +372,22 @@ export class WorkerRunnerShell {
           case 'paused': {
             // Relay paused frames into the debugger store so the UI can render
             // the variables / call stack.
-            const paused = msg as unknown as {
-              line: number;
-              reason: 'user-breakpoint' | 'step';
-              locals: Record<string, string>;
-              callStack: { functionName: string; line: number }[];
-              watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
-              conditionError?: string;
-            };
             if (context?.tabId) {
               useDebuggerStore.getState().setPausedFrame({
                 tabId: context.tabId,
-                line: paused.line,
-                reason: paused.reason,
-                locals: paused.locals,
-                callStack: paused.callStack,
-                watchResults: paused.watchResults,
-                conditionError: paused.conditionError,
+                line: msg.line,
+                reason: msg.reason,
+                locals: msg.locals,
+                callStack: msg.callStack,
+                reachedLines: msg.reachedLines,
+                watchResults: msg.watchResults,
+                conditionError: msg.conditionError,
               });
               // `debugger.paused` carries the closed-enum reason bucket. No
               // source, no expression content, no line numbers.
               void trackEvent('debugger.paused', {
                 language: 'js',
-                reasonBucket: paused.reason,
+                reasonBucket: msg.reason,
               });
             }
             // A paused debugger is expected to wait indefinitely for user

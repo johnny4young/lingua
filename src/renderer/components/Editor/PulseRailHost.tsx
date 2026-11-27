@@ -63,6 +63,7 @@ export function PulseRailHost({
   const current = useTimelineStore(state => state.current);
   const timelineOpen = useUIStore(state => state.consoleVisible && state.activeBottomPanel === 'timeline');
   const pausedLine = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.line : null));
+  const pausedReached = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.reachedLines : undefined));
   const region = useRunRegionStore(state => (state.last?.tabId === tabId ? state.last.region : null));
   const lastRun = useExecutionHistoryStore(
     useShallow(state => ({ id: state.entries.at(-1)?.id ?? null, tabId: state.entries.at(-1)?.tabId ?? null }))
@@ -96,6 +97,10 @@ export function PulseRailHost({
   const source = useMemo<Omit<PulseRailInput, 'lines'> | null>(() => {
     if (!tabId) return null;
     const ownsResults = results.ranTab === tabId;
+    // A JS pause knows every line the session ran, so code it never reached stays dotted.
+    if (pausedLine !== null && pausedReached) {
+      return { executed: pausedReached, complete: true, frontier: { line: pausedLine, kind: 'paused' }, finished: false };
+    }
     const stepLines = (recording ? (timelineOpen ? recording.steps.slice(0, current + 1) : recording.steps) : []).map(
       step => step.line
     );
@@ -109,7 +114,7 @@ export function PulseRailHost({
       finished: ownsResults && !results.running && results.succeeded && !results.failed,
       ...(region ? { span: { start: region.startLine, end: region.endLine } } : {}),
     };
-  }, [tabId, results, recording, timelineOpen, current, pausedLine, region]);
+  }, [tabId, results, recording, timelineOpen, current, pausedLine, pausedReached, region]);
 
   // Rebuilt when the run or its frontier changes, never on edits: Monaco carries the marks with the text.
   const rail = useMemo(

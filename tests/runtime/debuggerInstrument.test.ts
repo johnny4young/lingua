@@ -13,6 +13,12 @@ describe('instrumentForDebugger ', () => {
     expect(result.instrumentedLines).toEqual([1, 2, 3]);
   });
 
+  it('passes the last line of a statement that spans several lines', () => {
+    const result = instrumentForDebugger(`const a = 1;\nconst total = [1, 2].reduce(\n  (sum, n) => sum + n,\n  0\n);\n`);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\)\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(2, \(\) => [^\n]*, 5\);/);
+  });
+
   it('promotes local sync functions so Step Into can pause inside them', () => {
     // Multi-line function so the declaration and body are clearly
     // separated. Line 1 is the FunctionDeclaration header (skipped);

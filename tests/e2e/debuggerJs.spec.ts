@@ -312,6 +312,39 @@ test.describe('Debugger ', () => {
     await expect(inlineValue(page, /^1calling$/)).toBeVisible();
   });
 
+  test('the call stack reads the line each recursive frame is running', async ({ page }) => {
+    const source = [
+      'function quickSort(arr) {',
+      '  if (arr.length <= 1) return arr;',
+      '  const pivot = arr[Math.floor(arr.length / 2)];',
+      '  const left = arr.filter((x) => x < pivot);',
+      '  const mid = arr.filter((x) => x === pivot);',
+      '  const right = arr.filter((x) => x > pivot);',
+      '  return [...quickSort(left), ...mid, ...quickSort(right)];',
+      '}',
+      '',
+      'console.log(quickSort([3, 6, 8, 10, 1, 2, 1]));',
+    ].join('\n');
+    // Pasted, not typed, so auto-indent and auto-closing leave the block as written.
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.locator('.monaco-editor').click({ position: { x: 140, y: 42 } });
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.evaluate(text => navigator.clipboard.writeText(text), source);
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V');
+    await moveEditorCursorToLine(page, 4);
+    await page.keyboard.press('Control+Shift+B');
+
+    await clickDebug(page);
+    await expectPausedAt(page, 4);
+    const rows = page.getByTestId('debugger-callstack').getByRole('listitem');
+    await expect(rows).toHaveText(['<module>:10', 'quickSort:4']);
+
+    await page.getByTestId('debugger-hud-continue').click();
+    await expect(page.getByTestId('run-meter-visit')).toHaveText('second visit');
+    await expect(rows).toHaveText(['<module>:10', 'quickSort:7', 'quickSort:4']);
+    await expect(rows.last()).toHaveAttribute('aria-current', 'step');
+  });
+
   test('Spanish copy keeps breakpoint actions in the Debugger panel', async ({
     browser,
   }) => {

@@ -8,22 +8,17 @@ export interface StackRow {
   readonly line?: number;
 }
 
-/**
- * The paused call stack outermost first. The JS worker reports function frames
- * only, so its top level gets a row of its own; native runtimes already report
- * their outermost frame.
- */
-export function stackRows(callStack: readonly StackFrame[], runtime: string | null | undefined): StackRow[] {
-  const rows: StackRow[] = [...callStack].reverse().map(({ functionName, line }) => ({ functionName, line }));
-  return runtime === 'js' ? [{ functionName: '' }, ...rows] : rows;
+/** The paused call stack outermost first, each row at the line its frame is running. */
+export function stackRows(callStack: readonly StackFrame[]): StackRow[] {
+  return [...callStack].reverse().map(({ functionName, line }) => (line > 0 ? { functionName, line } : { functionName }));
 }
 
 /** How many calls deep the paused frame is; the outermost frame is depth 0. */
-export function pauseDepth(callStack: readonly StackFrame[], runtime: string | null | undefined): number {
-  return Math.max(0, callStack.length - (runtime === 'js' ? 0 : 1));
+export function pauseDepth(callStack: readonly StackFrame[]): number {
+  return Math.max(0, callStack.length - 1);
 }
 
-/** The function the pause is in, or '' at the top level (JS top level, Python's module). */
+/** The function the pause is in, or '' at the top level (`<module>`). */
 export function pausedFunctionName(rows: readonly StackRow[]): string {
   const name = rows.at(-1)?.functionName ?? '';
   return name === '<module>' ? '' : name;

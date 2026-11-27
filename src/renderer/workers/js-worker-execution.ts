@@ -4,7 +4,11 @@ import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
   applyJsWorkerExecutePayload,
   createJsWorkerDebuggerSession,
+  jsWorkerPauseFrames,
+  noteJsWorkerDebugLine,
+  reachJsWorkerDebugLines,
   sanitizeJsWorkerWatches,
+  type JsWorkerBreakpoint,
   type JsWorkerDebuggerSession,
 } from './js-worker-debugger';
 import {
@@ -226,22 +230,31 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             });
           };
 
-          // Yield helper. Called before each
-          // instrumented statement. Fast path when debug is off OR
-          // no breakpoint matches AND no step mode is armed.
+          // Yield helper. Called before each instrumented statement. Fast path
+          // when debug is off OR no breakpoint matches AND no step mode is armed.
           const __lingua_dbg_yield = async (
             line: number,
-            getLocals: () => Record<string, unknown>
+            getLocals: () => Record<string, unknown>,
+            endLine = line
           ): Promise<void> => {
             if (!session.enabled) return;
+            noteJsWorkerDebugLine(session, line);
             const breakpoint = session.breakpoints.get(line);
             const shouldPauseForStep =
               session.stepMode === 'into' ||
               (session.stepMode === 'over' && session.frames.length <= session.stepDepth) ||
               (session.stepMode === 'out' && session.frames.length < session.stepDepth);
+            if (breakpoint || shouldPauseForStep) await pauseAt(line, getLocals, breakpoint, shouldPauseForStep);
+            // Recorded after any pause, so a statement first reached by this pause still reads as not run.
+            reachJsWorkerDebugLines(session, line, endLine);
+          };
 
-            if (!breakpoint && !shouldPauseForStep) return;
-
+          const pauseAt = async (
+            line: number,
+            getLocals: () => Record<string, unknown>,
+            breakpoint: JsWorkerBreakpoint | undefined,
+            shouldPauseForStep: boolean
+          ): Promise<void> => {
             const localsRaw = (() => {
               try {
                 return getLocals();
@@ -294,7 +307,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               line,
               reason,
               locals: localsSerialized,
-              callStack: [...session.frames].reverse(),
+              ...jsWorkerPauseFrames(session),
               watchResults,
               conditionError,
             });
@@ -306,11 +319,11 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           };
 
           const __lingua_dbg_frame = (functionName: string, line: number): void => {
-            session.frames.push({ functionName, line });
+            session.frames.push({ functionName, declarationLine: line, line });
           };
 
           const __lingua_dbg_pop = (): void => {
-            session.frames.pop();
+            if (session.frames.length > 1) session.frames.pop();
           };
 
           const __lingua_capture_scope = (getters: Record<string, () => unknown>): void => {

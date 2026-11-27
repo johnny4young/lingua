@@ -21,7 +21,7 @@ interface AwaitableDebugTargets {
  * Takes JS source (already TS-stripped by esbuild-wasm if the user
  * authored TypeScript) and rewrites it so every executable statement
  * is preceded by an `await __lingua_dbg_yield(line, () => locals)`
- * call. The worker injects `__lingua_dbg_yield` as a closure parameter
+ * call (plus the statement's last line when it spans several). The worker injects `__lingua_dbg_yield` as a closure parameter
  * (mirror of the existing `__mc` magic-comment helper), so each yield
  * sees the live local-scope binding without us having to rebuild a
  * scope chain at injection time.
@@ -580,8 +580,12 @@ function injectYieldBefore(
   if (!Number.isInteger(userLine) || userLine <= 0) return;
 
   const localObject = buildLocalSnapshotExpression(collectLocalIdentifiers(parent));
+  // A statement over several lines also passes its last line, so the rail can light all of it once it ran.
+  const jsEndLine = stmt.loc?.end.line ?? jsLine;
+  const endLine = jsEndLine > jsLine ? translateLine(jsEndLine) : userLine;
+  const endArg = Number.isInteger(endLine) && endLine > userLine ? `, ${endLine}` : '';
 
-  const yieldExpr = `await ${helperName}(${userLine}, () => ${localObject});`;
+  const yieldExpr = `await ${helperName}(${userLine}, () => ${localObject}${endArg});`;
 
   // Inject BEFORE the statement. magic-string's `appendLeft` keeps
   // multiple injections at the same offset in source order, so the

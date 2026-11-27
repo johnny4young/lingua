@@ -222,6 +222,12 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   last pause show the old one struck through, and values read in another
   frame are tagged with their depth. Visit and breakpoint hit counts are
   renderer-side session state; no runtime protocol changed.
+- **Frame lines 2026-11-27.** JS pauses report each frame at the line it is
+  running, ending in a `<module>` frame like the native runtimes, plus every
+  line the session ran, so the stack reads `<module> :23, quickSort :7,
+  quickSort :4` and the paused rail dots code that never ran. Python, Go and
+  Rust keep what their adapters report. The protocol is in
+  `docs/ARCHITECTURE.md` § JS debugger pause frames.
 - **Layout note 2026-10-20.** The inline-results column this ADR keeps visible
   was removed: the Debugger is a tab of the single results dock under a
   full-width editor, and inline values stay in the editor.

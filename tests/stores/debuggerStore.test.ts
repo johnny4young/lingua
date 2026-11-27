@@ -291,7 +291,10 @@ describe('debuggerStore ', () => {
       line,
       reason,
       locals: {},
-      callStack: Array.from({ length: depth }, (_, index) => ({ functionName: `f${index}`, line: 1 })),
+      callStack: [
+        ...Array.from({ length: depth }, (_, index) => ({ functionName: `f${index}`, line: 1 })),
+        { functionName: '<module>', line: 9 },
+      ],
       watchResults: { 'x + 1': { value: String(line) }, broken: { error: 'nope' } },
     });
     store.attachSession({ runtime: 'js', tabId: 'a', attachedAt: 1 });
