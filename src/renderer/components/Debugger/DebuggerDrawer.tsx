@@ -39,7 +39,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
   );
   const callStack = pausedFrame?.callStack;
   const locals = pausedFrame?.locals;
-  const stack = useMemo(() => (callStack ? stackRows(callStack, session?.runtime) : []), [callStack, session?.runtime]);
+  const stack = useMemo(() => (callStack ? stackRows(callStack) : []), [callStack]);
   const changes = useMemo(
     () => (locals ? localsChanges(previousLocals, locals) : new Map<string, LocalChange>()),
     [locals, previousLocals]

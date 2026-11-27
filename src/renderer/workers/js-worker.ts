@@ -16,7 +16,8 @@
  * worker injects two closure helpers — `__lingua_dbg_yield(line, getLocals)`
  * called before each statement, and `__lingua_dbg_frame(name, line)` /
  * `__lingua_dbg_pop()` for frame-depth tracking that powers step-over
- * / step-into / step-out. Pauses fire only when the breakpoint set
+ * / step-into / step-out, and `__lingua_dbg_reach(line, end, owns)` before
+ * statements the yields do not cover, so a pause knows every line that ran. Pauses fire only when the breakpoint set
  * contains the current line OR the current step mode dictates a stop;
  * otherwise the yield function fast-paths to `Promise.resolve()`.
  *

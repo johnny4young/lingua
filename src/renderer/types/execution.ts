@@ -446,15 +446,15 @@ export type WorkerResponse =
       entries: LineTimingEntry[];
     }
   | {
-      // Debugger pause from the JS worker. Carries
-      // the source line, the locals snapshot, the call stack, and any
-      // watch-result placeholders for the UI drawer.
+      // Debugger pause from the JS worker: the source line, locals, the call stack newest first with
+      // each frame's current line, ending in <module>; every line the session ran; watch placeholders.
       type: 'paused';
       runId: string;
       line: number;
       reason: 'user-breakpoint' | 'step';
       locals: Record<string, string>;
-      callStack: { functionName: string; line: number }[];
+      callStack: { functionName: string; line: number; declarationLine?: number }[];
+      reachedLines?: number[];
       watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
       conditionError?: string;
     }

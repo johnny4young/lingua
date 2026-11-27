@@ -13,10 +13,7 @@ export function useDebuggerControls() {
   const isPaused = pausedFrame !== null;
   // Some runtimes can pause without stack metadata; do not expose a
   // step-out action that the worker cannot satisfy.
-  const canStepOut =
-    isPaused &&
-    pausedFrame.callStack.length > 0 &&
-    !(session?.runtime === 'python' && pausedFrame.callStack[0]?.functionName === '<module>');
+  const canStepOut = isPaused && pausedFrame.callStack.length > 0 && pausedFrame.callStack[0]?.functionName !== '<module>';
 
   const resume = () => {
     dispatchDebuggerControl({ type: 'resume' });

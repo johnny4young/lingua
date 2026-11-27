@@ -57,8 +57,20 @@ test('loads export only after a capsule exists and reuses it for button and shor
   await expect(button).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => countExportResources(page)).toEqual({ button: 1, pipeline: 1 });
 
+  // The copied state resets after one second, which a slow runner can spend
+  // inside the click itself, so record the transition instead of polling it.
+  await button.evaluate(element => {
+    const target = element as HTMLElement & { justCopiedSeen?: boolean };
+    new MutationObserver(() => {
+      if (target.dataset.justCopied === 'true') target.justCopiedSeen = true;
+    }).observe(target, { attributeFilter: ['data-just-copied'] });
+  });
   await button.click();
-  await expect(button).toHaveAttribute('data-just-copied', 'true');
+  await expect
+    .poll(() =>
+      button.evaluate(element => (element as { justCopiedSeen?: boolean }).justCopiedSeen === true)
+    )
+    .toBe(true);
   await expect(page.getByTestId('status-notice-banner')).toContainText(
     'Capsule copied to clipboard'
   );

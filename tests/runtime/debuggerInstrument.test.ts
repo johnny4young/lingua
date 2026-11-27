@@ -13,6 +13,42 @@ describe('instrumentForDebugger ', () => {
     expect(result.instrumentedLines).toEqual([1, 2, 3]);
   });
 
+  it('passes the last line of a statement that spans several lines', () => {
+    const result = instrumentForDebugger(`const a = 1;\nconst total = [1, 2].reduce(\n  (sum, n) => sum + n,\n  0\n);\n`);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\)\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(2, \(\) => [^\n]*, 5\);/);
+  });
+
+  it('stops the span where a debuggable function starts, so its body is reached only when called', () => {
+    const result = instrumentForDebugger(`const twice = (n) => {\n  return n * 2;\n};\n`);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\)\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(2, /);
+  });
+
+  it('marks nested statements with a reach call that moves the frame line only in bodies with a frame', () => {
+    const result = instrumentForDebugger(
+      ['for (const x of [1]) {', '  if (x) {', '    [x].map((y) => {', '      return y;', '    });', '  }', '}'].join('\n')
+    );
+    // The loop covers only its header; each nested statement reports itself.
+    expect(result.code).toContain('__lingua_dbg_yield(1, () => ({}));');
+    expect(result.code).toContain('__lingua_dbg_reach(2, 2, 1);');
+    expect(result.code).toContain('__lingua_dbg_reach(3, 3, 1);');
+    // A plain callback has no debugger frame, so it must not move its caller's line.
+    expect(result.code).toContain('__lingua_dbg_reach(4, 4, 0);');
+    expect(result.instrumentedLines).toEqual([1]);
+  });
+
+  it('marks class method and generator bodies, never hoisted declarations or directives', () => {
+    const result = instrumentForDebugger(
+      ['class Stack {', '  push(x) {', "    'use strict';", '    return x;', '  }', '}', 'function* gen() {', '  yield 1;', '}'].join('\n')
+    );
+    expect(result.code).toContain('__lingua_dbg_reach(4, 4, 0);');
+    expect(result.code).toContain('__lingua_dbg_reach(8, 8, 0);');
+    expect(result.code).not.toContain('__lingua_dbg_reach(3,');
+    expect(result.code).not.toContain('__lingua_dbg_reach(1,');
+    expect(result.code).not.toContain('__lingua_dbg_reach(7,');
+  });
+
   it('promotes local sync functions so Step Into can pause inside them', () => {
     // Multi-line function so the declaration and body are clearly
     // separated. Line 1 is the FunctionDeclaration header (skipped);

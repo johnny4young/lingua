@@ -84,8 +84,10 @@ interface CallStackFrame {
    * `Function.prototype.name`.
    */
   functionName: string;
-  /** 1-indexed source line where the frame's call-site lives. */
+  /** 1-indexed source line the frame is running: its call site of the frame above, or the paused line. */
   line: number;
+  /** Where the function is declared, when the runtime reports it. */
+  declarationLine?: number;
 }
 
 export interface PausedFrame {
@@ -104,6 +106,8 @@ export interface PausedFrame {
   locals: Record<string, string>;
   /** Read-only call-stack snapshot, newest frame first. */
   callStack: CallStackFrame[];
+  /** JS: every line the session ran so far, so the rail leaves code that never ran dotted. */
+  reachedLines?: readonly number[];
   /**
    * Latest watch evaluations, keyed by the user-typed expression. Each
    * entry is `{ value, error }` (exactly one defined when evaluated)
@@ -505,7 +509,7 @@ export const useDebuggerStore = create<DebuggerState>()(
             line: frame.line,
             locals: frame.locals,
             watches: watchValues(frame.watchResults),
-            depth: pauseDepth(frame.callStack, state.session?.runtime),
+            depth: pauseDepth(frame.callStack),
             frame: frame.callStack[0]?.functionName ?? '',
           };
           // A refresh of the pause on screen (a watch sync) keeps the pause it is compared with.

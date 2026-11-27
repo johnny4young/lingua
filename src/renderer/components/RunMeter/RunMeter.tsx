@@ -106,7 +106,6 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
   const pausedLine = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.line : null));
   const pauseReason = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.reason : null));
   const callStack = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.callStack : null));
-  const runtime = useDebuggerStore(state => state.session?.runtime ?? null);
   const visits = useDebuggerStore(state => (pausedLine === null ? 0 : (state.pauseVisits[bpKey(tabId, pausedLine)] ?? 1)));
 
   const showCountdown = useSettingsStore(state => state.showTimeoutCountdown);
@@ -134,7 +133,7 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
   const countdown = state === 'running' && showCountdown && deadlineAt !== null ? formatCountdown(deadlineAt - now) : null;
   // While paused the numeral is the line, so only an error names it in the state row.
   const line = state === 'error' || state === 'timeout' ? (last?.line ?? null) : null;
-  const stack = useMemo(() => (callStack ? stackRows(callStack, runtime) : []), [callStack, runtime]);
+  const stack = useMemo(() => (callStack ? stackRows(callStack) : []), [callStack]);
   // The buffer is only scanned while a line is on show, so typing never pays for it.
   const totalLines = useEditorStore(state =>
     line === null ? 0 : lineCount(state.tabs.find(tab => tab.id === tabId)?.content ?? '')

@@ -108,12 +108,19 @@ describe('paused line results', () => {
 });
 
 describe('call stack rows', () => {
-  it('gives the JS top level a row and reads native stacks as reported, outermost first', () => {
-    const stack = [{ functionName: 'inner', line: 4 }, { functionName: 'outer', line: 9 }];
-    expect(stackRows(stack, 'js')).toEqual([{ functionName: '' }, { functionName: 'outer', line: 9 }, { functionName: 'inner', line: 4 }]);
-    expect(pauseDepth(stack, 'js')).toBe(2);
-    expect(stackRows([...stack, { functionName: '<module>', line: 12 }], 'python').map(row => row.functionName)).toEqual(['<module>', 'outer', 'inner']);
-    expect(pauseDepth([], 'python')).toBe(0);
-    expect(pauseDepth([], 'js')).toBe(0);
+  it('reads the stack outermost first at each frame\'s line, leaving out a line the runtime has not set', () => {
+    const stack = [
+      { functionName: 'inner', line: 4 },
+      { functionName: 'outer', line: 9 },
+      { functionName: '<module>', line: 23 },
+    ];
+    expect(stackRows(stack)).toEqual([
+      { functionName: '<module>', line: 23 },
+      { functionName: 'outer', line: 9 },
+      { functionName: 'inner', line: 4 },
+    ]);
+    expect(stackRows([{ functionName: '<module>', line: 0 }])).toEqual([{ functionName: '<module>' }]);
+    expect(pauseDepth(stack)).toBe(2);
+    expect(pauseDepth([])).toBe(0);
   });
 });

@@ -115,11 +115,7 @@ export function canDispatchDebuggerShortcut(id: string): boolean {
   if (!pausedFrame) return false;
   return (
     id !== 'debugger-step-out' ||
-    (pausedFrame.callStack.length > 0 &&
-      !(
-        debuggerState.session?.runtime === 'python' &&
-        pausedFrame.callStack[0]?.functionName === '<module>'
-      ))
+    (pausedFrame.callStack.length > 0 && pausedFrame.callStack[0]?.functionName !== '<module>')
   );
 }
 

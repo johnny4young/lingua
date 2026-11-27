@@ -50,6 +50,14 @@ let child = null;
 let browser = null;
 let page = null;
 
+async function waitForWorker(url, message, timeout = 30_000) {
+  const deadline = Date.now() + timeout;
+  while (!page.workers().some(worker => worker.url() === url)) {
+    if (Date.now() > deadline) assert.fail(message);
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
+
 async function openWindow() {
   if (!packaged) {
     app = await _electron.launch({
@@ -392,9 +400,9 @@ try {
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
     await page.keyboard.insertText('\nconst = 1;');
     await page.locator('.monaco-editor .squiggly-error').first().waitFor({ timeout: 30_000 });
-    const editorWorkers = page.workers().map(worker => worker.url());
-    assert.ok(editorWorkers.includes(entryUrl['editor.worker']), 'editor worker running');
-    assert.ok(editorWorkers.includes(entryUrl['ts.worker']), 'TypeScript worker running');
+    // Monaco spawns its editor worker on first use, which can land after the squiggle.
+    await waitForWorker(entryUrl['editor.worker'], 'editor worker running');
+    await waitForWorker(entryUrl['ts.worker'], 'TypeScript worker running');
     results.editorDiagnostics[locale] = true;
     await page.screenshot({ path: path.join(artifacts, `editor-${locale}.png`) });
   }

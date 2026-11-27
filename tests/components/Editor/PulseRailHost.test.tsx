@@ -192,6 +192,35 @@ describe('PulseRailHost', () => {
     expect(model.held()).toEqual([2]);
   });
 
+  it('dots the functions a JS pause never reached, even below a line that answered', () => {
+    const code = [
+      'function sort(arr) {',
+      '  const pivot = arr[0];',
+      '  return arr;',
+      '}',
+      '',
+      'function unused(arr) {',
+      '  return arr.length;',
+      '}',
+      '',
+      'console.log(sort([1]));',
+      'console.log(unused([1]));',
+    ];
+    const model = new FakeModel(code);
+    // A logpoint on line 11 answered, which used to light everything above it.
+    publishRun([11], { isManualRunning: true, runTermination: null });
+    act(() =>
+      useDebuggerStore.setState({ pausedFrame: { tabId: 't1', line: 3, reachedLines: [2, 10] } as never })
+    );
+    render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);
+    const state = (line: number) => model.rail()[line]?.match(/lingua-rail--([a-z-]+)/)?.[1];
+    expect([1, 2, 3].map(state)).toEqual(['reached', 'answered', 'paused']);
+    expect([6, 7, 8].map(state)).toEqual(['not-run', 'not-run', 'not-run']);
+    expect(state(10)).toBe('answered');
+    expect(state(11)).toBe('not-run');
+    expect(model.held()).toEqual([3]);
+  });
+
   it('moves the held ring with the pause while the rail is stale', () => {
     const model = new FakeModel(source);
     publishRun([]);
