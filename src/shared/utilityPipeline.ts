@@ -41,7 +41,7 @@
  *      precedent) so a late rejection cannot bubble.
  */
 
-import type { UtilityAdapterId } from './utilities/types';
+import type { UtilityAdapterId, UtilityValueKind } from './utilities/types';
 import { UTILITY_ADAPTER_IDS } from './utilities/types';
 import { getAdapter } from './utilities/registry';
 import { PIPELINE_MAX_STEPS } from './utilityPipelineLimits';
@@ -85,7 +85,7 @@ export const PIPELINE_STEP_STATUSES = [
   'disabled',
   'paused',
 ] as const;
-export type PipelineStepStatus = (typeof PIPELINE_STEP_STATUSES)[number];
+type PipelineStepStatus = (typeof PIPELINE_STEP_STATUSES)[number];
 
 /**
  * Closed enum of aggregate pipeline outcomes for telemetry.
@@ -361,6 +361,10 @@ function isTimeout(value: unknown): value is TimeoutSentinel {
   );
 }
 
+function acceptsKind(input: UtilityValueKind, upstream: UtilityValueKind): boolean {
+  return input === upstream || (input === 'text' && upstream === 'json');
+}
+
 /** UTF-8 byte length helper — same shape as the other shared schemas. */
 function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
@@ -435,7 +439,7 @@ export async function runPipeline(
   let chainedInput = input;
   let upstreamFailed = false;
   let paused = false;
-  let lastOutputKind: 'text' | 'json' | 'binary' = 'text';
+  let lastOutputKind: UtilityValueKind = 'text';
 
   for (let i = 0; i < pipeline.steps.length; i += 1) {
     const step = pipeline.steps[i];
@@ -472,10 +476,8 @@ export async function runPipeline(
       continue;
     }
 
-    // Kind compatibility check — reserved for later, but the engine
-    // wiring is in place. With all current adapters at `text → text`
-    // this branch never fires; tests cover it via a synthetic adapter.
-    if (i > 0 && adapter.inputKind !== lastOutputKind) {
+    // JSON is text, so a text step accepts it; binary still mismatches.
+    if (i > 0 && !acceptsKind(adapter.inputKind, lastOutputKind)) {
       const incompat: PipelineStepResult = {
         stepId: step.id,
         utilityId: step.utilityId,

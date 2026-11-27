@@ -67,7 +67,7 @@ export const urlParseAdapter: UtilityAdapter<UrlParseOptions> = {
   titleKey: 'utilityPipeline.adapter.urlParse.title',
   descriptionKey: 'utilityPipeline.adapter.urlParse.description',
   inputKind: 'text',
-  outputKind: 'text',
+  outputKind: 'json',
   optionsSchema: [],
   defaultOptions: () => ({}),
   parseOptions: (raw): UrlParseOptions | null => {

@@ -282,6 +282,15 @@ describe('runPipeline', () => {
     expect(outcome.results[1]?.status).toBe('skipped');
   });
 
+  it('feeds a json output to a text step', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    pipeline.steps.push(createBlankStep({ id: 's2', utilityId: 'base64-encode' }));
+    const outcome = await runPipeline(pipeline, '{"a":1}', { skipYield: true });
+    expect(outcome.status).toBe('all-ok');
+    expect(outcome.results.map((result) => result.status)).toEqual(['ok', 'ok']);
+  });
+
   it('chains Base64 decode → JSON format', async () => {
     const pipeline = createBlankPipeline({ id: 'p1' });
     pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'base64-decode' }));

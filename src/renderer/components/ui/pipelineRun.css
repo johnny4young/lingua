@@ -462,10 +462,12 @@
     padding: 6px 8px;
   }
 
+  /* Sized to the name, so the leader runs from it to the tag column. */
   .utility-step-title {
     display: flex;
-    width: clamp(6rem, 24cqw, 9rem);
-    flex: none;
+    min-width: 0;
+    max-width: clamp(6rem, 24cqw, 9rem);
+    flex: 0 1 auto;
     align-items: center;
     gap: 8px;
     font-size: 13px;
@@ -493,8 +495,9 @@
     gap: 10px;
   }
 
+  /* Sized to its word, so a long tag (DESACTIVADO) pushes the hint instead of running into it. */
   .utility-step-tag {
-    width: 56px;
+    min-width: 60px;
     flex: none;
   }
 
@@ -507,22 +510,19 @@
   }
 
   .utility-step-hint {
+    display: -webkit-box;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
     font-size: 12.5px;
     color: var(--color-fg-subtle);
   }
 
-  /* A failure message wraps to three lines: it is the answer, not a hint. */
+  /* A failure message is the answer, not a hint: it reads in the code face. */
   .utility-step-hint[data-tone='error'],
   .utility-step-hint[data-tone='warning'] {
-    display: -webkit-box;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
     font-family: var(--font-code);
     font-variation-settings: var(--font-code-axes);
     font-size: 12px;
@@ -565,7 +565,7 @@
       flex-wrap: wrap;
     }
     .utility-step-title {
-      width: auto;
+      max-width: none;
       flex: 1 1 0;
     }
     .utility-step-leader {
@@ -576,9 +576,6 @@
       flex-basis: 100%;
       flex-wrap: wrap;
       padding-left: 34px;
-    }
-    .utility-step-hint {
-      white-space: normal;
     }
   }
 }

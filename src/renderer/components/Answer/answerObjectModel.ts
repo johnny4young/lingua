@@ -10,7 +10,8 @@ import { readLiteral, type Literal } from './answerLiteral';
 type AnswerTone = 'number' | 'string' | 'boolean' | 'date' | 'none' | 'error' | 'plain' | 'pulse';
 
 /** What kind of line produced the answer. */
-export type AnswerRole = 'value' | 'stdout' | 'stderr' | 'error';
+/** `text` is a reading hint: the value is shown as is, never parsed (a utility's text output). */
+export type AnswerRole = 'value' | 'stdout' | 'stderr' | 'error' | 'text';
 
 export interface AnswerInput {
   /** The printed value, always present; a payload refines it. */
@@ -21,6 +22,8 @@ export interface AnswerInput {
   readonly language?: string;
   /** The statement's source line, read for a threshold to gauge a number against. */
   readonly source?: string;
+  /** Full length of a `text` answer whose `text` is only its head. */
+  readonly length?: number;
 }
 
 export interface AnswerContext {
@@ -153,6 +156,7 @@ type DictLiteral = Extract<Literal, { t: 'dict' }>;
 type DictEntry = DictLiteral['entries'][number];
 
 const MAX_SUMMARY = 300;
+const TEXT_VALUE_MAX = 600;
 
 function quote(text: string, python: boolean): string {
   const mark = python && !text.includes("'") ? "'" : '"';
@@ -552,6 +556,11 @@ export function readAnswer(input: AnswerInput, context: AnswerContext): AnswerMo
     if (model) return model;
   }
   if (input.role === 'stdout' || input.role === 'stderr') return foldedAnswer(input.role, input.role, 'plain', text, false);
+  if (input.role === 'text') {
+    const model = foldedAnswer(`text·${input.length ?? text.length}`, 'text', 'string', text, false);
+    // Three wrapped lines show at most a few hundred characters; the rest would only be laid out.
+    return { ...model, value: truncateText(model.value, TEXT_VALUE_MAX) };
+  }
   const literal = readLiteral(text);
   if (literal) return answerFromLiteral(literal, reading);
   const trimmed = text.length > 256 ? '' : text.trim();

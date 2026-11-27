@@ -3830,7 +3830,6 @@
   "utilityPipeline.step.utilityLabel": "Utility",
   "utilityPipeline.step.deleteAria": "Delete step {{index}}",
   "utilityPipeline.step.dragHandleAria": "Reorder step {{index}}",
-  "utilityPipeline.step.status.ok": "OK",
   "utilityPipeline.step.status.error": "Error",
   "utilityPipeline.step.status.skipped": "Skipped",
   "utilityPipeline.step.status.timeout": "Timeout",

@@ -41,7 +41,7 @@ export const jwtDecodeAdapter: UtilityAdapter<JwtDecodeOptions> = {
   titleKey: 'utilityPipeline.adapter.jwtDecode.title',
   descriptionKey: 'utilityPipeline.adapter.jwtDecode.description',
   inputKind: 'text',
-  outputKind: 'text',
+  outputKind: 'json',
   optionsSchema: [],
   defaultOptions: () => ({}),
   parseOptions: parseEmptyOptions,
