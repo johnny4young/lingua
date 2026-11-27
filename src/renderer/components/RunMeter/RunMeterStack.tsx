@@ -28,7 +28,7 @@ export function RunMeterStack({ rows, className, testid = 'debugger-callstack' }
           const current = index === shown.length - 1;
           return (
             <li
-              key={`${depth}:${row.functionName}`}
+              key={`${depth}:${row.functionName || '<anonymous>'}`}
               className="run-meter-stack-row"
               style={{ '--step': Math.min(index, 4) } as React.CSSProperties}
               data-current={current || undefined}

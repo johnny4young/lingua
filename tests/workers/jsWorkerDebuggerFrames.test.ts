@@ -77,4 +77,31 @@ describe('JS worker pause frames', () => {
     expect(second!.reachedLines).toEqual([2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 18, 19]);
     expect(second!.reachedLines).not.toContain(11);
   });
+
+  it('reads nested blocks: the call line inside a loop, the branch taken, a class method that ran', async () => {
+    const source = [
+      'class Box {',
+      '  size(items) {',
+      '    return items.length;',
+      '  }',
+      '}',
+      'function visit(n) {',
+      '  return n;',
+      '}',
+      'for (const n of [1]) {',
+      '  if (n > 5) {',
+      '    console.log(n);',
+      '  } else {',
+      '    new Box().size([n]);',
+      '    visit(n);',
+      '  }',
+      '}',
+    ].join('\n');
+    const [pause] = await debugRun(source, [7], 1);
+    expect(pause!.callStack).toEqual([
+      { functionName: 'visit', line: 7, declarationLine: 6 },
+      { functionName: '<module>', line: 14 },
+    ]);
+    expect(pause!.reachedLines).toEqual([3, 9, 10, 13, 14]);
+  });
 });

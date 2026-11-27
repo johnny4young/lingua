@@ -322,6 +322,12 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             session.frames.push({ functionName, declarationLine: line, line });
           };
 
+          const __lingua_dbg_reach = (line: number, endLine: number, ownsFrame: number): void => {
+            if (!session.enabled) return;
+            if (ownsFrame) noteJsWorkerDebugLine(session, line);
+            reachJsWorkerDebugLines(session, line, endLine);
+          };
+
           const __lingua_dbg_pop = (): void => {
             if (session.frames.length > 1) session.frames.pop();
           };
@@ -349,6 +355,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             '__lingua_dbg_yield',
             '__lingua_dbg_frame',
             '__lingua_dbg_pop',
+            '__lingua_dbg_reach',
             '__lingua_capture_scope',
             '__lingua_rec',
             '__lingua_rec_enter',
@@ -362,6 +369,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             __lingua_dbg_yield,
             __lingua_dbg_frame,
             __lingua_dbg_pop,
+            __lingua_dbg_reach,
             __lingua_capture_scope,
             timeline?.rec ?? noop,
             timeline?.enter ?? noop,

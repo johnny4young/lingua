@@ -21,7 +21,10 @@ interface AwaitableDebugTargets {
  * Takes JS source (already TS-stripped by esbuild-wasm if the user
  * authored TypeScript) and rewrites it so every executable statement
  * is preceded by an `await __lingua_dbg_yield(line, () => locals)`
- * call (plus the statement's last line when it spans several). The worker injects `__lingua_dbg_yield` as a closure parameter
+ * call, which also passes the statement's last line when it spans
+ * several. Statements in nested blocks and in bodies that cannot
+ * await get a synchronous `__lingua_dbg_reach(line, end, owns)` instead,
+ * so the worker knows every line that ran without pausing there. The worker injects `__lingua_dbg_yield` as a closure parameter
  * (mirror of the existing `__mc` magic-comment helper), so each yield
  * sees the live local-scope binding without us having to rebuild a
  * scope chain at injection time.
@@ -136,6 +139,7 @@ export interface InstrumentOptions {
 }
 
 const DEFAULT_HELPER_NAME = '__lingua_dbg_yield';
+const REACH_HELPER_NAME = '__lingua_dbg_reach';
 
 /**
  * Line translator. JS line in, user-source line
@@ -208,6 +212,7 @@ export function collectLocalIdentifiers(node: AcornNode): string[] {
     DEFAULT_HELPER_NAME,
     '__lingua_dbg_frame',
     '__lingua_dbg_pop',
+    REACH_HELPER_NAME,
     '__lingua_dbg_locals',
     'arguments',
   ]);
@@ -548,16 +553,7 @@ function injectYieldBefore(
   // hoisted to the top of the scope before any statement runs, so a
   // yield in front of them would never fire (the binding already
   // exists). Skip pure declarations to keep semantics intact.
-  if (
-    stmt.type === 'FunctionDeclaration' ||
-    stmt.type === 'ClassDeclaration' ||
-    stmt.type === 'ImportDeclaration' ||
-    stmt.type === 'ExportAllDeclaration' ||
-    stmt.type === 'ExportNamedDeclaration' ||
-    stmt.type === 'ExportDefaultDeclaration'
-  ) {
-    return;
-  }
+  if (!runsAsStatement(stmt)) return;
 
   // Skip generator and async-generator bodies entirely — yielding
   // inside a `function*` would conflict with the user's own `yield`
@@ -580,10 +576,8 @@ function injectYieldBefore(
   if (!Number.isInteger(userLine) || userLine <= 0) return;
 
   const localObject = buildLocalSnapshotExpression(collectLocalIdentifiers(parent));
-  // A statement over several lines also passes its last line, so the rail can light all of it once it ran.
-  const jsEndLine = stmt.loc?.end.line ?? jsLine;
-  const endLine = jsEndLine > jsLine ? translateLine(jsEndLine) : userLine;
-  const endArg = Number.isInteger(endLine) && endLine > userLine ? `, ${endLine}` : '';
+  const endLine = ownEndLine(stmt, userLine, translateLine);
+  const endArg = endLine > userLine ? `, ${endLine}` : '';
 
   const yieldExpr = `await ${helperName}(${userLine}, () => ${localObject}${endArg});`;
 
@@ -592,6 +586,100 @@ function injectYieldBefore(
   // yield ends up immediately before the original character.
   ms.appendLeft(stmt.start, `${yieldExpr}\n`);
   recordedLines.add(userLine);
+}
+
+/**
+ * The last line a statement covers on its own: up to the line before its
+ * first nested statement, which reports itself when it runs.
+ */
+function ownEndLine(stmt: AcornNode, userLine: number, translateLine: LineTranslator): number {
+  const start = stmt.loc?.start.line ?? 0;
+  let end = stmt.loc?.end.line ?? start;
+  const nested = firstNestedStatementLine(stmt);
+  if (nested !== null) end = Math.min(end, Math.max(start, nested - 1));
+  if (end <= start) return userLine;
+  const translated = translateLine(end);
+  return Number.isInteger(translated) && translated > userLine ? translated : userLine;
+}
+
+function statementList(node: AcornNode): AcornNode[] | null {
+  if (node.type === 'BlockStatement' || node.type === 'StaticBlock' || node.type === 'Program') {
+    return (node as { body: AcornNode[] }).body;
+  }
+  if (node.type === 'SwitchCase') return (node as { consequent: AcornNode[] }).consequent;
+  return null;
+}
+
+function firstNestedStatementLine(node: AcornNode): number | null {
+  let first: number | null = null;
+  for (const key of Object.keys(node)) {
+    if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+    const value = (node as unknown as Record<string, unknown>)[key];
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (!isAcornNode(item)) continue;
+      const list = statementList(item);
+      const line = list ? (list[0]?.loc?.start.line ?? null) : firstNestedStatementLine(item);
+      if (line !== null && (first === null || line < first)) first = line;
+    }
+  }
+  return first;
+}
+
+/** Hoisted declarations and directives never run as statements of their own. */
+function runsAsStatement(stmt: AcornNode): boolean {
+  if ((stmt as { directive?: string }).directive !== undefined) return false;
+  return !(
+    stmt.type === 'FunctionDeclaration' ||
+    stmt.type === 'ClassDeclaration' ||
+    stmt.type === 'ImportDeclaration' ||
+    stmt.type === 'ExportAllDeclaration' ||
+    stmt.type === 'ExportNamedDeclaration' ||
+    stmt.type === 'ExportDefaultDeclaration'
+  );
+}
+
+/**
+ * Marks every statement the yields do not cover (nested blocks, and bodies
+ * that cannot await) with a synchronous reach call. `owns` says whether the
+ * enclosing body has a debugger frame, so the call may move that frame's line.
+ */
+function injectReachMarkers(
+  ast: AcornNode,
+  ms: MagicString,
+  translateLine: LineTranslator,
+  awaitableTargets: AwaitableDebugTargets
+): void {
+  const stack: Array<{ node: AcornNode; owns: boolean; yields: boolean }> = [{ node: ast, owns: true, yields: true }];
+  while (stack.length > 0) {
+    const { node, owns, yields } = stack.pop()!;
+    const list = statementList(node);
+    if (list) {
+      for (const stmt of list) {
+        const jsLine = stmt.loc?.start.line ?? 0;
+        const userLine = jsLine > 0 ? translateLine(jsLine) : 0;
+        if (!yields && runsAsStatement(stmt) && Number.isInteger(userLine) && userLine > 0) {
+          const end = ownEndLine(stmt, userLine, translateLine);
+          ms.appendLeft(stmt.start, `${REACH_HELPER_NAME}(${userLine}, ${end}, ${owns ? 1 : 0});\n`);
+        }
+      }
+    }
+    for (const key of Object.keys(node)) {
+      if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+      const value = (node as unknown as Record<string, unknown>)[key];
+      for (const item of Array.isArray(value) ? value : [value]) {
+        if (!isAcornNode(item)) continue;
+        if (isFunctionLike(item) && item.type !== 'MethodDefinition') {
+          // A body that can await gets yields before its own statements and keeps a frame.
+          const awaits = canAwaitInBody(item, awaitableTargets);
+          const body = (item as { body?: AcornNode }).body;
+          if (body && isAcornNode(body)) stack.push({ node: body, owns: awaits, yields: awaits });
+          for (const param of (item as { params?: AcornNode[] }).params ?? []) stack.push({ node: param, owns, yields: false });
+        } else {
+          stack.push({ node: item, owns, yields: false });
+        }
+      }
+    }
+  }
 }
 
 function canAwaitInBody(parent: AcornNode, awaitableTargets: AwaitableDebugTargets): boolean {
@@ -718,6 +806,7 @@ export function instrumentForDebugger(
   markAwaitableDebugFunctions(ast, ms, awaitableTargets);
   awaitKnownDebugCalls(ast, ms, awaitableTargets);
   instrumentBodies(ast, ms, helperName, recordedLines, translateLine, awaitableTargets);
+  injectReachMarkers(ast, ms, translateLine, awaitableTargets);
 
   const map = ms.generateMap({
     source: filename,
