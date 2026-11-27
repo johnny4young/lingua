@@ -453,6 +453,94 @@
     }
   }
 
+  /* Utility pipeline panel: library, steps and input, results. It fills the pane, so the
+     run footer sits at the bottom of Results. */
+  .utility-pipeline-root {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    container: utility-pipeline / inline-size;
+  }
+
+  .utility-pipeline-layout {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 42rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  @container utility-pipeline (width < 67rem) {
+    .utility-pipeline-library-list {
+      max-height: 10rem;
+    }
+  }
+
+  /* Medium: the library above, steps and input beside results. */
+  @container utility-pipeline (48rem <= width < 67rem) {
+    .utility-pipeline-layout {
+      grid-template-columns: minmax(20rem, 0.75fr) minmax(24rem, 1.25fr);
+      grid-template-rows: auto 1fr;
+    }
+    .utility-pipeline-library {
+      grid-column: 1 / -1;
+      border-bottom: 1px solid var(--color-border-subtle);
+      padding-bottom: 8px;
+    }
+  }
+
+  @container utility-pipeline (width >= 48rem) {
+    .utility-pipeline-layout {
+      min-height: 0;
+    }
+    .utility-pipeline-results {
+      border-left: 1px solid var(--color-border-subtle);
+      padding-left: 8px;
+    }
+    .utility-pipeline-input,
+    .utility-pipeline-input-field {
+      flex: 1 0 auto;
+    }
+  }
+
+  @container utility-pipeline (width >= 67rem) {
+    .utility-pipeline-layout {
+      grid-template-columns: 240px minmax(22rem, 1fr) minmax(28rem, 1fr);
+    }
+    .utility-pipeline-library {
+      border-right: 1px solid var(--color-border-subtle);
+      padding-right: 8px;
+    }
+  }
+
+  @container utility-pipeline (width >= 80rem) {
+    .utility-pipeline-layout {
+      grid-template-columns: 260px minmax(24rem, 0.8fr) minmax(36rem, 1.35fr);
+    }
+  }
+
+  /* A step card keeps its controls on the header row; a narrow column moves the select below it. */
+  .utility-pipeline-editor {
+    container: utility-pipeline-editor / inline-size;
+  }
+
+  /* Shrinks to keep the header controls on one row. */
+  .utility-step-card-select {
+    width: 0;
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  @container utility-pipeline-editor (width <= 20rem) {
+    .utility-step-card-head {
+      flex-wrap: wrap;
+    }
+    .utility-step-card-select {
+      order: 1;
+      flex-basis: 100%;
+    }
+  }
+
   /* Utility pipeline result row. */
   .utility-step-line {
     display: flex;

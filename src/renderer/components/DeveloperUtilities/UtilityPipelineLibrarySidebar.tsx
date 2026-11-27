@@ -136,7 +136,7 @@ export function UtilityPipelineLibrarySidebar() {
 
   return (
     <>
-      <aside className="flex min-h-0 flex-col @[67rem]:border-r @[67rem]:border-border/60 @[67rem]:pr-2">
+      <aside className="utility-pipeline-library flex min-h-0 flex-col">
         <header className="flex items-center justify-between gap-2 pb-2">
           <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
             {t('utilityPipeline.list.label')}
@@ -189,7 +189,7 @@ export function UtilityPipelineLibrarySidebar() {
         {pipelines.length === 0 ? (
           <p className="px-2 py-3 text-body-sm text-muted">{t('utilityPipeline.list.empty')}</p>
         ) : null}
-        <ul role="list" className="flex-1 overflow-y-auto">
+        <ul role="list" className="utility-pipeline-library-list flex-1 overflow-y-auto">
           {pipelines.map(pipeline => {
             const isActive = pipeline.id === activePipelineId;
             return (
