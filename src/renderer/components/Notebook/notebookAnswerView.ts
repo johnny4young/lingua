@@ -2,6 +2,8 @@ import type { NotebookCellLanguage, NotebookLineAnswerV1 } from '../../../shared
 import type { ScopeValue } from '../../../shared/scopeSnapshot';
 import { KEY_COLUMN } from '../../utils/lastAnswer';
 import { scopeValueToString } from '../Console/richConsoleFormat';
+import { groupsDigits } from '../SqlWorkspace/sqlColumnInstruments';
+import { renderNumberCell } from '../SqlWorkspace/sqlResultFormatters';
 
 /** Line height of a code cell, shared by the code and its answer column. */
 export function notebookLineHeight(fontSize: number): number {
@@ -113,13 +115,33 @@ export interface AnswerGrid {
 /**
  * A result table as display cells, plus the column that carries bars: the
  * last measurable one (non-negative numbers, not all equal, not a key).
+ * Numbers group their digits in `language`, except keys and years.
  */
-export function answerGrid(columns: ReadonlyArray<string>, rows: ReadonlyArray<ReadonlyArray<ScopeValue>>): AnswerGrid {
-  const cells = rows.map((row) => columns.map((_, index) => tableCell(row[index])));
+export function answerGrid(
+  columns: ReadonlyArray<string>,
+  rows: ReadonlyArray<ReadonlyArray<ScopeValue>>,
+  language: string
+): AnswerGrid {
+  const grouped = columns.map(groupsDigits);
+  const values: number[][] = [];
+  const cells = rows.map((row) => {
+    const numbers: number[] = [];
+    values.push(numbers);
+    return columns.map((_, index) => {
+      const cell = tableCell(row[index]);
+      if (!cell.numeric) return cell;
+      const value = Number(cell.text);
+      numbers[index] = value;
+      if (!grouped[index]) return cell;
+      // A written integer takes the formatter's cached fast path; decimals keep every digit as written.
+      const integer = Number.isSafeInteger(value) && /^-?\d+$/.test(cell.text);
+      return { ...cell, text: renderNumberCell(integer ? value : cell.text, language) };
+    });
+  });
   for (let column = columns.length - 1; column >= 0; column -= 1) {
     if (KEY_COLUMN.test(columns[column]!) || cells.length < 2) continue;
     if (!cells.every((row) => row[column]!.numeric)) continue;
-    const numbers = cells.map((row) => Number(row[column]!.text));
+    const numbers = values.map((row) => row[column]!);
     let max = 0;
     let min = Infinity;
     for (const value of numbers) {

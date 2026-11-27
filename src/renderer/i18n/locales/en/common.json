@@ -4037,7 +4037,7 @@
   "notebook.cell.markdownSourcePlaceholder": "Write markdown — paragraphs, headings, lists, and fenced code blocks.",
   "notebook.cell.outputMeta_one": "{{count}} line",
   "notebook.cell.outputMeta_other": "{{count}} lines",
-  "notebook.cell.latencySuffix": " · {{ms}} ms",
+  "notebook.cell.latencySuffix": " · {{duration}}",
   "notebook.cell.usesChip": "uses {{names}}",
   "notebook.cell.producesChip": "makes {{names}}",
   "notebook.cell.collapseOutput": "Collapse output",
