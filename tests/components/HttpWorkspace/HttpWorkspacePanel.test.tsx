@@ -311,6 +311,8 @@ describe('HttpWorkspacePanel', () => {
     await waitFor(() => expect(useEditorStore.getState().tabs[0]?.lastAnswer).toMatchObject({
       kind: 'http', status: 'ok', numeral: '200', unit: 'status', subject: 'GET /users',
     }));
+    // No environment was active, so the row has no context to name.
+    expect(useEditorStore.getState().tabs[0]?.lastAnswer).not.toHaveProperty('context');
     useEditorStore.setState({ tabs: [], activeTabId: null });
 
     await waitFor(() => {

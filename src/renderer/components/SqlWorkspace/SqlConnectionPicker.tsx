@@ -6,7 +6,7 @@ import { cn } from '../../utils/cn';
 import { CommandBarContextChip } from '../Chrome/CommandBarSlot';
 import { useDismissible } from '../../hooks/useDismissible';
 import { ChipContent as Chip, ConnectionChip } from './SqlConnectionChip';
-import { CONNECTION_TONE, ENGINE_LABEL, engineDetail as detailOf, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
+import { CONNECTION_TONE, ENGINE_LABEL, LOCAL_ENGINE, engineDetail as detailOf, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
 import '../../i18n/sqlConnectionsCatalog';
 
 /** What the picker lists and where its actions go. */
@@ -27,7 +27,6 @@ interface SqlConnectionPickerProps {
   remote: SqlConnectionPickerRemote;
 }
 
-const LOCAL_ENGINE = 'DuckDB';
 
 
 /**

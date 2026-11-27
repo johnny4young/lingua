@@ -172,6 +172,65 @@ describe('Start page', () => {
     expect(screen.getByTestId('start-pick-up-row-1').textContent).toContain('de 6 falló');
   });
 
+  it('names SQL and HTTP rows by what answered, with where they ran', () => {
+    const ranAt = Date.now() - HOUR;
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'SQL',
+          language: 'sql',
+          content: '',
+          kind: 'sql',
+          lastAnswer: { kind: 'sql', status: 'ok', numeral: '12', unit: 'rows', subject: 'orders by city', context: 'orders-dev · Postgres', ranAt },
+        },
+        {
+          name: 'HTTP',
+          language: 'http',
+          content: '',
+          kind: 'http',
+          lastAnswer: { kind: 'http', status: 'ok', numeral: '200', unit: 'status', label: 'OK', subject: 'GET /v1/services', context: 'staging', ranAt },
+        },
+        // Saved before answers carried a context: the row reads the same, without one.
+        {
+          name: 'SQL',
+          language: 'sql',
+          content: '',
+          kind: 'sql',
+          lastAnswer: { kind: 'sql', status: 'ok', numeral: '3', unit: 'rows', subject: 'cities', ranAt },
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+    armPendingSessionRestoreSnapshot();
+    render(<EditorEmptyState />);
+
+    const detail = (row: number) => screen.getByTestId(`start-pick-up-row-${row}`).querySelector('.start-row-detail')?.textContent;
+    expect(screen.getByTestId('start-pick-up-row-1').getAttribute('aria-label')).toBe('Reopen orders by city');
+    expect(detail(1)).toBe('orders-dev · Postgres');
+    expect(detail(2)).toBe('staging');
+    expect(screen.getByTestId('start-pick-up-row-3').getAttribute('aria-label')).toBe('Reopen cities');
+    expect(detail(3)).toBeUndefined();
+  });
+
+  it('holds a short name at its full width and lets a long one truncate no shorter than 12 characters', () => {
+    useSessionStore.setState({
+      savedTabs: [
+        { name: 'a.js', language: 'javascript', content: '', lastAnswer: { kind: 'code', status: 'ok', numeral: '1', ranAt: Date.now() } },
+        { name: 'break-even-forecast.ts', language: 'typescript', content: '', lastAnswer: { kind: 'code', status: 'ok', numeral: '2', ranAt: Date.now() } },
+        { name: '数据.py', language: 'python', content: '', lastAnswer: { kind: 'code', status: 'ok', numeral: '3', ranAt: Date.now() } },
+      ],
+      savedActiveIndex: 0,
+    });
+    armPendingSessionRestoreSnapshot();
+    render(<EditorEmptyState />);
+
+    const nameMin = (row: number) =>
+      (screen.getByTestId(`start-pick-up-row-${row}`).querySelector('.start-row-name') as HTMLElement).style.getPropertyValue('--start-name-min');
+    expect(nameMin(1)).toBe('4ch');
+    expect(nameMin(2)).toBe('12ch');
+    expect(nameMin(3)).toBe('7ch');
+  });
+
   it('says how each language runs on the web build and opens a scratch tab in it', async () => {
     setPlatform('web');
     const user = userEvent.setup();

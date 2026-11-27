@@ -172,7 +172,7 @@ describe('SqlWorkspacePanel', () => {
       expect(record).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.objectContaining({ kind: 'rows', count: 2 }) }));
     });
     record.mockRestore();
-    await waitFor(() => expect(useEditorStore.getState().tabs[0]?.lastAnswer).toMatchObject({ kind: 'sql', status: 'ok', numeral: '2', unit: 'rows' }));
+    await waitFor(() => expect(useEditorStore.getState().tabs[0]?.lastAnswer).toMatchObject({ kind: 'sql', status: 'ok', numeral: '2', unit: 'rows', context: 'DuckDB' }));
     useEditorStore.setState({ tabs: [], activeTabId: null });
     await waitFor(() => {
       expect(useWorkspaceSqlStore.getState().getLatestResponse(

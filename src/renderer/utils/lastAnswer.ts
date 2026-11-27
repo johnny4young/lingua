@@ -42,6 +42,8 @@ export interface LastAnswer {
   label?: string;
   /** What answered when it is not the tab itself: a query name, `GET /path`, the first failing test file. */
   subject?: string;
+  /** Where it answered: a SQL connection the user named and its engine, an HTTP environment name. Never a host, URL or credential. */
+  context?: string;
   picture?: LastAnswerPicture;
   durationMs?: number;
   /** Change against the previous answer's duration. */
@@ -52,6 +54,7 @@ export interface LastAnswer {
 export const LAST_ANSWER_NUMERAL_MAX = 24;
 const LAST_ANSWER_LABEL_MAX = 24;
 export const LAST_ANSWER_SUBJECT_MAX = 80;
+export const LAST_ANSWER_CONTEXT_MAX = 48;
 export const LAST_ANSWER_PICTURE_MAX = 24;
 
 // Longest printed value read as a series; longer text stays a clipped string.
@@ -71,6 +74,14 @@ function finiteNumber(value: unknown): value is number {
 
 function boundedMs(value: unknown): number | undefined {
   return finiteNumber(value) ? Math.round(value) : undefined;
+}
+
+// A name that reads as a host, address or path never becomes an answer's context.
+const HOST_LIKE = /[./:@]/;
+
+function contextField(value: unknown): Pick<LastAnswer, 'context'> {
+  const context = boundedString(value, LAST_ANSWER_CONTEXT_MAX);
+  return context && !HOST_LIKE.test(context) ? { context } : {};
 }
 
 function durationField(ms: unknown): Pick<LastAnswer, 'durationMs'> {
@@ -247,7 +258,7 @@ function sqlStatus(status: SqlResponseV1['status']): LastAnswerStatus {
   return status === 'cancelled' ? 'stopped' : 'error';
 }
 
-export function sqlLastAnswer(response: SqlResponseV1, queryName: string, ranAt: number): LastAnswer {
+export function sqlLastAnswer(response: SqlResponseV1, queryName: string, ranAt: number, context?: string): LastAnswer {
   const status = sqlStatus(response.status);
   const picture = status === 'ok' ? sqlPicture(response) : undefined;
   return {
@@ -256,6 +267,7 @@ export function sqlLastAnswer(response: SqlResponseV1, queryName: string, ranAt:
     numeral: status === 'ok' ? `${response.rowCountIsLowerBound ? '≥' : ''}${response.rowCount}` : '',
     ...(status === 'ok' ? { unit: 'rows' as const } : {}),
     ...(queryName.trim() ? { subject: clip(queryName, LAST_ANSWER_SUBJECT_MAX) } : {}),
+    ...contextField(context),
     ...(picture ? { picture } : {}),
     ...durationField(response.durationMs),
     ranAt,
@@ -270,7 +282,7 @@ function pathOf(url: string): string {
   }
 }
 
-export function httpLastAnswer(response: HttpResponseV1, method: string, ranAt: number): LastAnswer {
+export function httpLastAnswer(response: HttpResponseV1, method: string, ranAt: number, context?: string): LastAnswer {
   const answered = response.status > 0;
   const timing = response.timing;
   return {
@@ -280,6 +292,7 @@ export function httpLastAnswer(response: HttpResponseV1, method: string, ranAt: 
     ...(answered ? { unit: 'status' as const } : {}),
     ...(response.statusText.trim() ? { label: clip(response.statusText, LAST_ANSWER_LABEL_MAX) } : {}),
     subject: clip(`${method} ${pathOf(response.finalUrl || response.url)}`, LAST_ANSWER_SUBJECT_MAX),
+    ...contextField(context),
     ...(timing
       ? {
           picture: {
@@ -384,6 +397,7 @@ export function sanitizeLastAnswer(value: unknown): LastAnswer | undefined {
     ...(total !== undefined ? { total } : {}),
     ...(label ? { label } : {}),
     ...(subject ? { subject } : {}),
+    ...contextField(raw.context),
     ...(picture ? { picture } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
     ...(deltaMs !== undefined ? { deltaMs } : {}),

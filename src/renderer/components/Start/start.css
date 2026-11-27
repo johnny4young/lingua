@@ -1,9 +1,10 @@
 /* Start loads lazily, so its one-off sizes ship here instead of in the boot stylesheet. */
 
 .start-inner {
-  max-width: 1240px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 36px 16px 64px;
+  container: start / inline-size;
 }
 
 .start-headline {
@@ -150,12 +151,78 @@
   border-top: 1.5px solid var(--color-fg-base);
 }
 
+.start-row {
+  height: 64px;
+}
+
+/* Wide rows lay every part on one line; the groups only matter once the row stacks. */
+.start-row-head,
+.start-row-tail {
+  display: contents;
+}
+
 .start-row-name {
+  flex: 0 1 auto;
+  min-width: var(--start-name-min, 0);
   font-size: 15px;
 }
 
 .start-row-detail {
-  display: none;
+  flex: 0 10000 auto;
+}
+
+/* A numeral wider than its share truncates instead of pushing the name out. */
+.start-answer {
+  flex: none;
+  max-width: 36cqi;
+}
+
+.start-row-age {
+  min-width: 72px;
+}
+
+/* Narrow: name and context on the first line, the answer and its age under them. */
+@container start (max-width: 559.98px) {
+  .start-row {
+    height: auto;
+    min-height: 64px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding-block: 8px;
+  }
+
+  .start-row-head,
+  .start-row-tail {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Under the badge: past the 20 px number box and the 12 px gap. */
+  .start-row-tail {
+    padding-left: calc(1.25rem + 12px);
+  }
+
+  .start-row-tail > .dot-leader {
+    display: none;
+  }
+
+  .start-answer {
+    flex: 0 1 auto;
+    max-width: none;
+  }
+
+  .start-row-age {
+    min-width: 0;
+    margin-left: auto;
+  }
+
+  /* Two columns leave the seventh language alone, so it takes the whole row. */
+  .start-languages > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 .start-numeral {
@@ -242,12 +309,40 @@
 .start-workspaces {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .start-workspaces {
   margin-top: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+/* The seven languages as four and three, the last three sharing the full width. */
+@container start (min-width: 560px) and (max-width: 959.98px) {
+  .start-languages {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .start-languages > * {
+    grid-column: span 3;
+  }
+
+  .start-languages > :nth-last-child(-n + 3):nth-child(n + 5) {
+    grid-column: span 4;
+  }
+
+  .start-workspaces {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Wide: every tile on one row, whatever the count. */
+@container start (min-width: 960px) {
+  .start-languages,
+  .start-workspaces {
+    grid-template-columns: none;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
 }
 
 .start-tile {
@@ -310,27 +405,22 @@
   }
 }
 
-@media (min-width: 700px) {
-  .start-row-detail {
-    display: inline;
-  }
-}
-
 @media (min-width: 760px) {
   .start-templates-list {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-@media (min-width: 900px) {
+@container start (min-width: 880px) {
   .start-detail {
     display: flex;
   }
 }
 
 @media (min-width: 1024px) {
+  /* The board's column: about 84 % of the window up to the 1480 px cap, the rest split as gutters. */
   .start-inner {
-    padding-inline: 96px;
+    padding-inline: clamp(48px, 8%, 120px);
   }
 
   .start-headline {
