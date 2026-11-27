@@ -444,7 +444,7 @@ export function createBlankNotebook(opts: {
         kind: 'markdown',
         id: 'cell-welcome',
         source:
-          '# Welcome to Lingua notebooks\n\nRun this code cell, then add your own cells with the toolbar above.',
+          '# Welcome to Lingua notebooks\n\nRun this code cell, then add your own cells below.',
       },
       {
         kind: 'code',

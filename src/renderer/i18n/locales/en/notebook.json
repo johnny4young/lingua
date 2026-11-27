@@ -12,5 +12,8 @@
   "notebookAnswers.dated": "may be out of date",
   "notebookAnswers.datedRun": "from run {{n}} · may be out of date",
   "notebookAnswers.runHint": "run and move on",
-  "notebookAnswers.runHintKeys": "Shift+Enter"
+  "notebookAnswers.runHintKeys": "Shift+Enter",
+  "notebookToolbar.more": "More notebook actions",
+  "notebookCells.appendCode": "Code",
+  "notebookCells.appendMarkdown": "Markdown"
 }

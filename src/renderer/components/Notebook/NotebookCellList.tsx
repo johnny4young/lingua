@@ -1,6 +1,7 @@
 import type { KeyboardEventHandler, RefObject } from 'react';
-import { CodeXml, FileText } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import '../../i18n/notebookCatalog';
 import {
   isNotebookMarkdownCell,
   type NotebookCellLanguage,
@@ -10,6 +11,7 @@ import type { NotebookCellRunStatus, NotebookCellVarFlow } from '../../stores/no
 import type { ListWindow } from '../../hooks/useListWindow';
 import { NotebookCodeCellRow } from './NotebookCodeCellRow';
 import { NotebookMarkdownCellRow } from './NotebookMarkdownCellRow';
+import './notebookToolbar.css';
 
 interface NotebookCellListProps {
   readonly tabId?: string;
@@ -37,7 +39,6 @@ interface NotebookCellListProps {
   readonly handleMoveDown: (cellId: string) => void;
   readonly handleDelete: (cellId: string) => void;
   readonly handleLanguageChange: (cellId: string, language: NotebookCellLanguage) => void;
-  readonly lastCellId: string | null;
   readonly handleAddCode: (language: NotebookCellLanguage) => void;
   readonly preferredCodeLanguage: NotebookCellLanguage;
   readonly handleAddMarkdown: () => void;
@@ -69,7 +70,6 @@ export function NotebookCellList(props: NotebookCellListProps) {
     handleMoveDown,
     handleDelete,
     handleLanguageChange,
-    lastCellId,
     handleAddCode,
     preferredCodeLanguage,
     handleAddMarkdown,
@@ -125,10 +125,6 @@ export function NotebookCellList(props: NotebookCellListProps) {
                   aria-setsize={notebook.cells.length}
                   aria-posinset={idx + 1}
                 >
-                  <div className="flex items-start">
-                  {/* Keeps markdown aligned with the code cells' run margin. */}
-                  <div className="notebook-run-margin pr-3" aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
                   <NotebookMarkdownCellRow
                     notebookTabId={props.tabId}
                     cell={cell}
@@ -144,8 +140,6 @@ export function NotebookCellList(props: NotebookCellListProps) {
                     onMoveDown={handleMoveDown}
                     onDelete={handleDelete}
                   />
-                  </div>
-                  </div>
                 </li>
               );
             }
@@ -189,30 +183,34 @@ export function NotebookCellList(props: NotebookCellListProps) {
           ) : null}
         </ul>
       )}
-      {lastCellId !== null ? (
-        <div className="mt-3 flex items-center justify-center gap-2">
+      {/* The one place to add cells, beside the run margin so it lines up with the cells. */}
+      <div className="mt-1 flex items-center">
+        <div className="notebook-run-margin pr-3" aria-hidden="true" />
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => handleAddCode(preferredCodeLanguage)}
             disabled={disabled}
+            aria-label={t('notebook.toolbar.addCode')}
             data-testid="notebook-cells-append-code"
-            className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            className="notebook-toolbar-button notebook-cells-append focus-ring"
           >
-            <CodeXml size={11} aria-hidden="true" />
-            {t('notebook.toolbar.addCode')}
+            <Plus size={13} aria-hidden="true" />
+            {t('notebookCells.appendCode')}
           </button>
           <button
             type="button"
             onClick={handleAddMarkdown}
             disabled={disabled}
+            aria-label={t('notebook.toolbar.addMarkdown')}
             data-testid="notebook-cells-append-markdown"
-            className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            className="notebook-toolbar-button notebook-cells-append focus-ring"
           >
-            <FileText size={11} aria-hidden="true" />
-            {t('notebook.toolbar.addMarkdown')}
+            <Plus size={13} aria-hidden="true" />
+            {t('notebookCells.appendMarkdown')}
           </button>
         </div>
-      ) : null}
+      </div>
     </section>
   );
 }

@@ -1,0 +1,165 @@
+.notebook-toolbar {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  white-space: nowrap;
+}
+
+.notebook-toolbar[data-fit='stacked'] {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Stacked, the title gives way before anything wraps, and the notice row also holds the shortcuts. */
+.notebook-toolbar[data-fit='stacked'] .notebook-toolbar-title {
+  min-width: 3rem;
+  flex: 1 1 0;
+}
+
+.notebook-toolbar-break {
+  order: 1;
+  flex-basis: 100%;
+  height: 0;
+}
+
+.notebook-toolbar[data-fit='stacked'] .notebook-toolbar-shortcuts {
+  order: 3;
+}
+
+.notebook-toolbar-title {
+  field-sizing: content;
+  min-width: 6rem;
+  max-width: 16rem;
+  flex: 0 1 auto;
+}
+
+.notebook-toolbar-button {
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  padding: 0 9px;
+  border-radius: 7px;
+  color: var(--color-fg-muted);
+  font-size: 12px;
+  transition:
+    background-color var(--duration-fast) var(--curve-ease-out),
+    color var(--duration-fast) var(--curve-ease-out);
+}
+
+.notebook-toolbar-button:not(:disabled):hover,
+.notebook-toolbar-button[aria-expanded='true'] {
+  background: var(--color-bg-panel-alt);
+  color: var(--color-fg-base);
+}
+
+.notebook-toolbar-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.notebook-toolbar-stop {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  font-weight: 560;
+}
+
+.notebook-toolbar-stop:not(:disabled):hover {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  border-color: var(--color-warning-fg);
+}
+
+/* Run all and Stop share one cell, so the row keeps its width while a run starts or ends. */
+.notebook-toolbar-run-slot {
+  display: grid;
+  flex: none;
+}
+
+.notebook-toolbar-run-slot > * {
+  grid-area: 1 / 1;
+}
+
+/* The notice cell keeps the width (and, stacked, the row) of a one-cell notice even while empty. */
+.notebook-toolbar-notice {
+  display: grid;
+  flex: none;
+  margin-left: auto;
+}
+
+.notebook-toolbar-notice > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.notebook-toolbar[data-fit='stacked'] .notebook-toolbar-notice {
+  order: 2;
+  margin-left: 0;
+  margin-right: auto;
+}
+.notebook-toolbar[data-fit='stacked'] .notebook-toolbar-notice > [role='status'] {
+  justify-content: flex-start;
+}
+
+.notebook-toolbar-menu {
+  position: absolute;
+  top: 34px;
+  right: 0;
+  z-index: 20;
+  min-width: 13rem;
+  padding: 4px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  background: var(--color-background-elevated);
+  box-shadow: var(--shadow-e3);
+}
+
+.notebook-toolbar-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: var(--color-fg-muted);
+  font-size: 12px;
+  text-align: left;
+}
+
+.notebook-toolbar-menu-item:not(:disabled):hover,
+.notebook-toolbar-menu-item:focus-visible {
+  background: var(--color-bg-panel-alt);
+  color: var(--color-fg-base);
+  outline: none;
+}
+
+.notebook-toolbar-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.notebook-toolbar-menu-rule {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--color-border-subtle);
+}
+
+.notebook-cells-append {
+  border-color: var(--color-border-default);
+  color: var(--color-fg-base);
+}
+
+.notebook-stale-notice {
+  background: color-mix(in srgb, var(--color-warning-fg) 12%, transparent);
+}

@@ -12,5 +12,8 @@
   "notebookAnswers.dated": "puede estar desactualizado",
   "notebookAnswers.datedRun": "de la ejecución {{n}} · puede estar desactualizado",
   "notebookAnswers.runHint": "ejecuta y avanza",
-  "notebookAnswers.runHintKeys": "Shift+Enter"
+  "notebookAnswers.runHintKeys": "Shift+Enter",
+  "notebookToolbar.more": "Más acciones del notebook",
+  "notebookCells.appendCode": "Código",
+  "notebookCells.appendMarkdown": "Markdown"
 }

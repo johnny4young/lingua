@@ -3,6 +3,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react';
+import { registerNotebookDocumentDraft } from '../../src/renderer/stores/notebookDocumentDrafts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { initI18n } from '../../src/renderer/i18n';
@@ -171,6 +172,25 @@ describe('useNotebookRun', () => {
     resetNotebookStoreForTests();
     localStorage.clear();
     useUIStore.setState({ statusNotice: null });
+  });
+
+  it('runAll runs the edit still waiting in a cell draft', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    const { jsCellId } = seedNotebook('tab-1');
+    const unregister = registerNotebookDocumentDraft('tab-1', () =>
+      useNotebookStore.getState().updateCellSource('tab-1', jsCellId, 'const typed = 1;')
+    );
+    const { result } = renderHook(() => useNotebookRun());
+    await act(async () => {
+      await result.current.runAll('tab-1');
+    });
+    unregister();
+    expect(JSON.stringify(mockExecute.mock.calls[0])).toContain('const typed = 1;');
   });
 
   it('runCell flips status to running then ok and writes outputs', async () => {
