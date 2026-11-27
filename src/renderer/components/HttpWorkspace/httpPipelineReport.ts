@@ -17,14 +17,32 @@ import { answerAssertion, assertionExpression, literalKind, sourceExpression } f
 
 const LITERAL_MAX = 120;
 
+const ORIGIN = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i;
+
+/** The `{{variable}}` a URL starts with when it stands for the whole origin. */
+function hostVariable(url: string) {
+  const [head, next] = splitVariableTokens(url);
+  return head?.key !== undefined && (next === undefined || /^[/?#]/.test(next.text)) ? head : null;
+}
+
 /** `https://api.example.com/v1/x` and `{{baseUrl}}/v1/x` both read `/v1/x`: the host lives in the environment. */
 export function shownPath(url: string): string {
   const trimmed = url.trim();
-  const scheme = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i.exec(trimmed);
+  const scheme = ORIGIN.exec(trimmed);
   if (scheme) return trimmed.slice(scheme[0].length) || '/';
-  const [head, next] = splitVariableTokens(trimmed);
-  const hostVariable = head?.key !== undefined && (next === undefined || /^[/?#]/.test(next.text));
-  return hostVariable ? trimmed.slice(head.text.length) || '/' : trimmed;
+  const head = hostVariable(trimmed);
+  return head ? trimmed.slice(head.text.length) || '/' : trimmed;
+}
+
+/** The host of a resolved URL; null when a token is left in it (a secret or an unknown variable). */
+export function pipelineHost(url: string): string | null {
+  const origin = ORIGIN.exec(url.trim())?.[0];
+  if (!origin || origin.includes('{{')) return null;
+  try {
+    return new URL(origin).host || null;
+  } catch {
+    return null;
+  }
 }
 
 /** A value as code reads it: strings quoted, numbers, booleans and null bare. */

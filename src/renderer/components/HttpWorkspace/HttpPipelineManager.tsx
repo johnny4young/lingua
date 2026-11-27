@@ -16,7 +16,9 @@ import { formatWholeDuration } from '../../utils/latencyScale';
 import { OverlayBackdrop } from '../ui/chrome';
 import { TypeTag } from '../ui/answer';
 import { ResultHeader } from '../ui/ResultHeader';
-import { enabledCaptures, summarizePipelineRun } from './httpPipelineReport';
+import { maskSecretsForCapsule } from '../../../shared/httpEnvironment';
+import { enabledCaptures, pipelineHost, summarizePipelineRun } from './httpPipelineReport';
+import { scopedEnvironmentFor } from './httpScopes';
 import { HttpPipelineStepRow } from './HttpPipelineStepRow';
 import '../ui/pipelineRun.css';
 
@@ -34,6 +36,8 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
   const pipelines = useWorkspaceToolStore(state => state.httpPipelines);
   const activeId = useWorkspaceToolStore(state => state.activeHttpPipelineId);
   const requests = useWorkspaceToolStore(state => state.requests);
+  const environments = useWorkspaceToolStore(state => state.environments);
+  const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
   const active = useMemo(
     () => pipelines.find(pipeline => pipeline.id === activeId),
     [pipelines, activeId]
@@ -59,6 +63,16 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
       return { step, request, captured };
     });
   }, [active, requests]);
+  // The run sends to the active environment, so the dialog names it and the host the step paths leave out.
+  // Resolved with the send-time scopes and masked like a capsule, so a secret value never shows.
+  const environment = environments.find(entry => entry.id === activeEnvironmentId) ?? null;
+  const firstRequest = stepRows.find(row => row.step.enabled)?.request;
+  const host = firstRequest
+    ? pipelineHost(maskSecretsForCapsule(firstRequest, scopedEnvironmentFor(firstRequest, environment)).url)
+    : null;
+  const environmentName = environment
+    ? environment.name || t('httpWorkspace.environment.unnamed')
+    : t('httpWorkspace.environment.selector.none');
   const resultByStep = useMemo(
     () => new Map(shownRun?.results.map(result => [result.stepId, result]) ?? []),
     [shownRun]
@@ -121,7 +135,8 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
                   store().updateHttpPipeline(active.id, { name: event.target.value })
                 }
                 aria-label={t('httpWorkspace.pipeline.name')}
-                className="focus-ring h-7 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-body-sm font-medium text-fg-base hover:border-border-subtle focus:border-border-strong"
+                title={active.name}
+                className="focus-ring h-7 min-w-0 flex-1 text-ellipsis rounded-md border border-transparent bg-transparent px-1.5 text-body-sm font-medium text-fg-base hover:border-border-subtle focus:border-border-strong"
               />
               <button
                 type="button"
@@ -235,7 +250,7 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
               </div>
             </div>
           ) : (
-            <section className="flex min-w-0 flex-1 flex-col">
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
               <ResultHeader
                 workspace="pipe"
                 numeral={
@@ -366,6 +381,11 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
             </section>
           )}
         </div>
+        <footer className="pipeline-statusbar" aria-label={t('httpWorkspace.environment.selector.label')}>
+          <span data-testid="http-pipeline-environment" className="truncate" title={host ?? undefined}>
+            {host ? `${environmentName} · ${host}` : environmentName}
+          </span>
+        </footer>
       </div>
     </OverlayBackdrop>
   );

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpPipelineManager } from '../../../src/renderer/components/HttpWorkspace/HttpPipelineManager';
@@ -37,7 +37,9 @@ describe('HttpPipelineManager', () => {
       screen.getByRole('combobox', { name: 'Add request' }),
       'request-1'
     );
-    await user.click(screen.getByRole('button', { name: 'Run pipeline' }));
+    const run = screen.getByTestId('http-pipeline-run');
+    expect(run.textContent).toBe('Run pipeline');
+    await user.click(run);
 
     expect(onRun).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -164,6 +166,51 @@ describe('HttpPipelineManager', () => {
       expect(off!.hasAttribute('data-dim')).toBe(true);
     });
 
+    it('names the environment the run uses and the host its paths leave out', () => {
+      seedPipeline();
+      const store = useWorkspaceToolStore.getState();
+      renderManager(null);
+      expect(screen.getByTestId('http-pipeline-environment').textContent).toBe('No environment');
+      cleanup();
+
+      store.createEnvironment({
+        version: 1,
+        id: 'staging',
+        name: 'staging',
+        variables: [{ id: 'v1', key: 'baseUrl', value: 'https://api.staging.acme.dev', secret: false }],
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      store.setActiveEnvironment('staging');
+      renderManager(null);
+      const footer = screen.getByRole('contentinfo', { name: 'Environment' });
+      expect(within(footer).getByTestId('http-pipeline-environment').textContent).toBe('staging · api.staging.acme.dev');
+      cleanup();
+
+      // A secret base URL never shows; the footer keeps the environment's name.
+      store.updateEnvironment('staging', {
+        variables: [{ id: 'v1', key: 'baseUrl', value: 'https://api.staging.acme.dev', secret: true }],
+      });
+      renderManager(null);
+      expect(screen.getByTestId('http-pipeline-environment').textContent).toBe('staging');
+    });
+
+    it('keeps the name readable when it does not fit', () => {
+      seedPipeline();
+      renderManager(null);
+      const name = screen.getByRole('textbox', { name: 'Pipeline name' });
+      expect(name.getAttribute('title')).toBe('deploy, then verify');
+      expect(name.className).toContain('text-ellipsis');
+    });
+
+    it('breaks a long path only before tokens and separators', () => {
+      seedPipeline();
+      renderManager(failedRun);
+      const path = within(steps()[2]!).getByText('/notify', { exact: false });
+      expect(path.querySelectorAll('wbr')).toHaveLength(4);
+      expect(path.textContent).toBe('/notify?deploy={{deployId}}&env={{baseUrl}}');
+    });
+
     it('reads a run of another pipeline as not run, and switches stop-on-failure and goes back', async () => {
       const user = userEvent.setup();
       const onClose = vi.fn();
@@ -174,6 +221,7 @@ describe('HttpPipelineManager', () => {
       expect(screen.getByText('Ready to run locally.')).not.toBeNull();
 
       const toggle = screen.getByRole('switch', { name: 'Stop after a failure' });
+      expect(toggle).toBe(screen.getByTestId('http-pipeline-stop-on-failure'));
       expect(toggle.getAttribute('aria-checked')).toBe('false');
       await user.click(toggle);
       expect(useWorkspaceToolStore.getState().httpPipelines.find((pipeline) => pipeline.id === 'p2')?.stopOnFailure).toBe(true);
