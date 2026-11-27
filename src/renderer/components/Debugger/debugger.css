@@ -104,14 +104,35 @@
   .debugger-rows > :first-child .debugger-row,
   .debugger-rows > .debugger-row:first-child { border-top-color: transparent; }
 
-  /* What changed since the last pause: a tint and a dot, the old value struck beside the new one. */
+  /* What changed since the last pause: a tint and a dot, the old value struck beside the new one.
+     Paper takes a lighter tint so subtle text on it stays at 4.5:1. */
+  .debugger-drawer { --debugger-change-tint: 8%; }
+  .light .debugger-drawer { --debugger-change-tint: 5%; }
+
   .debugger-row[data-change] {
     margin: 0 -8px;
-    padding: 0 8px;
+    padding-inline: 8px;
     border-radius: 5px;
     border-top-color: transparent;
-    background: color-mix(in srgb, var(--color-value-number) 8%, transparent);
+    background: color-mix(in srgb, var(--color-value-number) var(--debugger-change-tint), transparent);
   }
+
+  /* The old value drops under the row before the current one is cut. */
+  .debugger-local {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    padding-block: 4px;
+  }
+
+  .debugger-row-main {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .debugger-local > .answer-was { margin-left: auto; }
 
   .debugger-local[data-change]::before {
     content: '';
@@ -140,7 +161,7 @@
     overflow: hidden;
   }
 
-  .debugger-row .answer-was { max-width: 35%; }
+  .debugger-watch .answer-was { max-width: 35%; }
 
   .debugger-new { flex: none; }
 
@@ -195,14 +216,35 @@
   }
 
   .debugger-watch-expression {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 55%;
+    flex: none;
+    max-width: 70%;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .debugger-watch-value { justify-content: flex-end; }
+
+  /* The expression keeps its width; its error wraps on the full row under it. */
+  .debugger-watch[data-error] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 2px;
+    padding-block: 5px;
+  }
+
+  .debugger-watch[data-error] > .debugger-watch-expression { max-width: none; }
+
+  .debugger-watch[data-error] > .debugger-row-value {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  .debugger-watch[data-error] .debugger-error {
+    min-width: 0;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 
   .debugger-row-remove {
     flex: none;
@@ -262,6 +304,8 @@
     outline: 2px solid var(--color-accent-fg);
     outline-offset: 1px;
   }
+
+  .debugger-logpoint-mark { color: var(--color-value-date); }
 
   .debugger-breakpoint-line {
     flex: none;

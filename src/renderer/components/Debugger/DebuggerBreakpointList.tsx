@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Circle, Diamond, Trash2 } from 'lucide-react';
+import { Circle, CircleMinus, Diamond, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
 import {
@@ -13,11 +13,11 @@ import type { Language } from '../../types/language';
 import { languageSupportsBreakpointModes } from '../../utils/languageMeta';
 import { DrawerColumn } from './DrawerColumn';
 
-// The same marks as the gutter: a red dot, an amber diamond, a blue ring.
+// The same marks as the gutter: a red dot, an amber diamond, a ringed minus.
 const modeIcon = {
   pause: { icon: Circle, className: 'fill-current text-danger' },
   conditional: { icon: Diamond, className: 'text-warning-fg' },
-  logpoint: { icon: Circle, className: 'text-info-fg' },
+  logpoint: { icon: CircleMinus, className: 'debugger-logpoint-mark' },
 } satisfies Record<BreakpointMode, { icon: typeof Circle; className: string }>;
 
 export function DebuggerBreakpointList({

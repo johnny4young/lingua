@@ -267,6 +267,19 @@ describe('formatShortcutToken', () => {
     expect(formatShortcutToken('Comma', 'linux')).toBe(',');
   });
 
+  it('reads every punctuation key as its character, so Stop shows as Mod and a period', () => {
+    for (const platform of ['darwin', 'linux']) {
+      expect(formatShortcutToken('Period', platform)).toBe('.');
+      expect(formatShortcutToken('Slash', platform)).toBe('/');
+      expect(formatShortcutToken('Quote', platform)).toBe("'");
+      expect(formatShortcutToken('Backtick', platform)).toBe('`');
+      expect(formatShortcutToken('BracketLeft', platform)).toBe('[');
+      expect(formatShortcutToken('BracketRight', platform)).toBe(']');
+      expect(formatShortcutToken('Minus', platform)).toBe('-');
+      expect(formatShortcutToken('Equal', platform)).toBe('=');
+    }
+  });
+
   it('uppercases single-character tokens so lowercase catalog entries render cleanly', () => {
     expect(formatShortcutToken('s', 'linux')).toBe('S');
   });

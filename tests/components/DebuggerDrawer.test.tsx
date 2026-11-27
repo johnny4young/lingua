@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebuggerDrawer } from '@/components/Debugger/DebuggerDrawer';
+import { DebuggerChangesSwitch } from '@/components/Debugger/DebuggerDockControls';
+import { InlineAnswerLine } from '@/components/Editor/InlineAnswerLine';
+import { pausedLineResults } from '@/utils/debuggerLocals';
 import { initI18n } from '@/i18n';
 import { postDebuggerMessage } from '@/runtime/debuggerWorkerBridge';
 import { useDebuggerStore } from '@/stores/debuggerStore';
@@ -110,6 +113,73 @@ describe('DebuggerDrawer', () => {
     act(() => useDebuggerStore.getState().setShowPauseChanges(false));
     expect(locals().querySelectorAll('[data-change]')).toHaveLength(0);
     expect(screen.queryByTestId('answer-was')).toBeNull();
+  });
+
+  it('turns off every struck previous value from the changes switch: Locals, Watch and the held line', async () => {
+    const user = userEvent.setup();
+    const code = ['let total = 1;', 'total = total + 1;', 'total = total * 2;'].join('\n');
+    // The held line as CodeEditor builds it from the store.
+    function HeldLine() {
+      const pause = useDebuggerStore(state => state.lastPause);
+      const previous = useDebuggerStore(state => state.previousPause);
+      const compare = useDebuggerStore(state => state.showPauseChanges);
+      if (!pause) return null;
+      const items = pausedLineResults(pause, previous, code, 'javascript', compare).filter(item => item.held);
+      return (
+        <div data-testid="held-line">
+          <InlineAnswerLine items={items} />
+        </div>
+      );
+    }
+    useDebuggerStore.getState().addWatch('total');
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    const pause = (line: number, total: string) =>
+      useDebuggerStore.getState().setPausedFrame({
+        tabId: 'tab-1',
+        line,
+        reason: 'step',
+        locals: { total },
+        callStack: [],
+        watchResults: { total: { value: total } },
+      });
+    pause(2, '1');
+    render(
+      <>
+        <DebuggerChangesSwitch tabId="tab-1" />
+        <DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />
+        <HeldLine />
+      </>
+    );
+    act(() => pause(3, '2'));
+    const struck = (testid: string) => screen.getByTestId(testid).querySelectorAll('.answer-delta-before');
+    expect(struck('debugger-locals')).toHaveLength(1);
+    expect(struck('debugger-watches')).toHaveLength(1);
+    expect(struck('held-line')).toHaveLength(1);
+
+    const toggle = screen.getByTestId('debugger-changes-switch');
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    await user.click(toggle);
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(struck('debugger-locals')).toHaveLength(0);
+    expect(struck('debugger-watches')).toHaveLength(0);
+    expect(struck('held-line')).toHaveLength(0);
+    // The current values stay.
+    expect(screen.getByTestId('held-line').textContent).toContain('2');
+  });
+
+  it('carries the changes switch in the Locals head when the dock is compact', () => {
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    useDebuggerStore.getState().setPausedFrame({ tabId: 'tab-1', line: 2, reason: 'step', locals: { a: '1' }, callStack: [], watchResults: {} });
+    const { rerender } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    expect(screen.queryByTestId('debugger-changes-switch')).toBeNull();
+    rerender(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" compactDock />);
+    const toggle = within(screen.getByTestId('debugger-locals')).getByTestId('debugger-changes-switch');
+    // Only the track shows; the switch keeps its name.
+    expect(toggle.getAttribute('aria-label')).toBe('Changes since last pause');
+    expect(toggle.querySelector('.debugger-changes-label')).toBeNull();
+    // A pause in another tab is not this tab's to compare.
+    rerender(<DebuggerDrawer activeTabId="tab-2" activeLanguage="javascript" compactDock />);
+    expect(screen.queryByTestId('debugger-changes-switch')).toBeNull();
   });
 
   it('lists bindings declared further down as subtle rows with the line that assigns them', () => {
@@ -220,6 +290,9 @@ describe('DebuggerDrawer', () => {
     expect(screen.queryByTestId('debugger-breakpoint-count-23')).toBeNull();
     expect(screen.getByTestId('debugger-breakpoint-edit-6').textContent).toBe('if pivot > 5');
     expect(screen.getByTestId('debugger-breakpoint-edit-23').textContent).toBe('log {nums}');
+    // Each row carries the gutter's mark; a logpoint is a ringed minus.
+    expect(screen.getByTestId('debugger-breakpoint-line-23').querySelector('svg')?.getAttribute('class')).toContain('lucide-circle-minus');
+    expect(screen.getByTestId('debugger-breakpoint-line-6').querySelector('svg')?.getAttribute('class')).toContain('lucide-diamond');
     await user.click(screen.getByLabelText('Enable breakpoint at line 4'));
     expect(useDebuggerStore.getState().breakpoints['tab-1:4']?.enabled).toBe(false);
     await user.click(screen.getByTestId('debugger-breakpoint-edit-4'));

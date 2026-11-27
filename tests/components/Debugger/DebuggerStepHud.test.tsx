@@ -16,7 +16,13 @@ function fakeEditor() {
   const widgets: monacoTypes.editor.IContentWidget[] = [];
   const trackedLine: { current: number | null } = { current: null };
   const edit: { current: (() => void) | null } = { current: null };
+  const layout: { width: number; changed: (() => void) | null } = { width: 1200, changed: null };
   const editor = {
+    getLayoutInfo: () => ({ contentWidth: layout.width }),
+    onDidLayoutChange: (handler: () => void) => {
+      layout.changed = handler;
+      return { dispose: vi.fn() };
+    },
     changeViewZones: (callback: (accessor: { addZone: (zone: never) => string; removeZone: (id: string) => void }) => void) =>
       callback({
         addZone: (zone: never) => {
@@ -56,8 +62,12 @@ function fakeEditor() {
     widgets,
     trackedLine,
     edit,
+    layout,
   };
 }
+
+// jsdom lays nothing out: the toolbar reports the width each fit step would take.
+const STEP_WIDTHS: Record<string, number> = { full: 596, labels: 470, glyphs: 210 };
 
 const pause = (line: number, callStack: { functionName: string; line: number }[] = []) =>
   act(() => useDebuggerStore.getState().setPausedFrame({ tabId: 't1', line, reason: 'step', locals: {}, callStack, watchResults: {} }));
@@ -119,6 +129,40 @@ describe('step HUD', () => {
     expect(stepHudLine(fake.editor)).toBe(4);
     act(() => useDebuggerStore.getState().setPausedFrame(null));
     expect(stepHudLine(fake.editor)).toBeNull();
+  });
+
+  it('folds to fit a narrow editor: key caps first, then every label but Continue', () => {
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return STEP_WIDTHS[this.dataset.fit ?? ''] ?? 0;
+    });
+    try {
+      const fake = fakeEditor();
+      fake.layout.width = 1200;
+      render(<DebuggerStepHud editor={fake.editor} monaco={fake.monaco} tabId="t1" />);
+      pause(3);
+      const toolbar = screen.getByTestId('debugger-step-hud');
+      expect(toolbar.dataset.fit).toBe('full');
+      expect(screen.getByTestId('debugger-hud-step-over').title).toBe('Run the current line and pause on the next line in this frame.');
+
+      act(() => {
+        fake.layout.width = 500;
+        fake.layout.changed?.();
+      });
+      expect(toolbar.dataset.fit).toBe('labels');
+
+      act(() => {
+        fake.layout.width = 320;
+        fake.layout.changed?.();
+      });
+      expect(toolbar.dataset.fit).toBe('glyphs');
+      // A glyph-only button keeps its name, and the tooltip names it with its key.
+      const stepOver = screen.getByRole('button', { name: 'Step over' });
+      expect(stepOver.title).toBe('Step over (F10) · Run the current line and pause on the next line in this frame.');
+      expect(screen.getByRole('button', { name: 'Run to end' }).title).toBe('Run to end · Continue without stopping at more breakpoints.');
+      expect(screen.getByTestId('debugger-hud-continue').dataset.primary).toBe('true');
+    } finally {
+      width.mockRestore();
+    }
   });
 
   it('stays away from another tab', () => {

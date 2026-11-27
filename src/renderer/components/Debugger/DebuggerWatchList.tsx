@@ -68,6 +68,7 @@ export function DebuggerWatchList({
               key={watch.id}
               data-testid={`debugger-watch-${watch.id}`}
               data-change={changed ? 'changed' : undefined}
+              data-error={result?.error ? true : undefined}
               className="debugger-row debugger-watch"
             >
               <span className="debugger-watch-expression" title={watch.expression}>
