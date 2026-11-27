@@ -324,10 +324,17 @@ button.run-meter-bar:focus-visible {
 }
 
 /* useDockRowFit steps the tab row until its tabs fit: tab glyphs give way first, so every label stays readable;
-   a row that still scrolls, or a compact dock, folds the labels to the glyphs, the tooltip naming each tab. */
+   tabs that still do not fit move into More, out of flow so the row can measure them. */
 .dock-tab-row:is([data-fit='labels'], [data-fit='tight']) .dock-tab { padding-inline: 10px; }
-.dock-tab-row:is([data-fit='labels'], [data-fit='tight']) .dock-tab > svg { display: none; }
-.dock-tab-row[data-fit='glyphs'] .dock-tab { gap: 4px; padding-inline: 9px; }
+.dock-tab-row:is([data-fit='labels'], [data-fit='tight']) .dock-tab-icon { display: none; }
+.dock-tab-overflow,
+.dock-tabs-more[data-idle] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 
 /* Narrow or beside-the-editor docks: the meter becomes one row above the tabs.
    debugger.css shows the call stack fallback at the same width. */
@@ -381,7 +388,6 @@ button.run-meter-bar:focus-visible {
 /* BottomPanel sets data-compact at DOCK_COMPACT_MAX_WIDTH. */
 .dock-shell[data-compact] .console-toolbar { padding-inline: 8px; }
 .dock-shell[data-compact] .console-level > button { padding-inline: 6px; }
-.dock-tab-row[data-fit='glyphs'] .dock-tab-label,
 .dock-shell[data-compact] .console-types-label {
   position: absolute;
   width: 1px;

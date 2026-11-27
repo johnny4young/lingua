@@ -393,5 +393,5 @@
   .debugger-changes-switch:hover { color: var(--color-fg-base); }
 
   /* A tight tab row keeps the switch as its track; the label stays its accessible name. */
-  .dock-tab-row:is([data-fit='tight'], [data-fit='glyphs']) .debugger-changes-label { display: none; }
+  .dock-tab-row[data-fit='tight'] .debugger-changes-label { display: none; }
 }

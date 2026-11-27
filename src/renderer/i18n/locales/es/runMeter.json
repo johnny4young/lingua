@@ -36,5 +36,7 @@
   "runMeter.callStack_other": "Pila de llamadas · {{count}} niveles",
   "runMeter.callStackMore_one": "+{{count}} llamada externa",
   "runMeter.callStackMore_other": "+{{count}} llamadas externas",
+  "bottomPanel.tabs.more": "Más",
+  "bottomPanel.tabs.moreLabel": "Más pestañas",
   "bottomPanel.actions.more": "Más acciones del panel"
 }

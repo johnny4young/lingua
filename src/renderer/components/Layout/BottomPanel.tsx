@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, type RefObject } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import {
   Boxes,
@@ -46,7 +46,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { isCurrentFailure, useProjectTestStore } from '../../stores/projectTestStore';
 import { useProjectTerminalStore } from '../../stores/projectTerminalStore';
 import { cn } from '../../utils/cn';
-import { formatShortcutLabel } from '../../data/keyboardShortcuts';
+import { formatShortcutLabel, type ShortcutId } from '../../data/keyboardShortcuts';
 import {
   availableDockTabs,
   DOCK_COMPACT_MAX_WIDTH,
@@ -59,6 +59,8 @@ import {
   type DockTabId,
 } from './dockTabs';
 import { useDockRowFit } from './useDockRowFit';
+import { rankDockTabs, readDockTabUse, recordDockTabUse } from './dockTabUse';
+import { DockTabsMore } from './DockTabsMore';
 import { DockHeaderControls } from './DockHeaderControls';
 import { DockOutputReport } from './DockOutputReport';
 import { MissingToolchainPanel } from './MissingToolchainPanel';
@@ -126,14 +128,36 @@ interface DockTabMeta {
   icon: LucideIcon;
   labelKey: string;
   hintKey: string;
+  /** The shortcut that opens the tab, shown beside it in More. */
+  shortcut?: ShortcutId;
 }
 
 const DOCK_TAB_META: Record<DockTabId, DockTabMeta> = {
-  console: { icon: Terminal, labelKey: 'bottomPanel.tabs.console', hintKey: 'bottomPanel.tabs.consoleHint' },
-  stdin: { icon: RectangleEllipsis, labelKey: 'stdin.tab.label', hintKey: 'stdin.tab.hint' },
-  compare: { icon: Diff, labelKey: 'bottomPanel.tabs.compare', hintKey: 'bottomPanel.tabs.compareHint' },
+  console: {
+    icon: Terminal,
+    labelKey: 'bottomPanel.tabs.console',
+    hintKey: 'bottomPanel.tabs.consoleHint',
+    shortcut: 'view-toggle-console',
+  },
+  stdin: {
+    icon: RectangleEllipsis,
+    labelKey: 'stdin.tab.label',
+    hintKey: 'stdin.tab.hint',
+    shortcut: 'editor-toggle-stdin-panel',
+  },
+  compare: {
+    icon: Diff,
+    labelKey: 'bottomPanel.tabs.compare',
+    hintKey: 'bottomPanel.tabs.compareHint',
+    shortcut: 'run-toggle-compare-snapshot',
+  },
   timeline: { icon: Rewind, labelKey: 'bottomPanel.tabs.timeline', hintKey: 'bottomPanel.tabs.timelineHint' },
-  variables: { icon: Eye, labelKey: 'bottomPanel.tabs.variables', hintKey: 'bottomPanel.tabs.variablesHint' },
+  variables: {
+    icon: Eye,
+    labelKey: 'bottomPanel.tabs.variables',
+    hintKey: 'bottomPanel.tabs.variablesHint',
+    shortcut: 'run-toggle-variable-inspector',
+  },
   'project-terminal': {
     icon: SquareTerminal,
     labelKey: 'bottomPanel.tabs.projectTerminal',
@@ -146,7 +170,12 @@ const DOCK_TAB_META: Record<DockTabId, DockTabMeta> = {
     labelKey: 'bottomPanel.tabs.browserPreview',
     hintKey: 'bottomPanel.tabs.browserPreviewHint',
   },
-  dependencies: { icon: Boxes, labelKey: 'dependencies.tab.label', hintKey: 'dependencies.tab.hint' },
+  dependencies: {
+    icon: Boxes,
+    labelKey: 'dependencies.tab.label',
+    hintKey: 'dependencies.tab.hint',
+    shortcut: 'view-show-dependencies',
+  },
   'git-diff': {
     icon: GitBranch,
     labelKey: 'editor.git.diffPanel.tabLabel',
@@ -198,7 +227,9 @@ export function BottomPanel({
   const wide = widthTier === DOCK_WIDTH_TIERS.length;
   const tabRowRef = useRef<HTMLDivElement>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
-  const glyphTabs = useDockRowFit(tabRowRef, tabListRef, compact);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const [tabUse, setTabUse] = useState(readDockTabUse);
   const consoleCount = useConsoleStore(state => state.entries.length);
   const failedTests = useProjectTestStore(state => state.cases?.filter(isCurrentFailure).length ?? 0);
   // Lines staged for the next run, so the Input tab says so before it is opened.
@@ -237,17 +268,14 @@ export function BottomPanel({
 
   const split = expanded && currentProject !== null && isDockSplit(effectiveTab, availability, wide);
 
-  // A tab picked from elsewhere (a shortcut, the debugger) scrolls into the row's own track.
-  // Scrolls the row only; scrollIntoView would also move the page.
-  useEffect(() => {
-    const list = tabListRef.current;
-    const tab = list?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!list || !tab) return;
-    const row = list.getBoundingClientRect();
-    const box = tab.getBoundingClientRect();
-    if (box.left < row.left) list.scrollLeft -= row.left - box.left;
-    else if (box.right > row.right) list.scrollLeft += box.right - row.right;
-  }, [effectiveTab, compact]);
+  const dockTabs = availableDockTabs(availability);
+  const pinned = dockTabs.filter(id => id === 'console' || id === effectiveTab || (split && isDockSplitTab(id)));
+  const overflow = useDockRowFit(tabRowRef, tabListRef, controlsRef, moreRef, compact, rankDockTabs(dockTabs, tabUse), pinned);
+  const pickTab = (id: DockTabId) => {
+    setTabUse(recordDockTabUse(tabUse, id));
+    openBottomPanel(id);
+  };
+
   const shown = (id: DockTabId) => expanded && (effectiveTab === id || (split && isDockSplitTab(id)));
   // The Tests meter and controls answer for the project while its tests are on screen.
   const testsOnScreen = currentProject !== null && shown('tests');
@@ -285,6 +313,34 @@ export function BottomPanel({
     count: allBreakpoints,
   };
   const compareCombo = formatShortcutLabel('run-toggle-compare-snapshot', shortcutOverrides) ?? '';
+  const tabHint = (id: DockTabId) => t(DOCK_TAB_META[id].hintKey, id === 'compare' ? { combo: compareCombo } : hintValues);
+  // The same badges on the row and in More; the prefix keeps their test ids apart.
+  const tabBadges = (id: DockTabId, prefix: string) => {
+    const count = counts[id] ?? 0;
+    return (
+      <>
+        {id === 'project-terminal' && terminalShell !== null ? (
+          <span
+            data-testid={`${prefix}-project-terminal-live`}
+            className="h-1.5 w-1.5 rounded-full bg-success-fg"
+            role="img"
+            aria-label={t('projectTerminal.status.running', { shell: terminalShell })}
+          />
+        ) : null}
+        {count > 0 ? (
+          <span
+            data-testid={`${prefix}-${id}-count`}
+            className={cn(
+              'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-nano font-bold leading-none text-fg-on-accent tabular-nums',
+              id === 'tests' ? 'bg-error-fg' : 'bg-accent'
+            )}
+          >
+            {count}
+          </span>
+        ) : null}
+      </>
+    );
+  };
 
   const terminalPanel = currentProject ? (
     <Suspense
@@ -326,35 +382,35 @@ export function BottomPanel({
           <div
             ref={tabRowRef}
             data-testid="results-dock-tab-row"
-            className="dock-tab-row flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt"
+            className="dock-tab-row relative flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt"
           >
             <div
               ref={tabListRef}
               role="tablist"
               aria-label={t('bottomPanel.tabs.listLabel')}
               aria-multiselectable={split || undefined}
-              className="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
+              className="relative flex min-w-0 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
             >
-              {availableDockTabs(availability).map(id => {
+              {dockTabs.map(id => {
                 const meta = DOCK_TAB_META[id];
                 const Icon = meta.icon;
                 const selected = shown(id);
-                const count = counts[id] ?? 0;
-                const hint = t(meta.hintKey, id === 'compare' ? { combo: compareCombo } : hintValues);
                 return (
+                  // A tab in More stays mounted out of flow, so the row can still measure it.
                   <Tooltip
                     key={id}
-                    // Glyph-only tabs (compact, or a row too tight for labels) let the tooltip name them.
-                    content={glyphTabs ? `${t(meta.labelKey)} · ${hint}` : hint}
+                    content={tabHint(id)}
                     side="top"
+                    triggerClassName={overflow.includes(id) ? 'dock-tab-overflow' : undefined}
                   >
                     <button
                       type="button"
                       role="tab"
                       id={id === 'console' ? 'bottom-panel-console-tab' : undefined}
                       data-testid={`bottom-panel-${id}-tab`}
+                      data-dock-tab={id}
                       aria-selected={selected}
-                      onClick={() => openBottomPanel(id)}
+                      onClick={() => pickTab(id)}
                       className={cn(
                         'dock-tab relative inline-flex h-[34px] shrink-0 items-center gap-[7px] border-b-2 px-3.5 text-caption font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-fg',
                         selected
@@ -365,34 +421,39 @@ export function BottomPanel({
                       <Icon
                         size={13}
                         aria-hidden="true"
-                        className={selected ? 'text-accent-fg' : 'text-fg-subtle'}
+                        className={cn('dock-tab-icon', selected ? 'text-accent-fg' : 'text-fg-subtle')}
                       />
-                      <span className="dock-tab-label">{t(meta.labelKey)}</span>
-                      {id === 'project-terminal' && terminalShell !== null ? (
-                        <span
-                          data-testid="bottom-panel-project-terminal-live"
-                          className="h-1.5 w-1.5 rounded-full bg-success-fg"
-                          role="img"
-                          aria-label={t('projectTerminal.status.running', { shell: terminalShell })}
-                        />
-                      ) : null}
-                      {count > 0 ? (
-                        <span
-                          data-testid={`bottom-panel-${id}-count`}
-                          className={cn(
-                            'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-nano font-bold leading-none text-fg-on-accent tabular-nums',
-                            id === 'tests' ? 'bg-error-fg' : 'bg-accent'
-                          )}
-                        >
-                          {count}
-                        </span>
-                      ) : null}
+                      <span>{t(meta.labelKey)}</span>
+                      {tabBadges(id, 'bottom-panel')}
                     </button>
                   </Tooltip>
                 );
               })}
             </div>
-            <div className="flex shrink-0 items-center gap-1.5 pl-2 pr-2">
+            <DockTabsMore
+              ref={moreRef}
+              rows={overflow.map(id => {
+                const Icon = DOCK_TAB_META[id].icon;
+                const shortcut = DOCK_TAB_META[id].shortcut;
+                return {
+                  id,
+                  icon: <Icon size={13} />,
+                  label: t(DOCK_TAB_META[id].labelKey),
+                  hint: tabHint(id),
+                  badges: tabBadges(id, 'dock-tabs-more'),
+                  shortcut: shortcut ? formatShortcutLabel(shortcut, shortcutOverrides) : null,
+                };
+              })}
+              alert={overflow.includes('tests') && (counts.tests ?? 0) > 0}
+              onPick={id => {
+                pickTab(id);
+                // The picked tab is back on the row once the fit settles.
+                requestAnimationFrame(() =>
+                  tabListRef.current?.querySelector<HTMLElement>(`[data-dock-tab="${id}"]`)?.focus()
+                );
+              }}
+            />
+            <div ref={controlsRef} className="ml-auto flex shrink-0 items-center gap-1.5 pl-2 pr-2">
               {testsOnScreen ? (
                 <Suspense fallback={null}>
                   <TestsDockControls />
