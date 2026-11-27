@@ -97,7 +97,7 @@ export function CapsuleDialogHeader({ titleId, trailing }: { titleId: string; tr
   const { t } = useTranslation();
   return (
     <div data-testid="capsule-list-overlay" className="flex items-center gap-3">
-      <h2 id={titleId} className="min-w-0 flex-1 truncate text-body-lg font-semibold tracking-[-0.01em] text-fg-base">
+      <h2 id={titleId} className="min-w-0 flex-1 text-body-lg font-semibold tracking-[-0.01em] text-fg-base">
         {t('capsuleList.overlay.title')}
       </h2>
       {trailing}
@@ -152,7 +152,7 @@ export function CapsuleImportStrip({ onImport, onDropFile }: { onImport: () => v
       data-testid="capsule-list-import-strip"
       data-drag-over={over ? 'true' : undefined}
       className={cn(
-        'focus-ring m-3.5 hidden shrink-0 rounded-[10px] border border-dashed p-3.5 text-left text-body-sm leading-[17px] text-fg-muted md:block',
+        'focus-ring m-3.5 block shrink-0 rounded-[10px] border border-dashed p-3.5 text-left text-body-sm leading-[17px] text-fg-muted',
         over ? 'border-accent bg-accent/10' : 'border-border-default hover:border-border-strong'
       )}
     >

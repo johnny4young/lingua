@@ -9,6 +9,8 @@ export interface CapsuleMenuItem {
   onSelect: () => void;
   disabled?: boolean;
   danger?: boolean;
+  /** Trails the label, such as the PRO mark on a locked action. */
+  badge?: ReactNode;
 }
 
 /** A menu that opens below its trigger; Escape closes the menu, not the dialog. */
@@ -107,6 +109,7 @@ export function CapsuleActionMenu({
             >
               <span className="flex shrink-0">{item.icon}</span>
               <span>{item.label}</span>
+              {item.badge}
             </button>
           ))}
         </div>

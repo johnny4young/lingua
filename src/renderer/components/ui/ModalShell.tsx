@@ -275,10 +275,11 @@ export function ModalShell({
       // from swallowing clicks over the modal (see index.css landmine).
       data-scrim={scrim}
       className={cn(
-        'fixed inset-0 z-50 flex items-start justify-center pt-[10vh]',
+        'fixed inset-0 z-50 flex items-start justify-center pt-[10vh] pb-4',
         scrim === 'veil' ? 'bg-overlay/55' : 'scrim'
       )}
-      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      // Ends above a docked notice, like .overlay-backdrop; the dialog shrinks its body to fit.
+      style={{ WebkitAppRegion: 'no-drag', bottom: 'var(--notice-row-offset, 0px)' } as React.CSSProperties}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -293,14 +294,14 @@ export function ModalShell({
         aria-labelledby={labelledById}
         tabIndex={-1}
         className={cn(
-          'mx-4 w-full overflow-hidden rounded-lg border border-border-subtle bg-bg-panel shadow-e3',
+          'mx-4 flex max-h-full w-full flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-panel shadow-e3',
           scrim === 'veil' ? 'modal-rise' : 'animate-shell-fade',
           'outline-none',
           size
         )}
       >
         {/* HEADER */}
-        <div className="flex items-center gap-3 border-b border-border-subtle px-[18px] py-4">
+        <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-[18px] py-4">
           {icon ? (
             <span className="grid shrink-0 place-items-center text-fg-subtle">{icon}</span>
           ) : null}
@@ -336,7 +337,7 @@ export function ModalShell({
             // Shared focus-ring utility + inset so the ring hugs the inside
             // of the scroll region instead of being clipped by the shell's
             // rounded overflow-hidden container.
-            'focus-ring overflow-y-auto focus-visible:ring-inset',
+            'focus-ring min-h-0 overflow-y-auto focus-visible:ring-inset',
             bodyMaxHeightClassName,
             bodyClassName ?? 'px-3 py-[10px]'
           )}
@@ -346,7 +347,7 @@ export function ModalShell({
 
         {/* FOOTER */}
         {footer ? (
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border-subtle bg-bg-inset px-[18px] py-[11px]">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border-subtle bg-bg-inset px-[18px] py-[11px]">
             {footerLegend ?? <DefaultFooterLegend />}
             {trailing ? <span className="ml-auto shrink-0">{trailing}</span> : null}
           </div>

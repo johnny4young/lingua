@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatNumber } from '../../src/renderer/i18n/formatNumber';
+import { formatByteSize, formatNumber } from '../../src/renderer/i18n/formatNumber';
 
 describe('formatNumber', () => {
   it('uses Lingua English and Spanish grouping instead of the host locale', () => {
@@ -15,5 +15,19 @@ describe('formatNumber', () => {
 
   it('falls back to English for unsupported application languages', () => {
     expect(formatNumber(10_000, 'fr')).toBe('10,000');
+  });
+});
+
+describe('formatByteSize', () => {
+  it('writes unit symbols, never the long byte word', () => {
+    expect(formatByteSize(917, 'en')).toBe('917 B');
+    expect(formatByteSize(3174, 'en')).toBe('3.1 kB');
+    expect(formatByteSize(214 * 1024 * 1024, 'en')).toBe('214 MB');
+  });
+
+  it('groups and marks decimals in the app language', () => {
+    expect(formatByteSize(3174, 'es')).toBe('3,1 kB');
+    expect(formatByteSize(1000, 'es')).toBe('1000 B');
+    expect(formatByteSize(-5, 'en')).toBe('0 B');
   });
 });

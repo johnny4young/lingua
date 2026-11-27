@@ -28,9 +28,14 @@ export function formatCompactNumber(value: number, language: string = getActiveA
   return COMPACT_FORMATTERS[coerceSupportedLanguage(language)].format(value);
 }
 
-const BYTE_UNITS = ['byte', 'kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const;
+const BYTE_UNITS = ['B', 'kB', 'MB', 'GB', 'TB'] as const;
+/** Whole bytes, and one decimal for a value under 10 of a larger unit. */
+const BYTE_FORMATTERS = {
+  en: [new Intl.NumberFormat('en', { maximumFractionDigits: 0 }), new Intl.NumberFormat('en', { maximumFractionDigits: 1 })],
+  es: [new Intl.NumberFormat('es', { maximumFractionDigits: 0 }), new Intl.NumberFormat('es', { maximumFractionDigits: 1 })],
+} as const;
 
-/** `214 MB` in the active locale, in powers of 1024. */
+/** `917 B`, `3.1 kB`, `214 MB` in the active locale, in powers of 1024. Intl's short `byte` reads `917 byte`. */
 export function formatByteSize(bytes: number, language: string = getActiveAppLanguage()): string {
   let value = Math.max(0, bytes);
   let unit = 0;
@@ -38,9 +43,6 @@ export function formatByteSize(bytes: number, language: string = getActiveAppLan
     value /= 1024;
     unit += 1;
   }
-  return new Intl.NumberFormat(coerceSupportedLanguage(language), {
-    style: 'unit',
-    unit: BYTE_UNITS[unit],
-    maximumFractionDigits: value < 10 && unit > 0 ? 1 : 0,
-  }).format(value);
+  const number = BYTE_FORMATTERS[coerceSupportedLanguage(language)][value < 10 && unit > 0 ? 1 : 0].format(value);
+  return `${number} ${BYTE_UNITS[unit]}`;
 }

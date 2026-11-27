@@ -73,5 +73,9 @@
   "capsuleList.share.copyJson": "Copiar el JSON de la cápsula",
   "capsuleList.workspaceHint.before": "¿Necesitas los archivos de alrededor?",
   "capsuleList.workspaceHint.after": "adjunta las pestañas abiertas que elijas. La exportación se queda en este equipo.",
-  "capsuleList.shortcutHint": "{{combo}} abre esta lista"
+  "capsuleList.shortcutHint": "{{combo}} abre esta lista",
+  "capsuleList.detail.back": "Volver a las cápsulas",
+  "capsuleList.group.earlier": "Anteriores",
+  "capsuleList.runtime.http": "Cliente HTTP",
+  "capsuleList.runtime.pipeline": "Pipeline de utilidades"
 }
