@@ -140,9 +140,11 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
             { id: 's4', utilityId: 'base64-encode', options: {}, disabled: true },
           ],
         };
+        // A long library must not set the row's height.
+        const library = Array.from({ length: 30 }, (_, index) => ({ ...pipeline, id: `p-${index}`, name: `saved ${index}`, steps: [] }));
         window.localStorage.setItem(
           'lingua-utility-pipeline-state',
-          JSON.stringify({ state: { pipelines: [pipeline], activePipelineId: 'p-fit' }, version: 1 })
+          JSON.stringify({ state: { pipelines: [pipeline, ...library], activePipelineId: 'p-fit' }, version: 1 })
         );
       });
       await gotoApp(page);
@@ -160,10 +162,12 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
       await expect(summary).toBeInViewport({ ratio: 1 });
       const results = await page.getByTestId('utility-pipeline-result').boundingBox();
       const summaryBox = await summary.boundingBox();
-      expect(results && summaryBox && results.y + results.height - (summaryBox.y + summaryBox.height)).toBeLessThan(2);
-      // Steps and Results share a row; the library sits above them below the widest tier.
+      expect(results && summaryBox && Math.abs(results.y + results.height - (summaryBox.y + summaryBox.height))).toBeLessThan(2);
+      // Steps and Results share a row; the library sits above them at 1100 and beside them at 1440.
       const steps = await page.getByTestId('utility-pipeline-editor').boundingBox();
       expect(steps && results && steps.x + steps.width <= results.x).toBe(true);
+      const library = await page.getByTestId('utility-pipeline-library').boundingBox();
+      expect(library && steps && (width === 1100 ? library.y + library.height <= steps.y : library.x + library.width <= steps.x)).toBe(true);
       // Every step card keeps its controls on the header row, beside the utility select.
       for (const card of await page.getByTestId('utility-pipeline-step-row').all()) {
         const select = await card.getByTestId('utility-pipeline-step-utility').boundingBox();
