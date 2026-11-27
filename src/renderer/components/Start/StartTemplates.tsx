@@ -5,9 +5,10 @@ import { BUILT_IN_TEMPLATES, resolveTemplateDescription, resolveTemplateFileStem
 import type { Language } from '../../types/language';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
+import { emitCommand } from '../../stores/commandBus';
 import { LanguageSquare, SectionHeading } from './StartParts';
 import { DotLeader } from '../ui/answer';
-import { templateLanguages, templateRows } from './startModel';
+import { isWebShell, templateLanguages, templateRows } from './startModel';
 
 const FILTER_LANGUAGES = templateLanguages(BUILT_IN_TEMPLATES);
 
@@ -25,6 +26,7 @@ export function StartTemplates() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<Language | null>(null);
   const rows = useMemo(() => templateRows(BUILT_IN_TEMPLATES, t, filter), [t, filter]);
+  const isWeb = isWebShell();
   const filters: Array<{ value: Language | null; label: string }> = [
     { value: null, label: t('start.templates.all') },
     ...FILTER_LANGUAGES.map(language => ({ value: language, label: languageLabel(language) })),
@@ -37,25 +39,43 @@ export function StartTemplates() {
         title={t('start.templates.title')}
         detail={String(BUILT_IN_TEMPLATES.length)}
         action={
-          <span role="group" aria-label={t('start.templates.filter')} className="flex flex-wrap justify-end gap-x-3 text-[12.5px]">
-            {filters.map(option => {
-              const active = option.value === filter;
-              return (
+          <span className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 text-[12.5px]">
+            <span role="group" aria-label={t('start.templates.filter')} className="flex flex-wrap justify-end gap-x-3">
+              {filters.map(option => {
+                const active = option.value === filter;
+                return (
+                  <button
+                    key={option.value ?? 'all'}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setFilter(option.value)}
+                    data-testid={`start-templates-filter-${option.value ?? 'all'}`}
+                    className={cn(
+                      'rounded-sm transition-colors focus-ring',
+                      active ? 'font-semibold text-fg-base' : 'text-fg-muted hover:text-fg-base'
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </span>
+            {isWeb ? null : (
+              <span className="flex items-baseline gap-x-3">
+                <span aria-hidden className="text-fg-subtle">
+                  ·
+                </span>
                 <button
-                  key={option.value ?? 'all'}
                   type="button"
-                  aria-pressed={active}
-                  onClick={() => setFilter(option.value)}
-                  data-testid={`start-templates-filter-${option.value ?? 'all'}`}
-                  className={cn(
-                    'rounded-sm transition-colors focus-ring',
-                    active ? 'font-semibold text-fg-base' : 'text-fg-muted hover:text-fg-base'
-                  )}
+                  aria-haspopup="dialog"
+                  onClick={() => emitCommand('overlay.openProjectTemplates')}
+                  data-testid="start-templates-projects"
+                  className="whitespace-nowrap rounded-sm text-fg-muted transition-colors hover:text-fg-base focus-ring"
                 >
-                  {option.label}
+                  {t('start.templates.projects')}
                 </button>
-              );
-            })}
+              </span>
+            )}
           </span>
         }
       />

@@ -318,6 +318,7 @@ function AppChrome({
   useCommandListener('overlay.openRecipes', () => openOverlay('recipes'));
   useCommandListener('overlay.openProjectSearch', () => openOverlay('search'));
   useCommandListener('overlay.openImport', () => openOverlay('import-preview'));
+  useCommandListener('overlay.openProjectTemplates', () => openOverlay('project-templates'));
   useCommandListener('plans.compare', () => openOverlay('compare-plans'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));

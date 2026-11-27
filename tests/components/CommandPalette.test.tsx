@@ -17,6 +17,7 @@ import { useRecentFilesStore } from '../../src/renderer/stores/recentFilesStore'
 import { setActiveEditor } from '../../src/renderer/runtime/editorAccess';
 import { useAiExplainCodeStore } from '../../src/renderer/stores/aiExplainCodeStore';
 import { useConsoleStore } from '../../src/renderer/stores/consoleStore';
+import { formatShortcutLabel } from '../../src/renderer/data/keyboardShortcuts';
 
 const { grantedEntitlements } = vi.hoisted(() => ({ grantedEntitlements: new Set<string>() }));
 const { dependencyDetectionState, editorState, resultState, settingsState, trackEventMock } =
@@ -343,6 +344,9 @@ describe('CommandPalette', () => {
     expect(rows.map(row => row.textContent)).toEqual(['PYlatencies.py1.24↵', 'SQLorders by city12rows', 'JSnotes.js']);
     expect(screen.getAllByTestId('command-palette-recent-answer')).toHaveLength(2);
     expect(screen.getByTestId('command-palette-recent-commands-hint').textContent).toContain('recent commands');
+    const filesOnly = screen.getByTestId('command-palette-files-only-hint');
+    expect(filesOnly.textContent).toContain('files only');
+    expect(filesOnly.querySelector('kbd')?.textContent).toBe(formatShortcutLabel('nav-quick-open', {}));
 
     const input = screen.getByRole('combobox');
     fireEvent.keyDown(input, { key: 'ArrowDown' });

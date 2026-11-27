@@ -39,6 +39,7 @@
   "start.answer.faster": "{{duration}} faster than the run before",
   "start.answer.slower": "{{duration}} slower than the run before",
   "start.palette.recent": "Recent — with its last answer",
+  "start.palette.filesOnly": "files only",
   "start.palette.recentCommands": "recent commands",
   "start.palette.settings": "Settings",
   "start.palette.themeInk": "Theme: switch to Lingua Ink",
@@ -61,5 +62,6 @@
   "start.templates.title": "Templates",
   "start.templates.filter": "Filter templates by language",
   "start.templates.all": "All",
+  "start.templates.projects": "Projects…",
   "start.templates.open": "Open {{name}} in {{language}}"
 }
