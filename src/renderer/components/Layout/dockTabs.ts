@@ -60,3 +60,9 @@ export function isDockSplit(shown: DockTabId, availability: DockTabAvailability,
     isDockSplitTab(shown)
   );
 }
+
+/** Set once the user resizes the dock below the editor; from then on nothing resizes it for them. */
+export const DOCK_RESIZED_KEY = 'lingua-ui:dock-resized';
+
+/** The dock height the first view of a project's tests opens to, so the files and a failing test fit. */
+export const TESTS_DOCK_HEIGHT = 240;

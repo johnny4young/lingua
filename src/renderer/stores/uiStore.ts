@@ -157,7 +157,7 @@ function readPersistedVariablesViewMode(): VariablesViewMode {
  * back instead of being truthy, which keeps hand-edited storage from forcing a
  * collapsed card or other shell preference.
  */
-function readPersistedBoolean(key: string, fallback: boolean): boolean {
+export function readPersistedBoolean(key: string, fallback: boolean): boolean {
   if (typeof window === 'undefined') return fallback;
   try {
     const raw = window.localStorage.getItem(key);
@@ -173,7 +173,7 @@ function readPersistedBoolean(key: string, fallback: boolean): boolean {
  * from private browsing, quota, or disabled storage are swallowed because the
  * live Zustand state is still authoritative for the current session.
  */
-function writePersisted<T>(key: string, value: T): void {
+export function writePersisted<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
     if (value === null) {

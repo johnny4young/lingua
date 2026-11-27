@@ -154,8 +154,8 @@
 .tests-dock-run:disabled { cursor: not-allowed; opacity: 0.5; }
 .tests-dock-run-stop { color: var(--color-error-fg); }
 
-/* Tight tab rows keep the run control as its glyph; its label stays the accessible name. */
-@container dock (max-width: 1000px) {
+/* After the tab glyphs, the run control folds to its glyph; its label stays the accessible name. */
+.dock-tab-row:is([data-fit='tight'], [data-fit='glyphs']) {
   .tests-dock-run-label { display: none; }
   .tests-dock-filter-option { padding: 0 7px; }
 }

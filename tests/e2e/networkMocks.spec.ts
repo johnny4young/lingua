@@ -21,7 +21,6 @@ const MOCKED_ENDPOINTS = [
 const UNMOCKED_TEST_ALLOWLIST = [
   'localMcpVisual.spec.ts',
   'projectTerminalVisual.spec.ts',
-  'projectTestsVisual.spec.ts',
   'shellCsp.spec.ts',
 ];
 

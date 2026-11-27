@@ -10,6 +10,7 @@ import {
   Minus,
   Play,
   RefreshCw,
+  ScrollText,
   X,
 } from 'lucide-react';
 import '../../i18n/testsCatalog';
@@ -62,7 +63,7 @@ function StatusIcon({ status }: { status: ProjectTestCaseStatus | 'notRun' }) {
   return <Minus size={12} className="shrink-0 text-fg-subtle" aria-hidden="true" />;
 }
 
-/** The Tests dock tab: the detected runner, every test grouped by file, and the raw log behind Show output. */
+/** The Tests dock tab: the detected runner, every test grouped by file, and the raw log behind the header's output toggle. */
 export function TestsPanel() {
   const currentProject = useProjectStore(state => state.currentProject);
   const binding = useMemo<ProjectTestBinding | null>(
@@ -172,7 +173,8 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const liveOutput = useProjectTestStore(state => state.liveOutput);
   const run = useProjectTestStore(state => state.run);
   const detect = useProjectTestStore(state => state.detect);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  // Files the user opened or closed; the rest follow the run (with a failure, only failing files open).
+  const [openChoice, setOpenChoice] = useState<ReadonlyMap<string, { open: boolean; failed: boolean }>>(() => new Map());
   const [selected, setSelected] = useState<string | null>(null);
   // A located failure whose file could not be opened keeps its message in the list.
   const [unopened, setUnopened] = useState<string | null>(null);
@@ -192,15 +194,18 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const notice = result && !['success', 'failed'].includes(result.kind) ? result.kind : null;
   const output = running ? (liveOutput.transcript?.text ?? '') : (result?.orderedOutput ?? [result?.stdout, result?.stderr].filter(Boolean).join('\n'));
   const showOutput = outputOpen || noReport || noCases || runFailure;
+  const outputLabel = t(showOutput ? 'projectTests.output.hide' : 'projectTests.output.show');
 
   const runScope = (scope: ProjectTestScope) => void run(binding, scope);
-  const toggleGroup = (file: string) =>
-    setCollapsed(previous => {
-      const next = new Set(previous);
-      if (next.has(file)) next.delete(file);
-      else next.add(file);
-      return next;
-    });
+  const failing = (group: FileGroup) => tallies.get(group.file)?.tone === 'failed';
+  const anyFailure = groups.some(failing);
+  // A choice lasts until the file starts or stops failing, so a new failure always shows.
+  const isOpen = (group: FileGroup) => {
+    const choice = openChoice.get(group.file);
+    return choice && choice.failed === failing(group) ? choice.open : !anyFailure || failing(group);
+  };
+  const toggleGroup = (group: FileGroup) =>
+    setOpenChoice(previous => new Map(previous).set(group.file, { open: !isOpen(group), failed: failing(group) }));
 
   return (
     <>
@@ -224,6 +229,18 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
             ))}
           </select>
         ) : null}
+        <button
+          type="button"
+          aria-expanded={showOutput}
+          aria-controls={showOutput ? 'tests-output' : undefined}
+          aria-label={outputLabel}
+          title={outputLabel}
+          onClick={() => setOutputOpen(!showOutput)}
+          data-testid="tests-output-toggle"
+          className={cn('icon-button h-6 w-6 rounded-md', showOutput && 'bg-bg-inset text-fg-base')}
+        >
+          <ScrollText size={12} aria-hidden="true" />
+        </button>
         {running ? (
           <Loader2 size={13} className="animate-spin text-fg-subtle" aria-hidden="true" />
         ) : (
@@ -272,7 +289,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
           </p>
         ) : (
           visibleGroups.map(group => {
-            const open = !collapsed.has(group.file);
+            const open = isOpen(group);
             const visibleCases = filter === 'failed' ? group.cases.filter(isCurrentFailure) : group.cases;
             const fileRunning = running && matchesScope(runningScope, group.file);
             const tally = tallies.get(group.file);
@@ -281,7 +298,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
                 <div className="group/file flex h-7 items-center gap-2 border-b border-border-subtle px-4">
                   <button
                     type="button"
-                    onClick={() => toggleGroup(group.file)}
+                    onClick={() => toggleGroup(group)}
                     className="focus-ring flex min-w-0 items-center gap-2 text-left"
                   >
                     {open ? <ChevronDown size={11} className="shrink-0 text-fg-subtle" aria-hidden="true" /> : <ChevronRight size={11} className="shrink-0 text-fg-subtle" aria-hidden="true" />}
@@ -393,23 +410,15 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
         )}
       </div>
 
-      <div className={cn('shrink-0 border-t border-border-subtle', showOutput && 'flex max-h-[45%] min-h-0 flex-col')}>
-        <button
-          type="button"
-          aria-expanded={showOutput}
-          onClick={() => setOutputOpen(open => !open)}
-          data-testid="tests-output-toggle"
-          className="focus-ring flex h-[34px] w-full shrink-0 items-center gap-2 bg-bg-panel-alt px-4 text-left text-fg-base"
+      {showOutput ? (
+        <pre
+          id="tests-output"
+          data-testid="tests-output"
+          className="max-h-[45%] min-h-0 shrink-0 overflow-auto whitespace-pre-wrap break-words border-t border-border-subtle bg-bg-inset px-4 py-2 font-mono text-micro text-fg-base"
         >
-          {showOutput ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}
-          {t(showOutput ? 'projectTests.output.hide' : 'projectTests.output.show')}
-        </button>
-        {showOutput ? (
-          <pre data-testid="tests-output" className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words bg-bg-inset px-4 py-2 font-mono text-micro text-fg-base">
-            {output || t('projectTests.output.empty')}
-          </pre>
-        ) : null}
-      </div>
+          {output || t('projectTests.output.empty')}
+        </pre>
+      ) : null}
     </>
   );
 }
