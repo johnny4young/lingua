@@ -45,7 +45,7 @@ function LanguageTile({ language, isWeb }: { language: Language; isWeb: boolean 
       aria-label={t('start.new.scratch', { language: languageLabel(language), availability: text })}
       data-testid={`start-new-${language}`}
       data-default={language === NEW_SCRATCH_LANGUAGE ? '' : undefined}
-      className="start-tile focus-ring flex min-w-0 items-center rounded-[10px] border border-border-subtle bg-bg-panel text-left transition-colors hover:border-border-strong"
+      className="start-tile focus-ring flex min-w-0 items-center rounded-[10px] border border-border-subtle text-left transition-colors hover:border-border-strong"
     >
       <LanguageSquare language={language} />
       <span className="min-w-0">
@@ -69,7 +69,7 @@ function WorkspaceTile({ id, icon, label, shortcut, onOpen }: { id: string; icon
       onClick={onOpen}
       data-testid={`start-workspace-${id}`}
       aria-keyshortcuts={shortcut ?? undefined}
-      className="flex h-[42px] min-w-0 items-center gap-2 rounded-[10px] border border-border-subtle px-2.5 text-left text-[12.5px] font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel focus-ring"
+      className="start-workspace flex h-[42px] min-w-0 items-center gap-2 rounded-[10px] border border-border-subtle px-2.5 text-left text-[12.5px] font-medium text-fg-base transition-colors hover:border-border-strong focus-ring"
     >
       <span className="shrink-0 text-fg-muted" aria-hidden>
         {icon}

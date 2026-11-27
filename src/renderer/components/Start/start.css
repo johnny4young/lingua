@@ -1,5 +1,16 @@
 /* Start loads lazily, so its one-off sizes ship here instead of in the boot stylesheet. */
 
+/* Cards sit lighter than the page in Paper, as Ink's sit above its darker ground. */
+.start-page {
+  --start-card-bg: var(--color-bg-panel);
+  background: var(--color-bg-base);
+}
+
+[data-palette='paper'] .start-page {
+  --start-card-bg: var(--color-bg-base);
+  background: var(--color-bg-panel);
+}
+
 .start-inner {
   max-width: 1480px;
   margin: 0 auto;
@@ -33,7 +44,7 @@
   justify-content: center;
   border: 1.5px solid var(--color-pulse-fg);
   border-radius: 14px;
-  background: var(--color-bg-panel);
+  background: var(--start-card-bg);
   box-shadow: 0 0 0 4px var(--start-prompt-wash), 0 22px 40px -28px rgb(0 20 30 / 0.5);
   cursor: text;
 }
@@ -74,6 +85,13 @@
 .start-prompt-field .monaco-editor {
   --vscode-editor-background: transparent;
   --vscode-editorGutter-background: transparent;
+  --vscode-editor-placeholder-foreground: var(--color-fg-muted);
+}
+
+/* Monaco sets the placeholder's family and size, not the code face's axes or ligatures. */
+.start-prompt-field .monaco-editor .editorPlaceholder {
+  font-variation-settings: var(--start-prompt-axes, normal);
+  font-feature-settings: 'liga' 0, 'calt' 0;
 }
 
 .start-prompt-answer {
@@ -122,6 +140,12 @@
 
 .start-prompt-answer:not([data-status='ok']) .start-prompt-value {
   color: var(--color-value-error);
+}
+
+/* An answer to an earlier line: the subtle token instead of opacity keeps it at 4.5:1. */
+.start-prompt-answer[data-stale] :is(.start-prompt-value, .start-prompt-tag, .start-bar) {
+  color: var(--color-fg-subtle);
+  fill: var(--color-fg-subtle);
 }
 
 .start-prompt-hints {
@@ -347,8 +371,13 @@
 
 .start-tile {
   height: 58px;
+  background: var(--start-card-bg);
   gap: 9px;
   padding: 0 11px;
+}
+
+.start-workspace:hover {
+  background: var(--start-card-bg);
 }
 
 .start-tile[data-default] {

@@ -10,7 +10,7 @@ import { StartTemplates } from '../Start/StartTemplates';
 export function EditorEmptyState() {
   const { t } = useTranslation();
   return (
-    <div className="h-full overflow-auto bg-bg-base" data-testid="start-page">
+    <div className="start-page h-full overflow-auto" data-testid="start-page">
       <div className="start-inner">
         <h1 className="start-headline font-display italic tracking-[-0.03em] text-fg-base">
           {t('start.headline')}

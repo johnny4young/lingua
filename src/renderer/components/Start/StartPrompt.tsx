@@ -66,7 +66,8 @@ function valueTag({ answer, valueKind }: PromptAnswer, t: TFunction): string | u
   return t(`start.prompt.type.${valueKind}`);
 }
 
-function PromptAnswerView({ shown }: { shown: PromptAnswer }) {
+/** `stale`: the line changed since this answer, so it reads dimmed and is not announced again. */
+function PromptAnswerView({ shown, stale }: { shown: PromptAnswer; stale: boolean }) {
   const { t } = useTranslation();
   const { answer, valueKind } = shown;
   const tag = valueTag(shown, t);
@@ -74,9 +75,11 @@ function PromptAnswerView({ shown }: { shown: PromptAnswer }) {
     <span
       className="start-prompt-answer"
       role="status"
+      aria-live={stale ? 'off' : 'polite'}
       data-testid="start-prompt-answer"
       data-status={answer.status}
       data-kind={valueKind}
+      data-stale={stale ? '' : undefined}
     >
       <DotLeader />
       {tag ? <span className="start-prompt-tag">{tag}</span> : null}
@@ -150,7 +153,7 @@ export function StartPrompt() {
             onReady={handleReady}
           />
         </div>
-        {shown ? <PromptAnswerView shown={shown} /> : null}
+        {shown ? <PromptAnswerView shown={shown} stale={!current} /> : null}
       </div>
       <div className="start-prompt-hints start-small text-fg-muted">
         {hint ? <span data-testid="start-prompt-hint">{t(hint)}</span> : null}

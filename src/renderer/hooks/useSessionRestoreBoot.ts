@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   armPendingSessionRestoreSnapshot,
+  holdRestorePrompt,
   RESTORE_SESSION_PROMPT_KEY,
   useSessionStore,
 } from '../stores/sessionStore';
@@ -19,9 +20,10 @@ import { trackEvent } from '../utils/telemetry';
  *
  *   - `always` — restore the persisted snapshot silently (legacy
  *     `restoreSession: true`), then mark ready.
- *   - `ask`    — if the snapshot holds ≥1 tab, surface a clickable
+ *   - `ask`    — if the snapshot holds ≥1 tab, hold a clickable
  *     "Restore N tabs" prompt (`high` priority so a boot-time notice can't
- *     clobber it) and mark ready immediately — boot does NOT block on the
+ *     clobber it) until Start shows no Pick up or a tab opens without
+ *     restoring, and mark ready immediately — boot does NOT block on the
  *     answer. The boot snapshot is pinned in memory until an explicit
  *     restore, so a click long after boot still restores the tabs the prompt
  *     advertised even if autosave records a newer workspace meanwhile.
@@ -80,7 +82,7 @@ export function useSessionRestoreBoot(smokeEnabled: boolean): boolean {
     if (restoreSessionMode === 'ask') {
       const tabCount = armPendingSessionRestoreSnapshot();
       if (tabCount > 0) {
-        useUIStore.getState().pushStatusNotice({
+        holdRestorePrompt(() => useUIStore.getState().pushStatusNotice({
           tone: 'info',
           messageKey: RESTORE_SESSION_PROMPT_KEY,
           values: { count: tabCount },
@@ -105,7 +107,7 @@ export function useSessionRestoreBoot(smokeEnabled: boolean): boolean {
               void trackEvent('session.snapshotDiscarded', { tabCount });
             }
           },
-        });
+        }));
       }
     }
 

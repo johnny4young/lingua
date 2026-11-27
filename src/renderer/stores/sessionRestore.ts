@@ -20,6 +20,7 @@ import { loadLastAnswer } from './tabLastAnswer';
 import {
   armPendingSessionRestoreSnapshot,
   clearPendingSessionRestoreSnapshot,
+  dropRestorePrompt,
   getPendingSessionRestoreSnapshot,
   RESTORE_SESSION_PROMPT_KEY,
   setPendingSessionRestoreSnapshot,
@@ -297,6 +298,7 @@ export async function restoreSavedSession(options: { only?: number }): Promise<v
     savedActiveIndex >= 0 && savedActiveIndex < savedIndexToRestoredId.length
       ? (savedIndexToRestoredId[savedActiveIndex] ?? null)
       : null;
+  dropRestorePrompt();
   useEditorStore.getState().restoreTabs(restored, activeId, { append: only !== undefined || pendingSnapshot?.partial === true });
   const recipeStore = useRecipeStore.getState();
   for (const tab of restored) {

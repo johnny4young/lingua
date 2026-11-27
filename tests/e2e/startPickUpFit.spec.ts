@@ -59,11 +59,7 @@ function sessionTabs(now: number) {
 for (const width of [375, 768]) {
   test(`Pick up rows show each name in full at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    await seedSession(page, { language: 'en', restoreSessionMode: 'ask' });
-    await page.addInitScript(tabs => {
-      if (window.localStorage.getItem('lingua-session')) return;
-      window.localStorage.setItem('lingua-session', JSON.stringify({ state: { savedTabs: tabs, savedActiveIndex: 0 }, version: 2 }));
-    }, sessionTabs(Date.now()));
+    await seedSession(page, { language: 'en', restoreSessionMode: 'ask', savedTabs: sessionTabs(Date.now()) });
     await gotoApp(page);
 
     const rows = page.locator('[data-testid^="start-pick-up-row-"]');

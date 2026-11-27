@@ -1386,7 +1386,10 @@ ask mode (`pendingRestoreTabs` in the session store follows it), never from
 this session's autosave. Reopening one row calls `restoreSession({ only })`:
 the tab joins the open tabs (`restoreTabs` with `append`) and the snapshot
 keeps the rest, marked partial so a later full restore appends too. One restore
-runs at a time, and any restore of the pinned snapshot closes the prompt. The
+runs at a time, and any restore of the pinned snapshot closes the prompt.
+The boot hook holds the prompt (`holdRestorePrompt`) instead of showing it:
+Start releases it when it has no Pick up rows, and the first tab that opens
+releases it while the whole snapshot is still offered; a restore drops it. The
 translator from saved tabs to editor tabs lives in `stores/sessionRestore.ts`
 and loads on the first restore, so it stays off the startup graph.
 

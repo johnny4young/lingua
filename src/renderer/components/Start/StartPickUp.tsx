@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Folder } from 'lucide-react';
 import { getSessionTabAnswers, projectLastAnswer, type SessionTabAnswer } from '../../stores/lastAnswerSelectors';
 import { useProjectStore, type RecentProject } from '../../stores/projectStore';
-import { useSessionStore } from '../../stores/sessionStore';
+import { releaseRestorePrompt, useSessionStore } from '../../stores/sessionStore';
 import type { LastAnswer } from '../../utils/lastAnswer';
 import { languageLabel } from '../../utils/languageMeta';
 import { formatRunDuration } from '../../utils/timeLabels';
@@ -141,6 +141,11 @@ export function StartPickUp() {
     const tabs = answered.slice(0, MAX_ROWS - project.length).map(tab => tabRow(tab, t));
     return { rows: [...tabs, ...project], tested, sessionCount: pendingTabs + project.length };
   }, [pendingTabs, recentProjects, hasProject, t]);
+
+  // Reopen all is the restore prompt's action, so the prompt waits while Pick up shows.
+  useEffect(() => {
+    if (rows.length === 0) releaseRestorePrompt();
+  }, [rows.length]);
 
   // Digits reopen a row while nothing else holds the keyboard.
   useEffect(() => {
