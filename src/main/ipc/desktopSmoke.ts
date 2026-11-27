@@ -8,6 +8,7 @@ import {
 } from '../offlineSmoke';
 import { DESKTOP_SMOKE_FLAG } from '../../shared/desktopSmoke';
 import { readProcessFootprints } from '../processFootprint';
+import { collectRendererGarbage } from '../rendererGarbage';
 
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
 const SMOKE_LICENSE_TOKEN_PREFIX = '--lingua-smoke-license-token=';
@@ -129,7 +130,7 @@ export function registerDesktopSmokeHandlers(): void {
     return getBlockedOfflineSmokeUrls();
   });
 
-  typedHandle('desktop-smoke:get-memory-snapshot', async () => {
+  typedHandle('desktop-smoke:get-memory-snapshot', async (event) => {
     if (!isDesktopSmokeEnabled()) {
       return { ok: false as const, reason: 'smoke-disabled' as const };
     }
@@ -137,6 +138,9 @@ export function registerDesktopSmokeHandlers(): void {
     if (typeof process.memoryUsage !== 'function') {
       return { ok: false as const, reason: 'unsupported' as const };
     }
+
+    // Uncollected garbage varies with runner speed; the budget tracks retained memory.
+    const collectedIsolates = await collectRendererGarbage(event.sender);
 
     const processMemory = process.memoryUsage();
     const appMetrics =
@@ -146,6 +150,7 @@ export function registerDesktopSmokeHandlers(): void {
     return {
       ok: true as const,
       capturedAt: new Date().toISOString(),
+      collectedIsolates,
       process: {
         rssBytes: processMemory.rss,
         heapTotalBytes: processMemory.heapTotal,

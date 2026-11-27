@@ -87,6 +87,13 @@ set and main-process RSS leave out compressed pages and the renderer, so a
 regression of 100 MB could pass unseen. Other platforms report the
 footprint as `null` and keep the working set.
 
+Before each read, main collects garbage in the renderer's page isolate and in
+every worker isolate through the DevTools protocol, so the footprint counts
+retained memory. Without it the read includes garbage a slow runner has not
+collected yet, which moved the peak by tens of MB between runs of the same
+build. `collectedIsolates` in each snapshot says how many isolates were
+collected. This runs only in smoke mode.
+
 Footprint is budgeted. On pull requests the macOS leg of `desktop-bundles`
 runs `pnpm run check:performance --memory` right after the packaged smoke.
 That step fails when the peak footprint of every process except GPU exceeds
