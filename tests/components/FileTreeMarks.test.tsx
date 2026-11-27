@@ -248,6 +248,13 @@ describe('FileTree marks and project rows', () => {
     expect(marks.className).toContain('ml-auto');
   });
 
+  it('keeps the marks visible beside the row actions under keyboard focus', () => {
+    render(<FileTree />);
+    fireEvent.focus(screen.getByText('cart.test.ts'));
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(screen.getByTestId('file-tree-marks-src/cart.test.ts').className).toContain('ml-auto');
+  });
+
   it('leaves another project results off the tree', () => {
     useProjectTestStore.setState({ rootId: 'root-other' as RootId });
     render(<FileTree />);

@@ -125,6 +125,7 @@ test.describe('test results on the line', () => {
       expect(consoleErrors).toEqual([]);
     });
   }
+
   test('the explorer drawer of a narrow window fits the rows under the tree and keeps the marks column', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1000 });
     const consoleErrors = trackConsoleErrors(page);
@@ -142,6 +143,11 @@ test.describe('test results on the line', () => {
     await page.getByTestId('file-tree-more').click();
     await expect(page.getByTestId('file-tree-refresh')).toBeVisible();
     await page.keyboard.press('Escape');
+    // The strip beside the close button is scrim: a click there dismisses the drawer.
+    await page.mouse.click(drawerBox!.x + 24, drawerBox!.y + 12);
+    await expect(drawer).toHaveCount(0);
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(drawer).toBeVisible();
     await page.getByRole('button', { name: 'Close sidebar' }).click();
     await expect(drawer).toHaveCount(0);
     expect(consoleErrors).toEqual([]);

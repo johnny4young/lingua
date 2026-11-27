@@ -247,14 +247,14 @@ export function FileTreeNode({
     >
       <div
         data-active={isActiveFile ? 'true' : undefined}
-        className={`group flex items-center gap-1 rounded-xl py-1 pr-3.5 text-body-sm transition-colors ${
+        className={`group flex items-center gap-1 rounded-xl py-1 text-body-sm transition-colors ${
           isActiveFile
             ? 'bg-primary-soft font-medium'
             : rowActive
               ? 'bg-surface-strong/78'
               : 'hover:bg-surface-strong/58'
         }`}
-        style={{ paddingLeft: `${indent + 4}px` }}
+        style={{ paddingLeft: `${indent + 4}px`, paddingRight: 'max(0px, calc(0.875rem - var(--tree-scrollbar, 0px)))' }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setFocusWithin(true)}
@@ -308,8 +308,8 @@ export function FileTreeNode({
 
         {!renaming && (showDesktopOnlyBadge || isDirtyInTab || gitMark || testTally) && (
           <span
-            // The row actions take the marks' place on hover so the column never moves; screen readers keep the marks.
-            className={showActions ? 'sr-only' : 'ml-auto flex shrink-0 items-center gap-1.5 pl-1.5 font-mono text-caption tabular-nums'}
+            // Pointer hover swaps the marks for the row actions so the column never moves; keyboard focus keeps both visible.
+            className={hovered ? 'sr-only' : 'ml-auto flex shrink-0 items-center gap-1.5 pl-1.5 font-mono text-caption tabular-nums'}
             data-testid={`file-tree-marks-${node.path}`}
           >
             {showDesktopOnlyBadge && (

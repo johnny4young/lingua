@@ -701,21 +701,21 @@ export function AppLayout({
             role="dialog"
             aria-modal="true"
             aria-label={t('layout.projectExplorer')}
-            className="flex h-full w-[min(24rem,calc(100vw-1rem))] max-w-full flex-col gap-2"
+            className="pointer-events-none flex h-full w-[min(24rem,calc(100vw-1rem))] max-w-full flex-col gap-2"
             onClick={event => event.stopPropagation()}
           >
-            {/* Its own row: over the panel it covered the header menu, and the tooltip span pushed the panel past the window. */}
+            {/* Above the panel so it never covers the header menu; the strip beside it still dismisses. */}
             <div className="flex shrink-0 justify-end">
               <IconButton
                 ref={compactDrawerCloseButtonRef}
                 onClick={() => setSidebarVisible(false)}
                 tooltip={t('layout.closeSidebar')}
-                className="bg-surface/92"
+                className="pointer-events-auto bg-surface/92"
               >
                 <X size={ICON_GLYPH.md} />
               </IconButton>
             </div>
-            <div className="min-h-0 flex-1">
+            <div className="pointer-events-auto min-h-0 flex-1">
               <SidebarPanel onNavigate={handleExplorerNavigate} />
             </div>
           </div>
