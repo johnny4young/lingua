@@ -14,6 +14,7 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { useExplainPanelStore } from '../../stores/explainPanelStore';
+import { useLiveRunStore } from '../../stores/liveRunStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { traceShown } from '../../utils/runTraceModel';
@@ -294,13 +295,17 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
     }
     return items;
   }, [visibleEntries, runLive, pending, rowVisible]);
-  const waitingSnippet = useMemo(
-    () =>
-      pending.waitingLine !== null && ranCode && ranCode.tabId === currentRun?.tabId
-        ? sourceSnippet(ranCode.code, pending.waitingLine)
-        : null,
-    [pending.waitingLine, ranCode, currentRun?.tabId]
-  );
+  // The line the run is on when the runner reports it; otherwise the line the previous run printed from next.
+  const liveTab = runLive ? currentRun?.tabId : undefined;
+  const liveLine = useLiveRunStore(state => (liveTab ? (state.byTab[liveTab]?.live.line ?? null) : null));
+  const liveCode = useLiveRunStore(state => (liveTab ? state.byTab[liveTab]?.code : undefined));
+  const waitingLine = liveLine ?? pending.waitingLine;
+  const waitingSnippet = useMemo(() => {
+    if (liveLine !== null && liveCode !== undefined) return sourceSnippet(liveCode, liveLine);
+    return pending.waitingLine !== null && ranCode && ranCode.tabId === currentRun?.tabId
+      ? sourceSnippet(ranCode.code, pending.waitingLine)
+      : null;
+  }, [liveLine, liveCode, pending.waitingLine, ranCode, currentRun?.tabId]);
   const runStartedAt = currentRun?.startedAt ?? null;
   const visibleSourceLines = useMemo(() => {
     const lines = new Set<number>();
@@ -687,7 +692,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
                   className="[contain-intrinsic-size:auto_22px] [content-visibility:auto]"
                 >
                   {item.kind === 'waiting' ? (
-                    <ConsoleWaitingRow line={pending.waitingLine} snippet={waitingSnippet} />
+                    <ConsoleWaitingRow line={waitingLine} snippet={waitingSnippet} live={liveLine !== null} />
                   ) : (
                     <ConsoleEntryRow
                       entry={item.row.entry}

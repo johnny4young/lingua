@@ -60,6 +60,7 @@ const MODULE_BUDGETS = {
   'debuggerExpression.ts': 560,
   'js-worker-stdin.ts': 60,
   'js-worker-live.ts': 150,
+  'js-worker-live-preview.ts': 60,
   'python-worker.ts': 70,
   'python-worker-protocol.ts': 130,
   'python-worker-execution.ts': 420,
@@ -73,6 +74,7 @@ const MODULE_BUDGETS = {
   'python-worker-stdin-request.ts': 60,
   'python-worker-display.ts': 90,
   'python-worker-live-source.ts': 230,
+  'python-worker-live-repr-source.ts': 40,
 } as const;
 
 function workerSource(filename: string): string {

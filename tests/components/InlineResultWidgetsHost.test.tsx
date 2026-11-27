@@ -3,6 +3,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InlineResultWidgetsHost } from '@/components/Editor/InlineResultWidgetsHost';
 import { useResultStore } from '@/stores/resultStore';
+import { useLiveRunStore } from '@/stores/liveRunStore';
 import type { InlineResultWidgetsProps } from '@/components/Editor/inlineResultWidgetsLoader';
 
 const mocks = vi.hoisted(() => ({
@@ -71,6 +72,19 @@ describe('InlineResultWidgetsHost', () => {
 
     expect(mocks.loadWidgets).not.toHaveBeenCalled();
     expect(screen.queryByTestId('inline-result-widgets-probe')).toBeNull();
+  });
+
+  it('loads when a run of its tab reports where it is, before it prints anything', async () => {
+    mocks.loadWidgets.mockResolvedValue({ InlineResultWidgets: WidgetsProbe });
+    render(<InlineResultWidgetsHost {...makeProps()} />);
+    act(() => useLiveRunStore.getState().publish('tab-2', 'r', { line: 1, lineMs: 0, elapsedMs: 0, loops: [] }));
+    expect(mocks.loadWidgets).not.toHaveBeenCalled();
+    await act(async () => {
+      useLiveRunStore.getState().publish('tab-1', 'r', { line: 1, lineMs: 0, elapsedMs: 0, loops: [] });
+    });
+    expect(mocks.loadWidgets).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('inline-result-widgets-probe')).toBeTruthy();
+    useLiveRunStore.setState({ byTab: {} });
   });
 
   it('loads on the first visible result and forwards current props under StrictMode', async () => {

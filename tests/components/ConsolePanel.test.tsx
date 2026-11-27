@@ -6,6 +6,7 @@ import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHis
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
+import { useLiveRunStore } from '../../src/renderer/stores/liveRunStore';
 import { RunMeterHistory } from '../../src/renderer/components/RunMeter/RunMeterHistory';
 import {
   _resetCommandBusForTesting,
@@ -1118,6 +1119,27 @@ describe('ConsolePanel', () => {
       expect(ghosts).toHaveLength(1);
       expect(ghosts[0]?.textContent).toContain('slowest path: db');
       expect(ghosts[0]?.textContent).toContain('run 6');
+    });
+
+    it('waits on the line the run reports it is blocked on', () => {
+      resetState({
+        entries: [{ id: 'now-1', type: 'log', content: 'api', timestamp: 1_440, line: 5 }],
+        currentRun: { tabId: 'tab', number: 7, startedAt: 1_000 },
+        previousRun: { number: 6, rows: [...previousRows, summaryRow] },
+      });
+      useResultStore.setState({ isManualRunning: true, manualRunMode: 'run', ranCode: null });
+      useLiveRunStore
+        .getState()
+        .publish('tab', 'live-1', { line: 4, lineMs: 30, elapsedMs: 900, loops: [], waitMs: 400 }, 'a\nb\nc\n    sleep(0.4)\n  print(name)\n');
+      try {
+        render(<ConsolePanel />);
+        const waiting = screen.getByTestId('console-waiting-row');
+        expect(waiting.getAttribute('data-line')).toBe('4');
+        expect(waiting.getAttribute('data-live')).toBe('true');
+        expect(waiting.textContent).toContain('waiting on sleep(0.4)');
+      } finally {
+        useLiveRunStore.setState({ byTab: {} });
+      }
     });
 
     it('times a Scratchpad run from its start and stands in the previous run while it goes', () => {

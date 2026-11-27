@@ -10,6 +10,7 @@
   "runMeter.state.stale": "Stale",
   "runMeter.run": "run {{number}}",
   "runMeter.line": "line {{line}} of {{total}}",
+  "runMeter.lineAt": "line {{line}}",
   "runMeter.left": "{{time}} left",
   "runMeter.runs_one": "{{count}} run this session",
   "runMeter.runs_other": "{{count}} runs this session",

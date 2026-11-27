@@ -23,6 +23,8 @@ export interface InlineAnswerLineProps {
   readonly change?: { readonly delta: AnswerDelta; readonly since: number } | null;
   /** The run this answer is kept from, while the current run has not reached the line. */
   readonly keptFrom?: number;
+  /** Passes the open loop around this line makes, while the run is live and the runtime knows it. */
+  readonly loopTotal?: number;
 }
 
 function roleOf(result: LineResult): AnswerRole {
@@ -35,18 +37,22 @@ function roleOf(result: LineResult): AnswerRole {
 }
 
 /**
- * A line that answered on several loop passes: the latest pass's answers and how many passes.
+ * A line that answered on loop passes: the latest pass's answers and how many passes, one included.
  * With pass numbers, answers of one pass are separate calls; without them, unnamed answers of one kind count as passes.
  */
 function readRepeat(items: readonly LineResult[]): { readonly latest: readonly LineResult[]; readonly passes: number } | null {
-  if (items.length < 2 || items.some(item => item.name || item.type === 'watch')) return null;
+  if (items.length === 0 || items.some(item => item.name || item.type === 'watch')) return null;
   if (items.every(item => item.pass !== undefined)) {
-    const passes = new Set(items.map(item => item.pass)).size;
     const last = items[items.length - 1]!.pass;
-    return passes < 2 ? null : { latest: items.filter(item => item.pass === last), passes };
+    return { latest: items.filter(item => item.pass === last), passes: new Set(items.map(item => item.pass)).size };
   }
   const role = roleOf(items[0]!);
-  return items.every(item => roleOf(item) === role) ? { latest: items.slice(-1), passes: items.length } : null;
+  return items.length > 1 && items.every(item => roleOf(item) === role) ? { latest: items.slice(-1), passes: items.length } : null;
+}
+
+function isOutput(result: LineResult): boolean {
+  const role = roleOf(result);
+  return role === 'stdout' || role === 'stderr';
 }
 
 /** Output after output of the same kind on one line keeps the line's single kind tag. */
@@ -67,9 +73,11 @@ function formatTimingMs(durationMs: number): string {
  * kind several times shows its latest answer and the count; mixed answers share
  * the row as values only.
  */
-export function InlineAnswerLine({ items, timing, language, source, change, keptFrom }: InlineAnswerLineProps) {
+export function InlineAnswerLine({ items, timing, language, source, change, keptFrom, loopTotal }: InlineAnswerLineProps) {
   const { t } = useTranslation();
-  const repeat = readRepeat(items);
+  const read = readRepeat(items);
+  // Inside a live loop, a line that answered on one pass so far counts it too.
+  const repeat = read && (read.passes > 1 || loopTotal !== undefined) ? read : null;
   const shown = repeat ? repeat.latest : items;
   const visible = shown.slice(0, MAX_ITEMS_PER_LINE);
   const dropped = shown.length - visible.length;
@@ -119,7 +127,9 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
         ))}
         {repeat ? (
           <span className="lingua-inline-result-repeat" data-testid="lingua-inline-result-repeat">
-            {t('answers.lastOf', { count: repeat.passes })}
+            {loopTotal !== undefined && repeat.passes <= loopTotal
+              ? t(isOutput(shown[0]!) ? 'answers.passPrinted' : 'answers.pass', { iteration: repeat.passes, total: loopTotal })
+              : t('answers.lastOf', { count: repeat.passes })}
           </span>
         ) : null}
         {dropped > 0 ? (

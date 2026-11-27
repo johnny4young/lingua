@@ -1,4 +1,10 @@
-import { LIVE_RUN_MAX_LOOPS, LIVE_RUN_PROTOCOL_VERSION, LIVE_RUN_THROTTLE_MS, type LiveRunSnapshot } from '../../shared/liveRun';
+import {
+  LIVE_RUN_MAX_LOOPS,
+  LIVE_RUN_PROTOCOL_VERSION,
+  LIVE_RUN_THROTTLE_MS,
+  type LiveRunSnapshot,
+} from '../../shared/liveRun';
+import { PYTHON_LIVE_REPR_SOURCE } from './python-worker-live-repr-source';
 import type { PythonWorkerPort } from './python-worker-protocol';
 import type { PyodideRuntime } from './python-worker-runtime';
 
@@ -28,7 +34,7 @@ __lingua_live_totals = {}
 __lingua_live_ordinals = {}
 __lingua_live_sized = (list, tuple, range, str, bytes, dict, set, frozenset,
                        type({}.keys()), type({}.values()), type({}.items()))
-
+${PYTHON_LIVE_REPR_SOURCE}
 
 def __lingua_live_of__(name, value):
     __lingua_live_totals[name] = len(value) if type(value) in __lingua_live_sized else None
@@ -52,7 +58,9 @@ def __lingua_live_prepare(tree):
                         and first.target.id.startswith("__lp")):
                     continue
                 name, entry = first.target.id, "__lingua_le" + first.target.id[4:]
-                loops.append((node.lineno, max(getattr(stmt, "end_lineno", None) or stmt.lineno for stmt in node.body), name, entry))
+                target = node.target.id if isinstance(node, (ast.For, ast.AsyncFor)) and isinstance(node.target, ast.Name) else None
+                end = max(getattr(stmt, "end_lineno", None) or stmt.lineno for stmt in node.body)
+                loops.append((node.lineno, end, name, entry, target))
                 if not isinstance(node, ast.While):
                     call = ast.Call(func=ast.Name(id="__lingua_live_of__", ctx=ast.Load()), args=[ast.Constant(value=name), node.iter], keywords=[])
                     node.iter = ast.copy_location(call, node.iter)
@@ -75,18 +83,18 @@ def __lingua_live_frames(frame):
 
 
 def __lingua_live_path(frames):
-    # Open loops around each frame's line, outermost first: (name, header, pass, entry).
+    # Open loops around each frame's line, outermost first: (name, header, pass, entry, target, scope, end).
     path = []
     for frame in frames:
         line = frame.f_lineno
-        hits = [(head, name, entry) for head, end, name, entry in __lingua_live_loops if head <= line <= end]
+        hits = [(head, end, name, entry, target) for head, end, name, entry, target in __lingua_live_loops if head <= line <= end]
         if not hits:
             continue
         scope = frame.f_locals
-        for head, name, entry in hits:
+        for head, end, name, entry, target in hits:
             count = scope.get(name)
             if type(count) is int:
-                path.append((name, head, count, scope.get(entry)))
+                path.append((name, head, count, scope.get(entry), target, scope, end))
     return path
 
 
@@ -106,11 +114,15 @@ def __lingua_live_sample(frame, wait=None):
         return
     state[2] = now
     loops = []
-    for name, head, count, _entry in __lingua_live_path(frames)[-${LIVE_RUN_MAX_LOOPS}:]:
-        loop = {"line": head, "pass": count}
+    for name, head, count, _entry, target, scope, end in __lingua_live_path(frames)[-${LIVE_RUN_MAX_LOOPS}:]:
+        loop = {"line": head, "end": end, "pass": count}
         total = __lingua_live_totals.get(name)
         if total is not None:
             loop["total"] = total
+        if target is not None and count > 0 and target in scope:
+            value = __lingua_live_repr(scope[target])
+            if value is not None:
+                loop["binding"] = {"name": target, "value": value}
         loops.append(loop)
     snapshot = {"line": line, "lineMs": (now - state[1]) * 1000, "elapsedMs": (now - state[3]) * 1000, "loops": loops}
     if wait is not None:
@@ -137,7 +149,7 @@ def __lingua_live_wait(seconds):
 def __lingua_live_pass():
     # Same pass of the same loops, same number; 0 outside every loop.
     try:
-        path = tuple((name, entry, count) for name, _head, count, entry in __lingua_live_path(__lingua_live_frames(sys._getframe(1))))
+        path = tuple((name, entry, count) for name, _head, count, entry, *_rest in __lingua_live_path(__lingua_live_frames(sys._getframe(1))))
     except Exception:  # noqa: BLE001
         return None
     if not path:

@@ -3,20 +3,30 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
 import { useResultStore, type LineResult } from '../../stores/resultStore';
+import { useLiveRunStore } from '../../stores/liveRunStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { lineAnswerDelta, type AnswerDelta } from '../Answer/answerDelta';
 import type { LineTimingEntry } from '../../types/execution';
 import { AnswerColumnHeader } from './AnswerColumnHeader';
 import { InlineAnswerLine } from './InlineAnswerLine';
-import { answerColumnBand, belowAnswerWidth, jsStatementEndLine, lineEnd, lineIndent, statementEndLine, type JsLineDepth } from './answerColumnGeometry';
+import {
+  LEADER_MARGIN,
+  MIN_LEADER,
+  answerColumnBand,
+  belowAnswerWidth,
+  jsStatementEndLine,
+  lineEnd,
+  lineIndent,
+  statementEndLine,
+  type JsLineDepth,
+} from './answerColumnGeometry';
 import { walkTopLevelLines } from '../../utils/magicComments/jsLexer';
 import { createInlineResultNode } from './inlineResultWidgetDom';
+import { LiveLineAnswers } from './LiveLineAnswers';
+import { enclosingLoopTotal, loopTotalsKey } from './liveLineModel';
 import './inlineAnswers.css';
 
 const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
-/** Space either side of the leader, and its shortest length before the answer moves below. */
-const LEADER_MARGIN = 14;
-const MIN_LEADER = 26;
 const NO_TIMINGS: readonly LineTimingEntry[] = [];
 
 let watchingTabs = false;
@@ -72,7 +82,13 @@ export function InlineResultWidgets({
   keptRun = null,
 }: InlineResultWidgetsProps) {
   const widgets = useInlineResultWidgets(editor, monaco, lineResults, tabId, lineTimings, running, lineEndReserve, keptRun);
-  const answering = widgets.some(widget => widget.items.length > 0);
+  const [liveLines, setLiveLines] = useState<ReadonlySet<number>>(() => new Set());
+  // A live answer stands in for what its line answered before.
+  useLayoutEffect(() => {
+    for (const widget of widgets) widget.domNode.toggleAttribute('data-live-covered', liveLines.has(widget.line));
+  }, [widgets, liveLines]);
+  const loopTotals = useLoopTotals(tabId, widgets);
+  const answering = liveLines.size > 0 || widgets.some(widget => widget.items.length > 0);
   // A run clears its answers before publishing new ones; the header holds through it.
   const [header, setHeader] = useState(false);
   const showHeader = answering || (running && header);
@@ -100,6 +116,7 @@ export function InlineResultWidgets({
   return (
     <>
       {header && editor && headerSlot ? createPortal(<AnswerColumnHeader editor={editor} tabId={tabId} since={since} />, headerSlot) : null}
+      {editor ? <LiveLineAnswers editor={editor} tabId={tabId} language={language} onShown={setLiveLines} /> : null}
       {widgets.map(widget =>
         createPortal(
           <InlineAnswerLine
@@ -109,6 +126,7 @@ export function InlineResultWidgets({
             source={widget.source}
             change={changes.get(widget.line) ?? null}
             keptFrom={widget.line === firstKept ? (keptRun ?? undefined) : undefined}
+            loopTotal={loopTotals.get(widget.line)}
           />,
           widget.domNode,
           widget.id
@@ -116,6 +134,22 @@ export function InlineResultWidgets({
       )}
     </>
   );
+}
+
+/** The pass count of the open loop around each answered line, while the run is live. */
+function useLoopTotals(tabId: string | null, widgets: readonly InlineWidget[]): ReadonlyMap<number, number> {
+  // A string, so snapshots that move only the running line or its time do not re-render the answers.
+  const key = useLiveRunStore(state => loopTotalsKey(tabId ? state.byTab[tabId]?.live : undefined));
+  return useMemo(() => {
+    const totals = new Map<number, number>();
+    for (const widget of widgets) {
+      // A kept answer counts the previous run's passes, not this run's.
+      if (widget.kept) continue;
+      const total = enclosingLoopTotal(key, widget.line);
+      if (total !== undefined) totals.set(widget.line, total);
+    }
+    return totals;
+  }, [key, widgets]);
 }
 
 interface InlineZone {

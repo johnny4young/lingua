@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PulseRailHost } from '@/components/Editor/PulseRailHost';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
+import { useLiveRunStore } from '@/stores/liveRunStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -88,6 +89,7 @@ afterEach(() => {
   useTimelineStore.setState({ recording: null, current: 0 });
   useDebuggerStore.setState({ pausedFrame: null });
   useUIStore.setState({ activeBottomPanel: 'console' });
+  useLiveRunStore.setState({ byTab: {} });
 });
 
 describe('PulseRailHost', () => {
@@ -128,6 +130,28 @@ describe('PulseRailHost', () => {
     publishRun([1]);
     view.rerender(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
     expect(model.rail()[1]).toBe('lingua-rail lingua-rail--answered');
+  });
+
+  it('beats on the line a run in flight is on, over the previous run\'s held marks', () => {
+    const model = new FakeModel(source);
+    const editor = fakeEditor(model);
+    const view = render(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" />);
+    publishRun([4]);
+    view.rerender(<PulseRailHost editor={editor as never} monaco={monaco as never} tabId="t1" held />);
+    publishRun([], { isManualRunning: true, runTermination: null });
+    const beats = () =>
+      model.decorations.filter(({ options }) => options.linesDecorationsClassName === 'lingua-rail lingua-rail--running').map(({ range }) => range.line);
+    expect(beats()).toEqual([]);
+    act(() => useLiveRunStore.getState().publish('t1', 'r1', { line: 2, lineMs: 0, elapsedMs: 5, loops: [] }));
+    expect(beats()).toEqual([2]);
+    expect(model.decorations.find(({ options }) => options.linesDecorationsClassName === 'lingua-rail lingua-rail--running')?.options).toMatchObject({
+      lineNumberClassName: 'lingua-rail-number--running',
+    });
+    act(() => useLiveRunStore.getState().publish('t2', 'r2', { line: 5, lineMs: 0, elapsedMs: 5, loops: [] }));
+    act(() => useLiveRunStore.getState().publish('t1', 'r1', { line: 4, lineMs: 0, elapsedMs: 60, loops: [] }));
+    expect(beats()).toEqual([4]);
+    act(() => useLiveRunStore.getState().clear('t1', 'r1'));
+    expect(beats()).toEqual([]);
   });
 
   it('ignores results another tab produced', () => {

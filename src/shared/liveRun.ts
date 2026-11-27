@@ -7,14 +7,33 @@ export const LIVE_RUN_PROTOCOL_VERSION = 1;
 export const LIVE_RUN_THROTTLE_MS = 50;
 /** Innermost loops kept per snapshot. */
 export const LIVE_RUN_MAX_LOOPS = 8;
+/** A loop variable's value longer than this is not sent; a cut literal would read as another value. */
+export const LIVE_RUN_MAX_BINDING_TEXT = 400;
+/** A loop variable that is a list or dict sends its value only up to this many items. */
+export const LIVE_RUN_MAX_BINDING_ITEMS = 50;
+
+/** The loop variable on the current pass: its name and its value as source text (a literal or repr). */
+export interface LiveRunBinding {
+  readonly name: string;
+  readonly value: string;
+}
+
+/** A loop's header line and the last line of its body, as an instrumenter saw them. */
+export interface LiveLoopSpan {
+  readonly line: number;
+  readonly end: number;
+}
 
 export interface LiveRunLoop {
   /** The loop's header line. */
   readonly line: number;
+  /** The last line of its body. */
+  readonly end?: number;
   /** 1-based pass of this execution of the loop; 0 before its first pass. */
   readonly pass: number;
   /** Passes the loop will make, when the runtime can tell without running it. */
   readonly total?: number;
+  readonly binding?: LiveRunBinding;
 }
 
 export interface LiveRunSnapshot {
@@ -42,6 +61,15 @@ const countOf = (value: unknown): number | undefined =>
   Number.isSafeInteger(value) && (value as number) >= 0 ? (value as number) : undefined;
 const msOf = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+const BINDING_NAME = /^[\p{L}_$][\p{L}\p{N}_$]{0,63}$/u;
+
+function bindingOf(value: unknown): LiveRunBinding | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const { name, value: text } = value as Record<string, unknown>;
+  if (typeof name !== 'string' || !BINDING_NAME.test(name)) return undefined;
+  if (typeof text !== 'string' || text.length === 0 || text.length > LIVE_RUN_MAX_BINDING_TEXT) return undefined;
+  return { name, value: text };
+}
 
 /** A result's loop pass from a worker reply, as a field to spread; see `ConsoleOutput.pass`. */
 export function livePassField(value: unknown): { pass?: number } {
@@ -64,7 +92,15 @@ export function sanitizeLiveRun(value: unknown): LiveRunSnapshot | undefined {
     const pass = countOf(loop.pass);
     if (loopLine === 0 || pass === undefined) continue;
     const total = countOf(loop.total);
-    loops.push({ line: loopLine, pass, ...(total !== undefined ? { total } : {}) });
+    const end = lineOf(loop.end);
+    const binding = bindingOf(loop.binding);
+    loops.push({
+      line: loopLine,
+      pass,
+      ...(end >= loopLine ? { end } : {}),
+      ...(total !== undefined ? { total } : {}),
+      ...(binding ? { binding } : {}),
+    });
   }
   const waitMs = msOf(raw.waitMs);
   return {
@@ -82,7 +118,10 @@ export function mapLiveRunLines(live: LiveRunSnapshot, map: (line: number) => nu
   if (!line) return undefined;
   const loops = live.loops.flatMap(loop => {
     const header = map(loop.line);
-    return header ? [{ ...loop, line: header }] : [];
+    if (!header) return [];
+    const { end: _end, ...rest } = loop;
+    const end = loop.end === undefined ? undefined : map(loop.end);
+    return [{ ...rest, line: header, ...(end && end >= header ? { end } : {}) }];
   });
   return { ...live, line, loops };
 }

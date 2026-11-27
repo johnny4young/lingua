@@ -3,6 +3,7 @@ import type * as monacoTypes from 'monaco-editor';
 import { useShallow } from 'zustand/react/shallow';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useLiveRunStore } from '../../stores/liveRunStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useRunRegionStore } from '../../stores/runRegionStore';
 import { useTimelineStore } from '../../stores/timelineStore';
@@ -29,7 +30,8 @@ function railFrontier(
 
 /**
  * The run rail between the line numbers and the code: a tick on each line the
- * run reached, dots where it did not, a beat on the selected timeline step, a
+ * run reached, dots where it did not, a beat on the line a run in flight is on
+ * or on the selected timeline step, a
  * cross where it threw and a held mark where the debugger paused. Each
  * completed run sends the pulse down the rail once.
  */
@@ -135,6 +137,17 @@ export function PulseRailHost({
     else decorations.current = editor.createDecorationsCollection(next);
   }, [editor, monaco, rail, travelRun, stale, held]);
 
+  // The run in flight beats on the line it is on, over the marks the previous run left.
+  const liveLine = useLiveRunStore(state => (tabId ? (state.byTab[tabId]?.live.line ?? null) : null));
+  const beat = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
+  useEffect(() => {
+    if (!editor || !monaco) return;
+    const next =
+      liveLine === null || pausedLine !== null || stale ? [] : [railDecoration(monaco, { line: liveLine, state: 'running', slot: null }, false, null)];
+    if (beat.current) beat.current.set(next);
+    else beat.current = editor.createDecorationsCollection(next);
+  }, [editor, monaco, liveLine, pausedLine, stale, model]);
+
   // The held ring follows the pause even while the rail is stale, so it always marks the line the debugger holds.
   const hold = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
   useEffect(() => {
@@ -151,6 +164,7 @@ export function PulseRailHost({
     () => () => {
       decorations.current?.clear();
       hold.current?.clear();
+      beat.current?.clear();
     },
     []
   );

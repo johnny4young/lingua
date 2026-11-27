@@ -191,7 +191,7 @@ export async function executeAutoRun({
         browserPreviewRefreshIntervalMs
       );
     }
-    const live = reportLiveRun(activeTab.id);
+    const live = reportLiveRun(activeTab.id, code);
     const result = await runner.execute(code, {
       language,
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),

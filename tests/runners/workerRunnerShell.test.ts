@@ -596,8 +596,8 @@ describe('the live signal', () => {
 
   it('asks for probes and hands each checked snapshot to the run', async () => {
     const onLive = vi.fn();
-    const { promise, worker } = startRun({ liveLoops: [2], context: { tabId: 'tab-live', onLive } });
-    expect(worker.posted[0]).toMatchObject({ live: { loops: [2] } });
+    const { promise, worker } = startRun({ liveLoops: [{ line: 2, end: 4 }], context: { tabId: 'tab-live', onLive } });
+    expect(worker.posted[0]).toMatchObject({ live: { loops: [{ line: 2, end: 4 }] } });
 
     worker.emitForRun({ type: 'live-line', v: 1, live });
     // A malformed snapshot is dropped.

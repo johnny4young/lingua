@@ -4,6 +4,7 @@ import type * as monacoTypes from 'monaco-editor';
 import { InlineResultWidgets } from '@/components/Editor/InlineResultWidgets';
 import { useResultStore } from '@/stores/resultStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useLiveRunStore } from '@/stores/liveRunStore';
 
 let nextFrame = 0;
 const frames = new Map<number, FrameRequestCallback>();
@@ -41,6 +42,7 @@ function harness() {
     getLineMaxColumn: () => 90,
     getLineContent: (line: number) => lines[line] ?? 'value',
     getValue: () => Array.from({ length: lineCount }, (_, index) => lines[index + 1] ?? 'value').join('\n'),
+    getLinesContent: () => Array.from({ length: lineCount }, (_, index) => lines[index + 1] ?? 'value'),
     getLineFirstNonWhitespaceColumn: (line: number) => (lines[line]?.search(/\S/) ?? 0) + 1,
     getVersionId: () => version,
     getLanguageId: () => 'javascript',
@@ -68,6 +70,7 @@ function harness() {
     onDidScrollChange: subscribe('scroll'),
     onDidLayoutChange: subscribe('layout'),
     onDidChangeConfiguration: subscribe('configuration'),
+    onDidContentSizeChange: subscribe('contentSize'),
     onDidChangeModelContent: (fn: (event: { changes: typeof contentChanges }) => void) =>
       subscribe('content')(() => fn({ changes: contentChanges })),
     onDidChangeModel: subscribe('model'),
@@ -201,6 +204,7 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  useLiveRunStore.setState({ byTab: {} });
 });
 
 describe('inline results line up in the answer column', () => {
@@ -941,3 +945,71 @@ describe('the previous run holds its answers while the next run is in flight', (
     expect(row(2)).toBeNull();
   });
 });
+
+describe('live answers while a run goes', () => {
+  type Loop = { line: number; end?: number; pass: number; total?: number; binding?: { name: string; value: string } };
+  const live = (code: string[], line: number, lineMs: number, loops: Loop[] = []) =>
+    act(() => useLiveRunStore.getState().publish('tab', 'run-1', { line, lineMs, elapsedMs: lineMs, loops }, code.join('\n')));
+  const liveAnswer = (line: number) => document.querySelector<HTMLElement>(`[data-testid="lingua-live-answer"][data-line="${line}"]`);
+
+  it('names the loop pass and variable on the header and RUNNING on the line that holds the run, over its own answer', () => {
+    const h = harness();
+    const code = ['for (const name of names) {', '  slow(name);'];
+    h.setLines({ 1: code[0]!, 2: code[1]! });
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 2, type: 'result', value: '7' }]} language="javascript" editor={h.editor} />);
+    live(code, 2, 40, [{ line: 1, pass: 3, total: 3, binding: { name: 'name', value: '"db"' } }]);
+    flushFrames();
+    const loop = liveAnswer(1)!;
+    expect(loop.textContent).toContain('loop');
+    expect(loop.textContent).toContain('3 of 3');
+    expect(loop.textContent).toContain('name =');
+    expect(loop.textContent).toContain('"db"');
+    expect(loop.style.left).toBe('452px');
+    expect(loop.style.visibility).toBe('');
+    // Under the hold time a line is passing through, not holding the run.
+    expect(liveAnswer(2)).toBeNull();
+    live(code, 2, 320, [{ line: 1, pass: 3, total: 3 }]);
+    flushFrames();
+    const running = liveAnswer(2)!;
+    expect(running.textContent).toContain('running');
+    expect(running.textContent).toContain('on this line');
+    expect(running.querySelector('[data-live-kind="running"]')).not.toBeNull();
+    const own = document.querySelector<HTMLElement>('[data-testid="lingua-inline-result"][data-line="2"]')!;
+    expect(own.hasAttribute('data-live-covered')).toBe(true);
+    act(() => useLiveRunStore.getState().clear('tab', 'run-1'));
+    flushFrames();
+    expect(liveAnswer(1)).toBeNull();
+    expect(own.hasAttribute('data-live-covered')).toBe(false);
+  });
+
+  it('counts a repeated answer as passes of the open loop around it', () => {
+    const h = harness();
+    h.setLineCount(3);
+    const code = ['for (const n of [1, 2, 3]) {', '  console.log(n);', '}'];
+    h.setLines({ 1: code[0]!, 2: code[1]!, 3: code[2]! });
+    const printed = [1, 2].map(pass => ({ line: 2, type: 'log' as const, value: String(pass), pass }));
+    render(<InlineResultWidgets {...props} lineResults={printed} language="javascript" editor={h.editor} />);
+    flushFrames();
+    expect(document.querySelector('[data-testid="lingua-inline-result-repeat"]')?.textContent).toBe('last of 2');
+    live(code, 2, 0, [{ line: 1, end: 3, pass: 2, total: 3 }]);
+    expect(document.querySelector('[data-testid="lingua-inline-result-repeat"]')?.textContent).toBe('2 of 3 printed');
+  });
+
+  it('shows no live answer in a narrow editor or on a line edited since the run started', () => {
+    const h = harness();
+    const code = ['for (const n of xs) {', '  slow(n);'];
+    h.setLines({ 1: code[0]!, 2: code[1]! });
+    render(<InlineResultWidgets {...props} lineResults={[]} language="javascript" editor={h.editor} />);
+    live(code, 2, 400, [{ line: 1, pass: 1, total: 2 }]);
+    flushFrames();
+    expect(liveAnswer(2)?.style.visibility).toBe('');
+    h.setLines({ 1: 'for (const n of xs) {', 2: '  slower(n);' });
+    h.fire('content');
+    expect(liveAnswer(2)?.style.visibility).toBe('hidden');
+    expect(liveAnswer(1)?.style.visibility).toBe('');
+    h.setContentWidth(500);
+    h.fire('layout');
+    expect(liveAnswer(1)?.style.visibility).toBe('hidden');
+  });
+});
+

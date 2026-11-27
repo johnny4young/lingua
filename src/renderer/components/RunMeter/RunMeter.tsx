@@ -5,10 +5,12 @@ import { useShallow } from 'zustand/react/shallow';
 import '../../i18n/runMeterCatalog';
 import { FREE_TIER_LIMITS } from '../../../shared/entitlements';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import { useNow } from '../../hooks/useNow';
 import { useRunStale } from '../../hooks/useRunStale';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { setRecentRunsPopoverOpener } from '../../runtime/recentRunsPopoverBridge';
 import { bpKey, useDebuggerStore } from '../../stores/debuggerStore';
+import { useLiveRunStore } from '../../stores/liveRunStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { type ExecutionHistoryEntry, useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { type TabRunLog, useResultStore } from '../../stores/resultStore';
@@ -66,17 +68,6 @@ function nextPopover(current: PopoverState, tabId: string, focusId?: string): Po
   return current?.tabId === tabId && current.focusId === focusId ? null : { tabId, ...(focusId ? { focusId } : {}) };
 }
 
-/** Ticks while `active`; holds the last reading otherwise, so a pause freezes the numeral. */
-function useClock(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const handle = setInterval(() => setNow(Date.now()), 100);
-    return () => clearInterval(handle);
-  }, [active]);
-  return now;
-}
-
 export interface RunMeterProps {
   tabId: string;
   /** Opens Compare; absent when Compare is unavailable. */
@@ -125,19 +116,21 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
   const last = log.runs.at(-1) ?? null;
   const state = meterState({ running, paused, stale, last });
   const live = state === 'running' || state === 'paused';
-  const now = useClock(state === 'running');
+  // Holds its last reading when the run stops, so a pause freezes the numeral.
+  const now = useNow(state === 'running');
   const elapsedMs = live && ranAt !== null ? Math.max(0, now - ranAt) : null;
   const number = live ? log.count + 1 : log.count;
   const numeral = splitRunDuration(live ? elapsedMs : (last?.durationMs ?? null));
   const bars = meterBars(log.runs, live && elapsedMs !== null ? { number, elapsedMs } : null);
   const countdown = state === 'running' && showCountdown && deadlineAt !== null ? formatCountdown(deadlineAt - now) : null;
-  // While paused the numeral is the line, so only an error names it in the state row.
-  const line = state === 'error' || state === 'timeout' ? (last?.line ?? null) : null;
+  const liveLine = useLiveRunStore(state => state.byTab[tabId]?.live.line ?? null);
+  // While paused the numeral is the line, so only a run in flight or an error names it in the state row.
+  const line = state === 'error' || state === 'timeout' ? (last?.line ?? null) : state === 'running' ? liveLine : null;
+  const liveLineShown = state === 'running' && line !== null;
   const stack = useMemo(() => (callStack ? stackRows(callStack) : []), [callStack]);
-  // The buffer is only scanned while a line is on show, so typing never pays for it.
-  const totalLines = useEditorStore(state =>
-    line === null ? 0 : lineCount(state.tabs.find(tab => tab.id === tabId)?.content ?? '')
-  );
+  // The buffer is read only while a line is on show and scanned once per edit, not per clock tick.
+  const content = useEditorStore(state => (line === null ? '' : (state.tabs.find(tab => tab.id === tabId)?.content ?? '')));
+  const totalLines = useMemo(() => lineCount(content), [content]);
   const compareWith = live ? (last?.number ?? null) : (log.runs.at(-2)?.number ?? null);
 
   // Recent runs popover: the bars and Mod+Alt+H open it, fixed above the meter so the dock cannot clip it.
@@ -223,10 +216,14 @@ export function RunMeter({ tabId, onCompare }: RunMeterProps) {
           <RunDot state={DOT[state] as TabRunState} />
           <span className="run-meter-state-name">{t(`runMeter.state.${state}`)}</span>
           {pauseReason ? <span className="run-meter-state-detail">· {t(`runMeter.reason.${pauseReason}`)}</span> : null}
-          {/* Paused, the reason takes the run's place; the answer column header still names the run. */}
-          {number > 0 && !paused ? <span className="run-meter-state-detail">· {t('runMeter.run', { number })}</span> : null}
+          {/* Paused or on a live line, the reason or the line takes the run's place; the answer column header still names the run. */}
+          {number > 0 && !paused && !liveLineShown ? <span className="run-meter-state-detail">· {t('runMeter.run', { number })}</span> : null}
           {line !== null ? (
-            <span className="run-meter-state-detail">· {t('runMeter.line', { line, total: Math.max(line, totalLines) })}</span>
+            // The live line moves many times a second; the polite region would read every move.
+            <span className="run-meter-state-detail" data-testid="run-meter-line" aria-hidden={liveLineShown || undefined}>
+              <span className="run-meter-line-full">· {t('runMeter.line', { line, total: Math.max(line, totalLines) })}</span>
+              <span className="run-meter-line-short">· {t('runMeter.lineAt', { line })}</span>
+            </span>
           ) : null}
           {countdown !== null ? <span className="run-meter-state-detail">· {t('runMeter.left', { time: countdown })}</span> : null}
           {stateTitle ? <span className="sr-only">{stateTitle}</span> : null}

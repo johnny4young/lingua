@@ -102,4 +102,10 @@ describe('state answers', () => {
     expect(screen.getByText('name =')).toBeTruthy();
     expect(screen.getByTestId('answer-object-binding').textContent).toContain("'db'");
   });
+
+  it('counts passes without dots when the loop has no known end', () => {
+    const { container } = render(<LoopAnswerObject iteration={12} />);
+    expect(screen.getByText('pass 12')).toBeTruthy();
+    expect(container.querySelector('.answer-object-dots')).toBeNull();
+  });
 });

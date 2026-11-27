@@ -1,9 +1,12 @@
 import {
   LIVE_RUN_MAX_LOOPS,
   LIVE_RUN_THROTTLE_MS,
+  type LiveLoopSpan,
+  type LiveRunBinding,
   type LiveRunLoop,
   type LiveRunSnapshot,
 } from '../../shared/liveRun';
+import { readPreview } from './js-worker-live-preview';
 
 /**
  * Probes run before every statement, so the clock is read only once per
@@ -17,8 +20,11 @@ const MAX_COUNTDOWN = 512;
 interface ActiveLoop {
   readonly id: number;
   readonly line: number;
+  readonly end: number;
   /** Reads the pass counter the instrumented loop keeps. */
   readonly pass: () => number;
+  /** Reads the loop variable's slot, for a loop that binds one name. */
+  readonly binding: { readonly name: string; readonly read: () => unknown } | undefined;
   total?: number;
   /** The run-wide number given to the pass `numberedPass`. */
   ordinal: number;
@@ -27,7 +33,7 @@ interface ActiveLoop {
 
 export interface JsWorkerLiveTracker {
   readonly line: (line: number) => void;
-  readonly loop: (id: number, pass: () => number) => void;
+  readonly loop: (id: number, pass: () => number, read?: () => unknown, name?: string) => void;
   readonly end: (id: number) => void;
   /** Called on some passes of a hot loop, so its countdown still reaches the clock. */
   readonly pass: () => void;
@@ -35,6 +41,11 @@ export interface JsWorkerLiveTracker {
   /** The innermost running loop's pass number, 0 outside loops. */
   readonly passOrdinal: () => number;
   readonly stop: () => void;
+}
+
+function bindingOf(entry: ActiveLoop): { binding?: LiveRunBinding } {
+  const value = entry.binding && entry.pass() > 0 ? readPreview(entry.binding.read) : undefined;
+  return value === undefined ? {} : { binding: { name: entry.binding!.name, value } };
 }
 
 function sizeOf(value: unknown): number | undefined {
@@ -45,10 +56,10 @@ function sizeOf(value: unknown): number | undefined {
   return undefined;
 }
 
-/** `loopLines[id]` is the header line of loop `id` in the instrumented source. */
+/** `loopSpans[id]` is the header and body end of loop `id` in the source. */
 export function createJsWorkerLive(
   post: (live: LiveRunSnapshot) => void,
-  loopLines: readonly number[],
+  loopSpans: readonly LiveLoopSpan[],
   now: () => number = () => performance.now()
 ): JsWorkerLiveTracker {
   const start = now();
@@ -67,7 +78,13 @@ export function createJsWorkerLive(
     lineMs: at - lineStart,
     elapsedMs: at - start,
     loops: stack.slice(-LIVE_RUN_MAX_LOOPS).map(
-      (entry): LiveRunLoop => ({ line: entry.line, pass: entry.pass(), ...(entry.total !== undefined ? { total: entry.total } : {}) })
+      (entry): LiveRunLoop => ({
+        line: entry.line,
+        ...(entry.end > 0 ? { end: entry.end } : {}),
+        pass: entry.pass(),
+        ...(entry.total !== undefined ? { total: entry.total } : {}),
+        ...bindingOf(entry),
+      })
     ),
   });
 
@@ -102,8 +119,9 @@ export function createJsWorkerLive(
       current = line;
       if (--countdown <= 0) sample(true);
     },
-    loop(id, pass) {
-      stack.push({ id, line: loopLines[id] ?? 0, pass, ordinal: 0, numberedPass: -1 });
+    loop(id, pass, read, name) {
+      const { line = 0, end = 0 } = loopSpans[id] ?? {};
+      stack.push({ id, line, end, pass, binding: read && typeof name === 'string' ? { name, read } : undefined, ordinal: 0, numberedPass: -1 });
     },
     end(id) {
       if (top(id)) stack.pop();

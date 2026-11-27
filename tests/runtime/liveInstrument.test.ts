@@ -50,7 +50,10 @@ describe('instrumentForLive', () => {
       '}',
     ].join('\n');
     const { loops, events } = trace(source);
-    expect(loops).toEqual([1, 2]);
+    expect(loops).toEqual([
+      { line: 1, end: 5 },
+      { line: 2, end: 4 },
+    ]);
     // Only the first pass of each execution calls out; the rest count in place.
     expect(events).toEqual(['loop 0', 'call', 'loop 1', 'of 1', 'call', 'end 1:2', 'loop 1', 'of 1', 'call', 'end 1:2', 'end 0:2']);
   });
@@ -101,4 +104,43 @@ describe('instrumentForLive', () => {
   it('throws on malformed code like the other instrumenters', () => {
     expect(() => instrumentForLive('for (')).toThrow();
   });
+
+  it('copies the one name a loop binds into a slot the tracker reads, and skips a body that declares it again', () => {
+    const source = [
+      'const seen = [];',
+      'for (const name of ["api", "db"]) seen.push(name);',
+      'for (let i = 0; i < 2; i += 1) { seen.push(i); }',
+      'for (const k in { a: 1 }) { const k2 = k; }',
+      'for (const x of [1]) { let x = 2; }',
+      'for (const [a, b] of [[1, 2]]) {}',
+      'return seen;',
+    ].join('\n');
+    const { code } = instrumentForLive(source);
+    parses(code);
+    const reads: Array<[number, string | undefined, unknown[]]> = [];
+    const open: Array<{ id: number; name?: string; read?: () => unknown; values: unknown[] }> = [];
+    const fn = new Function('__lingua_live', '__lingua_loop', '__lingua_loop_end', '__lingua_pass', '__lingua_of', code);
+    const seen = fn(
+      () => {},
+      (id: number, _pass: () => number, read?: () => unknown, name?: string) => open.push({ id, ...(name ? { name } : {}), ...(read ? { read } : {}), values: [] }),
+      () => {
+        const loop = open.pop()!;
+        reads.push([loop.id, loop.name, loop.read ? [loop.read()] : []]);
+      },
+      () => {
+        const loop = open.at(-1)!;
+        if (loop.read) loop.values.push(loop.read());
+      },
+      (_id: number, value: unknown) => value
+    );
+    expect(seen).toEqual(['api', 'db', 0, 1]);
+    expect(reads).toEqual([
+      [0, 'name', ['db']],
+      [1, 'i', [1]],
+      [2, 'k', ['a']],
+      [3, undefined, []],
+      [4, undefined, []],
+    ]);
+  });
 });
+
