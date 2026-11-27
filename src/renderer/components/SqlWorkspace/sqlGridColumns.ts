@@ -4,7 +4,7 @@
  */
 
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
-import { isIdentifierColumn } from './sqlColumnInstruments';
+import { groupsDigits, isIdentifierColumn } from './sqlColumnInstruments';
 import { BIN_COUNT, isTemporal } from './sqlColumnStats';
 import { renderCell } from './sqlResultFormatters';
 
@@ -58,12 +58,14 @@ export interface ColumnGap {
 
 export type ColumnSlot = TypedColumn | ColumnGap;
 
-function cellChars(value: unknown, duckType: string): number {
+function cellChars(value: unknown, duckType: string, grouped: boolean): number {
   // BLOBs and image data URLs draw as thumbnails that fit any column; their text is base64 nobody reads across.
   if (duckType === 'BLOB' || (typeof value === 'string' && value.startsWith('data:image/'))) return 0;
   const text = renderCell(value);
   if (text.length >= MAX_CELL_CHARS) return MAX_CELL_CHARS;
-  return text.length + (text.match(WIDE_CHARS)?.length ?? 0);
+  // The grid draws a grouped number with a separator every three integer digits.
+  const separators = grouped ? Math.floor(((/^-?(\d+)/.exec(text)?.[1]?.length ?? 1) - 1) / 3) : 0;
+  return text.length + separators + (text.match(WIDE_CHARS)?.length ?? 0);
 }
 
 /**
@@ -78,13 +80,14 @@ export function planColumns(
   linkedColumns: ReadonlySet<string> | undefined
 ): ColumnPlan {
   const longest = typed.map(() => 0);
+  const grouped = typed.map(({ col, numeric }) => numeric && linkedColumns?.has(col.name) !== true && groupsDigits(col.name));
   const step = Math.max(1, Math.floor(rows.length / SAMPLE_ROWS));
   // Row by row, and past a column's cap never again: a long JSON value is costly to stringify.
   for (let r = 0; r < rows.length; r += step) {
     const row = rows[r]!;
     for (let c = 0; c < typed.length; c++) {
       if (longest[c]! >= MAX_CELL_CHARS) continue;
-      const chars = cellChars(row[typed[c]!.col.name], typed[c]!.duckType);
+      const chars = cellChars(row[typed[c]!.col.name], typed[c]!.duckType, grouped[c]!);
       if (chars > longest[c]!) longest[c] = chars;
     }
   }

@@ -8,6 +8,7 @@
  * preview rows — they never re-run a query.
  */
 
+import { coerceSupportedLanguage } from '../../../shared/i18n/languages';
 import { compareNumbers, nonFiniteNumber } from './sqlNonFinite';
 
 type SqlSortDirection = 'asc' | 'desc';
@@ -108,6 +109,17 @@ export function sortRows<T extends Record<string, unknown>>(
     .map((entry) => entry.row);
 }
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** A number typed as the grid shows it (`5,412.5`, `5.412,5` in es), back in the raw form the cells hold. */
+function rawNumberNeedle(needle: string, language: string): string | null {
+  const parts = new Intl.NumberFormat(coerceSupportedLanguage(language)).formatToParts(12345.6);
+  const group = parts.find((part) => part.type === 'group')?.value ?? ',';
+  const decimal = parts.find((part) => part.type === 'decimal')?.value ?? '.';
+  const raw = needle.split(group).join('').replace(decimal, '.');
+  return raw !== needle && /^-?\d+(\.\d*)?$/.test(raw) ? raw : null;
+}
+
 /**
  * Filter rows to those where ANY cell value contains the (lowercased)
  * needle as a substring. An empty / whitespace needle returns the rows
@@ -119,12 +131,14 @@ export function sortRows<T extends Record<string, unknown>>(
  */
 export function filterRows<T extends Record<string, unknown>>(
   rows: ReadonlyArray<T>,
-  needle: string
+  needle: string,
+  language?: string
 ): T[] {
   const trimmed = needle.trim();
   if (trimmed.length === 0) return [...rows];
-  // One case-insensitive pattern instead of lower-casing every cell.
-  const pattern = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  // One case-insensitive pattern instead of lower-casing every cell; a number also matches its raw digits.
+  const raw = language ? rawNumberNeedle(trimmed, language) : null;
+  const pattern = new RegExp(raw ? `${escapeRegExp(trimmed)}|${escapeRegExp(raw)}` : escapeRegExp(trimmed), 'i');
   return rows.filter((row) => {
     for (const key in row) {
       if (pattern.test(stringifyForCompare(row[key]))) return true;

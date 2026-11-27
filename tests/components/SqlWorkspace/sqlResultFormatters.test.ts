@@ -97,5 +97,6 @@ describe('renderNumberCell', () => {
     expect(renderNumberCell(Number.NaN, 'en')).toBe('NaN');
     expect(renderNumberCell(null, 'en')).toBe('null');
     expect(renderNumberCell('n/a', 'en')).toBe('n/a');
+    expect(renderNumberCell(-0, 'en')).toBe('0');
   });
 });

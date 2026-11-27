@@ -44,6 +44,12 @@ export function isIdentifierColumn(name: string): boolean {
   return nameWords(name).at(-1) === 'id';
 }
 
+/** Keys and years read as labels, so a numeric column by these names keeps its raw digits on screen. */
+export function groupsDigits(name: string): boolean {
+  const last = nameWords(name).at(-1);
+  return last !== 'id' && last !== 'year';
+}
+
 const isAverageColumn = (name: string) => nameWords(name).some((word) => AVERAGE_WORDS.has(word));
 
 function decimalsOf(raw: unknown, value: number): number {

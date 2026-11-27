@@ -26,12 +26,18 @@ describe('planColumns', () => {
 
   it('reserves room for a scale bar on every measure, a 0–1 bar and a foreign key arrow', () => {
     const width = (name: string, fractions = new Set<string>(), linked?: Set<string>) =>
-      planColumns([column(name, 'DOUBLE', true)], [{ [name]: '12345678901234567890.123' }], fractions, linked).widths[0]!;
+      planColumns([column(name, 'DOUBLE', true)], [{ [name]: '123.45678901234567890123' }], fractions, linked).widths[0]!;
     // A key draws no bar, so it is the plain width.
     const plain = width('c_id');
     expect(width('c')).toBe(plain + 98);
     expect(width('c', new Set(['c']))).toBe(plain + 56);
     expect(width('c', new Set(), new Set(['c']))).toBe(plain + 13);
+  });
+
+  it('counts the separators of a grouped number, but not of a key', () => {
+    const value = '12345678901234567890.123';
+    // The bar track plus six separators, within the rounding of both widths.
+    expect(Math.abs(widthOf(value, column('c', 'DOUBLE', true)) - widthOf(value, column('c_id', 'DOUBLE', true)) - (98 + 6 * 6.6))).toBeLessThan(1);
   });
 
   it('reserves the type line of a text head with its distinct count', () => {

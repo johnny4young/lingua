@@ -245,13 +245,13 @@ export function SqlResultPreview({
   // Typing stays responsive while a large result is searched.
   const searchText = useDeferredValue(filter);
   const filteredRows = useMemo(
-    () => (shownRows.length === 0 ? [] : applyConditions(filterRows(shownRows, searchText), conditions, columns)),
-    [shownRows, searchText, conditions, columns]
+    () => (shownRows.length === 0 ? [] : applyConditions(filterRows(shownRows, searchText, i18n.language), conditions, columns)),
+    [shownRows, searchText, conditions, columns, i18n.language]
   );
   // The rail describes the rows as read, not the staged changes.
   const railRows = useMemo(
-    () => (shownRows === loadedRows ? filteredRows : applyConditions(filterRows(loadedRows, searchText), conditions, columns)),
-    [shownRows, loadedRows, filteredRows, searchText, conditions, columns]
+    () => (shownRows === loadedRows ? filteredRows : applyConditions(filterRows(loadedRows, searchText, i18n.language), conditions, columns)),
+    [shownRows, loadedRows, filteredRows, searchText, conditions, columns, i18n.language]
   );
   const filteredSortedRows = useMemo(() => sortRows(filteredRows, sort), [filteredRows, sort]);
   // Rows on screen grow by one page per Load more; a new response starts over.

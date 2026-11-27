@@ -34,7 +34,7 @@ const decimalSeparators = new Map<string, string>();
  */
 export function renderNumberCell(value: unknown, language: string): string {
   // Most cells are plain integers: one cached formatter call, no string parsing.
-  if (Number.isSafeInteger(value)) return formatNumber(value as number, language);
+  if (Number.isSafeInteger(value) && !Object.is(value, -0)) return formatNumber(value as number, language);
   const raw = renderCell(value);
   const match = typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' ? PLAIN_NUMBER.exec(raw) : null;
   if (!match) return raw;

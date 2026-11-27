@@ -32,8 +32,7 @@ import {
 } from './sqlGridColumns';
 import type { SqlSortState } from './sqlResultGrid';
 import { cellText, cellTone, DELETED, type CellTone, type ShownRow } from './sqlRowEditModel';
-import { barShare, formatSummary, isIdentifierColumn, type SqlResultInstruments } from './sqlColumnInstruments';
-import { toWords } from '../../utils/stringCase';
+import { barShare, formatSummary, groupsDigits, type SqlResultInstruments } from './sqlColumnInstruments';
 import type { SqlColumnStats } from './sqlColumnStats';
 import '../../i18n/sqlConnectionsCatalog';
 
@@ -298,9 +297,9 @@ const GridRow = memo(function GridRow({
             ) : tone === 'inserted' && value === undefined ? (
               UNSET_CELL
             ) : magic ? (
-              <MagicCell magic={magic} text={renderCell(value)} />
+              <MagicCell magic={magic} text={magic.kind === 'bar' && grouped.has(col.name) ? renderNumberCell(value, language) : renderCell(value)} />
             ) : share !== null ? (
-              <NumberBar share={share} text={renderNumberCell(value, language)} />
+              <NumberBar share={share} text={grouped.has(col.name) ? renderNumberCell(value, language) : renderCell(value)} />
             ) : grouped.has(col.name) ? (
               renderNumberCell(value, language)
             ) : (
@@ -531,12 +530,11 @@ export function SqlVirtualGrid({
     [columns]
   );
 
-  // Keys, foreign keys and years read as labels, so they keep their raw digits.
   const grouped = useMemo(
     () =>
       new Set(
         typed
-          .filter(({ col, numeric }) => numeric && !isIdentifierColumn(col.name) && !linkedColumns?.has(col.name) && toWords(col.name).at(-1)?.toLowerCase() !== 'year')
+          .filter(({ col, numeric }) => numeric && !linkedColumns?.has(col.name) && groupsDigits(col.name))
           .map(({ col }) => col.name)
       ),
     [typed, linkedColumns]

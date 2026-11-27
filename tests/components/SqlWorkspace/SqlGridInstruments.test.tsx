@@ -101,6 +101,21 @@ describe('SQL grid instruments', () => {
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('818294.40'));
   });
 
+  it('keeps a barred year column on its raw digits', () => {
+    const base = response();
+    const rows = [{ year: 2023, orders: 5412 }, { year: 2024, orders: 4977 }];
+    render(
+      <SqlResultPreview
+        response={{ ...base, rows, rowCount: rows.length, columns: [{ name: 'year', type: 'Int32' }, { name: 'orders', type: 'Int64' }] }}
+        isExecuting={false}
+        rowDisplayLimit={100}
+      />
+    );
+    expect(cell(1, 'year').querySelector('[data-testid="sql-cell-scale"]')).not.toBeNull();
+    expect(cell(1, 'year').textContent).toBe('2024');
+    expect(cell(0, 'orders').textContent).toBe('5,412');
+  });
+
   it('spans the pane: columns share the width a narrow result leaves', () => {
     render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
     expect(screen.getByTestId('sql-result-preview-table').className).toContain('min-w-full');
