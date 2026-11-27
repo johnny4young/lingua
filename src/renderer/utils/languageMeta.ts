@@ -76,6 +76,12 @@ const ENGLISH_FALLBACK_LABELS: Record<string, { label: string; shortLabel: strin
   shellscript: { label: 'Shell script', shortLabel: 'SH' },
 };
 
+// Workspace kinds ride the DS accent; the bare accent on its own tint is under 4.5:1 on light grounds.
+const ACCENT_TONE = {
+  background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
+  foreground: 'var(--color-accent-fg)',
+} as const;
+
 // Design-system chips from `Main v2.html`. Keep these token-like
 // oklch pairs here so the toolbar and tab overflow cannot drift.
 const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
@@ -109,26 +115,20 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
     background: 'oklch(0.95 0.04 24)',
     foreground: 'oklch(0.42 0.15 25)',
   },
-  // Workspace kinds (sql/http) ride the DS accent token instead of a
-  // bespoke hue — the same tone the SQL/HTTP/Utilities workspace lists use for
-  // their badges — so the pill chip stays on-system in both themes.
   sql: {
     code: 'SQL',
-    background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
-    foreground: 'var(--color-accent)',
+    ...ACCENT_TONE,
   },
   http: {
     code: 'HTTP',
-    background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
-    foreground: 'var(--color-accent)',
+    ...ACCENT_TONE,
   },
   // pipeline-run capsules carry `tab.language =
   // 'pipeline'`. Same DS accent token as the other workspace kinds so
   // the capsule browse badge + comparator chip stay on-system.
   pipeline: {
     code: 'PIPE',
-    background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
-    foreground: 'var(--color-accent)',
+    ...ACCENT_TONE,
   },
   utilities: {
     code: 'UTIL',

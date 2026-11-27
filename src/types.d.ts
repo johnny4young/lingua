@@ -375,6 +375,8 @@ type DesktopSmokeMemorySnapshot =
   | {
       ok: true;
       capturedAt: string;
+      /** Renderer isolates (page plus workers) collected before the read; null when skipped. */
+      collectedIsolates: number | null;
       process: {
         rssBytes: number;
         heapTotalBytes: number;
@@ -394,10 +396,7 @@ type DesktopSmokeMemorySnapshot =
         name?: string;
       }>;
     }
-  | {
-      ok: false;
-      reason: 'smoke-disabled' | 'unsupported';
-    };
+  | { ok: false; reason: 'smoke-disabled' | 'unsupported' };
 
 // -------------------------------------------------------------- License types
 

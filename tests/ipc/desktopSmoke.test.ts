@@ -47,6 +47,10 @@ vi.mock('electron', () => ({
 const mockReadProcessFootprints = vi.fn(async () => new Map([[123, 75 * 1024 * 1024]]));
 vi.mock('#src/main/processFootprint', () => ({ readProcessFootprints: mockReadProcessFootprints }));
 
+const mockCollectRendererGarbage = vi.fn(async () => 3 as number | null);
+vi.mock('#src/main/rendererGarbage', () => ({ collectRendererGarbage: mockCollectRendererGarbage }));
+const smokeSender = { id: 7 };
+
 vi.mock('node:fs/promises', () => ({
   mkdir: mockMkdir,
   writeFile: mockWriteFile,
@@ -232,10 +236,11 @@ describe('desktop smoke IPC handlers', () => {
     registerDesktopSmokeHandlers();
 
     const getMemorySnapshot = handlers.get('desktop-smoke:get-memory-snapshot');
-    const snapshot = await getMemorySnapshot?.();
+    const snapshot = await getMemorySnapshot?.({ sender: smokeSender });
 
     expect(snapshot).toMatchObject({
       ok: true,
+      collectedIsolates: 3,
       process: {
         rssBytes: expect.any(Number),
         heapTotalBytes: expect.any(Number),
@@ -253,6 +258,20 @@ describe('desktop smoke IPC handlers', () => {
       ],
     });
     expect(mockReadProcessFootprints).toHaveBeenCalledWith([123]);
+    expect(mockCollectRendererGarbage).toHaveBeenCalledWith(smokeSender);
+    // Garbage is collected before the footprint is read, or the read counts it.
+    expect(mockCollectRendererGarbage.mock.invocationCallOrder[0]).toBeLessThan(
+      mockReadProcessFootprints.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('still reports memory when the renderer could not be collected', async () => {
+    mockCollectRendererGarbage.mockResolvedValueOnce(null);
+    const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+    registerDesktopSmokeHandlers();
+
+    const snapshot = await handlers.get('desktop-smoke:get-memory-snapshot')?.({ sender: smokeSender });
+    expect(snapshot).toMatchObject({ ok: true, collectedIsolates: null });
   });
 
   it('keeps the working set when the platform has no footprint', async () => {
@@ -260,7 +279,7 @@ describe('desktop smoke IPC handlers', () => {
     const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
     registerDesktopSmokeHandlers();
 
-    const snapshot = await handlers.get('desktop-smoke:get-memory-snapshot')?.();
+    const snapshot = await handlers.get('desktop-smoke:get-memory-snapshot')?.({ sender: smokeSender });
     expect(snapshot).toMatchObject({
       ok: true,
       chromium: [{ pid: 123, workingSetSizeBytes: 2048 * 1024, footprintBytes: null }],
@@ -298,10 +317,11 @@ describe('desktop smoke IPC handlers', () => {
     registerDesktopSmokeHandlers();
 
     const getMemorySnapshot = handlers.get('desktop-smoke:get-memory-snapshot');
-    expect(await getMemorySnapshot?.()).toEqual({
+    expect(await getMemorySnapshot?.({ sender: smokeSender })).toEqual({
       ok: false,
       reason: 'smoke-disabled',
     });
+    expect(mockCollectRendererGarbage).not.toHaveBeenCalled();
   });
 
   it('forwards smoke mode to the sandboxed renderer only when main is in smoke mode', async () => {
