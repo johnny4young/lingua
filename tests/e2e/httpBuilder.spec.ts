@@ -403,6 +403,10 @@ test('stacks the response under the editor until the window is wide, with the he
   await expect(body).toHaveAttribute('data-layout', 'columns');
   await expect(page.getByTestId('http-request-editor-tab-assert')).toHaveAttribute('aria-selected', 'true');
   expect((await page.locator('[data-panel]#http-response-preview').boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(559);
+  // The flip restores the column split instead of carrying the stacked one over.
+  const editorWidth = (await page.locator('[data-panel]#http-request-editor').boundingBox())?.width ?? 0;
+  const responseWidth = (await page.locator('[data-panel]#http-response-preview').boundingBox())?.width ?? 0;
+  expect(Math.abs(editorWidth / (editorWidth + responseWidth) - 0.56)).toBeLessThan(0.02);
   await expect(page.getByTestId('http-request-list').getByTestId('http-response-history')).toHaveCount(0);
   await expect(page.getByTestId('http-response-history')).toBeVisible();
 });

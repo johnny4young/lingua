@@ -8,8 +8,8 @@
  * purely presentational; the orchestration lives here.
  */
 
-import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Group, Panel, useDefaultLayout, type GroupImperativeHandle } from 'react-resizable-panels';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWidthTier } from '../../hooks/useWidthTier';
 import { ResizeHandle } from '../ui/ResizeHandle';
@@ -145,8 +145,8 @@ const RESIZE_TARGET = { coarse: 24, fine: 24 };
 const SIDEBAR_PANELS = ['http-request-list', 'http-request-main'];
 const MAIN_PANELS = ['http-request-editor', 'http-response-preview'];
 const SPLITS = {
-  columns: { layoutId: 'lingua-http-workspace-columns-layout', axis: 'horizontal', handle: 'vertical', editor: ['56%', 320], response: ['44%', 560], border: 'border-l' },
-  stacked: { layoutId: 'lingua-http-workspace-stacked-layout', axis: 'vertical', handle: 'horizontal', editor: ['42%', 160], response: ['58%', 180], border: 'border-t' },
+  columns: { layoutId: 'lingua-http-workspace-columns-layout', axis: 'horizontal', handle: 'vertical', editorMin: 320, responseMin: 560, border: 'border-l', layout: { 'http-request-editor': 56, 'http-response-preview': 44 } },
+  stacked: { layoutId: 'lingua-http-workspace-stacked-layout', axis: 'vertical', handle: 'horizontal', editorMin: 160, responseMin: 180, border: 'border-t', layout: { 'http-request-editor': 42, 'http-response-preview': 58 } },
 } as const;
 
 export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
@@ -157,7 +157,16 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const columns = split === SPLITS.columns;
   const sidebarLayout = useDefaultLayout({ id: 'lingua-http-workspace-sidebar-layout', panelIds: SIDEBAR_PANELS, storage: localStorage });
   // Sizes persist per arrangement: they split the main pane along different axes.
-  const mainLayout = useDefaultLayout({ id: split.layoutId, panelIds: MAIN_PANELS, storage: localStorage });
+  // Only drags are saved, so the unmeasured first pass never clamps the other arrangement's sizes.
+  const mainLayout = useDefaultLayout({ id: split.layoutId, panelIds: MAIN_PANELS, storage: localStorage, onlySaveAfterUserInteractions: true });
+  const mainGroupRef = useRef<GroupImperativeHandle | null>(null);
+  const previousSplitRef = useRef(split);
+  useLayoutEffect(() => {
+    // The Group keeps its last layout across an orientation flip; restore this arrangement's own.
+    if (previousSplitRef.current === split) return;
+    previousSplitRef.current = split;
+    mainGroupRef.current?.setLayout(mainLayout.defaultLayout ?? split.layout);
+  }, [split, mainLayout.defaultLayout]);
   const requests = useWorkspaceToolStore(state => state.requests);
   const pipelineCount = useWorkspaceToolStore(state => state.httpPipelines.length);
   const activeRequestId = useWorkspaceToolStore(state => state.activeRequestId);
@@ -863,17 +872,18 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           <ResizeHandle orientation="vertical" />
           <Panel id="http-request-main" defaultSize="80%" minSize={320}>
             <Group
+              groupRef={mainGroupRef}
               orientation={split.axis}
               defaultLayout={mainLayout.defaultLayout}
               onLayoutChanged={mainLayout.onLayoutChanged}
               resizeTargetMinimumSize={RESIZE_TARGET}
               className="h-full"
             >
-              <Panel id="http-request-editor" defaultSize={split.editor[0]} minSize={split.editor[1]}>
+              <Panel id="http-request-editor" defaultSize={`${split.layout['http-request-editor']}%`} minSize={split.editorMin}>
                 {requestEditor}
               </Panel>
               <ResizeHandle orientation={split.handle} />
-              <Panel id="http-response-preview" defaultSize={split.response[0]} minSize={split.response[1]}>
+              <Panel id="http-response-preview" defaultSize={`${split.layout['http-response-preview']}%`} minSize={split.responseMin}>
                 <div className={cn('h-full border-border-subtle', split.border)}>{responsePane}</div>
               </Panel>
             </Group>
