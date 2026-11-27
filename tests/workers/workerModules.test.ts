@@ -23,6 +23,7 @@ import {
   buildPythonAutoLogExecutionSource,
   PYTHON_AUTO_LOG_HELPERS_SOURCE,
 } from '../../src/renderer/workers/python-worker-auto-log-source';
+import { buildPythonCellExecutionSource, PYTHON_CELL_SOURCE } from '../../src/renderer/workers/python-worker-cell-source';
 
 function createPythonExecutionHarness(overrides: Partial<PythonRuntimeAdapter> = {}) {
   const messages: PythonWorkerOutboundMessage[] = [];
@@ -191,10 +192,11 @@ describe('Python execution worker adapter', () => {
   it('asks the auto-log pass for assignments when a notebook cell runs', async () => {
     const harness = createPythonExecutionHarness();
     const source = 'tickets = [1, 2]\nawait asyncio.sleep(0)';
-    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source, 'cell'), false, true);
-    expect(buildPythonAutoLogExecutionSource(source, 'cell')).toBe(
-      `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals(), "cell")`
-    );
+    const executionSource = buildPythonBoundedExecutionSource(buildPythonCellExecutionSource(source), false, true);
+    expect(buildPythonCellExecutionSource(source)).toBe(`await __lingua_execute_cell(${JSON.stringify(source)}, globals())`);
+    // A cell compiles through the auto-log pass and keeps its own code objects to tell its frames apart.
+    expect(PYTHON_CELL_SOURCE).toContain('__lingua_auto_log_compile(source, "cell")');
+    expect(PYTHON_CELL_SOURCE).toContain('__lingua_error_line = tb.tb_lineno');
     expect(buildPythonAutoLogExecutionSource(source, 'assignments')).toBe(
       `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals(), "assignments")`
     );

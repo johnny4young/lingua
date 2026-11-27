@@ -113,7 +113,7 @@ async def __lingua_execute_auto_log(source, namespace, mode=None, prepare=None):
         await pending
 `;
 
-/** `mode` also answers module-level assignments: Scratchpad auto-runs, or notebook cells (`'cell'`); `live` adds the live signal's loop pass. */
-export function buildPythonAutoLogExecutionSource(code: string, mode?: 'assignments' | 'cell', live = false): string {
+/** `mode` also answers module-level assignments (Scratchpad auto-runs; notebook cells run through the cell source); `live` adds the live signal's loop pass. */
+export function buildPythonAutoLogExecutionSource(code: string, mode?: 'assignments', live = false): string {
   return `await __lingua_execute_auto_log(${JSON.stringify(code)}, globals()${mode ? `, ${JSON.stringify(mode)}` : ''}${live ? ', prepare=__lingua_live_prepare' : ''})`;
 }

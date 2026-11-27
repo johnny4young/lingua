@@ -250,16 +250,14 @@ __lingua_builtins_print = __lingua_builtins.print
 
 
 def __lingua_caller_line():
-    # Surface the user-source line number
-    # so each print() entry threads through ConsoleOutput.line and
-    # paints an inline pill via InlineResultWidgets (same JS behavior as
-    # console.log). Walk frames upward until we exit the lingua-owned
-    # helpers; user code runs in a Pyodide module compiled from a
-    # string so f_lineno maps directly to the source line.
+    # The user-source line of a print, for its inline answer: the first frame outside
+    # the lingua helpers, or in a notebook cell the first frame of that cell's own code,
+    # so a function another cell defined answers on the line that called it.
     try:
         frame = sys._getframe(1)
+        codes = __lingua_cell_codes
         while frame is not None:
-            if not frame.f_code.co_filename.startswith("<lingua"):
+            if (id(frame.f_code) in codes) if codes is not None else not frame.f_code.co_filename.startswith("<lingua"):
                 return frame.f_lineno
             frame = frame.f_back
     except Exception:  # noqa: BLE001 — best-effort

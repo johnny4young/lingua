@@ -30,6 +30,7 @@ import {
   buildPythonAutoLogExecutionSource,
   PYTHON_AUTO_LOG_HELPERS_SOURCE,
 } from './python-worker-auto-log-source';
+import { buildPythonCellExecutionSource, PYTHON_CELL_SOURCE } from './python-worker-cell-source';
 import { startPythonLive } from './python-worker-live-source';
 import { livePassField } from '../../shared/liveRun';
 
@@ -145,7 +146,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         });
 
         const bootstrapSource = msg.autoLog
-          ? `${buildPythonExecutionBootstrapSource(msg)}\n${PYTHON_AUTO_LOG_HELPERS_SOURCE}`
+          ? `${buildPythonExecutionBootstrapSource(msg)}\n${PYTHON_AUTO_LOG_HELPERS_SOURCE}\n${PYTHON_CELL_SOURCE}`
           : buildPythonExecutionBootstrapSource(msg);
         await py.runPythonAsync(`${bootstrapSource}\n${PYTHON_EXECUTION_BOUNDARY_SOURCE}`, {
           filename: '<lingua-bootstrap>',
@@ -164,7 +165,11 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         try {
           const live = stopLive !== null;
           const executionSource = buildPythonBoundedExecutionSource(
-            msg.autoLog ? buildPythonAutoLogExecutionSource(code, msg.autoLogMode, live) : code,
+            !msg.autoLog
+              ? code
+              : msg.autoLogMode === 'cell'
+                ? buildPythonCellExecutionSource(code)
+                : buildPythonAutoLogExecutionSource(code, msg.autoLogMode, live),
             live && !msg.autoLog,
             msg.autoLog === true
           );
@@ -292,6 +297,8 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           ctx.postMessage({ type: 'stdin-request', runId, ...stdinRequest });
         } else if (errorText !== null) {
           const parsed = parsePythonWorkerError(errorText);
+          // A notebook cell's error answers on its own line, even when a function another cell defined raised it.
+          const cellLine = py.globals.get?.('__lingua_error_line');
           const tracebackText = errorText;
           // Structured stack frames for the
           // renderer's clickable-stack surface. Best-effort parse;
@@ -303,7 +310,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             runId,
             error: {
               message: parsed.message,
-              line: parsed.line,
+              line: typeof cellLine === 'number' ? cellLine : parsed.line,
               stack: tracebackText,
               ...(frames.length > 0 ? { frames } : {}),
             },

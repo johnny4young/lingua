@@ -50,38 +50,7 @@ import { hasNotebookExecutionEvidence } from '../stores/notebookReactivity';
 import { useUIStore } from '../stores/uiStore';
 import { useAnnounce } from './useAnnounce';
 import { trackNotebookCellExecuted } from './notebookTelemetry';
-
-/**
- * Cheap `uses` derivation. We scan the cell source for
- * JS identifier tokens and keep only those that already existed in
- * the per-tab sandbox BEFORE the run. This is intentionally a regex
- * token match, not static analysis: it over-reports an identifier
- * that only appears inside a string/comment, and under-reports
- * member access like `obj.foo` (we match `obj`, not `foo`). That is
- * an acceptable approximation for a header hint — the
- * authoritative cross-cell wiring still lives in the kernel's
- * pull-in step. Bounded to the first matches to keep the chip short.
- */
-const IDENTIFIER_TOKEN_RE = /[A-Za-z_$][\w$]*/g;
-const MAX_USES_CHIP_KEYS = 8;
-
-function deriveUsesKeys(
-  source: string,
-  priorSandboxKeys: ReadonlyArray<string>,
-  sqlNames = false
-): string[] {
-  if (priorSandboxKeys.length === 0 || source.length === 0) return [];
-  // SQL folds unquoted names and may qualify them with a schema.
-  const keyOf = (name: string) => (sqlNames ? (name.split('.').pop() ?? name).toLowerCase() : name);
-  const prior = new Map(priorSandboxKeys.map((name) => [keyOf(name), name]));
-  const referenced = new Set<string>();
-  for (const match of source.matchAll(IDENTIFIER_TOKEN_RE)) {
-    const name = prior.get(keyOf(match[0]));
-    if (name !== undefined) referenced.add(name);
-    if (referenced.size >= MAX_USES_CHIP_KEYS) break;
-  }
-  return [...referenced];
-}
+import { deriveUsesKeys } from '../utils/notebookVarFlow';
 
 /**
  * Python and SQL keep no JS sandbox: what a cell can use is what the cells
@@ -274,7 +243,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // stopped) so a failed cell still shows how long it ran.
         store.setCellDurationMs(tabId, cellId, durationMs);
         store.setCellVarFlow(tabId, cellId, {
-          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language === 'sql'),
+          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language),
           produces: outcome.producedKeys,
         });
         // Lazy reactivity: a settled cell may have changed persistent
@@ -298,7 +267,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // (produces-empty) var-flow entry so the header stays coherent.
         store.setCellDurationMs(tabId, cellId, e2eFixedDurationMs(performance.now() - startedAt));
         store.setCellVarFlow(tabId, cellId, {
-          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language === 'sql'),
+          uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language),
           produces: [],
         });
         store.markCellsStaleAfter(tabId, cellId);

@@ -179,78 +179,23 @@
   white-space: nowrap;
 }
 
+/* A value row starts at the value column (tag width plus gap) and pulls its tag back, so a note that wraps lines up with the value; a table keeps the full row. */
+.notebook-answer:not([data-kind='result']) {
+  --notebook-answer-tag-span: 70px;
+  padding-left: var(--notebook-answer-tag-span);
+}
+
+.notebook-answer:not([data-kind='result']) > .answer-object-tag,
+.notebook-answer:not([data-kind='result']) > .answer-object > .answer-object-tag {
+  margin-left: calc(-1 * var(--notebook-answer-tag-span));
+}
+
 .notebook-answer[data-kind='result'] {
   align-items: flex-start;
 }
 
-.notebook-answer-tag {
-  flex: none;
-  width: 60px;
-  overflow: hidden;
-  color: var(--color-fg-muted);
-  font-family: var(--font-ui);
-  font-variation-settings: normal;
-  font-size: 10px;
-  font-weight: 560;
-  letter-spacing: 0.09em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-}
-
-.notebook-answer[data-kind='result'] .notebook-answer-tag {
+.notebook-answer[data-kind='result'] .answer-object-tag {
   line-height: var(--notebook-line-height);
-}
-
-.notebook-answer-tag[data-tone='error'] {
-  color: var(--color-value-error);
-}
-
-.notebook-answer-pill {
-  --notebook-answer-tone: var(--color-fg-base);
-  display: inline-flex;
-  min-width: 0;
-  height: 19px;
-  flex: none;
-  max-width: 100%;
-  align-items: center;
-  padding: 0 7px;
-  overflow: hidden;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--notebook-answer-tone) 14%, transparent);
-  /* A fifth of the text colour keeps the value at 4.5:1 or more over its own tint in light themes. */
-  color: color-mix(in srgb, var(--notebook-answer-tone) 80%, var(--color-fg-base));
-  font-weight: 560;
-  text-overflow: ellipsis;
-}
-
-.notebook-answer-pill[data-tone='number'],
-.notebook-answer-value[data-tone='number'] {
-  --notebook-answer-tone: var(--color-value-number);
-}
-
-.notebook-answer-pill[data-tone='string'] {
-  --notebook-answer-tone: var(--color-value-string);
-}
-
-.notebook-answer-pill[data-tone='boolean'] {
-  --notebook-answer-tone: var(--color-value-boolean);
-}
-
-.notebook-answer-pill[data-tone='error'] {
-  --notebook-answer-tone: var(--color-value-error);
-}
-
-.notebook-answer-pill[data-tone='nil'] {
-  --notebook-answer-tone: var(--color-fg-muted);
-  background: var(--color-bg-panel-alt);
-}
-
-.notebook-answer-value {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--notebook-answer-tone, var(--color-fg-base));
-  font-weight: 560;
-  text-overflow: ellipsis;
 }
 
 .notebook-answer-text,
@@ -265,26 +210,6 @@
   flex: none;
   max-width: 50%;
   font-weight: 560;
-}
-
-.notebook-answer-text[data-kind='output'] {
-  color: var(--color-fg-muted);
-}
-
-.notebook-answer-bars {
-  display: inline-flex;
-  height: 16px;
-  flex: none;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.notebook-answer-bars i {
-  display: block;
-  width: 6px;
-  border-radius: 1px;
-  background: var(--color-value-number);
-  opacity: 0.85;
 }
 
 .notebook-answer-table {
@@ -364,27 +289,41 @@
 }
 
 /* A dated run: every answer reads in the subtle text token, never by opacity, to keep its contrast. */
-.notebook-answers[data-stale='true'] .notebook-answer-pill,
-.notebook-answers[data-stale='true'] .notebook-answer-value,
-.notebook-answers[data-stale='true'] .notebook-answer-text,
-.notebook-answers[data-stale='true'] .notebook-answer-name,
-.notebook-answers[data-stale='true'] .notebook-answer-table td {
-  --notebook-answer-tone: var(--color-fg-muted);
+.notebook-answers[data-stale='true'] :is(.notebook-answer-text, .notebook-answer-name, .notebook-answer-table td) {
   color: var(--color-fg-muted);
 }
 
-.notebook-answers[data-stale='true'] .notebook-answer-bars i,
-.notebook-answers[data-stale='true'] .notebook-answer-track i {
+/* A dated value keeps its pill shape on a neutral chip. */
+.notebook-answers[data-stale='true'] .answer-object-value[data-pill] {
+  background: var(--answer-chip);
+}
+
+.notebook-answers[data-stale='true'] :is(.answer-object-bars rect, .answer-object-spark circle) {
+  fill: var(--color-fg-subtle);
+}
+
+.notebook-answers[data-stale='true'] .answer-object-spark-line {
+  stroke: var(--color-fg-subtle);
+}
+
+.notebook-answers[data-stale='true'] :is(.notebook-answer-track i, .answer-object-track i, .answer-object-hbar, .answer-object-gauge i) {
   background: var(--color-fg-subtle);
 }
 
-.notebook-answer-pill[data-tone='dated'] {
-  --notebook-answer-tone: var(--color-fg-muted);
+.notebook-answer-dated {
+  display: inline-flex;
+  min-width: 0;
+  height: 19px;
   max-width: 60%;
+  flex: none;
+  align-items: center;
+  padding: 0 7px;
+  overflow: hidden;
   border: 1px solid var(--color-border-default);
-  background: transparent;
+  border-radius: 5px;
+  color: var(--color-fg-muted);
   font-size: 11px;
-  font-weight: 400;
+  text-overflow: ellipsis;
 }
 
 .notebook-answer-kbd {
@@ -441,11 +380,13 @@
   white-space: normal;
 }
 
-.notebook-answer[data-wrap='true'] .notebook-answer-tag {
-  line-height: 19px;
+.notebook-answer[data-wrap='true'] .answer-object {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  white-space: normal;
 }
 
-.notebook-answer[data-wrap='true'] :is(.notebook-answer-text, .notebook-answer-pill, .notebook-answer-value, .notebook-answer-name) {
+.notebook-answer[data-wrap='true'] :is(.notebook-answer-text, .notebook-answer-dated, .answer-object-value, .notebook-answer-name) {
   display: -webkit-box;
   height: auto;
   min-height: 19px;
@@ -455,7 +396,7 @@
   overflow-wrap: anywhere;
 }
 
-.notebook-answer[data-wrap='true'] .notebook-answer-pill {
+.notebook-answer[data-wrap='true'] .notebook-answer-dated {
   max-width: 100%;
 }
 
@@ -482,11 +423,13 @@
     white-space: normal;
   }
 
-  .notebook-cell-body[data-answers='true'] .notebook-answer-tag {
-    line-height: 19px;
+  .notebook-cell-body[data-answers='true'] .answer-object {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    white-space: normal;
   }
 
-  .notebook-cell-body[data-answers='true'] :is(.notebook-answer-text, .notebook-answer-pill, .notebook-answer-value, .notebook-answer-name) {
+  .notebook-cell-body[data-answers='true'] :is(.notebook-answer-text, .notebook-answer-dated, .answer-object-value, .notebook-answer-name) {
     display: -webkit-box;
     height: auto;
     min-height: 19px;
@@ -529,11 +472,13 @@
     white-space: normal;
   }
 
-  .notebook-cell-body[data-table='true'] .notebook-answer-tag {
-    line-height: 19px;
+  .notebook-cell-body[data-table='true'] .answer-object {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    white-space: normal;
   }
 
-  .notebook-cell-body[data-table='true'] :is(.notebook-answer-text, .notebook-answer-pill, .notebook-answer-value, .notebook-answer-name) {
+  .notebook-cell-body[data-table='true'] :is(.notebook-answer-text, .notebook-answer-dated, .answer-object-value, .notebook-answer-name) {
     display: -webkit-box;
     height: auto;
     min-height: 19px;

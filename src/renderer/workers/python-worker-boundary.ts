@@ -8,6 +8,9 @@
 export const PYTHON_EXECUTION_BOUNDARY_SOURCE = `
 from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT as __lingua_top_level_await
 from pyodide.code import CodeRunner as __lingua_code_runner, eval_code_async as __lingua_eval_code_async
+# Set by a notebook cell's compile: its own code objects by id, and the line its error answers on.
+__lingua_cell_codes = None
+__lingua_error_line = None
 
 async def __lingua_execute(source, namespace, prepare=None, filename="<exec>", _eval=__lingua_eval_code_async,
                            _sys=sys, _stdout=__lingua_prev_stdout, _stderr=__lingua_prev_stderr):

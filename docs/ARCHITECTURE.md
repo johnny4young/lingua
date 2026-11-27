@@ -1168,6 +1168,9 @@ that would pass the document size limit only because of them writes without them
   captures go on the declaration's line), so a composed line maps back by a
   fixed offset. Console capture reads its caller's line from the stack under the
   worker's `sourceURL`. TypeScript lines map back through esbuild's source map.
+  The cell body catches a throw and returns it with the answers so far, so the
+  lines before the error keep their answers; the throw's line comes from its
+  stack against a frame the catch reads on a known line, the same offset trick.
 - **Python** — the run sets `autoLog: 'cell'`: the worker's AST pass
   answers module-level assignments by name (skipping generated `__` names) and
   passes each expression's value to a capture as a plain argument, so an error
@@ -1175,7 +1178,10 @@ that would pass the document size limit only because of them writes without them
   Scratchpad auto-runs set `autoLog: 'assignments'`: the same assignment
   answers, while expressions keep the lambda capture so one failing expression
   does not stop the run. An explicit `#=>` or `@watch` capture on a line wins
-  over its assignment answer. Compiled with top-level await allowed.
+  over its assignment answer. Compiled with top-level await allowed. Every
+  cell compiles as `<exec>`, so `python-worker-cell-source.ts` keeps the ids of
+  the running cell's code objects: a print, or an error, from a function
+  another cell defined answers on the line of this cell that called it.
 - **SQL** — the last statement answers: a query with rows × columns on its first
   line, `CREATE TABLE | VIEW` with the made name and size on its last line
   (columns read from `DESCRIBE` and, for a table without DuckDB's row count,
@@ -1183,6 +1189,17 @@ that would pass the document size limit only because of them writes without them
   and an error on the line DuckDB names.
 
 When a kernel only gives the last expression, only that line answers.
+
+The answer column draws each value, print and error with the shared
+`AnswerObject` (`notebookAnswerView.notebookAnswerInput` maps a stored answer
+to its input), so tags, tones and pictures match the editor's. A value the
+kernel cut to its text cap reads as the head of its list, dict or string.
+SQL tables and their sizes keep a notebook view of their own.
+
+Makes and uses chips stay transient session state. A Python cell that ran
+before this session (a reload, a restart) reads its chips from its source
+(`notebookVarFlow.pythonMadeNames`: functions, classes, import aliases and
+assignment targets at module level), and its uses from the Python cells above.
 
 ## Renderer type boundaries
 

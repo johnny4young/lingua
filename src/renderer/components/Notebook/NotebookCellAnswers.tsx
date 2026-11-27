@@ -3,12 +3,17 @@ import { useTranslation } from 'react-i18next';
 import type { NotebookCellLanguage, NotebookLineAnswerV1 } from '../../../shared/notebook';
 import type { RichOutputTable } from '../../../shared/richOutput';
 import { replaceUnsafeText } from '../../utils/unsafeText';
-import { answerGrid, answerTag, answerTone, numericSeries } from './notebookAnswerView';
+import { AnswerObject } from '../Answer/AnswerObject';
+import { TypeTag } from '../ui/answer';
+import { answerGrid, notebookAnswerInput } from './notebookAnswerView';
 import '../../i18n/notebookCatalog';
 import './notebookAnswers.css';
 
 /** Top of the first code line beside the code box: its 1px border plus 8px padding. */
 const NOTEBOOK_CODE_INSET = 9;
+/** Type tags are code vocabulary, like the answer renderer's, and stay untranslated. */
+const TABLE_TAG = 'table';
+const ROWS_TAG = 'rows';
 
 export interface NotebookCellAnswersProps {
   /** One answer per line, sorted by line. */
@@ -25,6 +30,8 @@ export interface NotebookCellAnswersProps {
   readonly runNumber: number | null;
   /** A query's result set, drawn beside the cell instead of summarized. */
   readonly table: RichOutputTable | null;
+  /** The cell's lines, read for a threshold to gauge a number against. */
+  readonly sourceLines: ReadonlyArray<string>;
 }
 
 /** The answer column: what each line answered, on that line. */
@@ -38,6 +45,7 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
   stale,
   runNumber,
   table,
+  sourceLines,
 }: NotebookCellAnswersProps) {
   const { t } = useTranslation();
   const lines = Math.max(1, lineCount);
@@ -46,7 +54,7 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
   // A table runs to the end of the column, so its date gets a footer row of its own.
   const footer = stale && lastSpansTable;
   const dated = stale ? (
-    <span className="notebook-answer-pill" data-tone="dated" data-testid="notebook-cell-answer-dated">
+    <span className="notebook-answer-dated" data-testid="notebook-cell-answer-dated">
       {runNumber === null ? t('notebookAnswers.dated') : t('notebookAnswers.datedRun', { n: runNumber })}
     </span>
   ) : null;
@@ -80,17 +88,30 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
               ...(spansTable || wraps ? {} : { height: lineHeight }),
             }}
           >
-            <span className="notebook-answer-tag" data-tone={answer.kind === 'error' ? 'error' : undefined}>
-              {answerTag(answer, language)}
-            </span>
-            {spansTable ? <AnswerTable table={table} /> : <AnswerValue answer={answer} />}
+            {answer.kind === 'table' || answer.kind === 'result' ? (
+              <>
+                <TypeTag className="answer-object-tag">{TABLE_TAG}</TypeTag>
+                {spansTable ? <AnswerTable table={table} /> : <RelationAnswer answer={answer} stale={stale} />}
+              </>
+            ) : answer.type === 'rows' ? (
+              <>
+                <TypeTag className="answer-object-tag">{ROWS_TAG}</TypeTag>
+                <AnswerObject text={answer.text} hideTag oneLine muted={stale} />
+              </>
+            ) : (
+              <AnswerObject
+                {...notebookAnswerInput(answer, language, sourceLines[answer.line - 1])}
+                oneLine={!wraps}
+                muted={stale}
+              />
+            )}
             {index === last && !spansTable ? dated : null}
           </div>
         );
       })}
       {footer ? (
         <div className="notebook-answer" data-wrap="true" style={{ gridRow: lines + 2 }}>
-          <span className="notebook-answer-tag" />
+          <span className="answer-object-tag" />
           {dated}
         </div>
       ) : null}
@@ -100,7 +121,7 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
           className="notebook-answer"
           style={{ gridRow: hintLine, height: lineHeight }}
         >
-          <span className="notebook-answer-tag" aria-hidden="true" />
+          <span className="answer-object-tag" aria-hidden="true" />
           <kbd className="notebook-answer-kbd" role="img" aria-label={t('notebookAnswers.runHintKeys')}>
             ⇧↵
           </kbd>
@@ -111,61 +132,30 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
   );
 });
 
-function AnswerValue({ answer }: { readonly answer: NotebookLineAnswerV1 }) {
+/** A table a statement made or read: its name and size. */
+function RelationAnswer({ answer, stale }: { readonly answer: NotebookLineAnswerV1; readonly stale: boolean }) {
   const { t } = useTranslation();
   const text = replaceUnsafeText(answer.text);
-  if (answer.kind === 'table' || answer.kind === 'result') {
-    return (
-      <>
-        {text ? (
-          <span className="notebook-answer-name" title={text}>
-            {text}
-          </span>
-        ) : null}
-        {answer.rows !== undefined ? (
-          <>
-            <span className="notebook-answer-pill" data-tone="number">
-              {answer.rows}
-            </span>
-            <span className="notebook-answer-text">{t('notebookAnswers.rows', { count: answer.rows })}</span>
-          </>
-        ) : null}
-        {answer.columns !== undefined ? (
-          <span className="notebook-answer-text">
-            {answer.rows !== undefined ? '× ' : null}
-            {t('notebookAnswers.columns', { count: answer.columns })}
-          </span>
-        ) : null}
-      </>
-    );
-  }
-  const series = numericSeries(answer);
-  if (series) {
-    return (
-      <>
-        <span className="notebook-answer-bars" aria-hidden="true">
-          {series.bars.map((height, index) => (
-            <i key={index} style={{ height: `${Math.round(height)}%` }} />
-          ))}
-        </span>
-        <span className="notebook-answer-value" data-tone="number" title={text}>
-          {series.range}
-        </span>
-      </>
-    );
-  }
-  const tone = answerTone(answer);
-  if (tone === 'text') {
-    return (
-      <span className="notebook-answer-text" data-kind={answer.kind} title={text}>
-        {text}
-      </span>
-    );
-  }
   return (
-    <span className="notebook-answer-pill" data-tone={tone} title={text}>
-      {text}
-    </span>
+    <>
+      {text ? (
+        <span className="notebook-answer-name" title={text}>
+          {text}
+        </span>
+      ) : null}
+      {answer.rows !== undefined ? (
+        <>
+          <AnswerObject text={String(answer.rows)} hideTag oneLine muted={stale} />
+          <span className="notebook-answer-text">{t('notebookAnswers.rows', { count: answer.rows })}</span>
+        </>
+      ) : null}
+      {answer.columns !== undefined ? (
+        <span className="notebook-answer-text">
+          {answer.rows !== undefined ? '× ' : null}
+          {t('notebookAnswers.columns', { count: answer.columns })}
+        </span>
+      ) : null}
+    </>
   );
 }
 
