@@ -64,6 +64,8 @@ export interface JsWorkerExecuteMessage {
   captureStructuredResult?: boolean;
   /** Network policy for this run; absent means unrestricted. */
   network?: NetworkRunPolicy;
+  /** Post `live-line` snapshots; the source carries live probes and `loops[id]` is each loop's header line. */
+  live?: { loops: number[] };
 }
 
 /**

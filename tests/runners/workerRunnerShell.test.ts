@@ -590,3 +590,31 @@ describe('debugger stepping', () => {
     }
   });
 });
+
+describe('the live signal', () => {
+  const live = { line: 3, lineMs: 120, elapsedMs: 400, loops: [{ line: 2, pass: 2, total: 3 }] };
+
+  it('asks for probes and hands each checked snapshot to the run', async () => {
+    const onLive = vi.fn();
+    const { promise, worker } = startRun({ liveLoops: [2], context: { tabId: 'tab-live', onLive } });
+    expect(worker.posted[0]).toMatchObject({ live: { loops: [2] } });
+
+    worker.emitForRun({ type: 'live-line', v: 1, live });
+    // A malformed snapshot is dropped.
+    worker.emitForRun({ type: 'live-line', v: 1, live: { line: 'x' } });
+    expect(onLive.mock.calls).toEqual([[live]]);
+
+    worker.emitForRun({ type: 'console', method: 'log', args: ['a'], line: 3, pass: 4 });
+    worker.emitForRun({ type: 'magic-comment', line: 3, value: '1', pass: 4 });
+    worker.emitForRun({ type: 'console', method: 'log', args: ['b'], line: 3, pass: -1 });
+    worker.emitForRun({ type: 'done', executionTime: 5 });
+    const result = await promise;
+    expect(result.stdout.map(output => output.pass)).toEqual([4, undefined]);
+    expect(result.magicResults?.[0]?.pass).toBe(4);
+  });
+
+  it('never asks for probes it did not get', () => {
+    const { worker } = startRun({ context: { tabId: 'tab-plain' } });
+    expect(worker.posted[0]).not.toHaveProperty('live');
+  });
+});

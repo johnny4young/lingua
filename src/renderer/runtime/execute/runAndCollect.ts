@@ -16,6 +16,7 @@ import type { ConsoleOutput, ExecutionResult, LanguageRunner } from '../../types
 import { toExecutionPresentation } from '../../utils/executionPresentation';
 import type { RunExecution } from './resolveRunPlan';
 import { replaceProgressOutput } from '../../runners/limits';
+import { reportLiveRun } from '../../stores/liveRunStore';
 
 export interface RunConsole {
   /** Queue one entry; it reaches the store on the next flush. */
@@ -125,13 +126,16 @@ export async function runAndCollect(
   }
 
   let result: ExecutionResult;
+  const live = reportLiveRun(activeTab.id);
   try {
     result = await runner.execute(content, {
       ...execution.context,
       onConsole: streamConsoleOutput,
+      onLive: live.onLive,
     });
   } finally {
     settled = true;
+    live.end();
   }
   // Runners may return the same captures without owning ordering metadata.
   // Reconcile by identity only; matching text could confuse repeated outputs.

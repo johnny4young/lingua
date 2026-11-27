@@ -2,8 +2,7 @@
  * Python Scratchpad auto-log instrumentation.
  *
  * Pyodide already embeds CPython's parser, so Python source is transformed via
- * `ast` inside the worker instead of duplicating a fragile indentation/string
- * scanner in TypeScript. Only module-level statements are instrumented:
+ * `ast` inside the worker instead of a TypeScript scanner. Only module-level statements are instrumented:
  * expressions, plus assignments when a mode asks for them. Control flow,
  * function bodies, docstrings, and explicit `#=>` / `# @watch` captures keep
  * their original semantics.
@@ -67,7 +66,7 @@ def __lingua_assigned_value(node):
     loads = [__lingua_ast.Name(id=name.id, ctx=__lingua_ast.Load()) for name in names]
     return loads[0] if len(loads) == 1 else __lingua_ast.Tuple(elts=loads, ctx=__lingua_ast.Load())
 
-def __lingua_auto_log_compile(source, mode=None):
+def __lingua_auto_log_compile(source, mode=None, prepare=None):
     tree = __lingua_ast.parse(source, filename="<exec>", mode="exec")
     # An explicit #=> or @watch on the line wins over its assignment answer.
     explicit_lines = {node.lineno for node in tree.body if __lingua_is_explicit_capture(node)}
@@ -104,16 +103,17 @@ def __lingua_auto_log_compile(source, mode=None):
         next_body.append(__lingua_auto_log_capture(node.lineno, node.value, node))
     tree.body = next_body
     __lingua_ast.fix_missing_locations(tree)
+    tree = prepare(tree) if prepare is not None else tree
     return compile(tree, "<exec>", "exec", flags=__lingua_ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
-async def __lingua_execute_auto_log(source, namespace, mode=None):
+async def __lingua_execute_auto_log(source, namespace, mode=None, prepare=None):
     # Top-level await compiles to a coroutine; plain code runs on eval.
-    pending = eval(__lingua_auto_log_compile(source, mode), namespace, namespace)
+    pending = eval(__lingua_auto_log_compile(source, mode, prepare), namespace, namespace)
     if __lingua_inspect.iscoroutine(pending):
         await pending
 `;
 
-/** `mode` also answers module-level assignments: Scratchpad auto-runs, or notebook cells (`'cell'`). */
-export function buildPythonAutoLogExecutionSource(code: string, mode?: 'assignments' | 'cell'): string {
-  return `await __lingua_execute_auto_log(${JSON.stringify(code)}, globals()${mode ? `, ${JSON.stringify(mode)}` : ''})`;
+/** `mode` also answers module-level assignments: Scratchpad auto-runs, or notebook cells (`'cell'`); `live` adds the live signal's loop pass. */
+export function buildPythonAutoLogExecutionSource(code: string, mode?: 'assignments' | 'cell', live = false): string {
+  return `await __lingua_execute_auto_log(${JSON.stringify(code)}, globals()${mode ? `, ${JSON.stringify(mode)}` : ''}${live ? ', prepare=__lingua_live_prepare' : ''})`;
 }

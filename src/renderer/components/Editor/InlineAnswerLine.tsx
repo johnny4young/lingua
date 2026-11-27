@@ -34,11 +34,26 @@ function roleOf(result: LineResult): AnswerRole {
   return 'value';
 }
 
-/** Unnamed answers of one kind on one line, such as a loop printing each pass. */
-function isRepeat(items: readonly LineResult[]): boolean {
-  if (items.length < 2) return false;
+/**
+ * A line that answered on several loop passes: the latest pass's answers and how many passes.
+ * With pass numbers, answers of one pass are separate calls; without them, unnamed answers of one kind count as passes.
+ */
+function readRepeat(items: readonly LineResult[]): { readonly latest: readonly LineResult[]; readonly passes: number } | null {
+  if (items.length < 2 || items.some(item => item.name || item.type === 'watch')) return null;
+  if (items.every(item => item.pass !== undefined)) {
+    const passes = new Set(items.map(item => item.pass)).size;
+    const last = items[items.length - 1]!.pass;
+    return passes < 2 ? null : { latest: items.filter(item => item.pass === last), passes };
+  }
   const role = roleOf(items[0]!);
-  return items.every(item => !item.name && item.type !== 'watch' && roleOf(item) === role);
+  return items.every(item => roleOf(item) === role) ? { latest: items.slice(-1), passes: items.length } : null;
+}
+
+/** Output after output of the same kind on one line keeps the line's single kind tag. */
+function repeatsKind(items: readonly LineResult[], index: number): boolean {
+  if (index === 0) return false;
+  const role = roleOf(items[index]!);
+  return role !== 'value' && role === roleOf(items[index - 1]!);
 }
 
 /** Sub-100 ms keeps one decimal so quick statements do not all read as 0 ms. */
@@ -54,9 +69,10 @@ function formatTimingMs(durationMs: number): string {
  */
 export function InlineAnswerLine({ items, timing, language, source, change, keptFrom }: InlineAnswerLineProps) {
   const { t } = useTranslation();
-  const repeat = isRepeat(items);
-  const visible = repeat ? items.slice(-1) : items.slice(0, MAX_ITEMS_PER_LINE);
-  const dropped = repeat ? 0 : items.length - visible.length;
+  const repeat = readRepeat(items);
+  const shown = repeat ? repeat.latest : items;
+  const visible = shown.slice(0, MAX_ITEMS_PER_LINE);
+  const dropped = shown.length - visible.length;
   const single = visible.length === 1;
   // Values read at one earlier depth share one chip at the end of the line; a calling frame tags its own depth.
   const lineDepth =
@@ -91,7 +107,7 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
                 language={language}
                 source={single ? source : undefined}
                 compact={!single}
-                hideTag={Boolean(result.name)}
+                hideTag={Boolean(result.name) || repeatsKind(visible, index)}
                 muted={result.depth !== undefined}
               />
               {result.previous !== undefined ? <AnswerWasChip value={result.previous} /> : null}
@@ -103,7 +119,7 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
         ))}
         {repeat ? (
           <span className="lingua-inline-result-repeat" data-testid="lingua-inline-result-repeat">
-            {t('answers.lastOf', { count: items.length })}
+            {t('answers.lastOf', { count: repeat.passes })}
           </span>
         ) : null}
         {dropped > 0 ? (

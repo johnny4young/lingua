@@ -636,6 +636,17 @@ function startsWithStatementKeyword(line: string): boolean {
   return false;
 }
 
+/** A `;` outside brackets in a masked line, where strings and comments no longer hold one. */
+function hasTopLevelSemicolon(masked: string): boolean {
+  let depth = 0;
+  for (const char of masked) {
+    if (char === '(' || char === '[' || char === '{') depth += 1;
+    else if (char === ')' || char === ']' || char === '}') depth -= 1;
+    else if (char === ';' && depth === 0) return true;
+  }
+  return false;
+}
+
 /**
  * Heuristic: does this line look like a top-level bare expression
  * statement that's safe to wrap in `__mc(line, value)`?
@@ -648,6 +659,7 @@ function startsWithStatementKeyword(line: string): boolean {
  *   - Must not be empty / whitespace / comment-only.
  *   - Must not end with a continuation token (`,`, `+`, `?`, ...)
  *     or a block opener `{` — those are line-continuations.
+ *   - Must hold one statement: no `;` outside brackets before its end.
  *   - Must not contain JSX (a `<` followed by a capital identifier
  *     character or `/` opens a fragment / element on a JS scanner
  *     that doesn't reason about JSX).
@@ -678,6 +690,8 @@ function isAutoLogCandidateLine(
 
   // Continuation indicators on the comment-stripped tail.
   if (endsWithTrailingContinuation(withoutSemicolon)) return false;
+  // Two statements on one line cannot become one captured expression.
+  if (hasTopLevelSemicolon(withoutSemicolon)) return false;
 
   // JSX guard — `<Foo>`, `<Foo />`, `</Foo>` look like comparison /
   // shift to a non-JSX scanner. If the stripped tail or head looks

@@ -966,6 +966,49 @@ Console's trace, which also derives loop passes from backward jumps in one call.
 `resultStore.tabAnswers` keeps each tab's last two published answers (memory
 only, capped at 12 tabs) so the editor can mark what moved since the previous run.
 
+### Live run signal
+
+While a run of an editor tab goes, the JS / TS worker and Pyodide post
+`live-line` snapshots (`shared/liveRun.ts`, versioned additively): the line
+that is running, the time on it and the run time, both on the worker's clock,
+and each open loop around it, outermost first, with its pass and, when the
+runtime can tell without running it, its total. A worker posts at most one per
+50 ms and none in a run shorter than that. A runner instruments only when the
+run passes `ExecutionContext.onLive`; it re-checks each snapshot, maps Python
+lines back through loop protection, and hands it over. The editor's manual and
+auto-runs pass it through `reportLiveRun`, which keeps the latest per tab in
+`liveRunStore` and drops it when the run settles. Debug and record runs,
+notebook cells and Node, Deno, Bun, Browser preview and Ruby runs post none.
+
+JS / TS: `liveInstrument.ts` puts `__lingua_live(line)` before each statement
+that can take time (one with a call, `new`, `await` or `yield`, a loop or a
+`throw`), on the same line, and wraps each loop of top-level code and
+synchronous functions in a block that opens it, closes it in `finally` and
+counts its passes in a local the worker reads when it needs the pass; the
+counter calls out once every 128 passes. Loop protection's own counters are
+closure variables the worker cannot read, which is why JS keeps its own and
+Python, which reads frames, does not. Loops in async functions and
+generators are not tracked, since they suspend with the loop open. The worker
+reads the clock once per countdown that doubles while probes come fast and
+drops to 1 when they slow down, and a timer posts while the run awaits.
+
+Python: nothing is traced per line. CPython on Emscripten reads
+`Py_EmscriptenSignalBuffer[0]` every 50 eval-breaker checks; a getter there
+raises SIGUSR1 every 10 ms, and the handler reads the stack: the line of the
+innermost user frame and, for every user frame, the loop-protection counter
+(`__lpN`) of each loop around its line. A `for` loop's iterable passes through
+`__lingua_live_of` once per loop to read its length when it is a built-in
+sized type. `time.sleep` posts its line and length before it blocks. C code
+that never reaches the eval breaker, and `await` in top-level async code, are
+not sampled until Python runs again; loops loop protection does not see
+(one-line loops, multi-line headers) report no pass.
+
+Every console output and answer of a traced run carries `pass`: equal numbers
+come from the same pass of the same loops, 0 from outside every loop. The
+inline answer column counts passes, not answers, so two calls on one line are
+both shown, and a loop line shows its latest pass's answers with the number of
+passes.
+
 ### Rich display
 
 The workers always expose the display helpers.

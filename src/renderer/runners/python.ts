@@ -16,6 +16,7 @@ import {
 } from '../utils/magicComments';
 import { buildMagicLineMaps } from './magicLineMap';
 import { injectPythonLoopProtectionWithLineMap } from '../utils/loopProtection';
+import { livePassField, mapLiveRunLines, sanitizeLiveRun } from '../../shared/liveRun';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
 import {
@@ -441,6 +442,7 @@ export class PythonRunner implements LanguageRunner {
               runId
             );
             if (msg.captureOrder !== undefined) output.captureOrder = msg.captureOrder;
+            Object.assign(output, livePassField(msg.pass));
             // Adoption signal per produced
             // payload kind. Intentionally fires once per payload
             // ELEMENT, not once per console entry: a multi-arg
@@ -521,6 +523,7 @@ export class PythonRunner implements LanguageRunner {
               line: sourceLineFor(msg.line) ?? msg.line,
               value: msg.value,
               kind: msg.kind ?? magicKindByLine[msg.line] ?? 'arrow',
+              ...livePassField(msg.pass),
               ...(msg.isError === true ? { isError: true } : {}),
             };
             if (payload) entry.payload = payload;
@@ -559,6 +562,12 @@ export class PythonRunner implements LanguageRunner {
             ) {
               scopeSnapshot = incoming.snapshot as ExecutionResult['scopeSnapshot'];
             }
+            break;
+          }
+          case 'live-line': {
+            const live = sanitizeLiveRun(msg.live);
+            const mapped = live && mapLiveRunLines(live, sourceLineFor);
+            if (mapped) context?.onLive?.(mapped);
             break;
           }
           case 'result':
@@ -651,6 +660,7 @@ export class PythonRunner implements LanguageRunner {
         ...(typeof context?.autoLog === 'string' ? { autoLogMode: context.autoLog } : {}),
         askStdin: context?.askStdin === true,
         network,
+        live: context?.onLive !== undefined,
       });
     });
   }

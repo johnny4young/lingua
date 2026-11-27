@@ -764,6 +764,61 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     runner.stop();
   });
 
+  it('asks for the live signal when the run takes it, and maps its lines back to the source', async () => {
+    const posted: Array<Record<string, unknown>> = [];
+    const workers: Array<{ emit(data: Record<string, unknown>): void }> = [];
+    class LiveWorker {
+      private listeners = new Set<(event: MessageEvent) => void>();
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workers.push(this);
+      }
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.add(handler);
+      }
+      removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.delete(handler);
+      }
+      postMessage(message: Record<string, unknown>): void {
+        posted.push(message);
+        if (message.type === 'init') this.emit({ type: 'ready' });
+      }
+      emit(data: Record<string, unknown>): void {
+        for (const listener of [...this.listeners]) listener({ data } as MessageEvent);
+      }
+      terminate(): void {}
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: LiveWorker, writable: true, configurable: true });
+
+    const runner = new PythonRunner();
+    try {
+      // Loop protection adds a line before the loop and two inside it.
+      const onLive = vi.fn();
+      const run = runner.execute('total = 0\nfor n in range(3):\n    total += n', { timeout: 5_000, tabId: 'py-tab', onLive });
+      await vi.waitFor(() => expect(posted.some(message => message.type === 'execute')).toBe(true));
+      const execute = posted.find(message => message.type === 'execute')!;
+      expect(execute.live).toBe(true);
+      const runId = execute.runId;
+      workers[0]!.emit({ type: 'live-line', runId, v: 1, live: { line: 6, lineMs: 3, elapsedMs: 80, loops: [{ line: 3, pass: 2, total: 3 }] } });
+      expect(onLive.mock.calls).toEqual([[{ line: 3, lineMs: 3, elapsedMs: 80, loops: [{ line: 2, pass: 2, total: 3 }] }]]);
+      workers[0]!.emit({ type: 'console', runId, method: 'log', args: ['x'], line: 6, pass: 2 });
+      workers[0]!.emit({ type: 'magic-comment', runId, line: 6, value: '1', kind: 'autoLog', pass: 2 });
+      workers[0]!.emit({ type: 'done', runId, executionTime: 1 });
+      const result = await run;
+      expect(result.stdout[0]).toMatchObject({ line: 3, pass: 2 });
+      expect(result.magicResults?.[0]).toMatchObject({ line: 3, pass: 2 });
+
+      // Notebook cells do not take it.
+      const cell = runner.execute('1', { timeout: 5_000, tabId: 'nb', scopeId: 'nb' });
+      await vi.waitFor(() => expect(posted.filter(message => message.type === 'execute')).toHaveLength(2));
+      const cellExecute = posted.filter(message => message.type === 'execute')[1]!;
+      expect(cellExecute.live).toBe(false);
+      workers[0]!.emit({ type: 'done', runId: cellExecute.runId, executionTime: 1 });
+      await cell;
+    } finally {
+      runner.stop();
+    }
+  });
+
   it('ignores foreign run IDs, including stale output and done from a prior run', async () => {
     const workers: ManualWorker[] = [];
     class ManualWorker {

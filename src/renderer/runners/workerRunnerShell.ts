@@ -21,6 +21,7 @@
  */
 
 import { sanitizeTimeline, type ExecutionTimeline } from '../../shared/timeline';
+import { livePassField, sanitizeLiveRun } from '../../shared/liveRun';
 import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import type {
@@ -95,6 +96,8 @@ export interface WorkerRunSpec {
   debug: boolean;
   /** Record run: collect the worker's step timeline into the result. */
   record?: boolean;
+  /** The source carries live probes; each loop's header line, by id. */
+  liveLoops?: number[];
   breakpoints: ReadonlyArray<WorkerBreakpoint>;
   watches: string[];
   /** Character-accurate maps, newest transform first. */
@@ -274,6 +277,7 @@ export class WorkerRunnerShell {
               runId
             );
             output.captureOrder = nextCaptureOrder++;
+            Object.assign(output, livePassField(msg.pass));
             // `console.table` adoption signal. Fire-and-forget; the renderer
             // never blocks on telemetry.
             if (msg.consoleTableInvoked === true) {
@@ -346,6 +350,7 @@ export class WorkerRunnerShell {
               line: msg.line,
               value: msg.value,
               kind: magicKindByLine[msg.line] ?? 'arrow',
+              ...livePassField(msg.pass),
               ...(msg.isError === true ? { isError: true, ...(msg.error ? { error: msg.error } : {}) } : {}),
             };
             if (payload) entry.payload = payload;
@@ -360,6 +365,11 @@ export class WorkerRunnerShell {
           case 'timeline':
             timeline = sanitizeTimeline(msg.timeline);
             break;
+          case 'live-line': {
+            const live = sanitizeLiveRun(msg.live);
+            if (live) context?.onLive?.(live);
+            break;
+          }
           case 'result':
             result = msg.value;
             // The structured value only arrives when we asked for it via
@@ -499,6 +509,7 @@ export class WorkerRunnerShell {
         resultTruncationMarker: t('runner.truncated.result'),
         debug,
         record: spec.record === true,
+        ...(spec.liveLoops ? { live: { loops: spec.liveLoops } } : {}),
         breakpoints: breakpoints.map(bp => ({
           line: bp.line,
           mode: bp.mode,

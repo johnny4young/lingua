@@ -89,6 +89,8 @@ export interface LineResult {
    * the console panel widget plugs in later.
    */
   payload?: RichOutputPayload;
+  /** Loop pass the answer came from, as `ConsoleOutput.pass`; absent when the runtime cannot tell. */
+  pass?: number;
   /** Paused values only: what the variable held at the previous pause, when it differs. */
   previous?: string;
   /** Paused values only: read at an earlier pause in a frame this many calls deep. */
