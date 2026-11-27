@@ -287,6 +287,15 @@ describe('SQL run modes', () => {
     await waitFor(() => expect(useWorkspaceSqlStore.getState().history).toHaveLength(1));
     expect(useWorkspaceSqlStore.getState().history[0]?.sql).toBe('SELECT 2');
     expect(screen.queryByTestId('sql-result-tabs')).toBeNull();
+    expect((await screen.findByTestId('sql-result-preview-statement-count')).textContent).toBe('statement 2 of 2');
+  });
+
+  it('names no statement position when the editor holds one statement', async () => {
+    openQuery('SELECT 1');
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-status-pill');
+    expect(screen.queryByTestId('sql-result-preview-statement-count')).toBeNull();
   });
 
   it('cancels a running query, records it, and the next query still runs', async () => {

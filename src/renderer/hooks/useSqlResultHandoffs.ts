@@ -8,7 +8,7 @@ import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import { executeQuery } from '../runtime/duckdbClient';
 import { copyConnectionResultToLocal, CopyToLocalError } from '../runtime/sqlCopyToLocal';
 import { sqlDbBridge } from '../runtime/sqlRemote';
-import { buildColumnProfileQuery } from '../runtime/sqlColumnProfile';
+import { profileableReadSql } from '../runtime/sqlColumnProfile';
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
 import { loadCapsuleExporter } from '../components/Editor/runCapsuleExportLoader';
 import { useEditorStore } from '../stores/editorStore';
@@ -66,10 +66,7 @@ export function useSqlResultHandoffs({
     }
     // CREATE TABLE … AS and the full export re-run the source on Local DuckDB, so it must be one
     // read statement that ran there, not on a saved connection.
-    const readSource =
-      response.engine === undefined && source !== undefined && buildColumnProfileQuery(source.sql) !== null
-        ? source.sql.trim().replace(/;\s*$/, '')
-        : null;
+    const readSource = response.engine === undefined && source !== undefined ? profileableReadSql(source.sql) : null;
     // Quoted identifiers may hold line breaks; one would end the Python comment the label sits in.
     const label = (
       source?.origin === 'table'

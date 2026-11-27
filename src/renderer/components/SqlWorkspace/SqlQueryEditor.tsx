@@ -42,10 +42,18 @@ import type { SqlSchemaTable } from './sqlExplorerModel';
 import type { SqlEngineKind } from '../../../shared/sqlConnections';
 import { sqlDialect } from '../../../shared/sqlDialect';
 
+/** 1-based place of one statement among the statements of its editor. */
+export interface SqlStatementPosition {
+  index: number;
+  total: number;
+}
+
 export interface SqlRunRequest {
   query: SqlQueryV1;
   mode: SqlRunMenuMode;
   statements: string[];
+  /** Where the cursor's statement sits in the buffer, for Run statement in a multi-statement editor. */
+  position?: SqlStatementPosition;
 }
 
 export interface SqlQueryEditorProps {
@@ -239,12 +247,16 @@ export function SqlQueryEditor({
       if (utf8ByteLength(buffer) > MAX_QUERY_BYTES) return;
       const bufferStatements = buffer === text ? statements : splitSqlStatements(buffer);
       let pieces: string[];
+      let position: SqlStatementPosition | undefined;
       if (mode === 'all') pieces = bufferStatements.map((statement) => statement.text);
       else if (mode === 'selection') {
         pieces = context.selectedText ? splitSqlStatements(context.selectedText).map((s) => s.text) : [];
       } else {
         const picked = statementAtOffset(bufferStatements, context.offset);
         pieces = picked ? [picked.statement.text] : [];
+        if (picked && mode === 'statement' && bufferStatements.length > 1) {
+          position = { index: picked.index + 1, total: bufferStatements.length };
+        }
       }
       if (pieces.length === 0) return;
       // Flush the pending auto-save so the run and the store see the same full buffer.
@@ -258,7 +270,7 @@ export function SqlQueryEditor({
       }
       // The run's buffer can be ahead of the last published draft, as right after a paste.
       instantSql?.markRun({ queryId: query.id, text: buffer, plan: planInstantPreview(buffer, context.offset, bufferStatements) });
-      onRun({ query: { ...query, query: buffer }, mode, statements: pieces });
+      onRun({ query: { ...query, query: buffer }, mode, statements: pieces, ...(position ? { position } : {}) });
     },
     [isExecuting, isBusy, statements, text, query, onPatch, onRun, instantSql]
   );

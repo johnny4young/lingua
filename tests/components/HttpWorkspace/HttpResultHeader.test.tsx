@@ -45,7 +45,7 @@ describe('HTTP result header', () => {
     expect(numeral.getAttribute('title')).toBe('200 OK');
     expect(numeral.dataset.tone).toBe('success');
     expect(numeral.dataset.status).toBe('200');
-    expect(screen.getByText('142 ms · 1.8 KiB · json')).toBeTruthy();
+    expect(screen.getByTestId('result-header-meta').textContent).toBe('142 ms · 1.8 KiB · json');
   });
 
   it('colours a failing status as an error and keeps the pill for a request that never answered', () => {

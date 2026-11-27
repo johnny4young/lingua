@@ -187,10 +187,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     activeQuery !== undefined && activeResponse !== null && safeResponseIndex === 0
       ? sessionRunSources.get(activeQuery.id)
       : undefined;
-  const editorSourceSql =
-    profileSource !== undefined && profileSource.recordedAt === activeResponse?.recordedAt
-      ? profileSource.query
-      : undefined;
+  const editorSource =
+    profileSource !== undefined && profileSource.recordedAt === activeResponse?.recordedAt ? profileSource : undefined;
+  const editorSourceSql = editorSource?.query;
 
   const shownResponse = tablePreview?.response ?? activeResponse;
   const resultSource = useMemo<SqlResultSource | undefined>(() => {
@@ -373,7 +372,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // A connection's result copies to Local: a whole Explorer table, or the editor's statement.
   const copySource = useMemo<SqlCopySource | undefined>(() => {
     // The connection the shown result came from, not the one the bar points at now.
-    const connectionId = tablePreview ? tablePreview.connectionId : editorSourceSql !== undefined ? profileSource?.connectionId : undefined;
+    const connectionId = tablePreview ? tablePreview.connectionId : editorSource?.connectionId;
     const connection = findConnection(connectionId);
     if (!connectionId || !connection) return undefined;
     if (tablePreview) {
@@ -387,7 +386,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       };
     }
     return editorSourceSql !== undefined ? { connectionId, connectionName: connection.name, sql: editorSourceSql, name: 'result', engine: connection.engine } : undefined;
-  }, [tablePreview, profileSource?.connectionId, editorSourceSql, connectionCatalog]);
+  }, [tablePreview, editorSource?.connectionId, editorSourceSql, connectionCatalog]);
 
   const handoffs = useSqlResultHandoffs({
     response: shownResponse,
@@ -592,7 +591,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
         {...(tablePreview?.edit ? { rowEdits } : {})}
         {...(activeQuery ? { snippetLabel: activeQuery.name } : {})}
-        {...(!tablePreview && runSet && view.kind === 'result' && (runSetResponse || safeResponseIndex === 0) ? { statementPosition: { index: view.index + 1, total: runSet.results.length + runSet.notRun.length } } : {})}
+        statementPosition={tablePreview ? undefined : runSet && view.kind === 'result' && (runSetResponse || safeResponseIndex === 0) ? { index: view.index + 1, total: runSet.results.length + runSet.notRun.length } : editorSource?.position}
       />
     );
 

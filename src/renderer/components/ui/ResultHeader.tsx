@@ -4,7 +4,7 @@
  * Views are real buttons with `aria-pressed`, so they stay keyboard-reachable.
  */
 
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 import { ResultNumeral, TypeTag, type AnswerTone } from './answer';
 import { IconButton } from './chrome';
@@ -81,6 +81,16 @@ export interface ResultHeaderProps {
   density?: 'pane' | 'compact';
 }
 
+/** The meta separator: a narrow pane breaks the line after it, never inside a reading. */
+export function ResultMetaBreak() {
+  return (
+    <>
+      {' ·'}
+      <span className="whitespace-normal"> </span>
+    </>
+  );
+}
+
 export function ResultHeader({
   workspace,
   numeral,
@@ -126,13 +136,18 @@ export function ResultHeader({
           />
         </span>
       ) : null}
-      {/* The status shrinks first so the meta line never wraps. */}
+      {/* The status shrinks first; the meta line wraps only after a separator, when the pane is narrower. */}
       {status ? <span className="flex min-w-0 shrink">{status}</span> : null}
       {meta || metaTrailing || phases ? (
-        <span className="flex shrink-0 flex-col gap-[5px]">
+        <span className="flex max-w-full shrink-0 flex-col gap-[5px]">
           {meta || metaTrailing ? (
-            <span className="whitespace-nowrap font-mono text-body-sm tabular-nums text-fg-muted">
-              {meta}
+            <span data-testid="result-header-meta" className="whitespace-nowrap font-mono text-body-sm tabular-nums text-fg-muted">
+              {meta?.split(' · ').map((part, index) => (
+                <Fragment key={index}>
+                  {index > 0 ? <ResultMetaBreak /> : null}
+                  {part}
+                </Fragment>
+              ))}
               {metaTrailing}
             </span>
           ) : null}

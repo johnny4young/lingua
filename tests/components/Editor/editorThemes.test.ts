@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { TokenTheme } from 'monaco-editor/esm/vs/editor/common/languages/supports/tokenization.js';
+import { vs, vs_dark } from 'monaco-editor/esm/vs/editor/standalone/common/themes.js';
 import { defineCustomThemes, getEditorThemeSurface } from '@/components/Editor/editorThemes';
 
 type DefineThemeCall = [name: string, theme: MonacoThemeData];
@@ -255,6 +257,25 @@ describe('defineCustomThemes', () => {
       expect(
         contrastRatio(data.colors['editor.background']!, data.colors['editorLineNumber.foreground']!)
       ).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    });
+
+    it('resolves SQL strings, built-in functions and operators to its own inks, not the base SQL colours', () => {
+      const data = theme();
+      // Monaco merges inherited rules the same way: base rules first, the theme's after.
+      const resolved = TokenTheme.createFromRawTokenTheme(
+        [...(data.base === 'vs' ? vs : vs_dark).rules, ...data.rules],
+        []
+      );
+      const colorOf = (token: string) => {
+        const metadata = resolved.match(0, token);
+        const foregroundId = (metadata >>> 15) & 0x1ff;
+        return resolved.getColorMap()[foregroundId]!.toString().toLowerCase();
+      };
+      const ink = (token: string) => toHex(data.rules.find((rule) => rule.token === token)!.foreground!);
+      expect(colorOf('string.sql')).toBe(ink('string'));
+      expect(colorOf('predefined.sql')).toBe(ink('predefined'));
+      expect(colorOf('operator.sql')).toBe(ink('operator'));
+      expect(colorOf('keyword.sql')).toBe(ink('keyword'));
     });
 
     it('keeps bracket pairs in the punctuation ink', () => {

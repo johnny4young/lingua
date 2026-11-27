@@ -13,10 +13,12 @@ describe('ResultHeader meta line', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('keeps timing and size on one line and lets the status shrink first', () => {
+  it('keeps each reading on one line, breaks only after a separator and lets the status shrink first', () => {
     render(<ResultHeader status={<span data-testid="status">200 OK</span>} meta="385 ms · 5.6 KiB" />);
-    const meta = screen.getByText('385 ms · 5.6 KiB');
+    const meta = screen.getByTestId('result-header-meta');
+    expect(meta.textContent).toBe('385 ms · 5.6 KiB');
     expect(meta.className).toContain('whitespace-nowrap');
+    expect(meta.querySelectorAll('.whitespace-normal')).toHaveLength(1);
     expect(meta.className).toContain('tabular-nums');
     expect(meta.parentElement?.className).toContain('shrink-0');
     expect(screen.getByTestId('status').parentElement?.className).toContain('min-w-0');

@@ -73,6 +73,10 @@ function identityTheme(
       { token: 'variable', foreground: inks.property },
       { token: 'operator', foreground: inks.punctuation },
       { token: 'delimiter', foreground: inks.punctuation },
+      // vs and vs-dark ship SQL-specific inks that outrank the generic rules under inherit.
+      { token: 'string.sql', foreground: inks.string },
+      { token: 'predefined.sql', foreground: inks.builtin },
+      { token: 'operator.sql', foreground: inks.punctuation },
     ],
     colors: {
       'editor.background': background,

@@ -2,9 +2,10 @@ import { Columns3 } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
+import type { SqlStatementPosition } from './SqlQueryEditor';
 import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
-import { ResultHeader, type ResultHeaderProps, type ResultHeaderTab } from '../ui/ResultHeader';
+import { ResultHeader, ResultMetaBreak, type ResultHeaderProps, type ResultHeaderTab } from '../ui/ResultHeader';
 import { StatusBadge } from '../ui/StatusBadge';
 import { sqlPhaseSplit } from './sqlPhaseSplit';
 import { toneForSqlStatus } from './sqlStatusTone';
@@ -24,7 +25,7 @@ export interface SqlResultHeaderProps {
   total: { count: number; lowerBound: boolean };
   /** Rows the grid shows, when fewer than the total. */
   shownInView: number | null;
-  statementPosition?: { index: number; total: number } | undefined;
+  statementPosition?: SqlStatementPosition | undefined;
   /** `compact` on a pane too short for the full header and a row of the grid. */
   density?: ResultHeaderProps['density'];
   tabs?: ReadonlyArray<ResultHeaderTab> | undefined;
@@ -88,9 +89,12 @@ export function SqlResultHeader({ response, total, shownInView, statementPositio
         statementLabel !== null || runs ? (
           <>
             {statementLabel !== null ? (
-              <span data-testid="sql-result-preview-statement-count">{hasRows ? ' · ' : ''}{statementLabel}</span>
+              <>
+                {hasRows ? <ResultMetaBreak /> : null}
+                <span data-testid="sql-result-preview-statement-count">{statementLabel}</span>
+              </>
             ) : null}
-            {runs ? <>{hasRows || statementLabel !== null ? ' · ' : ''}<SqlRunPicker {...runs} /></> : null}
+            {runs ? <>{hasRows || statementLabel !== null ? <ResultMetaBreak /> : null}<SqlRunPicker {...runs} /></> : null}
           </>
         ) : undefined
       }

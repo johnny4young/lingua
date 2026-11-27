@@ -71,8 +71,22 @@ describe('buildColumnProfileQuery', () => {
       summarizeWrapper("SELECT 'delete' AS action")
     );
     expect(buildColumnProfileQuery('SELECT "update" FROM metrics -- delete')).toBe(
-      summarizeWrapper('SELECT "update" FROM metrics -- delete')
+      summarizeWrapper('SELECT "update" FROM metrics')
     );
+  });
+
+  it('offers a profile for a query that opens or ends with comments', () => {
+    const query = 'WITH q AS (SELECT city FROM orders)\nSELECT city -- the label\nFROM q';
+    expect(buildColumnProfileQuery(`-- revenue by city\n/* this quarter */\n${query};`)).toBe(
+      summarizeWrapper(query)
+    );
+    expect(buildColumnProfileQuery('SELECT 1; -- trailing note')).toBe(summarizeWrapper('SELECT 1'));
+    expect(buildColumnProfileQuery('-- only a note')).toBeNull();
+    expect(buildColumnProfileQuery('-- select\nDELETE FROM people')).toBeNull();
+    expect(buildColumnProfileQuery("SELECT '--' AS dashes")).toBe(summarizeWrapper("SELECT '--' AS dashes"));
+    // Reads comments and strings like the statement splitter: dollar quotes and nested comments.
+    expect(buildColumnProfileQuery('SELECT $$ -- x $$ AS s')).toBe(summarizeWrapper('SELECT $$ -- x $$ AS s'));
+    expect(buildColumnProfileQuery('/* a /* b */ select 1 */ SELECT 2')).toBe(summarizeWrapper('SELECT 2'));
   });
 
   it('keeps the scalar replace() function profileable while refusing mutating REPLACE forms', () => {
