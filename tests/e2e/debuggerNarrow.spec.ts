@@ -114,8 +114,11 @@ test('at 375 px every step control, dock tab and the call stack stay in reach', 
   await page.locator('.monaco-editor').click({ position: { x: 120, y: 20 } });
   await page.keyboard.press('F10');
   await expect(page.getByTestId('run-meter-paused-line')).toHaveAttribute('data-line', '6');
+  // F5 resumes into the next recursive call, which pauses on line 4 again.
   await page.keyboard.press('F5');
-  await expect(page.getByTestId('debugger-step-hud')).toHaveCount(0);
+  await expect(page.getByTestId('run-meter-visit')).toHaveText('third visit');
+  await expect(page.getByTestId('run-meter-paused-line')).toHaveAttribute('data-line', '4');
+  await expect(hud).toHaveAttribute('data-fit', 'glyphs');
   expect(errors).toEqual([]);
 });
 
