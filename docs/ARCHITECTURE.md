@@ -996,9 +996,11 @@ Python: nothing is traced per line. CPython on Emscripten reads
 `Py_EmscriptenSignalBuffer[0]` every 50 eval-breaker checks; a getter there
 raises SIGUSR1 every 10 ms, and the handler reads the stack: the line of the
 innermost user frame and, for every user frame, the loop-protection counter
-(`__lpN`) of each loop around its line. A `for` loop's iterable passes through
-`__lingua_live_of` once per loop to read its length when it is a built-in
-sized type. `time.sleep` posts its line and length before it blocks. C code
+(`__lpN`, renamed `__lpN__` so a class body does not mangle it) of each loop
+around its line, with a number each run of the loop takes on entry so a loop
+entered again does not repeat its passes. A `for` loop's iterable passes
+through `__lingua_live_of__` once per loop to read its length when it is a
+built-in sized type. `time.sleep` posts its line and length before it blocks. C code
 that never reaches the eval breaker, and `await` in top-level async code, are
 not sampled until Python runs again; loops loop protection does not see
 (one-line loops, multi-line headers) report no pass.

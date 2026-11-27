@@ -72,7 +72,7 @@ const MODULE_BUDGETS = {
   'python-worker-stdin.ts': 80,
   'python-worker-stdin-request.ts': 60,
   'python-worker-display.ts': 90,
-  'python-worker-live-source.ts': 210,
+  'python-worker-live-source.ts': 230,
 } as const;
 
 function workerSource(filename: string): string {

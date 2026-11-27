@@ -102,6 +102,18 @@ describe('Python live line', () => {
     expect(new Set(passes.slice(6)).size).toBe(4);
   });
 
+  it('numbers the passes of a loop entered again apart from its first run', async () => {
+    const run = await execute(['def f():', '    for i in range(2):', '        print(i)', 'f()', 'f()'].join('\n'));
+    expect(new Set(run.console.map(entry => entry.message.pass)).size).toBe(4);
+  });
+
+  it('runs and numbers a loop inside a class method', async () => {
+    const run = await execute(['class A:', '    def run(self):', '        for i in range(3):', '            print(i)', 'A().run()'].join('\n'));
+    expect(run.error).toBeUndefined();
+    expect(run.console.map(entry => entry.message.args)).toEqual([['0'], ['1'], ['2']]);
+    expect(new Set(run.console.map(entry => entry.message.pass)).size).toBe(3);
+  });
+
   it('tags auto-log answers too, and leaves results untagged when the signal is off', async () => {
     const live = await execute(['total = 0', 'for n in range(2):', '    total += n', 'total'].join('\n'), { live: true, autoLog: true, autoLogMode: 'assignments' });
     expect(live.magic.map(entry => entry.message.pass)).toEqual([0, 0]);
@@ -115,5 +127,26 @@ describe('Python live line', () => {
     await handle({ type: 'execute', runId: 'py-live', code: '1 + 1', live: true });
     expect(posted.find(entry => entry.message.type === 'result')?.message).toMatchObject({ value: '2' });
     expect(py.runPython('import signal\nsignal.getsignal(signal.SIGUSR1) in (signal.SIG_DFL, None)')).toBe(true);
+  });
+
+  it('does not read the auto-log wrapper as a user frame', async () => {
+    // The module frame, then the auto-log pass, then the wrapper that called it.
+    const run = await execute(['import sys', 'caller = sys._getframe(2).f_code.co_filename', 'print(caller)'].join('\n'), { live: true, autoLog: true, autoLogMode: 'assignments' });
+    expect(run.console.map(entry => entry.message.args[0])).toEqual(['<lingua-auto-log>']);
+  });
+
+  it('turns the signal off again when sampling cannot start', async () => {
+    const runtime = py as unknown as { setInterruptBuffer: (buffer: unknown) => void };
+    const original = runtime.setInterruptBuffer.bind(py);
+    runtime.setInterruptBuffer = () => {
+      throw new Error('no buffer');
+    };
+    try {
+      const failed = await execute('for n in range(2):\n    print(n)');
+      expect(failed.console.map(entry => entry.message.pass)).toEqual([undefined, undefined]);
+    } finally {
+      runtime.setInterruptBuffer = original;
+    }
+    expect(py.runPython('__lingua_live_state is None')).toBe(true);
   });
 });

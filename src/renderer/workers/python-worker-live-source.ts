@@ -18,9 +18,11 @@ const POLLS_PER_CLOCK_READ = 16;
 export const PYTHON_LIVE_SOURCE = `
 import ast as __lingua_live_ast
 import signal as __lingua_live_signal
+import itertools as __lingua_live_itertools
 import time as __lingua_live_time
 
 __lingua_live_clock = __lingua_live_time.perf_counter
+__lingua_live_enter__ = __lingua_live_itertools.count(1).__next__
 __lingua_live_loops = []
 __lingua_live_totals = {}
 __lingua_live_ordinals = {}
@@ -28,28 +30,34 @@ __lingua_live_sized = (list, tuple, range, str, bytes, dict, set, frozenset,
                        type({}.keys()), type({}.values()), type({}.items()))
 
 
-def __lingua_live_of(name, value):
+def __lingua_live_of__(name, value):
     __lingua_live_totals[name] = len(value) if type(value) in __lingua_live_sized else None
     return value
 
 
 def __lingua_live_prepare(tree):
-    # Each protected loop starts its body with __lpN += 1: that counter is its pass.
+    # Each protected loop starts its body with __lpN += 1: that counter is its pass, and each run of the
+    # loop takes a new entry number. Names end in __ so a class body does not mangle them.
     ast = __lingua_live_ast
-    loops = []
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.For, ast.AsyncFor, ast.While)) or not node.body:
-            continue
-        first = node.body[0]
-        if not (isinstance(first, ast.AugAssign) and isinstance(first.target, ast.Name)
-                and first.target.id.startswith("__lp")):
-            continue
-        name = first.target.id
-        loops.append((node.lineno, max(getattr(stmt, "end_lineno", None) or stmt.lineno for stmt in node.body), name))
-        if not isinstance(node, ast.While):
-            call = ast.Call(func=ast.Name(id="__lingua_live_of", ctx=ast.Load()),
-                            args=[ast.Constant(value=name), node.iter], keywords=[])
-            node.iter = ast.copy_location(call, node.iter)
+        if isinstance(node, ast.Name) and node.id.startswith("__lp") and node.id[4:].isdigit():
+            node.id += "__"
+    loops = []
+    for parent in list(ast.walk(tree)):
+        for stmts in (getattr(parent, field, None) for field in ("body", "orelse", "finalbody")):
+            for index in range(len(stmts) - 1, -1, -1) if isinstance(stmts, list) else ():
+                node = stmts[index]
+                first = node.body[0] if isinstance(node, (ast.For, ast.AsyncFor, ast.While)) and node.body else None
+                if not (isinstance(first, ast.AugAssign) and isinstance(first.target, ast.Name)
+                        and first.target.id.startswith("__lp")):
+                    continue
+                name, entry = first.target.id, "__lingua_le" + first.target.id[4:]
+                loops.append((node.lineno, max(getattr(stmt, "end_lineno", None) or stmt.lineno for stmt in node.body), name, entry))
+                if not isinstance(node, ast.While):
+                    call = ast.Call(func=ast.Name(id="__lingua_live_of__", ctx=ast.Load()), args=[ast.Constant(value=name), node.iter], keywords=[])
+                    node.iter = ast.copy_location(call, node.iter)
+                enter = ast.Call(func=ast.Name(id="__lingua_live_enter__", ctx=ast.Load()), args=[], keywords=[])
+                stmts.insert(index, ast.copy_location(ast.Assign(targets=[ast.Name(id=entry, ctx=ast.Store())], value=enter), node))
     # Sorted by header, so the loops around a line come outermost first.
     __lingua_live_loops[:] = sorted(loops)
     __lingua_live_totals.clear()
@@ -67,18 +75,18 @@ def __lingua_live_frames(frame):
 
 
 def __lingua_live_path(frames):
-    # Open loops around each frame's line, outermost first: (name, header, pass).
+    # Open loops around each frame's line, outermost first: (name, header, pass, entry).
     path = []
     for frame in frames:
         line = frame.f_lineno
-        hits = [(head, name) for head, end, name in __lingua_live_loops if head <= line <= end]
+        hits = [(head, name, entry) for head, end, name, entry in __lingua_live_loops if head <= line <= end]
         if not hits:
             continue
         scope = frame.f_locals
-        for head, name in hits:
+        for head, name, entry in hits:
             count = scope.get(name)
             if type(count) is int:
-                path.append((name, head, count))
+                path.append((name, head, count, scope.get(entry)))
     return path
 
 
@@ -98,7 +106,7 @@ def __lingua_live_sample(frame, wait=None):
         return
     state[2] = now
     loops = []
-    for name, head, count in __lingua_live_path(frames)[-${LIVE_RUN_MAX_LOOPS}:]:
+    for name, head, count, _entry in __lingua_live_path(frames)[-${LIVE_RUN_MAX_LOOPS}:]:
         loop = {"line": head, "pass": count}
         total = __lingua_live_totals.get(name)
         if total is not None:
@@ -129,7 +137,7 @@ def __lingua_live_wait(seconds):
 def __lingua_live_pass():
     # Same pass of the same loops, same number; 0 outside every loop.
     try:
-        path = tuple((name, count) for name, _head, count in __lingua_live_path(__lingua_live_frames(sys._getframe(1))))
+        path = tuple((name, entry, count) for name, _head, count, entry in __lingua_live_path(__lingua_live_frames(sys._getframe(1))))
     except Exception:  # noqa: BLE001
         return None
     if not path:
@@ -187,13 +195,22 @@ export async function startPythonLive(py: PyodideRuntime, port: PythonWorkerPort
     prepared.add(py);
   }
   const signum = Number(runtime.runPython('__lingua_live_begin()'));
-  runtime.setInterruptBuffer(createSampleBuffer(signum, () => performance.now()));
-  return () => {
-    runtime.setInterruptBuffer?.(undefined);
-    try {
-      runtime.runPython?.('__lingua_live_end()');
-    } catch {
-      // The next run's begin installs the handler again.
+  // Each step on its own, so a failing buffer still turns the Python side off.
+  const stop = () => {
+    for (const step of [() => runtime.setInterruptBuffer?.(undefined), () => runtime.runPython?.('__lingua_live_end()')]) {
+      try {
+        step();
+      } catch {
+        // The next run's begin installs the handler again.
+      }
     }
   };
+  try {
+    runtime.setInterruptBuffer(createSampleBuffer(signum, () => performance.now()));
+  } catch (error) {
+    // Never leave the handler and the pass tags on for later runs.
+    stop();
+    throw error;
+  }
+  return stop;
 }

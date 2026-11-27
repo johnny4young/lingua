@@ -95,8 +95,9 @@ function wrapLoop(node: AcornNode, target: AcornNode, state: WalkState): void {
   // Closes are prepended, so a loop nested at the same end closes first.
   ms.prependLeft(target.end, ` } finally { __lingua_loop_end(${id}); } }`);
   if (node.type === 'ForOfStatement') {
-    ms.appendLeft(node.right.start, `__lingua_of(${id}, `);
-    ms.prependLeft(node.right.end, ')');
+    // Parenthesized, so a sequence such as (a, b) stays one argument.
+    ms.appendLeft(node.right.start, `__lingua_of(${id}, (`);
+    ms.prependLeft(node.right.end, '))');
   }
   const body = node.body;
   const pass = `if ((++${counter} & ${PASSES_PER_CALL - 1}) === 1) __lingua_pass();`;

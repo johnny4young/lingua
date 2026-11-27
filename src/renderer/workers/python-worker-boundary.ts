@@ -9,11 +9,11 @@ export const PYTHON_EXECUTION_BOUNDARY_SOURCE = `
 from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT as __lingua_top_level_await
 from pyodide.code import CodeRunner as __lingua_code_runner, eval_code_async as __lingua_eval_code_async
 
-async def __lingua_execute(source, namespace, prepare=None, _eval=__lingua_eval_code_async,
+async def __lingua_execute(source, namespace, prepare=None, filename="<exec>", _eval=__lingua_eval_code_async,
                            _sys=sys, _stdout=__lingua_prev_stdout, _stderr=__lingua_prev_stderr):
     try:
         if prepare is None:
-            return await _eval(source, globals=namespace)
+            return await _eval(source, globals=namespace, filename=filename)
         # What eval_code_async does, with a pass over the tree before it compiles.
         runner = __lingua_code_runner(source, filename="<exec>", flags=__lingua_top_level_await)
         runner.ast = prepare(runner.ast)
@@ -23,7 +23,11 @@ async def __lingua_execute(source, namespace, prepare=None, _eval=__lingua_eval_
         _sys.stderr = _stderr
 `;
 
-/** `live` compiles through the live signal's loop pass; auto-log sources already compile their own tree. */
-export function buildPythonBoundedExecutionSource(source: string, live = false): string {
-  return `await __lingua_execute(${JSON.stringify(source)}, globals()${live ? ', __lingua_live_prepare' : ''})`;
+/**
+ * `live` compiles through the live signal's loop pass. A `wrapper` source only calls the auto-log pass,
+ * which compiles the user's tree as `<exec>`, so the wrapper is not read as a user frame.
+ */
+export function buildPythonBoundedExecutionSource(source: string, live = false, wrapper = false): string {
+  const args = `${live ? ', __lingua_live_prepare' : ''}${wrapper ? ', filename="<lingua-auto-log>"' : ''}`;
+  return `await __lingua_execute(${JSON.stringify(source)}, globals()${args})`;
 }

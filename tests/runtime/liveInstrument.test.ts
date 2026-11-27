@@ -55,6 +55,11 @@ describe('instrumentForLive', () => {
     expect(events).toEqual(['loop 0', 'call', 'loop 1', 'of 1', 'call', 'end 1:2', 'loop 1', 'of 1', 'call', 'end 1:2', 'end 0:2']);
   });
 
+  it('keeps a parenthesized sequence as the iterable of a for-of', () => {
+    const { code } = trace('const seen = [];\nfor (const v of ([0], [1, 2])) seen.push(v);\nif (seen.join() !== "1,2") throw new Error(seen.join());');
+    parses(code);
+  });
+
   it('wraps loops with a single-statement body, including one loop as another loop body', () => {
     const source = 'let n = 0;\nfor (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) n++;\nwhile (n > 2) n--;\ndo n--; while (n > 0)';
     const { code, events, lines } = trace(source);

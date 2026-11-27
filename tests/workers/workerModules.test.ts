@@ -154,7 +154,7 @@ describe('Python execution worker adapter', () => {
   it('routes Python Scratchpad expressions through CPython AST instrumentation', async () => {
     const harness = createPythonExecutionHarness();
     const source = 'value = 21\nvalue * 2';
-    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source));
+    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source), false, true);
     const runPythonAsync = vi.fn(async (incoming: string) => {
       if (incoming.includes(PYTHON_AUTO_LOG_HELPERS_SOURCE)) return null;
       if (incoming === executionSource) return null;
@@ -191,7 +191,7 @@ describe('Python execution worker adapter', () => {
   it('asks the auto-log pass for assignments when a notebook cell runs', async () => {
     const harness = createPythonExecutionHarness();
     const source = 'tickets = [1, 2]\nawait asyncio.sleep(0)';
-    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source, 'cell'));
+    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source, 'cell'), false, true);
     expect(buildPythonAutoLogExecutionSource(source, 'cell')).toBe(
       `await __lingua_execute_auto_log(${JSON.stringify(source)}, globals(), "cell")`
     );
