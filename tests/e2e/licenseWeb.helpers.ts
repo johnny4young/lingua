@@ -58,7 +58,9 @@ type SeedOptions = {
   primeProLicense?: boolean;
   restoreSessionMode?: 'always' | 'ask' | 'never';
   /** Theme and editor theme seeded together, e.g. dark + lingua-ink for the Ink palette. */
-  appearance?: { theme: 'dark' | 'light'; editorTheme: string };
+  appearance?: { theme: 'dark' | 'light'; editorTheme: string; fontFamily?: string };
+  /** Tabs of the last session, as `lingua-session` persists them. */
+  savedTabs?: readonly object[];
 };
 
 type SeededSnippet = {
@@ -267,6 +269,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
     workflowModeDefaultsByLanguage,
     restoreSessionMode,
     appearance,
+    savedTabs,
   } = options;
 
   await page.addInitScript(
@@ -357,6 +360,14 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededLicenseToken: primeProLicense ? (DEV_LICENSE_TOKEN ?? null) : null,
     }
   );
+
+  // After the settings seed, which clears storage on a first load.
+  if (savedTabs) {
+    await page.addInitScript(tabs => {
+      if (window.localStorage.getItem('lingua-session')) return;
+      window.localStorage.setItem('lingua-session', JSON.stringify({ state: { savedTabs: tabs, savedActiveIndex: 0 }, version: 2 }));
+    }, savedTabs);
+  }
 }
 
 export async function gotoApp(page: Page): Promise<void> {

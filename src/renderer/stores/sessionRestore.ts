@@ -20,6 +20,7 @@ import { loadLastAnswer } from './tabLastAnswer';
 import {
   armPendingSessionRestoreSnapshot,
   clearPendingSessionRestoreSnapshot,
+  dropRestorePrompt,
   getPendingSessionRestoreSnapshot,
   RESTORE_SESSION_PROMPT_KEY,
   setPendingSessionRestoreSnapshot,
@@ -297,7 +298,10 @@ export async function restoreSavedSession(options: { only?: number }): Promise<v
     savedActiveIndex >= 0 && savedActiveIndex < savedIndexToRestoredId.length
       ? (savedIndexToRestoredId[savedActiveIndex] ?? null)
       : null;
-  useEditorStore.getState().restoreTabs(restored, activeId, { append: only !== undefined || pendingSnapshot?.partial === true });
+  dropRestorePrompt();
+  // The prompt can show after a tab opened, so a full restore keeps open tabs too.
+  const append = only !== undefined || pendingSnapshot?.partial === true || useEditorStore.getState().tabs.length > 0;
+  useEditorStore.getState().restoreTabs(restored, activeId, { append });
   const recipeStore = useRecipeStore.getState();
   for (const tab of restored) {
     if (tab.recipeBindingId !== undefined) {

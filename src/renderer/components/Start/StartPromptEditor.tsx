@@ -1,8 +1,9 @@
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useMemo, useRef, type ClipboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ClipboardEvent, type CSSProperties } from 'react';
 import { configureMonaco, registerLanguageOnce } from '../../monaco';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { Language } from '../../types/language';
+import { editorFontVariations } from '../../utils/editorFontVariations';
 import { monacoLanguageFor } from '../../utils/languageMeta';
 import { getSatelliteEditorOptions } from '../Editor/editorOptions';
 import { defineCustomThemes } from '../Editor/editorThemes';
@@ -162,8 +163,11 @@ export function StartPromptEditor({
     editor.trigger('keyboard', 'paste', { text: toOneLine(text), pasteOnNewLine: false, multicursorText: null, mode: null });
   }, []);
 
+  // Monaco gives its placeholder the family and size but not the code face's axes.
+  const axes = { '--start-prompt-axes': editorFontVariations(fontFamily) || undefined } as CSSProperties;
+
   return (
-    <div onPasteCapture={handlePaste}>
+    <div onPasteCapture={handlePaste} style={axes}>
       <MonacoEditor
         height={LINE_HEIGHT}
         language={monacoLanguage}

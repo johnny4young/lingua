@@ -135,6 +135,36 @@ export function setPendingSessionRestoreSnapshot(snapshot: PendingSessionRestore
 /** The ask-mode prompt that offers the pinned snapshot; any restore of it answers the prompt. */
 export const RESTORE_SESSION_PROMPT_KEY = 'editor.restoreSession.prompt';
 
+let heldRestorePrompt: (() => void) | null = null;
+let stopWatchingTabs: (() => void) | null = null;
+
+/**
+ * Ask mode: the restore prompt waits while Start's Pick up offers the same
+ * restore. It shows once a tab opens without restoring, or when Start has no Pick up.
+ */
+export function holdRestorePrompt(show: () => void): void {
+  dropRestorePrompt();
+  heldRestorePrompt = show;
+  stopWatchingTabs = useEditorStore.subscribe(state => {
+    if (state.tabs.length > 0) releaseRestorePrompt();
+  });
+  if (useEditorStore.getState().tabs.length > 0) releaseRestorePrompt();
+}
+
+/** Shows the held prompt while its whole snapshot is still offered. */
+export function releaseRestorePrompt(): void {
+  const show = heldRestorePrompt;
+  dropRestorePrompt();
+  if (show && pendingSessionRestoreSnapshot && !pendingSessionRestoreSnapshot.partial) show();
+}
+
+/** A restore answers the held prompt. */
+export function dropRestorePrompt(): void {
+  stopWatchingTabs?.();
+  stopWatchingTabs = null;
+  heldRestorePrompt = null;
+}
+
 function cloneSessionTabs(tabs: readonly SessionTab[]): SessionTab[] {
   return tabs.map(tab => ({ ...tab }));
 }

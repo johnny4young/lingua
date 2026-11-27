@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { EditorEmptyState } from '@/components/Editor/EditorEmptyState';
+import { useSessionRestoreBoot } from '@/hooks/useSessionRestoreBoot';
+import { createDefaultTab } from '@/stores/editorTabUtils';
 import { consumeSqlSampleRequest } from '@/components/SqlWorkspace/pendingSqlSample';
 import { useEditorStore } from '@/stores/editorStore';
 import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/stores/nativeToolchainStore';
@@ -12,6 +14,11 @@ import { useUIStore } from '@/stores/uiStore';
 import { SEEDED_SCRATCHPAD_NAME, SEEDED_SCRATCHPAD_SOURCE } from '@/onboarding/seedScratchpad';
 import { BUILT_IN_TEMPLATES } from '@/data/templates';
 import type { StartPromptEditorProps } from '@/components/Start/StartPromptEditor';
+import { DEFAULT_RUN_POLICY_BY_GROUP } from '../../../src/shared/runPolicy';
+
+const { mockExecute } = vi.hoisted(() => ({ mockExecute: vi.fn() }));
+
+vi.mock('@/runners/manager', () => ({ runnerManager: { execute: mockExecute } }));
 
 // Monaco does not run in jsdom; the stand-in keeps the props contract and the editor's class.
 vi.mock('@/components/Start/StartPromptEditor', () => ({
@@ -42,7 +49,7 @@ function setPlatform(platform: 'web' | 'darwin' | null): void {
   else delete target.lingua;
 }
 
-function seedSession(): void {
+function seedSession({ arm = true }: { arm?: boolean } = {}): void {
   const now = Date.now();
   useSessionStore.setState({
     savedTabs: [
@@ -62,8 +69,10 @@ function seedSession(): void {
     ],
     savedActiveIndex: 0,
   });
-  armPendingSessionRestoreSnapshot();
+  if (arm) armPendingSessionRestoreSnapshot();
 }
+
+const restoreNotice = () => useUIStore.getState().statusNotice?.messageKey === 'editor.restoreSession.prompt';
 
 describe('Start page', () => {
   beforeEach(async () => {
@@ -74,6 +83,8 @@ describe('Start page', () => {
     clearPendingSessionRestoreSnapshot();
     useSettingsStore.setState({ restoreSessionMode: 'ask' });
     useUIStore.setState({ statusNotice: null, statusNoticeQueue: [] });
+    useSettingsStore.setState({ runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP } });
+    mockExecute.mockReset();
     resetNativeToolchainStoreForTests();
     consumeSqlSampleRequest();
   });
@@ -103,6 +114,38 @@ describe('Start page', () => {
     const second = screen.getByTestId('start-pick-up-row-2');
     expect(second.textContent).toContain('TypeError');
     expect(screen.queryByTestId('start-pick-up-row-3')).toBeNull();
+  });
+
+  it('holds the restore prompt while Pick up offers the session and shows it once a tab opens', () => {
+    seedSession({ arm: false });
+    renderHook(() => useSessionRestoreBoot(false));
+    render(<EditorEmptyState />);
+
+    expect(screen.getByTestId('start-pick-up')).toBeTruthy();
+    expect(restoreNotice()).toBe(false);
+
+    act(() => useEditorStore.getState().addTab(createDefaultTab('javascript')));
+    expect(useUIStore.getState().statusNotice).toMatchObject({ messageKey: 'editor.restoreSession.prompt', values: { count: 3 } });
+  });
+
+  it('shows the restore prompt at once when Pick up has nothing to offer', () => {
+    useSessionStore.setState({ savedTabs: [{ name: 'never-ran.js', language: 'javascript', content: '' }], savedActiveIndex: 0 });
+    renderHook(() => useSessionRestoreBoot(false));
+    render(<EditorEmptyState />);
+
+    expect(screen.queryByTestId('start-pick-up')).toBeNull();
+    expect(restoreNotice()).toBe(true);
+  });
+
+  it('never shows the held prompt after a row reopens', async () => {
+    seedSession({ arm: false });
+    renderHook(() => useSessionRestoreBoot(false));
+    render(<EditorEmptyState />);
+
+    fireEvent.click(screen.getByTestId('start-pick-up-row-1'));
+
+    await waitFor(() => expect(useEditorStore.getState().tabs.map(tab => tab.name)).toEqual(['latencies.py']));
+    expect(restoreNotice()).toBe(false);
   });
 
   it('reopens one tab from its row or digit and keeps the others offered', async () => {
@@ -293,6 +336,36 @@ describe('Start page', () => {
     await user.keyboard('{Enter}');
 
     expect(useEditorStore.getState().tabs[0]).toMatchObject({ language: 'javascript', content: '6 * 7' });
+  });
+
+  it('marks the answer stale while the line differs from the one that answered', async () => {
+    const user = userEvent.setup();
+    mockExecute.mockImplementation(async (_language: string, code: string) => ({
+      stdout: [],
+      stderr: [],
+      executionTime: 2,
+      magicResults: [{ line: 1, value: code === '6 * 7' ? '42' : '43', kind: 'autoLog' }],
+    }));
+    // Manual runs the line on Enter, so no pause has to pass.
+    useSettingsStore.setState({ runPolicyByGroup: { ...DEFAULT_RUN_POLICY_BY_GROUP, jsTs: 'manual' } });
+    render(<EditorEmptyState />);
+    const field = screen.getByRole('textbox', { name: 'Run a line of code' });
+
+    await user.type(field, '6 * 7{Enter}');
+    const answer = await screen.findByTestId('start-prompt-answer');
+    await waitFor(() => expect(answer.textContent).toContain('42'));
+    expect(answer.hasAttribute('data-stale')).toBe(false);
+    const announced = answer.textContent;
+
+    await user.type(field, ' +');
+    expect(answer.hasAttribute('data-stale')).toBe(true);
+    // Same text in the live region, so going stale announces nothing.
+    expect(answer.textContent).toBe(announced);
+
+    await user.type(field, ' 1{Enter}');
+    await waitFor(() => expect(answer.textContent).toContain('43'));
+    expect(answer.hasAttribute('data-stale')).toBe(false);
+    expect(useEditorStore.getState().tabs).toHaveLength(0);
   });
 
   it('leaves digits typed into the prompt to the prompt', async () => {
