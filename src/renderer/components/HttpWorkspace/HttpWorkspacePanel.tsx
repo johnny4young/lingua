@@ -604,7 +604,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         } catch {
           capsule = undefined;
         }
-        void recordTabLastAnswer(HTTP_WORKSPACE_TAB_ID, ({ httpLastAnswer }, ranAt) => httpLastAnswer(answered, requestToSend.method, ranAt));
+        void recordTabLastAnswer(HTTP_WORKSPACE_TAB_ID, ({ httpLastAnswer }, ranAt) => httpLastAnswer(answered, requestToSend.method, ranAt, activeEnv?.name));
         useExecutionHistoryStore.getState().record({
           language: 'http',
           status: response.kind === 'success' ? 'ok' : 'error',

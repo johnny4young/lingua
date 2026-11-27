@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LAST_ANSWER_CONTEXT_MAX,
   LAST_ANSWER_NUMERAL_MAX,
   LAST_ANSWER_PICTURE_MAX,
   LAST_ANSWER_SUBJECT_MAX,
@@ -162,6 +163,13 @@ describe('sqlLastAnswer', () => {
     });
   });
 
+  it('keeps where the query ran, clipped, and leaves out an empty context', () => {
+    expect(sqlLastAnswer(response(), 'q', RAN_AT, 'orders-dev · Postgres').context).toBe('orders-dev · Postgres');
+    expect(sqlLastAnswer(response(), 'q', RAN_AT, `  ${'c'.repeat(200)}  `).context).toHaveLength(LAST_ANSWER_CONTEXT_MAX);
+    expect(sqlLastAnswer(response(), 'q', RAN_AT, '   ')).not.toHaveProperty('context');
+    expect(sqlLastAnswer(response(), 'q', RAN_AT)).not.toHaveProperty('context');
+  });
+
   it('marks a lower-bound count and leaves a failure without a numeral', () => {
     expect(sqlLastAnswer(response({ rowCountIsLowerBound: true }), 'q', RAN_AT).numeral).toBe('≥3');
     expect(sqlLastAnswer(response({ status: 'sql-error', rows: [], errorMessage: 'syntax' }), 'q', RAN_AT)).toMatchObject({
@@ -193,6 +201,14 @@ describe('httpLastAnswer', () => {
       durationMs: 142,
       ranAt: RAN_AT,
     });
+  });
+
+  it('names the environment it was sent in and nothing from the URL', () => {
+    const response = { kind: 'success', status: 204, statusText: '', url: 'https://user:pw@api.example.test/v1?key=k', finalUrl: '', durationMs: 3 } as HttpResponseV1;
+    const answer = httpLastAnswer(response, 'DELETE', RAN_AT, 'staging');
+    expect(answer.context).toBe('staging');
+    expect(JSON.stringify(answer)).not.toMatch(/pw|key=|example/);
+    expect(httpLastAnswer(response, 'DELETE', RAN_AT, undefined)).not.toHaveProperty('context');
   });
 
   it('leaves a network failure without a numeral', () => {
@@ -268,6 +284,7 @@ describe('sanitizeLastAnswer', () => {
       unit: 'status',
       label: 'OK',
       subject: 'GET /v1',
+      context: 'staging',
       picture: { kind: 'phases', values: [1, 2, 3, 4, 5] },
       durationMs: 142,
       deltaMs: -3,
@@ -293,6 +310,11 @@ describe('sanitizeLastAnswer', () => {
     });
     expect(clipped?.numeral).toHaveLength(LAST_ANSWER_NUMERAL_MAX);
     expect(clipped?.subject).toHaveLength(LAST_ANSWER_SUBJECT_MAX);
+    expect(sanitizeLastAnswer({ kind: 'sql', status: 'ok', numeral: '1', context: 'x'.repeat(300), ranAt: RAN_AT })?.context).toHaveLength(
+      LAST_ANSWER_CONTEXT_MAX
+    );
+    expect(sanitizeLastAnswer({ kind: 'sql', status: 'ok', numeral: '1', context: { name: 'db' }, ranAt: RAN_AT })).not.toHaveProperty('context');
+    expect(sanitizeLastAnswer({ kind: 'sql', status: 'ok', numeral: '1', context: 42, ranAt: RAN_AT })).not.toHaveProperty('context');
     expect(clipped?.picture?.values).toHaveLength(LAST_ANSWER_PICTURE_MAX);
     expect(clipped).not.toHaveProperty('unit');
     expect(

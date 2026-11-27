@@ -34,6 +34,7 @@ import { trackSqlQueryExecuted } from './sqlWorkspaceTelemetry';
 import { appPlatform } from '../utils/appPlatform';
 import { recordTabLastAnswer } from '../stores/tabLastAnswer';
 import { SQL_WORKSPACE_TAB_ID } from '../stores/editorTabUtils';
+import { answerContextLabel } from '../components/SqlWorkspace/sqlConnectionStyle';
 import '../i18n/sqlConnectionsCatalog';
 
 export function toSqlResponse(measured: DuckDbExecuteOutcome): SqlResponseV1 {
@@ -290,7 +291,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, canStartRun, onSchemaChan
         ...(position ? { position } : {}),
       });
       useWorkspaceSqlStore.getState().recordResponse(query.id, last.response);
-      void recordTabLastAnswer(SQL_WORKSPACE_TAB_ID, ({ sqlLastAnswer }, ranAt) => sqlLastAnswer(last.response, query.name, ranAt));
+      const context = answerContextLabel(remote?.connection);
+      void recordTabLastAnswer(SQL_WORKSPACE_TAB_ID, ({ sqlLastAnswer }, ranAt) => sqlLastAnswer(last.response, query.name, ranAt, context));
       const cursor = outcomes[outcomes.length - 1]?.cursor;
       const key = moreRowsKey(query.id, last.response.recordedAt);
       if (cursor) activeCursor = { key, cursor };

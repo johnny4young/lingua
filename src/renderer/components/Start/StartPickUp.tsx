@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Folder } from 'lucide-react';
 import { getSessionTabAnswers, projectLastAnswer, type SessionTabAnswer } from '../../stores/lastAnswerSelectors';
@@ -32,7 +32,7 @@ function tabRow(tab: SessionTabAnswer, t: (key: string) => string): PickUpRow {
   const { lastAnswer } = tab;
   const { badge: badgeLanguage, name, workspace } = answerIdentity(tab, lastAnswer);
   const detail = workspace
-    ? undefined
+    ? lastAnswer.context
     : tab.filePath
       ? languageLabel(tab.language)
       : `${t('start.pickUp.scratch')} · ${languageLabel(tab.language)}`;
@@ -66,15 +66,15 @@ function AnswerValue({ answer }: { answer: LastAnswer }) {
   const { t } = useTranslation();
   const { value, unit, failed } = answerDisplay(answer, t);
   return (
-    <span className="flex min-w-0 shrink-0 items-baseline gap-1.5 whitespace-nowrap">
+    <span className="start-answer flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
       <span
-        className="start-numeral font-display tracking-[-0.02em]"
+        className="start-numeral min-w-0 truncate font-display tracking-[-0.02em]"
         data-empty={answer.numeral ? undefined : ''}
         data-failed={failed ? '' : undefined}
       >
         {value}
       </span>
-      {unit ? <span className="start-unit font-display italic text-fg-muted">{unit}</span> : null}
+      {unit ? <span className="start-unit shrink-0 font-display italic text-fg-muted">{unit}</span> : null}
     </span>
   );
 }
@@ -179,25 +179,38 @@ export function StartPickUp() {
               onClick={row.reopen}
               aria-label={t('start.pickUp.reopen', { name: row.name })}
               aria-keyshortcuts={String(index + 1)}
-              className="group flex h-16 w-full min-w-0 items-center gap-3 whitespace-nowrap rounded-md px-1 text-left transition-colors hover:bg-bg-panel-alt/60 focus-ring"
+              className="start-row group flex w-full min-w-0 items-center gap-3 whitespace-nowrap rounded-md px-1 text-left transition-colors hover:bg-bg-panel-alt/60 focus-ring"
               data-testid={`start-pick-up-row-${index + 1}`}
             >
-              <span
-                className="inline-flex size-5 shrink-0 items-center justify-center rounded-md border border-border-strong font-mono text-[11px] text-fg-muted"
-                aria-hidden
-              >
-                {index + 1}
+              <span className="start-row-head">
+                <span
+                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-md border border-border-strong font-mono text-[11px] text-fg-muted"
+                  aria-hidden
+                >
+                  {index + 1}
+                </span>
+                {row.badge}
+                <span
+                  className="start-row-name truncate font-mono font-semibold text-fg-base"
+                  // Monospace, so a name holds its full width up to 12 characters before it truncates.
+                  style={{ '--start-name-min': `${Math.min([...row.name].length, 12)}ch` } as CSSProperties}
+                  title={row.name}
+                >
+                  {row.name}
+                </span>
+                {row.detail ? (
+                  <span className="start-row-detail min-w-0 truncate text-[12.5px] text-fg-muted" title={row.detail}>
+                    {row.detail}
+                  </span>
+                ) : null}
               </span>
-              {row.badge}
-              <span className="start-row-name min-w-0 truncate font-mono font-semibold text-fg-base">{row.name}</span>
-              {row.detail ? (
-                <span className="start-row-detail shrink-0 text-[12.5px] text-fg-muted">{row.detail}</span>
-              ) : null}
-              <DotLeader />
-              <AnswerValue answer={row.answer} />
-              <AnswerDetail answer={row.answer} />
-              <span className="w-[72px] shrink-0 text-right text-[12.5px] text-fg-muted">
-                {startTimeAgo(row.answer.ranAt, now, i18n.language)}
+              <span className="start-row-tail">
+                <DotLeader />
+                <AnswerValue answer={row.answer} />
+                <AnswerDetail answer={row.answer} />
+                <span className="start-row-age shrink-0 text-right text-[12.5px] text-fg-muted">
+                  {startTimeAgo(row.answer.ranAt, now, i18n.language)}
+                </span>
               </span>
             </button>
           </li>

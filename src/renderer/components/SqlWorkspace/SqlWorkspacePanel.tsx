@@ -58,9 +58,8 @@ import { SqlImportButton } from './SqlImportButton';
 import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlExplorerModel';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
 import { SqlQueryTabs } from './SqlQueryTabs';
-import { toneOf } from './sqlConnectionStyle';
+import { connectionContextLabel, toneOf } from './sqlConnectionStyle';
 import { SqlSaveQueryPopover } from './SqlSaveQueryPopover';
-import { ENGINE_LABEL } from './sqlConnectionStyle';
 import { SqlHistorySection } from './SqlHistorySection';
 import { lastDurationByQuery } from './sqlLatency';
 import { SqlPlanView } from './SqlPlanView';
@@ -638,7 +637,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           folders={folders}
           onSave={tabActions.confirmSave}
           onCancel={tabActions.cancelSave}
-          {...(activeConnection ? { connectionLabel: `${activeConnection.name} · ${ENGINE_LABEL[activeConnection.engine]}` } : {})}
+          {...(activeConnection ? { connectionLabel: connectionContextLabel(activeConnection) } : {})}
         />
       ) : null}
     </div>
