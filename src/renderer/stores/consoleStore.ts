@@ -179,11 +179,12 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
       const previous = state.currentRun?.tabId === tabId ? state.currentRun : null;
       return {
         ...clearedOutput(state),
-        // Only line-keyed rows can stand in for the next run; keep nothing heavier.
-        previousRun: previous && keepPrevious ? {
+        // Only line-keyed rows can stand in for the next run; keep nothing heavier. A run that
+        // takes over an unfinished run's number replaces it, so the run before still stands in.
+        previousRun: !keepPrevious || !previous ? null : previous.number === number ? state.previousRun : {
           number: previous.number,
           rows: state.collapsedEntries.filter((row) => sourceLineForEntry(row.entry) !== null),
-        } : null,
+        },
         currentRun: { tabId, number: number ?? (previous?.number ?? 0) + 1, startedAt },
       };
     }),

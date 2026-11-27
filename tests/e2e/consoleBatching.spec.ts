@@ -30,7 +30,7 @@ for (const language of ['en', 'es'] as const) {
     await clickRun(page);
     await openConsole(page);
     const rows = page.getByTestId('console-entry-row');
-    await expect(rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })).toBeVisible();
+    await expect(page.getByTestId('run-meter')).toHaveAttribute('data-state', 'done');
     await expect(
       rows.filter({ hasText: 'batch-repeat' }).getByTestId('console-repeat-count')
     ).toHaveText('×50');

@@ -16,7 +16,7 @@ function lastRunText(tabId: string, code: string): string | undefined {
   if (ranCode?.tabId !== tabId || ranCode.code !== code) return undefined;
   // A run still going in another tab keeps writing to the shared Console.
   if (manualRunSession && manualRunSession.tabId !== tabId) return undefined;
-  // Lingua's own status rows (Running…, Completed in…) are info rows with no line or payload.
+  // Lingua's own status rows (Failed in…, Debugging…) are info rows with no line or payload.
   const lines = useConsoleStore
     .getState()
     .entries.filter(entry => entry.type !== 'info' || entry.line !== undefined || entry.payload !== undefined)

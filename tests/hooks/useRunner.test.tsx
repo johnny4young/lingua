@@ -1052,9 +1052,10 @@ describe('useRunner', () => {
         await hook.current.run();
       });
 
-      expect(useConsoleStore.getState().entries.length).toBeGreaterThan(3);
+      // The noise row and the run's one output; status rows are not console messages.
+      expect(useConsoleStore.getState().entries).toHaveLength(2);
       const expected = i18next.t('console.run.announce.ok', {
-        count: 3,
+        count: 1,
       });
       expect(useAnnouncerStore.getState().message).toBe(expected);
       expect(useAnnouncerStore.getState().nonce).toBe(1);

@@ -69,8 +69,8 @@ describe('executeTabManually — console delivery', () => {
       );
       const summary = await executeTabManually(tab, { recordHistory: false });
       expect(summary.ok).toBe(outcome === 'success');
+      // The run meter shows a run in flight and a finished one, so neither gets a row.
       expect(contents()).toEqual([
-        'Running main.js...',
         'streamed',
         ...(outcome === 'throw'
           ? ['Unexpected error: stream failure']
@@ -78,7 +78,7 @@ describe('executeTabManually — console delivery', () => {
             ? ['stopped']
             : outcome === 'error'
               ? ['bad input', 'Failed in 12.0 ms']
-              : ['Completed in 12.0 ms']),
+              : []),
       ]);
       const delivered = useConsoleStore.getState().entries;
       await vi.runAllTimersAsync();
@@ -95,7 +95,7 @@ describe('executeTabManually — console delivery', () => {
       return { stdout: [middle], stderr: [first, last], executionTime: 1, error: { message: 'fatal' } };
     });
     await executeTabManually(tab, { recordHistory: false });
-    expect(contents()).toEqual(['Running main.js...', 'one', 'two', 'three', 'fatal', 'Failed in 1.0 ms']);
+    expect(contents()).toEqual(['one', 'two', 'three', 'fatal', 'Failed in 1.0 ms']);
     expect(useResultStore.getState().lineResults.map(row => row.value)).toEqual(['one', 'two', 'three', 'fatal']);
     expect(first).not.toHaveProperty('captureOrder');
   });
@@ -105,7 +105,7 @@ describe('executeTabManually — console delivery', () => {
     const summary = await executeTabManually(tab, { recordHistory: false });
     expect(summary.ok).toBe(false);
     expect(summary.message).toBe('Failed in 12.0 ms');
-    expect(contents()).toEqual(['Running main.js...', 'Failed in 12.0 ms']);
+    expect(contents()).toEqual(['Failed in 12.0 ms']);
   });
 
   it.each(['missing', 'throw'] as const)('flushes an initialization %s failure', async failure => {
@@ -114,7 +114,6 @@ describe('executeTabManually — console delivery', () => {
     const summary = await executeTabManually(tab, { recordHistory: false });
     expect(summary.ok).toBe(false);
     expect(contents()).toEqual([
-      'Running main.js...',
       failure === 'missing'
         ? 'Failed to initialize javascript runner.'
         : 'Failed to initialize javascript runner: boot failed',
@@ -193,7 +192,7 @@ describe('executeTabManually — console delivery', () => {
       }
     );
     await executeTabManually(tab, { recordHistory: false });
-    expect(contents()).toEqual(['after clear', 'Completed in 12.0 ms']);
+    expect(contents()).toEqual(['after clear']);
   });
 
   it('flushes the unsupported-runner early return', async () => {

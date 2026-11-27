@@ -27,8 +27,6 @@ export interface ConsoleEntry {
   line?: number;
   /** Source language for telemetry on payload-level interactions. */
   language?: Language;
-  /** Execution time in ms on the run summary entry; marks the run as finished. */
-  executionTime?: number;
   /**
    * Rich payload aligned with the legacy `content` string.
    * One entry per console-arg; absent on non-JS runners and on the text
@@ -130,7 +128,7 @@ export interface ConsoleState {
    */
   addEntries: (entries: ReadonlyArray<NewConsoleEntry>) => void;
   clear: () => void;
-  /** Clear for a run of `tabId`; the outgoing run becomes `previousRun` unless `keepPrevious` is false. `number` defaults to the previous run's plus one. */
+  /** Clear for a run of `tabId`; the outgoing run becomes `previousRun` unless `keepPrevious` is false or the new run reuses its unsettled number. `number` defaults to the previous run's plus one. */
   beginRun: (run: { tabId: string; startedAt: number | null; keepPrevious?: boolean; number?: number }) => void;
   /** Rows that landed all at once have no timeline: show clock time instead of offsets. */
   dropRunAnchor: () => void;

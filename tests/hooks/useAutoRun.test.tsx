@@ -1139,7 +1139,7 @@ describe('useAutoRun', () => {
       // inspector-supported languages so the toggle lights up on
       // the first clean run.
       captureScope: true,
-      scopeDepth: 1,
+      scopeDepth: 1,      onConsole: expect.any(Function),
     });
 
     act(() => {
@@ -1160,7 +1160,7 @@ describe('useAutoRun', () => {
       language: 'javascript',
       tabId: 'tab-js-auto-log-toggle',
       captureScope: true,
-      scopeDepth: 1,
+      scopeDepth: 1,      onConsole: expect.any(Function),
     });
   });
 
@@ -1201,7 +1201,7 @@ describe('useAutoRun', () => {
       language: 'javascript',
       tabId: 'tab-js-stdin-toggle',
       captureScope: true,
-      scopeDepth: 1,
+      scopeDepth: 1,      onConsole: expect.any(Function),
     });
 
     act(() => {
@@ -1231,7 +1231,7 @@ describe('useAutoRun', () => {
       tabId: 'tab-js-stdin-toggle',
       stdin: 'Ada',
       captureScope: true,
-      scopeDepth: 1,
+      scopeDepth: 1,      onConsole: expect.any(Function),
     });
     expect(useResultStore.getState().stdinConsumed).toEqual({
       count: 1,

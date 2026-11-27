@@ -76,9 +76,10 @@ for (const language of ['en', 'es'] as const) {
       );
       await run.click();
       await expect(rows.filter({ hasText: 'order-recovered' })).toHaveCount(1);
+      await expect(page.getByTestId('run-meter')).toHaveAttribute('data-state', 'done');
       await expect(
         rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })
-      ).toHaveCount(1);
+      ).toHaveCount(0);
       await expect(rows.filter({ hasText: 'order-fatal' })).toHaveCount(0);
     });
   }

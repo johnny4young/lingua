@@ -77,7 +77,9 @@ for (const language of ['en', 'es'] as const) {
       await edit(page, 'console.log("coordinates recovered")');
       await run.click();
       await expect(rows.filter({ hasText: 'coordinates recovered' })).toHaveCount(1);
-      await expect(rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })).toHaveCount(1);
+      // The run meter shows a finished run; the Console adds no status row for it.
+      await expect(page.getByTestId('run-meter')).toHaveAttribute('data-state', 'done');
+      await expect(rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })).toHaveCount(0);
       await expect(rows.filter({ hasText: 'SyntaxError' })).toHaveCount(0);
     });
   }

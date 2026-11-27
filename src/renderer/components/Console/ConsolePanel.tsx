@@ -168,7 +168,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
   );
   // Ghost and waiting rows only make sense while a streamed, non-paused run is live.
   const runLive =
-    useResultStore(state => state.isManualRunning && state.manualRunMode !== 'debug') &&
+    useResultStore(state => (state.isManualRunning && state.manualRunMode !== 'debug') || state.isAutoRunning) &&
     currentRun?.startedAt != null;
   const ranCode = useResultStore(state => state.ranCode);
   const [query, setQuery] = useState('');

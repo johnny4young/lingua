@@ -109,7 +109,6 @@ export function publishValidation(
       validation.diagnostics.length === 0
         ? `Validation passed for ${name}.`
         : `Validation found ${validation.diagnostics.length} issue${validation.diagnostics.length === 1 ? '' : 's'} in ${name}.`,
-    executionTime: validation.executionTime,
   });
 
   return {
@@ -174,12 +173,10 @@ export function publishRunStart(
   }
   setIsAutoRunning(false);
   setIsManualRunning(true);
-  runConsole.add({
-    type: 'info',
-    content: plan.debugRequested
-      ? (i18next.t('runner.debuggingFile', { name }) as string)
-      : `Running ${name}...`,
-  });
+  // The run meter shows a run in flight; a debug run names its file.
+  if (plan.debugRequested) {
+    runConsole.add({ type: 'info', content: i18next.t('runner.debuggingFile', { name }) as string });
+  }
 }
 
 export function publishMissingRunner(
@@ -229,11 +226,7 @@ export function publishCancelledRun(
   for (const output of cancelledOutputs) {
     runConsole.add(toConsoleEntry(output, language));
   }
-  runConsole.add({
-    type: 'warn',
-    content: message,
-    executionTime: result.executionTime,
-  });
+  runConsole.add({ type: 'warn', content: message });
   return {
     mode: 'run',
     ok: false,

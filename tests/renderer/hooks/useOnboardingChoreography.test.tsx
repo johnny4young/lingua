@@ -6,6 +6,7 @@ import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useSnippetsStore } from '../../../src/renderer/stores/snippetsStore';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
+import { useResultStore } from '../../../src/renderer/stores/resultStore';
 import {
   clearPendingSessionRestoreSnapshot,
   useSessionStore,
@@ -35,6 +36,7 @@ async function resetStores() {
     useUIStore.setState({ statusNotice: null });
     useSnippetsStore.setState({ snippets: [] });
     useExecutionHistoryStore.setState({ entries: [] });
+    useResultStore.setState({ tabRuns: {} });
     useSessionStore.setState({ savedTabs: [], savedActiveIndex: -1 });
     clearPendingSessionRestoreSnapshot();
   });
@@ -213,6 +215,24 @@ describe('useOnboardingChoreography', () => {
     expect(useSettingsStore.getState().hasCompletedOnboardingFirstRun).toBe(
       true
     );
+  });
+
+  it('fires the first-run toast when a Scratchpad run settles successfully, and not on a failure', async () => {
+    renderHook(() => useOnboardingChoreography({ enabled: true }));
+    await waitFor(() => {
+      expect(useEditorStore.getState().tabs.length).toBe(1);
+    });
+    const tabId = useEditorStore.getState().tabs[0]!.id;
+    act(() => {
+      useResultStore.getState().settleTabRun(tabId, { kind: 'error' }, { durationMs: 4 });
+    });
+    expect(useUIStore.getState().statusNotice).toBeNull();
+    act(() => {
+      useResultStore.getState().settleTabRun(tabId, { kind: 'success' }, { durationMs: 4 });
+    });
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('onboarding.firstRun.message');
+    });
   });
 
   it('save-as-snippet CTA leaves the first-snippet library tip visible', async () => {

@@ -58,6 +58,29 @@ describe('applyAutoRunResult', () => {
     expect(useConsoleStore.getState().entries.filter(entry => entry.type === 'error')).toHaveLength(1);
   });
 
+  it('adds only what the stream left out to a console run begun at the start', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'tab', startedAt: 1_000, number: 3 });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'streamed', line: 1 });
+    applyAutoRunResult({
+      code: 'print("streamed")', language: 'python', tabId: 'tab', streamedConsole: true,
+      result: executionResult({ stdout: [{ type: 'log', args: ['streamed'], line: 1 }] }),
+    });
+    const state = useConsoleStore.getState();
+    expect(state.entries.map(entry => entry.content)).toEqual(['streamed']);
+    expect(state.currentRun).toEqual({ tabId: 'tab', number: 3, startedAt: 1_000 });
+  });
+
+  it('adds every row and a failure row when nothing streamed', () => {
+    useConsoleStore.getState().beginRun({ tabId: 'tab', startedAt: null, number: 3 });
+    applyAutoRunResult({
+      code: 'boom()', language: 'javascript', tabId: 'tab', 
+      result: executionResult({ error: { message: 'boom is not defined', line: 1 } }),
+    });
+    const state = useConsoleStore.getState();
+    expect(state.currentRun?.startedAt).toBeNull();
+    expect(state.entries.map(entry => entry.content)).toEqual(['boom is not defined (line 1)', 'Failed in 2.0 ms']);
+  });
+
   it('keeps the run answer on its tab', async () => {
     useEditorStore.setState({ tabs: [{ id: 'tab-a', name: 'a.js', language: 'javascript', content: '', isDirty: false }], activeTabId: 'tab-a' });
     applyAutoRunResult({

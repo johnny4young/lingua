@@ -44,10 +44,10 @@ for (const language of ['en', 'es'] as const) {
 
     await edit(page, 'console.log("diagnostics recovered")');
     await expect(rows.filter({ hasText: 'diagnostics recovered' })).toHaveCount(1);
-    await expect(rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })).toHaveCount(1);
+    await expect(page.getByTestId('run-meter')).toHaveAttribute('data-state', 'done');
+    await expect(rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })).toHaveCount(0);
     await expect(rows.filter({ hasText: 'uncaught diagnostic probe' })).toHaveCount(0);
-    // Success intentionally has no warning pill; the localized completion
-    // summary above is the positive outcome assertion.
+    // Success has no warning pill and no Console status row; the run meter above is the positive outcome.
     await expect(page.locator('[data-result-kind="run-status-pill"]')).toHaveCount(0);
   });
 }

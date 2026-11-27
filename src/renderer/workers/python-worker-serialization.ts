@@ -412,16 +412,6 @@ export interface PythonPrintEntry {
   line?: number;
 }
 
-/**
- * Post the typed per-print payloads from the Python
- * worker preamble. Each entry's joined text is split by newline so the
- * console panel keeps its "one entry per line" cadence; the rich
- * `payloads` array is attached to the FIRST line only (subsequent
- * lines are continuation text from the same print call).
- *
- * Skips entries with empty text (e.g. `print(end='')`) to mirror the
- * legacy `postBufferedOutput` filter.
- */
 /** A buffered progress bar, re-checked here and made unique to this run like the JS ones. */
 function progressEntry(runId: string, entry: PythonPrintEntry): { payload: RichOutputProgress; text: string } | null {
   const raw = entry.payloads[0] as { kind?: unknown; id?: unknown; label?: unknown; value?: unknown; text?: unknown } | undefined;
@@ -430,56 +420,69 @@ function progressEntry(runId: string, entry: PythonPrintEntry): { payload: RichO
   return { payload, text: progressText(payload) };
 }
 
-export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[]): void {
+/**
+ * Poster for one run's typed print payloads from the Python worker
+ * preamble, which sends them in batches while the run goes; capture order
+ * continues across batches. Each entry's joined text is split by newline so the
+ * console panel keeps its "one entry per line" cadence; the rich
+ * `payloads` array is attached to the FIRST line only (subsequent
+ * lines are continuation text from the same print call).
+ *
+ * Skips entries with empty text (e.g. `print(end='')`) to mirror the
+ * legacy `postBufferedOutput` filter.
+ */
+export function createPythonPrintPoster(runId: string): (entries: PythonPrintEntry[]) => void {
   let captureOrder = 0;
-  for (const entry of entries) {
-    // Filter on `line !== ''` (NOT `line.trim() !== ''`) so the
-    // behavior matches `postBufferedOutput` exactly: a `print('   ')`
-    // surfaces three spaces in both rich and text-only paths. The
-    // trailing newline produced by the default `end='\n'` yields a
-    // single empty segment after split, which is what we want to skip.
-    const progress = progressEntry(runId, entry);
-    const lines = (progress ? progress.text : entry.text).split('\n').filter(line => line !== '');
-    if (lines.length === 0) continue;
-    const first = lines[0]!;
-    const rest = lines.slice(1);
-    const message: {
-      type: 'console';
-      captureOrder: number;
-      runId: string;
-      method: 'log' | 'error';
-      args: string[];
-      payload: RichOutputPayload[];
-      line?: number;
-    } = {
-      type: 'console',
-      captureOrder: captureOrder++,
-      runId,
-      method: entry.method,
-      args: [first],
-      payload: progress ? [progress.payload] : entry.payloads,
-    };
-    if (typeof entry.line === 'number') message.line = entry.line;
-    ctx.postMessage(message);
-    for (const continuation of rest) {
-      const continuationMessage: {
+  return entries => {
+    for (const entry of entries) {
+      // Filter on `line !== ''` (NOT `line.trim() !== ''`) so the
+      // behavior matches `postBufferedOutput` exactly: a `print('   ')`
+      // surfaces three spaces in both rich and text-only paths. The
+      // trailing newline produced by the default `end='\n'` yields a
+      // single empty segment after split, which is what we want to skip.
+      const progress = progressEntry(runId, entry);
+      const lines = (progress ? progress.text : entry.text).split('\n').filter(line => line !== '');
+      if (lines.length === 0) continue;
+      const first = lines[0]!;
+      const rest = lines.slice(1);
+      const message: {
         type: 'console';
         captureOrder: number;
         runId: string;
         method: 'log' | 'error';
         args: string[];
+        payload: RichOutputPayload[];
         line?: number;
       } = {
         type: 'console',
         captureOrder: captureOrder++,
         runId,
         method: entry.method,
-        args: [continuation],
+        args: [first],
+        payload: progress ? [progress.payload] : entry.payloads,
       };
-      // Multi-line `print('a\nb')` keeps the line annotation on each
-      // emitted entry so the inline pill shows up alongside both.
-      if (typeof entry.line === 'number') continuationMessage.line = entry.line;
-      ctx.postMessage(continuationMessage);
+      if (typeof entry.line === 'number') message.line = entry.line;
+      ctx.postMessage(message);
+      for (const continuation of rest) {
+        const continuationMessage: {
+          type: 'console';
+          captureOrder: number;
+          runId: string;
+          method: 'log' | 'error';
+          args: string[];
+          line?: number;
+        } = {
+          type: 'console',
+          captureOrder: captureOrder++,
+          runId,
+          method: entry.method,
+          args: [continuation],
+        };
+        // Multi-line `print('a\nb')` keeps the line annotation on each
+        // emitted entry so the inline pill shows up alongside both.
+        if (typeof entry.line === 'number') continuationMessage.line = entry.line;
+        ctx.postMessage(continuationMessage);
+      }
     }
-  }
+  };
 }

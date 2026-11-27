@@ -38,8 +38,7 @@ import {
 } from './networkPolicyBridge';
 import { BLOCK_ALL_NETWORK } from '../../shared/networkPolicy';
 import {
-  appendCappedConsole, replaceProgressOutput, sanitizeProgressOutput,
-  capStderrIfOverflowing,
+  appendCappedOutput, createConsoleCapState, replaceProgressOutput, sanitizeProgressOutput,
   runnerStoppedResult,
   runnerTimeoutResult,
   type TranslateFn,
@@ -278,9 +277,7 @@ export class PythonRunner implements LanguageRunner {
     // Scope snapshot relay (same shape as JS/TS).
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
-    let droppedStdout = 0;
-    let droppedStderr = 0;
-    let stderrByteTruncated = false;
+    const caps = createConsoleCapState();
 
     if (this.currentRunId !== null || this.cancelInFlight !== null) {
       this.stop();
@@ -488,27 +485,9 @@ export class PythonRunner implements LanguageRunner {
                 reason,
               });
             }
-            if (replaceProgressOutput(stdout, output)) {
-              break;
-            }
-            if (msg.method === 'error') {
-              if (!stderrByteTruncated) {
-                droppedStderr = appendCappedConsole(
-                  stderr,
-                  output,
-                  droppedStderr,
-                  t
-                );
-                stderrByteTruncated = capStderrIfOverflowing(stderr, t);
-              }
-            } else {
-              droppedStdout = appendCappedConsole(
-                stdout,
-                output,
-                droppedStdout,
-                t
-              );
-            }
+            const updated = replaceProgressOutput(stdout, output);
+            const live = updated ?? appendCappedOutput({ stdout, stderr }, caps, output, msg.method === 'error', t);
+            if (live) context?.onConsole?.(live);
             break;
           }
           case 'magic-comment': {

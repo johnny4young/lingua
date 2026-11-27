@@ -20,6 +20,7 @@ import { trackEvent } from '../utils/telemetry';
 import { validateDocument } from '../validation';
 import type { AutoRunInput } from './autoRunModel';
 import { applyAutoRunResult } from './autoRunResult';
+import { beginAutoRunConsole } from './autoRunConsole';
 import { currentEffectiveTier } from './useEntitlement';
 import { trackBrowserPreviewAutoRefreshOnce } from './browserPreviewRefreshTelemetry';
 import type { TelemetryTrack } from './useTelemetry';
@@ -144,9 +145,11 @@ export async function executeAutoRun({
   useResultStore.getState().setRanCode({ tabId: activeTab.id, code, input: runInputKey(stdinBuffer, activeTab.inputArgs), at: Date.now() });
   useTimelineStore.getState().clearTab(activeTab.id);
   useRunRegionStore.getState().clearTab(activeTab.id);
+  const consoleRun = beginAutoRunConsole(activeTab.id, language, () => !shouldDiscard(), runtimeMode !== 'browser-preview');
 
   let armedDeadlineAt: number | null = null;
   let settled = false;
+  let published = false;
   try {
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner || shouldDiscard()) {
@@ -208,6 +211,7 @@ export async function executeAutoRun({
       ...(capturesScope && typeof scopeDepth === 'number'
         ? { scopeDepth }
         : {}),
+      onConsole: consoleRun.onConsole,
     });
 
     if (shouldDiscard()) {
@@ -229,8 +233,9 @@ export async function executeAutoRun({
       { kind: executionKind(result), timeoutPreset: result.timeoutPreset, timeoutMs: result.timeoutMs },
       { durationMs: result.executionTime ?? null, ...(failedLine ? { line: failedLine } : {}) }
     );
+    published = true;
     applyAutoRunResult({
-      runNumber,
+      streamedConsole: consoleRun.settle(runNumber),
       autoLogEnabled,
       code,
       language,
@@ -250,6 +255,7 @@ export async function executeAutoRun({
       setDiagnostics([]);
     }
   } finally {
+    if (!published) consoleRun.revert();
     // A run that settled drops the answers it kept; a discarded one leaves them to the run replacing it.
     if (!shouldDiscard()) useResultStore.setState({ keptAnswers: null });
     finish();

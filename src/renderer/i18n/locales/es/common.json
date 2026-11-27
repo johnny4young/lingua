@@ -806,7 +806,6 @@
   "fs.error.blockedPath.appData": "Esa carpeta de datos de aplicaciones está protegida. Elige un archivo o carpeta dentro de tu proyecto.",
   "fs.error.blockedPath.browserProfile": "Esa carpeta de perfil del navegador está protegida. Elige un archivo o carpeta dentro de tu proyecto.",
   "fs.error.blockedPath.linguaData": "Esa carpeta contiene los datos de Lingua y está protegida. Elige un archivo o carpeta dentro de tu proyecto.",
-  "runner.summary.success": "Completado en {{duration}}",
   "runner.summary.error": "Falló en {{duration}}",
   "runner.summary.stopped": "Detenido en {{duration}}",
   "runner.summary.timeout": "Tiempo agotado en {{duration}}",
