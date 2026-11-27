@@ -36,5 +36,7 @@
   "runMeter.callStack_other": "Call stack · {{count}} deep",
   "runMeter.callStackMore_one": "+{{count}} outer call",
   "runMeter.callStackMore_other": "+{{count}} outer calls",
+  "bottomPanel.tabs.more": "More",
+  "bottomPanel.tabs.moreLabel": "More tabs",
   "bottomPanel.actions.more": "More dock actions"
 }

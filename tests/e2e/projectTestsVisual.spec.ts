@@ -95,14 +95,15 @@ test.describe('Tests dock fit in the project window', () => {
       await expect.poll(async () => Math.round((await dock.boundingBox())?.height ?? 0)).toBeGreaterThanOrEqual(238);
 
       const row = page.getByTestId('results-dock-tab-row');
-      // Tab glyphs give way first, then control labels; only a row narrower than the board folds the tab labels.
-      await expect(row).toHaveAttribute('data-fit', width === 1600 ? 'full' : width === 768 ? 'glyphs' : /^(labels|tight)$/);
+      // Tab glyphs give way first, then control labels; a row narrower than the board moves tabs into More.
+      await expect(row).toHaveAttribute('data-fit', width === 1600 ? 'full' : /^(labels|tight)$/);
       const tabList = row.getByRole('tablist');
       const fit = await tabList.evaluate(list => {
         const bounds = list.getBoundingClientRect();
         return {
           scrolls: list.scrollWidth > list.clientWidth,
           cut: Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]'))
+            .filter(tab => tab.checkVisibility({ visibilityProperty: true }))
             .filter(tab => {
               const box = tab.getBoundingClientRect();
               return box.left < bounds.left - 0.5 || box.right > bounds.right + 0.5 || tab.scrollWidth > tab.clientWidth;
@@ -111,7 +112,12 @@ test.describe('Tests dock fit in the project window', () => {
         };
       });
       expect(fit).toEqual({ scrolls: false, cut: [] });
-      await expect(page.getByTestId('bottom-panel-git-diff-tab')).toBeVisible();
+      // Git diff stays reachable: on the row, or in More when the row is short.
+      if (!(await page.getByTestId('bottom-panel-git-diff-tab').isVisible())) {
+        await page.getByTestId('dock-tabs-more').click();
+        await expect(page.getByTestId('dock-tabs-more-git-diff')).toBeVisible();
+        await page.keyboard.press('Escape');
+      }
 
       // Every file and the failing test show without scrolling; files without a failure fold to their row.
       const list = page.getByTestId('tests-list');

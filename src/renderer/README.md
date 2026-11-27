@@ -98,7 +98,9 @@ full-width editor. Its tab row always lists Console; Input, Compare, Timeline
 (after a Record run), Variables,
 Tests and Terminal (desktop, with a project open), Debugger, Browser preview,
 Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
-and carries auto-log, capsule export and share. On a dock at least
+and carries auto-log, capsule export and share. Tabs that do not fit move into
+More (`Layout/useDockRowFit.ts`, `Layout/DockTabsMore.tsx`), least picked first
+(`Layout/dockTabUse.ts`). On a dock at least
 `DOCK_SPLIT_MIN_WIDTH` wide, Tests and Terminal share the body side by side
 (`isDockSplit`); while Tests is on screen the left column is the Tests meter
 (`ProjectTests/TestsMeter.tsx`, runs from `projectTestStore.runs`) and the tab

@@ -155,7 +155,7 @@
 .tests-dock-run-stop { color: var(--color-error-fg); }
 
 /* After the tab glyphs, the run control folds to its glyph; its label stays the accessible name. */
-.dock-tab-row:is([data-fit='tight'], [data-fit='glyphs']) {
+.dock-tab-row[data-fit='tight'] {
   .tests-dock-run-label { display: none; }
   .tests-dock-filter-option { padding: 0 7px; }
 }

@@ -17,7 +17,7 @@ const PACKS = {
   paper: { theme: 'light', editorTheme: 'lingua-paper' },
 } as const;
 
-/** Dock row and console filter geometry: tabs reachable in their track, controls on screen and apart. */
+/** Dock row and console filter geometry: tabs on the row reachable, the rest in More, controls on screen and apart. */
 function dockGeometry(page: Page) {
   return page.evaluate(() => {
     type Box = { name: string; left: number; right: number; top: number; bottom: number };
@@ -32,7 +32,9 @@ function dockGeometry(page: Page) {
     const name = (element: HTMLElement) =>
       element.getAttribute('aria-label') ?? element.dataset.testid ?? element.textContent?.trim() ?? '?';
 
-    const tabs = [...list.querySelectorAll<HTMLElement>('[role="tab"]')];
+    const all = [...list.querySelectorAll<HTMLElement>('[role="tab"]')];
+    const tabs = all.filter(tab => tab.checkVisibility({ visibilityProperty: true }));
+    const inMore = all.filter(tab => !tabs.includes(tab)).map(tab => tab.dataset.dockTab);
     const unreachable: string[] = [];
     for (const tab of tabs) {
       // Bring each tab into the row's own track, then hit-test its centre.
@@ -72,7 +74,7 @@ function dockGeometry(page: Page) {
     const offscreen = [...rowControls, ...consoleControls]
       .filter(control => control.left < 0 || control.right > window.innerWidth + 0.5)
       .map(control => control.name);
-    return { tabs: tabs.length, unreachable, overlaps, offscreen };
+    return { tabs: all.length, inMore, scrolls: list.scrollWidth > list.clientWidth, unreachable, overlaps, offscreen };
   });
 }
 
@@ -102,16 +104,32 @@ for (const palette of ['ink', 'paper'] as const) {
     await expectNoHorizontalOverflow(page);
     const geometry = await dockGeometry(page);
     expect(geometry.tabs).toBeGreaterThanOrEqual(3);
-    expect(geometry, JSON.stringify(geometry)).toMatchObject({ unreachable: [], overlaps: [], offscreen: [] });
+    expect(geometry, JSON.stringify(geometry)).toMatchObject({ scrolls: false, unreachable: [], overlaps: [], offscreen: [] });
 
-    // Tabs read as glyphs and keep their names.
+    // Tabs keep their labels; the ones that do not fit wait in More, which lists every one of them.
     await expect(page.getByRole('tab', { name: /^Console/ })).toBeVisible();
     await expect(page.getByTestId('results-dock')).toHaveAttribute('data-compact', 'true');
-    await expect(page.getByTestId('results-dock-tab-row')).toHaveAttribute('data-fit', 'glyphs');
-    await expect(page.getByTestId('bottom-panel-console-tab').locator('.dock-tab-label')).toHaveCSS('clip-path', 'inset(50%)');
-    await page.getByTestId('bottom-panel-stdin-tab').hover();
-    await expect(page.getByRole('tooltip')).toContainText(/^Input · /);
-    await page.mouse.move(0, 0);
+    await expect(page.getByTestId('results-dock-tab-row')).toHaveAttribute('data-fit', 'tight');
+    await expect(page.getByTestId('bottom-panel-console-tab')).toHaveText(/^Console/);
+    expect(geometry.inMore.length).toBeGreaterThan(0);
+    await page.getByTestId('dock-tabs-more').click();
+    const tabsMenu = page.getByRole('menu', { name: 'More tabs' });
+    await expect(tabsMenu.getByRole('menuitem')).toHaveCount(geometry.inMore.length);
+    const picked = geometry.inMore[0]!;
+    await tabsMenu.getByTestId(`dock-tabs-more-${picked}`).click();
+    await expect(tabsMenu).toHaveCount(0);
+    // The picked tab comes back to the row, selected and focused, and the row still fits.
+    const pickedTab = page.getByTestId(`bottom-panel-${picked}-tab`);
+    await expect(pickedTab).toBeVisible();
+    await expect(pickedTab).toHaveAttribute('aria-selected', 'true');
+    await expect(pickedTab).toBeFocused();
+    await expect(page.getByTestId('bottom-panel-console-tab')).toBeVisible();
+    // Back on Console, the picked tab outranks the ones never used and keeps its place on the row.
+    await openConsole(page);
+    await expect(pickedTab).toBeVisible();
+    const afterPick = await dockGeometry(page);
+    expect(afterPick, JSON.stringify(afterPick)).toMatchObject({ scrolls: false, unreachable: [], overlaps: [], offscreen: [] });
+    expect(afterPick.inMore).not.toContain(picked);
 
     // Share leaves the row for the overflow menu.
     await expect(page.getByTestId('result-panel-share-link')).toHaveCount(0);
@@ -136,7 +154,7 @@ for (const palette of ['ink', 'paper'] as const) {
     await expect(page.getByTestId('dock-more')).toHaveCount(0);
     await expect(page.getByTestId('result-panel-share-link')).toBeVisible();
     await expect(page.getByTestId('results-dock')).not.toHaveAttribute('data-compact', 'true');
-    await expect(page.getByTestId('results-dock-tab-row')).not.toHaveAttribute('data-fit', 'glyphs');
-    await expect(page.getByTestId('bottom-panel-console-tab').locator('.dock-tab-label')).toHaveCSS('clip-path', 'none');
+    await expect(page.getByTestId('dock-tabs-more')).toBeHidden();
+    expect((await dockGeometry(page)).inMore).toEqual([]);
   });
 }
