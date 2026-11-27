@@ -33,7 +33,12 @@ export function useDockRowFit(
     fit();
     if (typeof ResizeObserver === 'undefined') return;
     // Only size changes refit: the row's width, each tab (a label or badge that widens it) and the controls.
-    const resize = new ResizeObserver(fit);
+    // The refit waits a frame: changing sizes inside the callback raises a ResizeObserver loop error.
+    let frame = 0;
+    const resize = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    });
     const observe = () => {
       for (const node of [row, ...Array.from(row.children), ...Array.from(list.children)]) resize.observe(node);
     };
@@ -45,6 +50,7 @@ export function useDockRowFit(
     });
     mutation.observe(list, { childList: true });
     return () => {
+      cancelAnimationFrame(frame);
       resize.disconnect();
       mutation.disconnect();
     };

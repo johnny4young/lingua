@@ -257,6 +257,29 @@ describe('TestsPanel', () => {
     expect(screen.queryByText('TestRoot')).toBeNull();
   });
 
+  it('opens a folded file once it starts failing', async () => {
+    openProject();
+    const bridge = installBridge();
+    const user = userEvent.setup();
+    bridge.run.mockResolvedValueOnce(result({ kind: 'success', cases: [
+      { file: 'a.test.ts', path: ['first'], status: 'passed' },
+      { file: 'b.test.ts', path: ['second'], status: 'passed' },
+    ] }));
+    render(<TestsDock />);
+    await user.click(await screen.findByTestId('tests-run-all'));
+    await screen.findByText('first');
+    await user.click(screen.getByRole('button', { name: /^a\.test\.ts/ }));
+    expect(screen.queryByText('first')).toBeNull();
+
+    bridge.run.mockResolvedValueOnce(result({ cases: [
+      { file: 'a.test.ts', path: ['first'], status: 'failed' },
+      { file: 'b.test.ts', path: ['second'], status: 'passed' },
+    ] }));
+    await user.click(screen.getByTestId('tests-run-all'));
+    expect(await screen.findByText('first')).toBeTruthy();
+    expect(screen.queryByText('second')).toBeNull();
+  });
+
   it('toggles the raw output from the list header', async () => {
     openProject();
     const bridge = installBridge();
@@ -286,6 +309,13 @@ describe('TestsPanel', () => {
     expect((await screen.findByTestId('tests-notice')).textContent).toBe('The runner report could not be read.');
     expect(screen.getByTestId('tests-output').textContent).toBe('raw vitest log\n');
     expect(screen.getByTestId('tests-meter').dataset.state).toBe('failed');
+
+    // Hide output on a forced log must not pin it open for the next run that reports.
+    await user.click(screen.getByRole('button', { name: 'Hide output' }));
+    bridge.run.mockResolvedValueOnce(result({ kind: 'success', cases: [{ file: 'a.test.ts', path: ['works'], status: 'passed' }] }));
+    await user.click(screen.getByTestId('tests-run-all'));
+    await screen.findByText('works');
+    expect(screen.queryByTestId('tests-output')).toBeNull();
   });
 
   it('opens the log when a run fails before any test reports', async () => {

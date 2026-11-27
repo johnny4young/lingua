@@ -174,7 +174,7 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const run = useProjectTestStore(state => state.run);
   const detect = useProjectTestStore(state => state.detect);
   // Files the user opened or closed; the rest follow the run (with a failure, only failing files open).
-  const [openChoice, setOpenChoice] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+  const [openChoice, setOpenChoice] = useState<ReadonlyMap<string, { open: boolean; failed: boolean }>>(() => new Map());
   const [selected, setSelected] = useState<string | null>(null);
   // A located failure whose file could not be opened keeps its message in the list.
   const [unopened, setUnopened] = useState<string | null>(null);
@@ -197,11 +197,15 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
   const outputLabel = t(showOutput ? 'projectTests.output.hide' : 'projectTests.output.show');
 
   const runScope = (scope: ProjectTestScope) => void run(binding, scope);
-  const anyFailure = groups.some(group => tallies.get(group.file)?.tone === 'failed');
-  const isOpen = (group: FileGroup) =>
-    openChoice.get(group.file) ?? (!anyFailure || tallies.get(group.file)?.tone === 'failed');
+  const failing = (group: FileGroup) => tallies.get(group.file)?.tone === 'failed';
+  const anyFailure = groups.some(failing);
+  // A choice lasts until the file starts or stops failing, so a new failure always shows.
+  const isOpen = (group: FileGroup) => {
+    const choice = openChoice.get(group.file);
+    return choice && choice.failed === failing(group) ? choice.open : !anyFailure || failing(group);
+  };
   const toggleGroup = (group: FileGroup) =>
-    setOpenChoice(previous => new Map(previous).set(group.file, !isOpen(group)));
+    setOpenChoice(previous => new Map(previous).set(group.file, { open: !isOpen(group), failed: failing(group) }));
 
   return (
     <>
@@ -228,10 +232,10 @@ function TestResults({ binding }: { binding: ProjectTestBinding }) {
         <button
           type="button"
           aria-expanded={showOutput}
-          aria-controls="tests-output"
+          aria-controls={showOutput ? 'tests-output' : undefined}
           aria-label={outputLabel}
           title={outputLabel}
-          onClick={() => setOutputOpen(open => !open)}
+          onClick={() => setOutputOpen(!showOutput)}
           data-testid="tests-output-toggle"
           className={cn('icon-button h-6 w-6 rounded-md', showOutput && 'bg-bg-inset text-fg-base')}
         >
