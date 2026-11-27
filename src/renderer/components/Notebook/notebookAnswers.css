@@ -217,7 +217,8 @@
   overflow: hidden;
   border-radius: 5px;
   background: color-mix(in srgb, var(--notebook-answer-tone) 14%, transparent);
-  color: var(--notebook-answer-tone);
+  /* A fifth of the text colour keeps the value at 4.5:1 or more over its own tint in light themes. */
+  color: color-mix(in srgb, var(--notebook-answer-tone) 80%, var(--color-fg-base));
   font-weight: 560;
   text-overflow: ellipsis;
 }

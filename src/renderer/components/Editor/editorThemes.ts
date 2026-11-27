@@ -48,6 +48,31 @@ interface IdentityInks {
   cursor: string;
 }
 
+/**
+ * vs and vs-dark ship language-specific rules (string.sql in red, predefined.sql
+ * in magenta, tags, attributes, JSON keys) that outrank the generic ones under
+ * inherit. Mapping each to a role keeps Ink and Paper on their own inks; the
+ * base `invalid` red stays as an error signal.
+ */
+function baseTokenRules(inks: IdentityInks, text: string) {
+  const roles: ReadonlyArray<readonly [string, readonly string[], string?]> = [
+    [inks.keyword, ['keyword.flow', 'keyword.json', 'keyword.flow.scss'], 'italic'],
+    [inks.keyword, ['tag', 'tag.id.pug', 'tag.class.pug', 'meta.tag', 'metatag', 'metatag.html', 'metatag.xml']],
+    [inks.string, ['string.sql', 'string.html', 'string.yaml', 'string.value.json', 'metatag.content.html']],
+    [inks.string, ['attribute.value', 'attribute.value.html', 'attribute.value.xml']],
+    [inks.number, ['number.hex', 'attribute.value.number', 'attribute.value.unit']],
+    [inks.number, ['attribute.value.number.css', 'attribute.value.unit.css', 'attribute.value.hex.css']],
+    [inks.punctuation, ['operator.sql', 'operator.scss', 'operator.swift', 'delimiter.html', 'delimiter.xml']],
+    [inks.property, ['variable.predefined', 'variable.parameter', 'key', 'string.key.json', 'attribute.name']],
+    [inks.builtin, ['constant', 'annotation', 'meta.scss']],
+    // The board sets SQL functions such as count and round in the text colour.
+    [text, ['predefined.sql']],
+  ];
+  return roles.flatMap(([foreground, tokens, fontStyle]) =>
+    tokens.map((token) => (fontStyle ? { token, foreground, fontStyle } : { token, foreground }))
+  );
+}
+
 function identityTheme(
   base: 'vs' | 'vs-dark',
   id: 'lingua-ink' | 'lingua-paper',
@@ -73,10 +98,7 @@ function identityTheme(
       { token: 'variable', foreground: inks.property },
       { token: 'operator', foreground: inks.punctuation },
       { token: 'delimiter', foreground: inks.punctuation },
-      // vs and vs-dark ship SQL-specific inks that outrank the generic rules under inherit.
-      { token: 'string.sql', foreground: inks.string },
-      { token: 'predefined.sql', foreground: inks.builtin },
-      { token: 'operator.sql', foreground: inks.punctuation },
+      ...baseTokenRules(inks, text),
     ],
     colors: {
       'editor.background': background,

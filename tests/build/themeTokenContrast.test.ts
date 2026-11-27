@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { languageBadgeTone } from '../../src/renderer/utils/languageMeta';
 import {
   contrastRatio,
+  over,
   parseColor,
   readCssBlock,
   readCssRule,
   resolveToken,
+  withAlpha,
 } from '../__fixtures__/colorContrast';
 
 const css = readFileSync(resolve(__dirname, '../../src/renderer/index.css'), 'utf8');
@@ -21,6 +24,14 @@ const packShell = (set: 'ink' | 'paper') =>
     ...(set === 'ink' ? dark : []),
     ...readCssBlock(css, new RegExp(`^\\[data-palette='${set}'\\]\\s*\\{`, 'm')),
   ]);
+
+const SHELLS: ReadonlyArray<readonly [string, Map<string, string>]> = [
+  ['Classic light', new Map([...root, ...light])],
+  ['Classic dark', new Map([...root, ...light, ...dark])],
+  ['Ink', packShell('ink')],
+  ['Paper', packShell('paper')],
+];
+const color = (shell: Map<string, string>, token: string) => parseColor(resolveToken(token, shell));
 
 // [foreground token, background token, role]; every pair is text and must clear 4.5:1.
 const PAIRS: ReadonlyArray<readonly [string, string, string]> = [
@@ -120,12 +131,6 @@ describe('run pulse', () => {
 });
 
 describe('action pill workflow colours', () => {
-  const THEMES: ReadonlyArray<readonly [string, Map<string, string>]> = [
-    ['Classic light', new Map([...root, ...light])],
-    ['Classic dark', new Map([...root, ...light, ...dark])],
-    ['Ink', packShell('ink')],
-    ['Paper', packShell('paper')],
-  ];
   const RUN = ".action-pill-run:not([data-workflow='debug']):not([data-workflow='scratchpad']):not(:disabled)";
   // [workflow, rule that sets the label, rules that set each fill].
   const WORKFLOWS: ReadonlyArray<readonly [string, string, readonly string[]]> = [
@@ -144,13 +149,11 @@ describe('action pill workflow colours', () => {
     return value;
   }
 
-  const hex = (token: string, theme: Map<string, string>) => parseColor(resolveToken(token, theme));
-
-  describe.each(THEMES)('%s', (_name, theme) => {
+  describe.each(SHELLS)('%s', (_name, theme) => {
     it.each(WORKFLOWS)('%s label clears 4.5:1 on every fill state', (_workflow, labelRule, fillRules) => {
-      const label = hex(ruleToken(labelRule, 'color'), theme);
+      const label = color(theme, ruleToken(labelRule, 'color'));
       for (const rule of fillRules) {
-        expect(contrastRatio(label, hex(ruleToken(rule, 'background'), theme)), rule).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(label, color(theme, ruleToken(rule, 'background'))), rule).toBeGreaterThanOrEqual(4.5);
       }
     });
 
@@ -163,13 +166,13 @@ describe('action pill workflow colours', () => {
   });
 
   it.each(['Ink', 'Paper'])('fills Run with the pulse under dark ink in %s', (name) => {
-    const theme = THEMES.find(([label]) => label === name)![1];
+    const theme = SHELLS.find(([label]) => label === name)![1];
     expect(resolveToken('--color-run', theme)).toBe(root.get('--color-pulse'));
     expect(resolveToken('--color-run-on', theme)).toBe(root.get('--color-pulse-on'));
   });
 
   it.each(['Classic light', 'Classic dark'])('keeps the accent Run in %s', (name) => {
-    const theme = THEMES.find(([label]) => label === name)![1];
+    const theme = SHELLS.find(([label]) => label === name)![1];
     expect(resolveToken('--color-run', theme)).toBe(resolveToken('--color-accent', theme));
     expect(resolveToken('--color-run-on', theme)).toBe(resolveToken('--color-fg-on-accent', theme));
   });
@@ -211,6 +214,41 @@ describe.each(['ink', 'paper'] as const)('%s pack shell', (set) => {
   it('repaints chrome, panels and selection from the pack tokens', () => {
     for (const token of ['--color-bg-base', '--color-bg-panel', '--color-fg-base', '--color-accent-tint', '--color-editor-selection']) {
       expect(block.get(token)).toMatch(new RegExp(`^var\\(--color-${set}-`));
+    }
+  });
+});
+
+describe('text over its own tint', () => {
+  const pill = readCssRule(
+    readFileSync(resolve(__dirname, '../../src/renderer/components/Notebook/notebookAnswers.css'), 'utf8'),
+    '.notebook-answer-pill'
+  );
+  /** `color-mix(in srgb, var(--a) N%, var(--b) | transparent)` over a surface. */
+  const mix = (shell: Map<string, string>, expression: string, surface: string) => {
+    const [, first, percent, second] =
+      /color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%, (?:var\((--[\w-]+)\)|transparent)\)/u.exec(expression) ?? [];
+    if (!first || !percent) throw new Error(`Unsupported colour: ${expression}`);
+    return over(withAlpha(color(shell, first), Number(percent) / 100), color(shell, second ?? surface));
+  };
+
+  it.each(SHELLS)('%s: SQL and HTTP badges read 4.5:1 on their accent tint', (_name, shell) => {
+    const tone = languageBadgeTone('sql');
+    expect(languageBadgeTone('http')).toMatchObject({ background: tone.background, foreground: tone.foreground });
+    const text = color(new Map([...shell, ['--badge', tone.foreground]]), '--badge');
+    for (const surface of ['--color-bg-base', '--color-bg-panel', '--color-bg-panel-alt']) {
+      expect(contrastRatio(text, mix(shell, tone.background, surface)), surface).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it.each(SHELLS)('%s: notebook answer pills read 4.5:1 on their value tint', (_name, shell) => {
+    const background = /background: ([^;]+);/u.exec(pill)![1]!;
+    const text = /\bcolor: ([^;]+);/u.exec(pill)![1]!;
+    for (const value of ['number', 'string', 'boolean', 'error']) {
+      const tinted = new Map([...shell, ['--notebook-answer-tone', `var(--color-value-${value})`]]);
+      for (const surface of ['--color-bg-base', '--color-bg-panel']) {
+        expect(contrastRatio(mix(tinted, text, surface), mix(tinted, background, surface)), `${value} on ${surface}`)
+          .toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 });

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { TokenMetadata } from 'monaco-editor/esm/vs/editor/common/encodedTokenAttributes.js';
 import { TokenTheme } from 'monaco-editor/esm/vs/editor/common/languages/supports/tokenization.js';
 import { vs, vs_dark } from 'monaco-editor/esm/vs/editor/standalone/common/themes.js';
 import { defineCustomThemes, getEditorThemeSurface } from '@/components/Editor/editorThemes';
@@ -259,23 +260,41 @@ describe('defineCustomThemes', () => {
       ).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
     });
 
-    it('resolves SQL strings, built-in functions and operators to its own inks, not the base SQL colours', () => {
+    // Monaco merges inherited rules the same way: base rules first, the theme's after.
+    function tokenTheme(data: MonacoThemeData) {
+      const baseRules = (data.base === 'vs' ? vs : vs_dark).rules as readonly MonacoThemeRule[];
+      const resolved = TokenTheme.createFromRawTokenTheme([...baseRules, ...data.rules], []);
+      const colorOf = (token: string) =>
+        resolved.getColorMap()[TokenMetadata.getForeground(resolved.match(0, token))]!.toString().toLowerCase();
+      // FontStyle.Italic is bit 1.
+      const italic = (token: string) => (TokenMetadata.getFontStyle(resolved.match(0, token)) & 1) === 1;
+      return { baseRules, colorOf, italic };
+    }
+
+    it('reads SQL as the board does: italic keywords, functions in text, its own string and operator inks', () => {
       const data = theme();
-      // Monaco merges inherited rules the same way: base rules first, the theme's after.
-      const resolved = TokenTheme.createFromRawTokenTheme(
-        [...(data.base === 'vs' ? vs : vs_dark).rules, ...data.rules],
-        []
-      );
-      const colorOf = (token: string) => {
-        const metadata = resolved.match(0, token);
-        const foregroundId = (metadata >>> 15) & 0x1ff;
-        return resolved.getColorMap()[foregroundId]!.toString().toLowerCase();
-      };
+      const { colorOf, italic } = tokenTheme(data);
       const ink = (token: string) => toHex(data.rules.find((rule) => rule.token === token)!.foreground!);
       expect(colorOf('string.sql')).toBe(ink('string'));
-      expect(colorOf('predefined.sql')).toBe(ink('predefined'));
+      expect(colorOf('predefined.sql')).toBe(data.colors['editor.foreground']);
       expect(colorOf('operator.sql')).toBe(ink('operator'));
       expect(colorOf('keyword.sql')).toBe(ink('keyword'));
+      expect(italic('keyword.sql')).toBe(true);
+      for (const token of ['string.sql', 'predefined.sql', 'operator.sql']) {
+        expect(['#ff0000', '#ff00ff']).not.toContain(colorOf(token));
+      }
+    });
+
+    it('resolves every coloured base rule to one of its own inks, keeping only the invalid red', () => {
+      const data = theme();
+      const { baseRules, colorOf, italic } = tokenTheme(data);
+      const inks = new Set(data.rules.flatMap((rule) => (rule.foreground ? [toHex(rule.foreground).toLowerCase()] : [])));
+      const coloured = baseRules.filter((rule) => rule.foreground && rule.token !== 'invalid').map((rule) => rule.token);
+      expect(coloured.length).toBeGreaterThan(30);
+      for (const token of coloured) {
+        expect(inks, `${token} resolves to ${colorOf(token)}`).toContain(colorOf(token));
+        if (token.startsWith('keyword')) expect(italic(token), `${token} italic`).toBe(true);
+      }
     });
 
     it('keeps bracket pairs in the punctuation ink', () => {
