@@ -106,6 +106,8 @@ Utilities opens, never on a window focus. Browsers that cannot report this permi
 such as Firefox and Safari, could ask on each read, so there Lingua does not read it for
 this.
 
+The Pipelines panel shows the library, the steps with their input, and the results in three columns on wide panels. From about 768 px of panel width the library moves above, with the steps and input beside the results; narrower, everything stacks. The panel fills the window's height, so the run summary sits at the foot of the results.
+
 Chaining works on Pro and on Free (first 3 steps), with no clipboard read and without **Apply from clipboard on panel focus**:
 
 - **Send output to…**, above any tool, takes a pick and then **Send**. It creates a pipeline with that tool's output as its input and the chosen utility as its step, opens it and runs it. Below a pipeline's results, it inserts the step right after the one that made the last output and runs again; a light bulb suggests a next step when the output looks like a JWT, JSON, Base64, a timestamp or a color. The input stays out of storage like any pipeline input.

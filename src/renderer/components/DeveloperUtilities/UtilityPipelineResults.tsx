@@ -98,7 +98,7 @@ export function UtilityPipelineResults({
       ref={asideRef}
       tabIndex={-1}
       data-testid="utility-pipeline-result"
-      className="@container flex min-h-0 flex-col outline-none @[67rem]:border-l @[67rem]:border-border/60 @[67rem]:pl-2"
+      className="utility-pipeline-results @container flex min-h-0 flex-col outline-none"
     >
       <header className="flex items-center gap-2 pb-2">
         <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">{t('utilityPipeline.result.title')}</span>

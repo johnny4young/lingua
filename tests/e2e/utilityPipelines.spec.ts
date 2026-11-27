@@ -120,6 +120,92 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
     await expect(page.getByText(/aún no hay pipelines/i)).toBeVisible();
   });
 
+  for (const width of [1100, 1440]) {
+    test(`keeps a held run's results and footer on screen at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await seedSession(page, { language: 'en', primeProLicense: true });
+      await page.addInitScript(() => {
+        if (window.localStorage.getItem('lingua-utility-pipeline-state')) return;
+        const now = new Date().toISOString();
+        const pipeline = {
+          version: 1,
+          id: 'p-fit',
+          name: 'fit',
+          createdAt: now,
+          updatedAt: now,
+          steps: [
+            { id: 's1', utilityId: 'base64-decode', options: {} },
+            { id: 's2', utilityId: 'json-format', options: {}, breakpoint: true },
+            { id: 's3', utilityId: 'hash', options: {} },
+            { id: 's4', utilityId: 'base64-encode', options: {}, disabled: true },
+          ],
+        };
+        // A long library must not set the row's height.
+        const library = Array.from({ length: 30 }, (_, index) => ({ ...pipeline, id: `p-${index}`, name: `saved ${index}`, steps: [] }));
+        window.localStorage.setItem(
+          'lingua-utility-pipeline-state',
+          JSON.stringify({ state: { pipelines: [pipeline, ...library], activePipelineId: 'p-fit' }, version: 1 })
+        );
+      });
+      await gotoApp(page);
+      await page.keyboard.press('ControlOrMeta+Shift+G');
+      await page.getByTestId('utility-pipeline-editor-input').fill('eyJhIjoxfQ==');
+      await page.getByTestId('utility-pipeline-editor-run').click();
+      await expect(page.getByTestId('utility-pipeline-continue')).toBeVisible();
+
+      const rows = page.getByTestId('utility-pipeline-result-row');
+      await expect(rows).toHaveCount(4);
+      for (const row of await rows.all()) await expect(row).toBeInViewport({ ratio: 1 });
+      await expect(page.getByTestId('utility-pipeline-continue')).toBeInViewport({ ratio: 1 });
+      // The run footer sits at the bottom of Results, below the last row.
+      const summary = page.getByTestId('utility-pipeline-run-summary');
+      await expect(summary).toBeInViewport({ ratio: 1 });
+      const results = await page.getByTestId('utility-pipeline-result').boundingBox();
+      const summaryBox = await summary.boundingBox();
+      expect(results && summaryBox && Math.abs(results.y + results.height - (summaryBox.y + summaryBox.height))).toBeLessThan(2);
+      // Steps and Results share a row; the library sits above them at 1100 and beside them at 1440.
+      const steps = await page.getByTestId('utility-pipeline-editor').boundingBox();
+      expect(steps && results && steps.x + steps.width <= results.x).toBe(true);
+      const library = await page.getByTestId('utility-pipeline-library').boundingBox();
+      expect(library && steps && (width === 1100 ? library.y + library.height <= steps.y : library.x + library.width <= steps.x)).toBe(true);
+      // Every step card keeps its controls on the header row, beside the utility select.
+      for (const card of await page.getByTestId('utility-pipeline-step-row').all()) {
+        const select = await card.getByTestId('utility-pipeline-step-utility').boundingBox();
+        const remove = await card.getByTestId('utility-pipeline-step-delete').boundingBox();
+        expect(select && remove && Math.abs(select.y + select.height / 2 - (remove.y + remove.height / 2))).toBeLessThan(2);
+      }
+    });
+  }
+
+  test('keeps step controls on the header row and the utility readable at 375 px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await seedSession(page, { language: 'es', primeProLicense: true });
+    await page.addInitScript(() => {
+      if (window.localStorage.getItem('lingua-utility-pipeline-state')) return;
+      const now = new Date().toISOString();
+      const pipeline = {
+        version: 1,
+        id: 'p-narrow',
+        name: 'narrow',
+        createdAt: now,
+        updatedAt: now,
+        steps: [{ id: 's1', utilityId: 'base64-decode', options: {} }],
+      };
+      window.localStorage.setItem(
+        'lingua-utility-pipeline-state',
+        JSON.stringify({ state: { pipelines: [pipeline], activePipelineId: 'p-narrow' }, version: 1 })
+      );
+    });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+Shift+G');
+    const card = page.getByTestId('utility-pipeline-step-row');
+    const grip = await card.getByRole('button', { name: 'Reordenar paso 1' }).boundingBox();
+    const remove = await card.getByTestId('utility-pipeline-step-delete').boundingBox();
+    const select = await card.getByTestId('utility-pipeline-step-utility').boundingBox();
+    expect(grip && remove && Math.abs(grip.y + grip.height / 2 - (remove.y + remove.height / 2))).toBeLessThan(3);
+    expect(select && select.width).toBeGreaterThan(180);
+  });
+
   test('holds at a breakpoint with Continue as the verb and readable rows (ES)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await seedSession(page, { language: 'es', primeProLicense: true });

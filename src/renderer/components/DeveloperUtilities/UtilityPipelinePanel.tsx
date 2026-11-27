@@ -79,6 +79,7 @@ import { Glyph } from '../ui/Glyph';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { appPlatform } from '../../utils/appPlatform';
 import { CommandBarSlot, CommandBarVerb } from '../Chrome/CommandBarSlot';
+import '../ui/pipelineRun.css';
 
 const DEFAULT_FIRST_STEP_UTILITY: UtilityAdapterId = 'json-format';
 
@@ -103,7 +104,7 @@ export function UtilityPipelinePanel() {
   const entitled = useEntitlement('DEV_UTILITIES');
   // The columns follow the panel's width: the tool list beside it can take 300px.
   return (
-    <div className="@container h-full">
+    <div className="utility-pipeline-root">
       <UtilityPipelinePanelUnlocked stepLimit={entitled ? Infinity : FREE_TIER_LIMITS.pipelineSteps} />
     </div>
   );
@@ -491,12 +492,12 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
   return (
     <div
       data-testid="utility-pipeline-panel"
-      className="grid h-full min-h-[42rem] grid-cols-1 gap-4 @[67rem]:min-h-0 @[67rem]:grid-cols-[240px_minmax(22rem,1fr)_minmax(28rem,1fr)] @[80rem]:grid-cols-[260px_minmax(24rem,0.8fr)_minmax(36rem,1.35fr)]"
+      className="utility-pipeline-layout"
     >
       <UtilityPipelineLibrarySidebar />
 
       {/* CENTER — editor */}
-      <section data-testid="utility-pipeline-editor" className="flex min-h-0 flex-col gap-2">
+      <section data-testid="utility-pipeline-editor" className="utility-pipeline-editor flex min-h-0 flex-col gap-2">
         {!activePipeline ? (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
             <div className="flex flex-col gap-1">
@@ -626,7 +627,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
               </DndContext>
             )}
 
-            <div className="grid gap-1">
+            <div className="utility-pipeline-input flex flex-col gap-1">
               <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
                 {t('utilityPipeline.editor.inputLabel')}
               </span>
@@ -637,7 +638,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 data-testid="utility-pipeline-editor-input"
                 placeholder={t('utilityPipeline.editor.inputPlaceholder')}
                 rows={6}
-                className="rounded border border-border/60 bg-background px-2 py-1 font-mono text-caption"
+                className="utility-pipeline-input-field rounded border border-border/60 bg-background px-2 py-1 font-mono text-caption"
               />
             </div>
           </>

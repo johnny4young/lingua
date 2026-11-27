@@ -82,7 +82,7 @@ export function UtilityPipelineStepRow({
         step.disabled && 'opacity-60'
       )}
     >
-      <header className="flex flex-wrap items-center gap-2">
+      <header className="utility-step-card-head flex items-center gap-2">
         <button
           type="button"
           aria-label={t('utilityPipeline.step.dragHandleAria', { index: index + 1 })}
@@ -100,7 +100,7 @@ export function UtilityPipelineStepRow({
           onChange={handleUtilityChange}
           data-testid="utility-pipeline-step-utility"
           aria-label={t('utilityPipeline.step.utilityLabel')}
-          className="min-w-[8rem] flex-1 rounded-md border border-border/60 bg-background px-2 py-1 text-body-sm"
+          className="utility-step-card-select rounded-md border border-border/60 bg-background px-2 py-1 text-body-sm"
         >
           {UTILITY_ADAPTER_IDS.map((id) => {
             const a = getAdapter(id);
@@ -111,7 +111,7 @@ export function UtilityPipelineStepRow({
             );
           })}
         </select>
-        <span className="ml-auto inline-flex items-center gap-1">
+        <span className="ml-auto inline-flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={() => onToggleControl(step.id, 'disabled')}
