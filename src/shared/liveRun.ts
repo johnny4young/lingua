@@ -61,7 +61,7 @@ const countOf = (value: unknown): number | undefined =>
   Number.isSafeInteger(value) && (value as number) >= 0 ? (value as number) : undefined;
 const msOf = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
-const BINDING_NAME = /^[\p{L}_$][\p{L}\p{N}_$]{0,63}$/u;
+const BINDING_NAME = /^[\p{L}\p{Nl}_$][\p{L}\p{N}\p{M}_$\u200c\u200d]{0,63}$/u;
 
 function bindingOf(value: unknown): LiveRunBinding | undefined {
   if (!value || typeof value !== 'object') return undefined;

@@ -35,21 +35,30 @@ export function liveLineAnswers(live: LiveRunSnapshot, lineMs: number): LiveLine
   return [...byLine.values()].sort((a, b) => a.line - b.line);
 }
 
-/**
- * Total passes of the innermost open loop around each line, keyed as `line:end:total`
- * per loop so a snapshot that moves only the line or the time keeps the same key.
- */
-export function loopTotalsKey(live: LiveRunSnapshot | undefined): string {
-  return (live?.loops ?? []).flatMap(loop => (loop.end !== undefined && loop.total !== undefined ? [`${loop.line}:${loop.end}:${loop.total}`] : [])).join(',');
+/** The innermost open loop around a line: the passes it makes and the one it is on. */
+export interface EnclosingLoop {
+  readonly total: number;
+  readonly pass: number;
 }
 
-/** The total of the innermost loop in `key` whose body holds `line`. */
-export function enclosingLoopTotal(key: string, line: number): number | undefined {
+/**
+ * The open loops as `line:end:total:pass`, so a snapshot that moves only the
+ * running line or its time keeps the same key. A loop without a total stays in
+ * the key, so it still shadows the loops around it.
+ */
+export function loopTotalsKey(live: LiveRunSnapshot | undefined): string {
+  return (live?.loops ?? [])
+    .flatMap(loop => (loop.end !== undefined ? [`${loop.line}:${loop.end}:${loop.total ?? '-'}:${loop.pass}`] : []))
+    .join(',');
+}
+
+/** The innermost loop in `key` whose body holds `line`; undefined when that loop has no total. */
+export function enclosingLoop(key: string, line: number): EnclosingLoop | undefined {
   if (!key) return undefined;
   const loops = key.split(',');
   for (let index = loops.length - 1; index >= 0; index -= 1) {
-    const [header, end, total] = loops[index]!.split(':').map(Number) as [number, number, number];
-    if (line > header && line <= end) return total;
+    const [header, end, total, pass] = loops[index]!.split(':').map(Number) as [number, number, number, number];
+    if (line > header && line <= end) return Number.isNaN(total) ? undefined : { total, pass };
   }
   return undefined;
 }

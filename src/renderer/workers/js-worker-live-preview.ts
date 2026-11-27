@@ -24,12 +24,15 @@ function previewOf(value: unknown): string | undefined {
       }
       const plain = Array.isArray(value) || Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null;
       if (!plain || (Array.isArray(value) ? value.length : Object.keys(value).length) > LIVE_RUN_MAX_BINDING_ITEMS) return undefined;
+      // JSON writes holes, undefined, symbols, NaN and Infinity as null or drops them, so the text would read as another value.
+      if (Array.isArray(value) && Object.keys(value).length !== value.length) return undefined;
       // Own data properties holding short primitives only: a getter or a nested toJSON would run user code from the tracker.
       const entries = Object.getOwnPropertyDescriptors(value);
       let size = 0;
       for (const key of Object.keys(entries)) {
         const entry = entries[key]!;
         if (!('value' in entry) || (entry.value !== null && typeof entry.value === 'object') || typeof entry.value === 'function') return undefined;
+        if (entry.value === undefined || typeof entry.value === 'symbol' || (typeof entry.value === 'number' && !Number.isFinite(entry.value))) return undefined;
         size += typeof entry.value === 'string' ? entry.value.length : 1;
       }
       if (size > LIVE_RUN_MAX_BINDING_TEXT) return undefined;

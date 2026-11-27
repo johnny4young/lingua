@@ -1016,7 +1016,8 @@ both runtimes, so the editor never guesses a loop's extent from indentation.
 A loop that binds one plain name each pass also sends that name's value
 (`binding`): JS copies it into a block slot at the start of each pass and
 sends JSON for primitives and small plain arrays and objects of primitives,
-never through a getter or `toJSON`; Python reads the frame and sends `repr`
+never through a getter or `toJSON` (a Proxy's traps can still fire, since a
+worker cannot tell a Proxy apart); Python reads the frame and sends `repr`
 only for built-in scalars and small containers of them, so a sample never runs
 a user `__repr__`. A longer value is not sent rather than cut.
 

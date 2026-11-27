@@ -23,6 +23,10 @@ def __lingua_live_repr(value):
             return None
     elif kind not in __lingua_live_scalars or (kind in (str, bytes) and len(value) > ${LIVE_RUN_MAX_BINDING_TEXT}):
         return None
-    text = repr(value)
+    try:
+        # A huge int raises past sys.int_max_str_digits; the sample still goes out without the value.
+        text = repr(value)
+    except ValueError:
+        return None
     return text if len(text) <= ${LIVE_RUN_MAX_BINDING_TEXT} else None
 `;

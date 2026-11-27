@@ -165,15 +165,18 @@ describe('InlineAnswerLine', () => {
 
   it('counts passes against the open loop while the run is live', () => {
     const values = [1, 2].map(pass => ({ line: 3, value: String(pass * 10), type: 'result' as const, pass }));
-    const { rerender } = render(<InlineAnswerLine items={values} loopTotal={3} />);
+    const { rerender } = render(<InlineAnswerLine items={values} loop={{ total: 3, pass: 2 }} />);
     expect(screen.getByTestId('lingua-inline-result-repeat').textContent).toBe('2 of 3');
     // More passes than one loop makes means an outer loop runs it again: the plain count is honest.
-    rerender(<InlineAnswerLine items={values} loopTotal={1} />);
+    rerender(<InlineAnswerLine items={values} loop={{ total: 1, pass: 1 }} />);
     expect(screen.getByTestId('lingua-inline-result-repeat').textContent).toBe('last of 2');
+    // A second run of an inner loop, on its first pass, has answers from the earlier run: they are not this run's passes.
+    rerender(<InlineAnswerLine items={[1, 2, 3].map(pass => ({ ...values[0]!, pass }))} loop={{ total: 5, pass: 1 }} />);
+    expect(screen.getByTestId('lingua-inline-result-repeat').textContent).toBe('last of 3');
     // The first pass of a live loop counts as one; a line with no pass tag says nothing.
-    rerender(<InlineAnswerLine items={[{ line: 4, value: 'api', type: 'log', pass: 1 }]} loopTotal={3} />);
+    rerender(<InlineAnswerLine items={[{ line: 4, value: 'api', type: 'log', pass: 1 }]} loop={{ total: 3, pass: 2 }} />);
     expect(screen.getByTestId('lingua-inline-result-repeat').textContent).toBe('1 of 3 printed');
-    rerender(<InlineAnswerLine items={[{ line: 4, value: 'api', type: 'log' }]} loopTotal={3} />);
+    rerender(<InlineAnswerLine items={[{ line: 4, value: 'api', type: 'log' }]} loop={{ total: 3, pass: 2 }} />);
     expect(screen.queryByTestId('lingua-inline-result-repeat')).toBeNull();
   });
 });

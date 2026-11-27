@@ -181,6 +181,13 @@ describe('live tracker', () => {
     expect(bindingAfter(getter)).toBeUndefined();
     expect(read).toBe(false);
     expect(bindingAfter('x'.repeat(500))).toBeUndefined();
+    // JSON would read these as null or drop them.
+    expect(bindingAfter([1, undefined])).toBeUndefined();
+    expect(bindingAfter([Number.NaN])).toBeUndefined();
+    expect(bindingAfter({ a: undefined })).toBeUndefined();
+    const holed = [1, 2, 3];
+    delete holed[1];
+    expect(bindingAfter(holed)).toBeUndefined();
     tracker.stop();
   });
 });

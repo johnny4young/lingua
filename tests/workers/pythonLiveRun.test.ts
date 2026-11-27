@@ -100,6 +100,8 @@ describe('Python live line', () => {
         '    sleep(0.06)',
         'for a, b in [(1, 2)]:',
         '    sleep(0.06)',
+        'for big in [10 ** 5000]:',
+        '    sleep(0.06)',
       ].join('\n')
     );
     expect(run.error).toBeUndefined();
@@ -109,6 +111,9 @@ describe('Python live line', () => {
     expect(bindingAt(10)).toBeUndefined();
     expect(bindingAt(12)).toEqual({ name: 'pair', value: "(1, 'a')" });
     expect(bindingAt(14)).toBeUndefined();
+    // Past the int digit limit repr raises; the sample still goes out.
+    expect(run.lives.some(({ live }) => live.waitMs !== undefined && live.line === 16)).toBe(true);
+    expect(bindingAt(16)).toBeUndefined();
   });
 
   it('measures time on the current line in the runtime', async () => {

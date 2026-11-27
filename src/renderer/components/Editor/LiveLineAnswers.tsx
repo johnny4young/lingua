@@ -30,11 +30,14 @@ export function LiveLineAnswers({
   editor,
   tabId,
   language,
+  lineEndReserve = null,
   onShown,
 }: {
   readonly editor: monacoTypes.editor.IStandaloneCodeEditor;
   readonly tabId: string | null;
   readonly language?: string;
+  /** Room kept at the end of one line, such as the failing line's actions. */
+  readonly lineEndReserve?: { readonly line: number; readonly width: number } | null;
   readonly onShown: (lines: ReadonlySet<number>) => void;
 }) {
   const run = useLiveRun(tabId);
@@ -86,6 +89,8 @@ export function LiveLineAnswers({
 
   // Placed beside the line like the other answers; measured after Monaco renders.
   const shownRef = useRef('');
+  const reserveLine = lineEndReserve?.line ?? null;
+  const reserveWidth = lineEndReserve?.width ?? 0;
   useEffect(() => {
     let frame: number | null = null;
     const report = (lines: Set<number>) => {
@@ -110,7 +115,8 @@ export function LiveLineAnswers({
           (ranLines === null || ranLines[line - 1] === model.getLineContent(line)) &&
           ranges.some(range => line >= range.startLineNumber && line <= range.endLineNumber);
         const end = visible && !band.narrow ? lineEnd(editor, line) : null;
-        const room = end === null ? null : band.start - end + scrollLeft - LEADER_MARGIN * 2;
+        const reserved = reserveLine === line ? reserveWidth : 0;
+        const room = end === null ? null : band.start - end + scrollLeft - reserved - LEADER_MARGIN * 2;
         if (room === null || room < MIN_LEADER) {
           domNode.style.visibility = 'hidden';
           continue;
@@ -143,7 +149,7 @@ export function LiveLineAnswers({
       if (frame !== null) cancelAnimationFrame(frame);
       for (const disposable of disposables) disposable.dispose();
     };
-  }, [editor, widgets, ranLines, onShown]);
+  }, [editor, widgets, ranLines, onShown, reserveLine, reserveWidth]);
 
   return (
     <>

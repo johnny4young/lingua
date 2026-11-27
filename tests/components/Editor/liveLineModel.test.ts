@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RUNNING_SHOWN_MS, enclosingLoopTotal, liveLineAnswers, liveLineMs, loopTotalsKey } from '@/components/Editor/liveLineModel';
+import { RUNNING_SHOWN_MS, enclosingLoop, liveLineAnswers, liveLineMs, loopTotalsKey } from '@/components/Editor/liveLineModel';
 
 const snapshot = { line: 4, lineMs: 100, elapsedMs: 900, loops: [] };
 
@@ -30,12 +30,14 @@ describe('live line answers', () => {
   it('reads the total of the innermost open loop whose body holds the line, keyed so a moving line keeps the key', () => {
     const live = { ...snapshot, loops: [{ line: 1, end: 6, pass: 1, total: 3 }, { line: 3, end: 4, pass: 2 }, { line: 8, pass: 1, total: 2 }] };
     const key = loopTotalsKey(live);
-    expect(key).toBe('1:6:3');
+    expect(key).toBe('1:6:3:1,3:4:-:2');
     expect(loopTotalsKey({ ...live, line: 5, lineMs: 900 })).toBe(key);
-    expect(enclosingLoopTotal(key, 2)).toBe(3);
-    expect(enclosingLoopTotal(key, 4)).toBe(3);
-    expect(enclosingLoopTotal(key, 1)).toBeUndefined();
-    expect(enclosingLoopTotal(key, 7)).toBeUndefined();
-    expect(enclosingLoopTotal('', 2)).toBeUndefined();
+    expect(enclosingLoop(key, 2)).toEqual({ total: 3, pass: 1 });
+    expect(enclosingLoop(key, 5)).toEqual({ total: 3, pass: 1 });
+    // Inside a loop with no total, the outer loop's total does not count its passes.
+    expect(enclosingLoop(key, 4)).toBeUndefined();
+    expect(enclosingLoop(key, 1)).toBeUndefined();
+    expect(enclosingLoop(key, 7)).toBeUndefined();
+    expect(enclosingLoop('', 2)).toBeUndefined();
   });
 });

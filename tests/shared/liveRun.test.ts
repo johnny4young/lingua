@@ -30,6 +30,7 @@ describe('live run protocol', () => {
       { line: 3, pass: 1, binding: { name: 'x', value: 'y'.repeat(LIVE_RUN_MAX_BINDING_TEXT + 1) } },
       { line: 4, pass: 1, binding: { name: 'nombre_ñ', value: '' } },
       { line: 5, pass: 1, binding: 'x' },
+      { line: 6, pass: 1, binding: { name: 'संख्या', value: '3' } },
     ];
     expect(sanitizeLiveRun({ line: 1, loops })?.loops).toEqual([
       { line: 1, pass: 1, binding: { name: 'name', value: "'db'" } },
@@ -37,6 +38,7 @@ describe('live run protocol', () => {
       { line: 3, pass: 1 },
       { line: 4, pass: 1 },
       { line: 5, pass: 1 },
+      { line: 6, pass: 1, binding: { name: 'संख्या', value: '3' } },
     ]);
   });
 

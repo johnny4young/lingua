@@ -23,7 +23,7 @@ import {
 import { walkTopLevelLines } from '../../utils/magicComments/jsLexer';
 import { createInlineResultNode } from './inlineResultWidgetDom';
 import { LiveLineAnswers } from './LiveLineAnswers';
-import { enclosingLoopTotal, loopTotalsKey } from './liveLineModel';
+import { enclosingLoop, loopTotalsKey, type EnclosingLoop } from './liveLineModel';
 import './inlineAnswers.css';
 
 const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
@@ -87,7 +87,7 @@ export function InlineResultWidgets({
   useLayoutEffect(() => {
     for (const widget of widgets) widget.domNode.toggleAttribute('data-live-covered', liveLines.has(widget.line));
   }, [widgets, liveLines]);
-  const loopTotals = useLoopTotals(tabId, widgets);
+  const loops = useEnclosingLoops(tabId, widgets);
   const answering = liveLines.size > 0 || widgets.some(widget => widget.items.length > 0);
   // A run clears its answers before publishing new ones; the header holds through it.
   const [header, setHeader] = useState(false);
@@ -116,7 +116,7 @@ export function InlineResultWidgets({
   return (
     <>
       {header && editor && headerSlot ? createPortal(<AnswerColumnHeader editor={editor} tabId={tabId} since={since} />, headerSlot) : null}
-      {editor ? <LiveLineAnswers editor={editor} tabId={tabId} language={language} onShown={setLiveLines} /> : null}
+      {editor ? <LiveLineAnswers editor={editor} tabId={tabId} language={language} lineEndReserve={lineEndReserve} onShown={setLiveLines} /> : null}
       {widgets.map(widget =>
         createPortal(
           <InlineAnswerLine
@@ -126,7 +126,7 @@ export function InlineResultWidgets({
             source={widget.source}
             change={changes.get(widget.line) ?? null}
             keptFrom={widget.line === firstKept ? (keptRun ?? undefined) : undefined}
-            loopTotal={loopTotals.get(widget.line)}
+            loop={loops.get(widget.line)}
           />,
           widget.domNode,
           widget.id
@@ -137,18 +137,18 @@ export function InlineResultWidgets({
 }
 
 /** The pass count of the open loop around each answered line, while the run is live. */
-function useLoopTotals(tabId: string | null, widgets: readonly InlineWidget[]): ReadonlyMap<number, number> {
+function useEnclosingLoops(tabId: string | null, widgets: readonly InlineWidget[]): ReadonlyMap<number, EnclosingLoop> {
   // A string, so snapshots that move only the running line or its time do not re-render the answers.
   const key = useLiveRunStore(state => loopTotalsKey(tabId ? state.byTab[tabId]?.live : undefined));
   return useMemo(() => {
-    const totals = new Map<number, number>();
+    const loops = new Map<number, EnclosingLoop>();
     for (const widget of widgets) {
       // A kept answer counts the previous run's passes, not this run's.
       if (widget.kept) continue;
-      const total = enclosingLoopTotal(key, widget.line);
-      if (total !== undefined) totals.set(widget.line, total);
+      const loop = enclosingLoop(key, widget.line);
+      if (loop) loops.set(widget.line, loop);
     }
-    return totals;
+    return loops;
   }, [key, widgets]);
 }
 

@@ -23,8 +23,8 @@ export interface InlineAnswerLineProps {
   readonly change?: { readonly delta: AnswerDelta; readonly since: number } | null;
   /** The run this answer is kept from, while the current run has not reached the line. */
   readonly keptFrom?: number;
-  /** Passes the open loop around this line makes, while the run is live and the runtime knows it. */
-  readonly loopTotal?: number;
+  /** The open loop around this line while the run is live: the passes it makes and the one it is on. */
+  readonly loop?: { readonly total: number; readonly pass: number };
 }
 
 function roleOf(result: LineResult): AnswerRole {
@@ -73,11 +73,13 @@ function formatTimingMs(durationMs: number): string {
  * kind several times shows its latest answer and the count; mixed answers share
  * the row as values only.
  */
-export function InlineAnswerLine({ items, timing, language, source, change, keptFrom, loopTotal }: InlineAnswerLineProps) {
+export function InlineAnswerLine({ items, timing, language, source, change, keptFrom, loop }: InlineAnswerLineProps) {
   const { t } = useTranslation();
   const read = readRepeat(items);
   // Inside a live loop, a line that answered on one pass so far counts it too.
-  const repeat = read && (read.passes > 1 || loopTotal !== undefined) ? read : null;
+  const repeat = read && (read.passes > 1 || loop !== undefined) ? read : null;
+  // More passes than this run of the loop has made (an outer loop or a second call ran it before) reads as last of N.
+  const ofLoop = loop && repeat && repeat.passes <= Math.min(loop.total, loop.pass + 1) ? loop : undefined;
   const shown = repeat ? repeat.latest : items;
   const visible = shown.slice(0, MAX_ITEMS_PER_LINE);
   const dropped = shown.length - visible.length;
@@ -127,8 +129,8 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
         ))}
         {repeat ? (
           <span className="lingua-inline-result-repeat" data-testid="lingua-inline-result-repeat">
-            {loopTotal !== undefined && repeat.passes <= loopTotal
-              ? t(isOutput(shown[0]!) ? 'answers.passPrinted' : 'answers.pass', { iteration: repeat.passes, total: loopTotal })
+            {ofLoop
+              ? t(isOutput(shown[0]!) ? 'answers.passPrinted' : 'answers.pass', { iteration: repeat.passes, total: ofLoop.total })
               : t('answers.lastOf', { count: repeat.passes })}
           </span>
         ) : null}
