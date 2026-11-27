@@ -71,10 +71,11 @@ test.describe('runtime bootstrap progress', () => {
     // the one and only Python bootstrap whose progress and result we observe.
     await clickRun(page);
 
-    // Pyodide boot + run: wait for the printed result in the console.
-    await expect(page.getByText('42', { exact: true }).first()).toBeVisible({
-      timeout: 90_000,
-    });
+    // Pyodide boot + run: wait for the printed result in the console. Scope
+    // to a console row, since the run meter's elapsed-ms numeral ticks past 42.
+    await expect(
+      page.getByTestId('console-entry-row').getByText('42', { exact: true }).first()
+    ).toBeVisible({ timeout: 90_000 });
 
     const labels = await page.evaluate(() => {
       const w = window as unknown as { __labels: Set<string>; __timer: number };
