@@ -161,7 +161,8 @@
     overflow: hidden;
   }
 
-  .debugger-watch .answer-was { max-width: 35%; }
+  /* Shrinks too, so a wide expression never pushes the remove button out of the row. */
+  .debugger-watch .answer-was { max-width: 35%; flex-shrink: 1; }
 
   .debugger-new { flex: none; }
 

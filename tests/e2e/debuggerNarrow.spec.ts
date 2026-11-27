@@ -109,7 +109,8 @@ test('at 375 px every step control, dock tab and the call stack stay in reach', 
   // Clicking the folded HUD and the keyboard both still step.
   await hud.getByRole('button', { name: 'Step over' }).click();
   await expect(page.getByTestId('run-meter-paused-line')).toHaveAttribute('data-line', '5');
-  await page.getByTestId('debugger-step-hud').waitFor();
+  // A pause that starts in the narrow editor folds as well.
+  await expect(hud).toHaveAttribute('data-fit', 'glyphs');
   await page.locator('.monaco-editor').click({ position: { x: 120, y: 20 } });
   await page.keyboard.press('F10');
   await expect(page.getByTestId('run-meter-paused-line')).toHaveAttribute('data-line', '6');

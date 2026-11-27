@@ -133,7 +133,7 @@ describe('step HUD', () => {
 
   it('folds to fit a narrow editor: key caps first, then every label but Continue', () => {
     const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
-      return STEP_WIDTHS[this.dataset.fit ?? ''] ?? 0;
+      return this.isConnected ? (STEP_WIDTHS[this.dataset.fit ?? ''] ?? 0) : 0;
     });
     try {
       const fake = fakeEditor();
@@ -156,10 +156,28 @@ describe('step HUD', () => {
       });
       expect(toolbar.dataset.fit).toBe('glyphs');
       // A glyph-only button keeps its name, and the tooltip names it with its key.
-      const stepOver = screen.getByRole('button', { name: 'Step over' });
+      const stepOver = screen.getByRole('button', { name: 'Step over F10' });
       expect(stepOver.title).toBe('Step over (F10) · Run the current line and pause on the next line in this frame.');
       expect(screen.getByRole('button', { name: 'Run to end' }).title).toBe('Run to end · Continue without stopping at more breakpoints.');
       expect(screen.getByTestId('debugger-hud-continue').dataset.primary).toBe('true');
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it('folds when it pauses in an editor that is already narrow, and again after a step', async () => {
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.isConnected ? (STEP_WIDTHS[this.dataset.fit ?? ''] ?? 0) : 0;
+    });
+    try {
+      const fake = fakeEditor();
+      fake.layout.width = 320;
+      render(<DebuggerStepHud editor={fake.editor} monaco={fake.monaco} tabId="t1" />);
+      pause(3);
+      expect(screen.getByTestId('debugger-step-hud').dataset.fit).toBe('glyphs');
+      await userEvent.click(screen.getByTestId('debugger-hud-step-over'));
+      pause(4);
+      expect(screen.getByTestId('debugger-step-hud').dataset.fit).toBe('glyphs');
     } finally {
       width.mockRestore();
     }

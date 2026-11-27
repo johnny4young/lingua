@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { useSettingsStore } from '../../stores/settingsStore';
 import type { ShortcutId } from '../../data/keyboardShortcuts';
 import { useDebuggerControls } from './useDebuggerControls';
 import { useLineWidget } from '../Editor/useLineWidget';
@@ -36,7 +37,7 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
   const line = pausedFrame && pausedFrame.tabId === tabId ? pausedFrame.line : null;
   const [node] = useState(() => document.createElement('div'));
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const fit = useHudFit(editor, toolbarRef, line, i18n.language);
+  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
 
   useEffect(() => {
     if (!editor || !monaco || line === null) return;
@@ -55,6 +56,8 @@ export function DebuggerStepHud({ editor, monaco, tabId }: DebuggerStepHudProps)
   }, [editor, monaco, line]);
   // Edits move the reserved row, so the toolbar follows the line.
   useLineWidget(editor, monaco, line, node, { id: HUD_ID, placement: 'below' });
+  // After useLineWidget: the toolbar only has a width once its widget is in the editor.
+  const fit = useHudFit(editor, toolbarRef, line, i18n.language, shortcutOverrides);
 
   if (line === null) return null;
   return createPortal(
@@ -93,13 +96,15 @@ function useHudFit(
   editor: monacoTypes.editor.IStandaloneCodeEditor | null,
   toolbarRef: RefObject<HTMLDivElement | null>,
   line: number | null,
-  language: string
+  // The locale and key bindings change the bar's width.
+  language: string,
+  shortcuts: unknown
 ): HudFit {
   const [fit, setFit] = useState<HudFit>('full');
-  useLayoutEffect(() => {
+  useEffect(() => {
     const toolbar = toolbarRef.current;
     if (!editor || !toolbar || line === null) return;
-    // Height-only layouts (a dock drag) skip the reflows; a new locale or line measures again.
+    // Height-only layouts (a dock drag) skip the reflows.
     let lastWidth = -1;
     const measure = () => {
       const width = editor.getLayoutInfo().contentWidth;
@@ -117,7 +122,7 @@ function useHudFit(
     measure();
     const layout = editor.onDidLayoutChange(measure);
     return () => layout.dispose();
-  }, [editor, toolbarRef, line, language]);
+  }, [editor, toolbarRef, line, language, shortcuts]);
   return fit;
 }
 
@@ -149,7 +154,7 @@ function HudButton({
     <button
       type="button"
       title={title}
-      aria-label={label}
+      aria-label={keyLabel ? `${label} ${keyLabel}` : label}
       onClick={onClick}
       disabled={disabled}
       data-testid={testid}
