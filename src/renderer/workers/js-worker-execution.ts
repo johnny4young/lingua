@@ -1,16 +1,14 @@
 import { createJsWorkerTimeline, watchJsWorkerConsoleForTimeline } from './js-worker-timeline';
-import type { ScopeVariable } from '../../shared/scopeSnapshot';
+import type { ScopeVariable, UnassignedBinding } from '../../shared/scopeSnapshot';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
   applyJsWorkerExecutePayload,
   createJsWorkerDebuggerSession,
-  jsWorkerPauseFrames,
-  noteJsWorkerDebugLine,
-  reachJsWorkerDebugLines,
   sanitizeJsWorkerWatches,
   type JsWorkerBreakpoint,
   type JsWorkerDebuggerSession,
 } from './js-worker-debugger';
+import { jsWorkerPauseFrames, noteJsWorkerDebugLine, pushJsWorkerDebugFrame, reachJsWorkerDebugLines, readJsWorkerLocals } from './js-worker-debugger-frames';
 import {
   evaluateDebuggerExpression,
   renderDebuggerLogpoint,
@@ -235,7 +233,8 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           const __lingua_dbg_yield = async (
             line: number,
             getLocals: () => Record<string, unknown>,
-            endLine = line
+            endLine = line,
+            unassigned?: UnassignedBinding[]
           ): Promise<void> => {
             if (!session.enabled) return;
             noteJsWorkerDebugLine(session, line);
@@ -244,7 +243,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               session.stepMode === 'into' ||
               (session.stepMode === 'over' && session.frames.length <= session.stepDepth) ||
               (session.stepMode === 'out' && session.frames.length < session.stepDepth);
-            if (breakpoint || shouldPauseForStep) await pauseAt(line, getLocals, breakpoint, shouldPauseForStep);
+            if (breakpoint || shouldPauseForStep) await pauseAt(line, getLocals, breakpoint, shouldPauseForStep, unassigned);
             // Recorded after any pause, so a statement first reached by this pause still reads as not run.
             reachJsWorkerDebugLines(session, line, endLine);
           };
@@ -253,15 +252,10 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             line: number,
             getLocals: () => Record<string, unknown>,
             breakpoint: JsWorkerBreakpoint | undefined,
-            shouldPauseForStep: boolean
+            shouldPauseForStep: boolean,
+            unassigned: UnassignedBinding[] | undefined
           ): Promise<void> => {
-            const localsRaw = (() => {
-              try {
-                return getLocals();
-              } catch {
-                return {};
-              }
-            })();
+            const localsRaw = readJsWorkerLocals(getLocals);
             const scope = snapshotDebuggerScope(localsRaw);
 
             let shouldPauseForBreakpoint = breakpoint?.mode === 'pause';
@@ -307,6 +301,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               line,
               reason,
               locals: localsSerialized,
+              ...(unassigned ? { unassigned } : {}),
               ...jsWorkerPauseFrames(session),
               watchResults,
               conditionError,
@@ -319,7 +314,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           };
 
           const __lingua_dbg_frame = (functionName: string, line: number): void => {
-            session.frames.push({ functionName, declarationLine: line, line });
+            pushJsWorkerDebugFrame(session, functionName, line);
           };
 
           const __lingua_dbg_reach = (line: number, endLine: number, ownsFrame: number): void => {

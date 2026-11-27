@@ -834,7 +834,7 @@ ambient authority or side effects merely because it arrives during a pause.
 
 ### JS debugger pause frames
 
-The debug instrumenter puts `await __lingua_dbg_yield(line, locals, endLine?)`
+The debug instrumenter puts `await __lingua_dbg_yield(line, locals, endLine?, unassigned?)`
 before each top-level statement of the program and of awaitable function
 bodies, and a synchronous `__lingua_dbg_reach(line, endLine, owns)` before
 every other statement in a statement list: nested blocks, class methods,
@@ -848,6 +848,19 @@ that frame's line, so a caller reads the line of the call inside a loop.
 A `paused` message carries the frames newest first with their current line
 (and declaration line for functions), ending in `<module>`, and the sorted
 lines reached so far. Stepping still compares frame counts only.
+
+Each function frame also carries `callIndex`: which call of that function its
+caller's statement started, counted from 1 and reset when the caller moves to
+its next statement, so the renderer can name `quickSort(right)` rather than the
+first `quickSort(` on the line. Each frame keeps the statement lines its own
+invocation started, and the pause sends the paused frame's set as `frameLines`.
+The instrumenter passes each yield, as a fourth argument, the body's `const`,
+`let` and `class` declarations from that statement on, which have not run and
+would throw if read; the pause sends them as `unassigned`. The renderer answers
+each calling frame's line with what it waits on, the `<module>` line with the
+chain of calls not returned, and the paused frame's earlier lines (its
+declaration line, then `frameLines` above the pause) with the current value of
+the locals they name first.
 
 ### Native debugger boundary
 

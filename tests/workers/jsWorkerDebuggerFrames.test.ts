@@ -59,13 +59,13 @@ describe('JS worker pause frames', () => {
     const [first, second] = await debugRun(SORT, [4], 2);
     expect(first!.line).toBe(4);
     expect(first!.callStack).toEqual([
-      { functionName: 'quickSort', line: 4, declarationLine: 1 },
+      { functionName: 'quickSort', line: 4, declarationLine: 1, callIndex: 1 },
       { functionName: '<module>', line: 19 },
     ]);
     // The second visit is one call deeper, entered from the caller's return on line 7.
     expect(second!.callStack).toEqual([
-      { functionName: 'quickSort', line: 4, declarationLine: 1 },
-      { functionName: 'quickSort', line: 7, declarationLine: 1 },
+      { functionName: 'quickSort', line: 4, declarationLine: 1, callIndex: 1 },
+      { functionName: 'quickSort', line: 7, declarationLine: 1, callIndex: 1 },
       { functionName: '<module>', line: 19 },
     ]);
   });
@@ -99,9 +99,34 @@ describe('JS worker pause frames', () => {
     ].join('\n');
     const [pause] = await debugRun(source, [7], 1);
     expect(pause!.callStack).toEqual([
-      { functionName: 'visit', line: 7, declarationLine: 6 },
+      { functionName: 'visit', line: 7, declarationLine: 6, callIndex: 1 },
       { functionName: '<module>', line: 14 },
     ]);
     expect(pause!.reachedLines).toEqual([3, 9, 10, 13, 14]);
+  });
+
+  it('numbers the calls a statement starts per function, so a caller knows which one it waits on', async () => {
+    const source = ['function f(n) {', '  return n;', '}', 'const pair = [f(1), f(2)];', 'const next = f(3);'].join('\n');
+    const pauses = await debugRun(source, [2], 3);
+    expect(pauses.map(pause => pause.callStack[0]!.callIndex)).toEqual([1, 2, 1]);
+    expect(pauses.map(pause => pause.callStack[1]!.line)).toEqual([4, 4, 5]);
+  });
+
+  it('lists the bindings the paused frame has not assigned yet, with their declaration line', async () => {
+    const [first] = await debugRun(SORT, [4], 1);
+    expect(first!.unassigned).toEqual([
+      { name: 'left', kind: 'const', line: 4 },
+      { name: 'mid', kind: 'const', line: 5 },
+      { name: 'right', kind: 'const', line: 6 },
+    ]);
+    expect(Object.keys(first!.locals)).toEqual(['arr', 'pivot']);
+  });
+
+  it('sends the lines the paused invocation itself started, not those of another call', async () => {
+    const [first, second] = await debugRun(SORT, [4], 2);
+    expect(first!.frameLines).toEqual([2, 3]);
+    expect(second!.frameLines).toEqual([2, 3]);
+    const [atTop] = await debugRun(SORT, [19], 1);
+    expect(atTop!.frameLines).toEqual([14, 15]);
   });
 });

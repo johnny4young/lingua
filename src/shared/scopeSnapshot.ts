@@ -101,6 +101,14 @@ export interface ScopeSnapshot {
   truncatedCount?: number;
 }
 
+/** A `const`, `let` or `class` binding of the paused frame that its declaration has not reached yet. */
+export interface UnassignedBinding {
+  name: string;
+  kind: 'const' | 'let' | 'class';
+  /** Source line of the declaration. */
+  line: number;
+}
+
 // ---------------------------------------------------------------------------
 // Caps
 // ---------------------------------------------------------------------------

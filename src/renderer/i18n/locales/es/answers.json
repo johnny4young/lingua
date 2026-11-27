@@ -26,5 +26,9 @@
   "answers.delta.items_other": "{{count}} elementos",
   "answers.paused.held": "retenida",
   "answers.paused.heldHint": "Antes de que corra esta línea",
-  "answers.paused.depth": "profundidad {{depth}}"
+  "answers.paused.depth": "profundidad {{depth}}",
+  "answers.frame.waiting": "esperando a {{call}}",
+  "answers.frame.thisCall": "esta llamada",
+  "answers.frame.calling": "llamando",
+  "answers.frame.notReturned": "profundidad {{depth}} · sin retornar"
 }

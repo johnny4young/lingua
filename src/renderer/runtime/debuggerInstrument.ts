@@ -1,6 +1,7 @@
 import { Parser } from 'acorn';
 import MagicString from 'magic-string';
 import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
+import type { UnassignedBinding } from '../../shared/scopeSnapshot';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Acorn's exported types are loose; we cast to a structural shape per
@@ -177,6 +178,40 @@ export function buildLineTranslator(inputMap: string | undefined): LineTranslato
   };
 }
 
+/** Every name a binding pattern declares. */
+function patternNames(pattern: AcornNode, add: (name: string) => void): void {
+  if (!pattern || typeof pattern !== 'object') return;
+  switch (pattern.type) {
+    case 'Identifier':
+      add((pattern as { name: string }).name);
+      return;
+    case 'ObjectPattern': {
+      const props = (pattern as { properties: AcornNode[] }).properties;
+      for (const prop of props) {
+        if (prop.type === 'Property') {
+          patternNames((prop as { value: AcornNode }).value, add);
+        } else if (prop.type === 'RestElement') {
+          patternNames((prop as { argument: AcornNode }).argument, add);
+        }
+      }
+      return;
+    }
+    case 'ArrayPattern': {
+      const elements = (pattern as { elements: (AcornNode | null)[] }).elements;
+      for (const element of elements) {
+        if (element) patternNames(element, add);
+      }
+      return;
+    }
+    case 'AssignmentPattern':
+      patternNames((pattern as { left: AcornNode }).left, add);
+      return;
+    case 'RestElement':
+      patternNames((pattern as { argument: AcornNode }).argument, add);
+      return;
+  }
+}
+
 /**
  * Local-scope discovery: walk the AST and collect the names declared
  * directly in the enclosing function / program body. The yield helper
@@ -221,39 +256,6 @@ export function collectLocalIdentifiers(node: AcornNode): string[] {
     if (!skip.has(name)) seen.add(name);
   }
 
-  function walkPattern(pattern: AcornNode): void {
-    if (!pattern || typeof pattern !== 'object') return;
-    switch (pattern.type) {
-      case 'Identifier':
-        add((pattern as { name: string }).name);
-        return;
-      case 'ObjectPattern': {
-        const props = (pattern as { properties: AcornNode[] }).properties;
-        for (const prop of props) {
-          if (prop.type === 'Property') {
-            walkPattern((prop as { value: AcornNode }).value);
-          } else if (prop.type === 'RestElement') {
-            walkPattern((prop as { argument: AcornNode }).argument);
-          }
-        }
-        return;
-      }
-      case 'ArrayPattern': {
-        const elements = (pattern as { elements: (AcornNode | null)[] }).elements;
-        for (const element of elements) {
-          if (element) walkPattern(element);
-        }
-        return;
-      }
-      case 'AssignmentPattern':
-        walkPattern((pattern as { left: AcornNode }).left);
-        return;
-      case 'RestElement':
-        walkPattern((pattern as { argument: AcornNode }).argument);
-        return;
-    }
-  }
-
   const body = (node as { body?: AcornNode | AcornNode[] }).body;
   if (!body) return [];
   const statements = Array.isArray(body) ? body : (body as { body?: AcornNode[] }).body ?? [];
@@ -261,7 +263,7 @@ export function collectLocalIdentifiers(node: AcornNode): string[] {
   // Collect parameters when the node is a function-like.
   const params = (node as { params?: AcornNode[] }).params;
   if (Array.isArray(params)) {
-    for (const param of params) walkPattern(param);
+    for (const param of params) patternNames(param, add);
   }
 
   for (const stmt of statements) {
@@ -270,18 +272,18 @@ export function collectLocalIdentifiers(node: AcornNode): string[] {
       case 'VariableDeclaration': {
         const decls = (stmt as { declarations: AcornNode[] }).declarations;
         for (const decl of decls) {
-          walkPattern((decl as { id: AcornNode }).id);
+          patternNames((decl as { id: AcornNode }).id, add);
         }
         break;
       }
       case 'FunctionDeclaration': {
         const id = (stmt as { id: AcornNode | null }).id;
-        if (id) walkPattern(id);
+        if (id) patternNames(id, add);
         break;
       }
       case 'ClassDeclaration': {
         const id = (stmt as { id: AcornNode | null }).id;
-        if (id) walkPattern(id);
+        if (id) patternNames(id, add);
         break;
       }
     }
@@ -289,6 +291,35 @@ export function collectLocalIdentifiers(node: AcornNode): string[] {
   }
 
   return [...seen];
+}
+
+interface LexicalDeclaration extends UnassignedBinding {
+  /** Source offset of the declaring statement. */
+  start: number;
+}
+
+const lexicalByBody = new WeakMap<AcornNode, LexicalDeclaration[]>();
+
+/** Each `const`, `let` or `class` the body declares, with its statement's offset and source line. */
+function lexicalDeclarations(node: AcornNode, translateLine: LineTranslator): LexicalDeclaration[] {
+  const cached = lexicalByBody.get(node);
+  if (cached) return cached;
+  const declared: LexicalDeclaration[] = [];
+  const body = (node as { body?: AcornNode | AcornNode[] }).body;
+  const statements = Array.isArray(body) ? body : (body as { body?: AcornNode[] } | undefined)?.body ?? [];
+  for (const stmt of statements) {
+    const line = translateLine(stmt?.loc?.start.line ?? 0);
+    if (!Number.isInteger(line) || line <= 0) continue;
+    const kind = (stmt as { kind?: string }).kind;
+    const add = (lexicalKind: UnassignedBinding['kind']) => (name: string) => declared.push({ name, kind: lexicalKind, line, start: stmt.start });
+    if (stmt.type === 'VariableDeclaration' && (kind === 'const' || kind === 'let')) {
+      for (const decl of (stmt as { declarations: AcornNode[] }).declarations) patternNames((decl as { id: AcornNode }).id, add(kind));
+    } else if (stmt.type === 'ClassDeclaration' && (stmt as { id: AcornNode | null }).id) {
+      patternNames((stmt as { id: AcornNode }).id, add('class'));
+    }
+  }
+  lexicalByBody.set(node, declared);
+  return declared;
 }
 
 function collectAssignmentIdentifiers(
@@ -577,7 +608,12 @@ function injectYieldBefore(
 
   const localObject = buildLocalSnapshotExpression(collectLocalIdentifiers(parent));
   const endLine = ownEndLine(stmt, userLine, translateLine);
-  const endArg = endLine > userLine ? `, ${endLine}` : '';
+  // Declarations from this statement on have not run, so reading them would throw.
+  const pending = lexicalDeclarations(parent, translateLine)
+    .filter(binding => binding.start >= stmt.start)
+    .map(({ name, kind, line }) => ({ name, kind, line }));
+  const pendingArg = pending.length > 0 ? `, ${JSON.stringify(pending)}` : '';
+  const endArg = endLine > userLine || pendingArg ? `, ${endLine}${pendingArg}` : '';
 
   const yieldExpr = `await ${helperName}(${userLine}, () => ${localObject}${endArg});`;
 

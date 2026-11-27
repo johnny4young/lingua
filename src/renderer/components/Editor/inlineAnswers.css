@@ -17,6 +17,42 @@
 
   .lingua-inline-result-part[data-depth] .lingua-inline-result-name { color: var(--color-fg-muted); }
 
+  /* A calling frame reads as another frame's value: subtle, with the call chain one step brighter. */
+  .lingua-inline-result-frame {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 8px;
+    color: var(--color-fg-subtle);
+    font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
+    font-size: 12.5px;
+    line-height: 1.2;
+  }
+
+  .lingua-inline-result-frame-tag {
+    flex: none;
+    color: var(--color-fg-subtle);
+  }
+
+  .lingua-inline-result-frame-chain { color: var(--color-fg-muted); }
+
+  .lingua-inline-result-this-call {
+    color: var(--color-fg-muted);
+    white-space: nowrap;
+  }
+
+  /* Calls not returned yet are the top level's answer, so the chip is filled like a value. */
+  .lingua-inline-result-frame .lingua-inline-result-depth {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--color-fg-base) 7%, transparent);
+    color: var(--color-fg-muted);
+    font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
+    font-size: 11.5px;
+    font-weight: 400;
+  }
+
   /* The previous run's answer while this run has not reached its line: every value tone reads as subtle text. */
   .lingua-inline-result[data-kept] {
     --color-fg-base: var(--color-fg-subtle);

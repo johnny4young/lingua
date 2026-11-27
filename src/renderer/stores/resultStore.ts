@@ -95,6 +95,8 @@ export interface LineResult {
   depth?: number;
   /** Paused values only: read on the paused line, before it runs. */
   held?: boolean;
+  /** Paused only: a calling frame's line, whose `value` is the call it waits on, or the top level's chain of calls not returned. */
+  frameCall?: { readonly kind: 'waiting'; readonly thisCall: boolean } | { readonly kind: 'calling'; readonly depth: number };
 }
 
 export type StickyLineResult = LineResult & {

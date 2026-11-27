@@ -343,6 +343,19 @@ test.describe('Debugger ', () => {
     await expect(page.getByTestId('run-meter-visit')).toHaveText('second visit');
     await expect(rows).toHaveText(['<module>:10', 'quickSort:7', 'quickSort:4']);
     await expect(rows.last()).toHaveAttribute('aria-current', 'step');
+
+    // Each calling frame answers on the line it runs, and the lines this frame ran answer with today's values.
+    const frames = page.getByTestId('lingua-inline-result-frame');
+    await expect(frames.filter({ hasText: 'waiting on quickSort(left)' })).toContainText('this call');
+    await expect(frames.filter({ hasText: 'calling' })).toContainText('quickSort → quickSort');
+    await expect(frames.filter({ hasText: 'calling' })).toContainText('depth 2 · not returned');
+    await expect(page.locator('.lingua-inline-result-name', { hasText: 'arr:' })).toHaveCount(2);
+    await expect(page.getByTestId('bottom-panel-debugger-tab')).toBeVisible();
+    await page.getByTestId('bottom-panel-debugger-tab').click();
+    await expect(page.getByTestId('debugger-unassigned')).toHaveText([
+      'leftconstnot assigned yet — line 4 has not run',
+      'midconstline 5rightconstline 6',
+    ]);
   });
 
   test('Spanish copy keeps breakpoint actions in the Debugger panel', async ({

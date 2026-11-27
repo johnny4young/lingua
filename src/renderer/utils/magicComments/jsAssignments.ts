@@ -73,7 +73,7 @@ function valueStart(text: string, from: number, afterEquals: boolean): number {
 }
 
 /** Index of the `)` closing the `(` at `open`, or -1. */
-function closingParen(text: string, open: number): number {
+export function closingParen(text: string, open: number): number {
   let depth = 0;
   for (let i = open; i < text.length; i++) {
     if (text[i] === '(') depth++;

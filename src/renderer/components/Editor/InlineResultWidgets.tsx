@@ -178,7 +178,10 @@ function sameAnswers(a: readonly LineResult[], b: readonly LineResult[]): boolea
 
 function answerSignature(items: readonly LineResult[]): string {
   return items
-    .map(item => `${item.type}\u0000${item.name ?? ''}\u0000${item.value}\u0000${item.previous ?? ''}\u0000${item.depth ?? ''}`)
+    .map(
+      item =>
+        `${item.type}\u0000${item.name ?? ''}\u0000${item.value}\u0000${item.previous ?? ''}\u0000${item.depth ?? ''}\u0000${item.frameCall ? JSON.stringify(item.frameCall) : ''}`
+    )
     .join('\u0001');
 }
 

@@ -56,6 +56,7 @@ const MODULE_BUDGETS = {
   'js-worker-serialization.ts': 500,
   'js-worker-runtime.ts': 220,
   'js-worker-debugger.ts': 130,
+  'js-worker-debugger-frames.ts': 80,
   'debuggerExpression.ts': 560,
   'js-worker-stdin.ts': 60,
   'python-worker.ts': 70,

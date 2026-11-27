@@ -127,4 +127,21 @@ describe('InlineAnswerLine', () => {
     expect(screen.getAllByTestId('lingua-inline-result-depth').map(chip => chip.textContent)).toEqual(['depth 1']);
     expect(container.querySelectorAll('[data-depth="1"]')).toHaveLength(2);
   });
+
+  it('reads a calling frame as another frame: what it waits on, and the calls the top level has not returned', () => {
+    const { rerender } = render(
+      <InlineAnswerLine items={[{ line: 7, value: 'quickSort(left)', type: 'log', depth: 1, frameCall: { kind: 'waiting', thisCall: true } }]} />
+    );
+    const waiting = screen.getByTestId('lingua-inline-result-frame');
+    expect(waiting.dataset.frameCall).toBe('waiting');
+    expect(waiting.textContent).toBe('depth 1waiting on quickSort(left)↰ this call');
+    expect(screen.queryByTestId('lingua-inline-result-depth')).toBeNull();
+    rerender(
+      <InlineAnswerLine
+        items={[{ line: 11, value: 'quickSort → quickSort', type: 'log', frameCall: { kind: 'calling', depth: 2 } }]}
+      />
+    );
+    expect(screen.getByTestId('lingua-inline-result-frame').textContent).toBe('callingquickSort → quickSortdepth 2 · not returned');
+    expect(screen.getByTestId('lingua-inline-result-depth').textContent).toBe('depth 2 · not returned');
+  });
 });
