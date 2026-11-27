@@ -34,6 +34,8 @@ interface TooltipProps {
   children: ReactElement;
   side?: TooltipSide;
   disabled?: boolean;
+  /** Extra classes for the wrapper, e.g. to let the trigger grow and truncate in a flex row. */
+  triggerClassName?: string;
 }
 
 function mergeDescribedBy(
@@ -139,6 +141,7 @@ export function Tooltip({
   children,
   side = 'top',
   disabled = false,
+  triggerClassName,
 }: TooltipProps) {
   const tooltipId = useId();
   const triggerRef = useRef<HTMLSpanElement | null>(null);
@@ -214,7 +217,7 @@ export function Tooltip({
     <>
       <span
         ref={triggerRef}
-        className="inline-flex"
+        className={cn('inline-flex', triggerClassName)}
         onMouseEnter={openTooltip}
         onMouseLeave={closeTooltip}
         onFocusCapture={openTooltip}

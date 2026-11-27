@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   ChevronsDownUp,
@@ -176,6 +176,17 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     keys: useMemo(() => flatRows.map((row) => row.key), [flatRows]),
     estimate: TREE_ROW_ESTIMATE_PX,
   });
+
+  // Rows end their marks on the headers' edge; a classic scrollbar inside the tree takes its width from that inset.
+  const attachScroll = useCallback((element: HTMLDivElement | null) => {
+    scrollRef.current = element;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      element.style.setProperty('--tree-scrollbar', `${element.offsetWidth - element.clientWidth}px`);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const focusTreeRow = (path: string | undefined) => {
     if (!path) return;
@@ -378,7 +389,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           does not re-render the tree. Renders nothing with no open tabs. */}
       <FileTreeOpenTabs onNavigate={onNavigate} />
 
-      <div className="flex h-8 shrink-0 items-center gap-2 px-4">
+      <div className="flex h-8 shrink-0 items-center gap-2 pl-4 pr-3.5">
         <span className="panel-title">{t('explorer.files')}</span>
         {summary ? (
           <span className="ml-auto truncate text-caption text-muted" data-testid={summary.testId}>
@@ -395,7 +406,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           as a flat ARIA tree: each row carries role="treeitem" +
           aria-level, so depth no longer needs nested role="group" DOM. */}
       <div
-        ref={scrollRef}
+        ref={attachScroll}
         className="flex-1 overflow-y-auto py-1"
         role="tree"
         aria-label={t('fileTree.ariaLabel', { name: currentProject.name })}

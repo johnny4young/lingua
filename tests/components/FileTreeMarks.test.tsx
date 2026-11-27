@@ -201,6 +201,60 @@ describe('FileTree marks and project rows', () => {
     expect(screen.getByTestId('file-tree-footer-tests-tally').textContent).toBe('2 / 32 of 3 tests passed');
   });
 
+  it('keeps the marks in a column on the right edge while a long name truncates', async () => {
+    const longName = 'a-very-long-test-file-name-that-cannot-fit-in-the-explorer.test.ts';
+    const longPath = `src/${longName}`;
+    const src = nodes[0]!.children!;
+    src.push({ name: longName, path: longPath, isDirectory: false, language: 'typescript' as const });
+    changes.mockResolvedValue({ paths: [{ path: longPath, status: 'modified' }], truncated: false });
+    useProjectTestStore.setState({ cases: [...cases, { file: longPath, path: ['long', 'case'], status: 'passed' }] });
+    try {
+      render(<FileTree />);
+      const name = screen.getByText(longName);
+      expect(name.className).toContain('min-w-0');
+      expect(name.className).toContain('truncate');
+      // The tooltip wrapper is the flex item that has to give way, not the marks.
+      expect(name.parentElement!.className).toContain('min-w-0');
+      expect(name.parentElement!.className).toContain('flex-1');
+      const marks = screen.getByTestId(`file-tree-marks-${longPath}`);
+      expect(marks.className).toContain('ml-auto');
+      expect(marks.className).toContain('shrink-0');
+      expect(marks.className).toContain('tabular-nums');
+      expect(name.contains(marks)).toBe(false);
+      expect(marks.previousElementSibling).toBe(name.parentElement);
+      await waitFor(() => {
+        // Git mark first, then the count with its dot at the edge, as in the footer row.
+        expect(Array.from(marks.children).map(child => child.getAttribute('data-testid'))).toEqual([
+          `file-tree-git-${longPath}`,
+          `file-tree-tests-${longPath}`,
+        ]);
+        expect(marks.textContent).toBe('M1 / 11 of 1 test passed');
+      });
+    } finally {
+      src.pop();
+    }
+  });
+
+  it('shows the row actions in place of the marks on hover and keeps the marks for screen readers', () => {
+    render(<FileTree />);
+    const marks = screen.getByTestId('file-tree-marks-src/cart.test.ts');
+    const row = marks.parentElement!;
+    fireEvent.mouseEnter(row);
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(marks.className).toBe('sr-only');
+    expect(marks.textContent).toContain('1 of 2 tests passed');
+    fireEvent.mouseLeave(row);
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(marks.className).toContain('ml-auto');
+  });
+
+  it('keeps the marks visible beside the row actions under keyboard focus', () => {
+    render(<FileTree />);
+    fireEvent.focus(screen.getByText('cart.test.ts'));
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(screen.getByTestId('file-tree-marks-src/cart.test.ts').className).toContain('ml-auto');
+  });
+
   it('leaves another project results off the tree', () => {
     useProjectTestStore.setState({ rootId: 'root-other' as RootId });
     render(<FileTree />);

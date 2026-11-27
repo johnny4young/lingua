@@ -81,7 +81,7 @@ export function FileTreeOpenTabs({ onNavigate, className = '' }: FileTreeOpenTab
 
   return (
     <div className={`shrink-0 ${className}`} data-testid="file-tree-open-tabs">
-      <div className="flex h-8 items-center gap-1.5 px-4">
+      <div className="flex h-8 items-center gap-1.5 pl-4 pr-3.5">
         <span className="panel-title">{t('fileTree.emptyState.openTabs')}</span>
         <span className="ml-auto text-caption tabular-nums text-muted">{tabs.length}</span>
       </div>

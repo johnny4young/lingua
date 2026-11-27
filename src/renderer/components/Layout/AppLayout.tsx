@@ -701,18 +701,23 @@ export function AppLayout({
             role="dialog"
             aria-modal="true"
             aria-label={t('layout.projectExplorer')}
-            className="relative h-full w-[min(24rem,calc(100vw-1rem))] max-w-full"
+            className="pointer-events-none flex h-full w-[min(24rem,calc(100vw-1rem))] max-w-full flex-col gap-2"
             onClick={event => event.stopPropagation()}
           >
-            <IconButton
-              ref={compactDrawerCloseButtonRef}
-              onClick={() => setSidebarVisible(false)}
-              tooltip={t('layout.closeSidebar')}
-              className="absolute right-3 top-3 z-10 bg-surface/92"
-            >
-              <X size={ICON_GLYPH.md} />
-            </IconButton>
-            <SidebarPanel onNavigate={handleExplorerNavigate} />
+            {/* Above the panel so it never covers the header menu; the strip beside it still dismisses. */}
+            <div className="flex shrink-0 justify-end">
+              <IconButton
+                ref={compactDrawerCloseButtonRef}
+                onClick={() => setSidebarVisible(false)}
+                tooltip={t('layout.closeSidebar')}
+                className="pointer-events-auto bg-surface/92"
+              >
+                <X size={ICON_GLYPH.md} />
+              </IconButton>
+            </div>
+            <div className="pointer-events-auto min-h-0 flex-1">
+              <SidebarPanel onNavigate={handleExplorerNavigate} />
+            </div>
           </div>
         </OverlayBackdrop>
       )}

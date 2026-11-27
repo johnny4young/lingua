@@ -11,6 +11,12 @@ async function mouseClick(target: Locator) {
   await target.page().mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
+async function rightEdge(target: Locator) {
+  const box = await target.boundingBox();
+  if (!box) throw new Error('target is not rendered');
+  return Math.round(box.x + box.width);
+}
+
 const screenshotDir = path.resolve(process.cwd(), 'output/playwright/project-tests-editor');
 
 test.describe.configure({ mode: 'serial' });
@@ -65,6 +71,11 @@ test.describe('test results on the line', () => {
       await expect(page.getByTestId('file-tree-tests-src/cart.test.ts')).toHaveAttribute('data-tone', 'failed');
       await expect(page.getByTestId('file-tree-footer-tests-tally')).toContainText('5 / 6');
       await expect(page.getByTestId('file-tree-footer-terminal-state')).toHaveText(copy.active);
+      // Counts and Git marks share one column on the right edge, the same edge as the Tests row under the tree.
+      const footerEdge = await rightEdge(page.getByTestId('file-tree-footer-tests-tally'));
+      for (const file of ['src/cart.test.ts', 'src/coupons.test.ts', 'src/shipping.ts', 'src/coupons.ts']) {
+        expect(Math.abs((await rightEdge(page.getByTestId(`file-tree-marks-${file}`))) - footerEdge)).toBeLessThanOrEqual(1);
+      }
 
       // A wide dock shows Tests and Terminal side by side, with the Tests meter in the dock's column.
       await expect(page.getByTestId('results-dock-split')).toBeVisible();
@@ -114,4 +125,31 @@ test.describe('test results on the line', () => {
       expect(consoleErrors).toEqual([]);
     });
   }
+
+  test('the explorer drawer of a narrow window fits the rows under the tree and keeps the marks column', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1000 });
+    const consoleErrors = trackConsoleErrors(page);
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await page.goto('/?e2e=project-tests-editor&locale=en');
+    await page.waitForSelector('.monaco-editor .view-lines');
+    await page.evaluate(() => window.dispatchEvent(new Event('e2e-open-test-file')));
+    const drawer = page.getByRole('dialog', { name: 'Project explorer' });
+    await expect(drawer).toBeVisible();
+    const drawerBox = await drawer.boundingBox();
+    const footerBox = await page.getByTestId('file-tree-footer').boundingBox();
+    expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(drawerBox!.y + drawerBox!.height + 1);
+    expect(Math.abs((await rightEdge(page.getByTestId('file-tree-marks-src/shipping.ts'))) - (await rightEdge(page.getByTestId('file-tree-footer-tests-tally'))))).toBeLessThanOrEqual(1);
+    // The close button sits above the panel, so the header menu stays clickable.
+    await page.getByTestId('file-tree-more').click();
+    await expect(page.getByTestId('file-tree-refresh')).toBeVisible();
+    await page.keyboard.press('Escape');
+    // The strip beside the close button is scrim: a click there dismisses the drawer.
+    await page.mouse.click(drawerBox!.x + 24, drawerBox!.y + 12);
+    await expect(drawer).toHaveCount(0);
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(drawer).toBeVisible();
+    await page.getByRole('button', { name: 'Close sidebar' }).click();
+    await expect(drawer).toHaveCount(0);
+    expect(consoleErrors).toEqual([]);
+  });
 });
