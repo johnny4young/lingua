@@ -7,17 +7,21 @@ import '../../i18n/testsCatalog';
 import '../ui/identity.css';
 import './projectTests.css';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
+import { useResultStore } from '../../stores/resultStore';
 import { sameTest, useProjectTestStore, type ProjectTestDisplayCase } from '../../stores/projectTestStore';
 import { parentDirOf } from '../../utils/filePath';
 import { formatWholeDuration } from '../../utils/latencyScale';
 import { projectTestFailureHeadline } from '../../utils/projectTestFailure';
+import { AnswerColumnHeader } from '../Editor/AnswerColumnHeader';
 import { inferKind } from '../Editor/inlineResultWidgetDom';
+import { railDecoration } from '../Editor/pulseRailDecoration';
 import { useAnswerColumnWidgets } from './answerColumn';
 import { openProjectFileAt, openTestFailure } from './openTestFailure';
 import { TestFailureCard } from './TestFailureCard';
 import { suiteTally, testLineAnswers, type TestLineAnswer } from './testLineAnswersModel';
 import { useCodeUnderTestChange } from './useCodeUnderTestChange';
 import type { CodeChange } from './codeUnderTestChange';
+import type { PulseRailLine } from '../../utils/pulseRail';
 
 const MAX_SUITE_MARKS = 12;
 const JS_FAMILY = new Set(['vitest', 'jest']);
@@ -25,12 +29,15 @@ const JS_FAMILY = new Set(['vitest', 'jest']);
 export interface TestLineAnswersProps {
   editor: monacoTypes.editor.IStandaloneCodeEditor | null;
   monaco: typeof monacoTypes | null;
+  /** Where the answer column header mounts, above the editor. */
+  headerSlot?: HTMLElement | null;
 }
 
 const baseName = (file: string) => parentDirOf(file).basename;
 
 /** Each test's result on its line of the open test file, and the focused failure's card. */
-export function TestLineAnswers({ editor, monaco }: TestLineAnswersProps) {
+export function TestLineAnswers({ editor, monaco, headerSlot = null }: TestLineAnswersProps) {
+  const { t } = useTranslation();
   // The content is read when needed rather than subscribed to, so typing does not re-render the answers.
   const tab = useEditorStore(
     useShallow(state => {
@@ -55,20 +62,37 @@ export function TestLineAnswers({ editor, monaco }: TestLineAnswersProps) {
   const change = lookup.status === 'done' ? lookup.change : null;
   const nodes = useAnswerColumnWidgets(editor, monaco, answers);
   const answeredLines = useMemo(() => answers.map(answer => answer.line), [answers]);
+  // A code run of this file owns the header and the rail while it runs and while its answers are on screen.
+  const codeAnswers = useResultStore(
+    state =>
+      tab.id !== undefined &&
+      state.ranCode?.tabId === tab.id &&
+      (state.isAutoRunning || state.isManualRunning || state.lineResults.length > 0 || state.lineTimings.length > 0 || state.error !== null)
+  );
 
   useEffect(() => {
     if (!editor || !monaco) return;
-    const tint = editor.createDecorationsCollection(
-      answers
-        .filter(answer => answer.kind === 'assertion')
-        .map(answer => ({ range: new monaco.Range(answer.line, 1, answer.line, 1), options: { isWholeLine: true, className: 'lingua-error-line' } }))
+    const marks = editor.createDecorationsCollection(
+      answers.flatMap(answer => {
+        const range = new monaco.Range(answer.line, 1, answer.line, 1);
+        const tint = {
+          range,
+          options: { isWholeLine: true, className: 'test-error-line', marginClassName: 'test-error-margin', lineNumberClassName: 'test-error-number' },
+        };
+        const state = answerRailState(answer);
+        const rail = codeAnswers || state === null ? [] : [railDecoration(monaco, { line: answer.line, state, slot: null }, false, null)];
+        return answer.kind === 'assertion' ? [tint, ...rail] : rail;
+      })
     );
-    return () => tint.clear();
-  }, [editor, monaco, answers]);
+    return () => marks.clear();
+  }, [editor, monaco, answers, codeAnswers]);
 
   if (!file) return null;
   return (
     <>
+      {headerSlot && editor && answers.length > 0 && !codeAnswers
+        ? createPortal(<AnswerColumnHeader editor={editor} tabId={tab.id ?? null} since={null} detail={t('projectTests.header.detail')} />, headerSlot)
+        : null}
       {answers.map(answer => {
         const node = nodes.get(answer.key);
         return node ? createPortal(<LineAnswer answer={answer} file={file} change={answer === focusedAnswer ? change : null} />, node, answer.key) : null;
@@ -78,6 +102,13 @@ export function TestLineAnswers({ editor, monaco }: TestLineAnswersProps) {
       ) : null}
     </>
   );
+}
+
+/** The rail mark of an answered line: a tick where a suite or test passed, lit where a test failed, the cross on its assertion. */
+function answerRailState(answer: TestLineAnswer): PulseRailLine['state'] | null {
+  if (answer.kind === 'assertion') return 'raised';
+  if (answer.kind === 'suite' || answer.test.status === 'passed') return 'answered';
+  return answer.test.status === 'failed' ? 'reached' : null;
 }
 
 function LineAnswer({ answer, file, change }: { answer: TestLineAnswer; file: string; change: CodeChange | null }) {

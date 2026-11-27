@@ -29,6 +29,13 @@ describe('assertionValues', () => {
     expect(assertionValues('pytest', undefined)).toBeNull();
   });
 
+  it('reads the +0 Chai prints for positive zero as 0 and keeps -0', () => {
+    expect(assertionValues('jest', 'AssertionError: expected 4.9 to be +0 // Object.is equality')).toEqual({ received: '4.9', expected: '0' });
+    expect(assertionValues('jest', 'AssertionError: expected -0 to be +0 // Object.is equality')).toEqual({ received: '-0', expected: '0' });
+    expect(assertionValues('jest', 'AssertionError: expected [ +0, 1 ] to deeply equal [ +0, 2 ]')).toEqual({ received: '[ 0, 1 ]', expected: '[ 0, 2 ]' });
+    expect(assertionValues('jest', "AssertionError: expected 'v+0' to be +0.5")).toEqual({ received: "'v+0'", expected: '+0.5' });
+  });
+
   it('clips long values', () => {
     const values = assertionValues('pytest', `assert ${'x'.repeat(300)} == 1`)!;
     expect(values.received).toHaveLength(120);

@@ -21,8 +21,8 @@ test.describe('test results on the line', () => {
   });
 
   for (const [locale, copy] of [
-    ['en', { suite: 'Suite2 of 3 passed', failed: 'Failed3 ms · at line 19', received: 'Received4.9expected0', open: 'Open shipping.ts:4', uncommitted: 'changed, not committed', changed: 'main · 2 changed', tally: '2 / 32 of 3 tests passed', active: 'zsh · active', meter: '5of 6 passed', heading: '1 failed· Vitest · 3 files · 412 ms', failedOnly: 'Failed only1' }],
-    ['es', { suite: 'Grupo2 de 3 aprobadas', failed: 'Fallida3 ms · en la línea 19', received: 'Recibido4.9se esperaba0', open: 'Abrir shipping.ts:4', uncommitted: 'cambiado, sin confirmar', changed: 'main · 2 cambios', tally: '2 / 32 de 3 pruebas aprobadas', active: 'zsh · activa', meter: '5de 6 aprobadas', heading: '1 fallida· Vitest · 3 archivos · 412 ms', failedOnly: 'Solo fallidas1' }],
+    ['en', { suite: 'Suite2 of 3 passed', failed: 'Failed3 ms · at line 19', received: 'Received4.9expected0', open: 'Open shipping.ts:4', uncommitted: 'changed, not committed', changed: 'main · 2 changed', tally: '2 / 32 of 3 tests passed', active: 'zsh · active', meter: '5of 6 passed', heading: '1 failed· Vitest · 3 files · 412 ms', failedOnly: 'Failed only1', header: 'You writeLingua answers· Test results on the line' }],
+    ['es', { suite: 'Grupo2 de 3 aprobadas', failed: 'Fallida3 ms · en la línea 19', received: 'Recibido4.9se esperaba0', open: 'Abrir shipping.ts:4', uncommitted: 'cambiado, sin confirmar', changed: 'main · 2 cambios', tally: '2 / 32 de 3 pruebas aprobadas', active: 'zsh · activa', meter: '5de 6 aprobadas', heading: '1 fallida· Vitest · 3 archivos · 412 ms', failedOnly: 'Solo fallidas1', header: 'Tú escribesLingua responde· Resultados de pruebas en la línea' }],
   ] as const) {
     test(`${locale} answers on the test lines and the change under test${locale === 'es' ? ' in the light theme' : ''}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 1600, height: 1000 });
@@ -48,6 +48,14 @@ test.describe('test results on the line', () => {
       await expect(answer(9)).toHaveText(copy.suite);
       await expect(answer(18)).toHaveText(copy.failed);
       await expect(answer(19)).toContainText(copy.received);
+      await expect(page.getByTestId('answer-column-header')).toHaveText(copy.header);
+      // Ticks on the suite and passing tests, the failing test lit, the cross on its assertion.
+      const rail = page.locator('.monaco-editor .cldr.lingua-rail');
+      await expect(rail).toHaveCount(5);
+      await expect(page.locator('.monaco-editor .cldr.lingua-rail--answered')).toHaveCount(3);
+      await expect(page.locator('.monaco-editor .cldr.lingua-rail--reached')).toHaveCount(1);
+      await expect(page.locator('.monaco-editor .cldr.lingua-rail--raised')).toHaveCount(1);
+      await expect(page.locator('.monaco-editor .test-error-line')).toHaveCount(1);
 
       // The explorer marks changed files and test results, and sums them under the tree.
       await expect(page.getByTestId('file-tree-git-summary')).toHaveText(copy.changed);
@@ -73,6 +81,10 @@ test.describe('test results on the line', () => {
       await expect(card).toBeVisible();
       await expect(card).toContainText(copy.uncommitted);
       await expect(page.getByTestId('test-failure-change')).toContainText('return total >= 50 ? 0 : 4.9;');
+      // The hunk takes the editor's token colors; the line is said once, on the Open chip.
+      await expect(page.getByTestId('test-failure-change').locator('[class^="mtk"]').first()).toBeVisible();
+      await expect(page.getByTestId('test-failure-change-state')).toHaveText(`M${copy.uncommitted}`);
+      await expect(card).not.toContainText(locale === 'en' ? 'line 4' : 'línea 4');
       await expect(page.getByTestId('test-line-open-change')).toHaveText(copy.open);
       await mouseClick(page.getByTestId('test-failure-close'));
       await expect(card).toHaveCount(0);

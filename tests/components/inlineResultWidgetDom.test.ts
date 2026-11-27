@@ -19,5 +19,6 @@ describe('inline result widget shell', () => {
 
   it('infers a kind from printed text', () => {
     expect(['1', 'true', '[1]', '{}', 'null', 'x'].map(inferKind)).toEqual(['number', 'boolean', 'array', 'object', 'null', 'string']);
+    expect(['+0', '-0', '-4.9', '+1.5', '+', '1e3'].map(inferKind)).toEqual(['number', 'number', 'number', 'number', 'string', 'string']);
   });
 });

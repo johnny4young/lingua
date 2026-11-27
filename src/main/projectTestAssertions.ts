@@ -15,10 +15,13 @@ interface AssertionValues {
 
 type Pattern = (message: string) => AssertionValues | null;
 
+// Chai prints positive zero as +0 so it differs from -0; plain 0 reads the same and keeps -0 apart.
+const plainZero = (value: string) => value.replace(/(?<![\w.])\+0(?![\w.])/gu, '0');
+
 // Chai, used by Vitest: expected 1211 to be 1210.5 // Object.is equality
 const chai: Pattern = message => {
   const match = /expected (.+?) to (?:be|equal|eql|deeply equal|strictly equal)(?! a\b| an\b) (.+?)(?:\s+\/\/.*)?$/mu.exec(message);
-  return match && !/\bto not\b/u.test(match[0]) ? { received: match[1]!, expected: match[2]! } : null;
+  return match && !/\bto not\b/u.test(match[0]) ? { received: plainZero(match[1]!), expected: plainZero(match[2]!) } : null;
 };
 
 // Jest: Expected: 1210.5 / Received: 1211

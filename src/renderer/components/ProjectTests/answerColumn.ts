@@ -55,8 +55,15 @@ export function useAnswerColumnWidgets(
     }
 
     // Measure every line first, then write: each measurement can flush Monaco's render.
+    const root = editor.getDomNode();
+    let columnStart = '';
     const layout = () => {
       const column = answerColumn(editor);
+      // The failing line's tint ends at the column, past its tag (projectTests.css).
+      if (`${column.start}px` !== columnStart) {
+        columnStart = `${column.start}px`;
+        root?.style.setProperty('--answer-column-start', columnStart);
+      }
       const lines = placed.map(entry => entry.currentLine());
       const ends = lines.map(line => lineEnd(editor, line));
       placed.forEach((entry, index) => {
@@ -99,6 +106,7 @@ export function useAnswerColumnWidgets(
       cancelAnimationFrame(frame);
       for (const listener of listeners) listener.dispose();
       for (const entry of placed) entry.dispose();
+      root?.style.removeProperty('--answer-column-start');
     };
     // `signature` stands for `rows`, which callers rebuild on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
