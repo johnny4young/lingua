@@ -119,4 +119,46 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
     await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
     await expect(page.getByText(/aún no hay pipelines/i)).toBeVisible();
   });
+
+  test('holds at a breakpoint with Continue as the verb and readable rows (ES)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedSession(page, { language: 'es', primeProLicense: true });
+    await page.addInitScript(() => {
+      if (window.localStorage.getItem('lingua-utility-pipeline-state')) return;
+      const now = new Date().toISOString();
+      const pipeline = {
+        version: 1,
+        id: 'p-held',
+        name: 'held',
+        createdAt: now,
+        updatedAt: now,
+        steps: [
+          { id: 's1', utilityId: 'base64-decode', options: {}, breakpoint: true },
+          { id: 's2', utilityId: 'hash', options: {} },
+          { id: 's3', utilityId: 'base64-encode', options: {}, disabled: true },
+        ],
+      };
+      window.localStorage.setItem(
+        'lingua-utility-pipeline-state',
+        JSON.stringify({ state: { pipelines: [pipeline], activePipelineId: 'p-held' }, version: 1 })
+      );
+    });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+Shift+G');
+    await page.getByTestId('utility-pipeline-editor-input').fill('eyJhIjoxfQ==');
+    await page.getByTestId('utility-pipeline-editor-run').click();
+    await expect(page.getByTestId('utility-pipeline-continue')).toBeVisible();
+    await expect(page.getByTestId('utility-pipeline-editor-run')).toHaveAttribute('data-verb', 'continue');
+    await expect(page.getByTestId('utility-pipeline-editor-run')).toContainText('Continuar');
+
+    for (const status of ['paused', 'disabled']) {
+      const row = page.locator(`[data-testid="utility-pipeline-result-row"][data-status="${status}"]`).first();
+      const tag = await row.locator('.utility-step-tag').boundingBox();
+      const hint = row.locator('.utility-step-hint');
+      const hintBox = await hint.boundingBox();
+      expect(tag && hintBox && tag.x + tag.width <= hintBox.x).toBe(true);
+      // The hint wraps rather than being cut.
+      expect(await hint.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+    }
+  });
 });

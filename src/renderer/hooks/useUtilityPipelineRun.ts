@@ -28,6 +28,17 @@ export interface PipelineRunState {
   outcome: PipelineRunOutcome | null;
 }
 
+/** The step that ran with a breakpoint: only it carries the input it received. */
+export function breakpointStepId(results: readonly PipelineStepResult[]): string | undefined {
+  return results.find((result) => typeof result.input === 'string')?.stepId;
+}
+
+/** The breakpoint a settled run holds at; Continue resumes past it. */
+export function heldStepId(state: PipelineRunState): string | undefined {
+  if (state.phase !== 'settled' || !state.stepResults.some((result) => result.status === 'paused')) return undefined;
+  return breakpointStepId(state.stepResults);
+}
+
 export interface UseUtilityPipelineRunResult {
   state: PipelineRunState;
   run: (pipeline: UtilityPipelineV1, input: string) => Promise<PipelineRunOutcome | null>;

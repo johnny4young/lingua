@@ -1,11 +1,11 @@
 /**
- * single-step row in the pipeline editor.
+ * Single-step row in the pipeline editor.
  *
  * Renders the utility dropdown, the schema-driven options form
  * (each adapter declares its options shape; this component
  * auto-renders the matching `<input>` / `<select>` / `<textarea>` /
- * checkbox), and the step status badge. Sortable via @dnd-kit
- *.
+ * checkbox). Sortable via @dnd-kit. A run's step states live in the
+ * results beside it, so the card carries no status chip or error.
  */
 
 import { EyeOff, GripVertical, Pause, Trash2 } from 'lucide-react';
@@ -14,10 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '../../utils/cn';
-import {
-  type PipelineStepStatus,
-  type PipelineStepV1,
-} from '../../../shared/utilityPipeline';
+import type { PipelineStepV1 } from '../../../shared/utilityPipeline';
 import {
   UTILITY_ADAPTER_IDS,
   type UtilityAdapterId,
@@ -25,34 +22,9 @@ import {
 } from '../../../shared/utilities/types';
 import { getAdapter } from '../../../shared/utilities/registry';
 
-const STATUS_TONE: Record<PipelineStepStatus, string> = {
-  ok: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 ring-emerald-500/30',
-  error: 'text-rose-700 dark:text-rose-300 bg-rose-500/15 ring-rose-500/30',
-  skipped: 'text-muted bg-surface-strong/40 ring-border/40',
-  timeout: 'text-amber-700 dark:text-amber-300 bg-amber-500/15 ring-amber-500/30',
-  incompatible:
-    'text-amber-700 dark:text-amber-300 bg-amber-500/15 ring-amber-500/30',
-  disabled: 'text-muted bg-surface-strong/40 ring-border/40',
-  paused: 'text-muted bg-surface-strong/40 ring-border/40',
-};
-
-// Keep this map total over PipelineStepStatus: adding a runner status should
-// fail typecheck until the row has an intentional visual affordance for it.
-const STATUS_GLYPH: Record<PipelineStepStatus, string> = {
-  ok: '✓',
-  error: '✗',
-  skipped: '⊘',
-  timeout: '⏱',
-  incompatible: '⚠',
-  disabled: '○',
-  paused: '‖',
-};
-
 export interface UtilityPipelineStepRowProps {
   step: PipelineStepV1;
   index: number;
-  status: PipelineStepStatus | null;
-  errorMessage?: string;
   onUtilityChange: (stepId: string, newUtilityId: UtilityAdapterId) => void;
   onOptionsChange: (stepId: string, nextOptions: Record<string, unknown>) => void;
   onDelete: (stepId: string) => void;
@@ -62,8 +34,6 @@ export interface UtilityPipelineStepRowProps {
 export function UtilityPipelineStepRow({
   step,
   index,
-  status,
-  errorMessage,
   onUtilityChange,
   onOptionsChange,
   onDelete,
@@ -105,7 +75,6 @@ export function UtilityPipelineStepRow({
       style={style}
       data-testid="utility-pipeline-step-row"
       data-step-id={step.id}
-      data-status={status ?? 'pending'}
       data-disabled={step.disabled ? true : undefined}
       className={cn(
         'flex flex-col gap-2 rounded-lg border bg-surface/30 p-3',
@@ -142,19 +111,6 @@ export function UtilityPipelineStepRow({
             );
           })}
         </select>
-        {status ? (
-          <span
-            data-testid="utility-pipeline-step-status"
-            data-status={status}
-            className={cn(
-              'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-eyebrow font-medium ring-1',
-              STATUS_TONE[status]
-            )}
-          >
-            <span aria-hidden="true">{STATUS_GLYPH[status]}</span>
-            <span>{t(`utilityPipeline.step.status.${status}`)}</span>
-          </span>
-        ) : null}
         <span className="ml-auto inline-flex items-center gap-1">
           <button
             type="button"
@@ -201,17 +157,6 @@ export function UtilityPipelineStepRow({
             />
           ))}
         </div>
-      ) : null}
-
-      {status === 'error' || status === 'timeout' || status === 'incompatible' ? (
-        errorMessage ? (
-          <pre
-            data-testid="utility-pipeline-step-error"
-            className="whitespace-pre-wrap break-all rounded bg-rose-500/10 p-2 font-mono text-eyebrow text-rose-200"
-          >
-            {errorMessage}
-          </pre>
-        ) : null
       ) : null}
     </div>
   );

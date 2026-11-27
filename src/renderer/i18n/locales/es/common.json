@@ -3854,7 +3854,6 @@
   "utilityPipeline.step.utilityLabel": "Utilidad",
   "utilityPipeline.step.deleteAria": "Eliminar paso {{index}}",
   "utilityPipeline.step.dragHandleAria": "Reordenar paso {{index}}",
-  "utilityPipeline.step.status.ok": "OK",
   "utilityPipeline.step.status.error": "Error",
   "utilityPipeline.step.status.skipped": "Saltado",
   "utilityPipeline.step.status.timeout": "Tiempo agotado",

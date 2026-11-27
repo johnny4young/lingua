@@ -25,7 +25,7 @@ export const jsonMinifyAdapter: UtilityAdapter<JsonMinifyOptions> = {
   titleKey: 'utilityPipeline.adapter.jsonMinify.title',
   descriptionKey: 'utilityPipeline.adapter.jsonMinify.description',
   inputKind: 'text',
-  outputKind: 'text',
+  outputKind: 'json',
   optionsSchema: [],
   defaultOptions: () => ({}),
   parseOptions: parseEmptyOptions,

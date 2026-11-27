@@ -29,7 +29,7 @@ export const jsonFormatAdapter: UtilityAdapter<JsonFormatOptions> = {
   titleKey: 'utilityPipeline.adapter.jsonFormat.title',
   descriptionKey: 'utilityPipeline.adapter.jsonFormat.description',
   inputKind: 'text',
-  outputKind: 'text',
+  outputKind: 'json',
   optionsSchema: [
     {
       key: 'indent',

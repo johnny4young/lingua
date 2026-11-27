@@ -296,6 +296,97 @@ describe('UtilityPipelinePanel, step controls', () => {
     expect(stored().steps.filter((step) => step.breakpoint)).toHaveLength(2);
   });
 
+  it('turns the verb into Continue while a breakpoint holds, with Run from the start in its menu', async () => {
+    seed([['url-encode', { breakpoint: true }], ['url-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    const verb = () => screen.getByTestId('utility-pipeline-editor-run');
+    expect(verb().getAttribute('data-verb')).toBe('run');
+    expect(screen.queryByTestId('utility-pipeline-editor-run-menu')).toBeNull();
+
+    await user.click(verb());
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused']));
+    expect(verb().getAttribute('data-verb')).toBe('continue');
+    expect(verb().textContent).toContain('Continue');
+
+    useUtilityPipelineStore.getState().setPipelineInput('p1', 'x y');
+    await user.click(screen.getByTestId('utility-pipeline-editor-run-menu'));
+    await user.click(screen.getByTestId('utility-pipeline-editor-run-from-start'));
+    await waitFor(() => expect(screen.getByTestId('utility-pipeline-result-input').textContent).toBe('x y'));
+    expect(statuses()).toEqual(['ok', 'paused']);
+
+    await user.click(verb());
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
+    expect(verb().getAttribute('data-verb')).toBe('run');
+  });
+
+  it('turns Continue off once every step of a held run is off', async () => {
+    seed([['url-encode', { breakpoint: true }], ['url-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused']));
+    for (const toggle of screen.getAllByTestId('utility-pipeline-step-disable')) await user.click(toggle);
+    const verb = screen.getByTestId('utility-pipeline-editor-run') as HTMLButtonElement;
+    expect(verb.getAttribute('data-verb')).toBe('continue');
+    expect(verb.disabled).toBe(true);
+    expect((screen.getByTestId('utility-pipeline-editor-run-menu') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('keeps each step state in the results, not on the step cards', async () => {
+    seed([['url-encode', { breakpoint: true }], ['url-decode'], ['jwt-decode', { disabled: true }]]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused', 'disabled']));
+    const cards = screen.getAllByTestId('utility-pipeline-step-row');
+    for (const card of cards) {
+      expect(card.textContent).not.toMatch(/Not run|Disabled|OK/);
+    }
+    const held = screen.getAllByTestId('utility-pipeline-result-row')[1]!;
+    expect(held.textContent).toMatch(/paused/i);
+  });
+
+  it('shows a failure once, in the results', async () => {
+    seed([['jwt-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['error']));
+    const message = screen.getByTestId('utility-pipeline-result-error').textContent!;
+    expect(screen.getByTestId('utility-pipeline-step-row').textContent).not.toContain(message);
+  });
+
+  it('reads a text adapter as text and a json adapter as an object', async () => {
+    seed([['base64-decode'], ['json-format']], 'eyJhIjoxfQ==');
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
+    const [decoded, formatted] = screen.getAllByTestId('utility-pipeline-result-answer');
+    expect(decoded!.getAttribute('data-kind')).toBe('text');
+    expect(decoded!.textContent).toContain('text·7');
+    expect(formatted!.getAttribute('data-kind')).toBe('object');
+    expect(formatted!.textContent).toContain('object·1');
+    // Inline answers wrap instead of ending in an ellipsis.
+    expect(formatted!.hasAttribute('data-one-line')).toBe(false);
+  });
+
+  it('sizes a long text answer by its whole output, not its head', () => {
+    const output = 'x'.repeat(25_000);
+    const made = { stepId: 's0', utilityId: 'base64-decode', status: 'ok', output, durationMs: 1 };
+    render(
+      <UtilityPipelineResults
+        canSaveCapsule={false}
+        onSaveCapsule={vi.fn()}
+        onSendOutput={vi.fn()}
+        onContinue={vi.fn()}
+        runState={{ phase: 'settled', stepResults: [made] } as unknown as PipelineRunState}
+      />
+    );
+    expect(screen.getByTestId('utility-pipeline-result-answer').textContent).toContain('text·25000');
+  });
+
   it('records only the steps that ran in a capsule', async () => {
     seed([['url-encode', { disabled: true }], ['base64-encode']]);
     vi.mocked(buildPipelineCapsule).mockClear();

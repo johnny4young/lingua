@@ -1,10 +1,10 @@
 /** Utility pipeline results, read as a run: each step's output as an answer, with the breakpoint held inline. */
 
-import { ChevronDown, Lightbulb, PackagePlus, Play } from 'lucide-react';
+import { ChevronDown, Lightbulb, PackagePlus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { classifyClipboard, type UtilitySuggestionId } from '../../clipboard/pasteHandlers';
-import type { PipelineRunState } from '../../hooks/useUtilityPipelineRun';
+import { breakpointStepId as breakpointOf, heldStepId, type PipelineRunState } from '../../hooks/useUtilityPipelineRun';
 import { getAdapter } from '../../../shared/utilities/registry';
 import type { UtilityAdapterId } from '../../../shared/utilities/types';
 import type { PipelineStepResult } from '../../../shared/utilityPipeline';
@@ -12,6 +12,7 @@ import { cn } from '../../utils/cn';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { AnswerObject } from '../Answer/AnswerObject';
 import { DotLeader, TypeTag } from '../ui/answer';
+import { Glyph } from '../ui/Glyph';
 import { SendOutputSelect } from './SendOutputSelect';
 import '../ui/pipelineRun.css';
 import '../../i18n/clipboardChainsCatalog';
@@ -74,7 +75,8 @@ export function UtilityPipelineResults({
   const opened = openedFor.results === results ? openedFor.ids : EMPTY_IDS;
   const firstPaused = results.findIndex((result) => result.status === 'paused');
   const paused = firstPaused !== -1;
-  const breakpointStepId = results.find((result) => typeof result.input === 'string')?.stepId;
+  const breakpointStepId = breakpointOf(results);
+  const heldAt = heldStepId(runState);
   const ran = results.filter((result) => RAN.has(result.status)).length;
   // A paused run has no result to send yet: a new step would wait behind the breakpoint.
   const lastOutput =
@@ -151,8 +153,7 @@ export function UtilityPipelineResults({
                   <DotLeader className="utility-step-leader" />
                   <div className="utility-step-value">
                     {output === '' ? <span className="utility-step-hint">{t('utilityPipeline.result.emptyOutput')}</span> : null}
-                    {/* The head is enough to read the kind; a 256 KiB line would otherwise be laid out whole. */}
-                    {output ? <AnswerObject text={output.slice(0, ANSWER_TEXT_MAX)} oneLine data-testid="utility-pipeline-result-answer" /> : null}
+                    {output ? <StepAnswer output={output} utilityId={result.utilityId} /> : null}
                     {line ? (
                       <>
                         <TypeTag className={cn('utility-step-tag', line.tone && TONE_TEXT[line.tone])}>
@@ -167,17 +168,17 @@ export function UtilityPipelineResults({
                             {(line.tone && result.errorMessage) || t(line.hint)}
                           </span>
                         ) : null}
-                        {held && runState.phase === 'settled' && breakpointStepId ? (
+                        {held && heldAt ? (
                           <button
                             type="button"
                             onClick={() => {
                               keepFocus();
-                              onContinue(breakpointStepId);
+                              onContinue(heldAt);
                             }}
                             data-testid="utility-pipeline-continue"
                             className="button-primary h-6 shrink-0 px-2.5 text-caption"
                           >
-                            <Play size={11} aria-hidden="true" fill="currentColor" />
+                            <Glyph name="continue" size={11} />
                             {t('utilityPipeline.result.continue')}
                           </button>
                         ) : null}
@@ -197,7 +198,10 @@ export function UtilityPipelineResults({
                     >
                       <ChevronDown size={13} aria-hidden="true" className={cn('transition-transform', open && 'rotate-180')} />
                     </button>
-                  ) : null}
+                  ) : (
+                    // Holds the toggle's place, so every row's tag starts in one column.
+                    <span aria-hidden className="ml-auto h-6 w-6 shrink-0" />
+                  )}
                 </div>
                 {hasOutput ? (
                   <div id={detailId} hidden={!open} className="utility-step-detail">
@@ -252,5 +256,20 @@ export function UtilityPipelineResults({
         </p>
       ) : null}
     </aside>
+  );
+}
+
+/** A json adapter's output reads as an object; any other output reads as text, never parsed. */
+function StepAnswer({ output, utilityId }: { readonly output: string; readonly utilityId: UtilityAdapterId }) {
+  // The head is enough to read the kind; a 256 KiB line would otherwise be laid out whole.
+  const head = output.slice(0, ANSWER_TEXT_MAX);
+  const json = getAdapter(utilityId)?.outputKind === 'json';
+  return (
+    <AnswerObject
+      text={head}
+      {...(json ? {} : { role: 'text' as const })}
+      length={output.length}
+      data-testid="utility-pipeline-result-answer"
+    />
   );
 }

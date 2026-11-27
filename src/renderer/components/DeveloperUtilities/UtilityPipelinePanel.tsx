@@ -52,15 +52,13 @@ import { getAdapter } from '../../../shared/utilities/registry';
 import '../../i18n/pipelineJsCatalog';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useAnnounce } from '../../hooks/useAnnounce';
-import { useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
+import { heldStepId, useUtilityPipelineRun } from '../../hooks/useUtilityPipelineRun';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   PIPELINE_MAX_STEPS,
   createBlankStep,
   type PipelineRunOutcome,
-  type PipelineStepResult,
-  type PipelineStepStatus,
   type PipelineStepV1,
   type UtilityPipelineV1,
 } from '../../../shared/utilityPipeline';
@@ -77,6 +75,7 @@ import { UtilityPipelineStepRow } from './UtilityPipelineStepRow';
 import { PipelineTemplateGallery } from './PipelineTemplateGallery';
 import { UtilityPipelineLibrarySidebar } from './UtilityPipelineLibrarySidebar';
 import { UtilityPipelineResults } from './UtilityPipelineResults';
+import { Glyph } from '../ui/Glyph';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { appPlatform } from '../../utils/appPlatform';
 import { CommandBarSlot, CommandBarVerb } from '../Chrome/CommandBarSlot';
@@ -136,15 +135,6 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
 
   const { state: runState, run, reset: resetRun } = useUtilityPipelineRun();
   const [capsuleRunSnapshot, setCapsuleRunSnapshot] = useState<CapsuleRunSnapshot | null>(null);
-  // Per-step result map keyed by step id so the panel can render the
-  // status badge regardless of which step is rendered.
-  const stepResultMap = useMemo(() => {
-    const map = new Map<string, PipelineStepResult>();
-    for (const result of runState.stepResults) {
-      map.set(result.stepId, result);
-    }
-    return map;
-  }, [runState.stepResults]);
 
   // Reset run state when active pipeline changes so we don't render
   // step results against a different pipeline's step rows.
@@ -372,6 +362,9 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     [activePipeline, execute]
   );
 
+  // While a breakpoint holds the run, the bar's verb resumes it.
+  const heldAt = heldStepId(runState);
+
   const handleSendOutput = useCallback(
     (afterStepId: string, utilityId: UtilityAdapterId) => {
       if (!activePipeline) return;
@@ -552,21 +545,43 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
               <CommandBarSlot slot="verb">
                 <CommandBarVerb
                   label={
-                    runState.phase === 'running'
-                      ? t('utilityPipeline.editor.running')
-                      : t('utilityPipeline.editor.run')
+                    heldAt
+                      ? t('utilityPipeline.result.continue')
+                      : runState.phase === 'running'
+                        ? t('utilityPipeline.editor.running')
+                        : t('utilityPipeline.editor.run')
                   }
-                  icon={<PlayCircle size={12} />}
-                  onClick={handleRun}
+                  icon={heldAt ? <Glyph name="continue" size={12} /> : <PlayCircle size={12} />}
+                  onClick={heldAt ? () => handleContinue(heldAt) : handleRun}
                   disabled={
                     isExecuting ||
                     activePipeline.steps.length === 0 ||
-                    runState.phase === 'running' ||
-                    everyStepOff
+                    everyStepOff ||
+                    runState.phase === 'running'
                   }
                   running={runState.phase === 'running'}
-                  ariaLabel={t('utilityPipeline.editor.run')}
+                  ariaLabel={heldAt ? t('utilityPipeline.result.continue') : t('utilityPipeline.editor.run')}
                   testId="utility-pipeline-editor-run"
+                  data={{ 'data-verb': heldAt ? 'continue' : 'run' }}
+                  {...(heldAt
+                    ? {
+                        menu: {
+                          label: t('actionPill.moreRunOptions'),
+                          testId: 'utility-pipeline-editor-run-menu',
+                          listTestId: 'utility-pipeline-editor-run-menu-list',
+                          disabled: isExecuting || everyStepOff,
+                          items: [
+                            {
+                              id: 'run-from-start',
+                              label: t('utilityPipeline.editor.runFromStart'),
+                              icon: <PlayCircle size={13} aria-hidden="true" />,
+                              testId: 'utility-pipeline-editor-run-from-start',
+                              onSelect: handleRun,
+                            },
+                          ],
+                        },
+                      }
+                    : {})}
                 />
               </CommandBarSlot>
             </header>
@@ -587,7 +602,6 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                 >
                   <div className="grid gap-2">
                     {activePipeline.steps.map((step, index) => {
-                      const result = stepResultMap.get(step.id);
                       const beyond = index >= stepLimit;
                       return (
                         <div key={step.id} className={beyond ? 'opacity-60' : undefined} data-testid={beyond ? 'utility-pipeline-step-beyond' : undefined}>
@@ -599,8 +613,6 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                           <UtilityPipelineStepRow
                             step={step}
                             index={index}
-                            status={statusOrPending(result)}
-                            {...(result?.errorMessage ? { errorMessage: result.errorMessage } : {})}
                             onUtilityChange={handleStepUtilityChange}
                             onOptionsChange={handleStepOptionsChange}
                             onDelete={handleStepDelete}
@@ -641,8 +653,4 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
       />
     </div>
   );
-}
-
-function statusOrPending(result: PipelineStepResult | undefined): PipelineStepStatus | null {
-  return result ? result.status : null;
 }

@@ -36,9 +36,12 @@ interface AnswerChrome {
 export interface AnswerObjectProps extends AnswerInput, AnswerChrome {}
 
 /** One answer: its type tag, its value coloured by type, and its picture. */
-export const AnswerObject = memo(function AnswerObject({ text, payload, role, language, source, ...chrome }: AnswerObjectProps) {
+export const AnswerObject = memo(function AnswerObject({ text, payload, role, language, source, length, ...chrome }: AnswerObjectProps) {
   const { now, locale } = useAnswerContext();
-  const model = useMemo(() => cachedAnswer({ text, payload, role, language, source }, now, locale), [text, payload, role, language, source, now, locale]);
+  const model = useMemo(
+    () => cachedAnswer({ text, payload, role, language, source, length }, now, locale),
+    [text, payload, role, language, source, length, now, locale]
+  );
   return <AnswerObjectView model={model} {...chrome} />;
 });
 
@@ -47,12 +50,12 @@ const answerCache = new Map<string, AnswerModel>();
 
 /**
  * Every run remounts the editor's answers, so printed answers are read once per
- * text. Payload and date answers skip the cache: a payload is an object and a
- * date's relative time moves.
+ * text. Payload, text and date answers skip the cache: a payload is an object,
+ * text is cheaper to read than to key, and a date's relative time moves.
  */
-function cachedAnswer(input: AnswerObjectProps, now: number, locale: string): AnswerModel {
-  if (input.payload) return readAnswer(input, { now, locale });
-  const key = `${input.role ?? ''}\u0000${input.language ?? ''}\u0000${locale}\u0000${input.source ?? ''}\u0000${input.text}`;
+function cachedAnswer(input: AnswerInput, now: number, locale: string): AnswerModel {
+  if (input.payload || input.role === 'text') return readAnswer(input, { now, locale });
+  const key = `${input.role ?? ''}\u0000${input.language ?? ''}\u0000${locale}\u0000${input.source ?? ''}\u0000${input.length ?? ''}\u0000${input.text}`;
   const hit = answerCache.get(key);
   if (hit) return hit;
   const model = readAnswer(input, { now, locale });

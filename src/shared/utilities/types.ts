@@ -11,12 +11,11 @@
  *
  * Design decisions worth surfacing inline:
  *
- *   1. **All adapters are `text → text`.** Compatibility
- *      checks between `inputKind` / `outputKind` are wired up in the
- *      engine for forward-compat (a later change will add binary + json
- *      adapters like `hash-bytes`, `parse-json` that produce
- *      structured outputs). The closed `PIPELINE_STEP_STATUSES` enum
- *      keeps `'incompatible'` reserved for that future use.
+ *   1. **Every adapter takes text; JSON adapters output `json`.** JSON
+ *      is text, so a text step accepts it; the results read a `json`
+ *      output as an object and a `text` one as text. The closed
+ *      `PIPELINE_STEP_STATUSES` enum keeps `'incompatible'` for a
+ *      later `binary` kind.
  *
  *   2. **Adapter `id` is a closed enum** so persisted pipelines stay
  *      version-safe across releases — drop an adapter and the load
@@ -63,9 +62,9 @@ export const UTILITY_ADAPTER_IDS = [
   'string-case',
   'html-entity-encode',
   'html-entity-decode',
-  // Vocabulary expansion round 2. Pure text→text
-  // transforms (number radix, line sort, slugify, JSON minify, text
-  // stats). Each is a self-contained shared reimplementation.
+  // Vocabulary expansion round 2. Pure text transforms (number
+  // radix, line sort, slugify, JSON minify, text stats). Each is a
+  // self-contained shared reimplementation.
   'number-base',
   'line-sort',
   'slugify',
@@ -86,11 +85,10 @@ export const UTILITY_ADAPTER_IDS = [
 export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
 
 /**
- * Kind of value an adapter consumes or produces. Today it is all
- * `'text'`; the enum stays open for future binary / structured
- * adapters.
+ * Kind of value an adapter consumes or produces. Every adapter takes
+ * `'text'`; JSON adapters produce `'json'`, and `'binary'` is reserved.
  */
-type UtilityValueKind = 'text' | 'json' | 'binary';
+export type UtilityValueKind = 'text' | 'json' | 'binary';
 
 /**
  * Closed enum of failure reasons an adapter `run()` returns. The
