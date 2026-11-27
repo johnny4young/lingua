@@ -355,17 +355,16 @@ describe('Start page', () => {
     const answer = await screen.findByTestId('start-prompt-answer');
     await waitFor(() => expect(answer.textContent).toContain('42'));
     expect(answer.hasAttribute('data-stale')).toBe(false);
-    expect(answer.getAttribute('aria-live')).toBe('polite');
+    const announced = answer.textContent;
 
     await user.type(field, ' +');
     expect(answer.hasAttribute('data-stale')).toBe(true);
-    expect(answer.getAttribute('aria-live')).toBe('off');
-    expect(answer.textContent).toContain('42');
+    // Same text in the live region, so going stale announces nothing.
+    expect(answer.textContent).toBe(announced);
 
     await user.type(field, ' 1{Enter}');
     await waitFor(() => expect(answer.textContent).toContain('43'));
     expect(answer.hasAttribute('data-stale')).toBe(false);
-    expect(answer.getAttribute('aria-live')).toBe('polite');
     expect(useEditorStore.getState().tabs).toHaveLength(0);
   });
 

@@ -299,7 +299,9 @@ export async function restoreSavedSession(options: { only?: number }): Promise<v
       ? (savedIndexToRestoredId[savedActiveIndex] ?? null)
       : null;
   dropRestorePrompt();
-  useEditorStore.getState().restoreTabs(restored, activeId, { append: only !== undefined || pendingSnapshot?.partial === true });
+  // The prompt can show after a tab opened, so a full restore keeps open tabs too.
+  const append = only !== undefined || pendingSnapshot?.partial === true || useEditorStore.getState().tabs.length > 0;
+  useEditorStore.getState().restoreTabs(restored, activeId, { append });
   const recipeStore = useRecipeStore.getState();
   for (const tab of restored) {
     if (tab.recipeBindingId !== undefined) {

@@ -145,7 +145,8 @@ export function StartPickUp() {
   // Reopen all is the restore prompt's action, so the prompt waits while Pick up shows.
   useEffect(() => {
     if (rows.length === 0) releaseRestorePrompt();
-  }, [rows.length]);
+    // pendingTabs re-runs this after the boot hook arms and holds, even when rows stay empty.
+  }, [rows.length, pendingTabs]);
 
   // Digits reopen a row while nothing else holds the keyboard.
   useEffect(() => {

@@ -66,7 +66,7 @@ function valueTag({ answer, valueKind }: PromptAnswer, t: TFunction): string | u
   return t(`start.prompt.type.${valueKind}`);
 }
 
-/** `stale`: the line changed since this answer, so it reads dimmed and is not announced again. */
+/** `stale`: the line changed since this answer, so it reads dimmed; its text is unchanged, so it is not announced again. */
 function PromptAnswerView({ shown, stale }: { shown: PromptAnswer; stale: boolean }) {
   const { t } = useTranslation();
   const { answer, valueKind } = shown;
@@ -75,7 +75,6 @@ function PromptAnswerView({ shown, stale }: { shown: PromptAnswer; stale: boolea
     <span
       className="start-prompt-answer"
       role="status"
-      aria-live={stale ? 'off' : 'polite'}
       data-testid="start-prompt-answer"
       data-status={answer.status}
       data-kind={valueKind}

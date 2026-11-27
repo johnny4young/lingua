@@ -148,6 +148,7 @@ export function holdRestorePrompt(show: () => void): void {
   stopWatchingTabs = useEditorStore.subscribe(state => {
     if (state.tabs.length > 0) releaseRestorePrompt();
   });
+  if (useEditorStore.getState().tabs.length > 0) releaseRestorePrompt();
 }
 
 /** Shows the held prompt while its whole snapshot is still offered. */

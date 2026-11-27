@@ -80,7 +80,6 @@ for (const palette of ['ink', 'paper'] as const) {
 
     await page.keyboard.press('Backspace');
     await expect(answer).toHaveAttribute('data-stale', '');
-    await expect(answer).toHaveAttribute('aria-live', 'off');
     expect(await textContrast(page, '.start-prompt-value')).toBeGreaterThanOrEqual(4.5);
 
     await page.keyboard.insertText(')');

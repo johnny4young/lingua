@@ -26,6 +26,20 @@ describe('held restore prompt', () => {
     expect(show).toHaveBeenCalledTimes(1);
   });
 
+  it('shows at once when a tab is already open', () => {
+    const show = vi.fn();
+    useEditorStore.getState().addTab(createDefaultTab('javascript'));
+    holdRestorePrompt(show);
+    expect(show).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the tab that released the prompt when the prompt restores', async () => {
+    holdRestorePrompt(vi.fn());
+    useEditorStore.getState().addTab({ ...createDefaultTab('javascript'), name: 'kept.js' });
+    await useSessionStore.getState().restoreSession();
+    expect(useEditorStore.getState().tabs.map(tab => tab.name)).toEqual(['kept.js', 'a.js', 'b.js']);
+  });
+
   it('stays quiet once the snapshot is gone or partly reopened', async () => {
     const show = vi.fn();
     holdRestorePrompt(show);
