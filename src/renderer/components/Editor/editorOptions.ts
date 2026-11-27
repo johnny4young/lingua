@@ -41,15 +41,20 @@ export interface SatelliteEditorOptionInput {
   fontSize: number;
   fontFamily: string;
   ariaLabel: string;
+  /** Narrow editors drop folding and pad fewer line-number digits, as the code editor does. */
+  compactGutter?: boolean;
 }
 
 export function getSatelliteEditorOptions({
   fontSize,
   fontFamily,
   ariaLabel,
+  compactGutter = false,
 }: SatelliteEditorOptionInput) {
   return {
     ariaLabel,
+    folding: !compactGutter,
+    lineNumbersMinChars: compactGutter ? 3 : 5,
     fontSize,
     fontFamily,
     fontVariations: editorFontVariations(fontFamily),

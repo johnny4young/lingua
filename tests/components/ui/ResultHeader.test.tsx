@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../../src/renderer/i18n';
 import { ResultHeader } from '../../../src/renderer/components/ui/ResultHeader';
 import { HttpStatusPill } from '../../../src/renderer/components/HttpWorkspace/HttpStatusPill';
@@ -82,5 +82,79 @@ describe('ResultHeader meta line', () => {
     const pill = screen.getByTestId('http-status-pill');
     expect(pill.getAttribute('title')).toBe(`503 ${response.statusText}`);
     expect(pill.querySelector('.truncate')?.textContent).toBe(`503 ${response.statusText}`);
+  });
+});
+
+describe('ResultHeader on a narrow pane', () => {
+  beforeAll(async () => {
+    await initI18n('en');
+    await i18next.changeLanguage('en');
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const tabs = [
+    { id: 'table', label: 'Table' },
+    { id: 'json', label: 'JSON' },
+    { id: 'profile', label: 'Profile' },
+  ];
+  const renderAt = (width: number, onTabChange = vi.fn()) => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width } as DOMRect);
+    render(
+      <ResultHeader
+        workspace="sql"
+        numeral={{ value: '12', unit: 'rows' }}
+        meta="38 ms · statement 1 of 2"
+        tabs={tabs}
+        activeTab="table"
+        onTabChange={onTabChange}
+        actions={[{ id: 'export', glyph: 'export', label: 'Export', onClick: vi.fn(), testId: 'export' }]}
+        trailing={(folded) => <span data-testid="trailing">{folded ? 'folded' : 'wide'}</span>}
+        foldViewsBelow={640}
+      />
+    );
+    return onTabChange;
+  };
+
+  it('folds the views into one menu and keeps the row from wrapping', async () => {
+    const onTabChange = renderAt(564);
+    const header = screen.getByTestId('result-header');
+    expect(header.dataset.folded).toBe('true');
+    expect(header.className).toContain('flex-nowrap');
+    expect(screen.getByTestId('result-header-meta').parentElement?.className).toContain('min-w-0');
+    expect(screen.queryByRole('button', { name: 'JSON' })).toBeNull();
+    expect(screen.getByTestId('trailing').textContent).toBe('folded');
+    expect(screen.getByTestId('export')).toBeTruthy();
+
+    const user = userEvent.setup();
+    const trigger = screen.getByTestId('result-header-views');
+    expect(trigger.textContent).toBe('Table');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    await user.click(trigger);
+    const menu = screen.getByRole('menu', { name: 'Table' });
+    const items = screen.getAllByRole('menuitemradio');
+    expect(items.map((item) => [item.textContent, item.getAttribute('aria-checked')])).toEqual([
+      ['Table', 'true'],
+      ['JSON', 'false'],
+      ['Profile', 'false'],
+    ]);
+    expect(menu).toBeTruthy();
+    await user.click(screen.getByTestId('result-header-view-profile'));
+    expect(onTabChange).toHaveBeenCalledWith('profile');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('wraps under the numeral below 420 px, still folded', () => {
+    renderAt(331);
+    const header = screen.getByTestId('result-header');
+    expect(header.dataset.folded).toBe('true');
+    expect(header.className).toContain('flex-wrap');
+  });
+
+  it('keeps the views as buttons on a wide pane', () => {
+    renderAt(900);
+    expect(screen.getByTestId('result-header').dataset.folded).toBeUndefined();
+    expect(screen.getByRole('button', { name: 'JSON' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByTestId('trailing').textContent).toBe('wide');
   });
 });

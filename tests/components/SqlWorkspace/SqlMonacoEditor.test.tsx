@@ -169,6 +169,8 @@ vi.mock('@monaco-editor/react', () => {
         onDidDispose: (cb: () => void) => {
           harness.didDispose = cb;
         },
+        getLayoutInfo: () => ({ width: 800 }),
+        onDidLayoutChange: () => disposable,
       };
       const monaco = {
         KeyMod,

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import {
   Boxes,
   Bug,
@@ -27,6 +27,7 @@ import { DependenciesPanel } from '../Dependencies/DependenciesPanel';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { Tooltip } from '../ui/chrome';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { useWidthTier } from '../../hooks/useWidthTier';
 import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
 import { useRunCompareActive } from '../../hooks/useRunCompareActive';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -110,24 +111,6 @@ const TestsDockControls = lazy(async () => {
   const module = await import('../ProjectTests/TestsDockControls');
   return { default: module.TestsDockControls };
 });
-
-/** How many of the ascending widths the element reaches; re-renders only when that count changes. */
-function useWidthTier(ref: RefObject<HTMLElement | null>, widths: readonly number[]): number {
-  const [tier, setTier] = useState(0);
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const measure = (width: number) => setTier(widths.filter(min => width >= min).length);
-    measure(node.getBoundingClientRect().width);
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) measure(entry.contentRect.width);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [ref, widths]);
-  return tier;
-}
 
 // Compact runs up to and including DOCK_COMPACT_MAX_WIDTH, like a CSS max-width query.
 const DOCK_WIDTH_TIERS = [DOCK_COMPACT_MAX_WIDTH + 1, DOCK_SPLIT_MIN_WIDTH] as const;

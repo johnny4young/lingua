@@ -2,6 +2,7 @@
  * Root of the SQL workspace tab. Local (DuckDB) is the connection in the
  * bar on top; below it the Explorer (or its 44 px rail, Cmd/Ctrl+B) sits
  * beside the query tabs and editor, with the results under the editor.
+ * Below 640 px the Explorer is the rail and opens as a drawer (SqlExplorerLayout).
  *
  * Runs go through `useSqlRunner`; query tabs share the Free tab budget
  * (`admitSqlQueryTab`). A single DuckDB engine is shared per session;
@@ -48,7 +49,8 @@ import { SqlResultPreview, type SqlResultSource } from './SqlResultPreview';
 import { AskSqlButton } from './AskSqlButton';
 import { SqlStarterPrompts } from './SqlStarterPrompts';
 import { SqlExplorer } from './SqlExplorer';
-import { SqlExplorerRail } from './SqlExplorerRail';
+import { SqlExplorerLayout } from './SqlExplorerLayout';
+import { toggleSqlExplorer, useSqlExplorerDrawerStore } from '../../stores/sqlExplorerDrawerStore';
 import { ResizeHandle } from '../ui/ResizeHandle';
 import { SqlConnectionPicker } from './SqlConnectionPicker';
 import { CommandBarSlot } from '../Chrome/CommandBarSlot';
@@ -87,11 +89,6 @@ export interface SqlWorkspacePanelProps {
 export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const { t } = useTranslation();
   const tier = useEffectiveTier();
-  const sidebarLayout = useDefaultLayout({
-    id: 'lingua-sql-workspace-sidebar-layout',
-    panelIds: ['sql-explorer-pane', 'sql-main-pane'],
-    storage: localStorage,
-  });
   const mainLayout = useDefaultLayout({
     id: 'lingua-sql-workspace-editor-results-layout',
     panelIds: ['sql-editor-pane', 'sql-results-pane'],
@@ -99,7 +96,6 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   });
   const queries = useWorkspaceSqlStore((state) => state.queries);
   const activeQueryId = useWorkspaceSqlStore((state) => state.activeQueryId);
-  const explorerFolded = useWorkspaceSqlStore((state) => state.explorerFolded);
   const tableSources = useWorkspaceSqlStore((state) => state.tableSources);
   const openQueryIds = useWorkspaceSqlStore((state) => state.openQueryIds);
   const history = useWorkspaceSqlStore((state) => state.history);
@@ -460,7 +456,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     };
   }, []);
 
-  const toggleFolded = () => useWorkspaceSqlStore.getState().toggleExplorerFolded();
+  // Whatever the compact drawer opened, a query, a table or an object, it steps aside for it.
+  useEffect(() => useSqlExplorerDrawerStore.getState().setOpen(false), [activeQueryId, tablePreview, objectView]);
 
   const remote = useSqlConnectionObjects({
     activeQuery,
@@ -481,7 +478,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const instantSql = useInstantSqlChannel(!activeConnection);
 
   // Stays mounted while the explorer is folded: the rail's Import clicks its input.
-  const importButton = <SqlImportButton inputRef={importInputRef} isBusy={importBusy} isPreviewing={sqlImport.isPreviewing} onImportFile={(file) => handleStartImport(file, 'picker')} inputOnly={explorerFolded} />;
+  const importButton = (inputOnly: boolean) => <SqlImportButton inputRef={importInputRef} isBusy={importBusy} isPreviewing={sqlImport.isPreviewing} onImportFile={(file) => handleStartImport(file, 'picker')} inputOnly={inputOnly} />;
 
   const explorer = (
     <SqlExplorer
@@ -491,7 +488,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       onRefresh={() => (activeConnection ? remote.refreshCatalog() : void handleRefreshTables())}
       onOpenTable={(table) => void tables.open(table)}
       openedTableName={tablePreview?.table.name ?? null}
-      onFold={toggleFolded}
+      onFold={toggleSqlExplorer}
       onImportFile={handleStartImport}
       isImportBusy={importBusy}
       onTrySample={() => void handleTrySample()}
@@ -502,7 +499,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       filter={explorerFilter}
       onFilterChange={setExplorerFilter}
       {...(remote.renderRemoteTree ? { renderRemoteTree: remote.renderRemoteTree } : {})}
-      footer={importButton}
+      footer={importButton(false)}
     >
       <SqlQueryList
         queries={queries}
@@ -612,14 +609,15 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...(insertSignal !== null ? { insertSignal } : {})}
         {...(predicateSignal !== null ? { predicateSignal } : {})}
         {...(instantSql ? { instantSql } : {})}
-        headerExtra={
+        headerExtra={(iconOnly) => (
           <AskSqlButton
+            iconOnly={iconOnly}
             tables={remote.editorTables}
             {...(activeConnection ? { dialect: sqlDialect(activeConnection.engine).label } : {})}
             // Insert-only: generated SQL lands in the editor for review, never auto-runs.
             onInsert={(sql) => handlePatch(activeQuery.id, { query: sql })}
           />
-        }
+        )}
       />
       {activeQuery.query.trim() === '' ? <SqlStarterPrompts tables={remote.editorTables} /> : null}
       {saveDialog !== null && saveDialog.queryId === activeQuery.id ? (
@@ -706,40 +704,15 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         <SqlConnectionPicker remote={remote.barRemote} />
       </CommandBarSlot>
       {activeConnection?.env === 'prod' ? <SqlProdBanner name={activeConnection.name} readOnly={activeConnection.readOnly} /> : null}
-      <div className="flex min-h-0 flex-1">
-        {explorerFolded ? (
-          <>
-            {importButton}
-            <SqlExplorerRail
-              onUnfold={toggleFolded}
-              onCreate={() => handleCreate()}
-              onImport={handlePickImport}
-              onShowHistory={() => {
-                setHistoryOpen(true);
-                toggleFolded();
-              }}
-              isImportBusy={importBusy}
-            />
-            <div className="min-w-0 flex-1">{main}</div>
-          </>
-        ) : (
-          <Group
-            orientation="horizontal"
-            defaultLayout={sidebarLayout.defaultLayout}
-            onLayoutChanged={sidebarLayout.onLayoutChanged}
-            resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
-            className="min-h-0 flex-1"
-          >
-            <Panel id="sql-explorer-pane" defaultSize="22%" minSize={200}>
-              <div className="h-full border-r border-border-subtle">{explorer}</div>
-            </Panel>
-            <ResizeHandle orientation="vertical" />
-            <Panel id="sql-main-pane" minSize={360}>
-              {main}
-            </Panel>
-          </Group>
-        )}
-      </div>
+      <SqlExplorerLayout
+        explorer={explorer}
+        main={main}
+        importInput={importButton}
+        onCreate={() => handleCreate()}
+        onImport={handlePickImport}
+        onShowHistory={() => setHistoryOpen(true)}
+        isImportBusy={importBusy}
+      />
       {sqlImport.modal !== null ? (
         <SqlImportPreviewModal
           format={sqlImport.modal.format}

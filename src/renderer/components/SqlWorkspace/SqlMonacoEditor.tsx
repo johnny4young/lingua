@@ -44,12 +44,13 @@ import MonacoEditor, {
   type Monaco,
   type OnMount,
 } from '@monaco-editor/react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SqlStatement } from '../../../shared/sqlStatements';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { configureMonaco } from '../../monaco';
 import { defineCustomThemes } from '../Editor/editorThemes';
 import { getSatelliteEditorOptions } from '../Editor/editorOptions';
+import { useCompactGutter } from '../Editor/useCompactGutter';
 import { quoteSqlIdentifier, quoteSqlTableReference } from './sqlResultFormatters';
 import type { SqlEngineKind } from '../../../shared/sqlConnections';
 import { sqlDialect } from '../../../shared/sqlDialect';
@@ -201,6 +202,9 @@ export function SqlMonacoEditor({
   moveCursorTo,
 }: SqlMonacoEditorProps) {
   const editorTheme = useSettingsStore((state) => state.editorTheme);
+  // A narrow editor drops folding and pads fewer line-number digits; the run glyphs stay.
+  const [mountedEditor, setMountedEditor] = useState<EditorInstance | null>(null);
+  const compactGutter = useCompactGutter(mountedEditor);
   const fontSize = useSettingsStore((state) => state.fontSize);
   const fontFamily = useSettingsStore((state) => state.fontFamily);
 
@@ -354,6 +358,7 @@ export function SqlMonacoEditor({
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editorRef.current = editor;
+    setMountedEditor(editor);
     monacoRef.current = monaco;
     const key = documentKeyRef.current;
     if (key !== undefined) {
@@ -518,11 +523,12 @@ export function SqlMonacoEditor({
       }
       editorRef.current = null;
       glyphsRef.current = null;
+      setMountedEditor(null);
     });
   }, [paintRunGlyphs, paintHighlight]);
 
   return (
-    <div className="min-h-0 flex-1" data-testid="sql-query-editor-monaco">
+    <div className="min-h-0 flex-1" data-testid="sql-query-editor-monaco" data-compact-gutter={compactGutter ? 'true' : undefined}>
       <MonacoEditor
         height="100%"
         language="sql"
@@ -539,7 +545,7 @@ export function SqlMonacoEditor({
         }}
         onMount={handleMount}
         keepCurrentModel={documentKey !== undefined}
-        options={{ ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }), glyphMargin: true }}
+        options={{ ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel, compactGutter }), glyphMargin: true }}
       />
     </div>
   );

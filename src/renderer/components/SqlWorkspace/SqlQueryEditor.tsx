@@ -10,6 +10,7 @@
  */
 
 import { Wand2 } from 'lucide-react';
+import { SqlHeaderButton } from './SqlHeaderButton';
 import {
   useCallback,
   useEffect,
@@ -22,6 +23,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useCommandListener } from '../../hooks/useCommandListener';
+import { useWidthTier } from '../../hooks/useWidthTier';
 import { useWorkspaceRunTarget } from '../../hooks/useWorkspaceRunTarget';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
@@ -97,11 +99,15 @@ export interface SqlQueryEditorProps {
   /**
    * Optional extra header control (the Ask-AI trigger). A slot
    * rather than a baked-in button so the editor stays AI-agnostic.
+   * A function gets `iconOnly` when the row is too narrow for labels.
    */
-  headerExtra?: ReactNode;
+  headerExtra?: ReactNode | ((iconOnly: boolean) => ReactNode);
   /** Instant SQL: the draft and cursor go to the preview, and the CTE shown is highlighted. */
   instantSql?: InstantSqlChannel;
 }
+
+/** At 420 px the statement count is spelled out; at 600 px the buttons carry their labels. */
+const HEADER_WIDTHS = [420, 600] as const;
 
 const NO_JUMP = () => null;
 const NO_SUBSCRIBE = () => () => {};
@@ -138,6 +144,9 @@ export function SqlQueryEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sizeBytes = utf8ByteLength(text);
   const overCap = sizeBytes > MAX_QUERY_BYTES;
+  const headerRef = useRef<HTMLElement | null>(null);
+  const headerTier = useWidthTier(headerRef, HEADER_WIDTHS, HEADER_WIDTHS.length);
+  const iconOnly = headerTier < 2;
   const statements = useMemo(() => splitSqlStatements(text), [text]);
   const [cursorInsert, setCursorInsert] = useState<{ text: string; nonce: number } | null>(null);
   const [cursor, setCursor] = useState<SqlEditorCursor>({ offset: 0, selectionStart: 0, selectionEnd: 0 });
@@ -348,20 +357,16 @@ export function SqlQueryEditor({
       data-testid="sql-query-editor"
       className="flex h-full min-w-0 flex-col bg-bg-base"
     >
-      <header className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
+      <header ref={headerRef} className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
         <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
           {t('sqlWorkspace.editor.queryLabel')}
         </span>
         {statements.length > 0 ? (
-          <span
-            data-testid="sql-query-editor-statements"
-            className="truncate font-mono text-eyebrow tabular-nums text-fg-subtle"
-          >
-            {t('sqlWorkspace.editor.statementInfo', {
-              count: statements.length,
-              index: Math.min(cursorIndex + 1, statements.length),
-            })}
-          </span>
+          <StatementInfo
+            count={statements.length}
+            index={Math.min(cursorIndex + 1, statements.length)}
+            short={headerTier === 0}
+          />
         ) : null}
         <span
           className={`ml-auto shrink-0 font-mono text-eyebrow tabular-nums ${overCap ? 'text-error-fg' : 'text-fg-subtle'}`}
@@ -376,19 +381,16 @@ export function SqlQueryEditor({
                 size: formatNumber(sizeBytes, i18n.language),
               })}
         </span>
-        {headerExtra}
-        <button
-          type="button"
+        {typeof headerExtra === 'function' ? headerExtra(iconOnly) : headerExtra}
+        <SqlHeaderButton
+          icon={Wand2}
+          label={t('sqlWorkspace.editor.format')}
+          name={t('sqlWorkspace.editor.format')}
+          iconOnly={iconOnly}
           onClick={handleFormat}
           disabled={overCap || text.trim().length === 0}
           data-testid="sql-query-editor-format"
-          aria-label={t('sqlWorkspace.editor.format')}
-          title={t('sqlWorkspace.editor.format')}
-          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Wand2 size={11} aria-hidden="true" />
-          <span>{t('sqlWorkspace.editor.format')}</span>
-        </button>
+        />
         <CommandBarSlot slot="verb">
           <SqlRunMenu
             onRun={runFromToolbar}
@@ -420,5 +422,27 @@ export function SqlQueryEditor({
         ariaLabel={t('sqlWorkspace.editor.ariaLabel')}
       />
     </div>
+  );
+}
+
+/** "2 statements · cursor in 1", or "1/2" with the full reading as its name on a narrow row. */
+function StatementInfo({ count, index, short }: { count: number; index: number; short: boolean }) {
+  const { t } = useTranslation();
+  const full = t('sqlWorkspace.editor.statementInfo', { count, index });
+  return (
+    <span
+      data-testid="sql-query-editor-statements"
+      title={short ? full : undefined}
+      className="truncate font-mono text-eyebrow tabular-nums text-fg-subtle"
+    >
+      {short ? (
+        <>
+          <span aria-hidden="true">{`${index}/${count}`}</span>
+          <span className="sr-only">{full}</span>
+        </>
+      ) : (
+        full
+      )}
+    </span>
   );
 }
