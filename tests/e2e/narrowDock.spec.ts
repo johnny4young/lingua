@@ -107,7 +107,8 @@ for (const palette of ['ink', 'paper'] as const) {
     // Tabs read as glyphs and keep their names.
     await expect(page.getByRole('tab', { name: /^Console/ })).toBeVisible();
     await expect(page.getByTestId('results-dock')).toHaveAttribute('data-compact', 'true');
-    await expect(page.getByTestId('bottom-panel-console-tab').locator('.sr-only')).toHaveCount(1);
+    await expect(page.getByTestId('results-dock-tab-row')).toHaveAttribute('data-fit', 'glyphs');
+    await expect(page.getByTestId('bottom-panel-console-tab').locator('.dock-tab-label')).toHaveCSS('clip-path', 'inset(50%)');
     await page.getByTestId('bottom-panel-stdin-tab').hover();
     await expect(page.getByRole('tooltip')).toContainText(/^Input · /);
     await page.mouse.move(0, 0);
@@ -135,6 +136,7 @@ for (const palette of ['ink', 'paper'] as const) {
     await expect(page.getByTestId('dock-more')).toHaveCount(0);
     await expect(page.getByTestId('result-panel-share-link')).toBeVisible();
     await expect(page.getByTestId('results-dock')).not.toHaveAttribute('data-compact', 'true');
-    await expect(page.getByTestId('bottom-panel-console-tab').locator('.sr-only')).toHaveCount(0);
+    await expect(page.getByTestId('results-dock-tab-row')).not.toHaveAttribute('data-fit', 'glyphs');
+    await expect(page.getByTestId('bottom-panel-console-tab').locator('.dock-tab-label')).toHaveCSS('clip-path', 'none');
   });
 }

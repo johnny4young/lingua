@@ -321,8 +321,6 @@
 
   .debugger-changes-switch:hover { color: var(--color-fg-base); }
 
-  /* Mid-width docks keep the switch as its track; the label stays its accessible name. */
-  @container dock (max-width: 1100px) {
-    .debugger-changes-label { display: none; }
-  }
+  /* A tight tab row keeps the switch as its track; the label stays its accessible name. */
+  .dock-tab-row:is([data-fit='tight'], [data-fit='glyphs']) .debugger-changes-label { display: none; }
 }

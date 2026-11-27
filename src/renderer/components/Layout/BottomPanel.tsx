@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef, type RefObject } from 'react';
+import type { PanelImperativeHandle } from 'react-resizable-panels';
 import {
   Boxes,
   Bug,
@@ -32,7 +33,7 @@ import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
 import { useRunCompareActive } from '../../hooks/useRunCompareActive';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useUIStore } from '../../stores/uiStore';
+import { readPersistedBoolean, useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import {
   comparableSnapshotCountFor,
@@ -49,12 +50,15 @@ import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import {
   availableDockTabs,
   DOCK_COMPACT_MAX_WIDTH,
+  DOCK_RESIZED_KEY,
   DOCK_SPLIT_MIN_WIDTH,
   isDockSplit,
   isDockSplitTab,
   resolveDockTab,
+  TESTS_DOCK_HEIGHT,
   type DockTabId,
 } from './dockTabs';
+import { useDockRowFit } from './useDockRowFit';
 import { DockHeaderControls } from './DockHeaderControls';
 import { DockOutputReport } from './DockOutputReport';
 import { MissingToolchainPanel } from './MissingToolchainPanel';
@@ -112,6 +116,9 @@ const TestsDockControls = lazy(async () => {
   return { default: module.TestsDockControls };
 });
 
+// Projects whose tests have been on screen this session; only their first view may grow the dock.
+const testsDockGrown = new Set<string>();
+
 // Compact runs up to and including DOCK_COMPACT_MAX_WIDTH, like a CSS max-width query.
 const DOCK_WIDTH_TIERS = [DOCK_COMPACT_MAX_WIDTH + 1, DOCK_SPLIT_MIN_WIDTH] as const;
 
@@ -153,7 +160,14 @@ const DOCK_TAB_META: Record<DockTabId, DockTabMeta> = {
  * the selected tab's body. Collapsed, only the row stays, so every output
  * surface opens from the same place.
  */
-export function BottomPanel({ expanded }: { expanded: boolean }) {
+export function BottomPanel({
+  expanded,
+  dockPanel,
+}: {
+  expanded: boolean;
+  /** The dock's panel below the editor; absent when the dock sits beside it. */
+  dockPanel?: RefObject<PanelImperativeHandle | null>;
+}) {
   const { t } = useTranslation();
   const { tabs: availability, debuggerLive } = useLayoutAvailability();
   const activeTabId = useEditorStore(s => s.activeTabId);
@@ -182,7 +196,9 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const widthTier = useWidthTier(shellRef, DOCK_WIDTH_TIERS);
   const compact = widthTier === 0;
   const wide = widthTier === DOCK_WIDTH_TIERS.length;
+  const tabRowRef = useRef<HTMLDivElement>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
+  const glyphTabs = useDockRowFit(tabRowRef, tabListRef, compact);
   const consoleCount = useConsoleStore(state => state.entries.length);
   const failedTests = useProjectTestStore(state => state.cases?.filter(isCurrentFailure).length ?? 0);
   // Lines staged for the next run, so the Input tab says so before it is opened.
@@ -237,6 +253,16 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
   const testsOnScreen = currentProject !== null && shown('tests');
   // Until detection binds the test store to this project the code meter keeps the column.
   const testsBound = useProjectTestStore(state => state.rootId !== null && state.rootId === currentProject?.rootId);
+
+  // The first view of a project's tests opens a dock the user never sized to the height its list needs.
+  const testsRootId = testsOnScreen && currentProject ? currentProject.rootId : null;
+  useEffect(() => {
+    const panel = dockPanel?.current;
+    if (!testsRootId || !panel || testsDockGrown.has(testsRootId)) return;
+    testsDockGrown.add(testsRootId);
+    if (readPersistedBoolean(DOCK_RESIZED_KEY, false) || panel.isCollapsed()) return;
+    if (panel.getSize().inPixels < TESTS_DOCK_HEIGHT) panel.resize(TESTS_DOCK_HEIGHT);
+  }, [dockPanel, testsRootId]);
 
   useEffect(() => {
     if (activeBottomPanel !== 'console' && !availability[activeBottomPanel]) {
@@ -298,8 +324,9 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div
+            ref={tabRowRef}
             data-testid="results-dock-tab-row"
-            className="flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt"
+            className="dock-tab-row flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt"
           >
             <div
               ref={tabListRef}
@@ -317,8 +344,8 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                 return (
                   <Tooltip
                     key={id}
-                    // Compact tabs show only their glyph, so the tooltip names them.
-                    content={compact ? `${t(meta.labelKey)} · ${hint}` : hint}
+                    // Glyph-only tabs (compact, or a row too tight for labels) let the tooltip name them.
+                    content={glyphTabs ? `${t(meta.labelKey)} · ${hint}` : hint}
                     side="top"
                   >
                     <button
@@ -340,7 +367,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
                         aria-hidden="true"
                         className={selected ? 'text-accent-fg' : 'text-fg-subtle'}
                       />
-                      <span className={compact ? 'sr-only' : undefined}>{t(meta.labelKey)}</span>
+                      <span className="dock-tab-label">{t(meta.labelKey)}</span>
                       {id === 'project-terminal' && terminalShell !== null ? (
                         <span
                           data-testid="bottom-panel-project-terminal-live"

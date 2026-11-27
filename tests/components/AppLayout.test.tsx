@@ -38,7 +38,15 @@ async function renderLayout() {
   await screen.findByTestId('code-editor');
 }
 
-function MockGroup({ children, className }: PropsWithChildren<{ className?: string }>) {
+let groupLayoutChanged: ((layout: Record<string, number>, meta: { isUserInteraction: boolean }) => void) | undefined;
+const dockPanel = { size: 160, collapsed: false, resize: vi.fn() };
+
+function MockGroup({
+  children,
+  className,
+  onLayoutChanged,
+}: PropsWithChildren<{ className?: string; onLayoutChanged?: typeof groupLayoutChanged }>) {
+  groupLayoutChanged = onLayoutChanged;
   return (
     <div data-panel-group="" className={className}>
       {children}
@@ -50,7 +58,17 @@ function MockPanel({
   children,
   id,
   className,
-}: PropsWithChildren<{ id?: string; className?: string }>) {
+  panelRef,
+}: PropsWithChildren<{ id?: string; className?: string; panelRef?: { current: unknown } }>) {
+  if (panelRef && id === 'console-panel') {
+    panelRef.current = {
+      collapse: vi.fn(),
+      expand: vi.fn(),
+      isCollapsed: () => dockPanel.collapsed,
+      getSize: () => ({ asPercentage: 20, inPixels: dockPanel.size }),
+      resize: dockPanel.resize,
+    };
+  }
   return (
     <div data-panel={id} className={className}>
       {children}
@@ -468,22 +486,51 @@ describe('AppLayout responsive shell', () => {
   });
 
   describe('Tests and Terminal', () => {
-    function openProjectWithTestsAndTerminal(width: number) {
+    function openProjectWithTestsAndTerminal(width: number, root = 'root-alpha') {
       window.lingua = {
         ...(window.lingua ?? ({ platform: 'darwin' } as LinguaAPI)),
         projectTerminal: {} as NonNullable<LinguaAPI['projectTerminal']>,
         projectTests: {} as NonNullable<LinguaAPI['projectTests']>,
       } as LinguaAPI;
       useProjectStore.setState({
-        currentProject: { id: 'project-alpha', name: 'Alpha', rootPath: '/tmp/alpha', rootId: asRootId('root-alpha'), openedAt: 1 },
+        currentProject: { id: 'project-alpha', name: 'Alpha', rootPath: '/tmp/alpha', rootId: asRootId(root), openedAt: 1 },
       });
-      useProjectTestStore.setState({ rootId: asRootId('root-alpha') });
+      useProjectTestStore.setState({ rootId: asRootId(root) });
       vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 240 } as DOMRect);
     }
 
     afterEach(() => {
       vi.restoreAllMocks();
       useProjectTestStore.setState({ rootId: null });
+      dockPanel.resize.mockClear();
+      localStorage.removeItem('lingua-ui:dock-resized');
+    });
+
+    it('opens the dock to the list height the first time a project shows its tests', async () => {
+      openProjectWithTestsAndTerminal(900, 'root-grow');
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'tests' });
+
+      await renderLayout();
+
+      expect(await screen.findByTestId('tests-panel')).toBeTruthy();
+      expect(dockPanel.resize).toHaveBeenCalledExactlyOnceWith(240);
+      act(() => useUIStore.getState().openBottomPanel('console'));
+      act(() => useUIStore.getState().openBottomPanel('tests'));
+      expect(await screen.findByTestId('tests-panel')).toBeTruthy();
+      expect(dockPanel.resize).toHaveBeenCalledOnce();
+    });
+
+    it('leaves a dock the user resized at its height', async () => {
+      openProjectWithTestsAndTerminal(900, 'root-sized');
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'console' });
+
+      await renderLayout();
+      act(() => groupLayoutChanged?.({ 'workspace-panel': 80, 'console-panel': 20 }, { isUserInteraction: true }));
+      act(() => useUIStore.getState().openBottomPanel('tests'));
+
+      expect(await screen.findByTestId('tests-panel')).toBeTruthy();
+      expect(localStorage.getItem('lingua-ui:dock-resized')).toBe('true');
+      expect(dockPanel.resize).not.toHaveBeenCalled();
     });
 
     it('keeps the meter column off the Tests meter until detection binds this project', async () => {

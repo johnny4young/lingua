@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, seedSession, test, trackConsoleErrors } from './licenseWeb.helpers';
 
 const screenshotDir = path.resolve(process.cwd(), 'output/playwright/project-tests');
 
@@ -63,4 +63,95 @@ test.describe('Tests dock tab bilingual evidence', () => {
       await testInfo.attach(`tests-empty-${locale}.png`, { path: shot, contentType: 'image/png' });
     });
   }
+});
+
+const SMALL_DOCK_LAYOUT = JSON.stringify({ 'workspace-panel': 80, 'console-panel': 20 });
+
+test.describe('Tests dock fit in the project window', () => {
+  for (const [width, height, locale] of [
+    [1024, 768, 'en'],
+    [1024, 768, 'es'],
+    [1280, 800, 'en'],
+    [1600, 1000, 'en'],
+    [768, 900, 'en'],
+  ] as const) {
+    test(`${locale} ${width} px: the tab row fits without scrolling and the failing test shows`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      const consoleErrors = trackConsoleErrors(page);
+      await seedSession(page, { language: locale, primeProLicense: true });
+      // A dock the user never sized, shorter than the board's.
+      await page.addInitScript(layout => {
+        window.localStorage.setItem('react-resizable-panels:lingua-main-horizontal-layout:workspace-panel:console-panel', layout);
+      }, SMALL_DOCK_LAYOUT);
+      await page.goto(`/?e2e=project-tests-editor&locale=${locale}`);
+      await page.waitForSelector('.monaco-editor .view-lines');
+      await page.evaluate(() => window.dispatchEvent(new Event('e2e-open-test-file')));
+      await expect(page.getByTestId('tests-panel')).toBeVisible();
+      // Narrow windows open the explorer as a drawer over the editor.
+      if (width < 1180) await page.keyboard.press('Escape');
+
+      // The first view of the project's tests opens the dock to the board height.
+      const dock = page.getByTestId('results-dock');
+      await expect.poll(async () => Math.round((await dock.boundingBox())?.height ?? 0)).toBeGreaterThanOrEqual(238);
+
+      const row = page.getByTestId('results-dock-tab-row');
+      // Tab glyphs give way first, then control labels; only a row narrower than the board folds the tab labels.
+      await expect(row).toHaveAttribute('data-fit', width === 1600 ? 'full' : width === 768 ? 'glyphs' : /^(labels|tight)$/);
+      const tabList = row.getByRole('tablist');
+      const fit = await tabList.evaluate(list => {
+        const bounds = list.getBoundingClientRect();
+        return {
+          scrolls: list.scrollWidth > list.clientWidth,
+          cut: Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]'))
+            .filter(tab => {
+              const box = tab.getBoundingClientRect();
+              return box.left < bounds.left - 0.5 || box.right > bounds.right + 0.5 || tab.scrollWidth > tab.clientWidth;
+            })
+            .map(tab => tab.textContent),
+        };
+      });
+      expect(fit).toEqual({ scrolls: false, cut: [] });
+      await expect(page.getByTestId('bottom-panel-git-diff-tab')).toBeVisible();
+
+      // Every file and the failing test show without scrolling; files without a failure fold to their row.
+      const list = page.getByTestId('tests-list');
+      await expect(list.getByTestId('tests-file')).toHaveCount(3);
+      await expect(list.getByTestId('tests-case')).toHaveCount(3);
+      const hidden = await list.evaluate(node => {
+        const bottom = node.getBoundingClientRect().bottom + 0.5;
+        const rows = [
+          ...node.querySelectorAll<HTMLElement>('[data-testid="tests-file"] > div:first-child'),
+          ...node.querySelectorAll<HTMLElement>('[data-testid="tests-case"][data-status="failed"]'),
+        ];
+        return { scrollTop: node.scrollTop, below: rows.filter(row => row.getBoundingClientRect().bottom > bottom).map(row => row.textContent) };
+      });
+      expect(hidden).toEqual({ scrollTop: 0, below: [] });
+
+      // The raw log opens from the list header.
+      await page.getByTestId('tests-output-toggle').click();
+      await expect(page.getByTestId('tests-output')).toContainText('Tests  1 failed | 5 passed (6)');
+      await page.getByTestId('tests-output-toggle').click();
+      await expect(page.getByTestId('tests-output')).toHaveCount(0);
+      await page.mouse.move(width - 8, 66);
+
+      const shot = path.join(screenshotDir, `dock-fit-${locale}-${width}.png`);
+      await page.screenshot({ path: shot, animations: 'disabled' });
+      expect(consoleErrors).toEqual([]);
+    });
+  }
+
+  test('a dock the user resized keeps its height', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await page.addInitScript(layout => {
+      window.localStorage.setItem('react-resizable-panels:lingua-main-horizontal-layout:workspace-panel:console-panel', layout);
+      window.localStorage.setItem('lingua-ui:dock-resized', 'true');
+    }, SMALL_DOCK_LAYOUT);
+    await page.goto('/?e2e=project-tests-editor&locale=en');
+    await page.waitForSelector('.monaco-editor .view-lines');
+    await page.evaluate(() => window.dispatchEvent(new Event('e2e-open-test-file')));
+    await expect(page.getByTestId('tests-panel')).toBeVisible();
+    await page.waitForTimeout(400);
+    expect((await page.getByTestId('results-dock').boundingBox())?.height).toBeLessThan(200);
+  });
 });

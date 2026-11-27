@@ -246,10 +246,34 @@ describe('TestsPanel', () => {
     await user.click(within(row).getByTestId('tests-run-test'));
     expect((await screen.findByTestId('tests-notice')).textContent).toContain('file or build failure');
     expect(screen.getByTestId('tests-output').textContent).toContain("expected operand, found ';'");
+    // With a failure on screen, a file without one folds to its row.
+    expect(screen.getAllByTestId('tests-case').map(entry => entry.dataset.status)).toEqual(['not-run', 'failed']);
+    const other = screen.getAllByTestId('tests-file').find(entry => entry.textContent?.includes('internal/other'))!;
+    expect(other.getAttribute('aria-expanded')).toBe('false');
+    await user.click(within(other).getByRole('button', { name: /internal\/other/ }));
     expect(screen.getAllByTestId('tests-case').map(entry => entry.dataset.status)).toEqual(['not-run', 'failed', 'passed']);
     expect(screen.getByTestId('tests-counts').textContent).toContain('1 failed· 1 not run · Go');
     expect(screen.getByTestId('tests-meter-numeral').textContent).toBe('1of 2 passed');
     expect(screen.queryByText('TestRoot')).toBeNull();
+  });
+
+  it('toggles the raw output from the list header', async () => {
+    openProject();
+    const bridge = installBridge();
+    bridge.run.mockResolvedValueOnce(result({ kind: 'success', orderedOutput: 'all green\n', cases: [{ file: 'a.test.ts', path: ['works'], status: 'passed' }] }));
+    const user = userEvent.setup();
+    render(<TestsDock />);
+    await user.click(await screen.findByTestId('tests-run-all'));
+    const toggle = await screen.findByRole('button', { name: 'Show output' });
+    expect(within(screen.getByTestId('tests-summary')).getByTestId('tests-output-toggle')).toBe(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('tests-output')).toBeNull();
+    await user.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.getAttribute('aria-label')).toBe('Hide output');
+    expect(screen.getByTestId('tests-output').textContent).toBe('all green\n');
+    await user.click(toggle);
+    expect(screen.queryByTestId('tests-output')).toBeNull();
   });
 
   it('opens the raw output when the report could not be read', async () => {

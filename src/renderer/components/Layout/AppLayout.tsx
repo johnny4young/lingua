@@ -10,6 +10,8 @@ import {
   Panel,
   useDefaultLayout,
   type GroupImperativeHandle,
+  type Layout,
+  type LayoutChangedMeta,
   type PanelImperativeHandle,
 } from 'react-resizable-panels';
 import { FileTreeHost } from '../FileTree/FileTreeHost';
@@ -22,9 +24,10 @@ import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { ResizeHandle } from '../ui/ResizeHandle';
+import { DOCK_RESIZED_KEY } from './dockTabs';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useUIStore } from '../../stores/uiStore';
+import { useUIStore, writePersisted } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../utils/cn';
 import type { LayoutPreset } from '../../types/settings';
@@ -265,10 +268,16 @@ function BottomPanelLoadingState() {
   );
 }
 
-function BottomPanelSurface({ expanded }: { expanded: boolean }) {
+function BottomPanelSurface({
+  expanded,
+  dockPanel,
+}: {
+  expanded: boolean;
+  dockPanel?: RefObject<PanelImperativeHandle | null>;
+}) {
   return (
     <Suspense fallback={<BottomPanelLoadingState />}>
-      <LazyBottomPanel expanded={expanded} />
+      <LazyBottomPanel expanded={expanded} dockPanel={dockPanel} />
     </Suspense>
   );
 }
@@ -344,6 +353,11 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
     else if (!collapsed && !visible) useUIStore.getState().setConsoleVisible(true);
   };
 
+  const handleLayoutChanged = (next: Layout, meta: LayoutChangedMeta) => {
+    if (meta.isUserInteraction && !vertical) writePersisted(DOCK_RESIZED_KEY, 'true');
+    layout.onLayoutChanged(next, meta);
+  };
+
   const dockInPanel = dockShown && (dockExpanded || !vertical);
 
   return (
@@ -353,7 +367,7 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
           groupRef={groupRef}
           orientation={vertical ? 'horizontal' : 'vertical'}
           defaultLayout={layout.defaultLayout}
-          onLayoutChanged={layout.onLayoutChanged}
+          onLayoutChanged={handleLayoutChanged}
           resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
           className="min-h-0 flex-1"
         >
@@ -374,7 +388,9 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
             minSize={vertical ? 260 : 160}
             onResize={handleDockResize}
           >
-            {dockInPanel ? <BottomPanelSurface expanded={dockExpanded} /> : null}
+            {dockInPanel ? (
+              <BottomPanelSurface expanded={dockExpanded} dockPanel={vertical ? undefined : dockPanelRef} />
+            ) : null}
           </Panel>
         </Group>
         {vertical && dockShown && !dockExpanded ? (
