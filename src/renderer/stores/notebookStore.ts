@@ -101,6 +101,8 @@ interface NotebookTabState {
    * `cellRunStatus`.
    */
   readonly cellVarFlow: Readonly<Record<string, NotebookCellVarFlow>>;
+  /** Executed code cells whose own source changed since they last ran. TRANSIENT. */
+  readonly cellEditedSinceRun?: Readonly<Record<string, true>>;
   /**
    * Signal-Slate — Jupyter `[N]` execution counter. `executionCounter`
    * is the per-tab monotonic seed; `cellExecutionOrder` records the

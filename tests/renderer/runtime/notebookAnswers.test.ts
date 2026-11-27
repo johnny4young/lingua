@@ -10,6 +10,7 @@ import {
   pythonAnswers,
   pythonValueType,
   sqlAnswerTarget,
+  sqlCellEffects,
   sqlErrorLine,
 } from '../../../src/renderer/runtime/notebookAnswers';
 import { MAX_ANSWER_TEXT_LENGTH } from '../../../src/shared/notebook';
@@ -186,7 +187,7 @@ describe('sqlAnswerTarget', () => {
     expect(target).toEqual({
       firstLine: 2,
       lastLine: 3,
-      made: { kind: 'table', name: 'main."by city"', label: 'main.by city' },
+      made: { kind: 'table', name: 'main."by city"', label: 'main.by city', plain: false },
       isRead: false,
     });
   });
@@ -209,6 +210,42 @@ describe('sqlAnswerTarget', () => {
 
   it('returns null for a cell without statements', () => {
     expect(sqlAnswerTarget('-- nothing yet')).toBeNull();
+  });
+});
+
+describe('sqlCellEffects', () => {
+  it('lists every relation the cell makes and which ones fail when run again', () => {
+    const effects = sqlCellEffects(
+      [
+        'CREATE TABLE by_city AS SELECT 1 AS n;',
+        '-- a view over it',
+        'CREATE VIEW "Top Cities" AS SELECT * FROM by_city;',
+        'CREATE OR REPLACE TABLE totals AS SELECT 2;',
+        'CREATE TABLE IF NOT EXISTS seen (id INTEGER);',
+        'CREATE TEMP TABLE scratch AS SELECT 3;',
+        "SELECT 'create table x as' AS note;",
+      ].join('\n')
+    );
+    expect(effects.ownsTransaction).toBe(false);
+    expect(effects.made).toEqual([
+      { kind: 'table', name: 'by_city', label: 'by_city', plain: true },
+      { kind: 'view', name: '"Top Cities"', label: 'Top Cities', plain: true },
+      { kind: 'table', name: 'totals', label: 'totals', plain: false },
+      { kind: 'table', name: 'seen', label: 'seen', plain: false },
+    ]);
+  });
+
+  it('makes nothing from a name it cannot read whole, so a rerun never drops a shorter one', () => {
+    expect(sqlCellEffects('CREATE TABLE ordersé AS SELECT 1;').made).toEqual([]);
+    expect(sqlCellEffects('CREATE TABLE "orders""x" AS SELECT 1;').made).toEqual([
+      { kind: 'table', name: '"orders""x"', label: 'orders"x', plain: true },
+    ]);
+    expect(sqlCellEffects('CREATE VIEW v(a) AS SELECT 1').made[0]?.label).toBe('v');
+  });
+
+  it('notices a cell that opens or closes its own transaction', () => {
+    expect(sqlCellEffects('BEGIN;\nCREATE TABLE t AS SELECT 1;\nCOMMIT;').ownsTransaction).toBe(true);
+    expect(sqlCellEffects("SELECT 'begin' AS word;").ownsTransaction).toBe(false);
   });
 });
 

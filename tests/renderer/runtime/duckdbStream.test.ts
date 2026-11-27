@@ -3,6 +3,7 @@ import {
   CANCEL_SETTLE_MS,
   __setDuckDbEngineFactoryForTests,
   executeQuery,
+  executeSqlInTransaction,
   executeSqlScript,
   restartDuckDbEngine,
   getDuckDbEngine,
@@ -249,6 +250,40 @@ describe('executeSqlScript', () => {
 
   it('returns nothing for an empty script', async () => {
     expect(await executeSqlScript(['  ', ''])).toEqual([]);
+  });
+});
+
+describe('executeSqlInTransaction', () => {
+  function recordingEngine(ran: string[]) {
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve({
+        connect: async () => ({
+          query: async (sql: string) => {
+            ran.push(sql);
+            if (sql.startsWith('BAD')) throw new Error('Parser Error: syntax error');
+            return { columns: [], rows: [], rowCount: 0, tooLarge: false };
+          },
+          close: async () => undefined,
+        }),
+        terminate: async () => undefined,
+      })
+    );
+  }
+
+  it('commits when every statement returns a result', async () => {
+    const ran: string[] = [];
+    recordingEngine(ran);
+    const outcomes = await executeSqlInTransaction(['DROP TABLE IF EXISTS t', 'CREATE TABLE t AS SELECT 1']);
+    expect(ran).toEqual(['BEGIN TRANSACTION', 'DROP TABLE IF EXISTS t', 'CREATE TABLE t AS SELECT 1', 'COMMIT']);
+    expect(outcomes.map((outcome) => outcome.status)).toEqual(['success', 'success']);
+  });
+
+  it('rolls back at the first statement that fails and runs nothing after it', async () => {
+    const ran: string[] = [];
+    recordingEngine(ran);
+    const outcomes = await executeSqlInTransaction(['DROP TABLE IF EXISTS t', 'BAD', 'SELECT 1']);
+    expect(ran).toEqual(['BEGIN TRANSACTION', 'DROP TABLE IF EXISTS t', 'BAD', 'ROLLBACK']);
+    expect(outcomes.map((outcome) => outcome.status)).toEqual(['success', 'sql-error']);
   });
 });
 

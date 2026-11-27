@@ -203,11 +203,12 @@ export function createCellActions(
             : { ...existing, source: clamped };
         const next = slice.notebook.cells.slice();
         next[idx] = updatedCell;
-        const cellRunStatus = hasNotebookExecutionEvidence(
+        const executed = hasNotebookExecutionEvidence(
           existing,
           slice.cellRunStatus[existing.id],
           slice.cellExecutionOrder?.[existing.id]
-        )
+        );
+        const cellRunStatus = executed
           ? markExecutedNotebookCellsStale(
               next,
               slice.cellRunStatus,
@@ -223,6 +224,9 @@ export function createCellActions(
               ...slice,
               notebook: { ...slice.notebook, cells: next },
               cellRunStatus,
+              ...(executed && !slice.cellEditedSinceRun?.[cellId]
+                ? { cellEditedSinceRun: { ...slice.cellEditedSinceRun, [cellId]: true as const } }
+                : {}),
             },
           },
         };

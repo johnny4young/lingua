@@ -36,8 +36,8 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { NotebookCellAnswers } from './NotebookCellAnswers';
-import { IconButton } from '../ui/chrome';
-import { ICON_GLYPH } from '../ui/iconScale';
+import { Tooltip } from '../ui/chrome';
+import { ICON_BUTTON_BOX, ICON_GLYPH } from '../ui/iconScale';
 import type { NotebookCellLeader } from './NotebookCellEditor';
 import { answersByLine, lineLength, notebookLineHeight } from './notebookAnswerView';
 import { NOTEBOOK_CELL_EDITOR_MAX_HEIGHT } from './notebookViewModel';
@@ -74,6 +74,8 @@ export interface NotebookCodeCellRowProps {
    * status chip, mirroring Jupyter's `In [N]:` gutter.
    */
   readonly executionOrder?: number | null;
+  /** A stale cell its own edit invalidated: Run runs it in place instead of Refresh cell. */
+  readonly runsInPlace?: boolean;
   /**
    * Signal-Slate — true when this is the active cell (keyboard target).
    * Drives the active outline + the Command/Edit mode label.
@@ -173,6 +175,7 @@ function NotebookCodeCellRowImpl({
   durationMs,
   varFlow,
   executionOrder = null,
+  runsInPlace = false,
   isActive,
   editRequestNonce = null,
   canMoveUp,
@@ -281,6 +284,7 @@ function NotebookCodeCellRowImpl({
     };
   }, [flushPendingSource]);
 
+  const refreshes = status === 'stale' && !runsInPlace;
   const handleSourceChange = useCallback(
     (next: string) => {
       setSource(next);
@@ -420,8 +424,8 @@ function NotebookCodeCellRowImpl({
         'focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/25'
       )}
     >
-      <header className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+      <header className="flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden p-px">
           {/* Language selector. JS / TS / Python are all
               runnable now (Python runs independently per cell). Styled as
               the canonical language-tone pill. */}
@@ -501,28 +505,30 @@ function NotebookCodeCellRowImpl({
               </StatusBadge>
             </span>
           )}
-          {status === 'stale' ? (
+          {/* One element in both states: a click that blurs the editor flips the label without moving the glyph. */}
+          <Tooltip
+            content={t(refreshes ? 'notebook.reactivity.refreshHint' : 'notebook.cell.runCell')}
+            disabled={disabled || status === 'running'}
+          >
             <button
               type="button"
               onClick={() => runWithFlush(onRunCell)}
-              disabled={disabled}
-              data-testid="notebook-code-cell-run"
-              className="focus-ring inline-flex h-6 items-center rounded border border-border-default px-2 text-caption font-medium text-fg-base hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {t('notebook.reactivity.refreshCell')}
-            </button>
-          ) : (
-            <IconButton
-              size="sm"
-              tooltip={t('notebook.cell.runCell')}
-              onClick={() => runWithFlush(onRunCell)}
               disabled={disabled || status === 'running'}
+              aria-label={refreshes ? undefined : t('notebook.cell.runCell')}
               data-testid="notebook-code-cell-run"
-              className="focus-ring"
+              data-action={refreshes ? 'refresh' : 'run'}
+              className={cn(
+                'icon-button focus-ring disabled:cursor-not-allowed disabled:opacity-40',
+                refreshes
+                  ? 'h-5 gap-1.5 rounded border-border-default px-1 text-caption sm:pl-2 font-medium text-fg-base'
+                  : ICON_BUTTON_BOX.sm
+              )}
             >
+              {/* Narrow windows keep only the glyph; the name stays for screen readers. */}
+              {refreshes ? <span className="sr-only sm:not-sr-only">{t('notebook.reactivity.refreshCell')}</span> : null}
               <Play size={ICON_GLYPH.sm} aria-hidden="true" />
-            </IconButton>
-          )}
+            </button>
+          </Tooltip>
           <button
             type="button"
             onClick={() => onMoveUp(cell.id)}

@@ -3,6 +3,7 @@ import type { NotebookCellV1 } from '../../src/shared/notebook';
 import {
   hasNotebookExecutionEvidence,
   markExecutedNotebookCellsStale,
+  notebookCellRunningInPlace,
   restoreNotebookExecutionOrder,
   staleNotebookStatusesFromPersistedState,
 } from '../../src/renderer/stores/notebookReactivity';
@@ -70,6 +71,14 @@ describe('notebook lazy reactivity', () => {
     expect(
       markExecutedNotebookCellsStale(cells, status, {}, 2)
     ).toBe(status);
+  });
+
+  it('runs in place only the first stale cell, and only when its own edit made it stale', () => {
+    expect(notebookCellRunningInPlace(cells, { js: 'ok', python: 'stale', sql: 'stale' }, { python: true })).toBe('python');
+    // A stale cell above needs the replay first.
+    expect(notebookCellRunningInPlace(cells, { js: 'stale', python: 'stale' }, { python: true })).toBeNull();
+    expect(notebookCellRunningInPlace(cells, { js: 'ok', python: 'stale' }, {})).toBeNull();
+    expect(notebookCellRunningInPlace(cells, undefined, undefined)).toBeNull();
   });
 
   it('restores only valid execution stamps for current code cells', () => {

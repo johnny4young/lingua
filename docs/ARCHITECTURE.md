@@ -1016,7 +1016,12 @@ document order instead:
    idle, and Lingua never runs code automatically.
 3. **Refresh stale** disposes the notebook-owned JavaScript/TypeScript sandbox
    and Python scope, then replays the executed prefix in document order through
-   the requested stale cell. Replay stops on the first error or interruption.
+   the requested stale cell. SQL cells that are not stale are skipped: their
+   tables live in DuckDB, which the disposal does not touch. Replay stops on the
+   first error or interruption.
+4. The one exception is the first stale cell when its own edit made it stale
+   (`cellEditedSinceRun`, transient): nothing above it is stale, so its Run runs
+   it in place against the live kernels, and the cells below turn stale.
 
 Disposal also revokes the in-flight cell's session identity. A delayed SQL,
 Python, JavaScript, or TypeScript completion returns `session-disposed` rather
@@ -1034,8 +1039,13 @@ flow, and undo state remain transient. Rehydration treats every ledger entry or
 persisted output as stale because no runtime kernel survives the process.
 
 SQL is the explicit boundary: DuckDB is shared with the SQL workspace, so a
-refresh replays SQL statements in order but cannot roll back tables or other
-side effects that already reached that shared connection. The UI and capability
+refresh replays only stale SQL cells and cannot roll back tables or other side
+effects that already reached that shared connection. Running a SQL cell again
+replaces what it made: a plain `CREATE TABLE | VIEW` whose name the cell made on
+its last run in this session (its variable flow; answers saved in the file never
+decide a drop) is dropped and created again in one transaction, so a cell that
+fails keeps the previous relation. `OR REPLACE`, `IF NOT EXISTS`, temporary relations and cells
+that open or close their own transaction run as written. The UI and capability
 matrix describe this rather than promising notebook-isolated SQL snapshots.
 
 ## Notebook per-line answers

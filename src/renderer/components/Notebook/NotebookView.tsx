@@ -27,6 +27,7 @@ import {
 } from '../../../shared/notebook';
 import { useEditorStore } from '../../stores/editorStore';
 import { useNotebookStore } from '../../stores/notebookStore';
+import { notebookCellRunningInPlace } from '../../stores/notebookReactivity';
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useNotebookRun } from '../../hooks/useNotebookRun';
@@ -57,6 +58,10 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // Signal-Slate — per-cell Jupyter [N] execution-order stamp map,
   // threaded into each code-cell row alongside status + latency.
   const cellExecutionOrderMap = useNotebookStore(s => s.notebooks[tabId]?.cellExecutionOrder);
+  const runInPlaceCellId = useNotebookStore(s => {
+    const slice = s.notebooks[tabId];
+    return slice ? notebookCellRunningInPlace(slice.notebook.cells, slice.cellRunStatus, slice.cellEditedSinceRun) : null;
+  });
   const createNotebookForTab = useNotebookStore(s => s.createNotebookForTab);
   const addCell = useNotebookStore(s => s.addCell);
   const removeCell = useNotebookStore(s => s.removeCell);
@@ -284,8 +289,11 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   );
   const runCellRespectingReactivity = useCallback(
     (cellId: string) => {
-      const status = useNotebookStore.getState().notebooks[tabId]?.cellRunStatus[cellId];
-      return status === 'stale' ? refreshStale(tabId, cellId) : runCell(tabId, cellId);
+      const slice = useNotebookStore.getState().notebooks[tabId];
+      const stale = slice?.cellRunStatus[cellId] === 'stale';
+      const inPlace =
+        slice && notebookCellRunningInPlace(slice.notebook.cells, slice.cellRunStatus, slice.cellEditedSinceRun) === cellId;
+      return stale && !inPlace ? refreshStale(tabId, cellId) : runCell(tabId, cellId);
     },
     [refreshStale, runCell, tabId]
   );
@@ -718,6 +726,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         cellDurationMsMap={cellDurationMsMap}
         cellVarFlowMap={cellVarFlowMap}
         cellExecutionOrderMap={cellExecutionOrderMap}
+        runInPlaceCellId={runInPlaceCellId}
         activeCellId={activeCellId}
         editRequest={editRequest}
         disabled={disabled}

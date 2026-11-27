@@ -1274,6 +1274,43 @@ export async function executeSqlScript(
 }
 
 /**
+ * Runs statements in one transaction on one connection. The first statement
+ * that does not return a result rolls everything back; the outcomes cover the
+ * statements that ran, plus a failed BEGIN or COMMIT.
+ */
+export async function executeSqlInTransaction(
+  statements: ReadonlyArray<string>,
+  options: Pick<ExecuteQueryOptions, 'timeoutMs' | 'signal'> = {}
+): Promise<DuckDbExecuteOutcome[]> {
+  const opened = await openConnection(performance.now());
+  if ('failure' in opened) return [opened.failure];
+  const { connection } = opened;
+  const run = (sql: string) => runOnConnection(connection, sql.trim(), options);
+  const outcomes: DuckDbExecuteOutcome[] = [];
+  try {
+    const begin = await run('BEGIN TRANSACTION');
+    if (!isResultStatus(begin.status)) return [begin];
+    for (const statement of statements) {
+      const outcome = await run(statement);
+      outcomes.push(outcome);
+      if (!isResultStatus(outcome.status)) {
+        if (!mayStillRun(outcome)) await run('ROLLBACK');
+        return outcomes;
+      }
+    }
+    const commit = await run('COMMIT');
+    if (!isResultStatus(commit.status)) {
+      await run('ROLLBACK');
+      return [...outcomes, commit];
+    }
+    await checkpointIfPersistent(connection);
+    return outcomes;
+  } finally {
+    await closeQuietly(connection, !mayStillRun(outcomes[outcomes.length - 1]));
+  }
+}
+
+/**
  * Staged edits on one connection inside one transaction: each statement must
  * touch exactly one row, or everything is rolled back and nothing changes.
  */

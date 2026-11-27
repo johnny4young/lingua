@@ -19,6 +19,12 @@ vi.mock('../../src/renderer/runners', () => ({
   },
 }));
 
+vi.mock('../../src/renderer/runtime/duckdbClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/renderer/runtime/duckdbClient')>()),
+  executeQuery: vi.fn(),
+  executeSqlInTransaction: vi.fn(),
+}));
+
 vi.mock('../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
@@ -26,6 +32,7 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 import { useNotebookRun } from '../../src/renderer/hooks/useNotebookRun';
 import { runnerManager } from '../../src/renderer/runners';
 import { trackEvent } from '../../src/renderer/utils/telemetry';
+import { executeQuery, executeSqlInTransaction } from '../../src/renderer/runtime/duckdbClient';
 import {
   disposeNotebookSession,
   resetNotebookSessionsForTests,
@@ -50,6 +57,48 @@ const mockStop = runnerManager.stop as unknown as ReturnType<typeof vi.fn>;
 const mockNeedsInit =
   runnerManager.needsInitialization as unknown as ReturnType<typeof vi.fn>;
 const mockTrack = trackEvent as unknown as ReturnType<typeof vi.fn>;
+const mockQuery = executeQuery as unknown as ReturnType<typeof vi.fn>;
+const mockScript = executeSqlInTransaction as unknown as ReturnType<typeof vi.fn>;
+
+function sqlOutcome(overrides: Record<string, unknown> = {}) {
+  return { status: 'success', rows: [], columns: [], rowCount: 0, durationMs: 1, tooLarge: false, statementCount: 1, ...overrides };
+}
+
+const CREATE_BY_CITY = 'CREATE TABLE by_city AS SELECT 1 AS n;';
+
+/** SQL CREATE → SQL SELECT → Python → Python, all run once; `stale` lists the cells marked stale. */
+function seedSqlPythonNotebook(stale: ReadonlyArray<string>): void {
+  const code = (id: string, language: NotebookCellLanguage, source: string) => ({
+    kind: 'code' as const,
+    id,
+    language,
+    source,
+    outputs: [{ kind: 'text' as const, stream: 'stdout' as const, text: 'old' }],
+  });
+  const ids = ['sql-create', 'sql-read', 'py-tickets', 'py-over'];
+  useNotebookStore.setState({
+    notebooks: {
+      'tab-sql': {
+        notebook: {
+          version: 1,
+          id: 'notebook-sql',
+          title: 'Q4 orders review',
+          cells: [
+            code('sql-create', 'sql', CREATE_BY_CITY),
+            code('sql-read', 'sql', 'SELECT n FROM by_city;'),
+            code('py-tickets', 'python', 'tickets = [1, 2, 3]'),
+            code('py-over', 'python', 'len(tickets)'),
+          ],
+        },
+        cellRunStatus: Object.fromEntries(ids.map((id) => [id, stale.includes(id) ? 'stale' : 'ok'])),
+        cellExecutionOrder: Object.fromEntries(ids.map((id, index) => [id, index + 1])),
+        cellVarFlow: { 'sql-create': { uses: [], produces: ['by_city'] } },
+        executionCounter: 4,
+        activeCellId: 'py-tickets',
+      },
+    },
+  });
+}
 
 function seedNotebook(tabId: string): {
   jsCellId: string;
@@ -106,6 +155,8 @@ describe('useNotebookRun', () => {
     mockExecute.mockReset();
     mockStop.mockReset();
     mockTrack.mockReset();
+    mockQuery.mockReset();
+    mockScript.mockReset();
     localStorage.clear();
     useUIStore.setState({ statusNotice: null });
     useAnnouncerStore.setState({ message: '', nonce: 0 });
@@ -567,6 +618,92 @@ describe('useNotebookRun', () => {
     expect(useAnnouncerStore.getState().message).toMatch(
       /2 executed cells replayed successfully/i
     );
+  });
+
+  it('refreshStale leaves current SQL cells alone: their tables outlive the kernel rebuild', async () => {
+    seedSqlPythonNotebook(['py-over']);
+    mockExecute.mockResolvedValue({ kind: 'ok', result: '', stdout: [], stderr: [] });
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.refreshStale('tab-sql', 'py-over');
+    });
+
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockScript).not.toHaveBeenCalled();
+    expect(mockExecute.mock.calls.map((call) => call[0])).toEqual(['python', 'python']);
+    const statuses = useNotebookStore.getState().notebooks['tab-sql']!.cellRunStatus;
+    expect(statuses).toMatchObject({ 'sql-create': 'ok', 'sql-read': 'ok', 'py-tickets': 'ok', 'py-over': 'ok' });
+  });
+
+  it('replaces the table a stale SQL cell made instead of failing on it, then refreshes the cells below', async () => {
+    seedSqlPythonNotebook(['sql-create', 'sql-read', 'py-tickets', 'py-over']);
+    mockScript.mockImplementation(async (statements: string[]) =>
+      statements.map((statement) => sqlOutcome(statement === CREATE_BY_CITY ? { rows: [{ Count: 1 }], rowCount: 1 } : {}))
+    );
+    mockQuery.mockImplementation(async (sql: string) =>
+      sqlOutcome(/DESCRIBE/.test(sql) ? { rows: [{ c: 1 }], rowCount: 1 } : { rows: [{ n: 1 }], rowCount: 1, columns: [{ name: 'n' }] })
+    );
+    mockExecute.mockResolvedValue({ kind: 'ok', result: '', stdout: [], stderr: [] });
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.refreshStale('tab-sql');
+    });
+
+    expect(mockScript).toHaveBeenCalledTimes(1);
+    expect(mockScript.mock.calls[0]![0]).toEqual(['DROP TABLE IF EXISTS by_city', CREATE_BY_CITY]);
+    // The SELECT makes nothing, so it runs plainly.
+    expect(mockQuery.mock.calls.map((call) => call[0])).toContain('SELECT n FROM by_city;');
+    const slice = useNotebookStore.getState().notebooks['tab-sql']!;
+    expect(slice.cellRunStatus).toMatchObject({ 'sql-create': 'ok', 'sql-read': 'ok', 'py-tickets': 'ok', 'py-over': 'ok' });
+    expect(slice.cellVarFlow?.['sql-create']?.produces).toEqual(['by_city']);
+    expect(useAnnouncerStore.getState().message).toMatch(/4 executed cells replayed successfully/i);
+  });
+
+  it('never drops a table on the word of an answer saved in the notebook file', async () => {
+    seedSqlPythonNotebook(['sql-create', 'sql-read', 'py-tickets', 'py-over']);
+    const slice = useNotebookStore.getState().notebooks['tab-sql']!;
+    const [create, ...rest] = slice.notebook.cells;
+    useNotebookStore.setState({
+      notebooks: {
+        'tab-sql': {
+          ...slice,
+          cellVarFlow: {},
+          notebook: {
+            ...slice.notebook,
+            cells: [{ ...create!, answers: [{ line: 1, kind: 'table', text: 'by_city' }] } as typeof create, ...rest],
+          },
+        },
+      },
+    });
+    mockQuery.mockResolvedValue(sqlOutcome({ status: 'sql-error', errorMessage: 'Catalog Error: Table with name by_city already exists!' }));
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.refreshStale('tab-sql');
+    });
+
+    expect(mockScript).not.toHaveBeenCalled();
+    expect(useNotebookStore.getState().notebooks['tab-sql']!.cellRunStatus['sql-create']).toBe('error');
+  });
+
+  it('reports a SQL cell that fails while replacing its table and keeps the replay from going on', async () => {
+    seedSqlPythonNotebook(['sql-create', 'sql-read', 'py-tickets', 'py-over']);
+    mockScript.mockResolvedValue([
+      sqlOutcome(),
+      sqlOutcome({ status: 'sql-error', errorMessage: 'Parser Error: syntax error' }),
+    ]);
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.refreshStale('tab-sql');
+    });
+
+    const slice = useNotebookStore.getState().notebooks['tab-sql']!;
+    expect(slice.cellRunStatus['sql-create']).toBe('error');
+    expect(slice.notebook.cells[0]!.outputs[0]).toMatchObject({ stream: 'stderr', text: 'Parser Error: syntax error' });
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   function seedManualRunInEditorTab(language: 'javascript' | 'python'): ManualRunSession {

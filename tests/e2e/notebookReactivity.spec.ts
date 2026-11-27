@@ -193,3 +193,110 @@ for (const locale of ['en', 'es'] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+const CREATE_SQL = [
+  'CREATE TABLE by_city AS',
+  'SELECT city, sum(total) AS revenue',
+  "FROM (VALUES ('Medellin', 818.4, 'paid'), ('Cali', 301.7, 'paid'), ('Bogota', 731.1, 'open')) AS o(city, total, status)",
+  "WHERE status = 'paid'",
+  'GROUP BY city;',
+].join('\n');
+
+async function addCodeCell(page: Page, language: 'sql' | 'python'): Promise<Locator> {
+  const rows = page.getByTestId('notebook-code-cell-row');
+  const before = await rows.count();
+  await page.getByTestId('notebook-toolbar-add-code').click();
+  await expect(rows).toHaveCount(before + 1);
+  const row = rows.nth(before);
+  await row.getByTestId('notebook-code-cell-language').selectOption(language);
+  return row;
+}
+
+async function expectStatus(row: Locator, status: string, timeout?: number): Promise<void> {
+  await expect(row.getByTestId('notebook-code-cell-status')).toHaveAttribute(
+    'data-status',
+    status,
+    timeout === undefined ? {} : { timeout }
+  );
+}
+
+test('SQL tables and Python cells refresh with one click after an edit', async ({
+  page,
+}, testInfo) => {
+  // Pyodide boots on the first Python run and DuckDB on the first SQL run.
+  test.setTimeout(240_000);
+  const errors: string[] = [];
+  page.on('pageerror', error => {
+    if (!isKnownBenignConsoleError(error.message)) errors.push(error.message);
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await seedSession(page, { language: 'en', primeProLicense: true });
+  await gotoApp(page);
+  await waitForSeededWorkspaceSettled(page);
+
+  await page.keyboard.press('ControlOrMeta+Alt+N');
+  await expect(page.getByTestId('notebook-view')).toBeVisible();
+  const rows = page.getByTestId('notebook-code-cell-row');
+  const create = rows.first();
+  await create.getByTestId('notebook-code-cell-language').selectOption('sql');
+  await editCell(page, create, CREATE_SQL);
+  const select = await addCodeCell(page, 'sql');
+  await editCell(page, select, 'SELECT city, revenue FROM by_city ORDER BY revenue DESC;');
+  const tickets = await addCodeCell(page, 'python');
+  await editCell(page, tickets, 'tickets = [151.2, 146.9, 130.86]\navg = sum(tickets) / len(tickets)');
+  const over = await addCodeCell(page, 'python');
+  await editCell(page, over, 'over = [t for t in tickets if t > avg]\nlen(over)');
+
+  await page.getByTestId('notebook-toolbar-run-all').click();
+  await expectStatus(over, 'ok', 120_000);
+  for (const row of [create, select, tickets]) await expectStatus(row, 'ok');
+  await expect(over.locator('[data-testid="notebook-cell-answer"][data-line="2"]')).toContainText('2');
+
+  const toolbarHeight = () =>
+    page.evaluate(() => document.querySelector('[data-testid="notebook-stale-notice-slot"]')!.closest('header')!.offsetHeight);
+  const heightWithoutNotice = await toolbarHeight();
+
+  // Edit a Python cell, then press its Run button straight from the editor.
+  await editCell(page, tickets, 'tickets = [151.2, 146.9, 130.86, 171.05]\navg = sum(tickets) / len(tickets)');
+  await tickets.getByTestId('notebook-code-cell-run').click();
+  await expectStatus(tickets, 'ok', 30_000);
+  await expectStatus(over, 'stale');
+  for (const row of [create, select]) await expectStatus(row, 'ok');
+  // The notice never adds a toolbar row, so nothing below it moves.
+  await expect(page.getByTestId('notebook-reactivity-banner')).toBeVisible();
+  expect(await toolbarHeight()).toBe(heightWithoutNotice);
+
+  const staleShot = testInfo.outputPath('notebook-stale-replay-python.png');
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: staleShot, animations: 'disabled' });
+  await testInfo.attach('notebook-stale-replay-python.png', { path: staleShot, contentType: 'image/png' });
+
+  const refreshCell = over.getByTestId('notebook-code-cell-run');
+  await expect(refreshCell).toHaveText(/Refresh cell/u);
+  await refreshCell.click();
+  await expectStatus(over, 'ok', 30_000);
+  await expect(over.locator('[data-testid="notebook-cell-answer"][data-line="2"]')).toContainText('2');
+
+  // Edit the SQL cell that made the table: Run replaces it instead of failing.
+  await editCell(page, create, CREATE_SQL.replace("status = 'paid'", "status <> 'void'"));
+  await create.getByTestId('notebook-code-cell-run').click();
+  await expectStatus(create, 'ok', 30_000);
+  await expect(create).not.toContainText('already exists');
+  await expectStatus(select, 'stale');
+  await select.getByTestId('notebook-code-cell-run').click();
+  await expectStatus(select, 'ok', 30_000);
+  await expect(select).toContainText('3');
+  await expect(page.getByTestId('notebook-view')).not.toContainText('already exists');
+
+  // Refresh n replays every stale cell without re-running SQL that is current.
+  await expect(page.getByTestId('notebook-reactivity-banner')).toBeVisible();
+  await page.getByTestId('notebook-toolbar-refresh-stale').click();
+  await expect(page.getByTestId('notebook-reactivity-banner')).toHaveCount(0);
+  for (const row of [create, select, tickets, over]) await expectStatus(row, 'ok');
+
+  const doneShot = testInfo.outputPath('notebook-stale-replay-done.png');
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: doneShot, animations: 'disabled' });
+  await testInfo.attach('notebook-stale-replay-done.png', { path: doneShot, contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});

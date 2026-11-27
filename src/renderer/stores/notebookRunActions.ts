@@ -60,6 +60,8 @@ export function createRunActions(
         if (!slice) return state;
         if (!isNotebookCellRunStatus(status)) return state;
         if (slice.cellRunStatus[cellId] === status) return state;
+        // A run starts from the current source, so the edit no longer explains a stale state.
+        const { [cellId]: _edited, ...stillEdited } = slice.cellEditedSinceRun ?? {};
         return {
           notebooks: {
             ...state.notebooks,
@@ -69,6 +71,7 @@ export function createRunActions(
                 ...slice.cellRunStatus,
                 [cellId]: status,
               },
+              ...(status === 'running' && _edited ? { cellEditedSinceRun: stillEdited } : {}),
             },
           },
         };
