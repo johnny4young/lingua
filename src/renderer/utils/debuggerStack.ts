@@ -2,7 +2,7 @@ import type { PausedFrame } from '../stores/debuggerStore';
 
 type StackFrame = PausedFrame['callStack'][number];
 
-/** The outermost frame's name, as every runtime reports its top level. */
+/** The outermost frame's name, as the JS worker and Python report their top level. */
 export const MODULE_FRAME = '<module>';
 
 /** One row of the call stack drawn outermost first; `line` is absent where the runtime reports none. */

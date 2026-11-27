@@ -1,3 +1,4 @@
+import type { UnassignedBinding } from '../../shared/scopeSnapshot';
 import type { JsWorkerDebuggerFrame, JsWorkerDebuggerSession } from './js-worker-debugger';
 
 /** Records the statement about to run as its frame's current line, and as a line the frame ran. */
@@ -22,6 +23,17 @@ export function readJsWorkerLocals(getLocals: () => Record<string, unknown>): Re
     return getLocals();
   } catch {
     return {};
+  }
+}
+
+/** The bindings the instrumenter listed as not run yet, or none when the list is missing or unreadable. */
+export function parseJsWorkerUnassigned(listed: string | undefined): UnassignedBinding[] | undefined {
+  if (!listed) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(listed);
+    return Array.isArray(parsed) ? (parsed as UnassignedBinding[]) : undefined;
+  } catch {
+    return undefined;
   }
 }
 

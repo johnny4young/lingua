@@ -105,14 +105,18 @@ interface Pause {
 const CALL_TEXT_LENGTH = 32;
 const CHAIN_NAMES = 3;
 
-/** The `index`th call of `name` on the line as written, such as `quickSort(left)`; `name(…)` when it is not there or too long. */
-export function callOnLine(line: string, name: string, index: number, language: string): string {
-  const callee = name.slice(name.lastIndexOf('.') + 1);
+/**
+ * The `index`th call of `name` on the line as written, such as `quickSort(left)`; `name(…)` when the line
+ * has no such call, it is too long, or the runtime sent no index and the line calls it more than once.
+ */
+export function callOnLine(line: string, name: string, index: number | undefined, language: string): string {
+  const callee = name.slice(Math.max(name.lastIndexOf('.'), name.lastIndexOf(':')) + 1);
   const fallback = `${callee}(…)`;
   if (!/^[A-Za-z_$][\w$]*$/.test(callee)) return fallback;
   const code = codeOf(line, language === 'python');
   const starts = [...code.matchAll(new RegExp(`(?<![\\w$])${callee.replace(/\$/g, '\\$')}\\s*\\(`, 'g'))];
-  const match = starts[Math.min(Math.max(index, 1), starts.length) - 1];
+  if (index === undefined && starts.length > 1) return fallback;
+  const match = starts[(index ?? 1) - 1];
   if (!match) return fallback;
   const close = closingParen(code, match.index + match[0].length - 1);
   if (close < 0) return fallback;
@@ -143,7 +147,7 @@ function callerResults(frame: Pause, lines: readonly string[], language: string,
       const chain = names.length > CHAIN_NAMES ? [names[0]!, '…', names.at(-1)!] : names;
       results.push({ line: caller.line, value: chain.join(' → '), type: 'log', frameCall: { kind: 'calling', depth: frame.depth } });
     } else {
-      const call = callOnLine(lines[caller.line - 1]!, callee.functionName, callee.callIndex ?? 1, language);
+      const call = callOnLine(lines[caller.line - 1]!, callee.functionName, callee.callIndex, language);
       const depth = stack.length - 1 - index;
       results.push({ line: caller.line, value: call, type: 'log', depth, frameCall: { kind: 'waiting', thisCall: index === 1 } });
     }
@@ -179,7 +183,8 @@ export function pausedLineResults(frame: Pause, previous: Pause | null, code: st
       results.push({ line: frame.line, name, value, type: 'log', held: true, ...withPrevious(name, value) });
     }
   }
-  const taken = new Set(results.map(result => result.line));
+  // The paused line is this frame's, even when a recursive caller waits on the same line.
+  const taken = new Set([frame.line]);
   if (before && inRange(before.line) && sameFrame) {
     for (const name of localsChanges(before.locals, frame.locals).keys()) {
       if (shown.has(`${before.line}:${name}`)) continue;

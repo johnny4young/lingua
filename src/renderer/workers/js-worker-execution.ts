@@ -1,5 +1,5 @@
 import { createJsWorkerTimeline, watchJsWorkerConsoleForTimeline } from './js-worker-timeline';
-import type { ScopeVariable, UnassignedBinding } from '../../shared/scopeSnapshot';
+import type { ScopeVariable } from '../../shared/scopeSnapshot';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
   applyJsWorkerExecutePayload,
@@ -8,7 +8,7 @@ import {
   type JsWorkerBreakpoint,
   type JsWorkerDebuggerSession,
 } from './js-worker-debugger';
-import { jsWorkerPauseFrames, noteJsWorkerDebugLine, pushJsWorkerDebugFrame, reachJsWorkerDebugLines, readJsWorkerLocals } from './js-worker-debugger-frames';
+import { jsWorkerPauseFrames, noteJsWorkerDebugLine, pushJsWorkerDebugFrame, reachJsWorkerDebugLines, readJsWorkerLocals, parseJsWorkerUnassigned } from './js-worker-debugger-frames';
 import {
   evaluateDebuggerExpression,
   renderDebuggerLogpoint,
@@ -234,7 +234,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             line: number,
             getLocals: () => Record<string, unknown>,
             endLine = line,
-            unassigned?: UnassignedBinding[]
+            unassigned?: string
           ): Promise<void> => {
             if (!session.enabled) return;
             noteJsWorkerDebugLine(session, line);
@@ -253,7 +253,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             getLocals: () => Record<string, unknown>,
             breakpoint: JsWorkerBreakpoint | undefined,
             shouldPauseForStep: boolean,
-            unassigned: UnassignedBinding[] | undefined
+            pendingBindings: string | undefined
           ): Promise<void> => {
             const localsRaw = readJsWorkerLocals(getLocals);
             const scope = snapshotDebuggerScope(localsRaw);
@@ -301,7 +301,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               line,
               reason,
               locals: localsSerialized,
-              ...(unassigned ? { unassigned } : {}),
+              unassigned: parseJsWorkerUnassigned(pendingBindings),
               ...jsWorkerPauseFrames(session),
               watchResults,
               conditionError,

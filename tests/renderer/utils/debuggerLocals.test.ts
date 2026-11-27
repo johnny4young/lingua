@@ -173,6 +173,17 @@ describe('paused frames on the lines they ran', () => {
     expect(pausedLineResults({ ...deep, frameLines: undefined }, null, sort, 'javascript').some(result => result.line < 4)).toBe(false);
   });
 
+  it('keeps a recursive caller off the paused line when that line names no local', () => {
+    const code = ['function go() {', '  if (--count > 0) go();', '}', 'go();'].join('\n');
+    const stack = [
+      { functionName: 'go', line: 2, declarationLine: 1, callIndex: 1 },
+      { functionName: 'go', line: 2, declarationLine: 1, callIndex: 1 },
+      { functionName: '<module>', line: 4 },
+    ];
+    const results = pausedLineResults({ tabId: 't1', line: 2, locals: {}, depth: 2, frame: 'go', callStack: stack }, null, code, 'javascript');
+    expect(results.some(result => result.line === 2)).toBe(false);
+  });
+
   it('answers a top-level pause on the top-level lines that ran', () => {
     const atTop = { tabId: 't1', line: 11, locals: { nums: '[3]' }, depth: 0, callStack: [{ functionName: '<module>', line: 11 }], frameLines: [10, 12] };
     expect(pausedLineResults(atTop, null, sort, 'javascript')).toEqual([
@@ -184,11 +195,15 @@ describe('paused frames on the lines they ran', () => {
   it('reads which call a caller waits on from the call index, and folds a long chain', () => {
     const line = '  return [...quickSort(left), ...mid, ...quickSort(right)];';
     expect(callOnLine(line, 'quickSort', 2, 'javascript')).toBe('quickSort(right)');
-    expect(callOnLine(line, 'quickSort', 5, 'javascript')).toBe('quickSort(right)');
+    // A call started on a later line of the statement is not on this one.
+    expect(callOnLine(line, 'quickSort', 5, 'javascript')).toBe('quickSort(…)');
     expect(callOnLine('out = merge(mergeSort(a),  b);', 'merge', 1, 'javascript')).toBe('merge(mergeSort(a), b)');
     expect(callOnLine('x = "go(1)" + go(veryLongArgumentNameThatKeepsGoing, another)', 'go', 1, 'javascript')).toBe('go(…)');
     expect(callOnLine('box.size([n])', 'Box.size', 1, 'javascript')).toBe('size([n])');
     expect(callOnLine('run()', '<anonymous>', 1, 'javascript')).toBe('<anonymous>(…)');
+    // A runtime without call indexes cannot tell two calls apart, and Rust paths name the function last.
+    expect(callOnLine(line, 'quickSort', undefined, 'python')).toBe('quickSort(…)');
+    expect(callOnLine('    total = fib(n)', 'demo::fib', undefined, 'rust')).toBe('fib(n)');
     const stack = ['d', 'c', 'b', 'a'].map((name, index) => ({ functionName: name, line: 7 - index, declarationLine: 1 }));
     const chain = pausedLineResults(
       { ...deep, depth: 4, callStack: [...stack, { functionName: '<module>', line: 11 }], frameLines: [] },

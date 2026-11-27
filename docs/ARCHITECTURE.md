@@ -854,9 +854,12 @@ caller's statement started, counted from 1 and reset when the caller moves to
 its next statement, so the renderer can name `quickSort(right)` rather than the
 first `quickSort(` on the line. Each frame keeps the statement lines its own
 invocation started, and the pause sends the paused frame's set as `frameLines`.
-The instrumenter passes each yield, as a fourth argument, the body's `const`,
-`let` and `class` declarations from that statement on, which have not run and
-would throw if read; the pause sends them as `unassigned`. The renderer answers
+The instrumenter passes each yield, as a fourth argument holding a JSON string
+literal (so a statement that does not pause allocates nothing), the body's
+`const`, `let` and `class` declarations from that statement on, which have not
+run and would throw if read; the pause parses them and sends them as
+`unassigned`. Runtimes without call indexes name a caller's call only when the
+line calls that function once. The renderer answers
 each calling frame's line with what it waits on, the `<module>` line with the
 chain of calls not returned, and the paused frame's earlier lines (its
 declaration line, then `frameLines` above the pause) with the current value of

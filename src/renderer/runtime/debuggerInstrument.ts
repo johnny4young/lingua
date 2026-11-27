@@ -612,7 +612,8 @@ function injectYieldBefore(
   const pending = lexicalDeclarations(parent, translateLine)
     .filter(binding => binding.start >= stmt.start)
     .map(({ name, kind, line }) => ({ name, kind, line }));
-  const pendingArg = pending.length > 0 ? `, ${JSON.stringify(pending)}` : '';
+  // A string literal, so a statement that does not pause allocates nothing for it.
+  const pendingArg = pending.length > 0 ? `, ${JSON.stringify(JSON.stringify(pending))}` : '';
   const endArg = endLine > userLine || pendingArg ? `, ${endLine}${pendingArg}` : '';
 
   const yieldExpr = `await ${helperName}(${userLine}, () => ${localObject}${endArg});`;
