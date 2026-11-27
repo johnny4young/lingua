@@ -3,16 +3,10 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { filterSqlHistory, type SqlHistoryEntryV1 } from '../../../shared/sqlHistory';
 import { cn } from '../../utils/cn';
-import { toneForSqlStatus } from './sqlStatusTone';
+import { sqlStatusDotClass, toneForSqlStatus } from './sqlStatusTone';
 import { formatClock } from './sqlResultFormatters';
 import { SqlLatencyBar } from './SqlLatencyBar';
 import { maxDuration } from '../../utils/latencyScale';
-
-const DOT_CLASS: Partial<Record<ReturnType<typeof toneForSqlStatus>, string>> = {
-  success: 'bg-success-fg',
-  error: 'bg-error-fg',
-  warning: 'bg-warning-fg',
-};
 
 /**
  * The runs of the active connection (Local when unset), newest first; a
@@ -37,7 +31,7 @@ export function SqlHistorySection({
   /** Clears the runs shown here. */
   onClear: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [search, setSearch] = useState('');
   const entries = useMemo(() => filterSqlHistory(allEntries, '', connectionId), [allEntries, connectionId]);
   const visible = useMemo(() => filterSqlHistory(entries, search, connectionId), [entries, search, connectionId]);
@@ -114,7 +108,7 @@ export function SqlHistorySection({
                   <span className="flex w-full min-w-0 items-center gap-1.5">
                     <span
                       aria-hidden="true"
-                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', DOT_CLASS[tone] ?? 'bg-fg-subtle')}
+                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', sqlStatusDotClass(entry.status))}
                     />
                     <span className="min-w-0 flex-1 truncate font-mono text-caption text-fg-base">
                       {entry.sql.replace(/\s+/g, ' ').trim()}
@@ -124,7 +118,7 @@ export function SqlHistorySection({
                     <SqlLatencyBar durationMs={entry.durationMs} maxMs={slowest} failed={tone === 'error'} />
                     <span className="truncate font-mono text-micro tabular-nums text-fg-subtle">
                       {t('sqlWorkspace.history.meta', {
-                        time: formatClock(entry.recordedAt),
+                        time: formatClock(entry.recordedAt, i18n.language),
                         duration: Math.round(entry.durationMs),
                         status: t(`sqlWorkspace.statusPill.${entry.status}`),
                         count: entry.rowCount,

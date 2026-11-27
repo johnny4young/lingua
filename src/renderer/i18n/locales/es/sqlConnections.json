@@ -343,5 +343,6 @@
   "sqlWorkspace.grid.summary.rowsFirst_other": "Perfil de las primeras {{formatted}} de {{total}} filas",
   "sqlWorkspace.grid.summary.sum": "suma",
   "sqlWorkspace.grid.summary.avg": "prom.",
-  "sqlWorkspace.queryList.lastRun": "Última ejecución: {{duration}}"
+  "sqlWorkspace.queryList.lastRun": "Última ejecución: {{duration}}",
+  "sqlWorkspace.response.rowsNotKept": "Las filas de ejecuciones anteriores no se guardan."
 }

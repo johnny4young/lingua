@@ -77,7 +77,7 @@ describe('staged row edits', () => {
     const editor = screen.getByTestId('sql-cell-editor');
     await user.clear(editor);
     await user.type(editor, '3450.00{Enter}');
-    expect(cell(0, 'total').textContent).toBe('3450.00');
+    expect(cell(0, 'total').textContent).toBe('3,450.00');
     expect(cell(0, 'total').dataset.edit).toBe('edited');
     expect(screen.getByTestId('sql-edit-count').textContent).toBe('1 staged change');
     await user.click(screen.getByTestId('sql-edit-review'));

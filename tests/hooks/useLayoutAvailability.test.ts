@@ -66,6 +66,20 @@ describe('useLayoutAvailability', () => {
     act(() => useProjectStore.setState({ currentProject: null }));
   });
 
+  it.each(['sql', 'http'])('gives a %s tab the dock only while a project is open', (kind) => {
+    openTab({ kind, name: kind.toUpperCase(), language: 'plaintext' });
+    const { result, rerender } = renderHook(() => useLayoutAvailability());
+    expect(result.current).toMatchObject({ dockShown: false, dockExpanded: false });
+
+    act(() => useProjectStore.setState({ currentProject: { id: 'p', name: 'P', rootPath: '/p', rootId: 'r', openedAt: 1 } as never }));
+    rerender();
+    expect(result.current).toMatchObject({ dockShown: true, dockExpanded: true });
+    act(() => useUIStore.getState().toggleConsole());
+    rerender();
+    expect(result.current).toMatchObject({ dockShown: true, dockExpanded: false });
+    act(() => useProjectStore.setState({ currentProject: null }));
+  });
+
   it('removes the dock in the editor-only layout and on Utilities tabs', () => {
     openTab({});
     act(() => useSettingsStore.getState().setLayoutPreset('editor-only'));

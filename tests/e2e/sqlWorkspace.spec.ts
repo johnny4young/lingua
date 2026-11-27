@@ -120,9 +120,10 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     await expect(page.getByTestId('sql-result-preview')).toHaveAttribute('data-state', 'empty');
     await page.getByTestId('sql-query-editor-run').click();
     await expect(page.getByTestId('sql-result-preview-row')).toHaveCount(6);
-    await expect(page.getByTestId('sql-result-strip')).toContainText('ran from the editor');
+    // The editor above shows the SQL of its own run, so no strip repeats it.
+    await expect(page.getByTestId('sql-result-strip')).toHaveCount(0);
     const revenue = page.getByTestId('sql-result-preview-row').first().locator('td').nth(2);
-    await expect(revenue).toHaveText('28770.90');
+    await expect(revenue).toHaveText('28,770.90');
     await expect(revenue).toHaveClass(/text-right/);
 
     // Opening the table from the Explorer shows its rows under a generated strip.

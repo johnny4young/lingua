@@ -343,5 +343,6 @@
   "sqlWorkspace.grid.summary.rowsFirst_other": "Profile of the first {{formatted}} of {{total}} rows",
   "sqlWorkspace.grid.summary.sum": "sum",
   "sqlWorkspace.grid.summary.avg": "avg",
-  "sqlWorkspace.queryList.lastRun": "Last run: {{duration}}"
+  "sqlWorkspace.queryList.lastRun": "Last run: {{duration}}",
+  "sqlWorkspace.response.rowsNotKept": "Rows from earlier runs are not kept."
 }

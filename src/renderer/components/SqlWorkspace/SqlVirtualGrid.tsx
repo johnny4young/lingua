@@ -14,8 +14,9 @@ import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { formatNumber } from '../../i18n/formatNumber';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 import { cn } from '../../utils/cn';
+import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
 import { fixedRowWindow } from './sqlResultFilters';
-import { renderCell } from './sqlResultFormatters';
+import { renderCell, renderNumberCell } from './sqlResultFormatters';
 import { cellMagic, type SqlCellMagic } from './sqlCellMagic';
 import {
   columnSlots,
@@ -31,7 +32,8 @@ import {
 } from './sqlGridColumns';
 import type { SqlSortState } from './sqlResultGrid';
 import { cellText, cellTone, DELETED, type CellTone, type ShownRow } from './sqlRowEditModel';
-import { barShare, formatSummary, type SqlResultInstruments } from './sqlColumnInstruments';
+import { barShare, formatSummary, isIdentifierColumn, type SqlResultInstruments } from './sqlColumnInstruments';
+import { toWords } from '../../utils/stringCase';
 import type { SqlColumnStats } from './sqlColumnStats';
 import '../../i18n/sqlConnectionsCatalog';
 
@@ -76,6 +78,9 @@ const CELL_ACTIONS: ReadonlyArray<{ id: SqlCellAction; labelKey: string }> = [
   { id: 'copy-insert', labelKey: 'sqlWorkspace.grid.menu.copyInsert' },
   { id: 'open-value', labelKey: 'sqlWorkspace.grid.menu.openValue' },
 ];
+
+/** The grid copies the selected row as JSON on this combo; the menu item shows it. */
+const COPY_ROW_COMBO = { tokens: ['Mod', 'c'] } as const;
 
 /** A new row's column left unset, which the table fills with its default. */
 const UNSET_CELL = 'default';
@@ -198,6 +203,8 @@ const GridRow = memo(function GridRow({
   editor,
   fractions,
   scales,
+  grouped,
+  language,
 }: {
   row: Record<string, unknown>;
   index: number;
@@ -214,6 +221,9 @@ const GridRow = memo(function GridRow({
   fractions: ReadonlySet<string>;
   /** Each barred numeric column's largest value. */
   scales: ReadonlyMap<string, number>;
+  /** Numeric columns shown with digit grouping. */
+  grouped: ReadonlySet<string>;
+  language: string;
 }) {
   const rowSelected = selectedColumn !== null;
   return (
@@ -290,7 +300,9 @@ const GridRow = memo(function GridRow({
             ) : magic ? (
               <MagicCell magic={magic} text={renderCell(value)} />
             ) : share !== null ? (
-              <NumberBar share={share} text={renderCell(value)} />
+              <NumberBar share={share} text={renderNumberCell(value, language)} />
+            ) : grouped.has(col.name) ? (
+              renderNumberCell(value, language)
             ) : (
               renderCell(value)
             )}
@@ -491,7 +503,7 @@ export function SqlVirtualGrid({
   /** Bar scales and the Σ row, worked out over the loaded rows. */
   instruments?: SqlResultInstruments;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [editor, setEditor] = useState<{ row: number; column: string; value: string; target: Record<string, unknown>; wasEmpty: boolean } | null>(null);
   const editorRef = useRef(editor);
   useLayoutEffect(() => {
@@ -517,6 +529,17 @@ export function SqlVirtualGrid({
         return { col, duckType, numeric: isNumericSqlType(duckType), index };
       }),
     [columns]
+  );
+
+  // Keys, foreign keys and years read as labels, so they keep their raw digits.
+  const grouped = useMemo(
+    () =>
+      new Set(
+        typed
+          .filter(({ col, numeric }) => numeric && !isIdentifierColumn(col.name) && !linkedColumns?.has(col.name) && toWords(col.name).at(-1)?.toLowerCase() !== 'year')
+          .map(({ col }) => col.name)
+      ),
+    [typed, linkedColumns]
   );
 
   // Kept while their entries match, so a new rows array (filter, Load more, a staged edit) with the same bars leaves unchanged rows memoized.
@@ -701,8 +724,9 @@ export function SqlVirtualGrid({
         role="grid"
         aria-rowcount={rows.length + (summary ? 2 : 1)}
         aria-colcount={typed.length}
-        style={plan ? { width: plan.offsets[plan.offsets.length - 1] } : undefined}
-        className={cn('border-collapse font-mono text-caption', plan ? 'table-fixed' : 'w-max')}
+        // Columns share whatever width the pane has left, so the grid and its Σ row span it.
+        style={plan ? { width: plan.offsets[plan.offsets.length - 1], minWidth: '100%' } : undefined}
+        className={cn('border-collapse font-mono text-caption', plan ? 'table-fixed' : 'w-max min-w-full')}
       >
         {colgroup}
         <GridHeader typed={typed} sort={sort} linkedColumns={linkedColumns} stats={statsByName} onSort={rowActions.sort} />
@@ -723,6 +747,8 @@ export function SqlVirtualGrid({
                 editor={editor?.row === index ? { column: editor.column, value: editor.value } : null}
                 fractions={fractions}
                 scales={scales}
+                grouped={grouped}
+                language={i18n.language}
               />
             );
           })}
@@ -758,9 +784,14 @@ export function SqlVirtualGrid({
                     if (id === 'edit-cell') openCell(menu.cell);
                     else onCellAction(id, menu.cell);
                   }}
-                  className="flex h-[26px] w-full items-center rounded px-2 text-left text-fg-base hover:bg-bg-panel-alt focus-visible:bg-bg-panel-alt focus-visible:outline-none"
+                  className="flex h-[26px] w-full items-center justify-between gap-2 rounded px-2 text-left text-fg-base hover:bg-bg-panel-alt focus-visible:bg-bg-panel-alt focus-visible:outline-none"
                 >
                   {t(labelKey)}
+                  {id === 'copy-row' ? (
+                    <kbd data-testid="sql-cell-menu-copy-row-keys" className="font-mono text-micro text-fg-muted">
+                      {formatShortcutCombo(COPY_ROW_COMBO, currentShortcutDisplayPlatform())}
+                    </kbd>
+                  ) : null}
                 </button>
               ))}
             </div>,

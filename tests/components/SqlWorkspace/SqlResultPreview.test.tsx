@@ -167,7 +167,7 @@ describe('SqlResultPreview', () => {
     expect(onEditInEditor).toHaveBeenCalledWith('SELECT * FROM "cities" LIMIT 100;');
   });
 
-  it('labels an editor run in the strip without an Edit in editor button', () => {
+  it('leaves an editor run without a strip, since the editor shows its SQL', () => {
     render(
       <SqlResultPreview
         response={response()}
@@ -177,7 +177,7 @@ describe('SqlResultPreview', () => {
         onEditInEditor={vi.fn()}
       />
     );
-    expect(screen.getByTestId('sql-result-strip').textContent).toContain('ran from the editor');
+    expect(screen.queryByTestId('sql-result-strip')).toBeNull();
     expect(screen.queryByTestId('sql-result-strip-edit')).toBeNull();
   });
 
@@ -295,8 +295,8 @@ describe('SqlResultPreview', () => {
     });
   });
 
-  describe('run history', () => {
-    it('renders a history entry per response and selects on click', async () => {
+  describe('run picker', () => {
+    it('lists the runs in the header menu and selects one on click', async () => {
       const user = userEvent.setup();
       const onSelect = vi.fn();
       const responses: SqlResponseV1[] = [
@@ -314,16 +314,61 @@ describe('SqlResultPreview', () => {
         />
       );
 
-      const entries = screen.getAllByTestId('sql-run-history-entry');
+      expect(screen.queryByTestId('sql-run-history')).toBeNull();
+      const picker = screen.getByTestId('sql-run-picker');
+      expect(picker.getAttribute('data-latest')).toBe('true');
+      await user.click(picker);
+      const entries = screen.getAllByTestId('sql-run-picker-entry');
       expect(entries).toHaveLength(2);
-      // Newest entry is the active selection.
-      expect(entries[0]!.getAttribute('data-active')).toBe('true');
+      expect(entries[0]!.getAttribute('aria-checked')).toBe('true');
+      expect(entries[1]!.textContent).toContain('9 rows');
+      expect(screen.getAllByTestId('sql-latency-bar')).toHaveLength(2);
 
       await user.click(entries[1]!);
       expect(onSelect).toHaveBeenCalledWith(1);
+      expect(screen.queryByTestId('sql-run-picker-menu')).toBeNull();
     });
 
-    it('hides the history list when there is only one run', () => {
+    it('keeps the picker on an earlier run that failed, so the newest stays one click away', async () => {
+      const user = userEvent.setup();
+      const onSelect = vi.fn();
+      const responses: SqlResponseV1[] = [
+        response(),
+        response({ status: 'sql-error', rows: [], rowCount: 0, errorMessage: 'boom' }),
+      ];
+      render(
+        <SqlResultPreview
+          response={responses[1]!}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          responses={responses}
+          selectedResponseIndex={1}
+          onSelectResponse={onSelect}
+        />
+      );
+      const picker = screen.getByTestId('sql-run-picker');
+      expect(picker.getAttribute('data-latest')).toBe('false');
+      await user.click(picker);
+      await user.click(screen.getAllByTestId('sql-run-picker-entry')[0]!);
+      expect(onSelect).toHaveBeenCalledWith(0);
+    });
+
+    it('says an earlier run kept its count but not its rows', () => {
+      const responses: SqlResponseV1[] = [response(), response({ rows: [], rowCount: 9 })];
+      render(
+        <SqlResultPreview
+          response={responses[1]!}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          responses={responses}
+          selectedResponseIndex={1}
+          onSelectResponse={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId('sql-result-preview-no-rows').textContent).toBe('Rows from earlier runs are not kept.');
+    });
+
+    it('hides the picker when there is only one run', () => {
       render(
         <SqlResultPreview
           response={response()}
@@ -334,7 +379,7 @@ describe('SqlResultPreview', () => {
           onSelectResponse={vi.fn()}
         />
       );
-      expect(screen.queryByTestId('sql-run-history')).toBeNull();
+      expect(screen.queryByTestId('sql-run-picker')).toBeNull();
     });
   });
 
