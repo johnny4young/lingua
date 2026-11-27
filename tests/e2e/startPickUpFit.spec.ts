@@ -21,7 +21,7 @@ function sessionTabs(now: number) {
       language: 'sql',
       content: '',
       kind: 'sql',
-      workspaceTabId: 'sql-workspace',
+      workspaceTabId: 'lingua:workspace:sql',
       lastAnswer: {
         kind: 'sql',
         status: 'ok',
@@ -38,7 +38,7 @@ function sessionTabs(now: number) {
       language: 'http',
       content: '',
       kind: 'http',
-      workspaceTabId: 'http-workspace',
+      workspaceTabId: 'lingua:workspace:http',
       lastAnswer: { kind: 'http', status: 'ok', numeral: '200', unit: 'status', label: 'OK', subject: 'GET /v1/services', context: 'staging', ranAt: now - 26 * HOUR },
     },
     {

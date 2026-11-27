@@ -200,7 +200,7 @@
     gap: 12px;
   }
 
-  /* Under the name: past the 20 px number box and the 12 px gap. */
+  /* Under the badge: past the 20 px number box and the 12 px gap. */
   .start-row-tail {
     padding-left: calc(1.25rem + 12px);
   }
@@ -418,7 +418,7 @@
 }
 
 @media (min-width: 1024px) {
-  /* The board's column: about 84 % of the window, the rest split as gutters. */
+  /* The board's column: about 84 % of the window up to the 1480 px cap, the rest split as gutters. */
   .start-inner {
     padding-inline: clamp(48px, 8%, 120px);
   }

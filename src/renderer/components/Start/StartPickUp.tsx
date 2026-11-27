@@ -14,6 +14,19 @@ import { answerDisplay, answerIdentity } from './answerLabels';
 import { startTimeAgo } from './startModel';
 
 const MAX_ROWS = 9;
+const NAME_FLOOR_CH = 12;
+// East Asian wide characters and emoji take two monospace cells.
+const WIDE = /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]|\p{Extended_Pictographic}/u;
+
+/** The name's width in monospace cells, up to the floor it never truncates below. */
+function nameFloorCh(name: string): number {
+  let cells = 0;
+  for (const char of name) {
+    cells += WIDE.test(char) ? 2 : 1;
+    if (cells >= NAME_FLOOR_CH) return NAME_FLOOR_CH;
+  }
+  return cells;
+}
 
 interface PickUpRow {
   key: string;
@@ -192,8 +205,8 @@ export function StartPickUp() {
                 {row.badge}
                 <span
                   className="start-row-name truncate font-mono font-semibold text-fg-base"
-                  // Monospace, so a name holds its full width up to 12 characters before it truncates.
-                  style={{ '--start-name-min': `${Math.min([...row.name].length, 12)}ch` } as CSSProperties}
+                  // Monospace, so a name holds its full width up to 12 cells before it truncates.
+                  style={{ '--start-name-min': `${nameFloorCh(row.name)}ch` } as CSSProperties}
                   title={row.name}
                 >
                   {row.name}

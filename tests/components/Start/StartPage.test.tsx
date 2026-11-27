@@ -217,6 +217,7 @@ describe('Start page', () => {
       savedTabs: [
         { name: 'a.js', language: 'javascript', content: '', lastAnswer: { kind: 'code', status: 'ok', numeral: '1', ranAt: Date.now() } },
         { name: 'break-even-forecast.ts', language: 'typescript', content: '', lastAnswer: { kind: 'code', status: 'ok', numeral: '2', ranAt: Date.now() } },
+        { name: '数据.py', language: 'python', content: '', lastAnswer: { kind: 'code', status: 'ok', numeral: '3', ranAt: Date.now() } },
       ],
       savedActiveIndex: 0,
     });
@@ -227,6 +228,7 @@ describe('Start page', () => {
       (screen.getByTestId(`start-pick-up-row-${row}`).querySelector('.start-row-name') as HTMLElement).style.getPropertyValue('--start-name-min');
     expect(nameMin(1)).toBe('4ch');
     expect(nameMin(2)).toBe('12ch');
+    expect(nameMin(3)).toBe('7ch');
   });
 
   it('says how each language runs on the web build and opens a scratch tab in it', async () => {

@@ -31,10 +31,11 @@ export const connectionContextLabel = (connection?: Pick<SqlConnectionDraft, 'na
   connection ? `${connection.name} · ${ENGINE_LABEL[connection.engine]}` : LOCAL_ENGINE;
 
 /** The context a Start row keeps: the engine alone when the name is, or could be, the host. */
-export const answerContextLabel = (connection?: Pick<SqlConnectionDraft, 'name' | 'engine' | 'host'>) => {
+export const answerContextLabel = (connection?: Pick<SqlConnectionDraft, 'name' | 'engine' | 'host' | 'ssh'>) => {
   if (!connection) return LOCAL_ENGINE;
-  const { name, host } = connection;
-  const hostLike = /[./:@]/.test(name) || (host !== undefined && (name === host || name === host.split('.')[0]));
+  const name = connection.name.toLowerCase();
+  const hosts = [connection.host, connection.ssh?.host].filter((host): host is string => !!host).map(host => host.toLowerCase());
+  const hostLike = /[./:@]/.test(name) || hosts.some(host => name === host || name === host.split('.')[0]);
   return hostLike ? ENGINE_LABEL[connection.engine] : connectionContextLabel(connection);
 };
 

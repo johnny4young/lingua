@@ -76,9 +76,12 @@ function boundedMs(value: unknown): number | undefined {
   return finiteNumber(value) ? Math.round(value) : undefined;
 }
 
+// A name that reads as a host, address or path never becomes an answer's context.
+const HOST_LIKE = /[./:@]/;
+
 function contextField(value: unknown): Pick<LastAnswer, 'context'> {
   const context = boundedString(value, LAST_ANSWER_CONTEXT_MAX);
-  return context ? { context } : {};
+  return context && !HOST_LIKE.test(context) ? { context } : {};
 }
 
 function durationField(ms: unknown): Pick<LastAnswer, 'durationMs'> {

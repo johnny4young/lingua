@@ -209,6 +209,7 @@ describe('httpLastAnswer', () => {
     expect(answer.context).toBe('staging');
     expect(JSON.stringify(answer)).not.toMatch(/pw|key=|example/);
     expect(httpLastAnswer(response, 'DELETE', RAN_AT, undefined)).not.toHaveProperty('context');
+    expect(httpLastAnswer(response, 'DELETE', RAN_AT, 'api.example.test')).not.toHaveProperty('context');
   });
 
   it('leaves a network failure without a numeral', () => {
@@ -315,6 +316,7 @@ describe('sanitizeLastAnswer', () => {
     );
     expect(sanitizeLastAnswer({ kind: 'sql', status: 'ok', numeral: '1', context: { name: 'db' }, ranAt: RAN_AT })).not.toHaveProperty('context');
     expect(sanitizeLastAnswer({ kind: 'sql', status: 'ok', numeral: '1', context: 42, ranAt: RAN_AT })).not.toHaveProperty('context');
+    expect(sanitizeLastAnswer({ kind: 'http', status: 'ok', numeral: '1', context: 'https://api.internal', ranAt: RAN_AT })).not.toHaveProperty('context');
     expect(clipped?.picture?.values).toHaveLength(LAST_ANSWER_PICTURE_MAX);
     expect(clipped).not.toHaveProperty('unit');
     expect(
