@@ -204,7 +204,6 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   }, [backingTabName, createNotebookForTab, notebook, tabId]);
 
   useDismissible(shortcutsOpen, shortcutsAnchorRef, setShortcutsOpen);
-  useDismissible(exportMenuOpen, exportMenuAnchorRef, setExportMenuOpen);
 
   const handleAddMarkdown = useCallback(() => {
     if (!notebook) return;

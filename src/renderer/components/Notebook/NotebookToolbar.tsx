@@ -111,14 +111,13 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
   const rowRef = useRef<HTMLElement | null>(null);
   const { step, showsMeta, kernelInMenu, runRangeInMenu } = useNotebookToolbarFit(
     rowRef,
-    `${i18n.language}|${notebook.title}|${notebook.cells.length}|${codeCellsCount}|${staleCount > 0}|${isAnyCellRunning}`
+    `${i18n.language}|${notebook.title}|${notebook.cells.length}|${codeCellsCount}|${String(staleCount).length * Math.sign(staleCount)}|${isAnyCellRunning}`
   );
   const [moreOpen, setMoreOpen] = useState(false);
   const moreTriggerRef = useRef<HTMLButtonElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
-  // The ⋯ menu and the export menu share one anchor, so Export opens from wherever it sits.
-  useDismissible(moreOpen, exportMenuAnchorRef, setMoreOpen, moreTriggerRef);
-  useMenuKeyboard(moreOpen, moreMenuRef);
+  const exportTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const closeMore = () => {
     setMoreOpen(false);
     moreTriggerRef.current?.focus();
@@ -158,9 +157,18 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
   ];
   const exportDisabled = disabled || codeCellsCount === 0;
   const menuGroups = [runRangeInMenu ? runRange : [], kernelInMenu ? kernel : []].filter(group => group.length > 0);
+  // A wider row can empty ⋯ while it is open; it closes instead of floating empty.
+  if (moreOpen && menuGroups.length === 0) setMoreOpen(false);
+  const moreShown = moreOpen && menuGroups.length > 0;
+  // The ⋯ menu and the export menu share one anchor, so Export opens from wherever it sits.
+  useDismissible(moreShown, exportMenuAnchorRef, setMoreOpen, moreTriggerRef);
+  useMenuKeyboard(moreShown, moreMenuRef);
+  useDismissible(exportMenuOpen, exportMenuAnchorRef, setExportMenuOpen, kernelInMenu ? moreTriggerRef : exportTriggerRef);
+  useMenuKeyboard(exportMenuOpen, exportMenuRef);
 
   const exportMenu = exportMenuOpen ? (
     <div
+      ref={exportMenuRef}
       role="menu"
       aria-label={t('notebook.toolbar.exportMenuLabel')}
       data-testid="notebook-export-menu"
@@ -201,7 +209,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
       />
       {showsMeta ? (
         <span className="mx-1 flex-none text-eyebrow uppercase tracking-wider text-muted" data-testid="notebook-toolbar-summary">
-          {t('notebook.toolbar.summary', { cells: notebook.cells.length, codeCells: codeCellsCount })}
+          {t('notebook.toolbar.summary', { count: notebook.cells.length, codeCells: codeCellsCount })}
         </span>
       ) : null}
       <span className="notebook-toolbar-run-slot">
@@ -238,6 +246,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
       <div className="relative flex-none" ref={exportMenuAnchorRef}>
         {kernelInMenu ? null : (
             <button
+              ref={exportTriggerRef}
               type="button"
               onClick={() => setExportMenuOpen(open => !open)}
               disabled={exportDisabled}
@@ -254,8 +263,11 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
         {menuGroups.length > 0 ? (
           <IconButton
             ref={moreTriggerRef}
-            onClick={() => setMoreOpen(open => !open)}
-            aria-expanded={moreOpen}
+            onClick={() => {
+              setExportMenuOpen(false);
+              setMoreOpen(open => !open);
+            }}
+            aria-expanded={moreShown}
             aria-haspopup="menu"
             tooltip={t('notebookToolbar.more')}
             tooltipSide="bottom"
@@ -264,7 +276,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
             <MoreHorizontal size={ICON_GLYPH.md} aria-hidden="true" />
           </IconButton>
         ) : null}
-        {moreOpen ? (
+        {moreShown ? (
           <div
             ref={moreMenuRef}
             role="menu"
@@ -319,7 +331,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
             role="dialog"
             aria-label={t('notebook.command.shortcutsTitle')}
             data-testid="notebook-shortcuts-legend"
-            className="notebook-toolbar-menu w-72 whitespace-normal p-3"
+            className="notebook-toolbar-menu notebook-toolbar-legend"
           >
             <p className="mb-2 text-eyebrow font-semibold uppercase tracking-wider text-muted">
               {t('notebook.command.shortcutsTitle')}

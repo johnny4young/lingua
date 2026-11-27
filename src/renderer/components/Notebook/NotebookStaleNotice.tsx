@@ -7,14 +7,15 @@ interface NotebookStaleNoticeProps {
   readonly onRefresh: () => void;
 }
 
-const GHOST_COUNT = 10;
+/** The invisible notice reads at least two digits, and as many as the real count has. */
+const ghostCount = (staleCount: number) => Math.max(10, staleCount);
 
 /** The notebook's one stale notice, at the end of the toolbar, with the replay that clears it. */
 export function NotebookStaleNotice({ staleCount, disabled, onRefresh }: NotebookStaleNoticeProps) {
   return (
     <div className="notebook-toolbar-notice">
-      {/* An invisible two-digit notice holds the space, so the notice never moves the row or the cells. */}
-      <GhostBanner />
+      {/* An invisible notice holds the space, so the notice never moves the row or the cells. */}
+      <GhostBanner count={ghostCount(staleCount)} />
       {/* The live region stays mounted, so the notice is announced when it appears. */}
       <div role="status" aria-live="polite" className="flex justify-end" data-testid="notebook-stale-notice-slot">
         {staleCount > 0 ? <StaleBanner count={staleCount} disabled={disabled} onRefresh={onRefresh} /> : null}
@@ -64,6 +65,6 @@ function StaleBanner({
   );
 }
 
-const GhostBanner = memo(function GhostBanner() {
-  return <StaleBanner count={GHOST_COUNT} ghost />;
+const GhostBanner = memo(function GhostBanner({ count }: { count: number }) {
+  return <StaleBanner count={count} ghost />;
 });

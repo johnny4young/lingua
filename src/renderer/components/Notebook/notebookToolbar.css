@@ -125,6 +125,12 @@
   box-shadow: var(--shadow-e3);
 }
 
+.notebook-toolbar-legend {
+  width: 18rem;
+  padding: 12px;
+  white-space: normal;
+}
+
 .notebook-toolbar-menu-item {
   display: flex;
   width: 100%;

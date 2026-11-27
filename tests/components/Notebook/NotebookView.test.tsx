@@ -536,6 +536,34 @@ describe('<NotebookView />', () => {
     expect(useNotebookStore.getState().getNotebookForTab(TAB_ID)?.title).toBe('Analysis');
   });
 
+  it('previews the markdown cell from its toggle after an edit', async () => {
+    const user = userEvent.setup();
+    render(<NotebookView tabId={TAB_ID} />);
+    await user.click(screen.getByTestId('notebook-markdown-cell-toggle-edit'));
+    await user.click(screen.getByTestId('notebook-markdown-cell-source'));
+    await user.keyboard('X');
+    await user.click(screen.getByTestId('notebook-markdown-cell-toggle-edit'));
+    await act(async () => {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    });
+    expect(screen.queryByTestId('notebook-markdown-cell-source')).toBeNull();
+    const markdown = useNotebookStore
+      .getState()
+      .getNotebookForTab(TAB_ID)!
+      .cells.find(c => c.kind === 'markdown');
+    expect(markdown?.source.endsWith('X')).toBe(true);
+  });
+
+  it('counts a single cell in the singular', async () => {
+    seedNotebookCells([{ kind: 'code', id: 'c1', language: 'javascript', source: '1', outputs: [] } as NotebookCellV1]);
+    render(<NotebookView tabId={TAB_ID} />);
+    expect(screen.getByTestId('notebook-toolbar-summary').textContent).toBe('1 cell · 1 code');
+    await act(async () => {
+      await i18next.changeLanguage('es');
+    });
+    expect(screen.getByTestId('notebook-toolbar-summary').textContent).toBe('1 celda · 1 código');
+  });
+
   it('toggles the markdown cell into edit mode and persists edits', async () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);

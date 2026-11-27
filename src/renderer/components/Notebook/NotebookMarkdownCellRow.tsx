@@ -219,7 +219,15 @@ function NotebookMarkdownCellRowImpl({
             ) : null}
             <button
               type="button"
-              onClick={() => (editing ? setEditing(false) : startEditing())}
+              // Keeps the textarea's blur from closing the editor first, so the click previews instead of reopening.
+              onMouseDown={event => {
+                if (editing) event.preventDefault();
+              }}
+              onClick={() => {
+                if (!editing) return startEditing();
+                flushDraft();
+                setEditing(false);
+              }}
               disabled={disabled}
               aria-label={t(
                 editing ? 'notebook.cell.previewMarkdown' : 'notebook.cell.editMarkdown'

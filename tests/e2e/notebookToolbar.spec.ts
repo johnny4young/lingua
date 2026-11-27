@@ -91,9 +91,23 @@ test('a narrow notebook folds kernel actions into ⋯ and keeps the cells still'
   await menu.getByTestId('notebook-toolbar-export').click();
   await expect(menu).toHaveCount(0);
   await expect(page.getByTestId('notebook-export-menu')).toBeVisible();
-  await expect(page.getByTestId('notebook-export-ipynb')).toBeVisible();
+  // The export menu takes focus, and Escape hands it back to ⋯.
+  await expect(page.getByTestId('notebook-export-script')).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByTestId('notebook-export-ipynb')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('notebook-export-menu')).toHaveCount(0);
+  await expect(more).toBeFocused();
+  // ⋯ never stacks on an open export menu.
+  await more.click();
+  await menu.getByTestId('notebook-toolbar-export').click();
+  await more.click();
+  await expect(page.locator('[role="menu"]')).toHaveCount(1);
+  // A wider row empties ⋯, so an open menu closes instead of floating empty.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(more).toHaveCount(0);
+  await expect(page.locator('[role="menu"]')).toHaveCount(0);
+  await page.setViewportSize({ width: 768, height: 900 });
 
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(toolbar(page)).toHaveAttribute('data-fit', 'stacked');
