@@ -61,12 +61,24 @@ function handoffs(
   ).result.current;
 }
 
+import { MAX_QUERY_BYTES } from '../../../src/shared/sqlWorkspace';
+
 describe('SQL result hand-offs', () => {
   beforeEach(() => {
     executeQuery.mockReset();
     exportCapsuleToClipboard.mockReset();
     useEditorStore.setState({ tabs: [], activeTabId: null });
     useUIStore.setState({ statusNotice: null });
+  });
+
+  it('re-runs the source without the comments around it, and not a source near the size cap', async () => {
+    executeQuery.mockResolvedValue({ status: 'success' });
+    const commented = handoffs('-- top cities\nSELECT city FROM cities; -- done');
+    await commented.saveAsTable!.onSave('top');
+    expect(executeQuery.mock.calls[0]?.[0]).toBe('CREATE TABLE "top" AS SELECT city FROM cities;');
+    const nearCap = `SELECT '${'x'.repeat(MAX_QUERY_BYTES - 60)}' AS v`;
+    expect(handoffs(nearCap).saveAsTable).toBeUndefined();
+    expect(handoffs(nearCap).fullResult).toBeUndefined();
   });
 
   it('saves a single read query as a new table and refreshes the Explorer', async () => {
