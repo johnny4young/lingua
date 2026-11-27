@@ -142,6 +142,10 @@ describe('notebook answers stylesheet', () => {
     expect(css).toContain("@container notebook-cell (max-width: 720px) {\n  .notebook-cell-body[data-answers='true'] {");
     expect(css).toContain("@container notebook-cell (max-width: 960px) {\n  .notebook-cell-body[data-table='true'] {");
     expect(css).toMatch(/@container notebook-cell \(max-width: 560px\) \{[^@]*\.notebook-cell-refresh-label/u);
+    // Chips get a row of their own before the header could squeeze them to a few letters.
+    expect(css).toMatch(/@container notebook-cell \(max-width: 720px\) \{\s*\.notebook-cell-header \{/u);
+    // Only the code margin drops its label: a markdown margin has no other name for its cell.
+    expect(css).toContain(".notebook-run-margin[role='note'] .notebook-run-margin-label {\n    display: none;");
     // Bars size to the cell, never to the window.
     expect(css).not.toMatch(/\d+vw/u);
   });

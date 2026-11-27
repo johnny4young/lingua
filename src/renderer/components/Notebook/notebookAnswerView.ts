@@ -132,9 +132,10 @@ export function answerGrid(
       if (!cell.numeric) return cell;
       const value = Number(cell.text);
       numbers[index] = value;
-      if (!grouped[index]) return cell;
+      // Leading zeros mark a code (zip, account), not a quantity.
+      if (!grouped[index] || /^-?0\d/.test(cell.text)) return cell;
       // A written integer takes the formatter's cached fast path; decimals keep every digit as written.
-      const integer = Number.isSafeInteger(value) && /^-?\d+$/.test(cell.text);
+      const integer = Number.isSafeInteger(value) && !Object.is(value, -0) && /^-?\d+$/.test(cell.text);
       return { ...cell, text: renderNumberCell(integer ? value : cell.text, language) };
     });
   });

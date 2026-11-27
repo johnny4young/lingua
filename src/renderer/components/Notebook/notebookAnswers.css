@@ -114,14 +114,16 @@
 }
 
 /* A narrow cell keeps its buttons beside the language and drops chips and status to a second row. */
-@container notebook-cell (max-width: 560px) {
+@container notebook-cell (max-width: 720px) {
   .notebook-cell-header {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'lang actions'
       'chips state';
   }
+}
 
+@container notebook-cell (max-width: 560px) {
   .notebook-cell-mode {
     display: none;
   }
@@ -137,6 +139,7 @@
 
   .notebook-cell-run[data-action='refresh'] {
     width: 24px;
+    height: 24px;
     padding: 0;
   }
 }
@@ -566,7 +569,7 @@
   }
 }
 
-/* Under 768 px the margin keeps only the numeral; its label stays in the margin's accessible name. */
+/* Under 768 px a code cell's margin keeps only the numeral; its label stays in the margin's accessible name. */
 @media (max-width: 768px) {
   .notebook-run-margin {
     width: 2.75rem;
@@ -578,7 +581,7 @@
     line-height: 30px;
   }
 
-  .notebook-run-margin-label {
+  .notebook-run-margin[role='note'] .notebook-run-margin-label {
     display: none;
   }
 }

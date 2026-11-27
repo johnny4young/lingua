@@ -23,6 +23,11 @@ describe('answerGrid', () => {
     expect(grid.cells.map(row => row[0]!.text)).toEqual(['28.0', '1e+21', '12,345']);
   });
 
+  it('keeps leading zeros and a negative zero as written', () => {
+    const grid = answerGrid(['zip'], [[str('01234')], [str('00.50')], [num('-0')]], 'en');
+    expect(grid.cells.map(row => row[0]!.text)).toEqual(['01234', '00.50', '-0']);
+  });
+
   it('leaves years, keys and text as written', () => {
     const grid = answerGrid([...columns, 'user_id'], rows.map(row => [...row, num('104233')]), 'en');
     expect(grid.cells[0]![2]!.text).toBe('2024');

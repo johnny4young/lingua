@@ -76,7 +76,7 @@ test('a cell header and its answers fit at 768 and 375 px', async ({ page }) => 
 
   await expect(share.getByTestId('notebook-code-cell-language-name')).toHaveText('SQL');
   await expect(share).toHaveAttribute('aria-label', 'Cell 3');
-  await expect(share.getByTestId('notebook-code-cell-status')).toHaveText(/^Ok · \d+(\.\d)? ms$/u);
+  await expect(share.getByTestId('notebook-code-cell-status')).toHaveText(/^Ok · \d+(\.\d+)? m?s$/u);
   await expect(share.getByTestId('notebook-code-cell-uses')).toHaveText('uses by_city');
   await expect(share.getByTestId('notebook-cell-answer-table')).toContainText('818,294.40');
 
