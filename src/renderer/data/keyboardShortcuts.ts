@@ -434,14 +434,27 @@ export function resolveModLabel(platform: string): string {
   return platform === 'darwin' ? '⌘' : 'Ctrl';
 }
 
+// Every punctuation token normalizeMainKey can produce reads as the key's own character.
+const PUNCTUATION_TOKEN_LABELS: Record<string, string> = {
+  Backslash: '\\',
+  Comma: ',',
+  Period: '.',
+  Slash: '/',
+  Semicolon: ';',
+  Quote: "'",
+  Backtick: '`',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Minus: '-',
+  Equal: '=',
+};
+
 const MAC_TOKEN_LABELS: Record<string, string> = {
   Shift: '⇧',
   Alt: '⌥',
   Enter: '↵',
   Escape: 'Esc',
-  Backslash: '\\',
-  Comma: ',',
-  Semicolon: ';',
+  ...PUNCTUATION_TOKEN_LABELS,
 };
 
 const NON_MAC_TOKEN_LABELS: Record<string, string> = {
@@ -449,9 +462,7 @@ const NON_MAC_TOKEN_LABELS: Record<string, string> = {
   Alt: 'Alt',
   Enter: 'Enter',
   Escape: 'Esc',
-  Backslash: '\\',
-  Comma: ',',
-  Semicolon: ';',
+  ...PUNCTUATION_TOKEN_LABELS,
 };
 
 /**

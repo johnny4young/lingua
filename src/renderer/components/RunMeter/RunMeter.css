@@ -348,7 +348,8 @@ button.run-meter-bar:focus-visible {
   .run-meter-numeral .result-numeral-value { font-size: 19px; line-height: 1; }
   .run-meter-numeral .result-numeral-unit { font-family: var(--font-ui); font-variation-settings: normal; font-size: 12.5px; }
   .run-meter-bars { display: none; }
-  .run-meter-stack,
+  /* Scoped to the meter: the Debugger tab's fallback stack shares the class. */
+  .run-meter .run-meter-stack,
   .run-meter-where { display: none; }
   .run-meter-foot { flex: 1 1 auto; justify-content: flex-end; margin: 0; }
   .run-meter-compare { display: none; }

@@ -1,0 +1,7 @@
+/* Loads with the step HUD. useHudFit picks the step the editor has room for. */
+@layer components {
+  .debugger-hud:is([data-fit='labels'], [data-fit='glyphs']) .debugger-hud-key { display: none; }
+
+  .debugger-hud[data-fit='glyphs'] .debugger-hud-button:not([data-primary]) { padding-inline: 7px; }
+  .debugger-hud[data-fit='glyphs'] .debugger-hud-button:not([data-primary]) .debugger-hud-label { display: none; }
+}

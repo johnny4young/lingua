@@ -2005,7 +2005,7 @@
   "bottomPanel.actions.show": "Show dock · {{combo}}",
   "bottomPanel.tabs.debugger": "Debugger",
   "bottomPanel.debugger.loadFailed": "The debugger could not load. Reload Lingua to try again.",
-  "bottomPanel.tabs.debuggerHint": "Open debugger controls, variables, watches, and call stack. {{enabled}} of {{count}} breakpoints are active in this file.",
+  "bottomPanel.tabs.debuggerHint": "Inspect locals, watches, and breakpoints. {{enabled}} of {{count}} breakpoints are active in this file.",
   "shortcuts.item.debuggerToggleBreakpoint.label": "Toggle breakpoint at cursor",
   "shortcuts.item.debuggerToggleBreakpoint.description": "Add or remove a breakpoint at the current cursor line in the active editor.",
   "shortcuts.editor.edit": "Edit",

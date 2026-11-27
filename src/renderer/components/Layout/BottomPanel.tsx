@@ -107,9 +107,9 @@ const TestsMeter = lazy(async () => {
   return { default: module.TestsMeter };
 });
 
-const DebuggerDockControls = lazy(async () => {
+const DebuggerChangesSwitch = lazy(async () => {
   const module = await import('../Debugger/DebuggerDockControls');
-  return { default: module.DebuggerDockControls };
+  return { default: module.DebuggerChangesSwitch };
 });
 const TestsDockControls = lazy(async () => {
   const module = await import('../ProjectTests/TestsDockControls');
@@ -398,9 +398,9 @@ export function BottomPanel({
                   <TestsDockControls />
                 </Suspense>
               ) : null}
-              {shown('debugger') && debuggerLive ? (
+              {shown('debugger') && debuggerLive && !compact ? (
                 <Suspense fallback={null}>
-                  <DebuggerDockControls tabId={activeTabId ?? null} />
+                  <DebuggerChangesSwitch tabId={activeTabId ?? null} />
                 </Suspense>
               ) : null}
               <DockHeaderControls compact={compact} />
@@ -445,7 +445,7 @@ export function BottomPanel({
                   </div>
                 </div>
               ) : effectiveTab === 'debugger' ? (
-                <DebuggerDrawerHost activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
+                <DebuggerDrawerHost activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} compactDock={compact} />
               ) : effectiveTab === 'browser-preview' ? (
                 <BrowserPreviewPanel />
               ) : effectiveTab === 'stdin' ? (

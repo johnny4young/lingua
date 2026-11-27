@@ -1421,7 +1421,7 @@
   }
 
   /* Glyph-margin breakpoint marks from `useBreakpointGutter`: a solid red dot
-     pauses, a hollow amber diamond is conditional, a hollow blue ring logs.
+     pauses, a hollow amber diamond is conditional, a ringed minus logs.
      Disabled marks are hollow (pause) or faded (the other modes). */
   .monaco-editor .lingua-bp-glyph {
     background-color: var(--app-danger, #e1495d);
@@ -1447,7 +1447,16 @@
 
   .monaco-editor .lingua-bp-glyph--logpoint {
     background-color: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--color-info-fg);
+    box-shadow: inset 0 0 0 1.5px var(--color-value-date);
+  }
+
+  .monaco-editor .lingua-bp-glyph--logpoint::after {
+    content: '';
+    position: absolute;
+    inset: calc(50% - 0.75px) 2.5px auto;
+    height: 1.5px;
+    border-radius: 1px;
+    background: var(--color-value-date);
   }
 
   .monaco-editor .lingua-bp-glyph--conditional.lingua-bp-glyph--disabled,

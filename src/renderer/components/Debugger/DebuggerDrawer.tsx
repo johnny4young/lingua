@@ -13,6 +13,7 @@ import { AnswerWasChip } from '../Answer/AnswerDeltaChip';
 import { RunMeterStack } from '../RunMeter/RunMeterStack';
 import { TypeTag } from '../ui/answer';
 import { DebuggerBreakpointList } from './DebuggerBreakpointList';
+import { DebuggerChangesSwitch } from './DebuggerDockControls';
 import { DebuggerWatchList } from './DebuggerWatchList';
 import { DrawerColumn } from './DrawerColumn';
 import '../ui/identity.css';
@@ -22,9 +23,11 @@ import './debugger.css';
 export interface DebuggerDrawerProps {
   activeTabId: string | null;
   activeLanguage: Language | null | undefined;
+  /** A compact dock moves the changes switch from the tab row into the Locals head. */
+  compactDock?: boolean;
 }
 
-export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerProps) {
+export function DebuggerDrawer({ activeTabId, activeLanguage, compactDock = false }: DebuggerDrawerProps) {
   const { t } = useTranslation();
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
   const session = useDebuggerStore((state) => state.session);
@@ -99,11 +102,14 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
               : t('debugger.paused.locals')
           }
           aside={
-            changes.size > 0 ? (
-              <span className="type-tag debugger-changed-count" data-testid="debugger-locals-changed">
-                {t('debugger.locals.changed', { count: changes.size })}
-              </span>
-            ) : null
+            <>
+              {changes.size > 0 ? (
+                <span className="type-tag debugger-changed-count" data-testid="debugger-locals-changed">
+                  {t('debugger.locals.changed', { count: changes.size })}
+                </span>
+              ) : null}
+              {compactDock ? <DebuggerChangesSwitch tabId={activeTabId} trackOnly /> : null}
+            </>
           }
         >
           {!pausedFrame ? (
@@ -118,9 +124,11 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
                 const change = changes.get(name);
                 return (
                   <li key={name} className="debugger-row debugger-local" data-local={name} data-change={change?.kind}>
-                    <span className="debugger-local-name">{name}</span>
-                    <span className="debugger-row-value">
-                      <AnswerObject text={value} role="value" language={activeLanguage ?? undefined} oneLine />
+                    <span className="debugger-row-main">
+                      <span className="debugger-local-name">{name}</span>
+                      <span className="debugger-row-value">
+                        <AnswerObject text={value} role="value" language={activeLanguage ?? undefined} oneLine />
+                      </span>
                     </span>
                     {change?.kind === 'changed' ? <AnswerWasChip value={change.before} /> : null}
                     {change?.kind === 'new' ? (

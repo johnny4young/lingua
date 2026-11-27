@@ -2029,7 +2029,7 @@
   "bottomPanel.actions.show": "Mostrar panel · {{combo}}",
   "bottomPanel.tabs.debugger": "Depurador",
   "bottomPanel.debugger.loadFailed": "No se pudo cargar el depurador. Recarga Lingua para intentarlo de nuevo.",
-  "bottomPanel.tabs.debuggerHint": "Abre controles del depurador, variables, expresiones y pila de llamadas. {{enabled}} de {{count}} puntos de interrupción están activos en este archivo.",
+  "bottomPanel.tabs.debuggerHint": "Revisa variables locales, expresiones y puntos de interrupción. {{enabled}} de {{count}} puntos de interrupción están activos en este archivo.",
   "shortcuts.item.debuggerToggleBreakpoint.label": "Alterna el punto de interrupción en el cursor",
   "shortcuts.item.debuggerToggleBreakpoint.description": "Agrega o quita un punto de interrupción en la línea del cursor del editor activo.",
   "shortcuts.editor.edit": "Editar",

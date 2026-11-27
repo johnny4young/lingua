@@ -4,8 +4,11 @@ import '../ui/identity.css';
 import './debugger.css';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 
-/** The dock row's switch for showing what each paused value held at the previous pause. */
-export function DebuggerDockControls({ tabId }: { tabId: string | null }) {
+/**
+ * Shows what each paused value held at the previous pause, while this tab is paused. It sits in the
+ * dock row, or in the Locals head as its track alone when a compact dock has no room for it there.
+ */
+export function DebuggerChangesSwitch({ tabId, trackOnly = false }: { tabId: string | null; trackOnly?: boolean }) {
   const { t } = useTranslation();
   const paused = useDebuggerStore(state => state.pausedFrame !== null && state.pausedFrame.tabId === tabId);
   const show = useDebuggerStore(state => state.showPauseChanges);
@@ -23,7 +26,7 @@ export function DebuggerDockControls({ tabId }: { tabId: string | null }) {
       onClick={() => setShow(!show)}
     >
       <span className="switch-track" aria-hidden />
-      <span className="debugger-changes-label">{t('debugger.changes.label')}</span>
+      {!trackOnly && <span className="debugger-changes-label">{t('debugger.changes.label')}</span>}
     </button>
   );
 }
