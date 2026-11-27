@@ -141,24 +141,28 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     if (detailOpen && backRef.current?.checkVisibility?.()) backRef.current.focus({ preventScroll: true });
   }, [detailOpen]);
 
-  // Set before the list comes back on screen; focused once it has rendered.
-  const listFocusPending = useRef(false);
+  // Requested with the list's return to the screen; focused once it has rendered.
+  const [listFocusRequest, setListFocusRequest] = useState(0);
   useEffect(() => {
-    if (!listFocusPending.current) return;
-    listFocusPending.current = false;
-    listRef.current?.focus({ preventScroll: true });
-  }, [detailOpen, compareFrom]);
+    if (listFocusRequest > 0) listRef.current?.focus({ preventScroll: true });
+  }, [listFocusRequest]);
   const showList = () => {
     setDetailOpen(false);
-    listFocusPending.current = true;
+    setListFocusRequest((count) => count + 1);
   };
 
-  // Escape leaves the compare pick before it can close the dialog.
+  // Escape leaves the compare pick, then a narrow detail, before it can close the dialog.
   const onBodyKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Escape' || !compareFrom) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setCompareFrom(null);
+    if (event.key !== 'Escape') return;
+    if (compareFrom) {
+      event.preventDefault();
+      event.stopPropagation();
+      setCompareFrom(null);
+    } else if (detailOpen && backRef.current?.checkVisibility?.()) {
+      event.preventDefault();
+      event.stopPropagation();
+      showList();
+    }
   };
 
   const onListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -299,7 +303,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
       }}
       onExportHtml={() => void handleExportHtml(selected.capsule)}
       onRegression={() => setRegressionCapsule(selected.capsule)}
-      onRemove={() => handleRemove(selected)}
+      onRemove={() => {
+        handleRemove(selected);
+        showList();
+      }}
       onPlans={openPlans}
     />
   ) : null;

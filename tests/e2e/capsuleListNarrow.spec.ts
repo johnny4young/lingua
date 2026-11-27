@@ -99,6 +99,13 @@ for (const { language, title, back } of LOCALES) {
       await backButton.click();
       await expect(dialog.getByTestId('capsule-list-rows')).toBeVisible();
       await expect(dialog.getByTestId('capsule-detail')).toBeHidden();
+
+      // Escape leaves the detail first and keeps the dialog open.
+      await dialog.getByTestId('capsule-list-row').first().click();
+      await expect(backButton).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(dialog.getByTestId('capsule-list-rows')).toBeFocused();
+      await expect(dialog).toBeVisible();
     });
 
     test('768 px keeps the actions on one row and ends above a notice', async ({ page }) => {
@@ -143,6 +150,19 @@ for (const { language, title, back } of LOCALES) {
         })
         .toBe(true);
       await expect(dialog.getByTestId('capsule-list-shortcut')).toBeVisible();
+      // The shrunken body holds the browser exactly: its own scroll areas, never a second one around them.
+      await page.setViewportSize({ width: 768, height: 640 });
+      await expect(notice).toBeVisible();
+      await expect
+        .poll(async () => {
+          const shell = await dialog.boundingBox();
+          const banner = await notice.boundingBox();
+          return shell !== null && banner !== null && shell.y + shell.height <= banner.y + 1;
+        })
+        .toBe(true);
+      await expect
+        .poll(() => dialog.locator('[data-modal-scroll-region]').evaluate((body) => body.scrollHeight - body.clientHeight))
+        .toBeLessThanOrEqual(1);
     });
   });
 }

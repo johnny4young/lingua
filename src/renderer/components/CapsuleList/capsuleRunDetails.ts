@@ -18,7 +18,8 @@ export function capsuleRuntimeLabel(capsule: RunCapsuleV1, t: Translate): string
   if (mode === 'browser-preview') return t('runtimeMode.mode.browserPreview');
   // The toolbar's Worker reads as Web Worker here, where no runtime picker sits beside it.
   if (isJavaScriptFamily(language)) return mode === 'worker' ? 'Web Worker' : isRuntimeMode(mode) ? t(`runtimeMode.mode.${mode}`) : null;
-  if (language === 'python') return 'Pyodide';
+  // A desktop debug run uses native Python, and the capsule does not record that it was one.
+  if (language === 'python' && capsule.environment.platform === 'web') return 'Pyodide';
   if (language === 'ruby' && capsule.environment.platform === 'web') return 'ruby.wasm';
   if (mode === 'duckdb-wasm') return LOCAL_ENGINE;
   if (mode.startsWith('sql-')) {

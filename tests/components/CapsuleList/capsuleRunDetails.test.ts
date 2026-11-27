@@ -22,7 +22,7 @@ describe('capsule run details', () => {
   });
 
   it('reads a known engine per language or workspace', () => {
-    expect(capsuleRuntimeLabel(capsule('python', 'worker', 'desktop'), t)).toBe('Pyodide');
+    expect(capsuleRuntimeLabel(capsule('python', 'worker'), t)).toBe('Pyodide');
     expect(capsuleRuntimeLabel(capsule('ruby', 'worker'), t)).toBe('ruby.wasm');
     expect(capsuleRuntimeLabel(capsule('sql', 'duckdb-wasm'), t)).toBe('DuckDB');
     expect(capsuleRuntimeLabel(capsule('sql', 'sql-postgres'), t)).toBe('Postgres');
@@ -33,6 +33,7 @@ describe('capsule run details', () => {
   it('leaves the runtime out when the stored mode cannot say what ran', () => {
     expect(capsuleRuntimeLabel(capsule('go', 'worker', 'desktop'), t)).toBeNull();
     expect(capsuleRuntimeLabel(capsule('ruby', 'worker', 'desktop'), t)).toBeNull();
+    expect(capsuleRuntimeLabel(capsule('python', 'worker', 'desktop'), t)).toBeNull();
     expect(capsuleRuntimeLabel(capsule('sql', 'sql-unknown'), t)).toBeNull();
   });
 

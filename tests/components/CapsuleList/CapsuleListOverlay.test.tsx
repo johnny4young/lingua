@@ -206,6 +206,34 @@ describe('CapsuleListOverlay — Pro browser', () => {
     expect(browser.getAttribute('data-view')).toBe('list');
   });
 
+  it('returns to the list after removing the open capsule', () => {
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS, FIXTURE_PYTHON_ERROR);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    const browser = screen.getByTestId('capsule-list-preview-pane').parentElement!;
+    fireEvent.click(screen.getAllByTestId('capsule-list-row')[1]!);
+    expect(browser.getAttribute('data-view')).toBe('detail');
+    choose('capsule-list-more', 'capsule-list-row-delete');
+    expect(browser.getAttribute('data-view')).toBe('list');
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-rows'));
+  });
+
+  it('Escape leaves a narrow detail before it closes the dialog', () => {
+    // jsdom has no checkVisibility; a narrow window shows the Back button.
+    Object.defineProperty(HTMLElement.prototype, 'checkVisibility', { configurable: true, value: () => true });
+    try {
+      seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
+      const onClose = vi.fn();
+      render(<CapsuleListOverlay onClose={onClose} />);
+      const browser = screen.getByTestId('capsule-list-preview-pane').parentElement!;
+      fireEvent.click(screen.getAllByTestId('capsule-list-row')[1]!);
+      fireEvent.keyDown(screen.getByTestId('capsule-detail-back'), { key: 'Escape' });
+      expect(browser.getAttribute('data-view')).toBe('list');
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      delete (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility;
+    }
+  });
+
   it('shows the definition beside the empty state when nothing is kept', () => {
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     expect(screen.getByTestId('capsule-list-preview-pane').parentElement!.getAttribute('data-view')).toBe('empty');
