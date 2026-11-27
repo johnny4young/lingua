@@ -17,7 +17,7 @@ test('a tree that scrolls keeps its marks on the edge of the Tests row', async (
   await page.goto('/?e2e=project-tests-editor&locale=en');
   await page.waitForSelector('.monaco-editor .view-lines');
   await page.evaluate(() => window.dispatchEvent(new Event('e2e-open-test-file')));
-  const tree = page.getByRole('tree');
+  const tree = page.getByRole('tree', { name: 'checkout-api file tree' });
   await expect(page.getByTestId('file-tree-marks-src/shipping.ts')).toBeVisible();
   // A classic scrollbar takes its width inside the tree, as with the app's styled scrollbars in Electron.
   expect(await tree.evaluate(element => element.scrollHeight > element.clientHeight && element.offsetWidth > element.clientWidth)).toBe(true);
