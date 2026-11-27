@@ -177,7 +177,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         ) : (
           <span className="w-3.5 shrink-0" aria-hidden="true" />
         )}
-        <span className={cn(wrap ? 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre')}>
+        <span className={cn('json-tree-text', wrap ? 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre')}>
           {label !== null ? (
             <>
               <span {...(typeof key === 'number' ? { className: 'text-fg-subtle' } : { style: KEY })}>{highlight(label)}</span>

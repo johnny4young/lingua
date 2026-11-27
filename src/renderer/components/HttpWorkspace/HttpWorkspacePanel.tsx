@@ -1,6 +1,7 @@
 /**
  * Root component of the HTTP workspace editor tab.
- * Three-column layout (request list | editor | response).
+ * Request list beside the editor; the response sits under the editor, or in a
+ * third column once the workspace is wide enough to give it 560 px.
  *
  * Wires the store actions, the runtime execution path, the capsule
  * builder, and the telemetry emit. Each sub-component stays
@@ -10,6 +11,9 @@
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useWidthTier } from '../../hooks/useWidthTier';
+import { ResizeHandle } from '../ui/ResizeHandle';
+import { cn } from '../../utils/cn';
 import { secretCaptureValues } from '../../../shared/httpPersistedSecrets';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { HttpStarterRequests } from './HttpStarterRequests';
@@ -135,17 +139,25 @@ function applyCapturesToActiveEnvironment(
   });
 }
 
+/** From this width a 560 px response column still leaves the editor room for test answers; narrower, it sits under the editor. */
+const COLUMNS_MIN_WIDTH = [1760] as const;
+const RESIZE_TARGET = { coarse: 24, fine: 24 };
+const SIDEBAR_PANELS = ['http-request-list', 'http-request-main'];
+const MAIN_PANELS = ['http-request-editor', 'http-response-preview'];
+const SPLITS = {
+  columns: { layoutId: 'lingua-http-workspace-columns-layout', axis: 'horizontal', handle: 'vertical', editor: ['56%', 320], response: ['44%', 560], border: 'border-l' },
+  stacked: { layoutId: 'lingua-http-workspace-stacked-layout', axis: 'vertical', handle: 'horizontal', editor: ['42%', 160], response: ['58%', 180], border: 'border-t' },
+} as const;
+
 export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const { t } = useTranslation();
   const announce = useAnnounce();
-  // Persisted layout per the resizable-panels convention used
-  // throughout AppLayout. Storage key isolated to this surface so a
-  // future SQL workspace  can have its own layout sibling.
-  const layout = useDefaultLayout({
-    id: 'lingua-http-workspace-layout',
-    panelIds: ['http-request-list', 'http-request-editor', 'http-response-preview'],
-    storage: localStorage,
-  });
+  const rootRef = useRef<HTMLDivElement>(null);
+  const split = useWidthTier(rootRef, COLUMNS_MIN_WIDTH, 1) === 1 ? SPLITS.columns : SPLITS.stacked;
+  const columns = split === SPLITS.columns;
+  const sidebarLayout = useDefaultLayout({ id: 'lingua-http-workspace-sidebar-layout', panelIds: SIDEBAR_PANELS, storage: localStorage });
+  // Sizes persist per arrangement: they split the main pane along different axes.
+  const mainLayout = useDefaultLayout({ id: split.layoutId, panelIds: MAIN_PANELS, storage: localStorage });
   const requests = useWorkspaceToolStore(state => state.requests);
   const pipelineCount = useWorkspaceToolStore(state => state.httpPipelines.length);
   const activeRequestId = useWorkspaceToolStore(state => state.activeRequestId);
@@ -749,6 +761,82 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     setIsManagerOpen(true);
   }, []);
 
+  const history = <HttpResponseHistory history={activeHistory} selectedIndex={safeHistoryIndex} onSelect={setHistoryIndex} />;
+  // Stacked, the history moves to the sidebar so the response keeps its height.
+  const requestList = (
+    <HttpRequestList
+      requests={requests}
+      activeRequestId={activeRequestId}
+      onSelect={handleSelect}
+      onCreate={handleCreate}
+      onRename={handleRename}
+      onDuplicate={handleDuplicate}
+      onDelete={handleDelete}
+      onOpenPipelines={() => setIsPipelineManagerOpen(true)}
+      pipelineCount={pipelineCount}
+      footer={columns ? undefined : history}
+    />
+  );
+  const requestEditor = activeRequest ? (
+    <HttpRequestEditor
+      key={editorGeneration}
+      request={activeRequest}
+      onPatch={handlePatch}
+      onSend={sendFromEditor}
+      onStop={handleStop}
+      isExecuting={isExecuting}
+      environments={environments}
+      activeEnvironmentId={activeEnvironmentId}
+      onManageEnvironment={handleManageEnvironment}
+      captureTargetRef={captureTargetRef}
+      {...(activeResponse ? { response: activeResponse } : {})}
+      latestResponse={snapshotsShown}
+      {...(changes ? { snapshotChanges: changes.length } : {})}
+      queue={queueFor(activeRequest)}
+    />
+  ) : (
+    <HttpEmptyState onCreate={handleCreate} />
+  );
+  const responsePane = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1">
+        <HttpResponsePreview
+          response={activeResponse}
+          {...(activeRequest && isPristineRequest(activeRequest)
+            ? { starters: <HttpStarterRequests onApply={starter => applyStarter(activeRequest, starter)} /> }
+            : {})}
+          isExecuting={isExecuting}
+          requestSummary={
+            activeRequest
+              ? `${
+                  activeRequest.transport === 'websocket'
+                    ? 'WebSocket'
+                    : activeRequest.transport === 'sse'
+                      ? 'SSE'
+                      : activeRequest.method
+                } ${activeRequest.url}`
+              : undefined
+          }
+          previous={activeHistory[safeHistoryIndex + 1]}
+          captures={activeRequest?.captures}
+          {...(activeRequest
+            ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }
+            : {})}
+          {...(activeRequest && snapshotsShown
+            ? {
+                snapshots: {
+                  snapshot: activeRequest.snapshot,
+                  changes: changes ?? [],
+                  onChange: snapshot => useWorkspaceToolStore.getState().updateRequest(activeRequest.id, { snapshot }),
+                },
+              }
+            : {})}
+        />
+      </div>
+      {columns ? history : null}
+    </div>
+  );
+
   return (
     <div data-testid="http-workspace-panel" className="relative flex h-full min-w-0 flex-col">
       <CommandBarSlot slot="context">
@@ -760,92 +848,38 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           {...(environmentTint ? { tint: environmentTint } : {})}
         />
       </CommandBarSlot>
-      <Group
-        orientation="horizontal"
-        defaultLayout={layout.defaultLayout}
-        onLayoutChanged={layout.onLayoutChanged}
-        resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
-        className="h-full"
-      >
-        <Panel id="http-request-list" defaultSize="20%" minSize={180}>
-          <HttpRequestList
-            requests={requests}
-            activeRequestId={activeRequestId}
-            onSelect={handleSelect}
-            onCreate={handleCreate}
-            onRename={handleRename}
-            onDuplicate={handleDuplicate}
-            onDelete={handleDelete}
-            onOpenPipelines={() => setIsPipelineManagerOpen(true)}
-            pipelineCount={pipelineCount}
-          />
-        </Panel>
-        <Panel id="http-request-editor" defaultSize="50%" minSize={320}>
-          {activeRequest ? (
-            <HttpRequestEditor
-              key={editorGeneration}
-              request={activeRequest}
-              onPatch={handlePatch}
-              onSend={sendFromEditor}
-              onStop={handleStop}
-              isExecuting={isExecuting}
-              environments={environments}
-              activeEnvironmentId={activeEnvironmentId}
-              onManageEnvironment={handleManageEnvironment}
-              captureTargetRef={captureTargetRef}
-              {...(activeResponse ? { response: activeResponse } : {})}
-              latestResponse={snapshotsShown}
-              {...(changes ? { snapshotChanges: changes.length } : {})}
-              queue={queueFor(activeRequest)}
-            />
-          ) : (
-            <HttpEmptyState onCreate={handleCreate} />
-          )}
-        </Panel>
-        <Panel id="http-response-preview" defaultSize="30%" minSize={220}>
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="min-h-0 flex-1">
-              <HttpResponsePreview
-                response={activeResponse}
-                {...(activeRequest && isPristineRequest(activeRequest)
-                  ? { starters: <HttpStarterRequests onApply={starter => applyStarter(activeRequest, starter)} /> }
-                  : {})}
-                isExecuting={isExecuting}
-                requestSummary={
-                  activeRequest
-                    ? `${
-                        activeRequest.transport === 'websocket'
-                          ? 'WebSocket'
-                          : activeRequest.transport === 'sse'
-                            ? 'SSE'
-                            : activeRequest.method
-                      } ${activeRequest.url}`
-                    : undefined
-                }
-                previous={activeHistory[safeHistoryIndex + 1]}
-                captures={activeRequest?.captures}
-                {...(activeRequest
-                  ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }
-                  : {})}
-                {...(activeRequest && snapshotsShown
-                  ? {
-                      snapshots: {
-                        snapshot: activeRequest.snapshot,
-                        changes: changes ?? [],
-                        onChange: snapshot => useWorkspaceToolStore.getState().updateRequest(activeRequest.id, { snapshot }),
-                      },
-                    }
-                  : {})}
-              />
-            </div>
-            <HttpResponseHistory
-              history={activeHistory}
-              selectedIndex={safeHistoryIndex}
-              onSelect={setHistoryIndex}
-            />
-          </div>
-        </Panel>
-      </Group>
+      <div ref={rootRef} data-testid="http-workspace-body" data-layout={columns ? 'columns' : 'stacked'} className="min-h-0 flex-1">
+        {/* One tree for both layouts: only the orientation flips, so the editor and response keep their state. */}
+        <Group
+          orientation="horizontal"
+          defaultLayout={sidebarLayout.defaultLayout}
+          onLayoutChanged={sidebarLayout.onLayoutChanged}
+          resizeTargetMinimumSize={RESIZE_TARGET}
+          className="h-full"
+        >
+          <Panel id="http-request-list" defaultSize="20%" minSize={200} maxSize={360}>
+            {requestList}
+          </Panel>
+          <ResizeHandle orientation="vertical" />
+          <Panel id="http-request-main" defaultSize="80%" minSize={320}>
+            <Group
+              orientation={split.axis}
+              defaultLayout={mainLayout.defaultLayout}
+              onLayoutChanged={mainLayout.onLayoutChanged}
+              resizeTargetMinimumSize={RESIZE_TARGET}
+              className="h-full"
+            >
+              <Panel id="http-request-editor" defaultSize={split.editor[0]} minSize={split.editor[1]}>
+                {requestEditor}
+              </Panel>
+              <ResizeHandle orientation={split.handle} />
+              <Panel id="http-response-preview" defaultSize={split.response[0]} minSize={split.response[1]}>
+                <div className={cn('h-full border-border-subtle', split.border)}>{responsePane}</div>
+              </Panel>
+            </Group>
+          </Panel>
+        </Group>
+      </div>
       {isManagerOpen ? (
         <HttpEnvironmentManager
           environments={environments}

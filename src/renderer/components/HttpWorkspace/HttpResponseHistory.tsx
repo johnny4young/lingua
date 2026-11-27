@@ -5,15 +5,13 @@
  * scale shared by the list. Older entries lost their body to the store
  * LRU, so selecting one shows its status and timing only.
  */
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 import { formatWholeDuration, latencyShare, maxDuration } from '../../utils/latencyScale';
 import { isTransportFailure, labelForResponse, toneForResponse } from './httpStatus';
 import './httpInstruments.css';
-
-const BAR_WIDTH = 72;
 
 /** The status pill's tone in three: ok for 2xx, error for 4xx, 5xx and too large, neutral for 3xx and no status. */
 function historyTone(entry: HttpResponseV1): 'ok' | 'error' | 'neutral' {
@@ -105,10 +103,10 @@ export function HttpResponseHistory({
                     className="http-history-bar"
                     data-tone={tone === 'error' ? 'error' : undefined}
                     data-testid="http-response-history-bar"
-                    style={{ width: Math.max(3, latencyShare(entry.durationMs, longest) * BAR_WIDTH) }}
+                    style={{ '--share': latencyShare(entry.durationMs, longest) } as CSSProperties}
                   />
                 </span>
-                <span className="shrink-0 text-fg-subtle">{formatWholeDuration(entry.durationMs)}</span>
+                <span className="shrink-0 text-fg-subtle" data-testid="http-response-history-latency">{formatWholeDuration(entry.durationMs)}</span>
                 <span className="sr-only">{`${label}, ${relative(entry.recordedAt)}`}</span>
               </button>
             </li>
