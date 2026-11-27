@@ -2,6 +2,9 @@ import type { PausedFrame } from '../stores/debuggerStore';
 
 type StackFrame = PausedFrame['callStack'][number];
 
+/** The outermost frame's name, as the JS worker and Python report their top level. */
+export const MODULE_FRAME = '<module>';
+
 /** One row of the call stack drawn outermost first; `line` is absent where the runtime reports none. */
 export interface StackRow {
   readonly functionName: string;
@@ -21,5 +24,5 @@ export function pauseDepth(callStack: readonly StackFrame[]): number {
 /** The function the pause is in, or '' at the top level (`<module>`). */
 export function pausedFunctionName(rows: readonly StackRow[]): string {
   const name = rows.at(-1)?.functionName ?? '';
-  return name === '<module>' ? '' : name;
+  return name === MODULE_FRAME ? '' : name;
 }

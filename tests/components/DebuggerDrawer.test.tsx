@@ -112,6 +112,48 @@ describe('DebuggerDrawer', () => {
     expect(screen.queryByTestId('answer-was')).toBeNull();
   });
 
+  it('lists bindings declared further down as subtle rows with the line that assigns them', () => {
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    useDebuggerStore.getState().setPausedFrame({
+      tabId: 'tab-1',
+      line: 4,
+      reason: 'user-breakpoint',
+      locals: { arr: '[1]', pivot: '1' },
+      callStack: [{ functionName: 'quickSort', line: 4 }],
+      unassigned: [
+        { name: 'left', kind: 'const', line: 4 },
+        { name: 'mid', kind: 'const', line: 5 },
+        { name: 'right', kind: 'let', line: 6 },
+      ],
+      watchResults: {},
+    });
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    const rows = screen.getAllByTestId('debugger-unassigned');
+    expect(rows.map(row => row.textContent)).toEqual(['leftconstnot assigned yet — line 4 has not run', 'midconstline 5rightletline 6']);
+    expect([...screen.getByTestId('debugger-locals').querySelectorAll<HTMLElement>('[data-unassigned]')].map(item => item.dataset.unassigned)).toEqual([
+      'left',
+      'mid',
+      'right',
+    ]);
+    expect(screen.getByTestId('debugger-locals').querySelectorAll('.debugger-local')).toHaveLength(2);
+  });
+
+  it('shows unassigned bindings in place of the empty message when no local has a value yet', () => {
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    useDebuggerStore.getState().setPausedFrame({
+      tabId: 'tab-1',
+      line: 1,
+      reason: 'step',
+      locals: {},
+      callStack: [{ functionName: '<module>', line: 1 }],
+      unassigned: [{ name: 'total', kind: 'let', line: 1 }],
+      watchResults: {},
+    });
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    expect(screen.queryByText('No variables are available before this line.')).toBeNull();
+    expect(screen.getByTestId('debugger-unassigned').textContent).toBe('totallet' + 'not assigned yet — line 1 has not run');
+  });
+
   it('shows locals and watches with the watch value the last pause held', () => {
     useDebuggerStore.getState().addWatch('value');
     useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });

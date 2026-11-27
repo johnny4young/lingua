@@ -117,6 +117,8 @@ export function CodeEditor() {
   // The snapshot of the pause on screen: the frame's values with its depth.
   const pause = useDebuggerStore(state => (state.pausedFrame ? state.lastPause : null));
   const previousPause = useDebuggerStore(state => state.previousPause);
+  const pauseCallStack = useDebuggerStore(state => state.pausedFrame?.callStack);
+  const pauseFrameLines = useDebuggerStore(state => state.pausedFrame?.frameLines);
   const showPauseChanges = useDebuggerStore(state => state.showPauseChanges);
   const visibleLineResults = useMemo(
     () => lineResults.filter(result => !isHiddenUndefinedLineResult(result)),
@@ -162,7 +164,15 @@ export function CodeEditor() {
         ? [
             ...visibleLineResults,
             ...pausedLineResults(
-              { tabId: pauseTabId, line: pauseLine, locals: pauseLocals, depth: pauseDepth, frame: pauseFrame },
+              {
+                tabId: pauseTabId,
+                line: pauseLine,
+                locals: pauseLocals,
+                depth: pauseDepth,
+                frame: pauseFrame,
+                callStack: pauseCallStack,
+                frameLines: pauseFrameLines,
+              },
               previousPause,
               activeTab.content,
               activeTab.language,
@@ -170,7 +180,19 @@ export function CodeEditor() {
             ),
           ]
         : visibleLineResults,
-    [activeTab, pauseTabId, pauseLine, pauseLocals, pauseDepth, pauseFrame, previousPause, showPauseChanges, visibleLineResults]
+    [
+      activeTab,
+      pauseTabId,
+      pauseLine,
+      pauseLocals,
+      pauseDepth,
+      pauseFrame,
+      pauseCallStack,
+      pauseFrameLines,
+      previousPause,
+      showPauseChanges,
+      visibleLineResults,
+    ]
   );
 
   // "Explain with AI" over a selection (or the whole buffer) is

@@ -446,15 +446,16 @@ export type WorkerResponse =
       entries: LineTimingEntry[];
     }
   | {
-      // Debugger pause from the JS worker: the source line, locals, the call stack newest first with
-      // each frame's current line, ending in <module>; every line the session ran; watch placeholders.
+      // JS worker pause: locals, frames newest first at their current line down to <module>, lines run, unassigned bindings.
       type: 'paused';
       runId: string;
       line: number;
       reason: 'user-breakpoint' | 'step';
       locals: Record<string, string>;
-      callStack: { functionName: string; line: number; declarationLine?: number }[];
+      callStack: { functionName: string; line: number; declarationLine?: number; callIndex?: number }[];
       reachedLines?: number[];
+      frameLines?: number[];
+      unassigned?: import('../../shared/scopeSnapshot').UnassignedBinding[];
       watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
       conditionError?: string;
     }

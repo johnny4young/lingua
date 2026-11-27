@@ -51,6 +51,8 @@
   "debugger.locals.titleIn": "Locals · {{name}}",
   "debugger.locals.changed_one": "{{count}} changed",
   "debugger.locals.changed_other": "{{count}} changed",
+  "debugger.locals.unassigned": "not assigned yet — line {{line}} has not run",
+  "debugger.locals.unassignedLine": "line {{line}}",
   "debugger.breakpoints.ifCondition": "if {{condition}}",
   "debugger.breakpoints.logSummary": "log {{message}}",
   "debugger.breakpoints.hits_one": "hit {{count}}",

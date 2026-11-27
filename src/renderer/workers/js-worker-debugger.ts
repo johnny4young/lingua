@@ -26,12 +26,18 @@ export type JsWorkerStepMode = 'none' | 'over' | 'into' | 'out';
 
 export type JsWorkerBreakpoint = Omit<DebuggerBreakpointPayload, 'line'>;
 
-interface JsWorkerDebuggerFrame {
+export interface JsWorkerDebuggerFrame {
   functionName: string;
   /** Absent on the top-level frame. */
   declarationLine?: number;
   /** The statement the frame is running: the call site of the frame above it. */
   line: number;
+  /** Which call of this function on the caller's statement it is, from 1, in the order the calls started. */
+  callIndex?: number;
+  /** Calls started per function name by the statement this frame is running. */
+  calls?: Map<string, number>;
+  /** Every statement line this invocation has started. */
+  ran?: Set<number>;
 }
 
 /** The top level is the outermost frame, as native runtimes report it; its line is 0 until a statement runs. */
@@ -95,31 +101,4 @@ export function applyJsWorkerExecutePayload(
   session.reached = new Map();
   session.resumeResolver = null;
   session.pausedScope = null;
-}
-
-/** Records the statement about to run as its frame's current line. */
-export function noteJsWorkerDebugLine(session: JsWorkerDebuggerSession, line: number): void {
-  session.frames.at(-1)!.line = line;
-}
-
-/** Records that the statement spanning `line`..`endLine` ran. */
-export function reachJsWorkerDebugLines(session: JsWorkerDebuggerSession, line: number, endLine: number): void {
-  const known = session.reached.get(line);
-  if (known === undefined || known < endLine) session.reached.set(line, endLine);
-}
-
-/** The pause's view of the run: frames newest first with their current line, and every line that ran. */
-export function jsWorkerPauseFrames(session: JsWorkerDebuggerSession): {
-  callStack: JsWorkerDebuggerFrame[];
-  reachedLines: number[];
-} {
-  const reached = new Set<number>();
-  for (const [start, end] of session.reached) {
-    for (let line = start; line <= end; line += 1) reached.add(line);
-  }
-  return {
-    // Copies, since the frames keep moving after the pause is posted.
-    callStack: session.frames.map(frame => ({ ...frame })).reverse(),
-    reachedLines: [...reached].sort((a, b) => a - b),
-  };
 }

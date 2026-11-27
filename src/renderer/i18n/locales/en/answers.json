@@ -26,5 +26,9 @@
   "answers.delta.items_other": "{{count}} items",
   "answers.paused.held": "held",
   "answers.paused.heldHint": "Before this line runs",
-  "answers.paused.depth": "depth {{depth}}"
+  "answers.paused.depth": "depth {{depth}}",
+  "answers.frame.waiting": "waiting on {{call}}",
+  "answers.frame.thisCall": "this call",
+  "answers.frame.calling": "calling",
+  "answers.frame.notReturned": "depth {{depth}} · not returned"
 }

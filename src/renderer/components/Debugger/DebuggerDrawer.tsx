@@ -7,9 +7,11 @@ import { languageSupportsDebugger } from '../../utils/languageMeta';
 import { type LocalChange, localsChanges, orderedLocals } from '../../utils/debuggerLocals';
 import { pausedFunctionName, stackRows } from '../../utils/debuggerStack';
 import type { Language } from '../../types/language';
+import type { UnassignedBinding } from '../../../shared/scopeSnapshot';
 import { AnswerObject } from '../Answer/AnswerObject';
 import { AnswerWasChip } from '../Answer/AnswerDeltaChip';
 import { RunMeterStack } from '../RunMeter/RunMeterStack';
+import { TypeTag } from '../ui/answer';
 import { DebuggerBreakpointList } from './DebuggerBreakpointList';
 import { DebuggerWatchList } from './DebuggerWatchList';
 import { DrawerColumn } from './DrawerColumn';
@@ -39,6 +41,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
   );
   const callStack = pausedFrame?.callStack;
   const locals = pausedFrame?.locals;
+  const unassigned = pausedFrame?.unassigned ?? [];
   const stack = useMemo(() => (callStack ? stackRows(callStack) : []), [callStack]);
   const changes = useMemo(
     () => (locals ? localsChanges(previousLocals, locals) : new Map<string, LocalChange>()),
@@ -107,7 +110,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
             <p className="debugger-muted" data-testid="debugger-empty">
               {t(tabBreakpointCount > 0 && enabledBreakpointCount === 0 ? 'debugger.empty.noEnabled' : 'debugger.empty.ready')}
             </p>
-          ) : Object.keys(pausedFrame.locals).length === 0 ? (
+          ) : rows.length === 0 && unassigned.length === 0 ? (
             <p className="debugger-muted">{t('debugger.paused.locals.empty')}</p>
           ) : (
             <ul className="debugger-rows">
@@ -126,6 +129,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
                   </li>
                 );
               })}
+              <UnassignedRows bindings={unassigned} />
             </ul>
           )}
           {stack.length > 0 ? (
@@ -136,5 +140,31 @@ export function DebuggerDrawer({ activeTabId, activeLanguage }: DebuggerDrawerPr
         <DebuggerBreakpointList activeTabId={activeTabId} activeLanguage={activeLanguage} />
       </div>
     </section>
+  );
+}
+
+/** Bindings the frame declares further down: the first says why it has no value, the rest share a row. */
+function UnassignedRows({ bindings }: { readonly bindings: readonly UnassignedBinding[] }) {
+  const { t } = useTranslation();
+  const [first, ...rest] = bindings;
+  if (!first) return null;
+  const binding = ({ name, kind }: UnassignedBinding, note: string) => (
+    <span key={name} className="debugger-unassigned-item" data-unassigned={name}>
+      <span className="debugger-local-name">{name}</span>
+      <TypeTag>{kind}</TypeTag>
+      <span className="debugger-unassigned-note">{note}</span>
+    </span>
+  );
+  return (
+    <>
+      <li className="debugger-row debugger-unassigned" data-testid="debugger-unassigned">
+        {binding(first, t('debugger.locals.unassigned', { line: first.line }))}
+      </li>
+      {rest.length > 0 ? (
+        <li className="debugger-row debugger-unassigned" data-testid="debugger-unassigned">
+          {rest.map(entry => binding(entry, t('debugger.locals.unassignedLine', { line: entry.line })))}
+        </li>
+      ) : null}
+    </>
   );
 }

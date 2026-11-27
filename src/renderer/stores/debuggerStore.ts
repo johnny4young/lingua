@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
 import { pauseDepth } from '../utils/debuggerStack';
+import type { UnassignedBinding } from '../../shared/scopeSnapshot';
 
 /**
  * Debugger state machine store.
@@ -88,6 +89,8 @@ interface CallStackFrame {
   line: number;
   /** Where the function is declared, when the runtime reports it. */
   declarationLine?: number;
+  /** JS: which call of this function on its caller's line it is, from 1. */
+  callIndex?: number;
 }
 
 export interface PausedFrame {
@@ -108,6 +111,10 @@ export interface PausedFrame {
   callStack: CallStackFrame[];
   /** JS: every line the session ran so far, so the rail leaves code that never ran dotted. */
   reachedLines?: readonly number[];
+  /** JS: the lines the paused frame's own invocation has started, except the paused one. */
+  frameLines?: readonly number[];
+  /** JS: the frame's `const`, `let` and `class` bindings its code has not declared yet. */
+  unassigned?: readonly UnassignedBinding[];
   /**
    * Latest watch evaluations, keyed by the user-typed expression. Each
    * entry is `{ value, error }` (exactly one defined when evaluated)

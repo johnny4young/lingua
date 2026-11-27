@@ -51,6 +51,8 @@
   "debugger.locals.titleIn": "Variables · {{name}}",
   "debugger.locals.changed_one": "{{count}} cambió",
   "debugger.locals.changed_other": "{{count}} cambiaron",
+  "debugger.locals.unassigned": "sin asignar aún — la línea {{line}} no ha corrido",
+  "debugger.locals.unassignedLine": "línea {{line}}",
   "debugger.breakpoints.ifCondition": "si {{condition}}",
   "debugger.breakpoints.logSummary": "registra {{message}}",
   "debugger.breakpoints.hits_one": "{{count}} parada",

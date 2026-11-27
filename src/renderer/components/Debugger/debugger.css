@@ -144,6 +144,32 @@
 
   .debugger-new { flex: none; }
 
+  /* Declared further down and not assigned yet: no value to show, so the row stays subtle. */
+  .debugger-unassigned {
+    flex-wrap: wrap;
+    column-gap: 28px;
+    color: var(--color-fg-subtle);
+  }
+
+  .debugger-unassigned-item {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .debugger-unassigned .debugger-local-name {
+    color: var(--color-fg-muted);
+    font-weight: 400;
+  }
+
+  .debugger-unassigned .type-tag { min-width: 60px; }
+
+  .debugger-unassigned-note {
+    min-width: 0;
+    white-space: normal;
+  }
+
   .debugger-muted {
     font-family: var(--font-ui);
     font-variation-settings: normal;

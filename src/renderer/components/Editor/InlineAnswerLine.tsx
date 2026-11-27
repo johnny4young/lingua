@@ -6,7 +6,7 @@ import { AnswerObject } from '../Answer/AnswerObject';
 import { AnswerDeltaChip, AnswerWasChip } from '../Answer/AnswerDeltaChip';
 import type { AnswerDelta } from '../Answer/answerDelta';
 import type { AnswerRole } from '../Answer/answerObjectModel';
-import { DotLeader } from '../ui/answer';
+import { DotLeader, TypeTag } from '../ui/answer';
 import '../../i18n/answersCatalog';
 
 const MAX_ITEMS_PER_LINE = 3;
@@ -58,8 +58,11 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
   const visible = repeat ? items.slice(-1) : items.slice(0, MAX_ITEMS_PER_LINE);
   const dropped = repeat ? 0 : items.length - visible.length;
   const single = visible.length === 1;
-  // Values read at one earlier depth share one chip at the end of the line.
-  const lineDepth = visible.length > 0 && visible.every(item => item.depth === visible[0]!.depth) ? visible[0]!.depth : undefined;
+  // Values read at one earlier depth share one chip at the end of the line; a calling frame tags its own depth.
+  const lineDepth =
+    visible.length > 0 && !visible.some(item => item.frameCall) && visible.every(item => item.depth === visible[0]!.depth)
+      ? visible[0]!.depth
+      : undefined;
   return (
     <>
       {visible.length > 0 ? <DotLeader className="lingua-inline-result-leader" /> : null}
@@ -71,6 +74,9 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
         ) : null}
         {visible.map((result, index) => (
           <Fragment key={index}>
+            {result.frameCall ? (
+              <FrameCallAnswer frameCall={result.frameCall} value={result.value} depth={result.depth} />
+            ) : (
             <span
               className="lingua-inline-result-part"
               data-result-kind={result.type}
@@ -91,6 +97,7 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
               {result.previous !== undefined ? <AnswerWasChip value={result.previous} /> : null}
               {result.depth !== undefined && lineDepth === undefined ? <DepthChip label={t('answers.paused.depth', { depth: result.depth })} /> : null}
             </span>
+            )}
             {index < visible.length - 1 ? <span className="lingua-inline-result-separator">·</span> : null}
           </Fragment>
         ))}
@@ -118,6 +125,36 @@ export function InlineAnswerLine({ items, timing, language, source, change, kept
         ) : null}
       </span>
     </>
+  );
+}
+
+/** A calling frame's line: the call it waits on, or the top level's chain of calls that have not returned. */
+function FrameCallAnswer({
+  frameCall,
+  value,
+  depth,
+}: {
+  readonly frameCall: NonNullable<LineResult['frameCall']>;
+  readonly value: string;
+  readonly depth?: number;
+}) {
+  const { t } = useTranslation();
+  const text = replaceUnsafeText(value);
+  if (frameCall.kind === 'calling') {
+    return (
+      <span className="lingua-inline-result-part lingua-inline-result-frame" data-frame-call="calling" data-testid="lingua-inline-result-frame">
+        <TypeTag className="lingua-inline-result-frame-tag">{t('answers.frame.calling')}</TypeTag>
+        <span className="lingua-inline-result-frame-chain">{text}</span>
+        <DepthChip label={t('answers.frame.notReturned', { depth: frameCall.depth })} />
+      </span>
+    );
+  }
+  return (
+    <span className="lingua-inline-result-part lingua-inline-result-frame" data-frame-call="waiting" data-depth={depth} data-testid="lingua-inline-result-frame">
+      {depth !== undefined ? <TypeTag className="lingua-inline-result-frame-tag">{t('answers.paused.depth', { depth })}</TypeTag> : null}
+      <span>{t('answers.frame.waiting', { call: text })}</span>
+      {frameCall.thisCall ? <span className="lingua-inline-result-this-call">{`↰ ${t('answers.frame.thisCall')}`}</span> : null}
+    </span>
   );
 }
 

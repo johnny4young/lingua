@@ -380,6 +380,8 @@ export class WorkerRunnerShell {
                 locals: msg.locals,
                 callStack: msg.callStack,
                 reachedLines: msg.reachedLines,
+                frameLines: msg.frameLines,
+                unassigned: msg.unassigned,
                 watchResults: msg.watchResults,
                 conditionError: msg.conditionError,
               });

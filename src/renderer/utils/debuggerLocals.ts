@@ -1,4 +1,7 @@
+import type { PausedFrame } from '../stores/debuggerStore';
 import type { LineResult } from '../stores/resultStore';
+import { MODULE_FRAME } from './debuggerStack';
+import { closingParen } from './magicComments/jsAssignments';
 
 /** How one local differs from the pause before it. */
 export type LocalChange = { readonly kind: 'new' } | { readonly kind: 'changed'; readonly before: string };
@@ -94,13 +97,71 @@ interface Pause {
   readonly locals: Locals;
   readonly depth: number;
   readonly frame?: string;
+  readonly callStack?: PausedFrame['callStack'];
+  /** Lines the paused invocation started; without them no line above the pause reads as run. */
+  readonly frameLines?: readonly number[];
+}
+
+const CALL_TEXT_LENGTH = 32;
+const CHAIN_NAMES = 3;
+
+/**
+ * The `index`th call of `name` on the line as written, such as `quickSort(left)`; `name(…)` when the line
+ * has no such call, it is too long, or the runtime sent no index and the line calls it more than once.
+ */
+export function callOnLine(line: string, name: string, index: number | undefined, language: string): string {
+  const callee = name.slice(Math.max(name.lastIndexOf('.'), name.lastIndexOf(':')) + 1);
+  const fallback = `${callee}(…)`;
+  if (!/^[A-Za-z_$][\w$]*$/.test(callee)) return fallback;
+  const code = codeOf(line, language === 'python');
+  const starts = [...code.matchAll(new RegExp(`(?<![\\w$])${callee.replace(/\$/g, '\\$')}\\s*\\(`, 'g'))];
+  if (index === undefined && starts.length > 1) return fallback;
+  const match = starts[(index ?? 1) - 1];
+  if (!match) return fallback;
+  const close = closingParen(code, match.index + match[0].length - 1);
+  if (close < 0) return fallback;
+  const text = line.slice(match.index, close + 1).replace(/\s+/g, ' ');
+  return text.length > CALL_TEXT_LENGTH ? fallback : text;
+}
+
+/** The paused invocation's lines above the pause: a function's declaration line binds its parameters. */
+function ranLines(frame: Pause): number[] {
+  const top = frame.callStack?.[0];
+  if (!frame.frameLines || !top) return [];
+  const lines = new Set(frame.frameLines.filter(line => line < frame.line));
+  if (top.declarationLine !== undefined && top.declarationLine < frame.line) lines.add(top.declarationLine);
+  return [...lines].sort((a, b) => a - b);
+}
+
+/** What each calling frame waits on, on the line it is running; the top level reads the calls it started. */
+function callerResults(frame: Pause, lines: readonly string[], language: string, taken: Set<number>): LineResult[] {
+  const stack = frame.callStack ?? [];
+  const results: LineResult[] = [];
+  for (let index = 1; index < stack.length; index += 1) {
+    const caller = stack[index]!;
+    const callee = stack[index - 1]!;
+    if (taken.has(caller.line) || !Number.isInteger(caller.line) || caller.line < 1 || caller.line > lines.length) continue;
+    taken.add(caller.line);
+    if (caller.functionName === MODULE_FRAME && index === stack.length - 1) {
+      const names = stack.slice(0, -1).map(entry => entry.functionName).reverse();
+      const chain = names.length > CHAIN_NAMES ? [names[0]!, '…', names.at(-1)!] : names;
+      results.push({ line: caller.line, value: chain.join(' → '), type: 'log', frameCall: { kind: 'calling', depth: frame.depth } });
+    } else {
+      const call = callOnLine(lines[caller.line - 1]!, callee.functionName, callee.callIndex, language);
+      const depth = stack.length - 1 - index;
+      results.push({ line: caller.line, value: call, type: 'log', depth, frameCall: { kind: 'waiting', thisCall: index === 1 } });
+    }
+  }
+  return results;
 }
 
 /**
  * Inline values for a pause. The paused line shows the locals it names, held
- * before it runs. The line the last pause stopped on shows what changed since,
- * or, when that pause was in another frame, the values it read there with the
- * depth they came from. With `compare`, a changed value carries the one it replaced.
+ * before it runs. The line the last pause stopped on shows what changed since.
+ * Each calling frame's line says what it waits on. When the last pause was in
+ * another frame, its line keeps the values it read there with their depth.
+ * Lines of the paused frame that already ran show the current value of the
+ * locals they name first. With `compare`, a changed value carries the one it replaced.
  */
 export function pausedLineResults(frame: Pause, previous: Pause | null, code: string, language: string, compare = true): LineResult[] {
   const lines = code.split('\n');
@@ -122,18 +183,32 @@ export function pausedLineResults(frame: Pause, previous: Pause | null, code: st
       results.push({ line: frame.line, name, value, type: 'log', held: true, ...withPrevious(name, value) });
     }
   }
-  if (before && inRange(before.line)) {
-    if (sameFrame) {
-      for (const name of localsChanges(before.locals, frame.locals).keys()) {
-        if (shown.has(`${before.line}:${name}`)) continue;
-        const value = frame.locals[name]!;
-        results.push({ line: before.line, name, value, type: 'log', ...withPrevious(name, value) });
-      }
-    } else {
-      for (const name of localsOnLine(lines[before.line - 1]!, before.locals, language)) {
-        if (shown.has(`${before.line}:${name}`)) continue;
-        results.push({ line: before.line, name, value: before.locals[name]!, type: 'log', depth: before.depth });
-      }
+  // The paused line is this frame's, even when a recursive caller waits on the same line.
+  const taken = new Set([frame.line]);
+  if (before && inRange(before.line) && sameFrame) {
+    for (const name of localsChanges(before.locals, frame.locals).keys()) {
+      if (shown.has(`${before.line}:${name}`)) continue;
+      const value = frame.locals[name]!;
+      results.push({ line: before.line, name, value, type: 'log', ...withPrevious(name, value) });
+      taken.add(before.line);
+    }
+  }
+  results.push(...callerResults(frame, lines, language, taken));
+  if (before && inRange(before.line) && !sameFrame && !taken.has(before.line)) {
+    for (const name of localsOnLine(lines[before.line - 1]!, before.locals, language)) {
+      if (shown.has(`${before.line}:${name}`)) continue;
+      results.push({ line: before.line, name, value: before.locals[name]!, type: 'log', depth: before.depth });
+      taken.add(before.line);
+    }
+  }
+  const answered = new Set<string>();
+  for (const line of ranLines(frame)) {
+    if (taken.has(line)) continue;
+    for (const name of localsOnLine(lines[line - 1]!, frame.locals, language)) {
+      if (answered.has(name)) continue;
+      answered.add(name);
+      const value = frame.locals[name]!;
+      results.push({ line, name, value, type: 'log', ...withPrevious(name, value) });
     }
   }
   return results;

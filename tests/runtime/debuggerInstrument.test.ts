@@ -15,13 +15,13 @@ describe('instrumentForDebugger ', () => {
 
   it('passes the last line of a statement that spans several lines', () => {
     const result = instrumentForDebugger(`const a = 1;\nconst total = [1, 2].reduce(\n  (sum, n) => sum + n,\n  0\n);\n`);
-    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\)\);/);
-    expect(result.code).toMatch(/__lingua_dbg_yield\(2, \(\) => [^\n]*, 5\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\), 1, "\[\{\\"name\\":\\"a\\"[^\n]*total[^\n]*\]"\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(2, \(\) => [^\n]*, 5, "\[\{\\"name\\":\\"total\\",\\"kind\\":\\"const\\",\\"line\\":2\}\]"\);/);
   });
 
   it('stops the span where a debuggable function starts, so its body is reached only when called', () => {
     const result = instrumentForDebugger(`const twice = (n) => {\n  return n * 2;\n};\n`);
-    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\)\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\), 1, "\[\{\\"name\\":\\"twice\\",\\"kind\\":\\"const\\",\\"line\\":1\}\]"\);/);
     expect(result.code).toMatch(/__lingua_dbg_yield\(2, /);
   });
 
@@ -89,6 +89,20 @@ describe('instrumentForDebugger ', () => {
     expect(result.code).toContain('try { __lingua_dbg_locals["ready"] = ready; } catch {}');
     expect(result.code).toContain('try { __lingua_dbg_locals["later"] = later; } catch {}');
     expect(result.code).not.toContain('typeof later');
+  });
+
+  it('passes each yield the const, let and class declarations not run yet, never a var or parameter', () => {
+    const result = instrumentForDebugger(
+      `function f(a) {\n  var v = 1;\n  const c = a; let { l } = { l: 2 };\n  class K {}\n  return [c, l, K, v];\n}\nf(1);\n`
+    );
+    expect(result.code).toContain(
+      ', 2, "[{\\"name\\":\\"c\\",\\"kind\\":\\"const\\",\\"line\\":3},{\\"name\\":\\"l\\",\\"kind\\":\\"let\\",\\"line\\":3},{\\"name\\":\\"K\\",\\"kind\\":\\"class\\",\\"line\\":4}]");'
+    );
+    // The second statement on line 3 still waits on its own declaration, not on the one before it.
+    expect(result.code).toContain(', 3, "[{\\"name\\":\\"l\\",\\"kind\\":\\"let\\",\\"line\\":3},{\\"name\\":\\"K\\",\\"kind\\":\\"class\\",\\"line\\":4}]");');
+    expect(result.code).toMatch(/__lingua_dbg_yield\(5, [^\n]*\}\)\(\)\);/);
+    expect(result.code).not.toContain('\\"name\\":\\"v\\"');
+    expect(result.code).not.toContain('\\"name\\":\\"a\\"');
   });
 
   it('tracks assignment-created globals so later pauses can inspect them', () => {
