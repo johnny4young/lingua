@@ -89,6 +89,31 @@ describe('SQL tab under 640 px', () => {
     await waitFor(() => expect(screen.queryByTestId('sql-explorer-drawer')).toBeNull());
   });
 
+  it('keeps the drawer open when Escape cancels a rename inside it', async () => {
+    atWidth(375);
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 's', name: 'orders by city', query: 'SELECT 1' }));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-explorer-unfold'));
+    const drawer = screen.getByTestId('sql-explorer-drawer');
+    await user.click(within(drawer).getByTestId('sql-query-list-rename'));
+    expect(screen.getByTestId('sql-query-list-rename-input')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('sql-query-list-rename-input')).toBeNull();
+    expect(screen.getByTestId('sql-explorer-drawer')).toBeTruthy();
+  });
+
+  it('closes the drawer when the query already on screen is chosen in it', async () => {
+    atWidth(375);
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'a', name: 'orders by city', query: 'SELECT 1' }));
+    useWorkspaceSqlStore.getState().setActiveQuery('a');
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-explorer-unfold'));
+    await user.click(within(screen.getByTestId('sql-explorer-drawer')).getByText('orders by city'));
+    expect(screen.queryByTestId('sql-explorer-drawer')).toBeNull();
+  });
+
   it('opens the drawer with Cmd/Ctrl+B and its history from the rail, leaving the fold preference alone', async () => {
     atWidth(375);
     useEditorStore.setState({ tabs: [{ id: 'sql', kind: 'sql', name: 'SQL' } as never], activeTabId: 'sql' });

@@ -12,10 +12,11 @@ export function useWidthTier(ref: RefObject<HTMLElement | null>, widths: readonl
     const measure = (width: number) => setTier(width === 0 ? unmeasured : widths.filter(min => width >= min).length);
     measure(node.getBoundingClientRect().width);
     if (typeof ResizeObserver === 'undefined') return;
+    // Border box, as the first measure: a padding that follows the tier must not flip it back.
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) measure(entry.contentRect.width);
+      if (entry) measure(entry.borderBoxSize?.[0]?.inlineSize ?? node.getBoundingClientRect().width);
     });
-    observer.observe(node);
+    observer.observe(node, { box: 'border-box' });
     return () => observer.disconnect();
   }, [ref, widths, unmeasured]);
   return tier;

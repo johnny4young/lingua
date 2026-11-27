@@ -504,7 +504,11 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       <SqlQueryList
         queries={queries}
         activeQueryId={activeQueryId}
-        onSelect={handleSelect}
+        onSelect={(id) => {
+          // Choosing the query already on screen changes no state the effect above watches.
+          useSqlExplorerDrawerStore.getState().setOpen(false);
+          handleSelect(id);
+        }}
         onCreate={() => handleCreate()}
         onRename={tabActions.rename}
         onDelete={tabActions.remove}
