@@ -66,13 +66,14 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
   // The run sends to the active environment, so the dialog names it and the host the step paths leave out.
   // Resolved with the send-time scopes and masked like a capsule, so a secret value never shows.
   const environment = environments.find(entry => entry.id === activeEnvironmentId) ?? null;
-  const firstRequest = stepRows.find(row => row.step.enabled)?.request;
+  const firstRequest = stepRows.find(row => row.step.enabled && row.request)?.request;
   const host = firstRequest
     ? pipelineHost(maskSecretsForCapsule(firstRequest, scopedEnvironmentFor(firstRequest, environment)).url)
     : null;
   const environmentName = environment
     ? environment.name || t('httpWorkspace.environment.unnamed')
     : t('httpWorkspace.environment.selector.none');
+  const environmentLine = host ? `${environmentName} · ${host}` : environmentName;
   const resultByStep = useMemo(
     () => new Map(shownRun?.results.map(result => [result.stepId, result]) ?? []),
     [shownRun]
@@ -382,8 +383,8 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
           )}
         </div>
         <footer className="pipeline-statusbar" aria-label={t('httpWorkspace.environment.selector.label')}>
-          <span data-testid="http-pipeline-environment" className="truncate" title={host ?? undefined}>
-            {host ? `${environmentName} · ${host}` : environmentName}
+          <span data-testid="http-pipeline-environment" className="truncate" title={environmentLine}>
+            {environmentLine}
           </span>
         </footer>
       </div>

@@ -184,8 +184,30 @@ describe('HttpPipelineManager', () => {
       store.setActiveEnvironment('staging');
       renderManager(null);
       const footer = screen.getByRole('contentinfo', { name: 'Environment' });
-      expect(within(footer).getByTestId('http-pipeline-environment').textContent).toBe('staging · api.staging.acme.dev');
+      const line = within(footer).getByTestId('http-pipeline-environment');
+      expect(line.textContent).toBe('staging · api.staging.acme.dev');
+      // The line truncates, so the tooltip carries all of it.
+      expect(line.getAttribute('title')).toBe('staging · api.staging.acme.dev');
       cleanup();
+
+      // A step whose request was deleted names no host; the next one with a request does.
+      store.createHttpPipeline({
+        version: 1,
+        id: 'p-gone',
+        name: 'gone first',
+        steps: [
+          { id: 'g1', requestId: 'deleted', enabled: true },
+          { id: 'g2', requestId: 'deploy', enabled: true },
+        ],
+        stopOnFailure: true,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      store.setActiveHttpPipeline('p-gone');
+      renderManager(null);
+      expect(screen.getByTestId('http-pipeline-environment').textContent).toBe('staging · api.staging.acme.dev');
+      cleanup();
+      store.setActiveHttpPipeline('p1');
 
       // A secret base URL never shows; the footer keeps the environment's name.
       store.updateEnvironment('staging', {

@@ -88,6 +88,13 @@
     color: var(--color-fg-base);
   }
 
+  /* Atomic, so the path wraps around a token; one wider than the row breaks inside instead of spilling. */
+  .pipeline-step-path .pipeline-variable {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+  }
+
   .pipeline-step-leader {
     min-width: 14px;
   }
