@@ -473,6 +473,14 @@ export function useNotebookRun(): UseNotebookRunResult {
             )
         );
       if (replay.length === 0) return;
+      // Current SQL cells read only DuckDB, so the JS/Python replay above them leaves them current.
+      const currentSql = slice.notebook.cells.flatMap((cell, index) => {
+        const status = slice.cellRunStatus[cell.id];
+        return cell.kind === 'code' && cell.language === 'sql' && status !== undefined && status !== 'stale'
+          ? [{ id: cell.id, index, status }]
+          : [];
+      });
+      let firstRerunSqlIndex = Infinity;
 
       disposeNotebookSession(tabId);
       let runCount = 0;
@@ -481,12 +489,24 @@ export function useNotebookRun(): UseNotebookRunResult {
       try {
         for (const cell of replay) {
           if (stopRequestedRef.current) break;
+          if (cell.kind === 'code' && cell.language === 'sql') {
+            firstRerunSqlIndex = Math.min(firstRerunSqlIndex, slice.notebook.cells.indexOf(cell));
+          }
           const outcome = await runCellInternal(tabId, cell.id, false);
           if (!outcome) break;
           runCount += 1;
           terminalStatus = outcome.status;
           if (outcome.status === 'error' || outcome.status === 'stopped') {
             break;
+          }
+        }
+        const store = useNotebookStore.getState();
+        const sameNotebook = store.notebooks[tabId]?.notebook.id === slice.notebook.id;
+        for (const kept of sameNotebook ? currentSql : []) {
+          // A SQL cell that ran again above it may have changed what it reads.
+          if (kept.index > firstRerunSqlIndex) continue;
+          if (store.getCellRunStatus(tabId, kept.id) === 'stale') {
+            store.setCellRunStatus(tabId, kept.id, kept.status);
           }
         }
         if (runCount > 0 && terminalStatus) {

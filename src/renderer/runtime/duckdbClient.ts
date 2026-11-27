@@ -1285,7 +1285,8 @@ export async function executeSqlInTransaction(
   const opened = await openConnection(performance.now());
   if ('failure' in opened) return [opened.failure];
   const { connection } = opened;
-  const run = (sql: string) => runOnConnection(connection, sql.trim(), options);
+  let last: DuckDbExecuteOutcome | undefined;
+  const run = async (sql: string) => (last = await runOnConnection(connection, sql.trim(), options));
   const outcomes: DuckDbExecuteOutcome[] = [];
   try {
     const begin = await run('BEGIN TRANSACTION');
@@ -1300,13 +1301,13 @@ export async function executeSqlInTransaction(
     }
     const commit = await run('COMMIT');
     if (!isResultStatus(commit.status)) {
-      await run('ROLLBACK');
+      if (!mayStillRun(commit)) await run('ROLLBACK');
       return [...outcomes, commit];
     }
     await checkpointIfPersistent(connection);
     return outcomes;
   } finally {
-    await closeQuietly(connection, !mayStillRun(outcomes[outcomes.length - 1]));
+    await closeQuietly(connection, !mayStillRun(last));
   }
 }
 

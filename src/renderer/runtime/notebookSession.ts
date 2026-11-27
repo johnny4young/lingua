@@ -762,9 +762,10 @@ export async function runNotebookCell(
     if (request.language === 'sql') {
       const sandboxKeyCount = Object.keys(session.sandbox).length;
       const effects = sqlCellEffects(request.source);
+      const replaced = replacedRelations(effects, request.replaces);
       const outcome = await executeSqlCell(
         request.source,
-        replacedRelations(effects, request.replaces),
+        replaced,
         request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}
       );
       if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
@@ -784,7 +785,8 @@ export async function runNotebookCell(
             stderr: [errorMessage],
             errorMessage,
             sandboxKeyCount,
-            producedKeys: [],
+            // The failed run rolled back, so what it would have replaced is still there for the next run.
+            producedKeys: [...new Set(replaced.map((relation) => relation.label))],
             answers: [
               {
                 line: sqlErrorLine(errorMessage, request.source),

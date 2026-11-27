@@ -254,13 +254,13 @@ describe('executeSqlScript', () => {
 });
 
 describe('executeSqlInTransaction', () => {
-  function recordingEngine(ran: string[]) {
+  function recordingEngine(ran: string[], failing = 'BAD') {
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve({
         connect: async () => ({
           query: async (sql: string) => {
             ran.push(sql);
-            if (sql.startsWith('BAD')) throw new Error('Parser Error: syntax error');
+            if (sql.startsWith(failing)) throw new Error('Parser Error: syntax error');
             return { columns: [], rows: [], rowCount: 0, tooLarge: false };
           },
           close: async () => undefined,
@@ -283,6 +283,14 @@ describe('executeSqlInTransaction', () => {
     recordingEngine(ran);
     const outcomes = await executeSqlInTransaction(['DROP TABLE IF EXISTS t', 'BAD', 'SELECT 1']);
     expect(ran).toEqual(['BEGIN TRANSACTION', 'DROP TABLE IF EXISTS t', 'BAD', 'ROLLBACK']);
+    expect(outcomes.map((outcome) => outcome.status)).toEqual(['success', 'sql-error']);
+  });
+
+  it('rolls back and reports a COMMIT that fails', async () => {
+    const ran: string[] = [];
+    recordingEngine(ran, 'COMMIT');
+    const outcomes = await executeSqlInTransaction(['CREATE TABLE t AS SELECT 1']);
+    expect(ran).toEqual(['BEGIN TRANSACTION', 'CREATE TABLE t AS SELECT 1', 'COMMIT', 'ROLLBACK']);
     expect(outcomes.map((outcome) => outcome.status)).toEqual(['success', 'sql-error']);
   });
 });

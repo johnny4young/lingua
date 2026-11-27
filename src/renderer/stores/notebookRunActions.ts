@@ -236,6 +236,7 @@ export function createRunActions(
               cellRunStatus: {},
               cellDurationMs: {},
               cellVarFlow: {},
+              cellEditedSinceRun: {},
               executionCounter: 0,
               cellExecutionOrder: {},
             },

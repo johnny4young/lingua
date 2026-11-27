@@ -304,9 +304,11 @@ export function sqlAnswerTarget(source: string): SqlAnswerTarget | null {
   return { firstLine, lastLine, isRead: isReadOnlySqlStatement(text) };
 }
 
-const TRANSACTION_RE = /^\s*(?:begin|commit|rollback|abort|end|start\s+transaction)\b/i;
+// Transaction control, and statements DuckDB refuses inside a transaction.
+const TRANSACTION_RE =
+  /^\s*(?:begin|commit|rollback|abort|end|start\s+transaction|(?:force\s+)?checkpoint|vacuum|attach|detach)\b/i;
 
-/** Every relation a SQL cell creates, and whether it manages its own transaction. */
+/** Every relation a SQL cell creates, and whether it manages its own transaction or cannot run inside one. */
 export interface SqlCellEffects {
   readonly made: ReadonlyArray<SqlMadeRelation>;
   readonly ownsTransaction: boolean;

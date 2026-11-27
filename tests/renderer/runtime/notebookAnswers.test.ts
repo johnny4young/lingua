@@ -246,6 +246,7 @@ describe('sqlCellEffects', () => {
   it('notices a cell that opens or closes its own transaction', () => {
     expect(sqlCellEffects('BEGIN;\nCREATE TABLE t AS SELECT 1;\nCOMMIT;').ownsTransaction).toBe(true);
     expect(sqlCellEffects("SELECT 'begin' AS word;").ownsTransaction).toBe(false);
+    expect(sqlCellEffects('CREATE TABLE t AS SELECT 1;\nCHECKPOINT;').ownsTransaction).toBe(true);
   });
 });
 

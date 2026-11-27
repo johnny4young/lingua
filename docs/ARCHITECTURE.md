@@ -1045,7 +1045,8 @@ replaces what it made: a plain `CREATE TABLE | VIEW` whose name the cell made on
 its last run in this session (its variable flow; answers saved in the file never
 decide a drop) is dropped and created again in one transaction, so a cell that
 fails keeps the previous relation. `OR REPLACE`, `IF NOT EXISTS`, temporary relations and cells
-that open or close their own transaction run as written. The UI and capability
+that open or close their own transaction, or run a statement DuckDB refuses
+inside one (`CHECKPOINT`, `VACUUM`, `ATTACH`, `DETACH`), run as written. The UI and capability
 matrix describe this rather than promising notebook-isolated SQL snapshots.
 
 ## Notebook per-line answers

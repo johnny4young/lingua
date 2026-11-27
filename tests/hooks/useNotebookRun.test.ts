@@ -661,6 +661,53 @@ describe('useNotebookRun', () => {
     expect(useAnnouncerStore.getState().message).toMatch(/4 executed cells replayed successfully/i);
   });
 
+  it('keeps a current SQL cell current while the Python replay above it runs', async () => {
+    const cell = (id: string, language: NotebookCellLanguage, source: string) => ({
+      kind: 'code' as const,
+      id,
+      language,
+      source,
+      outputs: [{ kind: 'text' as const, stream: 'stdout' as const, text: 'old' }],
+    });
+    useNotebookStore.setState({
+      notebooks: {
+        'tab-mixed': {
+          notebook: {
+            version: 1,
+            id: 'notebook-mixed',
+            title: 'Mixed',
+            cells: [
+              cell('py-setup', 'python', 'base = 1'),
+              cell('sql-made', 'sql', CREATE_BY_CITY),
+              cell('sql-stale', 'sql', 'SELECT n FROM by_city;'),
+              cell('py-late', 'python', 'base + 1'),
+            ],
+          },
+          cellRunStatus: { 'py-setup': 'ok', 'sql-made': 'ok', 'sql-stale': 'stale', 'py-late': 'stale' },
+          cellExecutionOrder: { 'py-setup': 1, 'sql-made': 2, 'sql-stale': 3, 'py-late': 4 },
+          cellVarFlow: {},
+          executionCounter: 4,
+          activeCellId: 'py-late',
+        },
+      },
+    });
+    mockExecute.mockResolvedValue({ kind: 'ok', result: '', stdout: [], stderr: [] });
+    mockQuery.mockResolvedValue(sqlOutcome({ rows: [{ n: 1 }], rowCount: 1, columns: [{ name: 'n' }] }));
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.refreshStale('tab-mixed');
+    });
+
+    expect(mockQuery.mock.calls.map((call) => call[0])).toEqual(['SELECT n FROM by_city;']);
+    expect(useNotebookStore.getState().notebooks['tab-mixed']!.cellRunStatus).toEqual({
+      'py-setup': 'ok',
+      'sql-made': 'ok',
+      'sql-stale': 'ok',
+      'py-late': 'ok',
+    });
+  });
+
   it('never drops a table on the word of an answer saved in the notebook file', async () => {
     seedSqlPythonNotebook(['sql-create', 'sql-read', 'py-tickets', 'py-over']);
     const slice = useNotebookStore.getState().notebooks['tab-sql']!;
@@ -704,6 +751,8 @@ describe('useNotebookRun', () => {
     expect(slice.cellRunStatus['sql-create']).toBe('error');
     expect(slice.notebook.cells[0]!.outputs[0]).toMatchObject({ stream: 'stderr', text: 'Parser Error: syntax error' });
     expect(mockExecute).not.toHaveBeenCalled();
+    // The rollback kept the table, so the next run still replaces it.
+    expect(slice.cellVarFlow?.['sql-create']?.produces).toEqual(['by_city']);
   });
 
   function seedManualRunInEditorTab(language: 'javascript' | 'python'): ManualRunSession {
