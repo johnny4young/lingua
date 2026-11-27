@@ -133,6 +133,8 @@ export function FileTreeNode({
     activeFileKey === dirtyTabKey(currentProject.rootId, node.path);
 
   const indent = depth * 12;
+  const rowActive = hovered || focusWithin;
+  const showActions = rowActive && !renaming;
 
   // Surface the capability badge in
   // the file tree when the user is on the web build and the file
@@ -245,10 +247,10 @@ export function FileTreeNode({
     >
       <div
         data-active={isActiveFile ? 'true' : undefined}
-        className={`group flex items-center gap-1 rounded-xl px-1.5 py-1 text-body-sm transition-colors ${
+        className={`group flex items-center gap-1 rounded-xl py-1 pr-3.5 text-body-sm transition-colors ${
           isActiveFile
             ? 'bg-primary-soft font-medium'
-            : hovered || focusWithin
+            : rowActive
               ? 'bg-surface-strong/78'
               : 'hover:bg-surface-strong/58'
         }`}
@@ -289,10 +291,10 @@ export function FileTreeNode({
             onCancel={() => setRenaming(false)}
           />
         ) : (
-          <Tooltip content={node.path}>
+          <Tooltip content={node.path} triggerClassName="min-w-0 flex-1">
             <button
               data-tree-row={node.path}
-              className={`focus-ring flex-1 truncate rounded text-left hover:text-foreground ${
+              className={`focus-ring min-w-0 flex-1 truncate rounded text-left hover:text-foreground ${
                 isActiveFile ? 'text-foreground' : 'text-foreground/88'
               }`}
               onClick={() => (node.isDirectory ? handleToggle() : onFileClick(node))}
@@ -304,43 +306,44 @@ export function FileTreeNode({
           </Tooltip>
         )}
 
-        {isDirtyInTab && !renaming && (
+        {!renaming && (showDesktopOnlyBadge || isDirtyInTab || gitMark || testTally) && (
           <span
-            role="img"
-            aria-label={t('fileTree.dirtyDot.label')}
-            data-testid={`file-tree-dirty-${node.path}`}
-            className="ml-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-          />
-        )}
-
-        {showDesktopOnlyBadge && !renaming && (
-          <span
-            className="ml-1 shrink-0 rounded-md border border-border/60 bg-transparent px-1.5 py-0.5 text-micro font-medium uppercase tracking-wide text-muted"
-            data-testid={`file-tree-capability-${node.path}`}
+            // The row actions take the marks' place on hover so the column never moves; screen readers keep the marks.
+            className={showActions ? 'sr-only' : 'ml-auto flex shrink-0 items-center gap-1.5 pl-1.5 font-mono text-caption tabular-nums'}
+            data-testid={`file-tree-marks-${node.path}`}
           >
-            {t('language.capability.desktopOnly')}
+            {showDesktopOnlyBadge && (
+              <span
+                className="rounded-md border border-border/60 bg-transparent px-1.5 py-0.5 font-sans text-micro font-medium uppercase tracking-wide text-muted"
+                data-testid={`file-tree-capability-${node.path}`}
+              >
+                {t('language.capability.desktopOnly')}
+              </span>
+            )}
+            {isDirtyInTab && (
+              <span
+                role="img"
+                aria-label={t('fileTree.dirtyDot.label')}
+                data-testid={`file-tree-dirty-${node.path}`}
+                className="inline-block h-1.5 w-1.5 rounded-full bg-primary"
+              />
+            )}
+            {gitMark && (
+              <span
+                role="img"
+                aria-label={t(`editor.git.tooltip.${gitMark}`)}
+                data-testid={`file-tree-git-${node.path}`}
+                className={`w-2.5 text-center font-semibold ${GIT_MARK[gitMark].tone}`}
+              >
+                {GIT_MARK[gitMark].letter}
+              </span>
+            )}
+            {testTally && <TestTallyMark tally={testTally} testId={`file-tree-tests-${node.path}`} />}
           </span>
         )}
 
-        {testTally && !renaming && (
-          <span className="shrink-0 pl-1">
-            <TestTallyMark tally={testTally} testId={`file-tree-tests-${node.path}`} />
-          </span>
-        )}
-
-        {gitMark && !renaming && (
-          <span
-            role="img"
-            aria-label={t(`editor.git.tooltip.${gitMark}`)}
-            data-testid={`file-tree-git-${node.path}`}
-            className={`w-3 shrink-0 pl-1 text-center font-mono text-caption font-semibold ${GIT_MARK[gitMark].tone}`}
-          >
-            {GIT_MARK[gitMark].letter}
-          </span>
-        )}
-
-        {(hovered || focusWithin) && !renaming && (
-          <div className="flex shrink-0 items-center gap-0.5">
+        {showActions && (
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 pl-1.5">
             {node.isDirectory && onNewFileIn && (
               <Tooltip content={t('fileTree.actions.newFile')}>
                 <button

@@ -14,7 +14,7 @@ export function TestTallyMark({ tally, testId }: { tally: TestTally; testId: str
     <span className="flex shrink-0 items-center gap-1.5" data-testid={testId} data-tone={tally.tone}>
       {tally.total > 0 ? (
         <>
-          <span aria-hidden className="font-mono text-caption tabular-nums text-muted">
+          <span aria-hidden className="whitespace-nowrap font-mono text-caption tabular-nums text-muted">
             {tally.passed} / {tally.total}
           </span>
           <span className="sr-only">{t('explorer.testTally', { passed: tally.passed, count: tally.total })}</span>

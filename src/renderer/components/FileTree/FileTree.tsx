@@ -378,7 +378,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           does not re-render the tree. Renders nothing with no open tabs. */}
       <FileTreeOpenTabs onNavigate={onNavigate} />
 
-      <div className="flex h-8 shrink-0 items-center gap-2 px-4">
+      <div className="flex h-8 shrink-0 items-center gap-2 pl-4 pr-3.5">
         <span className="panel-title">{t('explorer.files')}</span>
         {summary ? (
           <span className="ml-auto truncate text-caption text-muted" data-testid={summary.testId}>
