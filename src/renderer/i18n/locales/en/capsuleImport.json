@@ -73,5 +73,9 @@
   "capsuleList.share.copyJson": "Copy capsule JSON",
   "capsuleList.workspaceHint.before": "Need the files around it?",
   "capsuleList.workspaceHint.after": "attaches the open tabs you pick. Export stays on this machine.",
-  "capsuleList.shortcutHint": "{{combo}} opens this list"
+  "capsuleList.shortcutHint": "{{combo}} opens this list",
+  "capsuleList.detail.back": "Back to capsules",
+  "capsuleList.group.earlier": "Earlier",
+  "capsuleList.runtime.http": "HTTP client",
+  "capsuleList.runtime.pipeline": "Utility pipeline"
 }

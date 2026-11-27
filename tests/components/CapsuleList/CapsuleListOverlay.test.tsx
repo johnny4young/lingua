@@ -80,6 +80,23 @@ function choose(menu: 'capsule-list-share' | 'capsule-list-export' | 'capsule-li
   fireEvent.click(screen.getByTestId(item));
 }
 
+/** The action row overflows until its fit step reaches `fitsAt`. */
+function mockActionRowFit(fitsAt: number) {
+  const state = { fitsAt, restore: () => {} };
+  const isRow = (node: HTMLElement) => node.dataset.testid === 'capsule-detail-actions';
+  const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+    return isRow(this) && Number(this.dataset.fit) < state.fitsAt ? 500 : 0;
+  });
+  const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+    return isRow(this) ? 300 : 0;
+  });
+  state.restore = () => {
+    scroll.mockRestore();
+    client.mockRestore();
+  };
+  return state;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockEntitled = true;
@@ -145,7 +162,86 @@ describe('CapsuleListOverlay — Pro browser', () => {
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     expect(screen.getByTestId('capsule-detail-answer').textContent).toBe('Stopped');
     expect(screen.getByTestId('capsule-detail').textContent).toContain(`${FIXTURE_STOPPED.tab.name} · run 3`);
-    expect(screen.getByTestId('capsule-detail-status').textContent).toMatch(/^Stopped · /);
+    // The numeral already says Stopped, so the status line keeps only the language and time.
+    expect(screen.getByTestId('capsule-detail-status').textContent).not.toContain('Stopped');
+    expect(screen.getByTestId('capsule-detail-status').textContent).toMatch(/^JavaScript · /);
+  });
+
+  it('keeps the outcome word on the status line when the numeral is a time', () => {
+    seed(FIXTURE_MINIMAL_JS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-detail-status').textContent).toMatch(/^Success · JavaScript · /);
+  });
+
+  it('heads only the newest own run with Your last run and groups the rest as earlier', () => {
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS, FIXTURE_PYTHON_ERROR);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    const rows = screen.getByTestId('capsule-list-rows');
+    const last = within(rows).getByRole('group', { name: 'Your last run' });
+    const earlier = within(rows).getByRole('group', { name: 'Earlier' });
+    expect(within(last).getAllByTestId('capsule-list-row')).toHaveLength(1);
+    expect(within(earlier).getAllByTestId('capsule-list-row')).toHaveLength(2);
+    expect(screen.getAllByText('Your last run')).toHaveLength(1);
+
+    // A filter that hides the last run leaves a flat list without either label.
+    fireEvent.click(screen.getByTestId('capsule-list-filter-ok'));
+    expect(within(rows).queryByRole('group')).toBeNull();
+    expect(within(rows).getAllByTestId('capsule-list-row')).toHaveLength(2);
+  });
+
+  it('opens a picked row as its own view and Back returns focus to the list', () => {
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    const browser = screen.getByTestId('capsule-list-preview-pane').parentElement!;
+    expect(browser.getAttribute('data-view')).toBe('list');
+    fireEvent.click(screen.getAllByTestId('capsule-list-row')[1]!);
+    expect(browser.getAttribute('data-view')).toBe('detail');
+    const back = screen.getByTestId('capsule-detail-back');
+    expect(back.textContent).toBe('Back to capsules');
+    fireEvent.click(back);
+    expect(browser.getAttribute('data-view')).toBe('list');
+    expect(document.activeElement).toBe(screen.getByTestId('capsule-list-rows'));
+    // Arrow keys move the pick without leaving the list.
+    fireEvent.keyDown(screen.getByTestId('capsule-list-rows'), { key: 'ArrowDown' });
+    expect(browser.getAttribute('data-view')).toBe('list');
+  });
+
+  it('shows the definition beside the empty state when nothing is kept', () => {
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-list-preview-pane').parentElement!.getAttribute('data-view')).toBe('empty');
+    expect(screen.queryByTestId('capsule-detail-back')).toBeNull();
+  });
+
+  it('folds Export, then Compare, into More when the action row runs out of width', () => {
+    const fit = mockActionRowFit(1);
+    try {
+      seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
+      const { unmount } = render(<CapsuleListOverlay onClose={vi.fn()} />);
+      expect(screen.getByTestId('capsule-detail-actions').getAttribute('data-fit')).toBe('1');
+      expect(screen.queryByTestId('capsule-list-export')).toBeNull();
+      expect(screen.getByTestId('capsule-compare-button')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('capsule-list-more'));
+      const menu = screen.getByRole('menu');
+      expect(within(menu).getByTestId('capsule-list-row-export-html')).toBeTruthy();
+      expect(within(menu).getByTestId('capsule-prepare-regression')).toBeTruthy();
+      expect(within(menu).getByTestId('capsule-list-row-delete')).toBeTruthy();
+      unmount();
+
+      fit.fitsAt = 2;
+      const glyph = render(<CapsuleListOverlay onClose={vi.fn()} />);
+      expect(screen.getByTestId('capsule-compare-button').textContent).toBe('');
+      expect(screen.getByTestId('capsule-compare-button').getAttribute('aria-label')).toBe('Compare with…');
+      glyph.unmount();
+
+      fit.fitsAt = 3;
+      render(<CapsuleListOverlay onClose={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('capsule-list-more'));
+      fireEvent.click(within(screen.getByRole('menu')).getByTestId('capsule-compare-button'));
+      expect(screen.getByTestId('capsule-compare-picking')).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByTestId('capsule-list-rows'));
+    } finally {
+      fit.restore();
+    }
   });
 
   it('folds long code after eight lines and opens the rest on request', () => {
@@ -291,7 +387,10 @@ describe('CapsuleListOverlay — Pro browser', () => {
     seed(FIXTURE_MINIMAL_JS);
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     const panel = screen.getByTestId('capsule-detail-run-details-panel');
-    expect(panel.textContent).toContain(FIXTURE_MINIMAL_JS.environment.runner);
+    expect(panel.textContent).toContain('RunnerJavaScript');
+    expect(panel.textContent).toContain('RuntimeWeb Worker');
+    expect(panel.textContent).toMatch(/Platform(Web|Desktop)/);
+    expect(panel.textContent).toMatch(/Size\d+ B/);
     expect(panel.textContent).toContain(`${FIXTURE_MINIMAL_JS.source.contentHash.slice(0, 8)}…`);
     expect(panel.textContent).toContain('Branchnone');
     expect(panel.textContent).toContain('Left outnothing');
@@ -340,6 +439,7 @@ describe('CapsuleListOverlay — Pro browser', () => {
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('capsule-list-row-create-workspace'));
     expect(screen.getByTestId('capsule-workspace-export-dialog')).toBeTruthy();
+    expect(screen.getByTestId('capsule-workspace-hint').textContent).toContain('Need the files around it?');
   });
 
   it('removes a run capsule and Undo puts it back', () => {
@@ -455,7 +555,9 @@ describe('CapsuleListOverlay — Free gate', () => {
 
     expect(screen.getByTestId('capsule-list-upsell').textContent).toContain('2 earlier runs from this session are below.');
     expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
-    const locked = screen.getAllByTestId('capsule-list-row-locked');
+    expect(within(screen.getByTestId('capsule-list-rows')).getAllByRole('option')).toHaveLength(1);
+    expect(screen.getByTestId('capsule-list-locked').getAttribute('aria-label')).toBe('Earlier runs, Pro');
+    const locked = within(screen.getByTestId('capsule-list-locked')).getAllByTestId('capsule-list-row-locked');
     expect(locked).toHaveLength(2);
     expect(locked[0]!.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(locked[0]!);
@@ -496,6 +598,24 @@ describe('CapsuleListOverlay — Free gate', () => {
     expect(screen.queryByTestId('capsule-workspace-export-dialog')).toBeNull();
   });
 
+  it('folds the locked Export into More with its PRO mark', () => {
+    const compare = vi.fn();
+    subscribeCommand('plans.compare', compare);
+    const fit = mockActionRowFit(1);
+    try {
+      seed(FIXTURE_MINIMAL_JS);
+      render(<CapsuleListOverlay onClose={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('capsule-list-more'));
+      const item = within(screen.getByRole('menu')).getByTestId('capsule-export-locked');
+      expect(item.textContent).toContain('PRO');
+      expect(within(screen.getByRole('menu')).queryByTestId('capsule-list-row-delete')).toBeNull();
+      fireEvent.click(item);
+      expect(compare).toHaveBeenCalledTimes(1);
+    } finally {
+      fit.restore();
+    }
+  });
+
   it('shows the empty state before the first run', () => {
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     expect(screen.getByTestId('capsule-list-empty')).toBeTruthy();
@@ -523,5 +643,14 @@ describe('CapsuleListOverlay — ES tuteo', () => {
     expect(screen.getByText(/Una cápsula es una ejecución guardada/)).toBeTruthy();
     expect(screen.getByTestId('capsule-list-row-open').textContent).toBe('Abrir');
     expect(screen.getByTestId('capsule-list-row-result').textContent).toBe('Correcta');
+    expect(screen.getByTestId('capsule-detail-back').textContent).toBe('Volver a las cápsulas');
+    expect(screen.getByTestId('capsule-detail-run-details-panel').textContent).toMatch(/Plataforma(Web|Escritorio)/);
+  });
+
+  it('labels the earlier group in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    seed(FIXTURE_MINIMAL_JS, FIXTURE_FULL_TS);
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByRole('group', { name: 'Anteriores' })).toBeTruthy();
   });
 });

@@ -5,6 +5,7 @@ import type { Language } from '../../types/language';
 import { formatByteSize } from '../../i18n/formatNumber';
 import { languageLabel } from '../../utils/languageMeta';
 import { formatRunDuration } from '../../utils/timeLabels';
+import { capsulePlatformLabel, capsuleRuntimeLabel } from './capsuleRunDetails';
 import { cn } from '../../utils/cn';
 import { LeaderRow, TypeTag } from '../ui/answer';
 import { CapsuleAnswerNumeral, CapsuleStatusDot } from './CapsuleBrowserParts';
@@ -136,7 +137,14 @@ export function CapsuleDetail({
   const truncated = capsule.privacy.omittedFields.some((field) => field === 'result.stdout' || field === 'result.stderr');
   const runLabel = capsuleRunLabel(row, t);
   const title = runLabel ? `${capsule.tab.name} · ${runLabel}` : capsule.tab.name;
-  const status = [t(RESULT_KEY[capsule.result.status]), languageLabel(capsule.tab.language as Language), formatCapsuleWhen(row, now, t)].join(' · ');
+  // A failed answer's numeral already names the outcome; the line keeps the dot, language and time.
+  const language = languageLabel(capsule.tab.language as Language);
+  const statusParts = [
+    answer.kind === 'failed' ? null : t(RESULT_KEY[capsule.result.status]),
+    language,
+    formatCapsuleWhen(row, now, t),
+  ].filter((part): part is string => Boolean(part));
+  const runtime = capsuleRuntimeLabel(capsule, t);
 
   return (
     <div data-testid="capsule-detail" className="flex h-full min-h-0 flex-col">
@@ -144,17 +152,27 @@ export function CapsuleDetail({
         <TypeTag className="hidden w-[52px] shrink-0 sm:block">{t('capsuleList.detail.eyebrow')}</TypeTag>
         <CapsuleAnswerNumeral answer={answer} size="lg" testid="capsule-detail-answer" className="shrink-0 leading-[56px]" />
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="truncate font-mono text-[13px] font-semibold text-fg-base">{title}</span>
+          <span data-testid="capsule-detail-title" title={title} className="capsule-detail-title font-mono text-[13px] font-semibold text-fg-base">
+            {title}
+          </span>
           <span data-testid="capsule-detail-status" className="flex min-w-0 items-center gap-1.5 text-body-sm text-fg-muted">
             <CapsuleStatusDot result={capsule.result.status} />
-            <span className="truncate">{status}</span>
+            {/* Wraps between parts, so 1 second ago never splits. */}
+            <span title={statusParts.join(' · ')} className="capsule-detail-title">
+              {statusParts.map((part, index) => (
+                <span key={part}>
+                  {index > 0 ? ' · ' : null}
+                  <span className="whitespace-nowrap">{part}</span>
+                </span>
+              ))}
+            </span>
           </span>
         </div>
       </div>
 
       <div className="@container min-h-0 flex-1 overflow-auto">
         <div className="flex min-h-full flex-col">
-          <div className="flex flex-wrap items-center gap-2 px-5 pt-3.5">{actions}</div>
+          {actions}
 
           <section className={SECTION}>
             <TypeTag className={TAG}>
@@ -196,9 +214,9 @@ export function CapsuleDetail({
           <section className={SECTION}>
             <TypeTag className={TAG}>{t('capsuleList.detail.runDetails')}</TypeTag>
             <div data-testid="capsule-detail-run-details-panel" className="grid grid-cols-1 gap-x-9 @[480px]:grid-cols-2">
-              <Detail label={t('capsuleList.detail.runner')} value={capsule.environment.runner} />
-              <Detail label={t('capsuleList.detail.runtime')} value={capsule.tab.runtimeMode} />
-              <Detail label={t('capsuleList.detail.platform')} value={capsule.environment.platform} />
+              <Detail label={t('capsuleList.detail.runner')} value={language} />
+              {runtime ? <Detail label={t('capsuleList.detail.runtime')} value={runtime} /> : null}
+              <Detail label={t('capsuleList.detail.platform')} value={capsulePlatformLabel(capsule, t)} />
               {answer.kind === 'duration' ? null : (
                 <Detail label={t('capsuleList.detail.duration')} value={formatRunDuration(capsule.result.durationMs)} />
               )}

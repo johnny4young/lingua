@@ -8,9 +8,9 @@
  * and listing an import.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Copy, CornerDownLeft, FileDown, FlaskConical, GitCompare, MoreHorizontal, Package, Search, Share, Trash2 } from 'lucide-react';
+import { ChevronLeft, GitCompare, Package, Search } from 'lucide-react';
 import { CAPSULE_LRU_CAP, CAPSULE_LRU_CAP_PRO, useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
 import { emitCommand } from '../../stores/commandBus';
@@ -31,7 +31,7 @@ import { CapsuleComparisonModal } from './CapsuleComparisonModal';
 import { readCapsuleListSurfaceForMount } from './capsuleListSurface';
 import { CapsuleWorkspaceExportDialog } from './CapsuleWorkspaceExportDialog';
 import { CapsuleRegressionExportDialog } from './CapsuleRegressionExportDialog';
-import { CapsuleActionMenu } from './CapsuleActionMenu';
+import { CapsuleDetailActions } from './CapsuleDetailActions';
 import { CapsuleDialogHeader, CapsuleImportStrip, CapsuleListShortcut, CapsuleRowCells, ImportButton } from './CapsuleBrowserParts';
 import { CapsuleDetail } from './CapsuleDetail';
 import { CapsuleFreeGate } from './CapsuleFreeGate';
@@ -44,6 +44,7 @@ import {
   type CapsuleResultFilter,
 } from './capsuleBrowserRows';
 import '../../i18n/capsuleImportCatalog';
+import './capsuleList.css';
 
 export interface CapsuleListOverlayProps {
   onClose: () => void;
@@ -55,8 +56,6 @@ const FILTERS: ReadonlyArray<{ id: CapsuleResultFilter; labelKey: string }> = [
   { id: 'errors', labelKey: 'capsuleList.filter.statusError' },
 ];
 
-const SECONDARY_BUTTON =
-  'focus-ring inline-flex h-[30px] items-center gap-[7px] rounded-lg border border-border-default px-3 text-[12.5px] font-medium text-fg-base hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-60';
 const ROW = 'flex h-[52px] items-center gap-[9px] whitespace-nowrap border-t border-border-subtle px-3.5';
 
 export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
@@ -99,6 +98,13 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   // The pick falls back to the first visible row when a filter or a removal hides it.
   const [pickedId, setPickedId] = useState<string | null>(null);
   const selected = useMemo(() => selectable.find((row) => row.id === pickedId) ?? selectable[0] ?? null, [selectable, pickedId]);
+  // Your last run heads the newest own run only; the rest read as earlier.
+  const lead = lastRunId !== null && selectable[0]?.id === lastRunId ? selectable[0] : null;
+  const rest = lead ? selectable.slice(1) : selectable;
+
+  // Below md the list and the detail take turns; wider, both show and this flag does nothing.
+  const [detailOpen, setDetailOpen] = useState(false);
+  const backRef = useRef<HTMLButtonElement>(null);
 
   const [comparePick, setCompareFrom] = useState<CapsuleBrowserRow | null>(null);
   // A pick whose capsule was removed is over.
@@ -125,9 +131,27 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
         return;
       }
       setPickedId(row.id);
+      setDetailOpen(true);
     },
     [compareFrom]
   );
+
+  // The list leaves the screen when the detail opens on its own, so focus follows to Back.
+  useEffect(() => {
+    if (detailOpen && backRef.current?.checkVisibility?.()) backRef.current.focus({ preventScroll: true });
+  }, [detailOpen]);
+
+  // Set before the list comes back on screen; focused once it has rendered.
+  const listFocusPending = useRef(false);
+  useEffect(() => {
+    if (!listFocusPending.current) return;
+    listFocusPending.current = false;
+    listRef.current?.focus({ preventScroll: true });
+  }, [detailOpen, compareFrom]);
+  const showList = () => {
+    setDetailOpen(false);
+    listFocusPending.current = true;
+  };
 
   // Escape leaves the compare pick before it can close the dialog.
   const onBodyKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -238,14 +262,6 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     [clearCapsule, restoreCapsule, pushStatusNotice]
   );
 
-  const menuTrigger = (label: string, icon?: ReactNode) => (
-    <>
-      {icon}
-      {label}
-      <ChevronDown size={10} aria-hidden="true" />
-    </>
-  );
-
   const renderRow = (row: CapsuleBrowserRow) => {
     const isSelected = row.id === selected?.id;
     return (
@@ -271,70 +287,21 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   };
 
   const actions = selected ? (
-    <>
-      <button type="button" onClick={() => handleOpen(selected.capsule)} data-testid="capsule-list-row-open" className="button-primary inline-flex h-[30px] items-center gap-[7px] px-3">
-        <CornerDownLeft size={13} aria-hidden="true" />
-        {t('capsuleList.action.open')}
-      </button>
-      <CapsuleActionMenu
-        label={t('capsuleList.action.share')}
-        triggerTestId="capsule-list-share"
-        triggerClassName={SECONDARY_BUTTON}
-        trigger={menuTrigger(t('capsuleList.action.share'), <Share size={13} aria-hidden="true" />)}
-        items={[
-          { id: 'export', label: t('capsuleList.share.copyJson'), icon: <Copy size={13} aria-hidden="true" />, testid: 'capsule-list-row-export', onSelect: () => void handleExport(selected.capsule) },
-          { id: 'copy-summary', label: t('capsuleList.row.copySummary'), icon: <Copy size={13} aria-hidden="true" />, testid: 'capsule-list-row-copy-summary', onSelect: () => void handleCopySummary(selected.capsule) },
-        ]}
-      />
-      <button
-        type="button"
-        disabled={canBrowse && rows.length < 2}
-        onClick={
-          canBrowse
-            ? () => {
-                setCompareFrom(selected);
-                listRef.current?.focus();
-              }
-            : openPlans
-        }
-        data-testid={canBrowse ? 'capsule-compare-button' : 'capsule-compare-locked'}
-        className={SECONDARY_BUTTON}
-      >
-        <GitCompare size={13} aria-hidden="true" />
-        {t('capsuleList.compare.action')}
-        {canBrowse ? null : <ProMark />}
-      </button>
-      {canBrowse ? (
-        <>
-          <CapsuleActionMenu
-            label={t('capsuleList.row.export')}
-            triggerTestId="capsule-list-export"
-            triggerClassName={SECONDARY_BUTTON}
-            trigger={menuTrigger(t('capsuleList.row.export'))}
-            items={[
-              { id: 'export-html', label: t('capsuleList.row.exportHtml'), icon: <FileDown size={13} aria-hidden="true" />, testid: 'capsule-list-row-export-html', onSelect: () => void handleExportHtml(selected.capsule) },
-              { id: 'regression', label: t('capsuleRegression.action'), icon: <FlaskConical size={13} aria-hidden="true" />, testid: 'capsule-prepare-regression', onSelect: () => setRegressionCapsule(selected.capsule) },
-            ]}
-          />
-          <span className="flex-1" />
-          <CapsuleActionMenu
-            label={t('capsuleList.action.more')}
-            align="right"
-            triggerTestId="capsule-list-more"
-            triggerClassName="focus-ring grid size-[30px] place-items-center rounded-lg text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base"
-            trigger={<MoreHorizontal size={16} aria-hidden="true" />}
-            items={[
-              { id: 'remove', label: t('capsuleList.row.delete'), icon: <Trash2 size={13} aria-hidden="true" />, testid: 'capsule-list-row-delete', danger: true, onSelect: () => handleRemove(selected) },
-            ]}
-          />
-        </>
-      ) : (
-        <button type="button" onClick={openPlans} data-testid="capsule-export-locked" className={SECONDARY_BUTTON}>
-          {t('capsuleList.row.export')}
-          <ProMark />
-        </button>
-      )}
-    </>
+    <CapsuleDetailActions
+      canBrowse={canBrowse}
+      canCompare={rows.length >= 2}
+      onOpen={() => handleOpen(selected.capsule)}
+      onCopyJson={() => void handleExport(selected.capsule)}
+      onCopySummary={() => void handleCopySummary(selected.capsule)}
+      onCompare={() => {
+        setCompareFrom(selected);
+        showList();
+      }}
+      onExportHtml={() => void handleExportHtml(selected.capsule)}
+      onRegression={() => setRegressionCapsule(selected.capsule)}
+      onRemove={() => handleRemove(selected)}
+      onPlans={openPlans}
+    />
   ) : null;
 
   const workspaceHint = selected ? (
@@ -372,9 +339,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
       >
         <div
           onKeyDown={onBodyKeyDown}
-          className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1.4fr)] md:grid-cols-[330px_minmax(0,1fr)] md:grid-rows-1"
+          data-view={rows.length === 0 ? 'empty' : detailOpen ? 'detail' : 'list'}
+          className="capsule-browser h-full min-h-0"
         >
-          <div className="flex min-h-0 flex-col border-b border-border-subtle bg-bg-panel md:border-b-0 md:border-r">
+          <div className="capsule-browser-list flex min-h-0 flex-col bg-bg-panel">
             <p className="px-3.5 pt-3.5 pb-2.5 text-body-sm leading-[17px] text-fg-muted">{t('capsuleList.definition')}</p>
             {rows.length > 0 ? (
               <div className="flex shrink-0 items-center gap-2 px-3.5 pb-2.5">
@@ -419,11 +387,6 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
               </div>
             ) : null}
             <div className="min-h-0 flex-1 overflow-auto">
-              {lastRunId !== null && filtered[0]?.id === lastRunId ? (
-                <div className="flex h-6 items-center px-3.5">
-                  <TypeTag>{t('capsuleList.gate.lastRun')}</TypeTag>
-                </div>
-              ) : null}
               {rows.length > 0 ? (
                 <div
                   role="listbox"
@@ -435,7 +398,24 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                   data-testid="capsule-list-rows"
                   className="focus-ring focus-visible:ring-inset"
                 >
-                  {selectable.map(renderRow)}
+                  {lead ? (
+                    <div role="group" aria-labelledby={`${listId}-last`} data-testid="capsule-list-group-last">
+                      <div id={`${listId}-last`} className="flex h-6 items-center px-3.5">
+                        <TypeTag>{t('capsuleList.gate.lastRun')}</TypeTag>
+                      </div>
+                      {renderRow(lead)}
+                    </div>
+                  ) : null}
+                  {lead && rest.length > 0 ? (
+                    <div role="group" aria-labelledby={`${listId}-earlier`} data-testid="capsule-list-group-earlier">
+                      <div id={`${listId}-earlier`} className="flex h-7 items-end border-t border-border-subtle px-3.5 pb-1">
+                        <TypeTag>{t('capsuleList.group.earlier')}</TypeTag>
+                      </div>
+                      {rest.map(renderRow)}
+                    </div>
+                  ) : (
+                    rest.map(renderRow)
+                  )}
                 </div>
               ) : null}
               {canBrowse ? null : <CapsuleFreeGate kept={rows.length} earlier={locked.length} />}
@@ -457,7 +437,13 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
             <CapsuleImportStrip onImport={handleImport} onDropFile={handleDropFile} />
           </div>
 
-          <div data-testid="capsule-list-preview-pane" className="flex min-h-0 flex-col bg-bg-base">
+          <div data-testid="capsule-list-preview-pane" className="capsule-browser-detail flex min-h-0 flex-col bg-bg-base">
+            {rows.length > 0 ? (
+              <button ref={backRef} type="button" onClick={showList} data-testid="capsule-detail-back" className="capsule-browser-back focus-ring">
+                <ChevronLeft size={14} aria-hidden="true" />
+                {t('capsuleList.detail.back')}
+              </button>
+            ) : null}
             {rows.length === 0 ? (
               <EmptyState
                 className="m-auto py-16"
