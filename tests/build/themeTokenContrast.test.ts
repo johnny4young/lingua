@@ -219,10 +219,13 @@ describe.each(['ink', 'paper'] as const)('%s pack shell', (set) => {
 });
 
 describe('text over its own tint', () => {
-  const pill = readCssRule(
-    readFileSync(resolve(__dirname, '../../src/renderer/components/Notebook/notebookAnswers.css'), 'utf8'),
-    '.notebook-answer-pill'
-  );
+  const source = (path: string) => readFileSync(resolve(__dirname, '../../src/renderer/components', path), 'utf8');
+  // [name, rule body, tone variable]; the answer object's light wash is 10%, so 14% is its worst case.
+  const PILLS = [
+    ['notebook', readCssRule(source('Notebook/notebookAnswers.css'), '.notebook-answer-pill'), '--notebook-answer-tone'],
+    ['project tests', readCssRule(source('ProjectTests/projectTests.css'), '.test-answer-pill'), '--test-answer-tone'],
+    ['answer object', readCssRule(source('Answer/answerObject.css'), '\n  .answer-object-value[data-pill]').replace('var(--answer-wash)', '14%'), '--answer-tone'],
+  ] as const;
   /** `color-mix(in srgb, var(--a) N%, var(--b) | transparent)` over a surface. */
   const mix = (shell: Map<string, string>, expression: string, surface: string) => {
     const [, first, percent, second] =
@@ -235,21 +238,23 @@ describe('text over its own tint', () => {
     const tone = languageBadgeTone('sql');
     expect(languageBadgeTone('http')).toMatchObject({ background: tone.background, foreground: tone.foreground });
     const text = color(new Map([...shell, ['--badge', tone.foreground]]), '--badge');
-    for (const surface of ['--color-bg-base', '--color-bg-panel', '--color-bg-panel-alt']) {
+    for (const surface of ['--color-bg-base', '--color-bg-panel', '--color-bg-panel-alt', '--color-bg-inset']) {
       expect(contrastRatio(text, mix(shell, tone.background, surface)), surface).toBeGreaterThanOrEqual(4.5);
     }
   });
 
-  it.each(SHELLS)('%s: notebook answer pills read 4.5:1 on their value tint', (_name, shell) => {
-    const background = /background: ([^;]+);/u.exec(pill)![1]!;
-    const text = /\bcolor: ([^;]+);/u.exec(pill)![1]!;
-    for (const value of ['number', 'string', 'boolean', 'error']) {
-      const tinted = new Map([...shell, ['--notebook-answer-tone', `var(--color-value-${value})`]]);
-      for (const surface of ['--color-bg-base', '--color-bg-panel']) {
-        expect(contrastRatio(mix(tinted, text, surface), mix(tinted, background, surface)), `${value} on ${surface}`)
-          .toBeGreaterThanOrEqual(4.5);
+  describe.each(PILLS)('%s pills', (_pill, rule, toneVar) => {
+    it.each(SHELLS)('%s: read 4.5:1 on their value tint', (_name, shell) => {
+      const background = /background: ([^;]+);/u.exec(rule)![1]!;
+      const text = /\bcolor: ([^;]+);/u.exec(rule)![1]!;
+      for (const value of ['number', 'string', 'boolean', 'error']) {
+        const tinted = new Map([...shell, [toneVar, `var(--color-value-${value})`]]);
+        for (const surface of ['--color-bg-base', '--color-bg-panel', '--color-bg-panel-alt', '--color-bg-inset']) {
+          expect(contrastRatio(mix(tinted, text, surface), mix(tinted, background, surface)), `${value} on ${surface}`)
+            .toBeGreaterThanOrEqual(4.5);
+        }
       }
-    }
+    });
   });
 });
 

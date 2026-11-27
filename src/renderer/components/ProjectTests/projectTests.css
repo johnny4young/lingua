@@ -73,7 +73,8 @@
   overflow: hidden;
   border-radius: 5px;
   background: color-mix(in srgb, var(--test-answer-tone) 14%, transparent);
-  color: var(--test-answer-tone);
+  /* As notebook pills: a fifth of the text colour keeps 4.5:1 over the tint in light themes. */
+  color: color-mix(in srgb, var(--test-answer-tone) 80%, var(--color-fg-base));
   font-weight: 560;
   text-overflow: ellipsis;
 }

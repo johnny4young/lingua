@@ -87,6 +87,7 @@
     padding: 0 7px;
     border-radius: 5px;
     background: color-mix(in srgb, var(--answer-tone) var(--answer-wash), transparent);
+    color: color-mix(in srgb, var(--answer-tone) 80%, var(--color-fg-base));
   }
 
   .answer-object-value[data-pill][data-tone='none'] {
