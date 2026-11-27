@@ -1118,6 +1118,7 @@ describe('CommandPalette', () => {
     );
     expect(screen.getByText('No commands run yet this session.')).toBeTruthy();
     expect(screen.queryByTestId('contextual-hint-palette')).toBeNull();
+    expect(screen.queryByTestId('command-palette-files-only-hint')).toBeNull();
   });
 });
 

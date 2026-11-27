@@ -328,15 +328,18 @@ describe('Start page', () => {
     const user = userEvent.setup();
     const listener = vi.fn();
     const unsubscribe = subscribeCommand('overlay.openProjectTemplates', listener);
-    render(<EditorEmptyState />);
+    try {
+      render(<EditorEmptyState />);
 
-    const entry = screen.getByTestId('start-templates-projects');
-    expect(entry.textContent).toBe('Projects…');
-    expect(entry.getAttribute('aria-haspopup')).toBe('dialog');
-    expect(within(screen.getByRole('group', { name: 'Filter templates by language' })).queryByTestId('start-templates-projects')).toBeNull();
-    await user.click(entry);
-    expect(listener).toHaveBeenCalledTimes(1);
-    unsubscribe();
+      const entry = screen.getByTestId('start-templates-projects');
+      expect(entry.textContent).toBe('Projects…');
+      expect(entry.getAttribute('aria-haspopup')).toBe('dialog');
+      expect(within(screen.getByRole('group', { name: 'Filter templates by language' })).queryByTestId('start-templates-projects')).toBeNull();
+      await user.click(entry);
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      unsubscribe();
+    }
   });
 
   it('leaves the project templates out of Start on the web build', () => {
