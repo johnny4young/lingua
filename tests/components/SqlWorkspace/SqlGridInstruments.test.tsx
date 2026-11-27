@@ -83,7 +83,42 @@ describe('SQL grid instruments', () => {
     expect(fill(3, 'revenue')).toBeNull();
     expect(cell(3, 'orders').querySelector('[data-testid="sql-cell-scale"]')).toBeNull();
     expect(cell(0, 'id').querySelector('[data-testid="sql-cell-scale"]')).toBeNull();
-    expect(cell(0, 'revenue').textContent).toBe('818294.40');
+    expect(cell(0, 'revenue').textContent).toBe('818,294.40');
+  });
+
+  it('groups the digits of numbers on screen but keeps keys raw and copies the raw value', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
+    expect(cell(0, 'orders').textContent).toBe('5,412');
+    expect(cell(1, 'avg_ticket').textContent).toBe('146.9');
+    expect(cell(0, 'id').textContent).toBe('1');
+
+    fireEvent.contextMenu(cell(0, 'revenue'));
+    // The copy-row shortcut lives in the menu now that the footer hint is gone.
+    expect(screen.getByTestId('sql-cell-menu-copy-row-keys').textContent).not.toBe('');
+    fireEvent.click(screen.getByTestId('sql-cell-menu-copy-value'));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('818294.40'));
+  });
+
+  it('keeps a barred year column on its raw digits', () => {
+    const base = response();
+    const rows = [{ year: 2023, orders: 5412 }, { year: 2024, orders: 4977 }];
+    render(
+      <SqlResultPreview
+        response={{ ...base, rows, rowCount: rows.length, columns: [{ name: 'year', type: 'Int32' }, { name: 'orders', type: 'Int64' }] }}
+        isExecuting={false}
+        rowDisplayLimit={100}
+      />
+    );
+    expect(cell(1, 'year').querySelector('[data-testid="sql-cell-scale"]')).not.toBeNull();
+    expect(cell(1, 'year').textContent).toBe('2024');
+    expect(cell(0, 'orders').textContent).toBe('5,412');
+  });
+
+  it('spans the pane: columns share the width a narrow result leaves', () => {
+    render(<SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={100} />);
+    expect(screen.getByTestId('sql-result-preview-table').className).toContain('min-w-full');
   });
 
   it('sums and averages the loaded rows in a Σ row', () => {
@@ -171,5 +206,7 @@ describe('SQL grid instruments', () => {
     expect(within(head('city')).getByTestId('sql-result-head-meta').textContent).toBe('· 3 distintos');
     expect(screen.getByTestId('sql-result-summary-count').textContent).toBe('ΣPerfil de 4 filas');
     expect(screen.getByTestId('sql-result-summary').querySelector('td[data-column="avg_ticket"]')!.textContent).toBe('prom.137,24');
+    expect(cell(0, 'revenue').textContent).toBe('818.294,40');
+    expect(cell(0, 'orders').textContent).toBe('5412');
   });
 });

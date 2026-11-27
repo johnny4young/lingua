@@ -211,7 +211,8 @@ test.describe('SQL result grid', () => {
       const cells = page.getByTestId('sql-result-preview-row').locator('td[data-column="x"]');
       await expect(cells).toHaveCount(6);
       await page.locator('[data-testid="sql-result-preview-sort"][data-column="x"]').click();
-      await expect(cells).toHaveText(['-Infinity', '-5', '1.5', 'Infinity', 'NaN', 'null']);
+      // Numbers on screen use the app language's decimal separator.
+      await expect(cells).toHaveText(['-Infinity', '-5', language === 'es' ? '1,5' : '1.5', 'Infinity', 'NaN', 'null']);
 
       if (!(await page.getByTestId('sql-column-rail').isVisible())) await page.getByTestId('sql-column-rail-toggle').click();
       const rail = page.locator('[data-testid="sql-rail-column"][data-column="x"]');
@@ -242,9 +243,9 @@ test.describe('SQL result grid', () => {
   }
 
   for (const language of ['en', 'es'] as const) {
-    test(`keeps the grid and its controls in reach on a short window with the dock open (${language})`, async ({ page }) => {
+    test(`keeps the grid and its controls in reach on a short window (${language})`, async ({ page }) => {
       const errors = collectConsoleErrors(page);
-      await page.setViewportSize({ width: 1100, height: 620 });
+      await page.setViewportSize({ width: 1100, height: 460 });
       await seedSession(page, { language });
       await gotoApp(page);
       await openSqlScratch(page);
@@ -256,19 +257,20 @@ test.describe('SQL result grid', () => {
       const pane = page.getByTestId('sql-result-preview');
       const grid = page.getByTestId('sql-result-preview-table-container');
       // One read of both boxes: the run tabs above the pane leave as the table opens.
-      const inPane = (testId: string) =>
-        page.evaluate((id) => {
+      // `last` reads the last match, so the grid's last row stands for the bottom of the rows.
+      const inPane = (testId: string, last = false) =>
+        page.evaluate(({ id, last }) => {
           const outer = document.querySelector('[data-testid="sql-result-preview"]')?.getBoundingClientRect();
-          const inner = document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect();
+          const matches = [...document.querySelectorAll(`[data-testid="${id}"]`)];
+          const inner = (last ? matches.at(-1) : matches[0])?.getBoundingClientRect();
           return outer !== undefined && inner !== undefined && inner.top >= outer.top - 1 && inner.bottom <= outer.bottom + 1;
-        }, testId);
+        }, { id: testId, last });
       const wheelOverGrid = async (deltaY: number) => {
         const box = (await grid.boundingBox())!;
         await page.mouse.move(box.x + box.width / 2, box.y + 30);
         await page.mouse.wheel(0, deltaY);
       };
 
-      await expect(page.getByTestId('bottom-panel-hide')).toBeVisible();
       await expect(page.getByTestId('sql-result-strip-sql')).toHaveText('SELECT * FROM "places" LIMIT 100;');
       await expect(pane).toHaveAttribute('data-grid-first', 'true');
       // Rows on open, with the status above them, and the pointer lands on the grid.
@@ -278,10 +280,10 @@ test.describe('SQL result grid', () => {
       const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid="sql-result-preview-table-container"]') !== null, { x: box.x + 40, y: box.y + 40 });
       expect(hit).toBe(true);
 
-      // Rows first, then the footer past the last one.
+      // Rows first, down to the last one.
       await expect.poll(async () => {
         await wheelOverGrid(600);
-        return inPane('sql-result-footer');
+        return inPane('sql-result-preview-row', true);
       }).toBe(true);
       expect(await inPane('sql-status-pill')).toBe(true);
       await expect.poll(async () => {
@@ -296,7 +298,7 @@ test.describe('SQL result grid', () => {
       await expect(page.getByTestId('sql-edit-commit')).toBeVisible();
       await expect.poll(async () => {
         await wheelOverGrid(600);
-        return inPane('sql-result-footer');
+        return inPane('sql-result-preview-row', true);
       }).toBe(true);
       expect(await inPane('sql-edit-commit')).toBe(true);
       await page.getByTestId('sql-edit-discard').click();
@@ -305,12 +307,59 @@ test.describe('SQL result grid', () => {
       // A tall pane keeps every band and the footer on screen with no scrolling.
       await page.setViewportSize({ width: 1440, height: 960 });
       await expect(pane).not.toHaveAttribute('data-grid-first', 'true');
-      for (const testId of ['sql-status-pill', 'sql-result-strip', 'sql-edit-add', 'sql-result-preview-table-container', 'sql-result-footer']) {
+      for (const testId of ['sql-status-pill', 'sql-result-strip', 'sql-edit-add', 'sql-result-preview-table-container']) {
         await expect.poll(() => inPane(testId)).toBe(true);
       }
       expect(errors).toEqual([]);
     });
   }
+
+  test('fills the pane with the rows, their bars and the Σ row when no project gives SQL the dock (EN)', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await openSqlScratch(page);
+    // The code console has nothing to show for SQL, so the dock stays away.
+    await expect(page.getByTestId('bottom-panel-hide')).toHaveCount(0);
+    await runAll(page, "CREATE TABLE sales AS SELECT 'c' || (i % 12) AS city, (i * 37) % 900 + 0.25 AS total FROM range(6000) t(i);");
+    await expect(page.locator('[data-testid="sql-explorer-table"][data-table-name="sales"]')).toBeVisible();
+    await typeSql(page, 'SELECT city, count(*) AS orders, sum(total) AS revenue FROM sales GROUP BY city ORDER BY revenue DESC');
+    await page.keyboard.press('ControlOrMeta+Enter');
+
+    const rows = page.getByTestId('sql-result-preview-row');
+    await expect(rows).toHaveCount(12);
+    const grid = page.getByTestId('sql-result-preview-table-container');
+    const fits = await page.evaluate(() => {
+      const box = document.querySelector('[data-testid="sql-result-preview-table-container"]')!.getBoundingClientRect();
+      const table = document.querySelector('[data-testid="sql-result-preview-table"]')!.getBoundingClientRect();
+      const last = [...document.querySelectorAll('[data-testid="sql-result-preview-row"]')].at(-1)!.getBoundingClientRect();
+      return { lastRowShown: last.bottom <= box.bottom + 1, spans: table.width >= box.width - 1 };
+    });
+    expect(fits).toEqual({ lastRowShown: true, spans: true });
+    await expect(grid.getByTestId('sql-result-summary')).toBeVisible();
+    await expect(grid.getByTestId('sql-result-summary').locator('td[data-column="orders"]')).toHaveText('sum6,000');
+    await expect(rows.first().getByTestId('sql-cell-scale').first()).toBeVisible();
+    await expect(page.locator('[data-testid="sql-result-preview-sort"][data-column="revenue"]').getByTestId('sql-result-head-spark')).toBeVisible();
+    // The editor shows the SQL, the header names the run, and no history list repeats the explorer.
+    await expect(page.getByTestId('sql-result-strip')).toHaveCount(0);
+    await expect(page.getByTestId('sql-run-history')).toHaveCount(0);
+
+    // A second run puts the earlier one a pick away in the header.
+    await page.keyboard.press('ControlOrMeta+Enter');
+    const picker = page.getByTestId('sql-run-picker');
+    await expect(picker).toHaveAttribute('data-latest', 'true');
+    await picker.click();
+    // Newest first: the two SELECT runs, then the CREATE TABLE run of the same scratch.
+    await expect(page.getByTestId('sql-run-picker-entry')).toHaveCount(3);
+    await page.getByTestId('sql-run-picker-entry').nth(1).click();
+    await expect(picker).toHaveAttribute('data-latest', 'false');
+    await expect(page.getByTestId('sql-result-preview-no-rows')).toHaveText('Rows from earlier runs are not kept.');
+    await picker.click();
+    await page.getByTestId('sql-run-picker-entry').first().click();
+    await expect(rows).toHaveCount(12);
+    expect(errors).toEqual([]);
+  });
 
   test('inserts a predicate from the column rail at the editor cursor (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
@@ -398,6 +447,6 @@ test.describe('SQL result grid', () => {
 
     await page.locator('[data-testid="sql-explorer-table"][data-table-name="ventas"]').click();
     await expect(page.getByTestId('sql-result-preview-row')).toHaveCount(2);
-    await expect(page.getByTestId('sql-result-preview-row').first()).toContainText('125000.50');
+    await expect(page.getByTestId('sql-result-preview-row').first()).toContainText('125.000,50');
   });
 });

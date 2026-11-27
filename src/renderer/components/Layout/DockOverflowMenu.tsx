@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, MoreHorizontal, Package, PauseCircle, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/runMeterCatalog';
-import { useFloatingPosition } from '../../hooks/useFloatingPosition';
-import { useMenuKeyboard } from '../../hooks/useMenuKeyboard';
+import { usePortalMenu } from '../../hooks/usePortalMenu';
 import { emitCommand } from '../../stores/commandBus';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -96,35 +95,9 @@ export function DockOverflowMenu() {
 
 function OverflowMenu({ rows }: { rows: Row[] }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   // Portaled: the dock's overflow-hidden ancestors would clip it in place.
-  const position = useFloatingPosition(triggerRef, open, 'below');
-  // A hidden menu cannot take focus, so keyboard handling starts once it is placed.
-  useMenuKeyboard(open && position.visibility !== 'hidden', menuRef);
+  const { open, setOpen, triggerRef, menuRef, position, onMenuKeyDown, closeToTrigger } = usePortalMenu();
   const gated = rows.some(row => row.id === 'gate');
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [open]);
-
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Escape' && event.key !== 'Tab') return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    // Tab continues from the trigger; the portaled menu sits at the end of the page.
-    triggerRef.current?.focus();
-    setOpen(false);
-  };
 
   return (
     <>
@@ -150,7 +123,7 @@ function OverflowMenu({ rows }: { rows: Row[] }) {
               role="menu"
               aria-label={t('bottomPanel.actions.more')}
               data-testid="dock-more-menu"
-              onKeyDown={onKeyDown}
+              onKeyDown={onMenuKeyDown}
               style={position}
               className="dropdown-rich z-[1000] w-max max-w-[calc(100vw-16px)]"
             >
@@ -165,8 +138,7 @@ function OverflowMenu({ rows }: { rows: Row[] }) {
                   title={row.title}
                   onClick={() => {
                     if (!row.run) return;
-                    setOpen(false);
-                    triggerRef.current?.focus();
+                    closeToTrigger();
                     row.run();
                   }}
                   className={`dropdown-rich-row flex w-full items-center gap-3 text-left ${

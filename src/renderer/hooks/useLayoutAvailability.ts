@@ -20,7 +20,7 @@ import { useRunCompareActive } from './useRunCompareActive';
 import { useTimelineStore } from '../stores/timelineStore';
 
 export interface DockShell {
-  /** False in the editor-only layout, on full-screen Utilities tabs and on Start without a project. */
+  /** False in the editor-only layout, on Utilities tabs, and on Start, SQL and HTTP tabs without a project. */
   dockShown: boolean;
   /** The dock body is open: the user opened it, or a live session claims it. */
   dockExpanded: boolean;
@@ -46,10 +46,13 @@ export function useDockShell(): DockShell {
   const runtimeMode = useEditorStore(s => getActiveTab(s)?.runtimeMode);
   const debuggerLive = useDebuggerStore(s => s.session !== null && s.session.tabId === activeTabId);
   const browserPreview = languageHasRuntimeModes(language) && runtimeMode === 'browser-preview';
-  // With a project open, Start keeps the dock so its Terminal and Tests stay reachable.
+  // SQL and HTTP carry their own results; only a project's Terminal and Tests earn them the dock.
   const hasProject = useProjectStore(s => s.currentProject !== null);
+  const workspaceTab = activeKind === 'sql' || activeKind === 'http';
   const dockShown =
-    (activeTabId !== null || hasProject) && layoutPreset !== 'editor-only' && activeKind !== 'utilities';
+    (hasProject || (activeTabId !== null && !workspaceTab)) &&
+    layoutPreset !== 'editor-only' &&
+    activeKind !== 'utilities';
   const claimed = browserPreview || (debuggerLive && languageSupportsDebugger(language));
   return {
     dockShown,

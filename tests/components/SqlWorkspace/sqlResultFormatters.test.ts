@@ -13,6 +13,7 @@ import {
   buildSelectStarter,
   quoteSqlIdentifier,
   quoteSqlTableReference,
+  renderNumberCell,
 } from '../../../src/renderer/components/SqlWorkspace/sqlResultFormatters';
 
 describe('quoteSqlIdentifier', () => {
@@ -75,5 +76,27 @@ describe('buildSelectStarter', () => {
     expect(buildSelectStarter('runs.data', 'ledger space')).toBe(
       'SELECT * FROM "ledger space"."runs.data" LIMIT 100;'
     );
+  });
+});
+
+describe('renderNumberCell', () => {
+  it('groups the integer part and keeps every fraction digit', () => {
+    expect(renderNumberCell(2927214.7, 'en')).toBe('2,927,214.7');
+    expect(renderNumberCell('818294.40', 'en')).toBe('818,294.40');
+    expect(renderNumberCell(-1234567n, 'en')).toBe('-1,234,567');
+    expect(renderNumberCell('12345678901234567890.123', 'en')).toBe('12,345,678,901,234,567,890.123');
+  });
+
+  it('uses the app locale for both separators', () => {
+    expect(renderNumberCell(731121.3, 'es')).toBe('731.121,3');
+    expect(renderNumberCell(1234.5, 'es')).toBe('1234,5');
+  });
+
+  it('leaves exponents, non-finite values, nulls and text as the grid renders them', () => {
+    expect(renderNumberCell(1e21, 'en')).toBe('1e+21');
+    expect(renderNumberCell(Number.NaN, 'en')).toBe('NaN');
+    expect(renderNumberCell(null, 'en')).toBe('null');
+    expect(renderNumberCell('n/a', 'en')).toBe('n/a');
+    expect(renderNumberCell(-0, 'en')).toBe('0');
   });
 });

@@ -1,4 +1,5 @@
 import { Columns3 } from 'lucide-react';
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { formatNumber } from '../../i18n/formatNumber';
@@ -7,6 +8,7 @@ import { ResultHeader, type ResultHeaderProps, type ResultHeaderTab } from '../u
 import { StatusBadge } from '../ui/StatusBadge';
 import { sqlPhaseSplit } from './sqlPhaseSplit';
 import { toneForSqlStatus } from './sqlStatusTone';
+import { SqlRunPicker } from './SqlRunPicker';
 
 /** The grid's controls in the header, present while the grid is on screen. */
 interface SqlResultHeaderGrid {
@@ -31,10 +33,12 @@ export interface SqlResultHeaderProps {
   grid?: SqlResultHeaderGrid | undefined;
   /** Present whenever the result has rows, on every view. */
   onExport?: (() => void) | undefined;
+  /** The query's runs, newest first, once there is more than one to pick from. */
+  runs?: ComponentProps<typeof SqlRunPicker> | undefined;
 }
 
 /** SQL, the row count, time and statement over the phase bar, the views and the grid's actions. */
-export function SqlResultHeader({ response, total, shownInView, statementPosition, density, tabs, activeTab, onTabChange, grid, onExport }: SqlResultHeaderProps) {
+export function SqlResultHeader({ response, total, shownInView, statementPosition, density, tabs, activeTab, onTabChange, grid, onExport, runs }: SqlResultHeaderProps) {
   const { t, i18n } = useTranslation();
   const num = (value: number) => formatNumber(value, i18n.language);
   const tone = toneForSqlStatus(response.status);
@@ -81,7 +85,14 @@ export function SqlResultHeader({ response, total, shownInView, statementPositio
           : undefined
       }
       metaTrailing={
-        statementLabel !== null ? <span data-testid="sql-result-preview-statement-count">{hasRows ? ' · ' : ''}{statementLabel}</span> : undefined
+        statementLabel !== null || runs ? (
+          <>
+            {statementLabel !== null ? (
+              <span data-testid="sql-result-preview-statement-count">{hasRows ? ' · ' : ''}{statementLabel}</span>
+            ) : null}
+            {runs ? <>{hasRows || statementLabel !== null ? ' · ' : ''}<SqlRunPicker {...runs} /></> : null}
+          </>
+        ) : undefined
       }
       phases={phases ? sqlPhaseSplit(phases, t) : undefined}
       tabs={tabs}

@@ -143,4 +143,11 @@ describe('filterRows', () => {
   it('returns an empty array when nothing matches', () => {
     expect(filterRows(rows, 'zzz')).toEqual([]);
   });
+
+  it('matches a number typed as the grid shows it in the app language', () => {
+    const sales = [{ orders: 5412, avg: 1.5 }, { orders: 912, avg: 2 }];
+    expect(filterRows(sales, '5,412', 'en')).toEqual([sales[0]]);
+    expect(filterRows(sales, '1,5', 'es')).toEqual([sales[0]]);
+    expect(filterRows(sales, '5,412')).toEqual([]);
+  });
 });

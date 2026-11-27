@@ -1,6 +1,8 @@
 import type { SqlEngineKind } from '../../../shared/sqlConnections';
 import { sqlDialect } from '../../../shared/sqlDialect';
 import { quoteSqlTableReference } from '../../../shared/sqlQuote';
+import { coerceSupportedLanguage } from '../../../shared/i18n/languages';
+import { formatNumber } from '../../i18n/formatNumber';
 
 export { quoteSqlIdentifier, quoteSqlTableReference } from '../../../shared/sqlQuote';
 
@@ -15,11 +17,37 @@ export function buildSelectStarter(tableName: string, schemaName?: string, engin
   return sqlDialect(engine).firstRows(quoteSqlTableReference(tableName, schemaName, engine), 100);
 }
 
-/** `HH:MM:SS` in the user's locale; the raw string when it is not a date. */
-export function formatClock(iso: string): string {
+/** `HH:MM:SS` in the app language; the raw string when it is not a date. */
+export function formatClock(iso: string, language: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return date.toLocaleTimeString(coerceSupportedLanguage(language), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+const PLAIN_NUMBER = /^(-?)(\d+)(?:\.(\d+))?$/;
+const decimalSeparators = new Map<string, string>();
+
+/**
+ * A number cell as the grid shows it: the integer part grouped in the app
+ * locale, every fraction digit kept. Exponent forms and non-numbers return
+ * `renderCell`'s text; copy and export keep reading the raw value.
+ */
+export function renderNumberCell(value: unknown, language: string): string {
+  // Most cells are plain integers: one cached formatter call, no string parsing.
+  if (Number.isSafeInteger(value) && !Object.is(value, -0)) return formatNumber(value as number, language);
+  const raw = renderCell(value);
+  const match = typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' ? PLAIN_NUMBER.exec(raw) : null;
+  if (!match) return raw;
+  const [, sign, whole, fraction] = match;
+  const grouped = formatNumber(BigInt(whole!), language);
+  if (fraction === undefined) return `${sign}${grouped}`;
+  const locale = coerceSupportedLanguage(language);
+  let separator = decimalSeparators.get(locale);
+  if (separator === undefined) {
+    separator = new Intl.NumberFormat(locale).formatToParts(0.5).find((part) => part.type === 'decimal')?.value ?? '.';
+    decimalSeparators.set(locale, separator);
+  }
+  return `${sign}${grouped}${separator}${fraction}`;
 }
 
 /** A cell as the grid shows it: null as `null`, objects as JSON. */

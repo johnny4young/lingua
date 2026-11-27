@@ -1,8 +1,8 @@
 /**
- * Results below the SQL editor: status + Table / JSON / Profile, the SQL
- * strip naming what produced the rows, a virtualized typed grid with filter
- * chips, a cell menu and Load more, the column rail or the value viewer on
- * the right, and Export full result… in the footer.
+ * Results below the SQL editor: the header with the run picker and Table /
+ * JSON / Profile, the SQL strip naming an opened table's query, a virtualized
+ * typed grid with filter chips and a cell menu, the column rail or the value
+ * viewer on the right, and Load more and Save as snippet in the footer.
  */
 
 import { AlertTriangle, ArrowLeft, Bookmark, Hash, Loader2 } from 'lucide-react';
@@ -12,17 +12,12 @@ import {
   buildColumnProfileQuery,
   type SqlColumnProfileOutcome,
 } from '../../runtime/sqlColumnProfile';
-import {
-  currentShortcutDisplayPlatform,
-  formatShortcutCombo,
-} from '../../data/keyboardShortcuts';
 import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { arrowTypeToDuckDb } from '../../../shared/sqlTypeNames';
 import type { SqlForeignKey } from '../../runtime/sqlForeignKeys';
 import { cn } from '../../utils/cn';
 import { formatNumber } from '../../i18n/formatNumber';
 import { EmptyState } from '../ui/EmptyState';
-import { SqlRunHistory } from './SqlRunHistory';
 import { SqlColumnProfilePanel } from './SqlColumnProfilePanel';
 import { ErrorBand, JsonView } from './SqlResultPreviewParts';
 import { SqlExportDialog, type SqlResultHandoffs } from './SqlExportDialog';
@@ -121,8 +116,6 @@ type ResultBodyTab = 'table' | 'json' | 'profile';
 
 const jsonReplacer = (_key: string, value: unknown) =>
   typeof value === 'bigint' ? value.toString() : value;
-
-const COPY_ROW_COMBO = { tokens: ['Mod', 'c'] } as const;
 
 export function SqlResultPreview({
   response,
@@ -252,13 +245,13 @@ export function SqlResultPreview({
   // Typing stays responsive while a large result is searched.
   const searchText = useDeferredValue(filter);
   const filteredRows = useMemo(
-    () => (shownRows.length === 0 ? [] : applyConditions(filterRows(shownRows, searchText), conditions, columns)),
-    [shownRows, searchText, conditions, columns]
+    () => (shownRows.length === 0 ? [] : applyConditions(filterRows(shownRows, searchText, i18n.language), conditions, columns)),
+    [shownRows, searchText, conditions, columns, i18n.language]
   );
   // The rail describes the rows as read, not the staged changes.
   const railRows = useMemo(
-    () => (shownRows === loadedRows ? filteredRows : applyConditions(filterRows(loadedRows, searchText), conditions, columns)),
-    [shownRows, loadedRows, filteredRows, searchText, conditions, columns]
+    () => (shownRows === loadedRows ? filteredRows : applyConditions(filterRows(loadedRows, searchText, i18n.language), conditions, columns)),
+    [shownRows, loadedRows, filteredRows, searchText, conditions, columns, i18n.language]
   );
   const filteredSortedRows = useMemo(() => sortRows(filteredRows, sort), [filteredRows, sort]);
   // Rows on screen grow by one page per Load more; a new response starts over.
@@ -469,10 +462,16 @@ export function SqlResultPreview({
               : undefined
           }
           onExport={hasResultBody && response.rows.length > 0 ? () => setExportOpen(true) : undefined}
+          runs={
+            responses && responses.length > 1 && onSelectResponse
+              ? { responses, selectedIndex: selectedResponseIndex, onSelect: onSelectResponse }
+              : undefined
+          }
         />
       </div>
 
-      {source !== undefined && selectedResponseIndex === 0 ? (
+      {/* An editor run's SQL is the editor above; only rows from elsewhere name their source. */}
+      {source?.origin === 'table' && selectedResponseIndex === 0 ? (
         <div
           data-testid="sql-result-strip"
           data-origin={source.origin}
@@ -487,11 +486,9 @@ export function SqlResultPreview({
             {source.sql.replace(/\s+/g, ' ').trim()}
           </span>
           <span className="shrink-0 font-mono text-micro text-fg-subtle">
-            {source.origin === 'table'
-              ? t('sqlWorkspace.strip.fromTable', { name: source.tableName })
-              : t('sqlWorkspace.strip.fromEditor')}
+            {t('sqlWorkspace.strip.fromTable', { name: source.tableName })}
           </span>
-          {source.origin === 'table' && source.backTo && onBack ? (
+          {source.backTo && onBack ? (
             <button
               type="button"
               onClick={onBack}
@@ -502,7 +499,7 @@ export function SqlResultPreview({
               {t('sqlWorkspace.strip.backTo', { name: source.backTo })}
             </button>
           ) : null}
-          {source.origin === 'table' && onEditInEditor ? (
+          {onEditInEditor ? (
             <button
               type="button"
               onClick={() => onEditInEditor(source.sql)}
@@ -646,8 +643,12 @@ export function SqlResultPreview({
                 {t('sqlWorkspace.grid.filterEmpty')}
               </div>
             ) : response.status === 'success' ? (
-              <div className="grid min-h-[4.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
-                {t('sqlWorkspace.response.noRows')}
+              <div
+                data-testid="sql-result-preview-no-rows"
+                className="grid min-h-[4.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
+              >
+                {/* Only the newest run keeps its rows; an earlier one keeps its count. */}
+                {t(selectedResponseIndex > 0 && response.rowCount > 0 ? 'sqlWorkspace.response.rowsNotKept' : 'sqlWorkspace.response.noRows')}
               </div>
             ) : null}
           </div>
@@ -677,15 +678,7 @@ export function SqlResultPreview({
         </div>
       )}
 
-      {activeTab !== 'profile' && responses && responses.length > 1 && onSelectResponse ? (
-        <SqlRunHistory
-          responses={responses}
-          selectedIndex={selectedResponseIndex}
-          onSelect={onSelectResponse}
-        />
-      ) : null}
-
-      {hasResultBody && response.rows.length > 0 ? (
+      {hasResultBody && response.rows.length > 0 && (canShowMore || more?.loading || showSnippetNudge) ? (
         <footer
           data-testid="sql-result-footer"
           className="flex h-10 shrink-0 items-center gap-2 border-t border-border-subtle px-2.5"
@@ -705,12 +698,6 @@ export function SqlResultPreview({
               {t('sqlWorkspace.grid.loadingMore')}
             </span>
           ) : null}
-          <kbd className="inline-flex h-[18px] items-center rounded border border-border-default px-1 font-mono text-micro text-fg-muted">
-            {formatShortcutCombo(COPY_ROW_COMBO, currentShortcutDisplayPlatform())}
-          </kbd>
-          <span className="truncate font-mono text-caption text-fg-muted">
-            {t('sqlWorkspace.grid.copyRowHint')}
-          </span>
           {showSnippetNudge ? (
             <button
               type="button"
