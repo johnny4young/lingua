@@ -13,7 +13,7 @@ import { languageLabel } from '../../utils/languageMeta';
 import { isNativeLanguageToolchain } from '../../utils/nativeLanguageToolchainStatus';
 import { Kbd } from '../ui/chrome';
 import { LanguageSquare, SectionHeading } from './StartParts';
-import { START_LANGUAGES, languageAvailability, type LanguageAvailability } from './startModel';
+import { START_LANGUAGES, isWebShell, languageAvailability, type LanguageAvailability } from './startModel';
 
 
 function availabilityText(availability: LanguageAvailability, language: Language, t: TFunction) {
@@ -83,7 +83,7 @@ function WorkspaceTile({ id, icon, label, shortcut, onOpen }: { id: string; icon
 /** A scratch file in any language, or a whole workspace, each with how it runs here. */
 export function StartNew() {
   const { t } = useTranslation();
-  const isWeb = typeof window === 'undefined' || window.lingua?.platform === 'web';
+  const isWeb = isWebShell();
   const notebookCombo = useShortcutLabel('action-new-notebook');
   const sqlCombo = useShortcutLabel('workspace-toggle-sql');
   const httpCombo = useShortcutLabel('workspace-toggle-http');

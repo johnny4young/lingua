@@ -11,6 +11,7 @@ import { resetNativeToolchainStoreForTests, useNativeToolchainStore } from '@/st
 import { armPendingSessionRestoreSnapshot, clearPendingSessionRestoreSnapshot, useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
+import { subscribeCommand } from '@/stores/commandBus';
 import { SEEDED_SCRATCHPAD_NAME, SEEDED_SCRATCHPAD_SOURCE } from '@/onboarding/seedScratchpad';
 import { BUILT_IN_TEMPLATES } from '@/data/templates';
 import type { StartPromptEditorProps } from '@/components/Start/StartPromptEditor';
@@ -320,6 +321,32 @@ describe('Start page', () => {
 
     await user.click(screen.getByTestId('start-template-py-hello'));
     expect(useEditorStore.getState().tabs[0]).toMatchObject({ name: 'Hello World.py', language: 'python' });
+  });
+
+  it('opens the project templates from Templates on desktop', async () => {
+    setPlatform('darwin');
+    const user = userEvent.setup();
+    const listener = vi.fn();
+    const unsubscribe = subscribeCommand('overlay.openProjectTemplates', listener);
+    try {
+      render(<EditorEmptyState />);
+
+      const entry = screen.getByTestId('start-templates-projects');
+      expect(entry.textContent).toBe('Projects…');
+      expect(entry.getAttribute('aria-haspopup')).toBe('dialog');
+      expect(within(screen.getByRole('group', { name: 'Filter templates by language' })).queryByTestId('start-templates-projects')).toBeNull();
+      await user.click(entry);
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('leaves the project templates out of Start on the web build', () => {
+    setPlatform('web');
+    render(<EditorEmptyState />);
+    expect(screen.getByTestId('start-templates')).toBeTruthy();
+    expect(screen.queryByTestId('start-templates-projects')).toBeNull();
   });
 
   it('keeps the prompt line as a scratch tab on Enter', async () => {

@@ -12,6 +12,11 @@ export const START_LANGUAGES: readonly Language[] = LANGUAGE_PACKS.filter(
   .map(pack => pack.id as Language)
   .sort((a, b) => Number(isNativeLanguageToolchain(a)) - Number(isNativeLanguageToolchain(b)));
 
+/** Start treats a missing window like the web build: no host toolchains or folders. */
+export function isWebShell(): boolean {
+  return typeof window === 'undefined' || window.lingua?.platform === 'web';
+}
+
 export type LanguageAvailability =
   | { kind: 'offline' }
   | { kind: 'browser' }

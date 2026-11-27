@@ -41,6 +41,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   const recentEntries = useCommandHistoryStore(state => state.entries);
   const { t } = useTranslation();
   const recentCommandsCombo = useShortcutLabel('overlay-recent-commands');
+  const quickOpenCombo = useShortcutLabel('nav-quick-open');
   const autodetect = usePaletteAutodetect(query, { enabled: !isRecentVariant, onOpenQuickOpen: props.onOpenQuickOpen, onClose });
   const search = autodetect.intent.query;
 
@@ -243,22 +244,28 @@ export function CommandPalette(props: CommandPaletteProps) {
         </div>
       }
       trailing={
-        // accessibility pass — polite live region announcing the result count as
-        // the query narrows, so screen-reader users hear matches/empty.
-        <span
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          data-testid="command-palette-result-count"
-          className="font-mono text-caption text-fg-subtle"
-        >
-          {isEmptyQuery || isRecentVariant
-            ? t('commandPalette.results.count', { count: ordered.length })
-            : t('commandPalette.results.countOf', {
-                // The Autodetected row is not a command match.
-                shown: ordered.length - (detected ? 1 : 0),
-                total: allCommands.length,
-              })}
+        <span className="flex items-center gap-[14px]">
+          {isRecentVariant || !quickOpenCombo ? null : (
+            <span data-testid="command-palette-files-only-hint">
+              <LegendPair glyph={quickOpenCombo} label={t('start.palette.filesOnly')} />
+            </span>
+          )}
+          {/* Polite live region so screen-reader users hear the count as the query narrows. */}
+          <span
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            data-testid="command-palette-result-count"
+            className="font-mono text-caption text-fg-subtle"
+          >
+            {isEmptyQuery || isRecentVariant
+              ? t('commandPalette.results.count', { count: ordered.length })
+              : t('commandPalette.results.countOf', {
+                  // The Autodetected row is not a command match.
+                  shown: ordered.length - (detected ? 1 : 0),
+                  total: allCommands.length,
+                })}
+          </span>
         </span>
       }
     >

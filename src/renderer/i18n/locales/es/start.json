@@ -39,6 +39,7 @@
   "start.answer.faster": "{{duration}} más rápido que la corrida anterior",
   "start.answer.slower": "{{duration}} más lento que la corrida anterior",
   "start.palette.recent": "Recientes — con su última respuesta",
+  "start.palette.filesOnly": "solo archivos",
   "start.palette.recentCommands": "comandos recientes",
   "start.palette.settings": "Configuración",
   "start.palette.themeInk": "Tema: cambiar a Lingua Ink",
@@ -61,5 +62,6 @@
   "start.templates.title": "Plantillas",
   "start.templates.filter": "Filtrar plantillas por lenguaje",
   "start.templates.all": "Todas",
+  "start.templates.projects": "Proyectos…",
   "start.templates.open": "Abrir {{name}} en {{language}}"
 }

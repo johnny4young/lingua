@@ -27,6 +27,7 @@ interface RendererCommandPayloadMap {
   'overlay.openRecipes': undefined;
   'overlay.openProjectSearch': undefined;
   'overlay.openImport': undefined;
+  'overlay.openProjectTemplates': undefined;
   'capsule.openImport': undefined;
   'capsule.openList': { readonly surface: CapsuleBrowseSurface };
   'file.open': OpenFileCommand;
