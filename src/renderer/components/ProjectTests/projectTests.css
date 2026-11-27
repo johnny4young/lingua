@@ -33,9 +33,22 @@
   pointer-events: auto;
 }
 
+/* The Open file:line chip drops out whole before the compared values lose a letter. */
+.test-answer[data-kind='assertion'] .test-answer-body {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  max-height: 22px;
+  row-gap: 4px;
+}
+
+.monaco-editor {
+  --test-answer-tag-width: 64px;
+  --test-error-tint: color-mix(in srgb, var(--color-value-error) 12%, transparent);
+}
+
 .test-answer-tag {
   flex: none;
-  min-width: 64px;
+  min-width: var(--test-answer-tag-width);
   color: var(--color-fg-muted);
   font-family: var(--font-ui);
   font-variation-settings: normal;
@@ -133,6 +146,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 8px;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 5px;
   background: var(--color-bg-panel-alt);
   color: var(--color-fg-base);
@@ -173,4 +187,23 @@
 
 .test-change-row[data-kind='add'] .test-change-sign {
   color: var(--color-value-string);
+}
+
+/* The failing assertion's line, tinted from the margin up to the answer column's values. */
+.monaco-editor .test-error-line {
+  --test-error-tint-end: calc(var(--answer-column-start, 100%) + var(--test-answer-tag-width) + 5px);
+  background: linear-gradient(to right, var(--test-error-tint) var(--test-error-tint-end), transparent var(--test-error-tint-end));
+}
+
+.monaco-editor .test-error-line--full {
+  background: var(--test-error-tint);
+}
+
+.monaco-editor .test-error-margin {
+  background: var(--test-error-tint);
+}
+
+.monaco-editor .line-numbers.test-error-number {
+  color: var(--color-value-error) !important;
+  font-weight: 640;
 }

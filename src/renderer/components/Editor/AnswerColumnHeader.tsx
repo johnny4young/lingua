@@ -6,6 +6,7 @@ import { useResultStore } from '../../stores/resultStore';
 import { answerColumnBand } from './answerColumnGeometry';
 import '../../i18n/answersCatalog';
 import '../ui/identity.css';
+import './answerColumnHeader.css';
 
 /** Code start, column start and narrowness as one string, so an unchanged layout keeps its snapshot. */
 function readLayout(editor: monacoTypes.editor.IStandaloneCodeEditor): string {
@@ -16,18 +17,22 @@ function readLayout(editor: monacoTypes.editor.IStandaloneCodeEditor): string {
 
 /**
  * Labels the two columns over the editor: the code on the left, the answer
- * column with the run it shows on the right. Narrow editors have no column, so
- * the header keeps only the changes switch, and only when there is a run to compare.
+ * column with the run it shows (or `detail`) on the right. Narrow editors have
+ * no column, so the header keeps only the changes switch, and only when there
+ * is a run to compare.
  */
 export function AnswerColumnHeader({
   editor,
   tabId,
   since,
+  detail,
 }: {
   readonly editor: monacoTypes.editor.IStandaloneCodeEditor;
   readonly tabId: string | null;
   /** The run the answers on screen compare with, or null when there is none. */
   readonly since: number | null;
+  /** Names what the answers are in place of the run, for answers that do not come from a run of the editor. */
+  readonly detail?: string;
 }) {
   const { t } = useTranslation();
   const subscribe = useCallback(
@@ -55,7 +60,9 @@ export function AnswerColumnHeader({
           </span>
           <span className="answer-column-header-answers" style={{ left: column }}>
             <span className="type-tag answer-column-header-title">{t('answers.header.answers')}</span>
-            {run === null ? null : (
+            {detail !== undefined ? (
+              <span className="type-tag" data-testid="answer-column-header-detail">{`· ${detail}`}</span>
+            ) : run === null ? null : (
               <span className="type-tag" data-testid="answer-column-header-run">
                 {`· ${t(live ? 'answers.header.runLive' : 'answers.header.run', { number: run })}`}
               </span>

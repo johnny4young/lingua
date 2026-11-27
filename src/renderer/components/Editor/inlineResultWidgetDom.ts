@@ -10,7 +10,7 @@ export function inferKind(raw: string | undefined): string {
   if (s === 'true' || s === 'false') return 'boolean';
   if (s === 'undefined') return 'undefined';
   if (s === 'null') return 'null';
-  if (/^-?\d+(\.\d+)?$/.test(s)) return 'number';
+  if (/^[-+]?\d+(\.\d+)?$/.test(s)) return 'number';
   if (s.startsWith('[') && s.endsWith(']')) return 'array';
   if (s.startsWith('{') && s.endsWith('}')) return 'object';
   if (s.startsWith('"') || s.startsWith("'")) return 'string';

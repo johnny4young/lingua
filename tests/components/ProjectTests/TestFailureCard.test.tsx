@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,8 +60,9 @@ describe('TestFailureCard', () => {
     const fake = fakeEditor();
     render(<TestFailureCard editor={fake.editor} monaco={fake.monaco} entry={entry} change={change} tabId="tab" answeredLines={[]} />);
     expect(screen.getByTestId('test-failure-change-file').textContent).toBe('shipping.ts');
-    expect(screen.getByText('line 4')).toBeTruthy();
-    expect(screen.getByText('changed, not committed')).toBeTruthy();
+    // The line is said once, on the Open file:line chip beside the assertion.
+    expect(screen.queryByText('line 4')).toBeNull();
+    expect(screen.getByTestId('test-failure-change-state').textContent).toBe('Mchanged, not committed');
     expect(screen.getByTestId('test-failure-change').textContent).toContain('return total >= 50 ? 0 : 4.9;');
     expect(screen.getByTestId('test-failure-git-diff')).toBeTruthy();
     expect(fake.activeZones()).toEqual([]);
@@ -69,6 +70,19 @@ describe('TestFailureCard', () => {
     const wrapper = fake.widgets[0]!.getDomNode().firstElementChild as HTMLElement;
     // Right-aligned: the card ends 22 px before the content edge.
     expect(Number.parseInt(wrapper.style.width, 10)).toBe(1200 - 22);
+  });
+
+  it('colors the hunk with the tokenizer of the changed file and keeps its text', async () => {
+    const fake = fakeEditor();
+    const indented: CodeChange = { ...change, removed: ['  return total > 40;', '  // was'] };
+    render(<TestFailureCard editor={fake.editor} monaco={fake.monaco} entry={entry} change={indented} tabId="tab" answeredLines={[]} />);
+    const rows = () => [...screen.getByTestId('test-failure-change').querySelectorAll('.test-change-row')];
+    await waitFor(() => expect(rows()[0]!.querySelector('.mtk6')).not.toBeNull());
+    // Each side is tokenized as one block.
+    expect(fake.monaco.editor.colorize).toHaveBeenCalledWith('  return total > 40;\n  // was', 'typescript', { tabSize: 2 });
+    expect(rows().map(row => row.querySelector('.mtk6.mtki')?.textContent)).toEqual(['return', '//', 'return']);
+    expect(rows()[0]!.textContent).toBe('−removed:  return total > 40;');
+    expect(rows()[2]!.getAttribute('data-kind')).toBe('add');
   });
 
   it('reserves rows when the lines beside it would run under it', () => {

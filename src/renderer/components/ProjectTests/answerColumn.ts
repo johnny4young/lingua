@@ -9,6 +9,7 @@ const WIDGET_PREFIX = 'lingua.testAnswer';
 const LEADER_MARGIN = 26;
 const MIN_LEADER = 26;
 const MIN_ANSWER = 140;
+const NO_KEYS: ReadonlySet<string> = new Set();
 
 /** The answer column in content coordinates: its start, its right edge and its width. */
 export function answerColumn(editor: Editor): { start: number; right: number; width: number } {
@@ -21,20 +22,23 @@ export function answerColumn(editor: Editor): { start: number; right: number; wi
  * One content widget after each line's text whose dotted leader runs to the
  * answer column, so answers line up whatever the line length. Each widget
  * follows its line through edits and hides when the line leaves no room.
- * Returns the nodes to portal each answer into, by key.
+ * Returns the nodes to portal each answer into, by key, and the keys whose
+ * line runs into the column.
  */
 export function useAnswerColumnWidgets(
   editor: Editor | null,
   monaco: typeof monacoTypes | null,
   rows: readonly { key: string; line: number }[]
-): ReadonlyMap<string, HTMLElement> {
+): { nodes: ReadonlyMap<string, HTMLElement>; crowded: ReadonlySet<string> } {
   const nodesRef = useRef(new Map<string, HTMLElement>());
   const [nodes, setNodes] = useState<ReadonlyMap<string, HTMLElement>>(new Map());
+  const [crowded, setCrowded] = useState<ReadonlySet<string>>(NO_KEYS);
   const signature = rows.map(row => `${row.key}@${row.line}`).join('|');
 
   useEffect(() => {
     if (!editor || !monaco) {
       setNodes(new Map());
+      setCrowded(NO_KEYS);
       return;
     }
     const model = editor.getModel();
@@ -55,14 +59,27 @@ export function useAnswerColumnWidgets(
     }
 
     // Measure every line first, then write: each measurement can flush Monaco's render.
+    const root = editor.getDomNode();
+    let columnStart = '';
+    // The failing line's tint ends at the column, past its tag (projectTests.css).
+    const markColumn = (start: number) => {
+      if (`${start}px` === columnStart) return;
+      columnStart = `${start}px`;
+      root?.style.setProperty('--answer-column-start', columnStart);
+    };
+    // Set now so a re-run of this effect never leaves a frame without it.
+    markColumn(answerColumn(editor).start);
     const layout = () => {
       const column = answerColumn(editor);
+      markColumn(column.start);
       const lines = placed.map(entry => entry.currentLine());
       const ends = lines.map(line => lineEnd(editor, line));
+      const into = new Set<string>();
       placed.forEach((entry, index) => {
         const end = ends[index];
         if (end === null || end === undefined) return;
         entry.measured = true;
+        if (end + LEADER_MARGIN + MIN_LEADER > column.start) into.add(entry.key);
         const leader = Math.max(MIN_LEADER, column.start - end - LEADER_MARGIN);
         const answer = Math.min(column.width, column.right - end - LEADER_MARGIN - leader);
         // Monaco keeps a widget's model position until it is laid out again, so a moved line counts as a change.
@@ -76,6 +93,7 @@ export function useAnswerColumnWidgets(
         }
         editor.layoutContentWidget(entry.widget);
       });
+      setCrowded(current => (current.size === into.size && [...into].every(key => current.has(key)) ? current : into));
     };
     let frame = 0;
     const schedule = () => {
@@ -99,10 +117,11 @@ export function useAnswerColumnWidgets(
       cancelAnimationFrame(frame);
       for (const listener of listeners) listener.dispose();
       for (const entry of placed) entry.dispose();
+      root?.style.removeProperty('--answer-column-start');
     };
     // `signature` stands for `rows`, which callers rebuild on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, monaco, signature]);
 
-  return nodes;
+  return { nodes, crowded };
 }

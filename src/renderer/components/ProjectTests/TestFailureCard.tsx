@@ -9,10 +9,12 @@ import { useProjectTestStore, type ProjectTestDisplayCase } from '../../stores/p
 import { useUIStore } from '../../stores/uiStore';
 import { parentDirOf } from '../../utils/filePath';
 import { PLAINTEXT_LANGUAGE, languageFromPath } from '../../utils/language';
+import { monacoLanguageFor } from '../../utils/languageMeta';
 import { useLineWidget } from '../Editor/useLineWidget';
 import { LanguageSquare } from '../Start/StartParts';
 import { lineEnd } from '../Editor/answerColumnGeometry';
 import { answerColumn } from './answerColumn';
+import { useColorizedLines, type ColorToken } from './colorizedLines';
 import { explainTestFailureText, type CodeChange } from './codeUnderTestChange';
 import { openProjectFileAt } from './openTestFailure';
 
@@ -49,6 +51,16 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
   const [height, setHeight] = useState(84);
   const [box, setBox] = useState({ left: 0, width: CARD_MAX, reserve: true });
   const line = entry.failureLine!;
+  const changeLanguage = change ? (languageFromPath(change.file) ?? PLAINTEXT_LANGUAGE) : PLAINTEXT_LANGUAGE;
+  const colored = useColorizedLines(
+    monaco,
+    monacoLanguageFor(changeLanguage),
+    change ? [change.removed, change.added] : [],
+    editor?.getModel()?.getOptions().tabSize ?? 4
+  );
+  const hunk = change
+    ? [...change.removed.map(text => ({ kind: 'remove' as const, text })), ...change.added.map(text => ({ kind: 'add' as const, text }))]
+    : [];
 
   useEffect(() => {
     if (typeof ResizeObserver === 'undefined') return;
@@ -156,38 +168,31 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
         style={{ pointerEvents: 'auto' }}
         className="overflow-hidden rounded-[10px] border border-border-strong bg-bg-panel font-sans text-[12px] text-fg-base"
       >
-        <div className="flex h-[30px] min-w-0 items-center gap-2 whitespace-nowrap border-b border-border-subtle px-3">
+        <div className="flex min-h-[30px] min-w-0 items-center gap-2 border-b border-border-subtle px-3 py-1">
           {change ? (
-            <>
-              <LanguageSquare language={languageFromPath(change.file) ?? PLAINTEXT_LANGUAGE} />
-              <span
-                className="min-w-0 truncate font-mono font-semibold"
-                data-testid="test-failure-change-file"
-              >
-                {fileName}
+            // The state moves to a second row before the file name is ever cut.
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <LanguageSquare language={changeLanguage} />
+                <span className="min-w-0 font-mono font-semibold [overflow-wrap:anywhere]" data-testid="test-failure-change-file">
+                  {fileName}
+                </span>
               </span>
-              <span className="shrink-0 font-mono text-fg-muted">
-                {t('projectTests.change.line', { line: change.line })}
-              </span>
-              <span
-                className="ml-1 shrink-0 font-mono font-semibold text-value-number"
-                aria-hidden="true"
-              >
-                M
-              </span>
-              <span className="min-w-0 truncate text-fg-muted">
+              <span className="flex items-center gap-2 whitespace-nowrap text-fg-muted" data-testid="test-failure-change-state">
+                <span className="font-mono font-semibold text-value-number" aria-hidden="true">
+                  M
+                </span>
                 {t('projectTests.change.uncommitted')}
               </span>
-            </>
+            </span>
           ) : (
             <>
               <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full bg-error/15 text-error-fg ring-1 ring-inset ring-error/50">
                 <X size={10} strokeWidth={2.4} aria-hidden="true" />
               </span>
-              <span className="min-w-0 truncate font-semibold">{entry.path.join(' › ')}</span>
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap font-semibold">{entry.path.join(' › ')}</span>
             </>
           )}
-          <span className="flex-1" />
           <button
             type="button"
             aria-label={t('projectTests.card.close')}
@@ -204,18 +209,11 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
             className="whitespace-pre py-2 font-mono text-[12.5px] leading-[22px]"
             data-testid="test-failure-change"
           >
-            {change.removed.map((text, index) => (
-              <div key={`r${index}`} className="test-change-row" data-kind="remove">
-                <span className="test-change-sign">−</span>
-                <span className="sr-only">{t('projectTests.change.removed')}</span>
-                {text}
-              </div>
-            ))}
-            {change.added.map((text, index) => (
-              <div key={`a${index}`} className="test-change-row" data-kind="add">
-                <span className="test-change-sign">+</span>
-                <span className="sr-only">{t('projectTests.change.added')}</span>
-                {text}
+            {hunk.map((row, index) => (
+              <div key={index} className="test-change-row" data-kind={row.kind}>
+                <span className="test-change-sign">{row.kind === 'remove' ? '−' : '+'}</span>
+                <span className="sr-only">{t(row.kind === 'remove' ? 'projectTests.change.removed' : 'projectTests.change.added')}</span>
+                <HunkText text={row.text} tokens={colored?.[index]} />
               </div>
             ))}
             {change.more > 0 ? (
@@ -225,7 +223,7 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
             ) : null}
           </div>
         ) : null}
-        <div className="flex h-[34px] min-w-0 items-center gap-2 whitespace-nowrap border-t border-border-subtle px-3">
+        <div className="flex min-h-[34px] min-w-0 flex-wrap items-center gap-2 border-t border-border-subtle px-3 py-[7px]">
           {entry.runnable !== false ? (
             <button
               type="button"
@@ -242,32 +240,47 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
               {t('projectTests.card.runAgain')}
             </button>
           ) : null}
-          <span className="flex-1" />
-          {change ? (
-            <button
-              type="button"
-              onClick={() => showDiff(change)}
-              data-testid="test-failure-git-diff"
-              className="test-answer-chip"
-            >
-              <GitCompare size={11} aria-hidden="true" />
-              {t('projectTests.change.gitDiff')}
-            </button>
-          ) : null}
-          {explainable ? (
-            <button
-              type="button"
-              onClick={explain}
-              data-testid="test-failure-explain"
-              className="test-answer-chip"
-            >
-              <Sparkles size={11} aria-hidden="true" />
-              {t('projectTests.change.explain')}
-            </button>
-          ) : null}
+          <span className="ml-auto flex flex-wrap justify-end gap-2">
+            {change ? (
+              <button
+                type="button"
+                onClick={() => showDiff(change)}
+                data-testid="test-failure-git-diff"
+                className="test-answer-chip"
+              >
+                <GitCompare size={11} aria-hidden="true" />
+                {t('projectTests.change.gitDiff')}
+              </button>
+            ) : null}
+            {explainable ? (
+              <button
+                type="button"
+                onClick={explain}
+                data-testid="test-failure-explain"
+                className="test-answer-chip"
+              >
+                <Sparkles size={11} aria-hidden="true" />
+                {t('projectTests.change.explain')}
+              </button>
+            ) : null}
+          </span>
         </div>
       </div>
     </div>,
     node
+  );
+}
+
+/** A hunk line in the editor's token colors once they are ready, plain text until then. */
+function HunkText({ text, tokens }: { text: string; tokens: ColorToken[] | undefined }) {
+  if (!tokens) return <>{text}</>;
+  return (
+    <>
+      {tokens.map((token, index) => (
+        <span key={index} className={token.className}>
+          {token.text}
+        </span>
+      ))}
+    </>
   );
 }

@@ -13,6 +13,7 @@ export function fakeEditor(options: { lines?: string[]; contentWidth?: number } 
     getModel: () => ({
       getLineCount: () => lines.length,
       getLineMaxColumn: (line: number) => (lines[line - 1]?.length ?? 0) + 1,
+      getOptions: () => ({ tabSize: 2 }),
     }),
     getDomNode: () => node,
     getOption: (option: number) => (option === 1 ? 20 : { typicalHalfwidthCharacterWidth: 8 }),
@@ -50,7 +51,20 @@ export function fakeEditor(options: { lines?: string[]; contentWidth?: number } 
     Range: class {
       constructor(public startLineNumber: number) {}
     },
-    editor: { ContentWidgetPositionPreference: { BELOW: 2, EXACT: 0 }, EditorOption: { lineHeight: 1, fontInfo: 2 } },
+    editor: {
+      ContentWidgetPositionPreference: { BELOW: 2, EXACT: 0 },
+      EditorOption: { lineHeight: 1, fontInfo: 2 },
+      TrackedRangeStickiness: { NeverGrowsWhenTypingAtEdges: 1 },
+      // Like Monaco: one keyword token, then the rest, with spaces as non-breaking.
+      colorize: vi.fn(async (text: string) => {
+        const line = (source: string) => {
+          const [, word = '', rest = ''] = /^(\S*)(.*)$/su.exec(source.trimStart()) ?? [];
+          const indent = source.slice(0, source.length - source.trimStart().length).replace(/ /gu, '&nbsp;');
+          return `<span><span class="mtk1">${indent}</span><span class="mtk6 mtki">${word}</span><span class="mtk1">${rest.replace(/>/gu, '&gt;')}</span></span><br/>`;
+        };
+        return `<div class="monaco-tokenized-source">${text.split('\n').map(line).join('')}</div>`;
+      }),
+    },
   };
   return {
     editor: editor as unknown as monacoTypes.editor.IStandaloneCodeEditor,
