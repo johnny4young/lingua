@@ -25,9 +25,9 @@
  * Design landmines documented inline:
  *
  *   1. `PIPELINE_STEP_STATUSES` keeps `'incompatible'` reserved for
- *      future binary/structured adapters. All current adapters are
- *      `text → text`; the engine code path is wired but never fires
- *      with the current registry.
+ *      a future binary adapter. Every current adapter takes text and a
+ *      text step accepts json, so the path never fires with the current
+ *      registry.
  *
  *   2. `parsePipeline()` rejects malformed top-level fields but drops
  *      invalid steps during persisted-library recovery. JSON import

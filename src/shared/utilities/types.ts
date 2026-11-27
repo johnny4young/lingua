@@ -62,9 +62,9 @@ export const UTILITY_ADAPTER_IDS = [
   'string-case',
   'html-entity-encode',
   'html-entity-decode',
-  // Vocabulary expansion round 2. Pure text→text
-  // transforms (number radix, line sort, slugify, JSON minify, text
-  // stats). Each is a self-contained shared reimplementation.
+  // Vocabulary expansion round 2. Pure text transforms (number
+  // radix, line sort, slugify, JSON minify, text stats). Each is a
+  // self-contained shared reimplementation.
   'number-base',
   'line-sort',
   'slugify',

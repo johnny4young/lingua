@@ -320,6 +320,19 @@ describe('UtilityPipelinePanel, step controls', () => {
     expect(verb().getAttribute('data-verb')).toBe('run');
   });
 
+  it('turns Continue off once every step of a held run is off', async () => {
+    seed([['url-encode', { breakpoint: true }], ['url-decode']]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'paused']));
+    for (const toggle of screen.getAllByTestId('utility-pipeline-step-disable')) await user.click(toggle);
+    const verb = screen.getByTestId('utility-pipeline-editor-run') as HTMLButtonElement;
+    expect(verb.getAttribute('data-verb')).toBe('continue');
+    expect(verb.disabled).toBe(true);
+    expect((screen.getByTestId('utility-pipeline-editor-run-menu') as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('keeps each step state in the results, not on the step cards', async () => {
     seed([['url-encode', { breakpoint: true }], ['url-decode'], ['jwt-decode', { disabled: true }]]);
     const user = userEvent.setup();

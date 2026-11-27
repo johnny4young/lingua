@@ -22,7 +22,7 @@ export interface AnswerInput {
   readonly language?: string;
   /** The statement's source line, read for a threshold to gauge a number against. */
   readonly source?: string;
-  /** Full length of a `text` answer whose `text` is only its head. */
+  /** Full length of a value whose `text` is only its head. */
   readonly length?: number;
 }
 
@@ -573,10 +573,11 @@ export function readAnswer(input: AnswerInput, context: AnswerContext): AnswerMo
   if (fn) return plainAnswer('function', 'function', fn[1]!);
   // A Python value that is not a literal is an object repr; a script string arrives without quotes.
   if (python) return plainAnswer('object', 'object', firstLine(text).line);
-  // Pretty-printed JSON too large to read is still an array or object, not a string.
+  // JSON too large to read, pretty-printed or cut to its head, is still an array or object, not a string.
   const head = firstLine(text);
-  const opener = head.line.trim();
-  if (head.rest > 0 && (opener === '[' || opener === '{')) {
+  const cut = (input.length ?? 0) > text.length;
+  const opener = cut ? text.trimStart().charAt(0) : head.line.trim();
+  if ((head.rest > 0 || cut) && (opener === '[' || opener === '{')) {
     const preview = truncateText(text.slice(0, 400).replace(/\s+/g, ' ').trim(), 120);
     return plainAnswer(opener === '[' ? reading.words.list : reading.words.dict, opener === '[' ? 'array' : 'object', preview);
   }

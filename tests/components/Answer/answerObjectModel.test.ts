@@ -189,13 +189,22 @@ describe('readAnswer', () => {
     expect(read({ text: 'a\nb', role: 'stdout' })).toMatchObject({ tag: 'stdout', tone: 'plain', value: 'a', fold: 1 });
   });
 
-  it('reads text as is, sized by its characters', () => {
+  it('reads text as is, sized by its length', () => {
     expect(read({ text: '{"a":1}', role: 'text' })).toMatchObject({ tag: 'text·7', kind: 'text', tone: 'string', value: '{"a":1}', pill: false });
     expect(read({ text: '42\nnext', role: 'text' })).toMatchObject({ tag: 'text·7', value: '42', fold: 1 });
     // A head of a longer text keeps the full size and lays out only what three lines can show.
     const head = read({ text: 'x'.repeat(2000), role: 'text', length: 25_000 });
     expect(head.tag).toBe('text·25000');
     expect(head.value.length).toBeLessThanOrEqual(600);
+  });
+
+  it('reads JSON cut to its head as an array or object, not a string', () => {
+    const minified = `{"rows":[${'1,'.repeat(12_000)}1]}`;
+    const head = minified.slice(0, 20_001);
+    expect(read({ text: head, length: minified.length })).toMatchObject({ kind: 'object' });
+    expect(read({ text: `[${head}`, length: minified.length + 1 })).toMatchObject({ kind: 'array' });
+    // Without the full length the head stays a string, as before.
+    expect(read(head).kind).toBe('string');
   });
 
   it('reads every rich payload kind', () => {

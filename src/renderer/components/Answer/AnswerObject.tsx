@@ -55,7 +55,7 @@ const answerCache = new Map<string, AnswerModel>();
  */
 function cachedAnswer(input: AnswerInput, now: number, locale: string): AnswerModel {
   if (input.payload || input.role === 'text') return readAnswer(input, { now, locale });
-  const key = `${input.role ?? ''}\u0000${input.language ?? ''}\u0000${locale}\u0000${input.source ?? ''}\u0000${input.text}`;
+  const key = `${input.role ?? ''}\u0000${input.language ?? ''}\u0000${locale}\u0000${input.source ?? ''}\u0000${input.length ?? ''}\u0000${input.text}`;
   const hit = answerCache.get(key);
   if (hit) return hit;
   const model = readAnswer(input, { now, locale });

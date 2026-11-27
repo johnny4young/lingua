@@ -1,6 +1,6 @@
 /** Utility pipeline results, read as a run: each step's output as an answer, with the breakpoint held inline. */
 
-import { ChevronDown, Lightbulb, PackagePlus, Play } from 'lucide-react';
+import { ChevronDown, Lightbulb, PackagePlus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { classifyClipboard, type UtilitySuggestionId } from '../../clipboard/pasteHandlers';
@@ -12,6 +12,7 @@ import { cn } from '../../utils/cn';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { AnswerObject } from '../Answer/AnswerObject';
 import { DotLeader, TypeTag } from '../ui/answer';
+import { Glyph } from '../ui/Glyph';
 import { SendOutputSelect } from './SendOutputSelect';
 import '../ui/pipelineRun.css';
 import '../../i18n/clipboardChainsCatalog';
@@ -177,7 +178,7 @@ export function UtilityPipelineResults({
                             data-testid="utility-pipeline-continue"
                             className="button-primary h-6 shrink-0 px-2.5 text-caption"
                           >
-                            <Play size={11} aria-hidden="true" fill="currentColor" />
+                            <Glyph name="continue" size={11} />
                             {t('utilityPipeline.result.continue')}
                           </button>
                         ) : null}
@@ -263,9 +264,12 @@ function StepAnswer({ output, utilityId }: { readonly output: string; readonly u
   // The head is enough to read the kind; a 256 KiB line would otherwise be laid out whole.
   const head = output.slice(0, ANSWER_TEXT_MAX);
   const json = getAdapter(utilityId)?.outputKind === 'json';
-  return json ? (
-    <AnswerObject text={head} data-testid="utility-pipeline-result-answer" />
-  ) : (
-    <AnswerObject text={head} role="text" length={output.length} data-testid="utility-pipeline-result-answer" />
+  return (
+    <AnswerObject
+      text={head}
+      {...(json ? {} : { role: 'text' as const })}
+      length={output.length}
+      data-testid="utility-pipeline-result-answer"
+    />
   );
 }

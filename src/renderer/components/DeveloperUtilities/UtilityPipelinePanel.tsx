@@ -555,7 +555,9 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                   onClick={heldAt ? () => handleContinue(heldAt) : handleRun}
                   disabled={
                     isExecuting ||
-                    (!heldAt && (activePipeline.steps.length === 0 || runState.phase === 'running' || everyStepOff))
+                    activePipeline.steps.length === 0 ||
+                    everyStepOff ||
+                    runState.phase === 'running'
                   }
                   running={runState.phase === 'running'}
                   ariaLabel={heldAt ? t('utilityPipeline.result.continue') : t('utilityPipeline.editor.run')}
@@ -567,7 +569,7 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
                           label: t('actionPill.moreRunOptions'),
                           testId: 'utility-pipeline-editor-run-menu',
                           listTestId: 'utility-pipeline-editor-run-menu-list',
-                          disabled: isExecuting,
+                          disabled: isExecuting || everyStepOff,
                           items: [
                             {
                               id: 'run-from-start',
