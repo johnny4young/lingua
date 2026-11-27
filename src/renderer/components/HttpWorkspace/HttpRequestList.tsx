@@ -9,7 +9,7 @@
  */
 
 import { ArrowDownToLine, Copy, GitBranch, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 import { emitCommand } from '../../stores/commandBus';
@@ -25,6 +25,8 @@ export interface HttpRequestListProps {
   onDelete: (id: string) => void;
   onOpenPipelines?: () => void;
   pipelineCount?: number;
+  /** Between the requests and Import, e.g. the active request's history. */
+  footer?: ReactNode;
 }
 
 export function HttpRequestList({
@@ -37,6 +39,7 @@ export function HttpRequestList({
   onDelete,
   onOpenPipelines,
   pipelineCount = 0,
+  footer,
 }: HttpRequestListProps) {
   const { t } = useTranslation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -241,6 +244,7 @@ export function HttpRequestList({
           );
         })}
       </ul>
+      {footer}
       <button
         type="button"
         onClick={() => emitCommand('overlay.openImport')}

@@ -321,3 +321,92 @@ test('snapshots a response, flags a change as a failed check and accepts it', as
   await expect(page.getByTestId('http-response-assertions-summary').locator('.http-tests-held-full')).toHaveText('2 of 2 hold');
 });
 
+
+test('stacks the response under the editor until the window is wide, with the header, history and tests uncut', async ({ page }) => {
+  const NOW = '2026-10-25T00:00:00.000Z';
+  const check = (id: string, source: string, path: string, comparator: string, expected: string) => ({ id, source, path, comparator, expected, enabled: true });
+  const services = {
+    items: [
+      { id: 101, name: 'runtime', status: 'healthy', p95ms: 118, region: 'us-east-1' },
+      { id: 104, name: 'billing', status: 'degraded', p95ms: 231, region: 'eu-west-1' },
+    ],
+    total: 2,
+    meta: { generatedAt: new Date(Date.now() - 60_000).toISOString() },
+  };
+  await openBuilder(page, 'en', {
+    environments: [{ version: 1, id: 'stg', name: 'staging', variables: [{ id: 'v1', key: 'baseUrl', value: `${API}/staging`, secret: false }], createdAt: NOW, updatedAt: NOW }],
+    activeEnvironmentId: 'stg',
+    activeRequestId: 'r1',
+    requests: [
+      {
+        version: 1, id: 'r1', name: 'List services', method: 'GET', url: '{{baseUrl}}/services', headers: [], createdAt: NOW, updatedAt: NOW,
+        assertions: [check('a1', 'status', '', 'equals', '200'), check('a2', 'body-json', 'items[0].status', 'equals', 'healthy')],
+      },
+    ],
+  });
+  await page.route(`${API}/staging/services`, (route) =>
+    route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify(services) })
+  );
+  const send = page.getByTestId('http-request-editor-send');
+  await send.click();
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+  await send.click();
+
+  // 1440 px: the response sits under the editor, and its history moves to the sidebar.
+  const body = page.getByTestId('http-workspace-body');
+  await expect(body).toHaveAttribute('data-layout', 'stacked');
+  const header = page.getByTestId('result-header');
+  await expect(page.getByTestId('result-header-workspace')).toHaveText('HTTP');
+  await expect(page.getByTestId('http-status-pill')).toContainText('200');
+  for (const view of ['Body', /^Headers \d+$/, 'Timing', 'Raw']) await expect(header.getByRole('button', { name: view, exact: true })).toBeVisible();
+  await expect(header.getByRole('button', { name: 'Body', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('http-response-export')).toBeVisible();
+  const headerBox = await header.boundingBox();
+  // One row: numeral, views and actions share the header line.
+  expect(headerBox?.height ?? 0).toBeLessThan(90);
+
+  const history = page.getByTestId('http-request-list').getByTestId('http-response-history');
+  await expect(history.getByTestId('http-response-history-row')).toHaveCount(2);
+  const latest = history.getByTestId('http-response-history-row').first();
+  await expect(latest).toHaveAttribute('aria-current', 'true');
+  await expect(latest.getByTestId('http-response-history-status')).toHaveText('200');
+  await expect(latest.getByTestId('http-response-history-latency')).toHaveText(/^\d+ ms$/);
+  await expect(latest.getByTestId('http-response-history-bar')).toBeVisible();
+
+  // Every table column shows without the table scrolling.
+  const table = page.getByTestId('http-json-table');
+  await expect(table.locator('th')).toHaveCount(6);
+  expect(await table.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const note = page.getByTestId('http-json-date-note');
+  await expect(note).toHaveAttribute('title', /ago/);
+  expect(await note.evaluate((el) => el.getBoundingClientRect().right <= (el.closest('.json-viewport') as HTMLElement).getBoundingClientRect().right)).toBe(true);
+
+  await page.getByTestId('http-request-editor-tab-assert').click();
+  const add = page.getByTestId('http-request-editor-assert-add');
+  const addLine = page.getByTestId('http-test-add-line');
+  const leaderBox = await addLine.locator('.http-test-leader').boundingBox();
+  const addBox = await add.boundingBox();
+  expect(Math.abs((leaderBox?.y ?? 0) - ((addBox?.y ?? 0) + (addBox?.height ?? 0) / 2))).toBeLessThan(8);
+  const chips = page.getByTestId('http-response-suggestion');
+  await expect(chips.first()).toBeVisible();
+  for (const chip of await chips.all()) expect(await chip.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const value = page.getByTestId('http-test-variable-value');
+  await expect(value).toHaveText(`"${API}/staging"`);
+  expect(await value.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  // A narrow window elides the date note in place instead of cutting it at the edge.
+  await page.setViewportSize({ width: 900, height: 900 });
+  expect(await note.evaluate((el) => el.getBoundingClientRect().right <= (el.closest('.json-viewport') as HTMLElement).getBoundingClientRect().right + 1)).toBe(true);
+
+  // Wide: a third column of at least 560 px, with the editor keeping its tab.
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await expect(body).toHaveAttribute('data-layout', 'columns');
+  await expect(page.getByTestId('http-request-editor-tab-assert')).toHaveAttribute('aria-selected', 'true');
+  expect((await page.locator('[data-panel]#http-response-preview').boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(559);
+  // The flip restores the column split instead of carrying the stacked one over.
+  const editorWidth = (await page.locator('[data-panel]#http-request-editor').boundingBox())?.width ?? 0;
+  const responseWidth = (await page.locator('[data-panel]#http-response-preview').boundingBox())?.width ?? 0;
+  expect(Math.abs(editorWidth / (editorWidth + responseWidth) - 0.56)).toBeLessThan(0.02);
+  await expect(page.getByTestId('http-request-list').getByTestId('http-response-history')).toHaveCount(0);
+  await expect(page.getByTestId('http-response-history')).toBeVisible();
+});

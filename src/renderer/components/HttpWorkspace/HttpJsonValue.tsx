@@ -37,7 +37,7 @@ export function JsonLeaf({ value, text, context, highlight, pill = 'auto' }: Jso
         {highlight(text)}
       </span>
       {leaf.note ? (
-        <span className="json-leaf-note" data-testid="http-json-date-note">
+        <span className="json-leaf-note" data-testid="http-json-date-note" title={leaf.note}>
           {leaf.note}
         </span>
       ) : null}

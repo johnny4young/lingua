@@ -98,15 +98,15 @@ interface TestLineProps extends Omit<LiHTMLAttributes<HTMLLIElement>, 'children'
   readonly action?: ReactNode;
 }
 
-/** One line of the tab's grid: result, code, leader, answer, action; missing cells stay empty. */
+/** One line of the tab's grid: result, code, leader, answer, action; without an action the answer takes its column. */
 function TestLine({ glyph, code, answer, action, className, ...rest }: TestLineProps) {
   return (
-    <li className={cn('http-test-line', className)} {...rest}>
+    <li className={cn('http-test-line', className)} data-no-action={action ? undefined : ''} {...rest}>
       {glyph ?? <span />}
       {code}
       <span className="dot-leader http-test-leader" aria-hidden="true" />
       {answer ?? <span className="http-test-answer" />}
-      {action ?? <span />}
+      {action}
     </li>
   );
 }

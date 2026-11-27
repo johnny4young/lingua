@@ -20,6 +20,22 @@
     white-space: nowrap;
   }
 
+  /* Unwrapped, a date note takes the room left in the pane and elides there; its width never widens the row. */
+  [data-wrap='false'] .json-tree-text:has(> .json-leaf-note) {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: baseline;
+  }
+
+  [data-wrap='false'] .json-tree-text > .json-leaf-note {
+    min-width: 0;
+    flex: 1 1 0;
+    overflow: hidden;
+    contain: inline-size;
+    text-overflow: ellipsis;
+  }
+
   /* The body viewport is the size container, so a table fits the pane however wide the tree grows. */
   .json-viewport { container-type: inline-size; }
 
@@ -134,6 +150,9 @@
     border-radius: 6px;
   }
 
+  /* A line without an action lends its column to the answer; :where keeps the narrow rule below in charge. */
+  .http-test-line:where([data-no-action]) > .http-test-answer { grid-column: 4 / -1; }
+
   /* Narrow: each answer moves under its check, so neither is cut to a few letters. */
   @container (max-width: 560px) {
     .http-tests { grid-template-columns: 18px minmax(0, 1fr) 24px; }
@@ -199,7 +218,7 @@
   /* Suggestions: the tag stays put while chips wrap beside it. */
   .http-test-line[data-suggestions] { align-items: start; padding: 4px 0; }
   .http-test-line[data-suggestions] > .http-test-code { line-height: 20px; }
-  .http-test-line[data-suggestions] > .http-test-leader { margin-top: 10px; }
+  .http-test-line[data-suggestions] > .http-test-leader { align-self: start; margin-top: 10px; }
   .http-test-line[data-suggestions] > svg { margin-top: 4px; }
   .http-test-suggestions { align-items: flex-start; }
   .http-test-suggestions > .type-tag { line-height: 20px; }
@@ -228,7 +247,9 @@
 
   .http-test-chip:hover { color: var(--color-fg-base); background: color-mix(in srgb, var(--color-fg-base) 12%, transparent); }
 
+  /* Scaled within 72 px, or the track when a narrow sidebar has less. */
   .http-history-bar {
+    width: max(3px, calc(min(100%, 72px) * var(--share, 0)));
     height: 5px;
     flex: none;
     border-radius: 2px;

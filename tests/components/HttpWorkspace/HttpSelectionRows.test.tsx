@@ -75,8 +75,8 @@ describe('HTTP selection rows', () => {
     const rows = screen.getAllByTestId('http-response-history-row');
     expect(rows.map((row) => row.dataset.tone)).toEqual(['ok', 'error', 'neutral', 'neutral']);
     expect(screen.getAllByTestId('http-response-history-status').map((status) => status.textContent)).toEqual(['200', '503', 'Timeout', '304']);
-    const widths = screen.getAllByTestId('http-response-history-bar').map((bar) => bar.style.width);
-    expect(widths).toEqual([`${Math.sqrt(100 / 2000) * 72}px`, '72px', `${Math.sqrt(500 / 2000) * 72}px`, `${Math.sqrt(20 / 2000) * 72}px`]);
+    const shares = screen.getAllByTestId('http-response-history-bar').map((bar) => Number(bar.style.getPropertyValue('--share')));
+    expect(shares).toEqual([Math.sqrt(100 / 2000), 1, Math.sqrt(500 / 2000), Math.sqrt(20 / 2000)]);
     expect(rows[1]!.textContent).toContain('2.0 s');
   });
 });

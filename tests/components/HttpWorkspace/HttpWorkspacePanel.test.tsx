@@ -39,6 +39,7 @@ vi.mock('react-resizable-panels', () => ({
     </div>
   ),
   Panel: ({ children }: PropsWithChildren<{ id?: string }>) => <div>{children}</div>,
+  Separator: () => <div role="separator" />,
   useDefaultLayout: () => ({
     defaultLayout: undefined,
     onLayoutChanged: vi.fn(),
@@ -223,11 +224,12 @@ describe('HttpWorkspacePanel', () => {
     ]);
   });
 
-  it('lays out request list, editor, and response as columns', () => {
+  it('puts the request list beside the editor and response, as columns until measured', () => {
     render(<HttpWorkspacePanel />);
-    expect(screen.getByTestId('http-workspace-layout').dataset.orientation).toBe(
-      'horizontal'
-    );
+    const [sidebar, main] = screen.getAllByTestId('http-workspace-layout');
+    expect(sidebar?.dataset.orientation).toBe('horizontal');
+    expect(main?.dataset.orientation).toBe('horizontal');
+    expect(screen.getByTestId('http-workspace-body').dataset.layout).toBe('columns');
   });
 
   it('sends the current editor draft even before the debounce settles', async () => {
