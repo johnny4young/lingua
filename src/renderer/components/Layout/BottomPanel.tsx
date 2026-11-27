@@ -272,9 +272,20 @@ export function BottomPanel({
   const pinned = dockTabs.filter(id => id === 'console' || id === effectiveTab || (split && isDockSplitTab(id)));
   const overflow = useDockRowFit(tabRowRef, tabListRef, controlsRef, moreRef, compact, rankDockTabs(dockTabs, tabUse), pinned);
   const pickTab = (id: DockTabId) => {
-    setTabUse(recordDockTabUse(tabUse, id));
+    setTabUse(recordDockTabUse(id));
     openBottomPanel(id);
   };
+
+  // Pinned tabs alone can outgrow a narrow row; keep the selected one inside the list's own track.
+  useEffect(() => {
+    const list = tabListRef.current;
+    const tab = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !tab) return;
+    const row = list.getBoundingClientRect();
+    const box = tab.getBoundingClientRect();
+    if (box.left < row.left) list.scrollLeft -= row.left - box.left;
+    else if (box.right > row.right) list.scrollLeft += box.right - row.right;
+  }, [effectiveTab, compact]);
 
   const shown = (id: DockTabId) => expanded && (effectiveTab === id || (split && isDockSplitTab(id)));
   // The Tests meter and controls answer for the project while its tests are on screen.
@@ -389,14 +400,14 @@ export function BottomPanel({
               role="tablist"
               aria-label={t('bottomPanel.tabs.listLabel')}
               aria-multiselectable={split || undefined}
-              className="relative flex min-w-0 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
+              className="flex min-w-0 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
             >
               {dockTabs.map(id => {
                 const meta = DOCK_TAB_META[id];
                 const Icon = meta.icon;
                 const selected = shown(id);
                 return (
-                  // A tab in More stays mounted out of flow, so the row can still measure it.
+                  // A tab in More stays mounted out of flow, placed against the row so the list never scrolls to it.
                   <Tooltip
                     key={id}
                     content={tabHint(id)}

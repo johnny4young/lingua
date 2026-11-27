@@ -18,7 +18,9 @@ export function readDockTabUse(): DockTabUse {
   }
 }
 
-export function recordDockTabUse(use: DockTabUse, id: DockTabId): DockTabUse {
+/** Counts a pick on top of what storage holds now, so picks made in another window are kept. */
+export function recordDockTabUse(id: DockTabId): DockTabUse {
+  const use = readDockTabUse();
   const next = { ...use, [id]: (use[id] ?? 0) + 1 };
   writePersisted(DOCK_TAB_USE_KEY, next);
   return next;

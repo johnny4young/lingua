@@ -74,7 +74,7 @@ function dockGeometry(page: Page) {
     const offscreen = [...rowControls, ...consoleControls]
       .filter(control => control.left < 0 || control.right > window.innerWidth + 0.5)
       .map(control => control.name);
-    return { tabs: all.length, inMore, unreachable, overlaps, offscreen };
+    return { tabs: all.length, inMore, scrolls: list.scrollWidth > list.clientWidth, unreachable, overlaps, offscreen };
   });
 }
 
@@ -104,7 +104,7 @@ for (const palette of ['ink', 'paper'] as const) {
     await expectNoHorizontalOverflow(page);
     const geometry = await dockGeometry(page);
     expect(geometry.tabs).toBeGreaterThanOrEqual(3);
-    expect(geometry, JSON.stringify(geometry)).toMatchObject({ unreachable: [], overlaps: [], offscreen: [] });
+    expect(geometry, JSON.stringify(geometry)).toMatchObject({ scrolls: false, unreachable: [], overlaps: [], offscreen: [] });
 
     // Tabs keep their labels; the ones that do not fit wait in More, which lists every one of them.
     await expect(page.getByRole('tab', { name: /^Console/ })).toBeVisible();
@@ -128,7 +128,7 @@ for (const palette of ['ink', 'paper'] as const) {
     await openConsole(page);
     await expect(pickedTab).toBeVisible();
     const afterPick = await dockGeometry(page);
-    expect(afterPick, JSON.stringify(afterPick)).toMatchObject({ unreachable: [], overlaps: [], offscreen: [] });
+    expect(afterPick, JSON.stringify(afterPick)).toMatchObject({ scrolls: false, unreachable: [], overlaps: [], offscreen: [] });
     expect(afterPick.inMore).not.toContain(picked);
 
     // Share leaves the row for the overflow menu.

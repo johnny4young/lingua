@@ -1,4 +1,4 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,10 @@ export const DockTabsMore = forwardRef<HTMLDivElement, DockTabsMoreProps>(functi
   const { t } = useTranslation();
   const { open, setOpen, triggerRef, menuRef, position, onMenuKeyDown, closeToTrigger } = usePortalMenu();
   const idle = rows.length === 0;
+  // A menu left open while every tab fit would pop back up the next time one leaves the row.
+  useEffect(() => {
+    if (idle) setOpen(false);
+  }, [idle, setOpen]);
 
   return (
     <div ref={ref} className="dock-tabs-more flex shrink-0 items-stretch" data-idle={idle || undefined}>

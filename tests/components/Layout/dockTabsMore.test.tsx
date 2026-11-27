@@ -18,7 +18,7 @@ function Row({ width, ranked, pinned }: { width: number; ranked: DockTabId[]; pi
   const more = useRef<HTMLDivElement>(null);
   const overflow = useDockRowFit(row, list, controls, more, false, ranked, pinned);
   return (
-    <div ref={row} data-testid="row" data-client-width={width}>
+    <div ref={row} data-testid="row" data-width={width}>
       <div ref={list}>
         {ORDER.map(id => (
           <button key={id} type="button" data-dock-tab={id} data-width={WIDTH[id]} />
@@ -40,9 +40,12 @@ describe('dock tab use', () => {
   });
 
   it('persists picks and reads malformed storage as unused', () => {
-    const use = recordDockTabUse(recordDockTabUse({}, 'variables'), 'variables');
-    expect(use).toEqual({ variables: 2 });
+    recordDockTabUse('variables');
+    expect(recordDockTabUse('variables')).toEqual({ variables: 2 });
     expect(readDockTabUse()).toEqual({ variables: 2 });
+    // Another window's picks land in storage between two of ours and are kept.
+    window.localStorage.setItem('lingua-ui:dock-tab-use', '{"variables":2,"tests":3}');
+    expect(recordDockTabUse('variables')).toEqual({ variables: 3, tests: 3 });
     window.localStorage.setItem('lingua-ui:dock-tab-use', '{"variables":"9","stdin":-1,"compare":2.5,"tests":4}');
     expect(readDockTabUse()).toEqual({ tests: 4 });
     window.localStorage.setItem('lingua-ui:dock-tab-use', '[1]');
@@ -56,9 +59,6 @@ describe('useDockRowFit', () => {
   beforeEach(() => {
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
       return { width: Number(this.getAttribute('data-width') ?? 0) } as DOMRect;
-    });
-    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
-      return Number(this.dataset.clientWidth ?? 0);
     });
   });
   afterEach(() => {
@@ -102,6 +102,16 @@ describe('DockTabsMore', () => {
     expect(trigger.parentElement?.dataset.idle).toBe('true');
     expect(trigger.tabIndex).toBe(-1);
     fireEvent.click(trigger);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('does not reopen by itself after every tab fit the row', () => {
+    const rows = [{ id: 'variables' as const, icon: null, label: 'Variables', hint: 'Inspect', badges: null, shortcut: null }];
+    const { rerender } = render(<DockTabsMore rows={rows} alert={false} onPick={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'More tabs' }));
+    expect(screen.queryByRole('menu')).not.toBeNull();
+    rerender(<DockTabsMore rows={[]} alert={false} onPick={() => {}} />);
+    rerender(<DockTabsMore rows={rows} alert={false} onPick={() => {}} />);
     expect(screen.queryByRole('menu')).toBeNull();
   });
 

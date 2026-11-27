@@ -48,7 +48,7 @@ export function useDockRowFit(
           widths[tab.dataset.dockTab ?? ''] = tab.getBoundingClientRect().width;
         }
         const width = (id: DockTabId) => widths[id] ?? 0;
-        const space = row.clientWidth - controls.getBoundingClientRect().width - padding;
+        const space = row.getBoundingClientRect().width - controls.getBoundingClientRect().width - padding;
         if (ranked.reduce((sum, id) => sum + width(id), 0) <= space + 0.5) {
           next = [];
           break;
@@ -72,7 +72,7 @@ export function useDockRowFit(
     fitRef.current = fit;
     fit();
     if (typeof ResizeObserver === 'undefined') return;
-    // Only size changes refit: the row's width, the controls and each tab (a label or badge that widens it).
+    // Only size changes refit: the row's width, the controls, More and each tab (a label or badge that widens it).
     // The refit waits a frame: changing sizes inside the callback raises a ResizeObserver loop error.
     let frame = 0;
     const refit = () => {
@@ -82,7 +82,7 @@ export function useDockRowFit(
     const resize = new ResizeObserver(refit);
     const observe = () => {
       resize.disconnect();
-      for (const node of [row, controls, ...list.querySelectorAll('[data-dock-tab]')]) resize.observe(node);
+      for (const node of [row, controls, more, ...list.querySelectorAll('[data-dock-tab]')]) resize.observe(node);
     };
     observe();
     // A tab that appears or goes away.
