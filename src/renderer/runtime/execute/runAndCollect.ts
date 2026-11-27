@@ -126,7 +126,7 @@ export async function runAndCollect(
   }
 
   let result: ExecutionResult;
-  const live = reportLiveRun(activeTab.id);
+  const live = reportLiveRun(activeTab.id, content);
   try {
     result = await runner.execute(content, {
       ...execution.context,

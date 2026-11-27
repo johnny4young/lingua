@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { useResultStore } from '../../stores/resultStore';
+import { useLiveRunStore } from '../../stores/liveRunStore';
 import {
   loadInlineResultWidgets,
   type InlineResultWidgetsProps,
@@ -15,7 +16,9 @@ type InlineResultWidgetsComponent = ComponentType<InlineResultWidgetsProps>;
  * summaries load only once a run produces something that can be displayed.
  */
 export function InlineResultWidgetsHost(props: InlineResultWidgetsProps) {
-  const enabled = props.lineResults.length > 0 || (props.lineTimings?.length ?? 0) > 0;
+  // A run in flight answers on its running line and loops before it prints anything.
+  const live = useLiveRunStore(state => (props.tabId ? props.tabId in state.byTab : false));
+  const enabled = live || props.lineResults.length > 0 || (props.lineTimings?.length ?? 0) > 0;
   const [Widgets, setWidgets] = useState<InlineResultWidgetsComponent | null>(null);
   const [failed, setFailed] = useState(false);
   const { error: pushErrorNotice } = useStatusNotice();

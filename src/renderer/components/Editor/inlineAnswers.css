@@ -71,6 +71,13 @@
 
   .lingua-inline-result-kept { border-style: dotted; }
 
+  /* A live answer stands in for the line's own answer while the run is on it. */
+  .lingua-inline-result[data-live-covered] { opacity: 0; }
+
+  .lingua-inline-result:has(> [data-live-kind='running']) .lingua-inline-result-leader {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--color-pulse) 70%, transparent) 0.9px, transparent 1.1px);
+  }
+
   .lingua-inline-result-depth {
     flex: none;
     margin-left: 6px;

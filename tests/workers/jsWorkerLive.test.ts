@@ -109,7 +109,7 @@ describe('live tracker', () => {
     let clock = 0;
     const reads = vi.fn(() => clock);
     const posted: LiveRunSnapshot[] = [];
-    const tracker = createJsWorkerLive(live => posted.push(live), [1], reads);
+    const tracker = createJsWorkerLive(live => posted.push(live), [{ line: 1, end: 1 }], reads);
     // Slow lines read the clock at every probe and time each line exactly.
     clock = 10;
     tracker.line(2);
@@ -130,7 +130,7 @@ describe('live tracker', () => {
     let outer = 0;
     let inner = 0;
     const posted: LiveRunSnapshot[] = [];
-    const tracker = createJsWorkerLive(live => posted.push(live), [2, 4], () => clock);
+    const tracker = createJsWorkerLive(live => posted.push(live), [{ line: 2, end: 6 }, { line: 4, end: 5 }], () => clock);
     clock = 10;
     tracker.loop(0, () => outer);
     tracker.of(0, new Set(['a', 'b']));
@@ -141,7 +141,7 @@ describe('live tracker', () => {
     const first = tracker.passOrdinal();
     clock = 60;
     tracker.line(5);
-    expect(posted.at(-1)!.loops).toEqual([{ line: 2, pass: 1, total: 2 }, { line: 4, pass: 2 }]);
+    expect(posted.at(-1)!.loops).toEqual([{ line: 2, end: 6, pass: 1, total: 2 }, { line: 4, end: 5, pass: 2 }]);
     expect(tracker.passOrdinal()).toBe(first);
     inner = 3;
     expect(tracker.passOrdinal()).not.toBe(first);
@@ -151,4 +151,44 @@ describe('live tracker', () => {
     expect(tracker.passOrdinal()).toBe(0);
     tracker.stop();
   });
+
+  it('sends the loop variable as JSON only for primitives and small plain values', () => {
+    let clock = 0;
+    let pass = 0;
+    let value: unknown = 'db';
+    const posted: LiveRunSnapshot[] = [];
+    const tracker = createJsWorkerLive(live => posted.push(live), [{ line: 2, end: 3 }], () => clock);
+    tracker.loop(0, () => pass, () => value, 'name');
+    const bindingAfter = (next: unknown) => {
+      value = next;
+      clock += 60;
+      tracker.line(3);
+      return posted.at(-1)!.loops[0]!.binding;
+    };
+    clock = 60;
+    tracker.line(3);
+    // Before its first pass the slot holds nothing yet.
+    expect(posted.at(-1)!.loops[0]).not.toHaveProperty('binding');
+    pass = 1;
+    expect(bindingAfter('db')).toEqual({ name: 'name', value: '"db"' });
+    expect(bindingAfter(42)).toEqual({ name: 'name', value: '42' });
+    expect(bindingAfter([1, 'a', null])).toEqual({ name: 'name', value: '[1,"a",null]' });
+    expect(bindingAfter({ id: 1 })).toEqual({ name: 'name', value: '{"id":1}' });
+    expect(bindingAfter([{ id: 1 }])).toBeUndefined();
+    expect(bindingAfter(new Map())).toBeUndefined();
+    let read = false;
+    const getter = Object.defineProperty({}, 'x', { enumerable: true, get: () => ((read = true), 1) });
+    expect(bindingAfter(getter)).toBeUndefined();
+    expect(read).toBe(false);
+    expect(bindingAfter('x'.repeat(500))).toBeUndefined();
+    // JSON would read these as null or drop them.
+    expect(bindingAfter([1, undefined])).toBeUndefined();
+    expect(bindingAfter([Number.NaN])).toBeUndefined();
+    expect(bindingAfter({ a: undefined })).toBeUndefined();
+    const holed = [1, 2, 3];
+    delete holed[1];
+    expect(bindingAfter(holed)).toBeUndefined();
+    tracker.stop();
+  });
 });
+

@@ -12,6 +12,7 @@ import {
 } from '@/runtime/recentRunsPopoverBridge';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useLiveRunStore } from '@/stores/liveRunStore';
 import { type ExecutionHistoryEntry, useExecutionHistoryStore } from '@/stores/executionHistoryStore';
 import { type TabRun, useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -109,7 +110,8 @@ describe('RunMeter', () => {
     seedRuns([{ number: 1, kind: 'error', durationMs: 2, line: 3 }]);
     render(<RunMeter tabId="tab-js" />);
     const state = screen.getByTestId('run-meter-state');
-    expect(state.textContent).toBe('Error· run 1· line 3 of 4Run failed. See the message below.');
+    // Both sentences render; the dock's container query shows one of them.
+    expect(state.textContent).toBe('Error· run 1· line 3 of 4· line 3Run failed. See the message below.');
     expect(state.dataset.resultKind).toBe('run-status-pill');
     expect(state.dataset.runStatus).toBe('error');
   });
@@ -129,6 +131,21 @@ describe('RunMeter', () => {
     expect(live.dataset.kind).toBe('live');
     expect(live.querySelector('.run-meter-bar-expected')).not.toBeNull();
     expect(screen.getByTestId('execution-history-toggle').textContent).toBe('2 runs this session');
+  });
+
+  it('names the line a run in flight is on, out of the polite region', () => {
+    seedRuns([ok(1, 1000)]);
+    useResultStore.setState({ isManualRunning: true, ranCode: { tabId: 'tab-js', code: '', input: '', at: Date.now() } });
+    render(<RunMeter tabId="tab-js" />);
+    expect(screen.queryByTestId('run-meter-line')).toBeNull();
+    act(() => useLiveRunStore.getState().publish('tab-js', 'r1', { line: 2, lineMs: 0, elapsedMs: 5, loops: [] }));
+    const line = screen.getByTestId('run-meter-line');
+    expect(line.textContent).toBe('· line 2 of 4· line 2');
+    expect(line.getAttribute('aria-hidden')).toBe('true');
+    // The line takes the run number's place; the answer column header names the run.
+    expect(screen.getByTestId('run-meter-state').textContent).toBe('Running· line 2 of 4· line 2');
+    act(() => useLiveRunStore.getState().clear('tab-js', 'r1'));
+    expect(screen.queryByTestId('run-meter-line')).toBeNull();
   });
 
   it('keeps another tab\'s run off this meter and times its own run after a tab switch', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LIVE_RUN_MAX_LOOPS, livePassField, mapLiveRunLines, sanitizeLiveRun } from '@/../shared/liveRun';
+import { LIVE_RUN_MAX_BINDING_TEXT, LIVE_RUN_MAX_LOOPS, livePassField, mapLiveRunLines, sanitizeLiveRun } from '@/../shared/liveRun';
 import { reportLiveRun, useLiveRunStore } from '@/stores/liveRunStore';
 
 describe('live run protocol', () => {
@@ -23,10 +23,33 @@ describe('live run protocol', () => {
     expect([livePassField(3), livePassField(0), livePassField(-1), livePassField('2')]).toEqual([{ pass: 3 }, { pass: 0 }, {}, {}]);
   });
 
+  it('keeps a loop variable only with a name and a short value', () => {
+    const loops = [
+      { line: 1, pass: 1, binding: { name: 'name', value: "'db'" } },
+      { line: 2, pass: 1, binding: { name: 'a b', value: '1' } },
+      { line: 3, pass: 1, binding: { name: 'x', value: 'y'.repeat(LIVE_RUN_MAX_BINDING_TEXT + 1) } },
+      { line: 4, pass: 1, binding: { name: 'nombre_ñ', value: '' } },
+      { line: 5, pass: 1, binding: 'x' },
+      { line: 6, pass: 1, binding: { name: 'संख्या', value: '3' } },
+    ];
+    expect(sanitizeLiveRun({ line: 1, loops })?.loops).toEqual([
+      { line: 1, pass: 1, binding: { name: 'name', value: "'db'" } },
+      { line: 2, pass: 1 },
+      { line: 3, pass: 1 },
+      { line: 4, pass: 1 },
+      { line: 5, pass: 1 },
+      { line: 6, pass: 1, binding: { name: 'संख्या', value: '3' } },
+    ]);
+  });
+
   it('maps lines back to the source and drops loops that do not map', () => {
-    const live = { line: 5, lineMs: 1, elapsedMs: 2, loops: [{ line: 3, pass: 1 }, { line: 9, pass: 2 }] };
-    const map = (line: number) => ({ 5: 4, 3: 2 } as Record<number, number>)[line];
-    expect(mapLiveRunLines(live, map)).toEqual({ ...live, line: 4, loops: [{ line: 2, pass: 1 }] });
+    const live = { line: 5, lineMs: 1, elapsedMs: 2, loops: [{ line: 3, end: 6, pass: 1 }, { line: 9, pass: 2 }, { line: 5, end: 7, pass: 1 }] };
+    const map = (line: number) => ({ 5: 4, 3: 2, 6: 5 } as Record<number, number>)[line];
+    expect(mapLiveRunLines(live, map)).toEqual({ ...live, line: 4, loops: [{ line: 2, end: 5, pass: 1 }, { line: 4, pass: 1 }] });
+    expect(sanitizeLiveRun({ line: 1, loops: [{ line: 4, end: 3, pass: 1 }, { line: 4, end: 9, pass: 1 }] })?.loops).toEqual([
+      { line: 4, pass: 1 },
+      { line: 4, end: 9, pass: 1 },
+    ]);
     expect(mapLiveRunLines(live, () => undefined)).toBeUndefined();
   });
 });
@@ -46,12 +69,13 @@ describe('live run store', () => {
 
   it('reports one run per tab and ends only its own snapshot', () => {
     const live = { line: 2, lineMs: 1, elapsedMs: 60, loops: [] };
-    const first = reportLiveRun('tab');
-    const second = reportLiveRun('tab');
+    const first = reportLiveRun('tab', 'code');
+    const second = reportLiveRun('tab', 'code');
     first.onLive(live);
     second.onLive({ ...live, line: 3 });
     first.end();
     expect(useLiveRunStore.getState().byTab['tab']?.live.line).toBe(3);
+    expect(typeof useLiveRunStore.getState().byTab['tab']?.at).toBe('number');
     second.end();
     expect(useLiveRunStore.getState().byTab['tab']).toBeUndefined();
   });

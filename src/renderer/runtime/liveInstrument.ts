@@ -1,5 +1,6 @@
 import { Parser } from 'acorn';
 import MagicString from 'magic-string';
+import type { LiveLoopSpan } from '../../shared/liveRun';
 import { buildLineTranslator, type LineTranslator } from './debuggerInstrument';
 import { HOISTED, MAX_NESTING, isFunction, isInjected, isNode, statementList, type AcornNode } from './instrumentAst';
 
@@ -7,7 +8,8 @@ import { HOISTED, MAX_NESTING, isFunction, isInjected, isNode, statementList, ty
  * Live run signal: `__lingua_live(line)` before every statement that can take
  * time, and around each loop `__lingua_loop(id, readPass)` / `__lingua_loop_end(id)`
  * with a pass counter at the start of its body. Everything stays on the
- * statement's own line. A statement with no call, `new`, `await` or `yield` is
+ * statement's own line. A loop that binds one name each pass copies it into a
+ * slot the tracker reads. A statement with no call, `new`, `await` or `yield` is
  * not probed: it cannot hold the run, and a hot loop of them would pay for it.
  * Loops in async functions and generators are not tracked: they suspend with
  * the loop open while other code runs, so a stack of open loops would lie.
@@ -15,8 +17,8 @@ import { HOISTED, MAX_NESTING, isFunction, isInjected, isNode, statementList, ty
 export interface LiveInstrumentResult {
   code: string;
   map: string;
-  /** Header line of each loop, by id. */
-  loops: number[];
+  /** Header and body end line of each loop, by id. */
+  loops: LiveLoopSpan[];
 }
 
 /** A power of two; the first pass calls too, so a slow loop reports its first pass. */
@@ -69,11 +71,11 @@ interface WalkState {
   readonly ms: MagicString;
   readonly translate: LineTranslator;
   readonly maxLine: number;
-  readonly loops: number[];
+  readonly loops: LiveLoopSpan[];
 }
 
-function userLine(stmt: AcornNode, state: WalkState): number {
-  const line = state.translate(stmt.loc?.start.line ?? 0);
+function userLine(stmt: AcornNode, state: WalkState, edge: 'start' | 'end' = 'start'): number {
+  const line = state.translate(stmt.loc?.[edge].line ?? 0);
   return Number.isInteger(line) && line > 0 && line <= state.maxLine ? line : 0;
 }
 
@@ -83,15 +85,48 @@ function probe(stmt: AcornNode, state: WalkState): string {
   return line > 0 ? `__lingua_live(${line}); ` : '';
 }
 
+/** The one name a loop binds each pass (`for (const x of xs)`, `for (let i = 0; …)`), or null. */
+function loopBinding(node: AcornNode): string | null {
+  const head = node.type === 'ForStatement' ? node.init : node.type === 'ForOfStatement' || node.type === 'ForInStatement' ? node.left : null;
+  if (head?.type === 'Identifier') return head.name;
+  if (head?.type !== 'VariableDeclaration' || head.declarations.length !== 1) return null;
+  const id = head.declarations[0].id;
+  return id?.type === 'Identifier' ? id.name : null;
+}
+
+/** A body block that declares `name` again would hit its own TDZ if the pass read the name first. */
+function redeclares(body: AcornNode, name: string): boolean {
+  if (body.type !== 'BlockStatement') return false;
+  return body.body.some(
+    (stmt: AcornNode) =>
+      (stmt.type === 'VariableDeclaration' && stmt.declarations.some((decl: AcornNode) => declaresName(decl.id, name))) ||
+      ((stmt.type === 'FunctionDeclaration' || stmt.type === 'ClassDeclaration') && stmt.id?.name === name)
+  );
+}
+
+function declaresName(pattern: AcornNode | null | undefined, name: string, nesting = 0): boolean {
+  if (!isNode(pattern) || nesting > MAX_NESTING) return false;
+  if (pattern.type === 'Identifier') return pattern.name === name;
+  if (pattern.type === 'ObjectPattern') return pattern.properties.some((prop: AcornNode) => declaresName(prop.type === 'RestElement' ? prop.argument : prop.value, name, nesting + 1));
+  if (pattern.type === 'ArrayPattern') return pattern.elements.some((item: AcornNode | null) => declaresName(item, name, nesting + 1));
+  if (pattern.type === 'AssignmentPattern') return declaresName(pattern.left, name, nesting + 1);
+  if (pattern.type === 'RestElement') return declaresName(pattern.argument, name, nesting + 1);
+  return false;
+}
+
 function wrapLoop(node: AcornNode, target: AcornNode, state: WalkState): void {
   const line = userLine(node, state);
   if (line === 0) return;
   const id = state.loops.length;
-  state.loops.push(line);
+  state.loops.push({ line, end: Math.max(line, userLine(node.body, state, 'end')) });
   const { ms } = state;
   const counter = `__lingua_p${id}`;
-  // The pass lives in a block-scoped counter the tracker reads; the call comes every PASSES_PER_CALL passes.
-  ms.appendLeft(target.start, `{ let ${counter} = 0; __lingua_loop(${id}, () => ${counter}); try { `);
+  const name = loopBinding(node);
+  const binding = name !== null && !redeclares(node.body, name) ? { name, slot: `__lingua_b${id}` } : null;
+  // The pass and the loop variable live in block-scoped slots the tracker reads; the call comes every PASSES_PER_CALL passes.
+  const slot = binding ? `, ${binding.slot}` : '';
+  const read = binding ? `, () => ${binding.slot}, ${JSON.stringify(binding.name)}` : '';
+  ms.appendLeft(target.start, `{ let ${counter} = 0${slot}; __lingua_loop(${id}, () => ${counter}${read}); try { `);
   // Closes are prepended, so a loop nested at the same end closes first.
   ms.prependLeft(target.end, ` } finally { __lingua_loop_end(${id}); } }`);
   if (node.type === 'ForOfStatement') {
@@ -100,7 +135,7 @@ function wrapLoop(node: AcornNode, target: AcornNode, state: WalkState): void {
     ms.prependLeft(node.right.end, '))');
   }
   const body = node.body;
-  const pass = `if ((++${counter} & ${PASSES_PER_CALL - 1}) === 1) __lingua_pass();`;
+  const pass = `${binding ? `${binding.slot} = ${binding.name}; ` : ''}if ((++${counter} & ${PASSES_PER_CALL - 1}) === 1) __lingua_pass();`;
   if (body.type === 'BlockStatement') {
     ms.appendLeft(body.start + 1, ` ${pass}`);
   } else {
@@ -157,7 +192,7 @@ export function instrumentForLive(
     allowReturnOutsideFunction: true,
   });
   const ms = new MagicString(code, { filename });
-  const loops: number[] = [];
+  const loops: LiveLoopSpan[] = [];
   walk(ast, null, true, { ms, translate: buildLineTranslator(options.inputMap), maxLine: options.maxLine ?? Number.MAX_SAFE_INTEGER, loops }, 0);
   return {
     code: ms.toString(),

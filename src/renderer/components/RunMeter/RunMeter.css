@@ -70,6 +70,9 @@
   text-overflow: ellipsis;
 }
 
+/* Mid-width docks swap in the line without its total; a container query picks the sentence. */
+.run-meter-line-short { display: none; }
+
 .run-meter-numeral {
   display: flex;
   min-height: 0;
@@ -314,6 +317,8 @@ button.run-meter-bar:focus-visible {
 /* Mid-width docks keep Compare as its glyph; the label stays its accessible name. */
 @container dock (max-width: 900px) {
   .run-meter { width: 220px; padding-inline: 14px; }
+  .run-meter-line-full { display: none; }
+  .run-meter-line-short { display: inline; }
   .run-meter-bars { gap: 6px; }
   .run-meter-compare-label { display: none; }
 }

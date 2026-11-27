@@ -687,7 +687,7 @@ export function ConsolePanel({ quietEmpty = false }: { quietEmpty?: boolean } = 
                   className="[contain-intrinsic-size:auto_22px] [content-visibility:auto]"
                 >
                   {item.kind === 'waiting' ? (
-                    <ConsoleWaitingRow line={pending.waitingLine} snippet={waitingSnippet} />
+                    <ConsoleWaitingRow tabId={currentRun?.tabId ?? null} line={pending.waitingLine} snippet={waitingSnippet} />
                   ) : (
                     <ConsoleEntryRow
                       entry={item.row.entry}

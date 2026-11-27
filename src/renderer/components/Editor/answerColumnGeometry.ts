@@ -2,6 +2,9 @@ import type * as monacoTypes from 'monaco-editor';
 import type { TopLevelLineInfo } from '../../utils/magicComments/jsLexer';
 
 const RIGHT_PAD = 22;
+/** Space either side of the leader, and its shortest length before an answer moves below. */
+export const LEADER_MARGIN = 14;
+export const MIN_LEADER = 26;
 /** Below this much room for code beside the column, every answer moves under its line. */
 const NARROW_CODE_ROOM = 360;
 /** The longest statement an answer spans; a longer one answers beside its first line only. */

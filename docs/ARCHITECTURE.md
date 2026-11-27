@@ -1011,6 +1011,30 @@ inline answer column counts passes, not answers, so two calls on one line are
 both shown, and a loop line shows its latest pass's answers with the number of
 passes.
 
+Each loop also carries the last line of its body (`end`), from the AST in
+both runtimes, so the editor never guesses a loop's extent from indentation.
+A loop that binds one plain name each pass also sends that name's value
+(`binding`): JS copies it into a block slot at the start of each pass and
+sends JSON for primitives and small plain arrays and objects of primitives,
+never through a getter or `toJSON` (a Proxy's traps can still fire, since a
+worker cannot tell a Proxy apart); Python reads the frame and sends `repr`
+only for built-in scalars and small containers of them, so a sample never runs
+a user `__repr__`. A longer value is not sent rather than cut.
+
+`reportLiveRun` keeps the code the run executes beside each snapshot, since
+its line numbers refer to that code and not to the buffer being edited. The
+editor mounts the snapshot in four places, each reading `liveRunStore`:
+`LiveLineAnswers` (inside the lazy inline answers overlay, which now loads on
+the first snapshot too) puts each open loop's pass and variable on its header
+and RUNNING on a line that has held the run for 150 ms, hiding that line's own
+answer meanwhile; it shows nothing in a narrow editor or on a line edited since
+the run started. Answers inside an open loop count passes against its total,
+read through a string key so snapshots that only move the line do not
+re-render them.
+The run meter names the line (out of its polite live region), `PulseRailHost`
+adds a beat decoration on it over the held marks, and the Console's waiting row
+names it with its code.
+
 ### Rich display
 
 The workers always expose the display helpers.

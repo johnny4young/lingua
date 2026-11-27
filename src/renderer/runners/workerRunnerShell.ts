@@ -21,7 +21,7 @@
  */
 
 import { sanitizeTimeline, type ExecutionTimeline } from '../../shared/timeline';
-import { livePassField, sanitizeLiveRun } from '../../shared/liveRun';
+import { livePassField, sanitizeLiveRun, type LiveLoopSpan } from '../../shared/liveRun';
 import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import type {
@@ -96,8 +96,8 @@ export interface WorkerRunSpec {
   debug: boolean;
   /** Record run: collect the worker's step timeline into the result. */
   record?: boolean;
-  /** The source carries live probes; each loop's header line, by id. */
-  liveLoops?: number[];
+  /** The source carries live probes; each loop's header and body end, by id. */
+  liveLoops?: LiveLoopSpan[];
   breakpoints: ReadonlyArray<WorkerBreakpoint>;
   watches: string[];
   /** Character-accurate maps, newest transform first. */

@@ -275,17 +275,22 @@ const MAX_LOOP_DOTS = 5;
 /** A loop header: which pass it is on, and the loop variable on that pass. */
 export function LoopAnswerObject({ iteration, total, binding }: LoopAnswer) {
   const { t } = useTranslation();
-  const dots = Math.min(total, MAX_LOOP_DOTS);
+  // Without a total the dots would promise an end the loop does not have.
+  const dots = total === undefined ? 0 : Math.min(total, MAX_LOOP_DOTS);
   const current = Math.min(iteration, dots);
   return (
     <span className="answer-object" data-kind="loop" data-tone="plain" data-testid="answer-object">
       <span className="type-tag answer-object-tag">{t('answers.loop')}</span>
-      <span className="answer-object-dots" aria-hidden>
-        {Array.from({ length: dots }, (_, index) => (
-          <i key={index} data-state={index + 1 < current ? 'done' : index + 1 === current ? 'live' : undefined} />
-        ))}
+      {dots > 0 ? (
+        <span className="answer-object-dots" aria-hidden>
+          {Array.from({ length: dots }, (_, index) => (
+            <i key={index} data-state={index + 1 < current ? 'done' : index + 1 === current ? 'live' : undefined} />
+          ))}
+        </span>
+      ) : null}
+      <span className="answer-object-loop">
+        {total === undefined ? t('answers.passOnly', { iteration }) : t('answers.pass', { iteration, total })}
       </span>
-      <span className="answer-object-loop">{t('answers.pass', { iteration, total })}</span>
       {binding ? (
         <>
           <span className="answer-object-note">{`${replaceUnsafeText(binding.name)} =`}</span>

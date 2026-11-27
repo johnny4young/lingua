@@ -74,10 +74,46 @@ describe('Python live line', () => {
     const waits = run.lives.filter(({ live }) => live.waitMs !== undefined);
     expect(waits.map(({ live }) => live.line)).toEqual([3, 3]);
     expect(waits.map(({ live }) => live.waitMs)).toEqual([200, 200]);
-    expect(waits.map(({ live }) => live.loops)).toEqual([[{ line: 2, pass: 1, total: 2 }], [{ line: 2, pass: 2, total: 2 }]]);
+    expect(waits.map(({ live }) => live.loops)).toEqual([
+      [{ line: 2, end: 3, pass: 1, total: 2, binding: { name: 'n', value: '0' } }],
+      [{ line: 2, end: 3, pass: 2, total: 2, binding: { name: 'n', value: '1' } }],
+    ]);
     // Posted as the sleep began, not when it ended.
     expect(waits[1]!.at - waits[0]!.at).toBeGreaterThanOrEqual(180);
     expect(run.done.at - waits[1]!.at).toBeGreaterThanOrEqual(180);
+  });
+
+  it('sends the loop variable as a repr of builtin values only', async () => {
+    const run = await execute(
+      [
+        'from time import sleep',
+        'class Box:',
+        '    def __repr__(self):',
+        '        raise RuntimeError("never read")',
+        'for name in ["api", "db"]:',
+        '    sleep(0.06)',
+        'for box in [Box()]:',
+        '    sleep(0.06)',
+        'for row in [list(range(60))]:',
+        '    sleep(0.06)',
+        'for pair in [(1, "a")]:',
+        '    sleep(0.06)',
+        'for a, b in [(1, 2)]:',
+        '    sleep(0.06)',
+        'for big in [10 ** 5000]:',
+        '    sleep(0.06)',
+      ].join('\n')
+    );
+    expect(run.error).toBeUndefined();
+    const bindingAt = (line: number) => run.lives.find(({ live }) => live.waitMs !== undefined && live.line === line)?.live.loops[0]?.binding;
+    expect(run.lives.filter(({ live }) => live.waitMs !== undefined && live.line === 6).map(({ live }) => live.loops[0]?.binding?.value)).toEqual(["'api'", "'db'"]);
+    expect(bindingAt(8)).toBeUndefined();
+    expect(bindingAt(10)).toBeUndefined();
+    expect(bindingAt(12)).toEqual({ name: 'pair', value: "(1, 'a')" });
+    expect(bindingAt(14)).toBeUndefined();
+    // Past the int digit limit repr raises; the sample still goes out.
+    expect(run.lives.some(({ live }) => live.waitMs !== undefined && live.line === 16)).toBe(true);
+    expect(bindingAt(16)).toBeUndefined();
   });
 
   it('measures time on the current line in the runtime', async () => {

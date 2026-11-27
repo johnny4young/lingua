@@ -10,6 +10,7 @@
   "runMeter.state.stale": "Desactualizado",
   "runMeter.run": "ejecución {{number}}",
   "runMeter.line": "línea {{line}} de {{total}}",
+  "runMeter.lineAt": "línea {{line}}",
   "runMeter.left": "quedan {{time}}",
   "runMeter.runs_one": "{{count}} ejecución",
   "runMeter.runs_other": "{{count}} ejecuciones",

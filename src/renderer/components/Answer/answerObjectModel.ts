@@ -590,7 +590,8 @@ export interface RunningAnswer {
 
 export interface LoopAnswer {
   readonly iteration: number;
-  readonly total: number;
+  /** Passes the loop makes, when the runtime can tell; unknown for a while loop or a generator. */
+  readonly total?: number;
   /** The loop variable on this pass, already read as an answer. */
   readonly binding?: { readonly name: string; readonly value: AnswerModel };
 }

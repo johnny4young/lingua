@@ -2,6 +2,7 @@ import type {
   DebuggerBreakpointPayload,
   DebuggerControlMessage,
 } from '../runtime/debuggerWorkerBridge';
+import type { LiveLoopSpan } from '../../shared/liveRun';
 import type { NetworkDecisionMessage, NetworkRunPolicy } from '../../shared/networkPolicy';
 
 export interface JsWorkerExecuteMessage {
@@ -64,8 +65,8 @@ export interface JsWorkerExecuteMessage {
   captureStructuredResult?: boolean;
   /** Network policy for this run; absent means unrestricted. */
   network?: NetworkRunPolicy;
-  /** Post `live-line` snapshots; the source carries live probes and `loops[id]` is each loop's header line. */
-  live?: { loops: number[] };
+  /** Post `live-line` snapshots; the source carries live probes and `loops[id]` is each loop's header and body end. */
+  live?: { loops: LiveLoopSpan[] };
 }
 
 /**

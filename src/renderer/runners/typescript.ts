@@ -25,6 +25,7 @@ import {
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { instrumentForTimeline } from '../runtime/timelineInstrument';
+import type { LiveLoopSpan } from '../../shared/liveRun';
 import { tryInstrumentForLive } from '../runtime/liveInstrument';
 import {
   appendScopeCapture,
@@ -259,7 +260,7 @@ export class TypeScriptRunner implements LanguageRunner {
         : js;
 
     let instrumented = jsWithScopeCapture;
-    let liveLoops: number[] | undefined;
+    let liveLoops: LiveLoopSpan[] | undefined;
     if (debug) {
       try {
         const result = instrumentForDebugger(js, {

@@ -1,8 +1,27 @@
 import { useTranslation } from 'react-i18next';
+import { useLiveRunStore } from '../../stores/liveRunStore';
+import { sourceSnippet } from '../../utils/consoleTape';
 
-/** The live row: the line the run is expected to print from next. */
-export function ConsoleWaitingRow({ line, snippet }: { line: number | null; snippet: string | null }) {
+/**
+ * The live row: the line `tabId`'s run reports it is on, or else `line`, the one
+ * it is expected to print from next. It reads the live line itself, so a moving
+ * line re-renders this row and not the whole tape.
+ */
+export function ConsoleWaitingRow({
+  tabId,
+  line: expectedLine,
+  snippet: expectedSnippet,
+}: {
+  tabId: string | null;
+  line: number | null;
+  snippet: string | null;
+}) {
   const { t } = useTranslation();
+  const liveLine = useLiveRunStore(state => (tabId ? (state.byTab[tabId]?.live.line ?? null) : null));
+  const liveCode = useLiveRunStore(state => (tabId ? state.byTab[tabId]?.code : undefined));
+  const live = liveLine !== null;
+  const line = liveLine ?? expectedLine;
+  const snippet = live ? (liveCode === undefined ? null : sourceSnippet(liveCode, liveLine)) : expectedSnippet;
   const label =
     snippet !== null
       ? t('console.tape.waitingOn', { code: snippet })
@@ -14,6 +33,7 @@ export function ConsoleWaitingRow({ line, snippet }: { line: number | null; snip
       className="flex h-[22px] items-center pr-4 text-accent-fg"
       data-testid="console-waiting-row"
       data-line={line ?? undefined}
+      data-live={live || undefined}
     >
       <span className="w-[46px] shrink-0 select-none pr-3 text-right text-[11px] tabular-nums">
         {line ?? ''}
