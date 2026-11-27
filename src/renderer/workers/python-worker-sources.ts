@@ -16,6 +16,7 @@ import datetime as __lingua_datetime
 import math as __lingua_math
 __lingua_stdout = io.StringIO()
 __lingua_stderr = io.StringIO()
+__lingua_live_state = None
 __lingua_prev_stdout = sys.stdout
 __lingua_prev_stderr = sys.stderr
 sys.stdout = __lingua_stdout
@@ -305,6 +306,8 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
         line = __lingua_caller_line()
         if line is not None:
             entry["line"] = line
+    if __lingua_live_state is not None:
+        entry["pass"] = __lingua_live_pass()
     __lingua_push_print_entry(entry)
 
 
@@ -377,6 +380,8 @@ def __mc(line, expr_fn, directive=None, kind=None):
         record = {"line": line, "value": value_text}
         if kind is not None:
             record["kind"] = kind
+        if __lingua_live_state is not None:
+            record["pass"] = __lingua_live_pass()
         if isinstance(val, BaseException):
             record["is_error"] = True
         # magic-comment '#=> table' upgrade. When the

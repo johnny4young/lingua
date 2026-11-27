@@ -43,6 +43,24 @@ describe('InlineAnswerLine', () => {
     expect(container.querySelector('[data-testid="lingua-inline-result-overflow"]')).toBeNull();
   });
 
+  it('keeps two calls of one pass apart and counts passes, not answers', () => {
+    const calls = [
+      { line: 2, value: '1', type: 'log' as const, pass: 0 },
+      { line: 2, value: '2', type: 'log' as const, pass: 0 },
+    ];
+    const { unmount } = render(<InlineAnswerLine items={calls} />);
+    expect(screen.getAllByTestId('answer-object-value').map(value => value.textContent)).toEqual(['1', '2']);
+    expect(screen.queryByTestId('lingua-inline-result-repeat')).toBeNull();
+    // One STDOUT tag for the line, not one per call.
+    expect(screen.getAllByText('stdout', { exact: false, ignore: 'script' }).length).toBe(1);
+    unmount();
+
+    const passes = [3, 30, 4, 40, 5, 50].map((value, index) => ({ line: 5, value: String(value), type: 'log' as const, pass: 7 + Math.floor(index / 2) }));
+    render(<InlineAnswerLine items={passes} />);
+    expect(screen.getAllByTestId('answer-object-value').map(value => value.textContent)).toEqual(['5', '50']);
+    expect(screen.getByTestId('lingua-inline-result-repeat').textContent).toBe('last of 3');
+  });
+
   it('names the variable of a paused value and shows control characters as spaces', () => {
     const { container } = render(<InlineAnswerLine items={[{ line: 2, name: 'a‮b', value: '1', type: 'log' }]} />);
     expect(container.querySelector('.lingua-inline-result-name')?.textContent).toBe('a b:');

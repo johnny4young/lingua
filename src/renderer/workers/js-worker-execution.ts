@@ -1,4 +1,6 @@
 import { createJsWorkerTimeline, watchJsWorkerConsoleForTimeline } from './js-worker-timeline';
+import { createJsWorkerLive } from './js-worker-live';
+import { LIVE_RUN_PROTOCOL_VERSION } from '../../shared/liveRun';
 import type { ScopeVariable } from '../../shared/scopeSnapshot';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
@@ -32,6 +34,7 @@ import { createJsWorkerStdinReader, JsWorkerStdinRequest } from './js-worker-std
 import { createNetworkAsker, installNetworkGuard, type NetworkGuard } from './networkGuard';
 
 const noop = (): void => {};
+const passThrough = (_id: number, value: unknown): unknown => value;
 
 function evaluateWatchExpressions(
   watches: readonly string[],
@@ -135,7 +138,10 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       const startTime = performance.now();
 
       const source = await createJsWorkerSourceMapper(exec.sourceMaps, exec.sourceLineCount);
-      installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames);
+      const live = exec.live
+        ? createJsWorkerLive(snapshot => ctx.postMessage({ type: 'live-line', runId, v: LIVE_RUN_PROTOCOL_VERSION, live: snapshot }), exec.live.loops)
+        : null;
+      installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames, live?.passOrdinal);
       const timeline = exec.record === true ? createJsWorkerTimeline() : null;
       if (timeline) watchJsWorkerConsoleForTimeline(timeline);
       // A timeline that cannot be posted is dropped, so `done` still follows.
@@ -154,11 +160,6 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       activeSession = session;
       let lexicalScopeVariables: ScopeVariable[] | null = null;
 
-      // Install line-by-line stdin readers. We
-      // capture the previous values so a follow-up run starts from a
-      // clean global scope (workers are single-shot today so this is
-      // belt-and-braces, but if a future runner reuses the same
-      // worker context the restoration keeps it honest).
       if (exec.network && exec.network.policy !== 'allow') {
         networkRunId = runId;
         networkGuard ??= installNetworkGuard(self as unknown as typeof globalThis, {
@@ -168,6 +169,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         networkGuard.begin(exec.network);
       }
 
+      // Line-by-line stdin readers; the previous bindings are restored after the run.
       const stdinReader = createJsWorkerStdinReader(exec.stdin);
       let lingua: ReturnType<typeof buildLinguaWorkerBridge> | undefined;
       const prevPrompt = (self as unknown as { prompt?: unknown }).prompt;
@@ -224,6 +226,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               runId,
               line,
               value: serialized,
+              ...(live ? { pass: live.passOrdinal() } : {}),
               ...(value instanceof Error ? { isError: true, error: source.parseError(value) } : {}),
             });
           };
@@ -355,6 +358,11 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             '__lingua_rec',
             '__lingua_rec_enter',
             '__lingua_rec_exit',
+            '__lingua_live',
+            '__lingua_loop',
+            '__lingua_loop_end',
+            '__lingua_pass',
+            '__lingua_of',
             'lingua',
             source.body(code)
           );
@@ -369,6 +377,11 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             timeline?.rec ?? noop,
             timeline?.enter ?? noop,
             timeline?.exit ?? noop,
+            live?.line ?? noop,
+            live?.loop ?? noop,
+            live?.end ?? noop,
+            live?.pass ?? noop,
+            live?.of ?? passThrough,
             lingua
           );
         })();
@@ -391,15 +404,8 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             runId,
             value: serializeJsWorkerValues([result], marker)[0],
           };
-          // Forward the live structured value (the
-          // notebook's `{ stdout, stderr, sessionDelta }`) when asked, so
-          // the runner can round-trip it losslessly instead of parsing the
-          // display string that `serialize` truncates at MAX_RESULT_BYTES.
-          // `safeStructuredResult` is resilient: a bare `structuredClone`
-          // would drop the WHOLE delta when a cell declares a function /
-          // class beside serializable data (the rewriter captures those into
-          // `_sessionDelta`), so it cascades per leaf and keeps the
-          // serializable siblings. `undefined` ⇒ leave it string-only.
+          // The notebook's `{ stdout, stderr, sessionDelta }` round-trips losslessly when asked.
+          // `safeStructuredResult` cascades per leaf, so a function beside data drops alone.
           if (exec.captureStructuredResult === true) {
             const snapshot = safeJsWorkerStructuredResult(result);
             if (snapshot !== undefined) resultMessage.structured = snapshot;
@@ -477,15 +483,10 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         // The guard stays on: this worker is single-shot, and work the code
         // scheduled for later still runs until the shell terminates it.
         networkAsker.cancelAll();
+        live?.stop();
         restoreJsWorkerConsole();
-        // Restore the previous prompt / readline bindings even though
-        // the worker is single-shot — keeps the worker test harness
-        // honest if a future test reuses the context. When the
-        // previous binding was `undefined` (the worker has no native
-        // `prompt`), DELETE the own property rather than re-assigning
-        // it to literal `undefined`; otherwise `'prompt' in self`
-        // would return `true` after restoration and a future
-        // "was patched?" check would misread the state.
+        // Restore prompt / readline for a harness that reuses the context; a binding
+        // that was absent is deleted, so `'prompt' in self` stays false.
         const selfWithIO = self as unknown as {
           prompt?: unknown;
           readline?: unknown;

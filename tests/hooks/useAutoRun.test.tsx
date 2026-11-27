@@ -1140,6 +1140,7 @@ describe('useAutoRun', () => {
       // the first clean run.
       captureScope: true,
       scopeDepth: 1,      onConsole: expect.any(Function),
+      onLive: expect.any(Function),
     });
 
     act(() => {
@@ -1161,6 +1162,7 @@ describe('useAutoRun', () => {
       tabId: 'tab-js-auto-log-toggle',
       captureScope: true,
       scopeDepth: 1,      onConsole: expect.any(Function),
+      onLive: expect.any(Function),
     });
   });
 
@@ -1202,6 +1204,7 @@ describe('useAutoRun', () => {
       tabId: 'tab-js-stdin-toggle',
       captureScope: true,
       scopeDepth: 1,      onConsole: expect.any(Function),
+      onLive: expect.any(Function),
     });
 
     act(() => {
@@ -1232,6 +1235,7 @@ describe('useAutoRun', () => {
       stdin: 'Ada',
       captureScope: true,
       scopeDepth: 1,      onConsole: expect.any(Function),
+      onLive: expect.any(Function),
     });
     expect(useResultStore.getState().stdinConsumed).toEqual({
       count: 1,

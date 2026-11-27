@@ -280,7 +280,8 @@ export function installJsWorkerConsoleProxy(
   marker: string,
   callingLine: () => number | undefined,
   sourceMappingEnabled: boolean,
-  errorStack?: SerializeScopeValueOptions['errorStack']
+  errorStack?: SerializeScopeValueOptions['errorStack'],
+  passOf?: () => number
 ) {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
@@ -308,6 +309,7 @@ export function installJsWorkerConsoleProxy(
         args: serializeJsWorkerValues(args, marker),
         payload,
         line,
+        ...(passOf ? { pass: passOf() } : {}),
       });
     };
   }
@@ -358,6 +360,7 @@ export function installJsWorkerConsoleProxy(
         args: ['Table(0×0)'],
         payload: [emptyTable],
         line,
+        ...(passOf ? { pass: passOf() } : {}),
         consoleTableInvoked: true,
       });
       return;
@@ -378,6 +381,7 @@ export function installJsWorkerConsoleProxy(
       args: textArgs,
       payload: payloads,
       line,
+      ...(passOf ? { pass: passOf() } : {}),
       // `console.table` adoption signal — surfaced as a separate
       // `runtime.console_table_called` telemetry event by the runner
       // when it sees this flag (the worker is renderer-blind).

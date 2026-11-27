@@ -191,6 +191,11 @@ describe('JS/TS magic comments', () => {
     it('flags an arithmetic expression', () => {
       expect(detectJSAutoLogLines('1 + 1')).toEqual([1]);
     });
+    it('skips a line holding two statements, which cannot be one captured expression', () => {
+      expect(detectJSAutoLogLines("console.log('api'); console.log('db');\na; b", undefined, 'assignments')).toEqual([]);
+      // A semicolon in a string, a template or a callback body does not split the line.
+      expect(detectJSAutoLogLines("f(';');\n`a;${b}`\nxs.map(x => { a; return x })")).toEqual([1, 2, 3]);
+    });
     it('flags a method call expression', () => {
       expect(detectJSAutoLogLines('[1,2,3].length')).toEqual([1]);
     });

@@ -1,15 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Parser } from 'acorn';
 import MagicString from 'magic-string';
 import { TIMELINE_MAX_VARS } from '../../shared/timeline';
+import { HOISTED, MAX_NESTING, isFunction, isInjected, isNode, statementList, type AcornNode } from './instrumentAst';
 import {
   buildLineTranslator,
   buildLocalSnapshotExpression,
   collectLocalIdentifiers,
   type LineTranslator,
 } from './debuggerInstrument';
-
-type AcornNode = any;
 
 // Record run: a synchronous `__lingua_rec(line, locals)` before every statement, on the same line, so nothing pauses.
 // Async functions and generators get no frame because their bodies interleave with other code.
@@ -18,42 +16,7 @@ export interface TimelineInstrumentResult {
   map: string;
 }
 
-const MAX_NESTING = 400;
 const INTERNAL_NAME = /^(__lp\d+|__lingua_|__mc)/;
-
-const HOISTED = new Set([
-  'FunctionDeclaration',
-  'ClassDeclaration',
-  'ImportDeclaration',
-  'ExportAllDeclaration',
-  'ExportNamedDeclaration',
-  'ExportDefaultDeclaration',
-  'EmptyStatement',
-]);
-
-function isNode(value: unknown): value is AcornNode {
-  return typeof value === 'object' && value !== null && typeof (value as { type?: unknown }).type === 'string';
-}
-
-function isFunction(node: AcornNode): boolean {
-  return (
-    node.type === 'FunctionDeclaration' ||
-    node.type === 'FunctionExpression' ||
-    node.type === 'ArrowFunctionExpression'
-  );
-}
-
-/** Loop protection's counter and guard statements are not the user's steps. */
-function isInjected(stmt: AcornNode): boolean {
-  if (stmt.type === 'VariableDeclaration') {
-    return stmt.declarations.every((decl: AcornNode) => /^__lp\d+$/.test(decl.id?.name ?? ''));
-  }
-  if (stmt.type === 'IfStatement') {
-    const left = stmt.test?.left;
-    return left?.type === 'UpdateExpression' && /^__lp\d+$/.test(left.argument?.name ?? '');
-  }
-  return stmt.type === 'ExpressionStatement' && typeof stmt.directive === 'string';
-}
 
 function namesOf(nodes: AcornNode[]): string[] {
   return collectLocalIdentifiers({ type: 'BlockStatement', body: nodes });
@@ -77,12 +40,6 @@ function scopeFor(node: AcornNode, scope: string[]): string[] {
     default:
       return scope;
   }
-}
-
-function statementList(node: AcornNode): AcornNode[] | null {
-  if (node.type === 'Program' || node.type === 'BlockStatement' || node.type === 'StaticBlock') return node.body;
-  if (node.type === 'SwitchCase') return node.consequent;
-  return null;
 }
 
 function functionName(node: AcornNode, parent: AcornNode | null): string {

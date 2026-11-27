@@ -25,6 +25,7 @@ import {
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { instrumentForTimeline } from '../runtime/timelineInstrument';
+import { tryInstrumentForLive } from '../runtime/liveInstrument';
 import {
   appendScopeCapture,
   collectTopLevelScopeNames,
@@ -163,6 +164,7 @@ export class TypeScriptRunner implements LanguageRunner {
     const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
     const record = context?.record === true && !debug;
 
+    const sourceLineCount = code.split('\n').length;
     // Step 1: Apply loop protection unless debug mode is active.
     const { maxLoopIterations } = settings;
     const processedCode = !debug
@@ -229,7 +231,7 @@ export class TypeScriptRunner implements LanguageRunner {
 
     if (transpileError) {
       const position = transpileError.line && transpileError.column
-        ? createSourcePositionMapper(sourceMaps, code.split('\n').length)({
+        ? createSourcePositionMapper(sourceMaps, sourceLineCount)({
             line: transpileError.line, column: transpileError.column,
           }) : null;
       return {
@@ -257,6 +259,7 @@ export class TypeScriptRunner implements LanguageRunner {
         : js;
 
     let instrumented = jsWithScopeCapture;
+    let liveLoops: number[] | undefined;
     if (debug) {
       try {
         const result = instrumentForDebugger(js, {
@@ -276,6 +279,13 @@ export class TypeScriptRunner implements LanguageRunner {
       } catch {
         instrumented = js;
       }
+    } else if (context?.onLive) {
+      const live = tryInstrumentForLive(jsWithScopeCapture, { filename: context.tabId, inputMap: tsMap, maxLine: sourceLineCount });
+      if (live) {
+        instrumented = live.code;
+        liveLoops = live.loops;
+        recordMap(live.map);
+      }
     }
 
     // Step 3: hand the transpiled JS to the shell shared with the JavaScript
@@ -287,10 +297,11 @@ export class TypeScriptRunner implements LanguageRunner {
       timeoutPreset,
       debug,
       record,
+      liveLoops,
       breakpoints: tabBreakpoints,
       watches: debug ? debugStore.watches.map(w => w.expression) : [],
       sourceMaps,
-      sourceLineCount: code.split('\n').length,
+      sourceLineCount,
       sourceMappingEnabled,
       magicKindByLine,
       magicDirectiveByLine,

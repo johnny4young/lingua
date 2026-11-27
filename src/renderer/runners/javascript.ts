@@ -22,6 +22,7 @@ import {
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { instrumentForTimeline } from '../runtime/timelineInstrument';
+import { tryInstrumentForLive } from '../runtime/liveInstrument';
 import {
   appendScopeCapture,
   collectTopLevelScopeNames,
@@ -57,6 +58,7 @@ export class JavaScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
+    const sourceLineCount = code.split('\n').length;
     // Origin capture is baseline; no runtime opt-out.
     const sourceMappingEnabled = true;
     const sourceMaps: string[] = [];
@@ -153,6 +155,7 @@ export class JavaScriptRunner implements LanguageRunner {
     }
 
     let transformedCode = codeWithScopeCapture;
+    let liveLoops: number[] | undefined;
     if (debug) {
       try {
         const instrumented = instrumentForDebugger(codeWithAutoLog, {
@@ -175,6 +178,14 @@ export class JavaScriptRunner implements LanguageRunner {
       } catch {
         transformedCode = codeWithAutoLog;
       }
+    } else if (context?.onLive) {
+      // The pause and the timeline own this view in debug and record runs.
+      const live = tryInstrumentForLive(codeWithScopeCapture, { filename: context.tabId, maxLine: sourceLineCount });
+      if (live) {
+        transformedCode = live.code;
+        liveLoops = live.loops;
+        recordMap(live.map);
+      }
     }
 
     // Everything past the transform — worker boot, kill timer, message pump,
@@ -186,10 +197,11 @@ export class JavaScriptRunner implements LanguageRunner {
       timeoutPreset,
       debug,
       record,
+      liveLoops,
       breakpoints: tabBreakpoints,
       watches: debug ? debugStore.watches.map(w => w.expression) : [],
       sourceMaps,
-      sourceLineCount: code.split('\n').length,
+      sourceLineCount,
       sourceMappingEnabled,
       magicKindByLine,
       magicDirectiveByLine,

@@ -30,6 +30,8 @@ import {
   buildPythonAutoLogExecutionSource,
   PYTHON_AUTO_LOG_HELPERS_SOURCE,
 } from './python-worker-auto-log-source';
+import { startPythonLive } from './python-worker-live-source';
+import { livePassField } from '../../shared/liveRun';
 
 export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: PythonRuntimeAdapter) {
   let appliedUserEnvKeys: string[] = [];
@@ -156,10 +158,15 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         // Deadline enforcement is parent-owned. We just run.
         let result: unknown;
         let errorText: string | null = null;
+        // The live signal is best effort: a run never fails because it could not start.
+        const stopLive = msg.live === true && !scopeId ? await startPythonLive(py, ctx, runId).catch(() => null) : null;
 
         try {
+          const live = stopLive !== null;
           const executionSource = buildPythonBoundedExecutionSource(
-            msg.autoLog ? buildPythonAutoLogExecutionSource(code, msg.autoLogMode) : code
+            msg.autoLog ? buildPythonAutoLogExecutionSource(code, msg.autoLogMode, live) : code,
+            live && !msg.autoLog,
+            msg.autoLog === true
           );
           if (typeof scopeId === 'string' && scopeId.length > 0) {
             // Run user code against the notebook's persistent scope
@@ -198,6 +205,8 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         } catch (err) {
           errorText =
             (err instanceof Error ? err.message : String(err)) || String(err) || 'Python execution failed';
+        } finally {
+          stopLive?.();
         }
 
         const streamState = await py.runPythonAsync(PYTHON_STREAM_STATE_SOURCE);
@@ -213,6 +222,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
                   kind?: 'arrow' | 'watch' | 'autoLog';
                   is_error?: boolean;
                   payload?: RichOutputPayload;
+                  pass?: number | null;
                 }>;
                 print_entries?: PythonPrintEntry[];
               })
@@ -246,6 +256,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
               kind?: 'arrow' | 'watch' | 'autoLog';
               isError?: boolean;
               payload?: RichOutputPayload;
+              pass?: number;
             } = {
               type: 'magic-comment',
               runId,
@@ -255,6 +266,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             if (entry.kind) magicMessage.kind = entry.kind;
             if (entry.is_error === true) magicMessage.isError = true;
             if (entry.payload) magicMessage.payload = entry.payload;
+            Object.assign(magicMessage, livePassField(entry.pass));
             ctx.postMessage(magicMessage);
           }
         }

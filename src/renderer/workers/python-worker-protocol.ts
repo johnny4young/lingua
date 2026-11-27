@@ -34,6 +34,8 @@ export interface PythonWorkerExecuteMessage {
   autoLogMode?: 'assignments' | 'cell';
   /** Network policy for this run; absent means unrestricted. */
   network?: NetworkRunPolicy;
+  /** Post `live-line` snapshots while the run goes, and tag results with their loop pass. */
+  live?: boolean;
 }
 
 export interface PythonWorkerListLoadedMessage {

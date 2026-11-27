@@ -24,6 +24,7 @@ import { beginAutoRunConsole } from './autoRunConsole';
 import { currentEffectiveTier } from './useEntitlement';
 import { trackBrowserPreviewAutoRefreshOnce } from './browserPreviewRefreshTelemetry';
 import type { TelemetryTrack } from './useTelemetry';
+import { reportLiveRun } from '../stores/liveRunStore';
 
 interface ExecuteAutoRunOptions {
   input: AutoRunInput;
@@ -190,6 +191,7 @@ export async function executeAutoRun({
         browserPreviewRefreshIntervalMs
       );
     }
+    const live = reportLiveRun(activeTab.id);
     const result = await runner.execute(code, {
       language,
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
@@ -212,7 +214,8 @@ export async function executeAutoRun({
         ? { scopeDepth }
         : {}),
       onConsole: consoleRun.onConsole,
-    });
+      onLive: live.onLive,
+    }).finally(live.end);
 
     if (shouldDiscard()) {
       // A newer run owns the pill now; only retract the countdown this run armed.

@@ -52,6 +52,7 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
       line: output.line ?? fallbackLine,
       value: output.args.join(' '),
       type: output.type,
+      ...(output.pass !== undefined ? { pass: output.pass } : {}),
     };
     // A single-argument call keeps its typed payload (console.table) so the
     // inline pill shows the table summary kind instead of `string`.
@@ -92,6 +93,7 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
         line: magicResult.line,
         value: magicResult.value,
         type,
+        ...(magicResult.pass !== undefined ? { pass: magicResult.pass } : {}),
       };
       if (magicResult.payload) entry.payload = magicResult.payload;
       lineResults.push(entry);

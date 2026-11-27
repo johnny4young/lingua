@@ -410,6 +410,8 @@ export interface PythonPrintEntry {
    * same UX JS scratchpads get for `console.log`.
    */
   line?: number;
+  /** Loop pass the print came from, with the live signal on. */
+  pass?: number | null;
 }
 
 /** A buffered progress bar, re-checked here and made unique to this run like the JS ones. */
@@ -453,6 +455,7 @@ export function createPythonPrintPoster(runId: string): (entries: PythonPrintEnt
         args: string[];
         payload: RichOutputPayload[];
         line?: number;
+        pass?: number;
       } = {
         type: 'console',
         captureOrder: captureOrder++,
@@ -462,6 +465,7 @@ export function createPythonPrintPoster(runId: string): (entries: PythonPrintEnt
         payload: progress ? [progress.payload] : entry.payloads,
       };
       if (typeof entry.line === 'number') message.line = entry.line;
+      if (typeof entry.pass === 'number') message.pass = entry.pass;
       ctx.postMessage(message);
       for (const continuation of rest) {
         const continuationMessage: {
@@ -471,6 +475,7 @@ export function createPythonPrintPoster(runId: string): (entries: PythonPrintEnt
           method: 'log' | 'error';
           args: string[];
           line?: number;
+          pass?: number;
         } = {
           type: 'console',
           captureOrder: captureOrder++,
@@ -481,6 +486,7 @@ export function createPythonPrintPoster(runId: string): (entries: PythonPrintEnt
         // Multi-line `print('a\nb')` keeps the line annotation on each
         // emitted entry so the inline pill shows up alongside both.
         if (typeof entry.line === 'number') continuationMessage.line = entry.line;
+        if (typeof entry.pass === 'number') continuationMessage.pass = entry.pass;
         ctx.postMessage(continuationMessage);
       }
     }

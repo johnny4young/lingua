@@ -11,6 +11,7 @@ import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
 import type { NetworkWorkerMessage } from '../../shared/networkPolicy';
 import type { ExecutionTimeline, TimelineWorkerMessage } from '../../shared/timeline';
+import type { LiveRunSnapshot, LiveRunWorkerMessage } from '../../shared/liveRun';
 import type { Language } from './language';
 
 export interface ExecutionContext {
@@ -33,6 +34,8 @@ export interface ExecutionContext {
    * the result panel show progress while a debug session is paused.
    */
   onConsole?: (output: ConsoleOutput) => void;
+  /** Editor runs: where the run is while it goes; runners that can report it instrument only when this is set. */
+  onLive?: (live: LiveRunSnapshot) => void;
   /**
    * Explicit debugger intent from the UI. Normal Run must ignore
    * breakpoints; only Debug should attach the worker pause protocol.
@@ -159,6 +162,8 @@ export interface EditorDiagnostic {
 export interface MagicCommentResult {
   line: number;
   value: string;
+  /** As `ConsoleOutput.pass`. */
+  pass?: number;
   /**
    * Which magic-comment shape produced
    * this entry. `'arrow'` for the original `//=>` / `#=>` ad-hoc
@@ -219,15 +224,7 @@ export interface ExecutionResult {
   cancelled?: boolean;
   error?: ExecutionError;
   magicResults?: MagicCommentResult[];
-  /**
-   * Stdin consumption summary. Populated by
-   * runners whose worker pulled at least one line out of the pre-set
-   * buffer; the StdinInputPanel reads this to render
-   * "Used N of M line(s)". `total` is the number of lines in the
-   * buffer the worker received; `count` is how many lines the
-   * program actually read. Omitted entirely when the run didn't
-   * touch stdin.
-   */
+  /** Lines the program read (`count`) out of the pre-set buffer (`total`); absent when it read none. */
   stdinConsumed?: { count: number; total: number };
   /** With `askStdin`, the prompt (cut short) and 1-based line where `stdin` ran out. */
   stdinRequest?: { message: string; line?: number };
@@ -247,11 +244,7 @@ export interface ExecutionResult {
    * an explicit caller timeout (one-shot extended / magic-comment).
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
-  /**
-   * The actual timeout in ms that armed the run.
-   * Surfaces in the `RunStatusPill` tooltip + the timed-out result
-   * message.
-   */
+  /** The timeout in ms that armed the run, for the status pill and the timed-out message. */
   timeoutMs?: number;
   /**
    * post-execute variable scope captured by the
@@ -282,6 +275,8 @@ export interface ConsoleOutput {
   type: 'log' | 'warn' | 'error' | 'info';
   args: string[];
   line?: number;
+  /** Loop pass the output came from: equal numbers share a pass, 0 is outside loops; absent when the runtime cannot tell. */
+  pass?: number;
   /**
    * Rich payload aligned by index with `args`. The legacy
    * `args` string array still ships as the text fallback for non-JS runners
@@ -344,6 +339,7 @@ export interface LanguageRunner {
 export type WorkerResponse =
   | NetworkWorkerMessage
   | TimelineWorkerMessage
+  | LiveRunWorkerMessage
   | {
       type: 'console';
       captureOrder?: number;
@@ -352,6 +348,7 @@ export type WorkerResponse =
       method: ConsoleOutput['type'];
       args: string[];
       line?: number;
+      pass?: number;
       /**
        * Additive typed payload aligned by index
        * with `args`. Absent from runners that don't emit rich
@@ -407,6 +404,7 @@ export type WorkerResponse =
       runId: string;
       line: number;
       value: string;
+      pass?: number;
       /** Optional worker-owned classification (Python AST auto-log). */
       kind?: 'arrow' | 'watch' | 'autoLog';
       /** True when the captured value represents an execution error. */
