@@ -40,7 +40,7 @@ export function jsWorkerPauseFrames(
   session: JsWorkerDebuggerSession,
   paused: JsWorkerDebuggerFrame
 ): {
-  callStack: Omit<JsWorkerDebuggerFrame, 'calls' | 'ran' | 'parent'>[];
+  callStack: Omit<JsWorkerDebuggerFrame, 'calls' | 'ran' | 'parent' | 'returned'>[];
   reachedLines: number[];
   frameLines: number[];
 } {
@@ -48,10 +48,10 @@ export function jsWorkerPauseFrames(
   for (const [start, end] of session.reached) {
     for (let line = start; line <= end; line += 1) reached.add(line);
   }
-  const callStack: Omit<JsWorkerDebuggerFrame, 'calls' | 'ran' | 'parent'>[] = [];
+  const callStack: Omit<JsWorkerDebuggerFrame, 'calls' | 'ran' | 'parent' | 'returned'>[] = [];
   // Copies, since the frames keep moving after the pause is posted.
   for (let at: JsWorkerDebuggerFrame | undefined = paused; at; at = at.parent) {
-    const { calls: _calls, ran: _ran, parent: _parent, ...frame } = at;
+    const { calls: _calls, ran: _ran, parent: _parent, returned: _returned, ...frame } = at;
     callStack.push(frame);
   }
   return {

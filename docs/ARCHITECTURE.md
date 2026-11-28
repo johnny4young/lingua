@@ -849,23 +849,31 @@ never reads as run.
 
 Promoted calls can interleave (a plain callback calls them without the added
 `await`), so frames are a tree, not a stack. Each awaitable function body opens
-with `const __lingua_dbg_f = __lingua_dbg_frame(name, line)`, a frame whose
-parent is the active frame, and passes `__lingua_dbg_f` to its yields, its
-reach calls (`owner` is 0 for a body without a frame and 1 for the top level)
-and `__lingua_dbg_pop(__lingua_dbg_f)`, which leaves by identity. The worker
-only accepts frames it minted; any other token reads as `<module>`. The yield
-records the statement as its frame's current line before any breakpoint check,
-then hands the active frame back to the caller, since the frame suspends at the
-yield's `await`; `__lingua_dbg_at` makes it active again when the statement
-resumes. The statement's span is reached after any pause on it resumes; a
+with `const __lingua_dbg_f = __lingua_dbg_frame(name, line)`, which enters a
+frame under the active one and returns a frozen, empty token for it; the frame
+itself stays in the worker, so user code cannot change it. The body passes the
+token to its yields, its reach calls (`owner` is 0 for a body without a frame
+and 1 for the top level) and `__lingua_dbg_pop(__lingua_dbg_f)`, which leaves
+by identity. Any token the worker did not hand out, or one whose call returned,
+reads as `<module>`. The yield records the statement as its frame's current
+line before any breakpoint check, then hands the active frame back to the
+caller, since the frame suspends at the yield's `await`. Every await in a body
+with a frame, the yield's, the user's and the one added before a promoted
+call, is wrapped in `__lingua_dbg_at(await …, owner)`, which makes that frame
+active again when it resumes, so a call it starts next counts it as the
+caller. The statement's span is reached after any pause on it resumes; a
 reach call records its span and, in a body that owns a frame, moves that
 frame's line, so a caller reads the line of the call inside a loop. Pauses run
-one at a time: a call that reaches one while another holds waits for it to
-resume. A `paused` message carries the paused frame and its callers newest
+one at a time: with none waiting, a pause starts at once and reads the locals
+as the statement found them; a call that reaches one while another holds
+waits for it to resume and then decides again whether its breakpoint or step
+still applies. A `paused` message carries the paused frame and its callers newest
 first with their current line (and declaration line for functions), ending in
 `<module>`, and the sorted lines reached so far. Step over lands on the paused
 frame or a caller of it, step out only on a caller, so another call at the same
-depth never catches a step.
+depth never catches a step while the paused call runs. Once it returns, step
+over also lands in the next call one of its callers starts, such as the next
+pass of a loop whose body has no yield.
 
 Each function frame also carries `callIndex`: which call of that function its
 caller's statement started, counted from 1 and reset when the caller moves to
@@ -961,8 +969,10 @@ optional on the preload contract for compatible direct callers.
 Record run is separate from the debugger. The JS / TS runner asks
 `timelineInstrument.ts` to put `__lingua_rec(line, locals, end?)` before every
 statement in every statement list, on the same line, where `end` is the
-statement's last own line when it spans several (the debugger's span rule), so
-the run rail lights a statement's continuation lines with it and nothing pauses and no
+statement's last own line when it spans several (the debugger's span rule,
+stopped before a branch or loop body without braces and before an arrow's
+expression body on a later line, which record no step of their own), so the
+run rail lights a statement's continuation lines with it and nothing pauses and no
 `await` is added; synchronous functions also push and pop a frame, while async
 functions and generators record without one because their bodies interleave.
 Loop-protection guard statements are not recorded as steps (the protection
@@ -996,8 +1006,10 @@ when nothing new was recorded. The runner hands them to `ExecutionContext.onTime
 the last step, and `runAndCollect` publishes that step's line to
 `liveRunStore` as the run's position (no loops), since record runs take no live
 signal. A stopped run drops it;
-a run that ends without a timeline (timeout, crash) keeps it as cut short,
-with its latest step marked as the one that threw when the run ended in an error.
+a run that ends without a timeline (timeout, crash) keeps it as cut short. When
+that run ended in an error and its latest step is on the line that threw, that
+step gets the error mark; an earlier pass of the line is not marked, since the
+steps after the last post never arrived.
 
 Python records through `workers/python-worker-trace-source.ts`. Record run
 claims a free `sys.monitoring` tool id for that run only, with LINE,

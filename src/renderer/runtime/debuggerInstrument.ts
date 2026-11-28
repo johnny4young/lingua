@@ -472,25 +472,42 @@ function markAwaitableDebugFunctions(
   visit(ast);
 }
 
+/**
+ * Awaits calls to promoted functions, and wraps every await of a body with a
+ * frame in `__lingua_dbg_at(await …, owner)`, so the frame is active again when
+ * it resumes and a call it starts next counts it as the caller.
+ */
 function awaitKnownDebugCalls(
   ast: AcornNode,
   ms: MagicString,
   targets: AwaitableDebugTargets
 ): void {
+  const resume = (node: AcornNode, owner: string | null, prefix: string): void => {
+    if (!owner) {
+      if (prefix) ms.prependRight(node.start, prefix);
+      return;
+    }
+    ms.prependRight(node.start, `${RESUME_HELPER_NAME}(${prefix}`);
+    ms.appendLeft(node.end, `, ${owner})`);
+  };
   const visit = (
     node: AcornNode,
     parent: AcornNode | null,
-    awaitAllowed: boolean
+    awaitAllowed: boolean,
+    owner: string | null
   ): void => {
     if (!isAcornNode(node)) return;
 
     let childAwaitAllowed = awaitAllowed;
+    let childOwner = owner;
     if (isFunctionLike(node)) {
       childAwaitAllowed =
         ((node as { async?: boolean }).async === true || targets.nodes.has(node)) &&
         (node as { generator?: boolean }).generator !== true;
+      childOwner = ownsFrameToken(node, targets) ? FRAME_TOKEN : null;
     }
 
+    if (node.type === 'AwaitExpression') resume(node, owner, '');
     if (
       childAwaitAllowed &&
       node.type === 'CallExpression' &&
@@ -498,24 +515,26 @@ function awaitKnownDebugCalls(
     ) {
       const callee = (node as { callee?: AcornNode }).callee;
       if (callee?.type === 'Identifier' && targets.names.has((callee as { name: string }).name)) {
-        ms.prependRight(node.start, 'await ');
+        resume(node, owner, 'await ');
       }
     }
 
     for (const key of Object.keys(node)) {
       if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+      // Parameters cannot see the body's frame token.
+      const next = key === 'params' ? owner : childOwner;
       const value = (node as unknown as Record<string, unknown>)[key];
       if (Array.isArray(value)) {
         for (const item of value) {
-          if (isAcornNode(item)) visit(item as AcornNode, node, childAwaitAllowed);
+          if (isAcornNode(item)) visit(item as AcornNode, node, childAwaitAllowed, next);
         }
       } else if (isAcornNode(value)) {
-        visit(value as AcornNode, node, childAwaitAllowed);
+        visit(value as AcornNode, node, childAwaitAllowed, next);
       }
     }
   };
 
-  visit(ast, null, true);
+  visit(ast, null, true, '1');
 }
 
 /**
@@ -555,6 +574,9 @@ function instrumentBodies(
       // Even when the parent has no body statements, an arrow-with-
       // expression-body might sit here and contain functions deeper.
       collectChildFunctions(node, queue);
+    } else {
+      // A function in a parameter default needs its own frame token, since reach markers name it.
+      for (const param of (node as { params?: AcornNode[] }).params ?? []) collectChildFunctions(param, queue);
     }
   }
 }

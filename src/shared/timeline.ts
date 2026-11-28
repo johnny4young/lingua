@@ -107,7 +107,6 @@ export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined 
   return { steps, truncated: raw.truncated === true || raw.steps.length > TIMELINE_MAX_STEPS, ...(isTime(ms) ? { ms } : {}) };
 }
 
-
 /** A batch a recording in flight posted, re-checked like the whole timeline; null when there is nothing to show. */
 export function sanitizeTimelineSteps(message: { steps: unknown; ms: unknown; marks?: unknown }): TimelineProgress | null {
   const progress = sanitizeTimeline({ steps: Array.isArray(message.steps) ? message.steps : [], ms: message.ms });
@@ -115,7 +114,6 @@ export function sanitizeTimelineSteps(message: { steps: unknown; ms: unknown; ma
   if (progress?.ms === undefined || (progress.steps.length === 0 && !marks)) return null;
   return { steps: progress.steps, ms: progress.ms, ...(marks ? { marks } : {}) };
 }
-
 
 /** Maps each step's and frame's line, as runners do for code they rewrote before it ran. */
 export function mapTimelineLines(timeline: ExecutionTimeline, map: (line: number) => number | undefined): ExecutionTimeline {

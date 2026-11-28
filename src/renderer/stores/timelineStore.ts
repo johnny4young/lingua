@@ -29,7 +29,7 @@ interface TimelineState {
   publish: (tabId: string, timeline: ExecutionTimeline, code?: string) => void;
   /** Appends the steps a recording in flight posted, after `marks` for the step it posted last; the first call starts it. */
   grow: (tabId: string, steps: TimelineStep[], ms: number, code?: string, marks?: TimelineStepMarks) => void;
-  /** A recording in flight whose run ended without its timeline: kept as cut short, or dropped. A run that threw marks its latest step on `errorLine`. */
+  /** A recording in flight whose run ended without its timeline: kept as cut short, or dropped. A run that threw marks its latest step when it is on `errorLine`. */
   endLive: (tabId: string, keep: boolean, errorLine?: number) => void;
   select: (index: number) => void;
   /** Moves by `delta` steps; at the first or last step it bumps `blocked` instead, as `go` does. */
@@ -117,9 +117,9 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
       return;
     }
     const { live: _live, ...rest } = recording;
-    let thrown = errorLine === undefined ? -1 : rest.steps.length - 1;
-    while (thrown >= 0 && rest.steps[thrown]!.line !== errorLine) thrown -= 1;
-    const steps = thrown < 0 ? rest.steps : mark([...rest.steps], thrown, { error: true });
+    // Steps since the last post never arrived, so only a latest step on the thrown line is known to be the one.
+    const last = rest.steps.length - 1;
+    const steps = errorLine !== undefined && rest.steps[last]?.line === errorLine ? mark([...rest.steps], last, { error: true }) : rest.steps;
     set({ recording: { ...rest, truncated: true, steps } });
   },
   select: index => {

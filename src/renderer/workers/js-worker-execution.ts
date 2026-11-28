@@ -12,7 +12,7 @@ import {
   type JsWorkerDebuggerSession,
 } from './js-worker-debugger';
 import { jsWorkerPauseFrames, noteJsWorkerDebugLine, parseJsWorkerUnassigned, reachJsWorkerDebugLines, readJsWorkerLocals } from './js-worker-debugger-frames';
-import { createJsWorkerDebugHelpers, jsWorkerDebugFrame, jsWorkerStepPauses } from './js-worker-debugger-stack';
+import { createJsWorkerDebugHelpers, holdJsWorkerPause, jsWorkerDebugFrame, jsWorkerStepPauses } from './js-worker-debugger-stack';
 import {
   evaluateDebuggerExpression,
   renderDebuggerLogpoint,
@@ -246,15 +246,13 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             if (!session.enabled) return token;
             const frame = jsWorkerDebugFrame(session, token);
             noteJsWorkerDebugLine(session, line, frame);
-            // One pause at a time: another call's pause would replace the resolver this one waits on.
-            const pause = session.breakpoints.has(line) || jsWorkerStepPauses(session, frame) ? session.held.then(() => pauseAt(line, getLocals, unassigned, frame)) : null;
-            if (pause) session.held = pause.catch(() => undefined);
+            const pause = session.breakpoints.has(line) || jsWorkerStepPauses(session, frame) ? holdJsWorkerPause(session, () => pauseAt(line, getLocals, unassigned, frame)) : null;
             // The frame suspends at this yield, so control goes back to its caller until __lingua_dbg_at.
             session.active = frame.parent ?? session.root;
             if (pause) await pause;
             // Recorded after any pause, so a statement first reached by this pause still reads as not run.
             reachJsWorkerDebugLines(session, line, endLine);
-            return frame;
+            return token;
           };
 
           const pauseAt = async (

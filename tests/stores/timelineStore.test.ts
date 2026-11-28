@@ -104,13 +104,14 @@ describe('timeline store', () => {
     ]);
   });
 
-  it('marks the latest step on the line a crashed run threw on, and none when no step reached it', () => {
+  it('marks the latest step of a crashed run only when it is on the line that threw', () => {
     const store = useTimelineStore.getState();
     store.grow('t1', [...steps(2), ...steps(2)], 10);
+    store.endLive('t1', true, 2);
+    expect(useTimelineStore.getState().recording?.steps.map(step => step.error)).toEqual([undefined, undefined, undefined, true]);
+    // An earlier pass of the line is not the step that threw: the batch with it never arrived.
+    store.grow('t1', [...steps(2), ...steps(2)], 10);
     store.endLive('t1', true, 1);
-    expect(useTimelineStore.getState().recording?.steps.map(step => step.error)).toEqual([undefined, undefined, true, undefined]);
-    store.grow('t1', steps(2), 10);
-    store.endLive('t1', true, 9);
     expect(useTimelineStore.getState().recording?.steps.some(step => step.error)).toBe(false);
   });
 

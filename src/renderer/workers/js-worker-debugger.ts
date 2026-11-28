@@ -38,6 +38,8 @@ export interface JsWorkerDebuggerFrame {
   calls?: Map<string, number>;
   /** Every statement line this invocation has started. */
   ran?: Set<number>;
+  /** The call has returned. */
+  returned?: true;
   /** The frame that was running when this one was called; absent on the top level. */
   parent?: JsWorkerDebuggerFrame;
 }
@@ -45,10 +47,7 @@ export interface JsWorkerDebuggerFrame {
 /** The top level is the outermost frame, as native runtimes report it; its line is 0 until a statement runs. */
 const moduleFrame = (): JsWorkerDebuggerFrame => ({ functionName: '<module>', line: 0 });
 
-type JsWorkerRunState = Pick<
-  JsWorkerDebuggerSession,
-  'stepMode' | 'stepFrame' | 'root' | 'active' | 'minted' | 'reached' | 'resumeResolver' | 'held' | 'pausedScope'
->;
+type JsWorkerRunState = Pick<JsWorkerDebuggerSession, 'stepMode' | 'stepFrame' | 'root' | 'active' | 'frames' | 'reached' | 'resumeResolver' | 'held' | 'waiting' | 'pausedScope'>;
 
 /** What each run starts from; nothing of a previous run's frames, steps or pauses carries over. */
 function freshRunState(): JsWorkerRunState {
@@ -58,10 +57,11 @@ function freshRunState(): JsWorkerRunState {
     stepFrame: null,
     root,
     active: root,
-    minted: new WeakSet(),
+    frames: new WeakMap(),
     reached: new Map(),
     resumeResolver: null,
     held: Promise.resolve(),
+    waiting: 0,
     pausedScope: null,
   };
 }
@@ -78,13 +78,15 @@ export interface JsWorkerDebuggerSession {
   root: JsWorkerDebuggerFrame;
   /** The frame whose statement ran last, the caller of the next frame entered. */
   active: JsWorkerDebuggerFrame;
-  /** Frames the worker handed out as tokens, so a token from user code cannot pose as one. */
-  minted: WeakSet<JsWorkerDebuggerFrame>;
+  /** The frame behind each token the worker handed out, while its call runs; user code only ever holds the token. */
+  frames: WeakMap<object, JsWorkerDebuggerFrame>;
   /** First line of each statement that ran, mapped to its last line. */
   reached: Map<number, number>;
   resumeResolver: (() => void) | null;
   /** Settles once the latest pause resumes; a call that reaches a pause meanwhile waits on it. */
   held: Promise<void>;
+  /** Pauses running or waiting to. */
+  waiting: number;
   pausedScope: DebuggerScopeSnapshot | null;
   resultMarker: string;
 }

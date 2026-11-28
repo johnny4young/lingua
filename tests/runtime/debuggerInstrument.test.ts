@@ -59,8 +59,9 @@ describe('instrumentForDebugger ', () => {
     );
     expect(result.instrumentedLines).toEqual([2, 4, 5]);
     expect(result.code).toContain('async function add');
-    expect(result.code).toContain('const x = await add(1, 2);');
-    expect(result.code).toContain('await add(3, 4);');
+    // Each awaited call resumes in the frame that made it.
+    expect(result.code).toContain('const x = __lingua_dbg_at(await add(1, 2), 1);');
+    expect(result.code).toContain('__lingua_dbg_at(await add(3, 4), 1);');
     expect(result.code).toContain('__lingua_dbg_yield(4');
     expect(result.code).toContain('__lingua_dbg_yield(5');
     expect(result.code).not.toContain('await await __lingua_dbg_yield');
@@ -86,6 +87,15 @@ describe('instrumentForDebugger ', () => {
     expect(result.code).not.toMatch(/__lingua_dbg_yield\(5, [^\n]*__lingua_dbg_f/);
   });
 
+  it('resumes the awaiting frame after every await, never from a parameter or a body without a frame', () => {
+    const result = instrumentForDebugger(
+      ['async function job(ms) {', '  const v = helper(await wait(ms)) + 1;', '  return v;', '}', 'function helper(x) {', '  return x;', '}', 'const run = async (x) => await job(x);', 'await job(1);'].join('\n')
+    );
+    expect(result.code).toContain('__lingua_dbg_at(await helper(__lingua_dbg_at(await wait(ms), __lingua_dbg_f)), __lingua_dbg_f) + 1;');
+    expect(result.code).toContain('const run = async (x) => await job(x);');
+    expect(result.code).toContain('__lingua_dbg_at(await job(1), 1);');
+  });
+
   it('passes the frame token to reach calls only inside a body that owns a frame', () => {
     const result = instrumentForDebugger(
       ['async function load(ids) {', '  for (const id of ids) {', '    if (id) {', '      [id].map((x) => {', '        return x;', '      });', '    }', '  }', '}', 'if (true) {', '  await load([1]);', '}'].join('\n')
@@ -93,6 +103,12 @@ describe('instrumentForDebugger ', () => {
     expect(result.code).toContain('__lingua_dbg_reach(3, 3, __lingua_dbg_f);');
     expect(result.code).toContain('__lingua_dbg_reach(5, 5, 0);');
     expect(result.code).toContain('__lingua_dbg_reach(11, 11, 1);');
+  });
+
+  it('gives a function in a parameter default the frame token its reach calls name', () => {
+    const result = instrumentForDebugger(['function f(cb = async () => {', '  if (true) {', '    console.log(1);', '  }', '}) {', '  return cb();', '}', 'await f();'].join('\n'));
+    // The token is declared in the default's own body, which a closure in the parameter list can see.
+    expect(result.code).toMatch(/cb = async \(\) => \{\nconst __lingua_dbg_f = __lingua_dbg_frame\("<anonymous>", 1\);[^]*__lingua_dbg_reach\(3, 3, __lingua_dbg_f\);/);
   });
 
   it('keeps TDZ locals from blanking the whole locals snapshot', () => {

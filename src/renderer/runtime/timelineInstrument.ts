@@ -79,6 +79,35 @@ function canWrapBody(body: AcornNode): boolean {
   return !functions.some((name: string | undefined) => name !== undefined && vars.has(name));
 }
 
+const BODY_KEYS = new Set(['consequent', 'alternate', 'body']);
+
+/** First line of a nested body that records no step of its own: a branch or loop body without braces, or an arrow's expression body on a later line. */
+function firstUnrecordedLine(node: AcornNode): number | null {
+  let first: number | null = null;
+  const consider = (line: number | null) => {
+    if (line !== null && (first === null || line < first)) first = line;
+  };
+  for (const key of Object.keys(node)) {
+    if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+    const value = node[key];
+    for (const child of Array.isArray(value) ? value : [value]) {
+      if (!isNode(child) || child.type === 'BlockStatement' || child.type === 'StaticBlock') continue;
+      const line: number = child.loc?.start.line ?? 0;
+      if (isFunction(node) && key === 'body') consider(line > node.loc.start.line ? line : firstUnrecordedLine(child));
+      else if (BODY_KEYS.has(key) && /(Statement|Declaration)$/.test(child.type)) consider(line);
+      else consider(firstUnrecordedLine(child));
+    }
+  }
+  return first;
+}
+
+/** The statement's last own line, stopping before a body it would otherwise claim as run. */
+function recordedEndLine(stmt: AcornNode, line: number, translate: LineTranslator): number {
+  const end = ownEndLine(stmt, line, translate);
+  const stop = firstUnrecordedLine(stmt);
+  return stop !== null && stop > stmt.loc.start.line ? Math.max(line, Math.min(end, translate(stop - 1))) : end;
+}
+
 function wrapFrame(node: AcornNode, parent: AcornNode | null, ms: MagicString, translate: LineTranslator): void {
   const body = node.body;
   if (body?.type !== 'BlockStatement' || body.body.length === 0 || node.async || node.generator || !canWrapBody(body)) return;
@@ -101,7 +130,7 @@ function walk(node: AcornNode, parent: AcornNode | null, scope: string[], ms: Ma
       if (HOISTED.has(stmt.type) || isInjected(stmt)) continue;
       const line = translate(stmt.loc?.start.line ?? 0);
       if (!Number.isInteger(line) || line <= 0) continue;
-      const end = ownEndLine(stmt, line, translate);
+      const end = recordedEndLine(stmt, line, translate);
       ms.appendLeft(stmt.start, `__lingua_rec(${line}, () => ${snapshot}${end > line ? `, ${end}` : ''}); `);
     }
   }
