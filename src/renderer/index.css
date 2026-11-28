@@ -2369,14 +2369,6 @@
   outline-offset: 2px;
 }
 
-.timeline-body {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 330px);
-}
-
-.timeline-body > section + section {
-  border-left: 1px solid var(--color-border-subtle);
-}
-
 /* Compare runs: runs on the left, the diff on the right; stacked in a narrow window. */
 .run-compare {
   container-type: inline-size;
