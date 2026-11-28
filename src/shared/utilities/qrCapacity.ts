@@ -20,6 +20,9 @@ const BYTE_M = [
   2331,
 ];
 
+/** UTF-8 bytes a level-M symbol holds at version 40. */
+export const QR_MAX_BYTES_M = 2331;
+
 const NUMERIC = /^\d*$/u;
 const ALPHANUMERIC = /^[\d A-Z$%*+\-./:]*$/u;
 

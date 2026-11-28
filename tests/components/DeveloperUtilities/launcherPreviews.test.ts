@@ -46,7 +46,15 @@ describe('launcher previews', () => {
     expect((await readLauncherPreviews('1794405600', 'timestamp', t, 'en')).previews.timestamp?.tone).toBe('date');
     expect((await readLauncherPreviews('3f2504e0-4f89-41d3-9a0c-0305e82c3301', 'uuid', t, 'en')).previews.uuid).toEqual({ text: 'v4', tone: 'neutral' });
     expect((await readLauncherPreviews('rgb(0, 191, 223)', 'color', t, 'en')).previews.color).toEqual({ text: '#00BFDF', tone: 'neutral', swatch: '#00BFDF' });
+    expect((await readLauncherPreviews('#00bfdf', 'color', t, 'en')).previews.color).toEqual({ text: 'rgb(0, 191, 223)', tone: 'neutral', swatch: '#00BFDF' });
     expect((await readLauncherPreviews('[1, 2, 3]', 'json', t, 'en')).previews.json?.text).toBe('array·3');
+  });
+
+  it('answers encoded Base64 and URL values as decodes, and QR past the byte limit as too long', async () => {
+    const { previews } = await readLauncherPreviews('TGluZ3VhIHV0aWxpdGllcw==', 'base64', t, 'en');
+    expect(previews.base64).toEqual({ text: '16 chars:16', tone: 'number' });
+    expect((await readLauncherPreviews('a%20b/c d', 'json', t, 'en')).previews.url).toEqual({ text: 'escaped:1', tone: 'neutral' });
+    expect((await readLauncherPreviews('1'.repeat(3000), 'json', t, 'en')).previews['qr-code']).toEqual({ text: 'qrTooLong', tone: 'none' });
   });
 
   it('reads nothing past the preview limit', async () => {

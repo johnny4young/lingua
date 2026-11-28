@@ -175,16 +175,7 @@ function DeveloperUtilitiesWorkspaceBody({
 
   const filteredUtilities = useMemo(() => {
     const q = searchQuery.trim();
-    // Browsing, arrow keys walk the rows top to bottom: clipboard tools,
-    // favorites, then every category, each tool once. Search stays rank-ordered.
-    if (q.length === 0) {
-      const ids = new Set<DeveloperUtilityId>([
-        ...clipboardTools,
-        ...favorites,
-        ...CATEGORY_SORTED_UTILITIES.map(utility => utility.id),
-      ]);
-      return [...ids].map(findDeveloperUtility);
-    }
+    if (q.length === 0) return CATEGORY_SORTED_UTILITIES;
     // Fuzzy match against title, description,
     // keywords, and aliases. Score the best match across those fields
     // so a hit on the title outranks a hit on a tangential keyword.
@@ -212,7 +203,7 @@ function DeveloperUtilitiesWorkspaceBody({
     }
     ranked.sort((a, b) => b.score - a.score);
     return ranked.map(r => r.utility);
-  }, [searchQuery, t, clipboardTools, favorites]);
+  }, [searchQuery, t]);
 
   // A tool listed under the clipboard or Favorites already has a row, so its category stays as it is.
   const listedAbove = (utilityId: DeveloperUtilityId) =>
@@ -231,12 +222,13 @@ function DeveloperUtilitiesWorkspaceBody({
       return next;
     });
   };
-  // A tool opened from outside the list (palette, rail) shows its row:
-  // the same guarded adjust-during-render as the visited ids above.
-  const [shownUtilityId, setShownUtilityId] = useState(selectedUtilityId);
-  if (shownUtilityId !== selectedUtilityId) {
-    setShownUtilityId(selectedUtilityId);
-    if (!listedAbove(selectedUtilityId)) expandCategory(UTILITY_CATEGORY[selectedUtilityId]);
+  // The open tool always has a row: its category opens when it is opened from
+  // outside the list or stops being listed above (the same guarded adjust as above).
+  const selectedAbove = listedAbove(selectedUtilityId);
+  const [shown, setShown] = useState({ id: selectedUtilityId, above: selectedAbove });
+  if (shown.id !== selectedUtilityId || shown.above !== selectedAbove) {
+    setShown({ id: selectedUtilityId, above: selectedAbove });
+    if (!selectedAbove) expandCategory(UTILITY_CATEGORY[selectedUtilityId]);
   }
 
   const compact = toolList !== undefined;
@@ -245,6 +237,7 @@ function DeveloperUtilitiesWorkspaceBody({
   const listRef = useRef<HTMLDivElement>(null);
   const openListAt = (focus: 'search' | 'favorites' | UtilityCategory) => {
     toolList?.setOpen(true);
+    setNarrowShowsTool(false);
     if (focus !== 'search' && focus !== 'favorites') expandCategory(focus);
     window.requestAnimationFrame(() => {
       if (focus === 'search') {
@@ -276,9 +269,23 @@ function DeveloperUtilitiesWorkspaceBody({
   const bodyRef = useRef<HTMLDivElement>(null);
   const tabTier = useWidthTier(bodyRef, NARROW_TAB_WIDTHS, 1);
   const narrow = compact && tabTier === 0;
+  // Local, so a narrow tab never rewrites the saved list preference.
+  const [narrowShowsTool, setNarrowShowsTool] = useState(false);
+  const listOpen = toolList?.open ?? true;
+  const [seenListOpen, setSeenListOpen] = useState(listOpen);
+  if (seenListOpen !== listOpen) {
+    setSeenListOpen(listOpen);
+    setNarrowShowsTool(false);
+  }
+  if (!narrow && narrowShowsTool) setNarrowShowsTool(false);
+  const showTool = () => {
+    if (!narrow) return;
+    setNarrowShowsTool(true);
+    window.requestAnimationFrame(() => bodyRef.current?.querySelector<HTMLElement>('main')?.focus());
+  };
   const pickUtility = (utilityId: DeveloperUtilityId) => {
     selectUtility(utilityId);
-    if (narrow) toolList?.setOpen(false);
+    showTool();
   };
 
   const activeSelectedUtilityId = selectedUtilityId;
@@ -287,32 +294,24 @@ function DeveloperUtilitiesWorkspaceBody({
   // last known id when a search produces no rows.
   const selectedUtility = findDeveloperUtility(activeSelectedUtilityId);
 
-  const focusUtilityButton = (utilityId: DeveloperUtilityId) => {
-    // Defer until React has committed the list. The first row in DOM order is
-    // the one arrow keys walk: clipboard, then Favorites, then its category.
-    window.requestAnimationFrame(() => {
-      listRef.current?.querySelector<HTMLButtonElement>(`[data-utility-id="${utilityId}"]`)?.focus();
-    });
-  };
-
-  const selectUtilityAt = (index: number, shouldFocusButton: boolean) => {
-    const utility = filteredUtilities[index];
-    if (!utility) return;
-    selectUtility(utility.id);
-    if (shouldFocusButton) {
-      focusUtilityButton(utility.id);
-    }
-  };
-
-  const selectRelativeUtility = (delta: number, shouldFocusButton: boolean) => {
-    if (filteredUtilities.length === 0) return;
-    const currentIndex = filteredUtilities.findIndex(
-      utility => utility.id === activeSelectedUtilityId
-    );
-    const fallbackIndex = delta > 0 ? -1 : 0;
-    const baseIndex = currentIndex >= 0 ? currentIndex : fallbackIndex;
-    const nextIndex = (baseIndex + delta + filteredUtilities.length) % filteredUtilities.length;
-    selectUtilityAt(nextIndex, shouldFocusButton);
+  // Arrow keys walk the rows on screen in order, category rows included; landing on a tool opens it.
+  const listButtons = () =>
+    Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('button.launcher-row-main') ?? []);
+  const moveFocus = (from: HTMLButtonElement | null, to: 'next' | 'previous' | 'first' | 'last') => {
+    const buttons = listButtons();
+    if (buttons.length === 0) return;
+    const at = from ? buttons.indexOf(from) : buttons.findIndex(button => button.getAttribute('aria-pressed') === 'true');
+    const last = buttons.length - 1;
+    const index =
+      to === 'first' ? 0
+      : to === 'last' ? last
+      : to === 'next' ? (at < 0 ? 0 : at === last ? 0 : at + 1)
+      : at <= 0 ? last : at - 1;
+    const target = buttons[index];
+    if (!target) return;
+    target.focus();
+    const utilityId = target.dataset.utilityId as DeveloperUtilityId | undefined;
+    if (utilityId) selectUtility(utilityId);
   };
 
   const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -324,19 +323,20 @@ function DeveloperUtilitiesWorkspaceBody({
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
-      // Arrowing from the search field selects and focuses a concrete tool
-      // row so subsequent Home/End/Escape behavior belongs to the list.
-      selectRelativeUtility(event.key === 'ArrowDown' ? 1 : -1, true);
+      // Arrowing from the search field focuses a row so Home/End/Escape belong to the list.
+      moveFocus(null, event.key === 'ArrowDown' ? 'next' : 'previous');
       return;
     }
-    if (event.key === 'Enter' && filteredUtilities.length > 0) {
+    if (event.key === 'Enter') {
+      const buttons = listButtons().filter(button => button.dataset.utilityId);
+      const target = buttons.find(button => button.getAttribute('aria-pressed') === 'true') ?? buttons[0];
+      const utilityId = target?.dataset.utilityId as DeveloperUtilityId | undefined;
+      if (!target || !utilityId) return;
       event.preventDefault();
       event.stopPropagation();
-      const currentIndex = filteredUtilities.findIndex(
-        utility => utility.id === activeSelectedUtilityId
-      );
-      selectUtilityAt(Math.max(currentIndex, 0), true);
-      if (narrow) toolList?.setOpen(false);
+      selectUtility(utilityId);
+      if (narrow) showTool();
+      else target.focus();
     }
   };
 
@@ -344,19 +344,13 @@ function DeveloperUtilitiesWorkspaceBody({
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
-      selectRelativeUtility(event.key === 'ArrowDown' ? 1 : -1, true);
+      moveFocus(event.currentTarget, event.key === 'ArrowDown' ? 'next' : 'previous');
       return;
     }
-    if (event.key === 'Home') {
+    if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
       event.stopPropagation();
-      selectUtilityAt(0, true);
-      return;
-    }
-    if (event.key === 'End') {
-      event.preventDefault();
-      event.stopPropagation();
-      selectUtilityAt(filteredUtilities.length - 1, true);
+      moveFocus(event.currentTarget, event.key === 'Home' ? 'first' : 'last');
       return;
     }
     if (event.key === 'Escape' && searchQuery.length > 0) {
@@ -379,7 +373,10 @@ function DeveloperUtilitiesWorkspaceBody({
   };
 
   const panel = (
-    <main className={cn('flex min-h-0 min-w-0 flex-1 flex-col bg-bg-panel-alt/40', narrow && toolList?.open && 'hidden')}>
+    <main
+      tabIndex={-1}
+      className={cn('flex min-h-0 min-w-0 flex-1 flex-col bg-bg-panel-alt/40 outline-none', narrow && listOpen && !narrowShowsTool && 'hidden')}
+    >
       {/* The selected sidebar row already shows this utility's title and
           description, and the panel below opens with its own heading, so a
           third copy of the description bought nothing but a bordered band.
@@ -401,7 +398,7 @@ function DeveloperUtilitiesWorkspaceBody({
     </main>
   );
 
-  if (toolList && !toolList.open) {
+  if (toolList && (!toolList.open || (narrow && narrowShowsTool))) {
     return (
       <div ref={bodyRef} data-testid={testId} data-tool-list="rail" className="flex min-h-0 flex-1">
         <UtilityRail
@@ -412,7 +409,10 @@ function DeveloperUtilitiesWorkspaceBody({
           onFavorites={() => openListAt('favorites')}
           onCategory={category => openListAt(category)}
           onPipelines={() => selectUtility('utility-pipelines')}
-          onExpand={() => toolList.setOpen(true)}
+          onExpand={() => {
+            toolList.setOpen(true);
+            setNarrowShowsTool(false);
+          }}
         />
         {panel}
       </div>

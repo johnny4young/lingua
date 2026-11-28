@@ -96,9 +96,11 @@ option defaults and execution-time validation are unchanged.
 The Utilities tool list reads top to bottom: **Your clipboard** (see below),
 **Favorites**, then **All tools** as one row per category with its tool count (Data,
 Web, Encoding & crypto, Text, Visual, Time). Click a category to open or close it; the
-open tool's category starts open unless the tool already has a row higher up. Arrow
-keys, Home and End walk every tool in that order and open the category of the tool
-they land on; searching shows one ranked list instead. Favorites are rows you reorder
+open tool's category starts open unless the tool already has a row higher up, and opens
+when that row goes away. Arrow keys, Home and End walk the rows on screen, category rows
+included: landing on a tool opens it, and Enter or Space opens a category. Searching
+shows one ranked list instead. Under 600 px the open list fills the tab and picking a
+tool shows it. Favorites are rows you reorder
 by dragging their grip, or by focusing it and pressing the arrow keys; the Timestamp
 Converter's row shows now as epoch seconds. **Pipelines** at the foot of the list
 shows how many you have saved and opens them (`Cmd/Ctrl+Shift+G`).
@@ -112,7 +114,8 @@ or color. **Your clipboard** then heads the list with the kind and its length (J
 169 chars) and the tools that take it, each with what it would answer after a dotted
 leader: a JWT's time left, the SHA-256 digest, the Base64 length, hidden characters
 the String Inspector finds, URL escapes (or *no change*), the QR version at level M,
-and for JSON, timestamps, UUIDs and colors their shape, date, version or hex. The open
+and for JSON, timestamps, UUIDs and colors their shape, date, version or the other
+color notation. Base64 and URL-encoded values read as the decode those tools would do. The open
 tool's row shows no answer, since its panel does; searching marks the tools that fit
 with a light bulb, and on the folded rail a dot marks their category. The text stays in
 memory while Utilities is the active tab and is dropped when you leave it: Lingua

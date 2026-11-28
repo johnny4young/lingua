@@ -136,6 +136,20 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByRole('heading', { name: 'Timestamp Converter' })).toBeTruthy();
   });
 
+  it('opens the category of a selected favorite once it is unpinned', async () => {
+    const user = userEvent.setup();
+    useUtilityHistoryStore.setState({ favorites: ['hash'] });
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'hash' });
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+    expect(screen.getByTestId('utility-category-crypto').getAttribute('aria-expanded')).toBe('false');
+
+    await user.click(screen.getByTestId('utility-favorite-unpin-hash'));
+
+    expect(screen.getByTestId('utility-category-crypto').getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('utility-item-hash').getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('counts each category and saved pipelines, and opens Pipelines from the footer', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesWorkspaceView />);
@@ -274,9 +288,14 @@ describe('DeveloperUtilitiesModal', () => {
       expect(screen.getByRole('heading', { name: 'JSON Formatter' }).closest('main')?.className).toContain('hidden');
 
       await user.click(screen.getByTestId('utility-item-number-base'));
-      expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(false);
+      // The saved list preference is left alone; only this narrow tab shows the tool.
+      expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(true);
       expect(screen.getByTestId('utility-rail')).toBeTruthy();
       expect(screen.getByRole('heading', { name: 'Number Base Converter' }).closest('main')?.className).not.toContain('hidden');
+
+      await user.click(screen.getByTestId('utility-rail-expand'));
+      expect(screen.getByTestId('utilities-search-input')).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Number Base Converter' }).closest('main')?.className).toContain('hidden');
     } finally {
       rect.mockRestore();
     }

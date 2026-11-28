@@ -58,9 +58,7 @@ describe('FavoritesRow ', () => {
       name: 'Drag JSON Formatter to reorder favorites',
     });
     grip.focus();
-    await user.keyboard(' ');
     await user.keyboard('{ArrowRight}');
-    await user.keyboard(' ');
 
     expect(useUtilityHistoryStore.getState().favorites).toEqual(['base64', 'json']);
   });
@@ -73,7 +71,10 @@ describe('FavoritesRow ', () => {
 
     render(<FavoritesRow selectedUtilityId="json" onSelect={vi.fn()} />);
 
-    screen.getByRole('button', { name: 'Drag JSON Formatter to reorder favorites' }).focus();
+    const grip = screen.getByRole('button', { name: 'Drag JSON Formatter to reorder favorites' });
+    // The keydown must not scroll the list; the move lands on keyup.
+    expect(fireEvent.keyDown(grip, { key: 'ArrowDown' })).toBe(false);
+    grip.focus();
     await user.keyboard('{ArrowDown}');
 
     expect(useUtilityHistoryStore.getState().favorites).toEqual(['base64', 'json', 'hash']);

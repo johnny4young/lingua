@@ -118,7 +118,7 @@ function FavoriteItem({
 }) {
   const { t } = useTranslation();
   // Only a generator's own row ticks, and not while its panel is open.
-  const now = useNow(live && isGenerator(id) && !isSelected, Date.now, 1_000);
+  const now = useNow(live && isGenerator(id) && !isSelected, Date.now, 1_000, isSelected);
   const definition = findDeveloperUtility(id);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
@@ -144,9 +144,15 @@ function FavoriteItem({
               className="icon-button size-6 cursor-grab rounded-md"
               {...attributes}
               {...listeners}
+              onKeyDown={(event) => {
+                listeners?.onKeyDown?.(event);
+                // The move happens on keyup; the keydown must not scroll the list.
+                if (REORDER_KEYS[event.key]) event.preventDefault();
+              }}
               onKeyUp={(event) => {
                 const delta = REORDER_KEYS[event.key];
-                if (!delta) return;
+                // During a Space-started drag, dnd-kit moves the row itself.
+                if (!delta || isDragging) return;
                 event.preventDefault();
                 event.stopPropagation();
                 onMove(id, delta);

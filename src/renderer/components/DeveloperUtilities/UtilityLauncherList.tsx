@@ -106,6 +106,7 @@ export function UtilityLauncherList({
                 aria-expanded={open}
                 data-testid={`utility-category-${category}`}
                 onClick={() => onToggleCategory(category)}
+                onKeyDown={onRowKeyDown}
               >
                 <Icon size={14} strokeWidth={1.6} aria-hidden className="launcher-row-icon" />
                 <span className="launcher-row-name">{t(UTILITY_CATEGORY_LABEL_KEY[category])}</span>

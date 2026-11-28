@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ClipboardPeek } from '../../hooks/useClipboardSuggestion';
-import { useNow } from '../../hooks/useNow';
 import '../../i18n/toolAnswersCatalog';
+import { claimTime } from './toolAnswers';
+import { useToolClock } from './useToolClock';
 import { jwtPreview, readLauncherPreviews, type JwtClaims, type LauncherPreviews } from './launcherPreviews';
 
 const NO_PREVIEWS: LauncherPreviews = {};
-/** A JWT's time left reads in minutes; a 30 s clock keeps it current. */
-const CLOCK_TICK_MS = 30_000;
 
 interface Read {
   peek: ClipboardPeek;
@@ -22,8 +21,9 @@ export function useLauncherPreviews(peek: ClipboardPeek | null): LauncherPreview
   const [read, setRead] = useState<Read | null>(null);
   if (read && read.peek !== peek) setRead(null);
   const current = read && read.peek === peek ? read : null;
-  // Only the JWT answer reads the clock; the rest are read once per value.
-  const now = useNow(current?.claims != null, Date.now, CLOCK_TICK_MS);
+  // Only the JWT answer reads the clock, re-read for each token; the rest are read once per value.
+  const claims = current?.claims ?? null;
+  const now = useToolClock(claims, claims !== null, claims ? claimTime(claims.payload.exp) : null);
 
   useEffect(() => {
     if (!peek) return;

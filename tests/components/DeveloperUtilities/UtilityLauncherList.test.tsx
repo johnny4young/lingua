@@ -64,6 +64,21 @@ describe('Utilities launcher list', () => {
     expect(screen.getByTestId('utility-preview-jwt').textContent).toBe('2 claims');
   });
 
+  it('walks the rows on screen, so arrows inside a category stay in it', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await user.click(screen.getByTestId('utility-category-crypto'));
+    await user.click(screen.getByTestId('utility-item-hash'));
+    // JWT also heads the clipboard group; the walk stays on its category row.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('utility-item-jwt')));
+    expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('jwt');
+    await user.keyboard('{ArrowDown}{ArrowDown}');
+    // A category row takes focus without opening a tool.
+    expect(document.activeElement).toBe(screen.getByTestId('utility-category-text'));
+    expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('base64-image');
+  });
+
   it('keeps today’s list without a clipboard read', () => {
     peek.current = null;
     render(<DeveloperUtilitiesWorkspaceView />);

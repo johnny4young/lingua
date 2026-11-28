@@ -5,11 +5,16 @@
 import type { UtilitySuggestionId } from '../../clipboard/pasteHandlers';
 import type { DeveloperUtilityId } from '../../data/developerUtilityCatalog';
 import { formatNumber } from '../../i18n/formatNumber';
-import { parseColorToRgb, rgbToHex } from '../../utils/developerUtilityDetection';
-import { base64EncodeAdapter } from '../../../shared/utilities/base64';
+import {
+  detectsAsBase64,
+  detectsAsUrlEncoded,
+  parseColorToRgb,
+  rgbToHex,
+} from '../../utils/developerUtilityDetection';
+import { base64DecodeAdapter, base64EncodeAdapter } from '../../../shared/utilities/base64';
 import { hashAdapter } from '../../../shared/utilities/hash';
 import { jwtDecodeAdapter } from '../../../shared/utilities/jwtDecode';
-import { qrVersionAtM } from '../../../shared/utilities/qrCapacity';
+import { QR_MAX_BYTES_M, qrVersionAtM } from '../../../shared/utilities/qrCapacity';
 import { inspect } from '../../../shared/utilities/stringInspect';
 import { encodeUrlComponent } from '../../../shared/utilities/urlComponent';
 import { countAnswer, dateText, jwtAnswer } from './toolAnswers';
@@ -84,21 +89,26 @@ function inspectorPreview(text: string, t: Translate): LauncherPreview {
   return { text: t('utilities.launcher.preview.hidden', { count: hidden }), tone: hidden > 0 ? 'error' : 'neutral' };
 }
 
+/** Like the URL tool, an encoded value is answered as a decode. */
 function urlPreview(text: string, t: Translate): LauncherPreview | null {
-  let encoded: string;
-  try {
-    encoded = encodeUrlComponent(text);
-  } catch {
-    return null;
+  let escaped: number;
+  if (detectsAsUrlEncoded(text)) {
+    escaped = text.match(/%[\dA-Fa-f]{2}/gu)?.length ?? 0;
+  } else {
+    try {
+      escaped = encodeUrlComponent(text).split('%').length - 1;
+    } catch {
+      return null;
+    }
   }
-  const escaped = encoded.split('%').length - 1;
   return escaped === 0
     ? { text: t('utilities.launcher.preview.noChange'), tone: 'none' }
     : { text: t('utilities.launcher.preview.escaped', { count: escaped }), tone: 'neutral' };
 }
 
 function qrPreview(text: string, t: Translate): LauncherPreview {
-  const version = qrVersionAtM(text);
+  // The QR tool refuses past the level-M byte limit, whatever the mode.
+  const version = new TextEncoder().encode(text).length > QR_MAX_BYTES_M ? null : qrVersionAtM(text);
   return version === null
     ? { text: t('utilities.launcher.preview.qrTooLong'), tone: 'none' }
     : { text: t('utilities.launcher.preview.qr', { version }), tone: 'neutral', qr: true };
@@ -124,7 +134,9 @@ function ownPreview(kind: UtilitySuggestionId, text: string, locale: string): La
       const rgb = parseColorToRgb(trimmed);
       if (!rgb) return null;
       const hex = rgbToHex(rgb).toUpperCase();
-      return { text: hex, tone: 'neutral', swatch: hex };
+      // Converted, never echoed: a hex value reads as rgb() and anything else as hex.
+      const text = trimmed.startsWith('#') ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : hex;
+      return { text, tone: 'neutral', swatch: hex };
     }
     default:
       return null;
@@ -145,7 +157,8 @@ export async function readLauncherPreviews(
   if (text.length === 0 || text.length > PREVIEW_MAX_CHARS) return { previews: {}, claims: null };
   const [hash, base64, claims] = await Promise.all([
     hashAdapter.run(text, { algorithm: 'SHA-256' }),
-    base64EncodeAdapter.run(text, {}),
+    // Like the Base64 tool, a Base64 value is answered as a decode.
+    (detectsAsBase64(text) ? base64DecodeAdapter : base64EncodeAdapter).run(text, {}),
     kind === 'jwt' ? decodeClaims(text) : Promise.resolve(null),
   ]);
   const previews: LauncherPreviews = {
