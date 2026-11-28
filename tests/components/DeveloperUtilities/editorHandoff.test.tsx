@@ -83,7 +83,7 @@ function fakeEditor(initial: string) {
         },
       }),
     onDidChangeModelContent: listen(contentListeners),
-    onDidChangeModel: listen(new Set()),
+    onWillChangeModel: listen(new Set()),
     onDidDispose: listen(new Set()),
     type: (value: string) => {
       text += value;
@@ -123,6 +123,8 @@ describe('resolveInsertTarget', () => {
     expect(resolveInsertTarget([AUTH], { tabId: 'auth', line: 40, column: 90 })).toEqual({ tabId: 'auth', name: 'auth.ts', line: 3, column: 1 });
     const crlf = tab('crlf', 'abc\r\nde\r\n');
     expect(resolveInsertTarget([crlf], { tabId: 'crlf', line: 1, column: 90 })).toMatchObject({ line: 1, column: 4 });
+    const cr = tab('cr', 'abc\rde');
+    expect(resolveInsertTarget([cr], null)).toMatchObject({ line: 2, column: 3 });
   });
 
   it('falls back to the end of the last code tab once the remembered tab is gone', () => {
@@ -155,6 +157,15 @@ describe('insertIntoCodeTab', () => {
     act(() => editor.type('x'));
     expect(zones.size).toBe(0);
     expect(tint.clear).toHaveBeenCalled();
+  });
+});
+
+describe('insertIntoCodeTab when the tab is left first', () => {
+  it('drops the queued insert, so a later visit to the tab does not apply it', () => {
+    insertIntoCodeTab({ tabId: 'auth', name: 'auth.ts', line: 1, column: 1 }, 'x', { utilityId: 'jwt', tool: 'JWT Debugger' });
+    expect(useEditorInsertStore.getState().request).not.toBeNull();
+    useEditorStore.setState({ activeTabId: 'utilities' });
+    expect(useEditorInsertStore.getState().request).toBeNull();
   });
 });
 

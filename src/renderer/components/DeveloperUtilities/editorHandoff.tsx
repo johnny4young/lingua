@@ -8,7 +8,7 @@ import i18next from 'i18next';
 import type { DeveloperUtilityId } from '../../data/developerUtilityCatalog';
 import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
 import { getLastCodeCursor, type CodeCursor } from '../../runtime/editorAccess';
-import { requestEditorInsert } from '../../runtime/editorInsert';
+import { requestEditorInsert, useEditorInsertStore, type EditorInsert } from '../../runtime/editorInsert';
 import { useEditorStore } from '../../stores/editorStore';
 import type { FileTab } from '../../types/editor';
 import { Kbd } from '../ui/chrome';
@@ -26,19 +26,16 @@ export interface InsertSource {
   readonly tool: string;
 }
 
+// Monaco also breaks lines on a lone CR, so the tab's text is counted the same way.
+const LINE_BREAK = /\r\n|\r|\n/gu;
+
 function lineCount(content: string): number {
-  let count = 1;
-  for (let at = content.indexOf('\n'); at !== -1; at = content.indexOf('\n', at + 1)) count += 1;
-  return count;
+  return (content.match(LINE_BREAK)?.length ?? 0) + 1;
 }
 
 /** Length of line `line` (1-based) without its line break. */
 function lineLength(content: string, line: number): number {
-  let start = 0;
-  for (let current = 1; current < line; current += 1) start = content.indexOf('\n', start) + 1;
-  const end = content.indexOf('\n', start);
-  const stop = end === -1 ? content.length : end;
-  return stop - start - (stop > start && content[stop - 1] === '\r' ? 1 : 0);
+  return content.split(LINE_BREAK, line)[line - 1]?.length ?? 0;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -112,18 +109,26 @@ function markInserted(editor: Editor, monaco: typeof monacoTypes, from: number, 
     tint.clear();
     editor.changeViewZones((accessor) => accessor.removeZone(zoneId));
   };
-  listeners = [editor.onDidChangeModelContent(clear), editor.onDidChangeModel(clear), editor.onDidDispose(teardown)];
+  // Before the swap: once another model is attached, the tint could no longer be removed from this one.
+  listeners = [editor.onDidChangeModelContent(clear), editor.onWillChangeModel(clear), editor.onDidDispose(teardown)];
   clearMark = clear;
 }
 
 /** Open the target tab; the code editor inserts `text` at its cursor as one undo step. */
 export function insertIntoCodeTab(target: InsertTarget, text: string, source: InsertSource): void {
-  requestEditorInsert({
+  const request: EditorInsert = {
     tabId: target.tabId,
     line: target.line,
     column: target.column,
     text,
     onInserted: (editor, monaco, from, to) => markInserted(editor, monaco, from, to, source),
-  });
+  };
+  requestEditorInsert(request);
   useEditorStore.getState().setActiveTab(target.tabId);
+  // Leaving the tab before the editor mounts drops the insert, so it never lands on a later visit.
+  const unsubscribe = useEditorStore.subscribe((state) => {
+    const pending = useEditorInsertStore.getState().request;
+    if (pending === request && state.activeTabId !== target.tabId) useEditorInsertStore.setState({ request: null });
+    if (pending !== request || state.activeTabId !== target.tabId) unsubscribe();
+  });
 }

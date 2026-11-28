@@ -25,7 +25,7 @@ export function applyEditorInsert(editor: Editor, monaco: typeof monacoTypes, re
   const start = model.validatePosition({ lineNumber: request.line, column: request.column });
   const text = request.text.replace(/\r\n|\r|\n/gu, model.getEOL());
   editor.pushUndoStop();
-  editor.executeEdits('lingua.insert', [{ range: monaco.Range.fromPositions(start), text, forceMoveMarkers: true }]);
+  if (!editor.executeEdits('lingua.insert', [{ range: monaco.Range.fromPositions(start), text, forceMoveMarkers: true }])) return;
   editor.pushUndoStop();
   const end = model.getPositionAt(model.getOffsetAt(start) + text.length);
   editor.setPosition(end);

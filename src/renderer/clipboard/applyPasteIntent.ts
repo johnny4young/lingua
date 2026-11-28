@@ -178,14 +178,16 @@ function applyStackTrace(intent: Extract<PasteIntent, { kind: 'stack-trace' }>):
   return true;
 }
 
-/** Open `source` in a new JSON tab; the large-JSON paste and Utilities both land here. */
-export function openJsonTab(source: string): void {
+/** Open `source` in a new JSON tab; false when the plan refuses the tab. */
+export function openJsonTab(source: string): boolean {
+  const before = useEditorStore.getState().tabs.length;
   useEditorStore.getState().addTab({ ...createDefaultTab('json'), content: source });
+  return useEditorStore.getState().tabs.length > before;
 }
 
 function applyLargeJson(source: string, ctx: ApplyPasteContext): boolean {
-  openJsonTab(source);
-  removePastedText(ctx);
+  // A refused tab keeps the pasted text where it was.
+  if (openJsonTab(source)) removePastedText(ctx);
   return true;
 }
 

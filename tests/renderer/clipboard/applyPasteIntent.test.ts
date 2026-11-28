@@ -11,6 +11,7 @@ import { _resetCommandBusForTesting, subscribeCommand } from '@/stores/commandBu
  * `parseCurlCommand` run on real fixtures so detection and routing agree.
  */
 const spies = vi.hoisted(() => ({
+  tabs: [] as unknown[],
   addTab: vi.fn(),
   createRequest: vi.fn(),
   setPendingCapsule: vi.fn(),
@@ -21,7 +22,7 @@ const spies = vi.hoisted(() => ({
 }));
 
 vi.mock('@/stores/editorStore', () => ({
-  useEditorStore: { getState: () => ({ addTab: spies.addTab }) },
+  useEditorStore: { getState: () => ({ tabs: spies.tabs, addTab: spies.addTab }) },
 }));
 vi.mock('@/stores/workspaceToolStore', () => ({
   useWorkspaceToolStore: { getState: () => ({ createRequest: spies.createRequest }) },
@@ -74,6 +75,8 @@ function makeCtx(currentText = 'paste'): {
 }
 
 beforeEach(() => {
+  spies.tabs.length = 0;
+  spies.addTab.mockImplementation((tab: unknown) => spies.tabs.push(tab));
   spies.decodeShareFragment.mockResolvedValue({
     ok: true,
     payload: {
@@ -185,6 +188,13 @@ describe('applyPasteIntent', () => {
       expect.objectContaining({ language: 'json', content: '{"rows":[]}' })
     );
     expect(pushEditOperations).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the large-json paste when the plan refuses the json tab', async () => {
+    spies.addTab.mockImplementation(() => undefined);
+    const { ctx, pushEditOperations } = makeCtx();
+    expect(await applyPasteIntent({ kind: 'large-json', source: '{"rows":[]}' }, ctx)).toBe(true);
+    expect(pushEditOperations).not.toHaveBeenCalled();
   });
 
   it('routes a utility suggestion: seed first, then open, then strip', async () => {
