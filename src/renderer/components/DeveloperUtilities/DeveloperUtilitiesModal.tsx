@@ -18,7 +18,7 @@ import { Tooltip } from '../ui/chrome';
 import { DotLeader } from '../ui/answer';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useWidthTier } from '../../hooks/useWidthTier';
-import { SendOutputSelect } from './SendOutputSelect';
+import { SendOutputCards } from './SendOutputCards';
 import { UtilityRail } from './UtilityRail';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { formatNumber } from '../../i18n/formatNumber';
@@ -365,7 +365,7 @@ function DeveloperUtilitiesWorkspaceBody({
     const notice = (messageKey: string) => useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey });
     if (output.length === 0) {
       notice('utilityPipeline.send.empty');
-    } else if (!sendOutputToNewPipeline(output, utilityId, t(selectedUtility.titleKey))) {
+    } else if (!sendOutputToNewPipeline(output, utilityId, t(selectedUtility.titleKey), activeSelectedUtilityId)) {
       notice('utilityPipeline.send.capReached');
     } else {
       selectUtility('utility-pipelines');
@@ -383,17 +383,16 @@ function DeveloperUtilitiesWorkspaceBody({
           The heading stays as a visually hidden landmark for screen readers
           and heading-based tests. */}
       <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
-      {activeSelectedUtilityId !== 'utility-pipelines' ? (
-        <div className="flex justify-end px-7 pt-3">
-          <SendOutputSelect testId="utility-send-output" ready={outputReady} onSend={handleSendOutput} />
-        </div>
-      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
         <DeveloperUtilityPanel
           toolId={activeSelectedUtilityId}
           mountedToolIds={visitedUtilityIds}
           active={active}
         />
+        {activeSelectedUtilityId !== 'utility-pipelines' ? (
+          // Keyed by tool: the last tool's cards never stay clickable while the next one's are read.
+          <ToolSendCards key={activeSelectedUtilityId} ready={outputReady} onSend={handleSendOutput} />
+        ) : null}
       </div>
     </main>
   );
@@ -608,6 +607,17 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
         autoFocusSearch={toolListOpen}
         toolList={{ open: toolListOpen, setOpen: setToolListOpen }}
       />
+    </div>
+  );
+}
+
+/** Reads the tool's output on its own, so a new output re-renders the cards and never the tool. */
+function ToolSendCards({ ready, onSend }: { ready: boolean; onSend: (utilityId: UtilityAdapterId) => void }) {
+  const provider = useUtilityOutputStore(state => state.provider);
+  const output = useMemo(() => provider?.() ?? '', [provider]);
+  return (
+    <div className="mt-6">
+      <SendOutputCards testId="utility-send-output" output={output} ready={ready} onSend={onSend} />
     </div>
   );
 }

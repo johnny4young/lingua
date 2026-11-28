@@ -43,6 +43,7 @@ import { useExecutionHistoryStore } from '../../../src/renderer/stores/execution
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
 import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
 import { createBlankPipeline, createBlankStep, type PipelineStepV1, type UtilityPipelineV1 } from '../../../src/shared/utilityPipeline';
+import { UTILITY_ADAPTER_IDS } from '../../../src/shared/utilities/types';
 
 function setFreeTier() {
   useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
@@ -205,7 +206,7 @@ describe('UtilityPipelinePanel, step controls', () => {
     const held = { stepId: 's1', utilityId: 'url-decode', status: 'paused', durationMs: 0 };
     const props = { canSaveCapsule: false, onSaveCapsule: vi.fn(), onSendOutput: vi.fn(), onContinue: vi.fn() };
     const state = (phase: string, stepResults: unknown[]) => ({ phase, stepResults }) as unknown as PipelineRunState;
-    const send = () => screen.queryByTestId('utility-pipeline-send-select');
+    const send = () => screen.queryByTestId('utility-pipeline-send');
     const resume = () => screen.queryByTestId('utility-pipeline-continue');
 
     const { rerender } = render(<UtilityPipelineResults {...props} runState={state('running', [made, held])} />);
@@ -469,9 +470,14 @@ describe('UtilityPipelinePanel, step controls', () => {
     await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'ok']));
   });
 
+  const byUtility = (testId: string, utilityId: string) =>
+    screen.queryAllByTestId(testId).find((element) => element.dataset.utilityId === utilityId);
   const sendTo = async (user: ReturnType<typeof userEvent.setup>, utilityId: string) => {
-    await user.selectOptions(screen.getByTestId('utility-pipeline-send-select'), utilityId);
-    await user.click(screen.getByTestId('utility-pipeline-send-select-go'));
+    await screen.findAllByTestId('utility-pipeline-send-card');
+    const card = byUtility('utility-pipeline-send-card', utilityId);
+    if (card) return user.click(card);
+    await user.click(screen.getByTestId('utility-pipeline-send-more'));
+    await user.click(byUtility('utility-pipeline-send-option', utilityId)!);
   };
 
   it('sends the last output to a new step right after the step that made it, and runs', async () => {
@@ -484,20 +490,29 @@ describe('UtilityPipelinePanel, step controls', () => {
     expect(stored().steps.map((step) => step.utilityId)).toEqual(['url-encode', 'hash', 'url-decode']);
     await waitFor(() => expect(statuses()).toEqual(['ok', 'ok', 'disabled']));
     expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBeNull();
-    expect((screen.getByTestId('utility-pipeline-send-select') as HTMLSelectElement).value).toBe('');
   });
 
-  it('sends only from the button, as a closed select fires change on arrow keys', async () => {
+  it('reaches every other adapter from the keyboard through +N', async () => {
     seed([['url-encode']]);
     const user = userEvent.setup();
     render(<UtilityPipelinePanel />);
     await user.click(screen.getByTestId('utility-pipeline-editor-run'));
-    await waitFor(() => expect(statuses()).toEqual(['ok']));
-    const go = () => screen.getByTestId('utility-pipeline-send-select-go') as HTMLButtonElement;
-    expect(go().disabled).toBe(true);
-    await user.selectOptions(screen.getByTestId('utility-pipeline-send-select'), 'hash');
+    const cards = await screen.findAllByTestId('utility-pipeline-send-card');
+    const more = screen.getByTestId('utility-pipeline-send-more');
+    more.focus();
+    await user.keyboard('{Enter}');
+    const options = await screen.findAllByTestId('utility-pipeline-send-option');
+    // Every adapter but url-encode, which made the output.
+    expect(cards.length + options.length).toBe(UTILITY_ADAPTER_IDS.length - 1);
+    expect(options.map((option) => option.dataset.utilityId)).not.toContain('url-encode');
+    expect(more.textContent).toBe(`+${options.length}`);
+    await waitFor(() => expect(document.activeElement).toBe(options[0]));
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(options[1]);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('utility-pipeline-send-menu')).toBeNull();
+    expect(document.activeElement).toBe(more);
     expect(stored().steps).toHaveLength(1);
-    expect(go().disabled).toBe(false);
   });
 
   it('refuses a Send past the Free step limit, as that step would never run', async () => {
@@ -523,17 +538,55 @@ describe('UtilityPipelinePanel, step controls', () => {
     expect(stored().steps.map((step) => step.utilityId)).toEqual(['url-encode', 'hash']);
   });
 
-  it('suggests the next step from the output, but not the step that made it', async () => {
+  it('ranks cards by the output shape and previews them, never offering the step that made it', async () => {
     seed([['base64-decode']], btoa('{"a":1,"b":2}'));
     const user = userEvent.setup();
     render(<UtilityPipelinePanel />);
     await user.click(screen.getByTestId('utility-pipeline-editor-run'));
-    const suggested = await screen.findByTestId('utility-pipeline-send-suggested');
-    expect(suggested.textContent).toBe('JSON format');
-    await user.click(suggested);
+    // JSON output: minify hands the compact value back unchanged, so format takes its place.
+    await waitFor(() =>
+      expect(screen.queryAllByTestId('utility-pipeline-send-card').map((card) => card.dataset.utilityId)).toEqual([
+        'hash',
+        'base64-encode',
+        'json-format',
+      ])
+    );
+    const format = byUtility('utility-pipeline-send-card', 'json-format')!;
+    expect(format.textContent).toContain('object·2');
+    expect(byUtility('utility-pipeline-send-card', 'hash')!.textContent).toContain('Hash · SHA-256');
+    await user.click(format);
     expect(stored().steps.map((step) => step.utilityId)).toEqual(['base64-decode', 'json-format']);
     await waitFor(() => expect(statuses()).toEqual(['ok', 'ok']));
-    expect(screen.queryByTestId('utility-pipeline-send-suggested')).toBeNull();
+  });
+
+  it('shows how long each step that ran took', async () => {
+    seed([['url-encode'], ['url-decode', { disabled: true }]]);
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    await waitFor(() => expect(statuses()).toEqual(['ok', 'disabled']));
+    const times = screen.getAllByTestId('utility-pipeline-result-time');
+    expect(times).toHaveLength(1);
+    expect(times[0]!.textContent).toMatch(/^(<1|\d+) ms$/);
+  });
+
+  it('names no source over an empty input, as an imported recipe arrives', () => {
+    seed([['url-encode']], '');
+    useUtilityPipelineStore.getState().updatePipeline('p1', { sourceToolId: 'jwt' });
+    render(<UtilityPipelinePanel />);
+    expect(screen.queryByTestId('utility-pipeline-input-source')).toBeNull();
+  });
+
+  it('names the tool its input came from until the input is edited', async () => {
+    seed([['url-encode']], 'a b');
+    // Seeding writes the input, which drops a source, so the source comes after it.
+    useUtilityPipelineStore.getState().updatePipeline('p1', { sourceToolId: 'jwt' });
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    expect(screen.getByTestId('utility-pipeline-input-source').textContent).toBe('from JWT Debugger');
+    await user.type(screen.getByTestId('utility-pipeline-editor-input'), 'c');
+    expect(screen.queryByTestId('utility-pipeline-input-source')).toBeNull();
+    expect(stored().sourceToolId).toBeUndefined();
   });
 
   it('leaves a Send for another pipeline waiting', async () => {

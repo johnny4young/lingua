@@ -1,36 +1,20 @@
 /** Utility pipeline results, read as a run: each step's output as an answer, with the breakpoint held inline. */
 
-import { ChevronDown, Lightbulb, PackagePlus } from 'lucide-react';
+import { ChevronDown, PackagePlus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { classifyClipboard, type UtilitySuggestionId } from '../../clipboard/pasteHandlers';
 import { breakpointStepId as breakpointOf, heldStepId, type PipelineRunState } from '../../hooks/useUtilityPipelineRun';
 import { getAdapter } from '../../../shared/utilities/registry';
 import type { UtilityAdapterId } from '../../../shared/utilities/types';
 import type { PipelineStepResult } from '../../../shared/utilityPipeline';
 import { cn } from '../../utils/cn';
-import { formatRunDuration } from '../../utils/timeLabels';
+import { formatWholeDuration } from '../../utils/latencyScale';
 import { AnswerObject } from '../Answer/AnswerObject';
 import { DotLeader, TypeTag } from '../ui/answer';
 import { Glyph } from '../ui/Glyph';
-import { SendOutputSelect } from './SendOutputSelect';
+import { SendOutputCards } from './SendOutputCards';
 import '../ui/pipelineRun.css';
 import '../../i18n/clipboardChainsCatalog';
-
-/** The next step a kind of output usually wants; some kinds have no adapter. */
-const NEXT_UTILITY: Partial<Record<UtilitySuggestionId, UtilityAdapterId>> = {
-  jwt: 'jwt-decode',
-  json: 'json-format',
-  base64: 'base64-decode',
-  timestamp: 'timestamp',
-  color: 'color-convert',
-};
-
-function suggestedNext(result: PipelineStepResult): UtilityAdapterId | null {
-  const kind = classifyClipboard(result.output ?? '');
-  const next = kind ? NEXT_UTILITY[kind] : undefined;
-  return next && next !== result.utilityId ? next : null;
-}
 
 /** Rows without an output read as a tag and a line: what held, skipped or failed the step. */
 const STATUS_LINE: Partial<Record<PipelineStepResult['status'], { tag: string; hint: string; tone?: 'error' | 'warning'; dim?: boolean }>> = {
@@ -83,7 +67,6 @@ export function UtilityPipelineResults({
     runState.phase === 'settled' && !paused
       ? [...results].reverse().find((result) => result.status === 'ok' && typeof result.output === 'string')
       : undefined;
-  const next = lastOutput ? suggestedNext(lastOutput) : null;
   // These controls unmount when the run starts, so keyboard focus moves to their region first.
   const keepFocus = () => asideRef.current?.focus();
   const toggle = (stepId: string, open: boolean) => {
@@ -117,7 +100,7 @@ export function UtilityPipelineResults({
       {runState.phase === 'idle' ? (
         <p className="text-body-sm text-muted">{t('utilityPipeline.result.empty')}</p>
       ) : (
-        <ol className="min-h-0 flex-1 overflow-y-auto border-t border-border-subtle">
+        <ol className="min-h-0 overflow-y-auto border-t border-border-subtle">
           {results.map((result, index) => {
             const title = t(getAdapter(result.utilityId)?.titleKey ?? result.utilityId);
             const isBreakpoint = result.stepId === breakpointStepId;
@@ -139,7 +122,7 @@ export function UtilityPipelineResults({
                   <span className="pipeline-step-numeral" data-size="sm" aria-hidden>
                     {index + 1}
                   </span>
-                  <span className="utility-step-title" title={formatRunDuration(result.durationMs)}>
+                  <span className="utility-step-title">
                     {isBreakpoint ? (
                       <span
                         role="img"
@@ -185,6 +168,14 @@ export function UtilityPipelineResults({
                       </>
                     ) : null}
                   </div>
+                  {RAN.has(result.status) ? (
+                    <span className="pipeline-step-time utility-step-time" data-testid="utility-pipeline-result-time">
+                      {formatWholeDuration(result.durationMs)}
+                    </span>
+                  ) : (
+                    // Holds the time's place, so a row that did not run keeps its tag in the same column.
+                    <span aria-hidden className="pipeline-step-time utility-step-time" />
+                  )}
                   {hasOutput ? (
                     <button
                       type="button"
@@ -194,13 +185,13 @@ export function UtilityPipelineResults({
                       title={t('utilityPipeline.result.showOutput', { index: index + 1 })}
                       onClick={() => toggle(result.stepId, !open)}
                       data-testid="utility-pipeline-result-toggle"
-                      className="focus-ring ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle hover:text-fg-base"
+                      className="utility-step-toggle focus-ring inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle hover:text-fg-base"
                     >
                       <ChevronDown size={13} aria-hidden="true" className={cn('transition-transform', open && 'rotate-180')} />
                     </button>
                   ) : (
                     // Holds the toggle's place, so every row's tag starts in one column.
-                    <span aria-hidden className="ml-auto h-6 w-6 shrink-0" />
+                    <span aria-hidden className="utility-step-toggle h-6 w-6 shrink-0" />
                   )}
                 </div>
                 {hasOutput ? (
@@ -224,29 +215,17 @@ export function UtilityPipelineResults({
           })}
         </ol>
       )}
-      {lastOutput ? (
-        <div data-testid="utility-pipeline-send" className="flex flex-wrap items-center gap-2 pt-2.5">
-          <SendOutputSelect
-            testId="utility-pipeline-send-select"
+      {lastOutput?.output !== undefined ? (
+        <div className="pt-5">
+          <SendOutputCards
+            testId="utility-pipeline-send"
+            output={lastOutput.output}
+            exclude={lastOutput.utilityId}
             onSend={(id) => {
               keepFocus();
               onSendOutput(lastOutput.stepId, id);
             }}
           />
-          {next ? (
-            <button
-              type="button"
-              onClick={() => {
-                keepFocus();
-                onSendOutput(lastOutput.stepId, next);
-              }}
-              data-testid="utility-pipeline-send-suggested"
-              className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-warning/45 bg-warning/10 px-2 text-caption font-medium text-warning-fg"
-            >
-              <Lightbulb size={11} aria-hidden="true" />
-              {t(getAdapter(next)?.titleKey ?? next)}
-            </button>
-          ) : null}
         </div>
       ) : null}
       {runState.phase !== 'idle' && results.length > 0 ? (

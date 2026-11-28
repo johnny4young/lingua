@@ -205,6 +205,10 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
       setPipelineInput: (id, input) =>
         set((state) => ({
           inputsByPipelineId: { ...state.inputsByPipelineId, [id]: input },
+          // A new input no longer is the output of the tool the pipeline was sent from.
+          ...(state.pipelines.some((p) => p.id === id && p.sourceToolId)
+            ? { pipelines: state.pipelines.map((p) => (p.id === id ? { ...p, sourceToolId: undefined } : p)) }
+            : {}),
         })),
 
       setPendingRunPipelineId: (id) => set({ pendingRunPipelineId: id }),
@@ -250,7 +254,8 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
       migrate: createMigrate('lingua-utility-pipeline-state'),
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        pipelines: state.pipelines,
+        // The source names the input, which does not persist either.
+        pipelines: state.pipelines.map(({ sourceToolId: _source, ...pipeline }) => pipeline),
         activePipelineId: state.activePipelineId,
         // inputsByPipelineId is transient — last-run input does NOT
         // survive a reload. The user's recipe persists; their last

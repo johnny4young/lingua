@@ -2206,7 +2206,13 @@ so `PIPELINE_RUN_STATUSES` is unchanged. Auto-bake lives in `UtilityPipelinePane
 debounces, never overlaps a run, and records no telemetry. Continue re-runs with the
 breakpoints up to that step removed, for that run only, rather than resuming, since each
 run owns a worker. `sendOutputToNewPipeline` and the results' Send set the transient
-`pendingRunPipelineId`, which the panel runs once that pipeline is on screen.
+`pendingRunPipelineId`, which the panel runs once that pipeline is on screen. A pipeline
+made from a tool also stores `sourceToolId`, the tool's catalog id and never data, also
+additive to version 1 (a lowercase id survives a parse, export and import, but not a
+reload, since the input it names does not persist); writing the input drops it, and the
+label shows only over a non-empty input. The Send cards rank adapters by the output's shape and preview each by
+running the same shared adapter on the output in the renderer (`sendTargets.ts`), in
+memory only and only up to the launcher's preview size cap.
 
 `runPipeline`'s step timer lives in the worker, so a synchronous adapter starves it.
 `runPipelineOffThread` keeps a main-thread deadline, re-armed on each reported step, that

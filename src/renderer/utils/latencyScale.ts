@@ -13,5 +13,7 @@ export const maxDuration = (durations: Iterable<number>) => {
 
 /** A duration in whole milliseconds, seconds past one: `142 ms`, `2.0 s`. */
 export function formatWholeDuration(ms: number): string {
+  // Work under half a millisecond never reads as free.
+  if (Math.round(ms) < 1) return '<1 ms';
   return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
 }

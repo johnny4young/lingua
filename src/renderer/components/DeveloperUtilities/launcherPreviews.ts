@@ -40,7 +40,7 @@ export const PREVIEW_MAX_CHARS = 100_000;
 const HIDDEN_WARNINGS = new Set(['zero-width', 'bidi-control']);
 
 /** First six and last four characters of a digest, as the board abbreviates hashes. */
-function shortDigest(hex: string): string {
+export function shortDigest(hex: string): string {
   return hex.length > 12 ? `${hex.slice(0, 6)}…${hex.slice(-4)}` : hex;
 }
 
