@@ -272,6 +272,11 @@ export function useNotebookRun(): UseNotebookRunResult {
           produces: outcome.producedKeys,
           sqlEngineGeneration: outcome.sqlEngineGeneration,
         });
+        // The engine dropped its tables while the cell ran, after the drop marked cells stale.
+        const settled = useNotebookStore.getState().notebooks[tabId];
+        if (outcome.status === 'ok' && settled && ranOnDroppedEngine(settled, cellId)) {
+          store.setCellRunStatus(tabId, cellId, 'stale');
+        }
         // Lazy reactivity: a settled cell may have changed persistent
         // runtime state. Preserve downstream outputs, but mark every
         // previously-executed cell below it stale across languages.

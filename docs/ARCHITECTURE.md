@@ -1219,8 +1219,9 @@ that would pass the document size limit only because of them writes without them
   (`python-worker-cell-answer-source.ts`, about 200 characters: builtin lists,
   tuples, sets and dicts stop listing items, long strings keep their head) and
   sends `len()` as the size, so a long collection never becomes a long string
-  and its tag keeps the real count; an int past Python's digit limit answers its
-  leading digits with its digit count as the size instead of failing. Compiled with top-level await allowed. Every
+  and its tag keeps the real count; an int longer than the answer sends its digit
+  count as the size, and one past Python's digit limit answers its leading digits
+  instead of failing. Compiled with top-level await allowed. Every
   cell compiles as `<exec>`, so `python-worker-cell-source.ts` keeps the ids of
   the running cell's code objects: a print, or an error, from a function
   another cell defined answers on the line of this cell that called it.

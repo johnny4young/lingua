@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { __setDuckDbEngineFactoryForTests, clearPersistedSqlDatabase, executeQuery, getDuckDbEngine, type DuckDbEngineHandle } from '../../../src/renderer/runtime/duckdbClient';
+import {
+  __setDuckDbEngineFactoryForTests,
+  clearPersistedSqlDatabase,
+  configureDuckDbPersistence,
+  executeQuery,
+  getDuckDbDataGeneration,
+  getDuckDbEngine,
+  restartDuckDbEngine,
+  type DuckDbEngineHandle,
+} from '../../../src/renderer/runtime/duckdbClient';
+import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { DuckDbEngineLifecycle } from '../../../src/renderer/runtime/duckdbEngineLifecycle';
 import { openNativeEngine } from '../../../src/renderer/runtime/duckdbNativeEngine';
 import type { SqlLocalBridge, SqlLocalReply } from '../../../src/shared/sqlLocal';
@@ -92,6 +102,40 @@ describe('native engine errors and clears', () => {
     const connection = await native.handle.connect();
     await expect(connection.query('SELECT 1')).rejects.toThrow('The SQL connection is closed.');
     expect(gone).not.toHaveBeenCalled();
+  });
+
+  it('keeps the data generation when a persistent engine dies, even on late engine-gone replies', async () => {
+    const original = (window as { lingua?: unknown }).lingua;
+    const engineGone = () => Promise.resolve({ ok: false as const, error: { message: 'gone', code: 'engine-gone' as const } });
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: {
+        sqlLocal: bridge({
+          open: () => ok({ engineId: 'e1', storageMode: 'opfs', version: 'v1.4.3', filesDir: '/data/files/1' }),
+          stream: engineGone,
+          closeConnection: engineGone,
+          terminate: vi.fn(engineGone),
+        }),
+      },
+    });
+    const previousEngine = useSettingsStore.getState().sqlWorkspaceLocalEngine;
+    useSettingsStore.setState({ sqlWorkspaceLocalEngine: 'native' });
+    configureDuckDbPersistence(true);
+    try {
+      await restartDuckDbEngine();
+      const before = getDuckDbDataGeneration();
+      const engine = await getDuckDbEngine();
+      const connection = await engine.connect();
+      await expect(connection.stream('SELECT 1')).rejects.toThrow('gone');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await expect(connection.close()).rejects.toThrow('gone');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(getDuckDbDataGeneration()).toBe(before);
+    } finally {
+      configureDuckDbPersistence(false);
+      useSettingsStore.setState({ sqlWorkspaceLocalEngine: previousEngine });
+      Object.defineProperty(window, 'lingua', { configurable: true, value: original });
+    }
   });
 
   it('fails a clear the native engine refused, after clearing what it could', async () => {

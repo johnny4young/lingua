@@ -69,6 +69,8 @@ def __lingua_answer_value(line, value):
         if type(value) is int:
             try:
                 text = repr(value)
+                if len(text) > 200:
+                    size = len(text) - (value < 0)
             except ValueError:
                 text, size = __lingua_answer_int_head(value)
         else:

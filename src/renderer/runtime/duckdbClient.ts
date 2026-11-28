@@ -666,9 +666,13 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
 async function nativeEngineFactory(bridge: SqlLocalBridge): Promise<DuckDbEngineHandle> {
   const requested: SqlStorageMode = desiredPersistence ? 'opfs' : 'memory';
   const native = await openNativeEngine(bridge, desiredPersistence, gone => {
-    // A dead process keeps only what its file holds.
-    if (resolvedStorageMode !== 'opfs') bumpDataGeneration();
-    void engineLifecycle.releaseIfCurrent(gone, { afterTerminate: async () => resetResolvedStorageMode() });
+    void engineLifecycle.releaseIfCurrent(gone, {
+      afterTerminate: async () => {
+        // Only the live engine's death counts, and a dead process keeps only what its file holds.
+        if (resolvedStorageMode !== 'opfs') bumpDataGeneration();
+        resetResolvedStorageMode();
+      },
+    });
   });
   resolvedStorageMode = native.storageMode;
   resolvedStorageRequestedMode = requested;

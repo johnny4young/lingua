@@ -129,6 +129,13 @@ describe.skipIf(!hasPython)('Python auto-log under CPython', () => {
     expect(empty).toEqual([9, 'set()', 0]);
   });
 
+  it('counts the digits of an int too long for the answer', () => {
+    expect(run('big = 2 ** 1000\nneg = -(10 ** 250)', 'cell').answers).toEqual([
+      [1, String(2n ** 1000n), 302],
+      [2, String(-(10n ** 250n)), 251],
+    ]);
+  });
+
   it('answers a failing repr as an error without stopping the cell', () => {
     const result = run('class Bad:\n    def __repr__(self): raise RuntimeError("no repr")\nBad()\nafter = 1', 'cell');
     expect(result).toMatchObject({ outcome: 'ok', answers: [[3, 'error', 'no repr'], [4, '1']] });

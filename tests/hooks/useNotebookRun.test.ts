@@ -710,6 +710,28 @@ describe('useNotebookRun', () => {
     });
   });
 
+  it('leaves a SQL cell stale when the engine drops its tables while it runs', async () => {
+    seedSqlPythonNotebook([], getDuckDbDataGeneration());
+    const engine = { connect: vi.fn(), terminate: vi.fn(async () => undefined) } as unknown as DuckDbEngineHandle;
+    __setDuckDbEngineFactoryForTests(async () => engine);
+    mockScript.mockImplementation(async (statements: string[]) => {
+      await getDuckDbEngine();
+      await restartDuckDbEngine();
+      return statements.map(() => sqlOutcome({ rows: [{ Count: 1 }], rowCount: 1 }));
+    });
+    mockQuery.mockImplementation(async () => sqlOutcome({ rows: [{ c: 1 }], rowCount: 1 }));
+    const { result } = renderHook(() => useNotebookRun());
+    try {
+      await act(async () => {
+        await result.current.runCell('tab-sql', 'sql-create');
+      });
+    } finally {
+      __setDuckDbEngineFactoryForTests(null);
+    }
+
+    expect(useNotebookStore.getState().notebooks['tab-sql']!.cellRunStatus['sql-create']).toBe('stale');
+  });
+
   it('replaces the table a stale SQL cell made instead of failing on it, then refreshes the cells below', async () => {
     seedSqlPythonNotebook(['sql-create', 'sql-read', 'py-tickets', 'py-over']);
     mockScript.mockImplementation(async (statements: string[]) =>
