@@ -79,8 +79,8 @@ export const UtilityHistoryDrawer = memo(function UtilityHistoryDrawer({
       }),
     [entries, showAll, utilityId, t, locale]
   );
-  // Ticks while any run shows, so a run's clock-or-day label turns over at midnight.
-  const now = useToolClock(entries, rows.length > 0);
+  // Ticks while any run shows, so a run's clock-or-day label turns over at midnight; every second near a run's moment.
+  const now = useToolClock(entries, rows.length > 0, rows.map(row => row.answer.timed?.at ?? null));
   const hidden = entries.length - rows.length;
 
   const handlePersistToggle = () => {

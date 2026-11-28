@@ -456,13 +456,13 @@ export type WorkerResponse =
       reachedLines?: number[];
       frameLines?: number[];
       unassigned?: import('../../shared/scopeSnapshot').UnassignedBinding[];
-      watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
-      conditionError?: string;
+      watchResults: Record<string, import('../../shared/debuggerExpressionErrors').DebuggerWatchResult>;
+      conditionError?: import('../../shared/debuggerExpressionErrors').DebuggerExpressionFailure;
     }
   | {
       type: 'watch-results';
       runId: string;
-      watchResults: Record<string, { value?: string; error?: string }>;
+      watchResults: Record<string, import('../../shared/debuggerExpressionErrors').DebuggerWatchResult>;
     }
   | { type: 'resumed'; runId: string }
   | { type: 'stdin-request'; runId: string; message: string; line?: number }

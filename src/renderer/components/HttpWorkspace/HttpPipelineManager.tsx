@@ -48,6 +48,9 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
   const shownRun = run && active && run.pipelineId === active.id ? run : null;
   // The runner holds the pipeline it started, so edits to it mid-run would not apply.
   const runningHere = shownRun?.phase === 'running';
+  // Stop acts on the run, so a pipeline picked while another runs names the one it would stop.
+  const runningElsewhere = isRunning && !runningHere ? (pipelines.find(pipeline => pipeline.id === run.pipelineId) ?? null) : null;
+  const runningElsewhereLabel = runningElsewhere ? t('httpWorkspace.pipeline.runningOther', { name: runningElsewhere.name }) : undefined;
   const summary = useMemo(
     () => (shownRun && active ? summarizePipelineRun(active, shownRun) : null),
     [shownRun, active]
@@ -171,6 +174,7 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
                 <button
                   type="button"
                   onClick={onStop}
+                  title={runningElsewhereLabel}
                   data-testid="http-pipeline-stop"
                   className="button-secondary pipeline-verb"
                 >
@@ -267,7 +271,16 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
                     : undefined
                 }
                 status={
-                  summary ? undefined : (
+                  summary ? undefined : runningElsewhere ? (
+                    <button
+                      type="button"
+                      onClick={() => store().setActiveHttpPipeline(runningElsewhere.id)}
+                      data-testid="http-pipeline-running-other"
+                      className="focus-ring min-w-0 truncate rounded-md text-body-sm text-fg-muted hover:text-fg-base"
+                    >
+                      {runningElsewhereLabel}
+                    </button>
+                  ) : isRunning ? null : (
                     <span className="text-body-sm text-fg-muted">
                       {t('httpWorkspace.pipeline.ready')}
                     </span>

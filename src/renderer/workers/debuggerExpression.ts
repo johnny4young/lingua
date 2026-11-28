@@ -8,6 +8,7 @@
  */
 
 import { parseExpressionAt, type Node } from 'acorn';
+import { debuggerExpressionError, expressionFailure, type DebuggerExpressionFailure } from '../../shared/debuggerExpressionErrors';
 
 export const MAX_DEBUGGER_EXPRESSION_LENGTH = 512;
 export const MAX_DEBUGGER_LOGPOINT_LENGTH = 1_024;
@@ -25,7 +26,7 @@ const FORBIDDEN_PROPERTIES = new Set(['__proto__', 'prototype', 'constructor']);
 type ExpressionRecord = Node & Record<string, unknown>;
 export type DebuggerScopeSnapshot = Record<string, unknown>;
 
-export type DebuggerEvaluationResult = { ok: true; value: unknown } | { ok: false; error: string };
+export type DebuggerEvaluationResult = { ok: true; value: unknown } | ({ ok: false } & DebuggerExpressionFailure);
 
 export type DebuggerLogpointResult = { ok: true; output: string } | { ok: false; error: string };
 
@@ -124,18 +125,18 @@ export function snapshotDebuggerScope(rawScope: Record<string, unknown>): Debugg
 
 function nodeRecord(value: unknown): ExpressionRecord {
   if (!value || typeof value !== 'object' || !('type' in value)) {
-    throw new Error('Invalid expression node');
+    throw debuggerExpressionError('invalid');
   }
   return value as ExpressionRecord;
 }
 
 function ownDataProperty(value: unknown, rawKey: unknown): unknown {
   if (value === null || value === undefined) {
-    throw new Error('Cannot inspect null or undefined');
+    throw debuggerExpressionError('nullish');
   }
   const key = typeof rawKey === 'symbol' ? rawKey : String(rawKey);
   if (typeof key === 'string' && FORBIDDEN_PROPERTIES.has(key)) {
-    throw new Error('Prototype access is not allowed');
+    throw debuggerExpressionError('prototype');
   }
   if (typeof value === 'string') {
     if (key === 'length') return value.length;
@@ -154,14 +155,14 @@ function primitiveNumber(value: unknown): number {
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (value === null) return 0;
   if (typeof value === 'string') return Number(value);
-  throw new Error('A primitive number is required');
+  throw debuggerExpressionError('number');
 }
 
 function primitiveString(value: unknown): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (typeof value === 'object' || typeof value === 'function') {
-    throw new Error('A primitive value is required');
+    throw debuggerExpressionError('primitive');
   }
   return String(value);
 }
@@ -194,7 +195,7 @@ function evaluateNode(
 ): unknown {
   budget.steps += 1;
   if (budget.steps > MAX_EXPRESSION_STEPS || depth > MAX_AST_DEPTH) {
-    throw new Error('Expression budget exceeded');
+    throw debuggerExpressionError('budget');
   }
   const node = nodeRecord(rawNode);
 
@@ -207,7 +208,7 @@ function evaluateNode(
       if (name === 'undefined') return undefined;
       if (name === 'NaN') return Number.NaN;
       if (name === 'Infinity') return Number.POSITIVE_INFINITY;
-      throw new Error(`Unknown identifier: ${name}`);
+      throw debuggerExpressionError('identifier', name);
     }
     case 'ArrayExpression': {
       const elements = Array.isArray(node.elements) ? node.elements : [];
@@ -221,7 +222,7 @@ function evaluateNode(
       for (const rawProperty of properties) {
         const property = nodeRecord(rawProperty);
         if (property.type !== 'Property' || property.kind !== 'init' || property.method === true) {
-          throw new Error('Object methods and spread are not allowed');
+          throw debuggerExpressionError('objectMethods');
         }
         const keyNode = nodeRecord(property.key);
         const key =
@@ -231,7 +232,7 @@ function evaluateNode(
               ? String(keyNode.name)
               : String(keyNode.value);
         if (FORBIDDEN_PROPERTIES.has(String(key))) {
-          throw new Error('Prototype access is not allowed');
+          throw debuggerExpressionError('prototype');
         }
         output[String(key)] = evaluateNode(property.value, scope, budget, depth + 1);
       }
@@ -246,7 +247,7 @@ function evaluateNode(
       if (operator === '~') return ~primitiveNumber(argument);
       if (operator === 'typeof') return typeof argument;
       if (operator === 'void') return undefined;
-      throw new Error(`Unsupported unary operator: ${operator}`);
+      throw debuggerExpressionError('operator', operator);
     }
     case 'BinaryExpression': {
       const operator = String(node.operator);
@@ -277,7 +278,7 @@ function evaluateNode(
           return comparePrimitives(left, right, '>=');
         case '==':
         case '!=':
-          throw new Error('Use strict equality (=== or !==)');
+          throw debuggerExpressionError('strictEquality');
         case '===':
           return left === right;
         case '!==':
@@ -295,7 +296,7 @@ function evaluateNode(
         case '>>>':
           return primitiveNumber(left) >>> primitiveNumber(right);
         default:
-          throw new Error(`Unsupported binary operator: ${operator}`);
+          throw debuggerExpressionError('operator', operator);
       }
     }
     case 'LogicalExpression': {
@@ -310,7 +311,7 @@ function evaluateNode(
       if (operator === '??') {
         return left ?? evaluateNode(node.right, scope, budget, depth + 1);
       }
-      throw new Error(`Unsupported logical operator: ${operator}`);
+      throw debuggerExpressionError('operator', operator);
     }
     case 'ConditionalExpression':
       return evaluateNode(node.test, scope, budget, depth + 1)
@@ -347,25 +348,32 @@ function evaluateNode(
       }
       return output;
     }
+    case 'CallExpression':
+    case 'NewExpression':
+    case 'TaggedTemplateExpression':
+      throw debuggerExpressionError('call');
+    case 'AssignmentExpression':
+    case 'UpdateExpression':
+      throw debuggerExpressionError('assignment');
     default:
-      throw new Error(`Unsupported syntax: ${node.type}`);
+      throw debuggerExpressionError('syntax', String(node.type));
   }
 }
 
 function parseDebuggerExpression(expression: string): Node {
   const trimmed = expression.trim();
-  if (!trimmed) throw new Error('Expression is empty');
+  if (!trimmed) throw debuggerExpressionError('empty');
   if (trimmed.length > MAX_DEBUGGER_EXPRESSION_LENGTH) {
-    throw new Error('Expression is too long');
+    throw debuggerExpressionError('tooLong');
   }
   let node: Node;
   try {
     node = parseExpressionAt(trimmed, 0, { ecmaVersion: 'latest' });
   } catch {
-    throw new Error('Invalid expression');
+    throw debuggerExpressionError('invalid');
   }
   if (trimmed.slice(node.end).trim().length > 0) {
-    throw new Error('Only one expression is allowed');
+    throw debuggerExpressionError('single');
   }
   return node;
 }
@@ -378,7 +386,7 @@ export function evaluateDebuggerExpression(
     const node = parseDebuggerExpression(expression);
     return { ok: true, value: evaluateNode(node, scope, { steps: 0 }, 0) };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Evaluation failed' };
+    return { ok: false, ...expressionFailure(error) };
   }
 }
 

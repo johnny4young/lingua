@@ -251,6 +251,22 @@ describe('HttpPipelineManager', () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
+    it('names the running pipeline beside Stop when another one is picked, and goes to it', async () => {
+      const user = userEvent.setup();
+      seedPipeline();
+      useWorkspaceToolStore.getState().setActiveHttpPipeline('p2');
+      renderManager({ pipelineId: 'p1', startedAt: NOW, phase: 'running', activeStepId: 's2', results: [failedRun.results[0]!] });
+      expect(screen.getByTestId('http-pipeline-stop')).not.toBeNull();
+      expect(screen.queryByText('Ready to run locally.')).toBeNull();
+      const running = screen.getByTestId('http-pipeline-running-other');
+      expect(running.textContent).toBe('deploy, then verify is running');
+      expect(screen.getByTestId('http-pipeline-stop').title).toBe('deploy, then verify is running');
+      await user.click(running);
+      expect(useWorkspaceToolStore.getState().activeHttpPipelineId).toBe('p1');
+      expect(screen.queryByTestId('http-pipeline-running-other')).toBeNull();
+      expect(steps()[1]!.dataset.status).toBe('running');
+    });
+
     it('marks the running step and keeps its order locked until the run settles', () => {
       seedPipeline();
       renderManager({ pipelineId: 'p1', startedAt: NOW, phase: 'running', activeStepId: 's2', results: [failedRun.results[0]!] });

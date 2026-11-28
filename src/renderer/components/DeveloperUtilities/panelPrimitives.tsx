@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useContext, useId, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -229,13 +229,25 @@ export function UtilityToolbar({
     }
   }, [detect, primary, secondary]);
 
-  // The button and Mod+Shift+A both record the run with what Cmd+Shift+C would copy at that moment.
+  // The button and Mod+Shift+A both record the run with what Cmd+Shift+C copies once the
+  // state run() set has committed: the microtask runs after the panel's effects re-register its output.
+  const appliedInput = useRef<string | null>(null);
+  const [applySeq, setApplySeq] = useState(0);
   const handleApply = useCallback(() => {
     if (!detect || !enabled) return;
     run();
-    const output = useUtilityOutputStore.getState().getProvider()?.() ?? '';
-    useUtilityHistoryStore.getState().pushEntry(utilityId, primary, output);
-  }, [detect, enabled, run, utilityId, primary]);
+    appliedInput.current = primary;
+    setApplySeq(seq => seq + 1);
+  }, [detect, enabled, run, primary]);
+  useEffect(() => {
+    const input = appliedInput.current;
+    if (input === null) return;
+    appliedInput.current = null;
+    queueMicrotask(() => {
+      const output = useUtilityOutputStore.getState().getProvider()?.() ?? '';
+      useUtilityHistoryStore.getState().pushEntry(utilityId, input, output);
+    });
+  }, [applySeq, utilityId]);
 
   // Stable handler the global Mod+Shift+A shortcut consults. Re-created
   // on every render so the captured `run` / `enabled` stay fresh — same

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
 import { pauseDepth } from '../utils/debuggerStack';
+import type { DebuggerExpressionFailure, DebuggerWatchResult } from '../../shared/debuggerExpressionErrors';
 import type { UnassignedBinding } from '../../shared/scopeSnapshot';
 
 /**
@@ -121,9 +122,9 @@ export interface PausedFrame {
    * OR `{ pending: true }` while the eval pass is not shipped —
    * a later change introduces predicate evaluation under a security review.
    */
-  watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
+  watchResults: Record<string, DebuggerWatchResult>;
   /** Invalid conditional expressions pause fail-safe and surface their reason. */
-  conditionError?: string;
+  conditionError?: DebuggerExpressionFailure;
 }
 
 /** Where and with which values a session last paused, so the next pause can show what changed. */

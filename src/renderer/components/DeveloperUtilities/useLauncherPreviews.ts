@@ -23,7 +23,7 @@ export function useLauncherPreviews(peek: ClipboardPeek | null): LauncherPreview
   const current = read && read.peek === peek ? read : null;
   // Only the JWT answer reads the clock, re-read for each token; the rest are read once per value.
   const claims = current?.claims ?? null;
-  const now = useToolClock(claims, claims !== null, claims ? claimTime(claims.payload.exp) : null);
+  const now = useToolClock(claims, claims !== null, [claims ? claimTime(claims.payload.exp) : null]);
 
   useEffect(() => {
     if (!peek) return;

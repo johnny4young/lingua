@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
+import { expressionErrorText } from './expressionErrorText';
 import {
   type DebuggerRuntime,
   MAX_WATCHES,
@@ -78,7 +79,7 @@ export function DebuggerWatchList({
                 {!pausedFrame ? (
                   <span className="debugger-muted">{t('debugger.watches.nextPause')}</span>
                 ) : result?.error ? (
-                  <span className="debugger-error">{t('debugger.watches.error', { message: result.error })}</span>
+                  <span className="debugger-error">{t('debugger.watches.error', { message: expressionErrorText(result, t) })}</span>
                 ) : result?.value !== undefined ? (
                   <AnswerObject text={result.value} role="value" language={language} compact hideTag />
                 ) : (
