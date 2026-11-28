@@ -13,6 +13,7 @@ export function fakeEditor(options: { lines?: string[]; contentWidth?: number } 
     getModel: () => ({
       getLineCount: () => lines.length,
       getLineMaxColumn: (line: number) => (lines[line - 1]?.length ?? 0) + 1,
+      getLineFirstNonWhitespaceColumn: (line: number) => (/\S/u.exec(lines[line - 1] ?? '')?.index ?? -1) + 1,
       getOptions: () => ({ tabSize: 2 }),
     }),
     getDomNode: () => node,

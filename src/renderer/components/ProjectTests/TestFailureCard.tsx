@@ -13,6 +13,7 @@ import { monacoLanguageFor } from '../../utils/languageMeta';
 import { useLineWidget } from '../Editor/useLineWidget';
 import { LanguageSquare } from '../Start/StartParts';
 import { lineEnd } from '../Editor/answerColumnGeometry';
+import { answerLinesOf, onAnswerLinesChange } from '../Editor/answerLines';
 import { answerColumn } from './answerColumn';
 import { useColorizedLines, type ColorToken } from './colorizedLines';
 import { explainTestFailureText, type CodeChange } from './codeUnderTestChange';
@@ -49,7 +50,7 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
     return element;
   });
   const [height, setHeight] = useState(84);
-  const [box, setBox] = useState({ left: 0, width: CARD_MAX, reserve: true });
+  const [box, setBox] = useState({ left: 0, width: CARD_MAX, reserve: true, offset: 0 });
   const line = entry.failureLine!;
   const changeLanguage = change ? (languageFromPath(change.file) ?? PLAINTEXT_LANGUAGE) : PLAINTEXT_LANGUAGE;
   const colored = useColorizedLines(
@@ -83,13 +84,18 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
       const charWidth = editor.getOption(monaco.editor.EditorOption.fontInfo).typicalHalfwidthCharacterWidth;
       const model = editor.getModel();
       const last = model ? Math.min(model.getLineCount(), line + Math.ceil(height / lineHeight)) : line;
+      const code = answerLinesOf(editor, 'code');
+      // Rows answers already take under the line come before the card.
+      const offset = (code.below.get(line) ?? 0) + (answerLinesOf(editor, 'tests').below.get(line) ?? 0);
       let reserve = false;
       for (let next = line + 1; model && next <= last && !reserve; next += 1) {
         const end = lineEnd(editor, next) ?? model.getLineMaxColumn(next) * charWidth;
-        reserve = end + 16 > left || answeredLines.includes(next);
+        reserve = end + 16 > left || answeredLines.includes(next) || code.beside.has(next);
       }
       setBox(current =>
-        current.left === left && current.width === width && current.reserve === reserve ? current : { left, width, reserve }
+        current.left === left && current.width === width && current.reserve === reserve && current.offset === offset
+          ? current
+          : { left, width, reserve, offset }
       );
     };
     fit();
@@ -106,6 +112,8 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
       editor.onDidScrollChange(event => {
         if (event.scrollLeftChanged) schedule();
       }),
+      { dispose: onAnswerLinesChange(editor, 'code', schedule) },
+      { dispose: onAnswerLinesChange(editor, 'tests', schedule) },
     ];
     return () => {
       cancelAnimationFrame(frame);
@@ -159,7 +167,7 @@ export function TestFailureCard({ editor, monaco, entry, change, tabId, answered
     // Padded to the answer column so the card lines up with the answers above it.
     <div
       className="box-border py-1.5"
-      style={{ paddingLeft: box.left, width: box.left + box.width }}
+      style={{ paddingLeft: box.left, width: box.left + box.width, marginTop: box.offset }}
     >
       <div
         role="group"

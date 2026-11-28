@@ -5,7 +5,6 @@ import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useLiveRunStore } from '../../stores/liveRunStore';
 import { useResultStore } from '../../stores/resultStore';
-import { useRunRegionStore } from '../../stores/runRegionStore';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { TimelineStep } from '../../../shared/timeline';
@@ -57,6 +56,7 @@ export function PulseRailHost({
       failed: state.error !== null,
       errorLine: state.error?.line ?? null,
       ranTab: state.ranCode?.tabId ?? null,
+      span: state.ranCode?.span,
       running: state.isAutoRunning || state.isManualRunning,
       succeeded: state.runTermination?.kind === 'success',
     }))
@@ -66,7 +66,6 @@ export function PulseRailHost({
   const timelineOpen = useUIStore(state => state.consoleVisible && state.activeBottomPanel === 'timeline');
   const pausedLine = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.line : null));
   const pausedReached = useDebuggerStore(state => (state.pausedFrame?.tabId === tabId ? state.pausedFrame.reachedLines : undefined));
-  const region = useRunRegionStore(state => (state.last?.tabId === tabId ? state.last.region : null));
   const lastRun = useExecutionHistoryStore(
     useShallow(state => ({ id: state.entries.at(-1)?.id ?? null, tabId: state.entries.at(-1)?.tabId ?? null }))
   );
@@ -114,9 +113,9 @@ export function PulseRailHost({
       complete,
       frontier: railFrontier(pausedLine, step, ownsResults ? results.errorLine : null),
       finished: ownsResults && !results.running && results.succeeded && !results.failed,
-      ...(region ? { span: { start: region.startLine, end: region.endLine } } : {}),
+      ...(ownsResults && results.span ? { span: results.span } : {}),
     };
-  }, [tabId, results, recording, timelineOpen, current, pausedLine, pausedReached, region]);
+  }, [tabId, results, recording, timelineOpen, current, pausedLine, pausedReached]);
 
   // Rebuilt when the run or its frontier changes, never on edits: Monaco carries the marks with the text.
   const rail = useMemo(

@@ -107,6 +107,16 @@ describe('PulseRailHost', () => {
     });
   });
 
+  it('marks only the region a region run was given, from its first published results', () => {
+    const model = new FakeModel(source);
+    render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);
+    publishRun([4], { ranCode: { tabId: 't1', code: source.join('\n'), input: '', at: 0, span: { start: 3, end: 4 } } });
+    expect(model.rail()).toEqual({
+      3: 'lingua-rail lingua-rail--reached',
+      4: 'lingua-rail lingua-rail--answered',
+    });
+  });
+
   it('crosses the line that threw and dots the code below it', () => {
     const model = new FakeModel(source);
     render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);

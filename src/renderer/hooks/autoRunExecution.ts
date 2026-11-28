@@ -25,6 +25,7 @@ import { currentEffectiveTier } from './useEntitlement';
 import { trackBrowserPreviewAutoRefreshOnce } from './browserPreviewRefreshTelemetry';
 import type { TelemetryTrack } from './useTelemetry';
 import { reportLiveRun } from '../stores/liveRunStore';
+import { dropRunStateWithItsTab } from '../stores/dropRunStateWithItsTab';
 
 interface ExecuteAutoRunOptions {
   input: AutoRunInput;
@@ -44,6 +45,7 @@ export async function executeAutoRun({
   finish,
   track,
 }: ExecuteAutoRunOptions): Promise<void> {
+  dropRunStateWithItsTab();
   const {
     clear,
     setLineResults,

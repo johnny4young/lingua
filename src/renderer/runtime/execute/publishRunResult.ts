@@ -169,6 +169,8 @@ export function publishRunStart(
       code: activeTab.content,
       input: runInputKey(activeTab.stdinBuffer, activeTab.inputArgs),
       at: Date.now(),
+      // Published before the results, so the rail never reads a region run as the whole file.
+      ...(plan.region ? { span: { start: plan.region.startLine, end: plan.region.endLine } } : {}),
     });
   }
   setIsAutoRunning(false);

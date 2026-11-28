@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 import type * as monacoTypes from 'monaco-editor';
 import { useResultStore, type LineResult } from '../../stores/resultStore';
 import { useLiveRunStore } from '../../stores/liveRunStore';
-import { useEditorStore } from '../../stores/editorStore';
 import { lineAnswerDelta, type AnswerDelta } from '../Answer/answerDelta';
 import type { LineTimingEntry } from '../../types/execution';
 import { AnswerColumnHeader } from './AnswerColumnHeader';
@@ -23,27 +22,13 @@ import {
 import { walkTopLevelLines } from '../../utils/magicComments/jsLexer';
 import { createInlineResultNode } from './inlineResultWidgetDom';
 import { LiveLineAnswers } from './LiveLineAnswers';
+import { addSpacerZone, answerLinesOf, onAnswerLinesChange, publishAnswerLines } from './answerLines';
+import { dropRunStateWithItsTab } from '../../stores/dropRunStateWithItsTab';
 import { enclosingLoop, loopTotalsKey, type EnclosingLoop } from './liveLineModel';
 import './inlineAnswers.css';
 
 const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
 const NO_TIMINGS: readonly LineTimingEntry[] = [];
-
-let watchingTabs = false;
-
-/** Answers go with their tab; watched from here so the startup bundle does not carry it. */
-function dropAnswersWithTheirTab(): void {
-  if (watchingTabs) return;
-  watchingTabs = true;
-  useEditorStore.subscribe(state => {
-    const kept = useResultStore.getState().tabAnswers;
-    const closed = Object.keys(kept).filter(tabId => !state.tabs.some(tab => tab.id === tabId));
-    if (closed.length === 0) return;
-    const next = { ...kept };
-    for (const tabId of closed) delete next[tabId];
-    useResultStore.setState({ tabAnswers: next });
-  });
-}
 
 export interface InlineResultWidgetsProps {
   readonly editor: monacoTypes.editor.IStandaloneCodeEditor | null;
@@ -93,7 +78,7 @@ export function InlineResultWidgets({
   const [header, setHeader] = useState(false);
   const showHeader = answering || (running && header);
   if (showHeader !== header) setHeader(showHeader);
-  useEffect(dropAnswersWithTheirTab, []);
+  useEffect(dropRunStateWithItsTab, []);
   const answers = useResultStore(state => (tabId ? state.tabAnswers[tabId] : undefined));
   const showChanges = useResultStore(state => state.showRunChanges);
   // A region run or a restored snapshot is not the run the previous one is compared with.
@@ -371,6 +356,7 @@ function useInlineResultWidgets(
       const cacheKey = `${model.id}\u0000${model.getLanguageId()}\u0000${model.getVersionId()}`;
       if (lineCacheRef.current.key !== cacheKey) lineCacheRef.current = { key: cacheKey, ends: new Map(), indents: new Map() };
       const cache = lineCacheRef.current;
+      const tests = answerLinesOf(editor, 'tests');
       // The statement starting on a line, cut short when another answer sits inside it.
       const spanEnd = (line: number) => {
         let end = cache.ends.get(line);
@@ -469,7 +455,8 @@ function useInlineResultWidgets(
           // Two pixels may overhang into the next line's leading.
           const needed = Math.ceil((height - 2) / lineHeight) - 1;
           for (let next = widget.line + 1; free < needed && next <= model.getLineCount(); next += 1) {
-            if (widgetsRef.current.has(next)) break;
+            // A test answer beside a line, or on a row under the one before it, takes that space.
+            if (widgetsRef.current.has(next) || tests.beside.has(next) || tests.below.has(next - 1)) break;
             // An unrendered line cannot be measured; counting it free keeps the row steady while scrolling.
             if (!isVisible(next)) {
               free += 1;
@@ -526,18 +513,7 @@ function useInlineResultWidgets(
           for (const { widget, height, anchor } of changes) {
             if (widget.zone) accessor.removeZone(widget.zone.id);
             widget.zone = undefined;
-            if (height > 0) {
-              const spacer = document.createElement('div');
-              spacer.setAttribute('aria-hidden', 'true');
-              const delegate = {
-                afterLineNumber: anchor,
-                heightInPx: height,
-                domNode: spacer,
-                suppressMouseDown: true,
-              };
-              const id = accessor.addZone(delegate);
-              widget.zone = { id, height, line: anchor, delegate };
-            }
+            if (height > 0) widget.zone = { ...addSpacerZone(accessor, anchor, height), height, line: anchor };
           }
         });
       }
@@ -553,6 +529,12 @@ function useInlineResultWidgets(
             : editor.getTopForLineNumber(widget.line);
         widget.domNode.style.top = `${top - scrollTop}px`;
       }
+      const placed = [...widgetsRef.current.values()];
+      publishAnswerLines(editor, 'code', {
+        // A code answer's own line stays taken when it moves below, so a test answer there never moves back and forth with it.
+        beside: new Set(placed.flatMap(widget => Array.from({ length: widget.below ? 1 : widget.zoneOffset + 1 }, (_, at) => widget.line + at))),
+        below: new Map(placed.flatMap(widget => (widget.zone ? [[widget.zone.line, widget.zone.height] as const] : []))),
+      });
     } finally {
       repositioningRef.current = false;
     }
@@ -563,6 +545,7 @@ function useInlineResultWidgets(
   // Coalesce every entry point after that event transaction, and never let an
   // old editor/widget generation measure or mutate its replacement.
   const scheduleReposition = useCallback(() => {
+    if (editor && widgetsRef.current.size === 0) publishAnswerLines(editor, 'code');
     if (
       !editor ||
       repositioningRef.current ||
@@ -664,10 +647,12 @@ function useInlineResultWidgets(
         schedule();
       })
     );
+    disposables.push({ dispose: onAnswerLinesChange(editor, 'tests', schedule) });
     return () => {
       active = false;
       cancelMeasurement();
       for (const d of disposables) d.dispose();
+      publishAnswerLines(editor, 'code');
     };
   }, [editor, scheduleReposition, cancelMeasurement, removeOverlay]);
 

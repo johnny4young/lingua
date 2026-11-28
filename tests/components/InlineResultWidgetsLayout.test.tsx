@@ -2,6 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as monacoTypes from 'monaco-editor';
 import { InlineResultWidgets } from '@/components/Editor/InlineResultWidgets';
+import { answerLinesOf, publishAnswerLines } from '@/components/Editor/answerLines';
 import { useResultStore } from '@/stores/resultStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useLiveRunStore } from '@/stores/liveRunStore';
@@ -252,6 +253,19 @@ describe('inline results line up in the answer column', () => {
     flushFrames();
     // Line 2 is rendered and free; lines 3 and 4 are past the viewport and count as free too.
     expect(h.zones.size).toBe(0);
+  });
+
+  it('does not spread a tall answer over a line a test answer takes, and publishes the lines it took', () => {
+    tall(70);
+    const h = harness();
+    publishAnswerLines(h.editor, 'tests', { beside: new Set([2]), below: new Map() });
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    // Line 2 is the test answer's, so the code answer reserves 50 px right after its own line.
+    expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 1, heightInPx: 50 }]);
+    expect([...answerLinesOf(h.editor, 'code').beside]).toEqual([1]);
+    expect([...answerLinesOf(h.editor, 'code').below]).toEqual([[1, 50]]);
+    publishAnswerLines(h.editor, 'tests');
   });
 
   it('does not spread a tall answer over a line that has its own answer', () => {
@@ -615,6 +629,20 @@ describe('answers span their statement, fall back under narrow editors and never
     h.editLines({ startLineNumber: 3, endLineNumber: 3, startColumn: 1 }, '\n', 1);
     h.fire('content');
     expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 5 }]);
+  });
+
+  it('keeps its own line taken when a test row under it moves a tall answer below its statement', () => {
+    tall(70);
+    const h = harness();
+    h.setLineCount(5);
+    h.setLines({ 1: 'console.table([', 2: '  { a: 1 },', 3: '  { a: 2 },', 4: '])', 5: 'next' });
+    publishAnswerLines(h.editor, 'tests', { beside: new Set(), below: new Map([[1, 24]]) });
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: 'table' }]} editor={h.editor} />);
+    flushFrames();
+    expect(document.querySelector('.lingua-inline-result')!.hasAttribute('data-below')).toBe(true);
+    // The test answer reads line 1 as taken and stays below, so the two never trade places.
+    expect(answerLinesOf(h.editor, 'code').beside.has(1)).toBe(true);
+    publishAnswerLines(h.editor, 'tests');
   });
 
   it('keeps a tall answer beside its statement when every line leaves room', () => {

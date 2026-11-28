@@ -36,6 +36,9 @@ import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
 const RESIZE_TARGET_MINIMUM_SIZE = { coarse: 24, fine: 24 } as const;
+// The saved layout is kept per panel set, with and without the sidebar.
+const SHELL_PANELS = ['sidebar-panel', 'content-panel'];
+const SHELL_CONTENT_ONLY = ['content-panel'];
 
 function getFocusableElements(container: HTMLElement) {
   return Array.from(
@@ -466,11 +469,6 @@ export function AppLayout({
   const shellUnderlayRef = useRef<HTMLDivElement | null>(null);
   const statusBarRef = useRef<HTMLDivElement | null>(null);
   const wasCompactDrawerOpenRef = useRef(false);
-  const shellLayout = useDefaultLayout({
-    id: 'lingua-shell-layout',
-    panelIds: ['sidebar-panel', 'content-panel'],
-    storage: localStorage,
-  });
   const { dockShown, dockExpanded } = useDockShell();
   const commandBarDocked = useUIStore(state => state.commandBarDocked);
   // Presenter mode hides the persistent chrome at render
@@ -480,6 +478,11 @@ export function AppLayout({
   const showPersistentSidebar = sidebarVisible && !isCompactShell && !presenterActive;
   const isCompactDrawerOpen = sidebarVisible && isCompactShell && !presenterActive;
   const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
+  const shellLayout = useDefaultLayout({
+    id: 'lingua-shell-layout',
+    panelIds: showPersistentSidebar ? SHELL_PANELS : SHELL_CONTENT_ONLY,
+    storage: localStorage,
+  });
 
   useEffect(() => {
     const shellUnderlay = shellUnderlayRef.current;
@@ -643,15 +646,15 @@ export function AppLayout({
             />
           </>
         )}
-        {showPersistentSidebar ? (
-          <Group
-            orientation="horizontal"
-            defaultLayout={shellLayout.defaultLayout}
-            onLayoutChanged={shellLayout.onLayoutChanged}
-            resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-            className="min-h-0 flex-1"
-          >
-            {/* Sidebar */}
+        {/* One tree with or without the sidebar, so hiding it or crossing the compact width never remounts the workspace. */}
+        <Group
+          orientation="horizontal"
+          defaultLayout={shellLayout.defaultLayout}
+          onLayoutChanged={shellLayout.onLayoutChanged}
+          resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
+          className="min-h-0 flex-1"
+        >
+          {showPersistentSidebar ? (
             <Panel
               id="sidebar-panel"
               defaultSize={280}
@@ -661,20 +664,9 @@ export function AppLayout({
             >
               <SidebarPanel panelRef={persistentSidebarRef} onNavigate={handleExplorerNavigate} />
             </Panel>
-            <ResizeHandle orientation="vertical" />
-            {/* Main area */}
-            <Panel id="content-panel" minSize={360}>
-              <div className="h-full min-w-0 overflow-hidden bg-bg-panel">
-                <MainContent
-                  dockShown={dockShown}
-                  dockExpanded={dockExpanded}
-                  layoutPreset={layoutPreset}
-                />
-              </div>
-            </Panel>
-          </Group>
-        ) : (
-          <div className="min-h-0 flex-1">
+          ) : null}
+          {showPersistentSidebar ? <ResizeHandle orientation="vertical" /> : null}
+          <Panel id="content-panel" minSize={360}>
             <div className="h-full min-w-0 overflow-hidden bg-bg-panel">
               <MainContent
                 dockShown={dockShown}
@@ -682,8 +674,8 @@ export function AppLayout({
                 layoutPreset={layoutPreset}
               />
             </div>
-          </div>
-        )}
+          </Panel>
+        </Group>
       </div>
       {/* Notices stay reachable over the compact drawer; the status bar does not. */}
       <StatusNoticeBanner />

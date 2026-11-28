@@ -1,5 +1,6 @@
 import { useTimelineStore } from '../stores/timelineStore';
 import { useRunRegionStore } from '../stores/runRegionStore';
+import { dropRunStateWithItsTab } from '../stores/dropRunStateWithItsTab';
 import { runRegionSource, type RunRegion } from '../utils/runRegions';
 import { beginManualRun } from './manualRunSession';
 import { runnerManager } from '../runners';
@@ -53,6 +54,7 @@ export async function executeTabManually(
   activeTab: FileTab,
   lifecycle: ManualExecutionLifecycle = {}
 ): Promise<ManualExecutionSummary> {
+  dropRunStateWithItsTab();
   const session = lifecycle.session ?? beginManualRun(activeTab, lifecycle.debug);
   if (!session || !session.isCurrent()) return cancelledSummary();
   const guardedLifecycle: ManualExecutionLifecycle = {

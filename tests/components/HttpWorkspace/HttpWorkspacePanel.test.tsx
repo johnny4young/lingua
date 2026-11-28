@@ -232,6 +232,22 @@ describe('HttpWorkspacePanel', () => {
     expect(screen.getByTestId('http-workspace-body').dataset.layout).toBe('columns');
   });
 
+  it.each([
+    [1800, 'columns', 'horizontal', 'horizontal'],
+    [900, 'stacked', 'horizontal', 'vertical'],
+    [600, 'narrow', 'vertical', 'vertical'],
+    [375, 'narrow', 'vertical', 'vertical'],
+  ])('at %i px lays the workspace out as %s', (width, layout, sidebarAxis, mainAxis) => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 800 } as DOMRect);
+    render(<HttpWorkspacePanel />);
+    const [sidebar, main] = screen.getAllByTestId('http-workspace-layout');
+    expect(screen.getByTestId('http-workspace-body').dataset.layout).toBe(layout);
+    expect(sidebar?.dataset.orientation).toBe(sidebarAxis);
+    expect(main?.dataset.orientation).toBe(mainAxis);
+    expect(screen.getByTestId('http-request-list').className).toContain(layout === 'narrow' ? 'border-b' : 'border-r');
+    vi.restoreAllMocks();
+  });
+
   it('sends the current editor draft even before the debounce settles', async () => {
     const user = userEvent.setup();
     render(<HttpWorkspacePanel />);

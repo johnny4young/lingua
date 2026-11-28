@@ -27,6 +27,8 @@ export interface HttpRequestListProps {
   pipelineCount?: number;
   /** Between the requests and Import, e.g. the active request's history. */
   footer?: ReactNode;
+  /** The side the list meets the editor on: beside it, or above it in a narrow workspace. */
+  edge?: 'right' | 'bottom';
 }
 
 export function HttpRequestList({
@@ -40,6 +42,7 @@ export function HttpRequestList({
   onOpenPipelines,
   pipelineCount = 0,
   footer,
+  edge = 'right',
 }: HttpRequestListProps) {
   const { t } = useTranslation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -64,7 +67,7 @@ export function HttpRequestList({
   return (
     <div
       data-testid="http-request-list"
-      className="flex h-full flex-col overflow-hidden border-r border-border-subtle bg-bg-panel"
+      className={cn('flex h-full flex-col overflow-hidden border-border-subtle bg-bg-panel', edge === 'bottom' ? 'border-b' : 'border-r')}
     >
       <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2.5">
         <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">

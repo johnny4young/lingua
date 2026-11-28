@@ -102,12 +102,13 @@ and carries auto-log, capsule export and share. Tabs that do not fit move into
 More (`Layout/useDockRowFit.ts`, `Layout/DockTabsMore.tsx`), least picked first
 (`Layout/dockTabUse.ts`). On a dock at least
 `DOCK_SPLIT_MIN_WIDTH` wide, Tests and Terminal share the body side by side
-(`isDockSplit`); while Tests is on screen the left column is the Tests meter
+(`isDockSplit`); narrower, the one not picked stays mounted but hidden, so
+crossing that width never remounts either. While Tests is on screen the left column is the Tests meter
 (`ProjectTests/TestsMeter.tsx`, runs from `projectTestStore.runs`) and the tab
 row adds its filter and Run all tests (`ProjectTests/TestsDockControls.tsx`).
 Otherwise a code tab adds the run meter
 (`RunMeter/RunMeter.tsx`) at the dock's left: state, elapsed time, the tab's
-session runs from `resultStore.tabRuns`, Recent runs, execution history and
+session runs from `resultStore.tabRuns` (dropped when the tab closes), Recent runs, execution history and
 Compare. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
 output surface reopens from one place. Compare is a dock tab, not a per-tab flag:
 `utils/compareDock.ts` opens and closes it for the shortcut and the palette.
@@ -368,7 +369,10 @@ presentation:
   the column, and a zone after the last free line for what a tall answer cannot
   spread over. A tall answer that cannot stand beside its whole multi-line
   statement moves under the statement's last line, and narrow editors put every
-  answer under its line at the code's indent. It also portals the column header
+  answer under its line at the code's indent. Code answers and test answers
+  (`ProjectTests/answerColumn.ts`) publish the lines they take through
+  `Editor/answerLines.ts`, so neither spreads over the other's lines and a test
+  answer on a line a code answer takes moves under it, after the code's row. It also portals the column header
   (`AnswerColumnHeader.tsx`) into a slot above the editor. Each line's answers
   portal in through `InlineAnswerLine.tsx`.
   Failed chunk delivery reports localized reload guidance instead of silently
@@ -855,6 +859,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [sessionRestore.ts](stores/sessionRestore.ts) | restore translation from saved tabs to editor tabs, loaded on the first restore |
 | [holdVisibleResults.ts](stores/holdVisibleResults.ts) | starts a run with the previous run's answers kept on screen (`resultStore.keptAnswers`), out of the startup bundle; the editor overlay keeps them on the lines the run has not answered |
 | [liveRunStore.ts](stores/liveRunStore.ts) | session-only: the latest live-line snapshot of each tab's run in flight (line, time on it, loop passes), dropped when the run settles |
+| [dropRunStateWithItsTab.ts](stores/dropRunStateWithItsTab.ts) | drops a tab's answers (`resultStore.tabAnswers`) and run log (`resultStore.tabRuns`) when the tab closes; started by the lazy run and answer modules, out of the startup bundle |
 | [tabLastAnswer.ts](stores/tabLastAnswer.ts), [lastAnswerSelectors.ts](stores/lastAnswerSelectors.ts) | writes each run's answer summary onto its tab (`utils/lastAnswer.ts`, loaded on the first run) and reads it for Start and the palette |
 | [settingsStore.ts](stores/settingsStore.ts) | sanitized persisted preferences, theme/keymap packs, consent and onboarding flags — thin `create(persist(...))` assembly point that composes the focused settings\* modules below |
 | settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsPolicySanitizer.ts](stores/settingsPolicySanitizer.ts) (network and run policy), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |

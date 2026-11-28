@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 
 type Editor = monacoTypes.editor.IStandaloneCodeEditor;
+type LinePlacement = 'below' | 'line-end';
 
 export interface LineWidget {
   widget: monacoTypes.editor.IContentWidget;
@@ -16,7 +17,8 @@ export function createLineWidget(
   monaco: typeof monacoTypes,
   line: number,
   node: HTMLElement,
-  options: { id: string; placement: 'below' | 'line-end' }
+  /** A function placement is read each time Monaco lays the widget out. */
+  options: { id: string; placement: LinePlacement | (() => LinePlacement) }
 ): LineWidget {
   const tracker = editor.createDecorationsCollection([{ range: new monaco.Range(line, 1, line, 1), options: {} }]);
   const currentLine = () => tracker.getRange(0)?.startLineNumber ?? line;
@@ -25,7 +27,8 @@ export function createLineWidget(
     getDomNode: () => node,
     getPosition: () => {
       const current = currentLine();
-      return options.placement === 'below'
+      const placement = typeof options.placement === 'function' ? options.placement() : options.placement;
+      return placement === 'below'
         ? { position: { lineNumber: current, column: 1 }, preference: [monaco.editor.ContentWidgetPositionPreference.BELOW] }
         : {
             position: { lineNumber: current, column: editor.getModel()?.getLineMaxColumn(current) ?? 1 },
@@ -54,7 +57,7 @@ export function useLineWidget(
   monaco: typeof monacoTypes | null,
   line: number | null,
   node: HTMLElement,
-  options: { id: string; placement: 'below' | 'line-end' }
+  options: { id: string; placement: LinePlacement }
 ): void {
   const { id, placement } = options;
   useEffect(() => {

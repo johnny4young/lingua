@@ -180,6 +180,8 @@ interface RanCode {
   code: string;
   input: string;
   at: number;
+  /** The lines a region run was given; a run of the whole file has none. */
+  span?: { start: number; end: number };
 }
 
 /** Stdin and argv as one comparable key. */
