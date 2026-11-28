@@ -172,7 +172,10 @@ export function UtilityPipelineResults({
                     <span className="pipeline-step-time utility-step-time" data-testid="utility-pipeline-result-time">
                       {formatWholeDuration(result.durationMs)}
                     </span>
-                  ) : null}
+                  ) : (
+                    // Holds the time's place, so a row that did not run keeps its tag in the same column.
+                    <span aria-hidden className="pipeline-step-time utility-step-time" />
+                  )}
                   {hasOutput ? (
                     <button
                       type="button"

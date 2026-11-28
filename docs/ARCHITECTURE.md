@@ -2208,8 +2208,9 @@ breakpoints up to that step removed, for that run only, rather than resuming, si
 run owns a worker. `sendOutputToNewPipeline` and the results' Send set the transient
 `pendingRunPipelineId`, which the panel runs once that pipeline is on screen. A pipeline
 made from a tool also stores `sourceToolId`, the tool's catalog id and never data, also
-additive to version 1 (a lowercase id survives a parse, export and import); editing the
-input drops it. The Send cards rank adapters by the output's shape and preview each by
+additive to version 1 (a lowercase id survives a parse, export and import, but not a
+reload, since the input it names does not persist); writing the input drops it, and the
+label shows only over a non-empty input. The Send cards rank adapters by the output's shape and preview each by
 running the same shared adapter on the output in the renderer (`sendTargets.ts`), in
 memory only and only up to the launcher's preview size cap.
 

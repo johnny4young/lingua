@@ -60,7 +60,7 @@ export function SendOutputCards({ output, onSend, testId, ready = true, exclude 
   const targets = useSendTargets(output, exclude);
   const { open, setOpen, triggerRef, menuRef, position, onMenuKeyDown, closeToTrigger } = usePortalMenu();
   const shown = new Set(targets.map((target) => target.utilityId));
-  const rest = UTILITY_ADAPTER_IDS.filter((id) => !shown.has(id));
+  const rest = UTILITY_ADAPTER_IDS.filter((id) => !shown.has(id) && id !== exclude);
   const heading = t('utilityPipeline.send.heading');
   const more = t('utilityPipeline.send.more', { count: rest.length });
 
@@ -95,22 +95,20 @@ export function SendOutputCards({ output, onSend, testId, ready = true, exclude 
             </button>
           );
         })}
-        {targets.length > 0 ? (
-          <button
-            ref={triggerRef}
-            type="button"
-            disabled={!ready}
-            onClick={() => setOpen((value) => !value)}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-label={more}
-            title={more}
-            data-testid={`${testId}-more`}
-            className="send-card send-card-more focus-ring"
-          >
-            +{rest.length}
-          </button>
-        ) : null}
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={!ready}
+          onClick={() => setOpen((value) => !value)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={more}
+          title={more}
+          data-testid={`${testId}-more`}
+          className="send-card send-card-more focus-ring"
+        >
+          +{rest.length}
+        </button>
       </div>
       {open
         ? createPortal(

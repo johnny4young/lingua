@@ -186,6 +186,8 @@ describe('step controls and sends', () => {
     expect(stored).toContain('jwt-decode');
     expect(stored).not.toContain('tok-SECRET');
     expect(stored).not.toContain('pendingRunPipelineId');
+    // The input does not survive a reload, so neither does the tool it came from.
+    expect(stored).not.toContain('sourceToolId');
     store().setPipelineInput(pipeline.id, 'edited');
     expect(store().pipelines[0]!.sourceToolId).toBeUndefined();
   });

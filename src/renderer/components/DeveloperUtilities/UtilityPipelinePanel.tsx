@@ -364,7 +364,8 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     [activePipeline, execute]
   );
 
-  const sourceTool = DEVELOPER_UTILITY_CATALOG.find((tool) => tool.id === activePipeline?.sourceToolId);
+  // An imported recipe can name a source but arrives without the input it describes.
+  const sourceTool = activeInput ? DEVELOPER_UTILITY_CATALOG.find((tool) => tool.id === activePipeline?.sourceToolId) : undefined;
 
   // While a breakpoint holds the run, the bar's verb resumes it.
   const heldAt = heldStepId(runState);

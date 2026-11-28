@@ -23,6 +23,10 @@
     .send-cards-row {
       grid-template-columns: repeat(3, minmax(0, 1fr)) 66px;
     }
+
+    .send-card-more {
+      grid-column: -2 / -1;
+    }
   }
 
   .send-card {

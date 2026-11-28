@@ -502,7 +502,9 @@ describe('UtilityPipelinePanel, step controls', () => {
     more.focus();
     await user.keyboard('{Enter}');
     const options = await screen.findAllByTestId('utility-pipeline-send-option');
-    expect(cards.length + options.length).toBe(UTILITY_ADAPTER_IDS.length);
+    // Every adapter but url-encode, which made the output.
+    expect(cards.length + options.length).toBe(UTILITY_ADAPTER_IDS.length - 1);
+    expect(options.map((option) => option.dataset.utilityId)).not.toContain('url-encode');
     expect(more.textContent).toBe(`+${options.length}`);
     await waitFor(() => expect(document.activeElement).toBe(options[0]));
     await user.keyboard('{ArrowDown}');
@@ -566,6 +568,13 @@ describe('UtilityPipelinePanel, step controls', () => {
     const times = screen.getAllByTestId('utility-pipeline-result-time');
     expect(times).toHaveLength(1);
     expect(times[0]!.textContent).toMatch(/^(<1|\d+) ms$/);
+  });
+
+  it('names no source over an empty input, as an imported recipe arrives', () => {
+    seed([['url-encode']], '');
+    useUtilityPipelineStore.getState().updatePipeline('p1', { sourceToolId: 'jwt' });
+    render(<UtilityPipelinePanel />);
+    expect(screen.queryByTestId('utility-pipeline-input-source')).toBeNull();
   });
 
   it('names the tool its input came from until the input is edited', async () => {

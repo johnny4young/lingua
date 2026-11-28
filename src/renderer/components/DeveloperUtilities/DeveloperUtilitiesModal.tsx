@@ -390,7 +390,8 @@ function DeveloperUtilitiesWorkspaceBody({
           active={active}
         />
         {activeSelectedUtilityId !== 'utility-pipelines' ? (
-          <ToolSendCards ready={outputReady} onSend={handleSendOutput} />
+          // Keyed by tool: the last tool's cards never stay clickable while the next one's are read.
+          <ToolSendCards key={activeSelectedUtilityId} ready={outputReady} onSend={handleSendOutput} />
         ) : null}
       </div>
     </main>
