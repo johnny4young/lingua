@@ -246,6 +246,35 @@ describe('DebuggerDrawer', () => {
     expect(within(watch).getByTestId('answer-was').textContent).toBe('was 41');
   });
 
+  it('reads a rejected watch and a failed condition in the UI language, and other errors as they came', async () => {
+    useDebuggerStore.getState().addWatch('arr.includes(pivot)');
+    useDebuggerStore.getState().addWatch('missing');
+    useDebuggerStore.getState().addWatch('native');
+    useDebuggerStore.setState({ session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 } });
+    useDebuggerStore.getState().setPausedFrame({
+      tabId: 'tab-1',
+      line: 3,
+      reason: 'user-breakpoint',
+      locals: {},
+      callStack: [],
+      conditionError: { error: 'Use strict equality (=== or !==)', errorCode: 'strictEquality' },
+      watchResults: {
+        'arr.includes(pivot)': { error: 'Function calls are not allowed', errorCode: 'call' },
+        missing: { error: 'Unknown identifier: missing', errorCode: 'identifier', errorDetail: 'missing' },
+        native: { error: "NameError: name 'x' is not defined", errorCode: 'bogus' as never },
+      },
+    });
+    const { unmount } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    const errors = () => Array.from(screen.getByTestId('debugger-watches').querySelectorAll('.debugger-error')).map(node => node.textContent);
+    expect(errors()).toEqual(['Error: Function calls are not allowed', 'Error: Unknown identifier: missing', "Error: NameError: name 'x' is not defined"]);
+
+    await act(() => i18next.changeLanguage('es'));
+    unmount();
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    expect(errors()).toEqual(['Error: No se permiten llamadas a funciones', 'Error: Identificador desconocido: missing', "Error: NameError: name 'x' is not defined"]);
+    expect(screen.getByTestId('debugger-condition-error').textContent).toContain('Usa igualdad estricta (=== o !==)');
+  });
+
   it('keeps Python breakpoints pause-only and discloses native watch evaluation', async () => {
     const user = userEvent.setup();
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
@@ -366,7 +395,7 @@ describe('DebuggerDrawer', () => {
         locals: {},
         callStack: [],
         watchResults: {},
-        conditionError: 'Unknown identifier: missing',
+        conditionError: { error: 'Unknown identifier: missing', errorCode: 'identifier', errorDetail: 'missing' },
       },
     });
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);

@@ -31,7 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, FileUp } from 'lucide-react';
 import { useCapsuleImport } from '../../hooks/useCapsuleImport';
-import { takePendingCapsuleImport } from '../../clipboard/pendingCapsuleImport';
+import { takePendingCapsuleImport, type PendingCapsuleImport } from '../../clipboard/pendingCapsuleImport';
 import { useUIStore } from '../../stores/uiStore';
 import { useImportedCapsuleStore } from '../../stores/importedCapsuleStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -85,23 +85,23 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   const autoDetectedRef = useRef(false);
   // When the overlay was opened by a smart-paste capsule
   // import, decode the stashed JSON on mount so the preview opens pre-filled.
-  // Takes precedence over the clipboard auto-detect below (seed wins) and is
-  // one-shot (the holder clears itself).
-  const seededRef = useRef(false);
+  // Takes precedence over the clipboard auto-detect below (seed wins). The seed
+  // is held until its decode runs, so a StrictMode remount that cancels the
+  // first timer decodes it on the second pass.
+  const seedRef = useRef<PendingCapsuleImport | null | undefined>(undefined);
   useEffect(() => {
-    if (seededRef.current) return;
-    seededRef.current = true;
-    const pending = takePendingCapsuleImport();
+    if (seedRef.current === undefined) seedRef.current = takePendingCapsuleImport();
+    const pending = seedRef.current;
     if (!pending) return;
     autoDetectedRef.current = true; // don't let clipboard auto-detect clobber it
-    if ('file' in pending) {
-      void decodeFromFile(pending.file, 'drag-drop');
-      return;
-    }
-    const seed = pending.text;
     const timer = window.setTimeout(() => {
-      setPasteValue(seed);
-      decodeFromText(seed, 'paste');
+      seedRef.current = null;
+      if ('file' in pending) {
+        void decodeFromFile(pending.file, 'drag-drop');
+        return;
+      }
+      setPasteValue(pending.text);
+      decodeFromText(pending.text, 'paste');
     }, 0);
     return () => window.clearTimeout(timer);
   }, [decodeFromFile, decodeFromText]);

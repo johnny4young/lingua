@@ -1,6 +1,7 @@
 import { createJsWorkerTimeline, watchJsWorkerConsoleForTimeline } from './js-worker-timeline';
 import { createJsWorkerLive } from './js-worker-live';
 import { LIVE_RUN_PROTOCOL_VERSION } from '../../shared/liveRun';
+import type { DebuggerExpressionFailure, DebuggerWatchResult } from '../../shared/debuggerExpressionErrors';
 import type { ScopeVariable } from '../../shared/scopeSnapshot';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
 import {
@@ -40,13 +41,13 @@ function evaluateWatchExpressions(
   watches: readonly string[],
   scope: DebuggerScopeSnapshot,
   marker: string
-): Record<string, { value?: string; error?: string }> {
-  const results: Record<string, { value?: string; error?: string }> = {};
+): Record<string, DebuggerWatchResult> {
+  const results: Record<string, DebuggerWatchResult> = {};
   for (const expression of watches) {
     const result = evaluateDebuggerExpression(expression, scope);
     results[expression] = result.ok
       ? { value: serializeJsWorkerValues([result.value], marker)[0] ?? 'undefined' }
-      : { error: result.error };
+      : { error: result.error, errorCode: result.errorCode, errorDetail: result.errorDetail };
   }
   return results;
 }
@@ -265,7 +266,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             const scope = snapshotDebuggerScope(localsRaw);
 
             let shouldPauseForBreakpoint = breakpoint?.mode === 'pause';
-            let conditionError: string | undefined;
+            let conditionError: DebuggerExpressionFailure | undefined;
             if (breakpoint?.mode === 'conditional') {
               const condition = evaluateDebuggerExpression(breakpoint.condition ?? '', scope);
               if (condition.ok) {
@@ -274,7 +275,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
                 // Fail safe: an invalid predicate must never silently skip a
                 // breakpoint. Pause and explain the configuration error.
                 shouldPauseForBreakpoint = true;
-                conditionError = condition.error;
+                conditionError = { error: condition.error, errorCode: condition.errorCode, errorDetail: condition.errorDetail };
               }
             }
             if (breakpoint?.mode === 'logpoint') {

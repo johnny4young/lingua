@@ -832,6 +832,11 @@ asynchronous syntax fail closed. This separation is intentional even though
 the containing worker already executes user code: debugger input must not gain
 ambient authority or side effects merely because it arrives during a pause.
 
+Each rejection carries a code from `shared/debuggerExpressionErrors.ts` beside
+its English text (`errorCode`, `errorDetail` on watch results and the
+condition error). The renderer translates a known code and shows any other
+error, such as a native debugger's, as it came; logpoints print the English text.
+
 ### JS debugger pause frames
 
 The debug instrumenter puts `await __lingua_dbg_yield(line, locals, endLine?, unassigned?)`

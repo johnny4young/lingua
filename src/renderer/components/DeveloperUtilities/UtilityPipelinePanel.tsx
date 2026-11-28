@@ -320,11 +320,15 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     return () => clearTimeout(timer);
   }, [autoBake, isExecuting, activeSteps, activeInput, execute, resetRun]);
 
-  // A Send asks for one run once this pipeline is the one on screen.
+  // A Send asks for one run once this pipeline is the one on screen. Deferred, so a
+  // StrictMode remount, which aborts the run it started, cancels it with the request still pending.
   useEffect(() => {
     if (pendingRunPipelineId === null || pendingRunPipelineId !== activePipelineId || isExecuting) return;
-    useUtilityPipelineStore.getState().setPendingRunPipelineId(null);
-    void execute(true);
+    const timer = setTimeout(() => {
+      useUtilityPipelineStore.getState().setPendingRunPipelineId(null);
+      void execute(true);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [pendingRunPipelineId, activePipelineId, isExecuting, execute]);
 
   const handleToggleControl = useCallback(

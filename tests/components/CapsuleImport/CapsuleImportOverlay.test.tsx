@@ -4,6 +4,7 @@
  * cancel + confirm, and the HTTP capsule bridge.
  */
 
+import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CapsuleImportOverlay } from '../../../src/renderer/components/CapsuleImport';
@@ -109,6 +110,17 @@ describe('CapsuleImportOverlay', () => {
     cleanup();
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     expect(screen.getByTestId('capsule-import-empty')).toBeTruthy();
+  });
+
+  it('decodes a smart-paste seed under StrictMode, whose remount cancels the first decode', async () => {
+    setPendingCapsuleImportSource(MINIMAL_JSON);
+    render(
+      <StrictMode>
+        <CapsuleImportOverlay onClose={() => undefined} />
+      </StrictMode>
+    );
+    expect(await screen.findByTestId('capsule-import-preview')).toBeTruthy();
+    expect((screen.getByTestId('capsule-import-overlay-confirm') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('decodes a file dropped on the capsule list on mount, once', async () => {

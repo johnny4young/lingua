@@ -358,6 +358,8 @@ second custom splitter, and the editor keeps its full width while paused.
   expressions and per-pause results.
 - `src/renderer/workers/debuggerExpression.ts` — detached scope snapshots,
   allowlisted expression interpreter, and bounded logpoint templates.
+- `src/shared/debuggerExpressionErrors.ts` — the evaluator's rejection codes,
+  which `components/Debugger/expressionErrorText.ts` translates.
 - `src/renderer/workers/js-worker.ts` — stable worker entrypoint; protocol,
   execution, debugger state, and serialization live in focused sibling modules.
 - `src/renderer/runners/javascript.ts` + `typescript.ts` — debug-mode

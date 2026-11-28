@@ -16,6 +16,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
 import { useUtilityOutputStore } from '../../src/renderer/stores/utilityOutputStore';
+import { useUtilityHistoryStore } from '../../src/renderer/stores/utilityHistoryStore';
 import {
   UTILITY_PANEL_WARM_UP_TIMEOUT_MS,
   warmUpUtilityPanels,
@@ -48,6 +49,7 @@ beforeAll(
       'html-entity',
       'json',
       'json-csv',
+      'jwt',
       'random-string',
       'url',
       'yaml-json',
@@ -61,6 +63,7 @@ describe('UtilityToolbar Apply ', () => {
     await i18next.changeLanguage('en');
     useUtilityOutputStore.getState().clearProvider();
     useUtilityOutputStore.getState().clearApplyHandler();
+    useUtilityHistoryStore.getState().clearHistory();
   });
 
   it('JSON: Apply enabled with valid input, disabled after clearing', async () => {
@@ -147,6 +150,32 @@ describe('UtilityToolbar Apply ', () => {
     const header = within(screen.getByTestId('base64-result-header'));
     expect(header.getByTestId('result-header-numeral').textContent).toBe('6chars');
     expect(header.getByTestId('result-header-meta').textContent).toBe('from 8 chars');
+  });
+
+  it('Base64: the run Apply records holds the output of the mode it switched to', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    const textarea = screen.getAllByLabelText('Input')[0] as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'TGluZ3Vh' } });
+    await user.click(await screen.findByTestId('utility-apply-button'));
+
+    await waitFor(() => expect(useUtilityHistoryStore.getState().history.base64?.[0]?.output).toBe('Lingua'));
+    expect(useUtilityHistoryStore.getState().history.base64?.[0]?.input).toBe('TGluZ3Vh');
+  });
+
+  it('JWT: Apply from Verify records the decoded payload, not an empty run', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    await user.click(screen.getByTestId('jwt-mode-verify'));
+    await user.click(await screen.findByTestId('utility-apply-button'));
+
+    await waitFor(() => expect(screen.getByTestId('utility-history-answer').textContent).toBe('"lingua"'));
+    expect(JSON.parse(useUtilityHistoryStore.getState().history.jwt?.[0]?.output ?? '')).toEqual({ sub: 'lingua', role: 'dev' });
+    expect(screen.getByTestId('jwt-mode-decode').getAttribute('aria-pressed') ?? screen.getByTestId('jwt-mode-decode').getAttribute('aria-selected')).toBe('true');
   });
 
   it('URL: Apply auto-flips to decode and publishes the decoded output', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../i18n/debuggerCatalog';
+import { expressionErrorText } from './expressionErrorText';
 import { comparablePreviousPause, useDebuggerStore } from '../../stores/debuggerStore';
 import { dispatchDebuggerControl } from '../../runtime/debuggerControlBridge';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
@@ -89,7 +90,7 @@ export function DebuggerDrawer({ activeTabId, activeLanguage, compactDock = fals
     <section data-testid="debugger-drawer" data-paused={isPaused || undefined} className="debugger-drawer">
       {pausedFrame?.conditionError ? (
         <p className="debugger-condition-error" data-testid="debugger-condition-error">
-          {t('debugger.breakpoints.conditionError', { message: pausedFrame.conditionError })}
+          {t('debugger.breakpoints.conditionError', { message: expressionErrorText(pausedFrame.conditionError, t) })}
         </p>
       ) : null}
       <div className="debugger-columns">

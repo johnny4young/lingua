@@ -6,6 +6,7 @@
  * tests; this suite just verifies the wiring.
  */
 
+import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -602,6 +603,19 @@ describe('UtilityPipelinePanel, step controls', () => {
     seed([['url-encode']]);
     useUtilityPipelineStore.getState().setPendingRunPipelineId('p1');
     render(<UtilityPipelinePanel />);
+    await waitFor(() => expect(statuses()).toEqual(['ok']));
+    expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBeNull();
+    expect(mockTrackEvent.mock.calls.filter(([name]) => name === 'utility.pipeline_executed')).toHaveLength(1);
+  });
+
+  it('runs a sent pipeline once under StrictMode, whose remount aborts the first run', async () => {
+    seed([['url-encode']]);
+    useUtilityPipelineStore.getState().setPendingRunPipelineId('p1');
+    render(
+      <StrictMode>
+        <UtilityPipelinePanel />
+      </StrictMode>
+    );
     await waitFor(() => expect(statuses()).toEqual(['ok']));
     expect(useUtilityPipelineStore.getState().pendingRunPipelineId).toBeNull();
     expect(mockTrackEvent.mock.calls.filter(([name]) => name === 'utility.pipeline_executed')).toHaveLength(1);

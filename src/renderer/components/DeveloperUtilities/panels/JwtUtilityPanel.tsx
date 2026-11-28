@@ -47,7 +47,7 @@ export function JwtUtilityPanel() {
   // The header reads the token on screen: the input, or in Sign mode the token just signed.
   const token = mode === 'sign' ? signed ?? '' : input;
   const analysis = useMemo(() => decodeJwt(token), [token]);
-  const now = useToolClock(token, hasTimeClaim(analysis.payload), claimTime(analysis.payload?.exp));
+  const now = useToolClock(token, hasTimeClaim(analysis.payload), [claimTime(analysis.payload?.exp)]);
   const signatureState = resolveSignatureState(token, mode === 'sign' ? 'signed' : mode === 'verify' ? verifyState : 'unverified');
   const reading =
     analysis.header && analysis.payload ? jwtAnswer(analysis.header, analysis.payload, now, t, i18n.language) : null;

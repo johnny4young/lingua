@@ -8,12 +8,12 @@ const NEAR_MS = 60_000;
 
 /**
  * The clock a time answer reads against: again when the input changes, and every 30 s while the panel shows one,
- * every second while `target` is within a minute, where the answer reads in seconds.
+ * every second while a target is within a minute, where the answer reads in seconds.
  */
-export function useToolClock(input: unknown, timed: boolean, target: number | null = null): number {
+export function useToolClock(input: unknown, timed: boolean, targets: readonly (number | null)[] = []): number {
   const [near, setNear] = useState(false);
   const now = useNow(useUtilityPanelActive() && timed, Date.now, near ? NEAR_TICK_MS : CLOCK_TICK_MS, input);
-  const nextNear = target !== null && Math.abs(target - now) < NEAR_MS;
+  const nextNear = targets.some(at => at !== null && Math.abs(at - now) < NEAR_MS);
   if (nextNear !== near) setNear(nextNear);
   return now;
 }

@@ -44,6 +44,25 @@ describe('bounded debugger expressions', () => {
     expect(evaluateDebuggerExpression('count', scope)).toEqual({ ok: true, value: 4 });
   });
 
+  it('names each rejection with a code the renderer translates', () => {
+    const scope = snapshotDebuggerScope({ arr: [1, 2], pivot: 2 });
+    const read = (expression: string) => {
+      const result = evaluateDebuggerExpression(expression, scope);
+      return result.ok ? null : { code: result.errorCode, detail: result.errorDetail };
+    };
+
+    expect(read('arr.includes(pivot)')).toEqual({ code: 'call' });
+    expect(read('new Date()')).toEqual({ code: 'call' });
+    expect(read('pivot = 3')).toEqual({ code: 'assignment' });
+    expect(read('pivot++')).toEqual({ code: 'assignment' });
+    expect(read('missing')).toEqual({ code: 'identifier', detail: 'missing' });
+    expect(read('pivot in arr')).toEqual({ code: 'operator', detail: 'in' });
+    expect(read('() => 1')).toEqual({ code: 'syntax', detail: 'ArrowFunctionExpression' });
+    expect(read('pivot; arr')).toEqual({ code: 'single' });
+    expect(read('  ')).toEqual({ code: 'empty' });
+    expect(evaluateDebuggerExpression('arr.includes(pivot)', scope)).toMatchObject({ ok: false, error: 'Function calls are not allowed' });
+  });
+
   it('preserves primitive comparison semantics and rejects ambiguous loose equality', () => {
     const scope = snapshotDebuggerScope({ numericText: '10', lower: 'alpha', upper: 'beta' });
 
@@ -58,6 +77,7 @@ describe('bounded debugger expressions', () => {
     expect(evaluateDebuggerExpression('numericText == 10', scope)).toEqual({
       ok: false,
       error: 'Use strict equality (=== or !==)',
+      errorCode: 'strictEquality',
     });
   });
 

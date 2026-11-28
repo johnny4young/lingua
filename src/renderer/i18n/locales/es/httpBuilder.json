@@ -193,6 +193,7 @@
   "httpWorkspace.pipeline.moveDown": "Mover el paso hacia abajo",
   "httpWorkspace.pipeline.removeStep": "Eliminar el paso",
   "httpWorkspace.pipeline.ready": "Listo para ejecutar localmente.",
+  "httpWorkspace.pipeline.runningOther": "{{name}} se está ejecutando",
   "httpWorkspace.pipeline.run": "Ejecutar pipeline",
   "httpWorkspace.pipeline.stop": "Detener pipeline",
   "httpWorkspace.pipeline.phase.running": "Pipeline en ejecución…",
