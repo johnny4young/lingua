@@ -167,10 +167,14 @@ export function useAnswerColumnWidgets(
       }),
     ];
     const stopListening = onAnswerLinesChange(editor, 'code', schedule);
+    // A new result under the same key can change an answer's height, and the row under its line follows it.
+    const resized = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    for (const entry of placed) resized?.observe(entry.node);
     setNodes(new Map(placed.map(entry => [entry.key, entry.node])));
     return () => {
       cancelAnimationFrame(frame);
       stopListening();
+      resized?.disconnect();
       for (const listener of listeners) listener.dispose();
       for (const entry of placed) entry.dispose();
       const zones = placed.flatMap(entry => (entry.zone ? [entry.zone.id] : []));

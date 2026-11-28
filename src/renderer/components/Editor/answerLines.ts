@@ -3,7 +3,7 @@ import type * as monacoTypes from 'monaco-editor';
 type Editor = monacoTypes.editor.ICodeEditor;
 export type AnswerOwner = 'code' | 'tests';
 
-/** Where one owner's answers sit: beside lines in the column, and rows reserved under lines (height by line). */
+/** The lines one owner's answers take (a line answered, or one a tall answer spreads beside), and rows reserved under lines (height by line). */
 export interface AnswerLines {
   readonly beside: ReadonlySet<number>;
   readonly below: ReadonlyMap<number, number>;

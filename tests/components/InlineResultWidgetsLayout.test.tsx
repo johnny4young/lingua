@@ -631,6 +631,20 @@ describe('answers span their statement, fall back under narrow editors and never
     expect([...h.zones.values()]).toMatchObject([{ afterLineNumber: 5 }]);
   });
 
+  it('keeps its own line taken when a test row under it moves a tall answer below its statement', () => {
+    tall(70);
+    const h = harness();
+    h.setLineCount(5);
+    h.setLines({ 1: 'console.table([', 2: '  { a: 1 },', 3: '  { a: 2 },', 4: '])', 5: 'next' });
+    publishAnswerLines(h.editor, 'tests', { beside: new Set(), below: new Map([[1, 24]]) });
+    render(<InlineResultWidgets {...props} lineResults={[{ line: 1, type: 'log', value: 'table' }]} editor={h.editor} />);
+    flushFrames();
+    expect(document.querySelector('.lingua-inline-result')!.hasAttribute('data-below')).toBe(true);
+    // The test answer reads line 1 as taken and stays below, so the two never trade places.
+    expect(answerLinesOf(h.editor, 'code').beside.has(1)).toBe(true);
+    publishAnswerLines(h.editor, 'tests');
+  });
+
   it('keeps a tall answer beside its statement when every line leaves room', () => {
     tall(70);
     const h = harness();

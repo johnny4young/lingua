@@ -148,7 +148,7 @@ const RESIZE_TARGET = { coarse: 24, fine: 24 };
 const SIDEBAR_PANELS = ['http-request-list', 'http-request-main'];
 const SIDEBARS = {
   side: { layoutId: 'lingua-http-workspace-sidebar-layout', axis: 'horizontal', handle: 'vertical', listMin: 200, listMax: 360, mainMin: 320, layout: { 'http-request-list': 20, 'http-request-main': 80 } },
-  top: { layoutId: 'lingua-http-workspace-narrow-layout', axis: 'vertical', handle: 'horizontal', listMin: 96, listMax: '45%', mainMin: 300, layout: { 'http-request-list': 24, 'http-request-main': 76 } },
+  top: { layoutId: 'lingua-http-workspace-narrow-layout', axis: 'vertical', handle: 'horizontal', listMin: 96, listMax: '45%', mainMin: 344, layout: { 'http-request-list': 24, 'http-request-main': 76 } },
 } as const;
 const MAIN_PANELS = ['http-request-editor', 'http-response-preview'];
 const SPLITS = {

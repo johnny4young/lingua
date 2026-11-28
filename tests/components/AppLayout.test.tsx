@@ -501,6 +501,7 @@ describe('AppLayout responsive shell', () => {
 
     afterEach(() => {
       vi.restoreAllMocks();
+      vi.unstubAllGlobals();
       useProjectTestStore.setState({ rootId: null });
       dockPanel.resize.mockClear();
       localStorage.removeItem('lingua-ui:dock-resized');

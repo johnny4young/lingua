@@ -531,7 +531,8 @@ function useInlineResultWidgets(
       }
       const placed = [...widgetsRef.current.values()];
       publishAnswerLines(editor, 'code', {
-        beside: new Set(placed.filter(widget => !widget.below).flatMap(widget => Array.from({ length: widget.zoneOffset + 1 }, (_, at) => widget.line + at))),
+        // A code answer's own line stays taken when it moves below, so a test answer there never moves back and forth with it.
+        beside: new Set(placed.flatMap(widget => Array.from({ length: widget.below ? 1 : widget.zoneOffset + 1 }, (_, at) => widget.line + at))),
         below: new Map(placed.flatMap(widget => (widget.zone ? [[widget.zone.line, widget.zone.height] as const] : []))),
       });
     } finally {
