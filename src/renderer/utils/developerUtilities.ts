@@ -1,5 +1,6 @@
 import {
   parseColorToRgb,
+  rgbToHex,
   type HslColor,
   type RgbColor,
 } from './developerUtilityDetection';
@@ -650,13 +651,6 @@ export function applyRegexReplace(
   }
 }
 
-function rgbToHex({ r, g, b }: RgbColor): string {
-  const toHex = (component: number) =>
-    Math.max(0, Math.min(255, Math.round(component)))
-      .toString(16)
-      .padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;

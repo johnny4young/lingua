@@ -18,6 +18,7 @@ import {
   test,
   trackConsoleErrors,
   waitForSeededWorkspaceSettled,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -222,6 +223,7 @@ for (const language of ['en', 'es'] as const) {
       await countEvents(other, KEY);
 
       await openDeveloperUtilities(page);
+      await revealUtility(page, 'base64');
       await page.getByTestId('utility-favorite-toggle-base64').click();
       await expect(other.getByTestId('utility-favorite-base64')).toBeVisible();
       // Session-only history survives another tab's write and never reaches storage.

@@ -22,6 +22,7 @@ import {
   openDeveloperUtilities,
   seedSession,
   test,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -57,6 +58,7 @@ test.describe('Apply gesture smoke', () => {
   test('Base64: switching to the panel reveals the Apply toolbar', async ({ page }) => {
     await openDeveloperUtilities(page);
 
+    await revealUtility(page, 'base64');
     await page.getByTestId('utility-item-base64').click();
     await expect(page.getByRole('heading', { level: 2, name: 'Base64 Encoder' })).toBeVisible();
 
@@ -73,6 +75,7 @@ test.describe('Apply gesture smoke', () => {
 
   test('Random String: pure generator panel exposes no Apply button', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'random-string');
     await page.getByTestId('utility-item-random-string').click();
     await expect(
       page.getByRole('heading', { level: 2, name: 'Random String Generator' })
@@ -87,6 +90,7 @@ test.describe('Apply gesture smoke', () => {
 
   test('Lorem Ipsum: pure generator panel exposes no Apply button', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'lorem-ipsum');
     await page.getByTestId('utility-item-lorem-ipsum').click();
     await expect(
       page.getByRole('heading', { level: 2, name: 'Lorem Ipsum Generator' })
@@ -103,6 +107,7 @@ test.describe('Apply gesture smoke', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'uuid');
     await page.getByTestId('utility-item-uuid').click();
     await expect(page.getByRole('heading', { level: 2, name: 'UUID Generator' })).toBeVisible();
 
@@ -118,6 +123,7 @@ test.describe('Apply gesture smoke', () => {
 
   test('Diff: dual-input panel keeps Apply gated on both panes filled', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'diff');
     await page.getByTestId('utility-item-diff').click();
     await expect(page.getByRole('heading', { level: 2, name: 'Diff Viewer' })).toBeVisible();
 
@@ -230,6 +236,7 @@ test.describe('Apply gesture smoke', () => {
       'random-string',
       'lorem-ipsum',
     ]) {
+      await revealUtility(page, id);
       await page.getByTestId(`utility-item-${id}`).click();
     }
 

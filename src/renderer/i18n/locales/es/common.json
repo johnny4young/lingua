@@ -2099,7 +2099,6 @@
   "utilities.tooltip.applyUnavailable": "Escribe algo que esta herramienta reconozca para activar Aplicar",
   "utilities.actions.applyFromInput": "Aplicar desde la entrada",
   "utilities.favorites.label": "Favoritos",
-  "utilities.favorites.empty": "Fija herramientas para mantenerlas arriba.",
   "utilities.favorites.pin": "Fija {{toolName}} en favoritos",
   "utilities.favorites.unpin": "Quita {{toolName}} de favoritos",
   "utilities.favorites.reorder": "Arrastra {{toolName}} para reordenar favoritos",

@@ -1,4 +1,5 @@
 import { GripVertical, Star } from 'lucide-react';
+import { useId, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -12,47 +13,44 @@ import {
 import {
   SortableContext,
   arrayMove,
-  horizontalListSortingStrategy,
   sortableKeyboardCoordinates,
   useSortable,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useNow } from '../../hooks/useNow';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import {
   findDeveloperUtility,
   type DeveloperUtilityId,
 } from '../../data/developerUtilities';
+import { TypeTag } from '../ui/answer';
 import { cn } from '../../utils/cn';
+import { generatorPreview, isGenerator } from './launcherPreviews';
+import { UtilityLauncherRow } from './UtilityLauncherRow';
 
-/**
- * Pinned favorites row, rendered above the full
- * sidebar list. Hidden when the user has no favorites; otherwise the
- * row is sortable via @dnd-kit (mouse + keyboard accessible per
- * the a11y gate).
- *
- * Drag with the grip icon, release to drop. Keyboard users can focus
- * the grip and press ArrowLeft / ArrowRight to reorder; @dnd-kit still
- * owns pointer sorting and its default keyboard sensor.
- */
-export function FavoritesRow({
-  selectedUtilityId,
-  onSelect,
-}: {
+const REORDER_KEYS: Record<string, -1 | 1> = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 };
+
+interface FavoritesRowProps {
   selectedUtilityId: DeveloperUtilityId;
   onSelect: (id: DeveloperUtilityId) => void;
-}) {
+  onRowKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  /** Ticks generators' live values (Timestamp Converter shows now). */
+  live?: boolean;
+}
+
+/**
+ * Pinned favorites as launcher rows, hidden when nothing is pinned. Drag a
+ * row by its grip, or focus the grip and press the arrow keys to reorder.
+ */
+export function FavoritesRow({ selectedUtilityId, onSelect, onRowKeyDown, live = true }: FavoritesRowProps) {
   const { t } = useTranslation();
+  const labelId = useId();
   const favorites = useUtilityHistoryStore((state) => state.favorites);
-  const reorderFavorites = useUtilityHistoryStore(
-    (state) => state.reorderFavorites
-  );
+  const reorderFavorites = useUtilityHistoryStore((state) => state.reorderFavorites);
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 4 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   if (favorites.length === 0) return null;
@@ -75,144 +73,137 @@ export function FavoritesRow({
   };
 
   return (
-    <div
-      data-testid="utilities-favorites-row"
-      className="border-b border-border/80 bg-background/45 px-3 py-2"
-    >
-      <p className="mb-1.5 text-eyebrow uppercase tracking-[0.2em] text-muted">
-        {t('utilities.favorites.label')}
-      </p>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={favorites} strategy={horizontalListSortingStrategy}>
-          <ul
-            className="flex flex-wrap gap-1.5"
-            aria-label={t('utilities.favorites.label')}
-          >
+    <section data-testid="utilities-favorites-row" aria-labelledby={labelId}>
+      <div className="launcher-head">
+        <TypeTag>
+          <span id={labelId}>{t('utilities.favorites.label')}</span>
+        </TypeTag>
+      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={favorites} strategy={verticalListSortingStrategy}>
+          <ul aria-labelledby={labelId}>
             {favorites.map((id) => (
-              <FavoriteChip
+              <FavoriteItem
                 key={id}
                 id={id}
                 isSelected={id === selectedUtilityId}
                 onSelect={onSelect}
                 onMove={moveFavorite}
+                onRowKeyDown={onRowKeyDown}
+                live={live}
               />
             ))}
           </ul>
         </SortableContext>
       </DndContext>
-    </div>
+      <div aria-hidden className="launcher-rule" />
+    </section>
   );
 }
 
-function FavoriteChip({
+function FavoriteItem({
   id,
   isSelected,
   onSelect,
   onMove,
+  onRowKeyDown,
+  live,
 }: {
   id: DeveloperUtilityId;
   isSelected: boolean;
   onSelect: (id: DeveloperUtilityId) => void;
   onMove: (id: DeveloperUtilityId, delta: -1 | 1) => void;
+  onRowKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  live: boolean;
 }) {
   const { t } = useTranslation();
+  // Only a generator's own row ticks, and not while its panel is open.
+  const now = useNow(live && isGenerator(id) && !isSelected, Date.now, 1_000, isSelected);
   const definition = findDeveloperUtility(id);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-  };
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   return (
     <li
       ref={setNodeRef}
-      style={style}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 }}
       data-testid={`utility-favorite-${id}`}
       data-selected={isSelected || undefined}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-xl border bg-background/85',
-        isSelected
-          ? 'border-primary/60 bg-primary-soft text-primary'
-          : 'border-border/80 text-foreground hover:border-primary/40'
-      )}
     >
-      <button
-        type="button"
-        aria-label={t('utilities.favorites.reorder', { toolName: t(definition.titleKey) })}
-        className="cursor-grab rounded-l-[0.85rem] px-1.5 py-1 text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-        {...attributes}
-        {...listeners}
-        onKeyUp={(event) => {
-          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-          event.preventDefault();
-          event.stopPropagation();
-          onMove(id, event.key === 'ArrowLeft' ? -1 : 1);
-        }}
-      >
-        <GripVertical size={11} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        onClick={() => onSelect(id)}
-        className="px-1.5 py-1 text-caption font-medium"
-      >
-        {t(definition.titleKey)}
-      </button>
+      <UtilityLauncherRow
+        utilityId={id}
+        selected={isSelected}
+        testId={`utility-favorite-open-${id}`}
+        onSelect={onSelect}
+        onKeyDown={onRowKeyDown}
+        preview={generatorPreview(id, now)}
+        actions={
+          <>
+            <button
+              type="button"
+              aria-label={t('utilities.favorites.reorder', { toolName: t(definition.titleKey) })}
+              className="icon-button size-6 cursor-grab rounded-md"
+              {...attributes}
+              {...listeners}
+              onKeyDown={(event) => {
+                listeners?.onKeyDown?.(event);
+                // The move happens on keyup; the keydown must not scroll the list.
+                if (REORDER_KEYS[event.key]) event.preventDefault();
+              }}
+              onKeyUp={(event) => {
+                const delta = REORDER_KEYS[event.key];
+                // During a Space-started drag, dnd-kit moves the row itself.
+                if (!delta || isDragging) return;
+                event.preventDefault();
+                event.stopPropagation();
+                onMove(id, delta);
+              }}
+            >
+              <GripVertical size={12} aria-hidden />
+            </button>
+            <FavoriteToggleButton utilityId={id} testId={`utility-favorite-unpin-${id}`} />
+          </>
+        }
+      />
     </li>
   );
 }
 
-/** Shared pin/unpin button used by the sidebar utility rows. */
+/** Pin or unpin a tool; the launcher rows show it on hover or focus. */
 export function FavoriteToggleButton({
   utilityId,
+  testId = `utility-favorite-toggle-${utilityId}`,
 }: {
   utilityId: DeveloperUtilityId;
+  testId?: string;
 }) {
   const { t } = useTranslation();
-  const isFavorite = useUtilityHistoryStore((state) =>
-    state.favorites.includes(utilityId)
-  );
+  const isFavorite = useUtilityHistoryStore((state) => state.favorites.includes(utilityId));
   const pinFavorite = useUtilityHistoryStore((state) => state.pinFavorite);
   const unpinFavorite = useUtilityHistoryStore((state) => state.unpinFavorite);
 
   const definition = findDeveloperUtility(utilityId);
-  const labelKey = isFavorite
-    ? 'utilities.favorites.unpin'
-    : 'utilities.favorites.pin';
+  const label = t(isFavorite ? 'utilities.favorites.unpin' : 'utilities.favorites.pin', {
+    toolName: t(definition.titleKey),
+  });
 
   return (
     <button
       type="button"
-      data-testid={`utility-favorite-toggle-${utilityId}`}
+      data-testid={testId}
       data-pinned={isFavorite || undefined}
       onClick={(event) => {
         event.stopPropagation();
-        if (isFavorite) {
-          unpinFavorite(utilityId);
-        } else {
-          pinFavorite(utilityId);
-        }
+        if (isFavorite) unpinFavorite(utilityId);
+        else pinFavorite(utilityId);
       }}
-      aria-label={t(labelKey, { toolName: t(definition.titleKey) })}
-      title={t(labelKey, { toolName: t(definition.titleKey) })}
+      aria-label={label}
+      title={label}
       className={cn(
-        'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
-        isFavorite && 'text-warning'
+        'inline-flex size-6 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:text-warning-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+        isFavorite && 'text-warning-fg'
       )}
     >
-      <Star
-        size={12}
-        aria-hidden="true"
-        fill={isFavorite ? 'currentColor' : 'none'}
-        strokeWidth={isFavorite ? 0 : 2}
-      />
+      <Star size={12} aria-hidden fill={isFavorite ? 'currentColor' : 'none'} strokeWidth={isFavorite ? 0 : 2} />
     </button>
   );
 }

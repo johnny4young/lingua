@@ -101,13 +101,17 @@ describe('DeveloperUtilitiesModal', () => {
     ).toContain('sr-only');
     expect(screen.queryByText('Copy output')).toBeNull();
 
+    // The open tool's category starts open; the others are collapsed rows.
+    expect(screen.getByTestId('utility-category-crypto').getAttribute('aria-expanded')).toBe('true');
+    expect(screen.queryByTestId('utility-item-json')).toBeNull();
+    await user.click(screen.getByTestId('utility-category-data'));
     await user.click(screen.getByTestId('utility-item-json'));
 
     expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('json');
     expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
   });
 
-  it('opens a favorite utility even when it is outside the current search results', async () => {
+  it('lists favorites while browsing and ranked results while searching', async () => {
     const user = userEvent.setup();
     useUtilityHistoryStore.setState({
       favorites: ['jwt', 'timestamp'],
@@ -117,13 +121,54 @@ describe('DeveloperUtilitiesModal', () => {
     render(<DeveloperUtilitiesWorkspaceView />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
+    // A tool in Favorites keeps its category closed: the favorite row is its row.
+    expect(screen.getByTestId('utility-category-crypto').getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByTestId('utility-favorite-jwt').dataset.selected).toBe('true');
+    expect(screen.getByTestId('utility-preview-timestamp').textContent).toMatch(/^\d{10}$/u);
+
     await user.type(screen.getByTestId('utilities-search-input'), 'jwt');
+    expect(screen.queryByTestId('utilities-favorites-row')).toBeNull();
     expect(screen.queryByTestId('utility-item-timestamp')).toBeNull();
+    expect(screen.getByTestId('utility-item-jwt')).toBeTruthy();
 
-    await user.click(screen.getByText('Timestamp Converter'));
-
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByTestId('utility-favorite-open-timestamp'));
     expect(screen.getByRole('heading', { name: 'Timestamp Converter' })).toBeTruthy();
-    expect((screen.getByTestId('utilities-search-input') as HTMLInputElement).value).toBe('jwt');
+  });
+
+  it('opens the category of a selected favorite once it is unpinned', async () => {
+    const user = userEvent.setup();
+    useUtilityHistoryStore.setState({ favorites: ['hash'] });
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'hash' });
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+    expect(screen.getByTestId('utility-category-crypto').getAttribute('aria-expanded')).toBe('false');
+
+    await user.click(screen.getByTestId('utility-favorite-unpin-hash'));
+
+    expect(screen.getByTestId('utility-category-crypto').getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('utility-item-hash').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('counts each category and saved pipelines, and opens Pipelines from the footer', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    const counts = ['data', 'web', 'crypto', 'text', 'visual', 'time'].map(
+      category => screen.getByTestId(`utility-category-${category}`).textContent
+    );
+    expect(counts).toEqual(['Data7', 'Web6', 'Encoding & crypto5', 'Text8', 'Visual3', 'Time2']);
+    expect(screen.queryByTestId('utility-launcher-pipelines-count')).toBeNull();
+
+    await user.click(screen.getByTestId('utility-category-time'));
+    expect(screen.getByTestId('utility-item-cron-parser')).toBeTruthy();
+    await user.click(screen.getByTestId('utility-category-time'));
+    expect(screen.queryByTestId('utility-item-cron-parser')).toBeNull();
+
+    await user.click(screen.getByTestId('utility-launcher-pipelines'));
+    expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('utility-pipelines');
+    expect(screen.getByTestId('utility-launcher-pipelines').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('keeps utility draft inputs while navigating within an open Utilities workspace tab', async () => {
@@ -131,6 +176,7 @@ describe('DeveloperUtilitiesModal', () => {
     render(<DeveloperUtilitiesWorkspaceView />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
+    await user.click(screen.getByTestId('utility-category-crypto'));
     await user.click(screen.getByTestId('utility-item-base64'));
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const base64Panel = () => within(screen.getByTestId('utility-panel-cache-base64'));
@@ -231,6 +277,30 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByTestId('utility-rail')).toBeTruthy();
   });
 
+  it('lets the open list fill a narrow tab and shows the tool once one is picked', async () => {
+    const user = userEvent.setup();
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 375, height: 800, top: 0, left: 0, right: 375, bottom: 800, x: 0, y: 0, toJSON: () => ({}) });
+    try {
+      render(<DeveloperUtilitiesWorkspaceView />);
+      await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+      expect(screen.getByRole('heading', { name: 'JSON Formatter' }).closest('main')?.className).toContain('hidden');
+
+      await user.click(screen.getByTestId('utility-item-number-base'));
+      // The saved list preference is left alone; only this narrow tab shows the tool.
+      expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(true);
+      expect(screen.getByTestId('utility-rail')).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Number Base Converter' }).closest('main')?.className).not.toContain('hidden');
+
+      await user.click(screen.getByTestId('utility-rail-expand'));
+      expect(screen.getByTestId('utilities-search-input')).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Number Base Converter' }).closest('main')?.className).toContain('hidden');
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
   it('keeps the full card list in the modal', async () => {
     useUtilityWorkspaceStore.setState({ toolListOpen: false });
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
@@ -327,6 +397,7 @@ describe('DeveloperUtilitiesModal', () => {
     // Use the testid because the panel adds a sibling
     // FavoriteToggleButton whose aria-label also contains "Base64
     // Encoder" (e.g. "Pin Base64 Encoder to favorites").
+    await user.click(screen.getByTestId('utility-category-crypto'));
     await user.click(screen.getByTestId('utility-item-base64'));
     const base64Panel = within(screen.getByTestId('utility-panel-cache-base64'));
 

@@ -40,7 +40,7 @@ describe('FavoritesRow ', () => {
 
     render(<FavoritesRow selectedUtilityId="base64" onSelect={vi.fn()} />);
 
-    const chips = screen.getAllByTestId(/^utility-favorite-(?!toggle-).+/);
+    const chips = screen.getAllByTestId(/^utility-favorite-(?!toggle-|open-|unpin-).+/);
     expect(chips).toHaveLength(2);
     expect(chips[0]?.getAttribute('data-testid')).toBe('utility-favorite-json');
     expect(chips[1]?.getAttribute('data-testid')).toBe('utility-favorite-base64');
@@ -58,11 +58,42 @@ describe('FavoritesRow ', () => {
       name: 'Drag JSON Formatter to reorder favorites',
     });
     grip.focus();
-    await user.keyboard(' ');
     await user.keyboard('{ArrowRight}');
-    await user.keyboard(' ');
 
     expect(useUtilityHistoryStore.getState().favorites).toEqual(['base64', 'json']);
+  });
+
+  it('reorders down the list with ArrowDown on the grip', async () => {
+    const user = userEvent.setup();
+    useUtilityHistoryStore.getState().pinFavorite('json');
+    useUtilityHistoryStore.getState().pinFavorite('base64');
+    useUtilityHistoryStore.getState().pinFavorite('hash');
+
+    render(<FavoritesRow selectedUtilityId="json" onSelect={vi.fn()} />);
+
+    const grip = screen.getByRole('button', { name: 'Drag JSON Formatter to reorder favorites' });
+    // The keydown must not scroll the list; the move lands on keyup.
+    expect(fireEvent.keyDown(grip, { key: 'ArrowDown' })).toBe(false);
+    grip.focus();
+    await user.keyboard('{ArrowDown}');
+
+    expect(useUtilityHistoryStore.getState().favorites).toEqual(['base64', 'json', 'hash']);
+  });
+
+  it('opens a favorite from its row, unpins it, and shows the Timestamp Converter live value', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    useUtilityHistoryStore.getState().pinFavorite('timestamp');
+    useUtilityHistoryStore.getState().pinFavorite('json');
+
+    render(<FavoritesRow selectedUtilityId="json" onSelect={onSelect} />);
+
+    expect(Number(screen.getByTestId('utility-preview-timestamp').textContent)).toBeCloseTo(Date.now() / 1000, -1);
+    expect(screen.queryByTestId('utility-preview-json')).toBeNull();
+    await user.click(screen.getByTestId('utility-favorite-open-timestamp'));
+    expect(onSelect).toHaveBeenCalledWith('timestamp');
+    await user.click(screen.getByTestId('utility-favorite-unpin-json'));
+    expect(useUtilityHistoryStore.getState().favorites).toEqual(['timestamp']);
   });
 
   it('FavoriteToggleButton pins and unpins idempotently', () => {

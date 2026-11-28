@@ -9,6 +9,7 @@ import {
   openSettingsTab,
   seedSession,
   test,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test('Utilities drafts survive repeated layout changes', async ({ page }) => {
@@ -21,6 +22,7 @@ test('Utilities drafts survive repeated layout changes', async ({ page }) => {
     .getByTestId('utility-panel-cache-json')
     .getByRole('textbox', { name: en['utilities.field.input'], exact: true });
   await jsonInput.fill('{"qa":17}');
+  await revealUtility(page, 'diff');
   await page.getByTestId('utility-item-diff').click();
   const left = page
     .getByTestId('utility-panel-cache-diff')
@@ -35,6 +37,7 @@ test('Utilities drafts survive repeated layout changes', async ({ page }) => {
     await closeSettings(page);
     await expect(left).toHaveValue('original layout draft');
   }
+  await revealUtility(page, 'json');
   await page.getByTestId('utility-item-json').click();
   await expect(jsonInput).toHaveValue('{"qa":17}');
 });

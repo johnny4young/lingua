@@ -61,16 +61,28 @@ afterEach(() => {
 const focus = () => act(async () => void window.dispatchEvent(new Event('focus')));
 
 describe('useClipboardSuggestion', () => {
-  it('reads when it opens and reports only the kind', async () => {
+  it('reads when it opens and holds the text in memory only', async () => {
     const { result } = renderHook(() => useClipboardSuggestion(true));
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
+    expect(result.current?.text).toBe(JWT);
+    expect(result.current?.chars).toBe(JWT.length);
     expect(read).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(useSettingsStore.getState())).not.toContain(JWT);
+    expect(JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage })).not.toContain(JWT);
+  });
+
+  it('keeps the same value across focus reads of an unchanged clipboard', async () => {
+    const { result } = renderHook(() => useClipboardSuggestion(true));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
+    const first = result.current;
+    await focus();
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    expect(result.current).toBe(first);
   });
 
   it('reads again on window focus, and clears when nothing fits', async () => {
     const { result } = renderHook(() => useClipboardSuggestion(true));
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
     read.mockResolvedValue('const notAToken = 1;');
     await focus();
     await waitFor(() => expect(result.current).toBeNull());
@@ -79,7 +91,7 @@ describe('useClipboardSuggestion', () => {
 
   it('clears when the clipboard cannot be read', async () => {
     const { result } = renderHook(() => useClipboardSuggestion(true));
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
     read.mockResolvedValue(null);
     await focus();
     await waitFor(() => expect(result.current).toBeNull());
@@ -100,7 +112,7 @@ describe('useClipboardSuggestion', () => {
   it('may prompt when it becomes active, and never from a window focus', async () => {
     permission.mockResolvedValue({ state: 'prompt' });
     const { result } = renderHook(() => useClipboardSuggestion(true));
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
     read.mockClear();
     await focus();
     await waitFor(() => expect(result.current).toBeNull());
@@ -124,14 +136,14 @@ describe('useClipboardSuggestion', () => {
     permission.mockReturnValueOnce(new Promise((resolve) => (answerFirst = resolve)));
     const { result } = renderHook(() => useClipboardSuggestion(true));
     await focus();
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
     await act(async () => answerFirst({ state: 'granted' }));
     expect(read).toHaveBeenCalledTimes(1);
   });
 
   it('treats a value a detector cannot read as no suggestion', async () => {
     const { result } = renderHook(() => useClipboardSuggestion(true));
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
     read.mockResolvedValue({
       get length(): number {
         throw new Error('unreadable');
@@ -146,12 +158,12 @@ describe('useClipboardSuggestion', () => {
     await focus();
     expect(read).not.toHaveBeenCalled();
     rerender({ active: true });
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
   });
 
-  it('stops listening, and forgets the kind, when access goes away', async () => {
+  it('stops listening, and drops the text, when access goes away', async () => {
     const { result, rerender } = renderHook(({ active }) => useClipboardSuggestion(active), { initialProps: { active: true } });
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
     rerender({ active: false });
     expect(result.current).toBeNull();
     read.mockClear();
@@ -166,9 +178,9 @@ describe('useClipboardSuggestion', () => {
     const { result } = renderHook(() => useClipboardSuggestion(true));
     await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
     await focus();
-    await waitFor(() => expect(result.current).toBe('json'));
+    await waitFor(() => expect(result.current?.kind).toBe('json'));
     await act(async () => settleFirst(JWT));
-    expect(result.current).toBe('json');
+    expect(result.current?.kind).toBe('json');
   });
 
   it('ignores a read that settles after access went away', async () => {
@@ -184,7 +196,7 @@ describe('useClipboardSuggestion', () => {
 
   it('shows no old kind while it reads again on return', async () => {
     const { result, rerender } = renderHook(({ active }) => useClipboardSuggestion(active), { initialProps: { active: true } });
-    await waitFor(() => expect(result.current).toBe('jwt'));
+    await waitFor(() => expect(result.current?.kind).toBe('jwt'));
     rerender({ active: false });
     read.mockReturnValueOnce(new Promise(() => undefined));
     rerender({ active: true });

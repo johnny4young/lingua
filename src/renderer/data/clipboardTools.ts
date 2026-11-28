@@ -11,3 +11,12 @@ export const CLIPBOARD_TOOLS: Record<UtilitySuggestionId, readonly DeveloperUtil
   base64: ['base64'],
   json: ['json'],
 };
+
+/** Tools that take any text, after the kind's own tool. */
+const TEXT_TOOLS: readonly DeveloperUtilityId[] = ['hash', 'base64', 'string-inspector', 'url', 'qr-code'];
+
+/** The tools the launcher lists for a clipboard of this kind: its own tool first, then the text tools. */
+export function clipboardGroup(kind: UtilitySuggestionId): DeveloperUtilityId[] {
+  const [own, ...rest] = CLIPBOARD_TOOLS[kind];
+  return [...new Set([...(own ? [own] : []), ...TEXT_TOOLS, ...rest])];
+}

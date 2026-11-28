@@ -50,6 +50,22 @@ export function claimTime(value: unknown): number | null {
   return Math.abs(at) <= MAX_DATE_MS ? at : null;
 }
 
+const dateFormats = new Map<string, [day: Intl.DateTimeFormat, clock: Intl.DateTimeFormat]>();
+
+/** `Nov 11 · 12:02`: the day and the local clock, with no weekday. */
+export function dateText(at: number, locale: string): string {
+  let formats = dateFormats.get(locale);
+  if (!formats) {
+    formats = [
+      new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }),
+      new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
+    ];
+    dateFormats.set(locale, formats);
+  }
+  const date = new Date(at);
+  return `${formats[0].format(date)} · ${formats[1].format(date)}`;
+}
+
 export function hasTimeClaim(payload: Record<string, unknown> | null): boolean {
   return payload !== null && TIME_CLAIMS.some((claim) => claimTime(payload[claim]) !== null);
 }

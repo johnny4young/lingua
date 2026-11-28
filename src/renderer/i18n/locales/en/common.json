@@ -2075,7 +2075,6 @@
   "utilities.tooltip.applyUnavailable": "Type something this tool recognises to enable Apply",
   "utilities.actions.applyFromInput": "Apply from input",
   "utilities.favorites.label": "Favorites",
-  "utilities.favorites.empty": "Pin tools to keep them at the top.",
   "utilities.favorites.pin": "Pin {{toolName}} to favorites",
   "utilities.favorites.unpin": "Remove {{toolName}} from favorites",
   "utilities.favorites.reorder": "Drag {{toolName}} to reorder favorites",

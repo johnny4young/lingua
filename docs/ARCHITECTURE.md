@@ -2189,8 +2189,13 @@ placeholders the user fills in, and never receives a secret from the workspace.
 `useClipboardSuggestion` reads the clipboard when the Utilities tab becomes active and on
 window focus, with no polling, behind `DEV_UTILITIES` and
 `utilitiesClipboardOnFocusConsent`. It skips browsers whose Permissions API cannot report
-`clipboard-read`, where each read could prompt, and a read on focus never asks. It keeps only the result of `classifyClipboard`,
-so the text never reaches a store, the DOM, a log or telemetry.
+`clipboard-read`, where each read could prompt, and a read on focus never asks. A value
+`classifyClipboard` recognizes stays in that hook's component state with its kind, and
+the hook clears it when the tab deactivates or access goes away. `useLauncherPreviews`
+runs the shared adapters on it (`launcherPreviews.ts`; the QR version comes from a
+capacity table in `shared/utilities/qrCapacity.ts`, so the QR encoder never loads) and
+keeps the previews keyed to that same value, so they go with it. The text never
+reaches a store, persisted state, a log or telemetry, and no preview quotes it.
 
 ### Utility pipeline run controls
 

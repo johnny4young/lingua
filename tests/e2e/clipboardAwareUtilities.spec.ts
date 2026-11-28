@@ -1,6 +1,7 @@
 /**
- * Clipboard-aware utilities: Utilities classifies the clipboard when it
- * opens and on focus, marks the tools that fit and keeps nothing it read.
+ * Clipboard-aware utilities: Utilities reads the clipboard when it opens
+ * and on focus, lists the tools that take it with their answers, and
+ * stores nothing it read.
  */
 import type { Page } from '@playwright/test';
 import { NON_SECRET_TEST_JWT as JWT } from '../__fixtures__/jwt';
@@ -41,33 +42,35 @@ const focusWith = async (page: Page, text: string) => {
 };
 const reads = (page: Page) => page.evaluate(() => (window as unknown as { __reads: number }).__reads);
 
-for (const [language, jwtBanner, cronBanner] of [
-  ['en', 'Clipboard looks like a JWT', 'Clipboard looks like a cron expression'],
-  ['es', 'El portapapeles parece un JWT', 'El portapapeles parece una expresión cron'],
+for (const [language, heading, jwtKind, cronKind] of [
+  ['en', 'Your clipboard', `JWT · ${JWT.length} chars`, 'Cron · 11 chars'],
+  ['es', 'Tu portapapeles', `JWT · ${JWT.length} caracteres`, 'Cron · 11 caracteres'],
 ] as const) {
-  test(`marks the tools that fit the clipboard (${language})`, async ({ page }) => {
+  test(`lists the tools that take the clipboard with their answers (${language})`, async ({ page }) => {
     await open(page, language, { consent: 'granted', pro: true });
 
     await expand(page);
-    await expect(page.getByTestId('utility-clipboard-banner')).toHaveText(jwtBanner);
-    await expect(page.getByTestId('utility-suggested-jwt')).toBeVisible();
-    await expect(page.getByTestId('utility-suggested-base64')).toBeVisible();
-    await expect(page.getByTestId('utility-suggested-cron-parser')).toHaveCount(0);
+    const head = page.getByTestId('utility-launcher-clipboard-head');
+    await expect(head).toContainText(heading);
+    await expect(head).toContainText(jwtKind);
+    await expect(page.getByTestId('utility-clipboard-jwt')).toBeVisible();
+    await expect(page.getByTestId('utility-preview-hash')).toHaveText(/^[0-9a-f]{6}…[0-9a-f]{4}$/u);
+    await expect(page.getByTestId('utility-preview-qr-code')).toHaveText(/^v\d+ · M$/u);
 
     await focusWith(page, '0 9 * * 1-5');
-    await expect(page.getByTestId('utility-clipboard-banner')).toHaveText(cronBanner);
-    await expect(page.getByTestId('utility-suggested-cron-parser')).toBeVisible();
-    await expect(page.getByTestId('utility-suggested-jwt')).toHaveCount(0);
+    await expect(head).toContainText(cronKind);
+    await expect(page.getByTestId('utility-clipboard-cron-parser')).toBeVisible();
+    await expect(page.getByTestId('utility-clipboard-jwt')).toHaveCount(0);
 
     await focusWith(page, 'call me when the build is done');
-    await expect(page.getByTestId('utility-clipboard-banner')).toHaveCount(0);
-    await expect(page.getByTestId('utility-suggested-cron-parser')).toHaveCount(0);
+    await expect(page.getByTestId('utility-launcher-clipboard')).toHaveCount(0);
+    await expect(page.getByTestId('utility-launcher-clipboard-head')).toHaveCount(0);
   });
 }
 
 for (const [language, hint] of [
-  ['en', 'on window focus to suggest a tool'],
-  ['es', 'al enfocar la ventana para sugerir una herramienta'],
+  ['en', 'to show what each tool would answer'],
+  ['es', 'para mostrar qué respondería cada herramienta'],
 ] as const) {
   test(`says when the opt-in reads the clipboard (${language})`, async ({ page }) => {
     await seedSession(page, { language, primeProLicense: true });
@@ -90,7 +93,7 @@ test('marks the category on the folded rail', async ({ page }) => {
 test('keeps nothing it read from the clipboard', async ({ page }) => {
   await open(page, 'en', { consent: 'granted', pro: true });
   await expand(page);
-  await expect(page.getByTestId('utility-suggested-jwt')).toBeVisible();
+  await expect(page.getByTestId('utility-preview-hash')).toBeVisible();
   await page.waitForTimeout(1_500);
   const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }));
   expect(stored).not.toContain(JWT);
@@ -106,7 +109,7 @@ for (const [name, settings] of [
     await expand(page);
     await focusWith(page, JWT);
     await page.waitForTimeout(300);
-    await expect(page.getByTestId('utility-clipboard-banner')).toHaveCount(0);
+    await expect(page.getByTestId('utility-launcher-clipboard')).toHaveCount(0);
     await expect(page.getByTestId('utility-suggested-jwt')).toHaveCount(0);
     expect(await reads(page)).toBe(0);
   });

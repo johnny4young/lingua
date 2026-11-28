@@ -210,7 +210,7 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/Settings/UtilitiesSection.tsx'), 'utf8')).toContain("import '../../i18n/clipboardChainsCatalog'");
     expect(rendererI18n).not.toContain('locales/en/clipboardChains.json');
     expect(rendererI18n).toContain("import('./locales/es/clipboardChains.json')");
-    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/DeveloperUtilities/ClipboardBanner.tsx'), 'utf8')).toContain("import '../../i18n/clipboardChainsCatalog'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/DeveloperUtilities/UtilityLauncherList.tsx'), 'utf8')).toContain("import '../../i18n/clipboardChainsCatalog'");
   });
 
   it('keeps the pipeline export copy out of the English boot catalog', () => {
