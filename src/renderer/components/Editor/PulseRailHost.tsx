@@ -122,9 +122,12 @@ export function PulseRailHost({
   const rail = useMemo(() => {
     if (!model || !source || held) return [];
     const lines = model.getLinesContent();
-    const language = model.getLanguageId();
-    const statementEnd = (line: number) => statementEndLine(at => lines[at - 1] ?? '', line, lines.length, language);
-    return buildPulseRail({ ...source, lines, statementEnd });
+    // Brace languages would read a block's body as part of its header, such as an if that never entered.
+    const statementEnd =
+      model.getLanguageId() === 'python'
+        ? (line: number) => statementEndLine(at => lines[at - 1] ?? '', line, lines.length, 'python')
+        : undefined;
+    return buildPulseRail({ ...source, lines, ...(statementEnd ? { statementEnd } : {}) });
   }, [model, source, held]);
   useEffect(() => {
     if (!editor || !monaco || stale || held) return;

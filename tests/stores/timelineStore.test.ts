@@ -51,6 +51,16 @@ describe('timeline store', () => {
     expect(useTimelineStore.getState().current).toBe(5);
   });
 
+  it('keeps a recording in flight when another tab posts steps at the same time', () => {
+    const store = useTimelineStore.getState();
+    store.grow('t1', steps(3), 30);
+    store.grow('t2', steps(1), 10);
+    expect(useTimelineStore.getState().recording).toMatchObject({ tabId: 't1', total: 3 });
+    store.publish('t1', { steps: steps(4), truncated: false });
+    store.grow('t2', steps(1), 10);
+    expect(useTimelineStore.getState().recording).toMatchObject({ tabId: 't2', total: 1, live: true });
+  });
+
   it('keeps the last steps of a recording in flight on Free', () => {
     mockTier = 'free';
     useTimelineStore.getState().grow('t1', steps(15), 10);

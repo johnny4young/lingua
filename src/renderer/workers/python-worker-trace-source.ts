@@ -109,7 +109,7 @@ def __lingua_trace_guard(node):
 
 def __lingua_trace_read(source):
     # The statement that owns each line, as JS records a statement once however many lines it spans; the
-    # loop guard's lines; the body lines of every loop by its header; and the first line each module-level
+    # loop guard's lines; the body lines of every loop by its header; and the lines each module-level
     # name is bound on (names inside functions, classes and comprehensions stay theirs).
     ast = __lingua_trace_ast
     tree = ast.parse(source)
@@ -127,15 +127,17 @@ def __lingua_trace_read(source):
         if isinstance(node, (ast.For, ast.AsyncFor, ast.While)) and node.body:
             loops[node.lineno] = max(stmt.end_lineno or stmt.lineno for stmt in node.body)
     first = {}
+    binds = {}
     scoped = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
     pending = list(ast.iter_child_nodes(tree))
     while pending:
         node = pending.pop()
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and not node.id.startswith("__"):
             first[node.id] = min(first.get(node.id, node.lineno), node.lineno)
+            binds.setdefault(node.id, set()).add(owner.get(node.lineno, node.lineno))
         if not isinstance(node, scoped):
             pending.extend(ast.iter_child_nodes(node))
-    return tuple(sorted(first, key=lambda name: (first[name], name))), first, loops, owner, frozenset(guards)
+    return tuple(sorted(first, key=lambda name: (first[name], name))), binds, loops, owner, frozenset(guards)
 
 
 def __lingua_trace_traced(state, code):
@@ -166,16 +168,16 @@ def __lingua_trace_stop(state):
 def __lingua_trace_vars(state, code, frame, line):
     scope = frame.f_locals
     if code.co_name == "<module>":
-        # Globals outlive a run: a name shows once the line binding it ran, or once it holds another
+        # Globals outlive a run: a name shows once a line binding it ran, or once it holds another
         # object than when the run began (a global set in a function, an import), never the last run's value.
-        first = state["first"]
+        binds = state["binds"]
         baseline = state["baseline"]
-        done = state["done"]
-        state["done"] = max(done, line)
+        ran = state["ran"]
         names = [
-            name for name in (*state["module_names"], *(name for name in scope if name not in first and not name.startswith("__")))
-            if first.get(name, line + 1) <= done or baseline.get(name, baseline) is not scope.get(name, baseline)
+            name for name in (*state["module_names"], *(name for name in scope if name not in binds and not name.startswith("__")))
+            if (name in binds and not ran.isdisjoint(binds[name])) or baseline.get(name, baseline) is not scope.get(name, baseline)
         ]
+        ran.add(line)
     elif code.co_flags & 1:
         names = state["locals"].get(code)
         if names is None:
@@ -205,7 +207,8 @@ def __lingua_trace_line(code, line):
     entered = __lingua_trace_clock()
     try:
         top = __lingua_trace_sys._getframe(1)
-        if top.f_lasti in __lingua_trace_injected(state, code):
+        # A one-line program's expression shares line 1 with the template and gets no later LINE event.
+        if top.f_lasti in __lingua_trace_injected(state, code) and (line != 1 or id(top) in state["calls"]):
             return __lingua_trace_mon.DISABLE
         owner = state["owner"]
         line = owner.get(line, line)
@@ -295,7 +298,7 @@ def __lingua_trace_begin(source, namespace):
     tool = next((tool for tool in (4, 3) if mon.get_tool(tool) is None), None)
     if tool is None:
         return False
-    names, first, loops, owner, skip = __lingua_trace_read(source)
+    names, binds, loops, owner, skip = __lingua_trace_read(source)
     mon.use_tool_id(tool, "lingua-record")
     events = mon.events
     mon.register_callback(tool, events.LINE, __lingua_trace_line)
@@ -305,7 +308,7 @@ def __lingua_trace_begin(source, namespace):
     __lingua_trace_state = {
         "tool": tool, "start": now, "overhead": 0.0, "flushed": now, "steps": [], "sent": 0, "chars": 0,
         "truncated": False, "skip": skip, "traced": {}, "calls": {}, "next_call": 0, "previous": {},
-        "module_names": names, "first": first, "baseline": dict(namespace), "loops": loops, "owner": owner, "done": 0, "locals": {}, "injected": {},
+        "module_names": names, "binds": binds, "baseline": dict(namespace), "loops": loops, "owner": owner, "ran": set(), "locals": {}, "injected": {},
     }
     mon.set_events(tool, events.LINE | events.PY_RETURN | events.PY_UNWIND)
     return True
@@ -342,8 +345,10 @@ export async function startPythonTrace(
   runId: string,
   code: string
 ): Promise<((error: boolean) => void) | null> {
-  const runPython = py.runPython?.bind(py);
-  if (!runPython) return null;
+  // Its own filename keeps the recorder's calls out of the recording.
+  const run = py.runPython?.bind(py) as ((source: string, options?: { filename?: string }) => unknown) | undefined;
+  if (!run) return null;
+  const runPython = (source: string) => run(source, { filename: '<lingua-trace>' });
   py.globals.set('__lingua_post_trace', (json: string) => {
     const progress = JSON.parse(json) as { steps: unknown; ms: number };
     port.postMessage({ type: 'timeline-steps', runId, steps: progress.steps as ExecutionTimeline['steps'], ms: progress.ms });

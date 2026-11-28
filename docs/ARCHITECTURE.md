@@ -984,8 +984,8 @@ lines the runner adds and the instructions of Pyodide's final-expression
 `raise` template, which sit on line 1. A loop header records once, like JS,
 so a pass starts in the body. Frames come from walking the stack; a call
 number is kept per frame object and dropped when it returns or unwinds.
-Module variables come from the AST's first binding line and show only after
-that line ran, because Pyodide globals outlive a run. Previews read builtin
+Module variables come from the AST's binding lines and show only after one of
+those lines ran, because Pyodide globals outlive a run. Previews read builtin
 values only. The tracer never runs beside the live signal; recorded runs
 measured about 10 µs per step.
 `resultStore.tabAnswers` keeps each tab's last two published answers (memory

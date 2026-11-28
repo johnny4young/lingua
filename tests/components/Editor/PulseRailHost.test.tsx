@@ -218,6 +218,14 @@ describe('PulseRailHost', () => {
     });
   });
 
+  it('dots the body of a JS if that never entered', () => {
+    const model = new FakeModel(['const a = 1;', 'if (a > 5) {', '  console.log(a);', '}', 'const b = 2;', 'const c = 3;']);
+    const recording = { tabId: 't1', steps: [1, 2, 5].map(line => ({ line, frames: [], vars: [] })), total: 3, truncated: false, limited: false, entitled: true, code: '' };
+    useTimelineStore.setState({ recording, current: 2 });
+    render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);
+    expect(model.rail()).toMatchObject({ 3: 'lingua-rail lingua-rail--not-run', 4: 'lingua-rail lingua-rail--not-run' });
+  });
+
   it('holds the line the debugger paused on', () => {
     const model = new FakeModel(source);
     publishRun([]);

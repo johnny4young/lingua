@@ -88,7 +88,9 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
   },
   grow: (tabId, steps, ms, code = '') => {
     const previous = get().recording;
-    const growing = previous?.live && previous.tabId === tabId ? previous : null;
+    // One recording in flight at a time: another tab's steps wait for its own final timeline.
+    if (previous?.live && previous.tabId !== tabId) return;
+    const growing = previous?.live ? previous : null;
     dropRecordingWithItsTab();
     const joined = (growing ? growing.steps.concat(steps) : steps).slice(0, TIMELINE_MAX_STEPS);
     const total = Math.min(TIMELINE_MAX_STEPS, (growing?.total ?? 0) + steps.length);

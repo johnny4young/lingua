@@ -109,6 +109,16 @@ describe('Python Record run', () => {
     expect(Object.keys(varsAt(12))).not.toContain('sleep');
   });
 
+  it('hides a last-run global on later loop passes and behind a branch that did not run', async () => {
+    await record('stale = 99\nresult = 42');
+    const run = await record(['if False:', '    result = 1', 'for n in range(2):', '    total = n', '    other = n', 'end = 1'].join('\n'));
+    for (const step of run.timeline!.steps) {
+      const names = step.vars.map(([name]) => name);
+      expect(names).not.toContain('result');
+      expect(names).not.toContain('stale');
+    }
+  });
+
   it('shows a global bound outside its own lines, such as an import or a global set in a function', async () => {
     await record('pi = 0\ncount = 5');
     const run = await record(['from math import pi', 'def bump():', '    global count', '    count = 1', 'bump()', 'x = 2'].join('\n'));
@@ -153,6 +163,11 @@ describe('Python Record run', () => {
   it('keeps a first line that spans the columns of the final-expression rewrite in Pyodide', async () => {
     const run = await record(['from statistics import mean, quantiles', 'print(mean([1, 2]))'].join('\n'));
     expect(run.timeline!.steps.map(step => step.line)).toEqual([1, 2]);
+  });
+
+  it('records a one-line program whose only line is an expression', async () => {
+    const run = await record('print(1)');
+    expect(run.timeline!.steps.map(step => [step.line, step.log])).toEqual([[1, 'log']]);
   });
 
   it('marks the step that raised and still posts the timeline', async () => {
