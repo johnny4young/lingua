@@ -73,6 +73,8 @@ export type { NotebookCellRunStatus } from './notebookStorePrimitives';
 export interface NotebookCellVarFlow {
   readonly uses: ReadonlyArray<string>;
   readonly produces: ReadonlyArray<string>;
+  /** SQL cells: the DuckDB data generation the tables in `produces` live in. */
+  readonly sqlEngineGeneration?: number;
 }
 
 /**

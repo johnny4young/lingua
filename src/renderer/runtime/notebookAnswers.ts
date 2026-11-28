@@ -154,7 +154,8 @@ export function pythonValueType(repr: string): { type?: string; size?: number } 
   const text = repr.trim();
   if (text === 'None') return { type: 'None' };
   if (text === 'True' || text === 'False') return { type: 'bool' };
-  if (/^-?\d+$/.test(text)) return { type: 'int' };
+  // An int past Python's digit limit arrives as its leading digits.
+  if (/^-?\d+…?$/.test(text)) return { type: 'int' };
   if (/^-?(\d+\.\d*|\.\d+|\d+)(e[+-]?\d+)?$/i.test(text) || /^-?(inf|nan)$/.test(text)) {
     return { type: 'float' };
   }
@@ -162,7 +163,9 @@ export function pythonValueType(repr: string): { type?: string; size?: number } 
   if (/^b(['"]).*\1$/s.test(text)) return { type: 'bytes' };
   if (/^(['"]).*\1$/s.test(text)) return { type: 'str' };
   const open = text[0];
-  const close = text[text.length - 1];
+  // A collection the worker cut ends in the cut mark instead of its closing bracket.
+  const cut = text.endsWith('…');
+  const close = cut ? CLOSERS[open ?? ''] : text[text.length - 1];
   const body = text.slice(1, -1);
   const { items, colon } = scanTopLevel(body);
   const kind =
@@ -178,6 +181,8 @@ export function pythonValueType(repr: string): { type?: string; size?: number } 
   if (!kind) return {};
   return { type: kind, size: items };
 }
+
+const CLOSERS: Readonly<Record<string, string>> = { '[': ']', '(': ')', '{': '}' };
 
 const COMPLEX_PART = String.raw`(?:\d+\.?\d*(?:e[+-]?\d+)?|inf|nan)`;
 const COMPLEX_RE = new RegExp(String.raw`^(?:\(-?${COMPLEX_PART}[+-]${COMPLEX_PART}j\)|-?${COMPLEX_PART}j)$`, 'i');
@@ -211,13 +216,13 @@ const PYTHON_VALUE_TYPES = new Set(['result', 'magic', 'watch', 'autoLog']);
 /** Python cells: the editor's line results, read as answers. */
 export function pythonAnswers(result: ExecutionResult, source: string): NotebookLineAnswerV1[] {
   return finalizeAnswers(
-    toLineResults(result, source).map((row) =>
-      row.type === 'error'
-        ? answer(row.line, 'error', lastLine(row.value))
-        : PYTHON_VALUE_TYPES.has(row.type)
-          ? answer(row.line, 'value', row.value, pythonValueType(row.value))
-          : answer(row.line, 'output', row.value)
-    ),
+    toLineResults(result, source).map((row) => {
+      if (row.type === 'error') return answer(row.line, 'error', lastLine(row.value));
+      if (!PYTHON_VALUE_TYPES.has(row.type)) return answer(row.line, 'output', row.value);
+      // The worker cuts a long collection or int before building its repr and sends its length beside it.
+      const read = pythonValueType(row.value);
+      return answer(row.line, 'value', row.value, read.type && row.size !== undefined ? { ...read, size: row.size } : read);
+    }),
     source
   );
 }

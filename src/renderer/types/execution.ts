@@ -167,17 +167,12 @@ export interface MagicCommentResult {
   /** As `ConsoleOutput.pass`. */
   pass?: number;
   /**
-   * Which magic-comment shape produced
-   * this entry. `'arrow'` for the original `//=>` / `#=>` ad-hoc
-   * peek; `'watch'` for the `// @watch <expr>` / `# @watch <expr>`
-   * pinned watch; `'autoLog'` for a Scratchpad bare-expression
-   * auto-log surface. Runners populate this from
-   * `magicCommentKindsByLine(language, source, options)` before
-   * dispatch. Optional so a future runner that emits magic results
-   * without a transform pass (e.g. a future REPL adapter) doesn't
-   * have to backfill the field.
+   * `'arrow'` for `//=>` / `#=>`, `'watch'` for `@watch`, `'autoLog'` for a bare-expression
+   * auto-log. Optional so a runner without a transform pass need not backfill it.
    */
   kind?: 'arrow' | 'watch' | 'autoLog';
+  /** Length of a builtin collection whose `value` was cut before it was built (Python notebook cells). */
+  size?: number;
   /**
    * The captured expression evaluated to, or threw, an Error-like value.
    * Presentation promotes this row to the inline error treatment instead of
@@ -409,6 +404,7 @@ export type WorkerResponse =
       pass?: number;
       /** Optional worker-owned classification (Python AST auto-log). */
       kind?: 'arrow' | 'watch' | 'autoLog';
+      size?: number;
       /** True when the captured value represents an execution error. */
       isError?: boolean;
       error?: ExecutionError;

@@ -218,6 +218,29 @@ export function subscribeResolvedLocalEngine(listener: () => void): () => void {
   return () => resolvedLocalEngineListeners.delete(listener);
 }
 
+// Bumped whenever the local engine's tables are lost, so a caller can tell tables it made are gone.
+let dataGeneration = 0;
+const dataGenerationListeners = new Set<() => void>();
+
+export function getDuckDbDataGeneration(): number {
+  return dataGeneration;
+}
+
+export function subscribeDuckDbDataGeneration(listener: () => void): () => void {
+  dataGenerationListeners.add(listener);
+  return () => dataGenerationListeners.delete(listener);
+}
+
+function bumpDataGeneration(): void {
+  dataGeneration += 1;
+  for (const listener of dataGenerationListeners) listener();
+}
+
+/** Releasing the live engine loses its tables unless they are in a file the next engine opens too. */
+function bumpDataGenerationOnRelease(): void {
+  if (engineLifecycle.isActive && !(resolvedStorageMode === 'opfs' && desiredPersistence)) bumpDataGeneration();
+}
+
 /** The desktop's native engine bridge; absent on web. */
 function nativeBridge(): SqlLocalBridge | null {
   return typeof window === 'undefined' ? null : (window.lingua?.sqlLocal ?? null);
@@ -290,6 +313,7 @@ function resetResolvedStorageMode(): void {
  */
 export async function flushAndReleaseDuckDbEngine(): Promise<void> {
   const checkpoint = resolvedStorageMode === 'opfs';
+  bumpDataGenerationOnRelease();
   await engineLifecycle.release({
     beforeTerminate: checkpoint
       ? async engine => {
@@ -315,6 +339,7 @@ export async function flushAndReleaseDuckDbEngine(): Promise<void> {
  * while another window's engine holds it.
  */
 export async function clearPersistedSqlDatabase(): Promise<void> {
+  bumpDataGeneration();
   await engineLifecycle.release({
     afterTerminate: async () => {
       // Either engine may have written: the native file and the OPFS copy both go.
@@ -640,9 +665,11 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
 
 async function nativeEngineFactory(bridge: SqlLocalBridge): Promise<DuckDbEngineHandle> {
   const requested: SqlStorageMode = desiredPersistence ? 'opfs' : 'memory';
-  const native = await openNativeEngine(bridge, desiredPersistence, gone =>
-    void engineLifecycle.releaseIfCurrent(gone, { afterTerminate: async () => resetResolvedStorageMode() })
-  );
+  const native = await openNativeEngine(bridge, desiredPersistence, gone => {
+    // A dead process keeps only what its file holds.
+    if (resolvedStorageMode !== 'opfs') bumpDataGeneration();
+    void engineLifecycle.releaseIfCurrent(gone, { afterTerminate: async () => resetResolvedStorageMode() });
+  });
   resolvedStorageMode = native.storageMode;
   resolvedStorageRequestedMode = requested;
   setResolvedLocalEngine({ engine: 'native', version: native.version });
@@ -1344,6 +1371,7 @@ export async function runEditTransaction(statements: ReadonlyArray<string>): Pro
  * In-memory tables are lost; the next run starts a fresh engine.
  */
 export async function restartDuckDbEngine(): Promise<void> {
+  bumpDataGenerationOnRelease();
   await engineLifecycle.release({ force: true, afterTerminate: async () => resetResolvedStorageMode() });
 }
 

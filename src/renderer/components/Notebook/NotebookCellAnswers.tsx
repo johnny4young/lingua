@@ -106,7 +106,11 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
               </>
             ) : (
               <>
-                {cutTag ? <TypeTag className="answer-object-tag">{cutTag}</TypeTag> : null}
+                {cutTag ? (
+                  <TypeTag className="answer-object-tag" title={cutTag.full}>
+                    {cutTag.label}
+                  </TypeTag>
+                ) : null}
                 <AnswerObject {...inputs[index]!} hideTag={cutTag !== null} oneLine={!wraps} muted={stale} />
               </>
             )}

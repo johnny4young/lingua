@@ -31,6 +31,7 @@ import {
   PYTHON_AUTO_LOG_HELPERS_SOURCE,
 } from './python-worker-auto-log-source';
 import { buildPythonCellExecutionSource, PYTHON_CELL_SOURCE } from './python-worker-cell-source';
+import { PYTHON_CELL_ANSWER_SOURCE } from './python-worker-cell-answer-source';
 import { startPythonLive } from './python-worker-live-source';
 import { startPythonTrace } from './python-worker-trace-source';
 import { livePassField } from '../../shared/liveRun';
@@ -147,7 +148,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         });
 
         const bootstrapSource = msg.autoLog
-          ? `${buildPythonExecutionBootstrapSource(msg)}\n${PYTHON_AUTO_LOG_HELPERS_SOURCE}\n${PYTHON_CELL_SOURCE}`
+          ? `${buildPythonExecutionBootstrapSource(msg)}\n${PYTHON_AUTO_LOG_HELPERS_SOURCE}\n${PYTHON_CELL_ANSWER_SOURCE}\n${PYTHON_CELL_SOURCE}`
           : buildPythonExecutionBootstrapSource(msg);
         await py.runPythonAsync(`${bootstrapSource}\n${PYTHON_EXECUTION_BOUNDARY_SOURCE}`, {
           filename: '<lingua-bootstrap>',
@@ -232,6 +233,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
                   is_error?: boolean;
                   payload?: RichOutputPayload;
                   pass?: number | null;
+                  size?: number;
                 }>;
                 print_entries?: PythonPrintEntry[];
               })
@@ -266,6 +268,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
               isError?: boolean;
               payload?: RichOutputPayload;
               pass?: number;
+              size?: number;
             } = {
               type: 'magic-comment',
               runId,
@@ -275,6 +278,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             if (entry.kind) magicMessage.kind = entry.kind;
             if (entry.is_error === true) magicMessage.isError = true;
             if (entry.payload) magicMessage.payload = entry.payload;
+            if (entry.size !== undefined) magicMessage.size = entry.size;
             Object.assign(magicMessage, livePassField(entry.pass));
             ctx.postMessage(magicMessage);
           }

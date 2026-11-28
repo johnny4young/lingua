@@ -1151,6 +1151,13 @@ document order instead:
    the requested stale cell. SQL cells that are not stale are skipped: their
    tables live in DuckDB, which the disposal does not touch. Replay stops on the
    first error or interruption.
+   `duckdbClient` keeps a data generation that moves whenever the local engine
+   loses its tables (an in-memory engine restarted or released, **Clear
+   database**, persistence turned off before reconnecting, a native engine
+   process exiting); each SQL cell run records the generation it started on.
+   When it moves, SQL cells that ran fine on an older generation turn `stale`,
+   and Refresh replays them like any stale SQL cell. A persisted database the
+   next engine opens again keeps the generation.
 4. The one exception is the first stale cell when its own edit made it stale
    (`cellEditedSinceRun`, transient): nothing above it is stale, so its Run runs
    it in place against the live kernels, and the cells below turn stale.
@@ -1208,7 +1215,12 @@ that would pass the document size limit only because of them writes without them
   Scratchpad auto-runs set `autoLog: 'assignments'`: the same assignment
   answers, while expressions keep the lambda capture so one failing expression
   does not stop the run. An explicit `#=>` or `@watch` capture on a line wins
-  over its assignment answer. Compiled with top-level await allowed. Every
+  over its assignment answer. A cell's answer is built with a bounded repr
+  (`python-worker-cell-answer-source.ts`, about 200 characters: builtin lists,
+  tuples, sets and dicts stop listing items, long strings keep their head) and
+  sends `len()` as the size, so a long collection never becomes a long string
+  and its tag keeps the real count; an int past Python's digit limit answers its
+  leading digits with its digit count as the size instead of failing. Compiled with top-level await allowed. Every
   cell compiles as `<exec>`, so `python-worker-cell-source.ts` keeps the ids of
   the running cell's code objects: a print, or an error, from a function
   another cell defined answers on the line of this cell that called it.

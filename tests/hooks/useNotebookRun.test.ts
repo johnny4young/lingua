@@ -33,7 +33,15 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 import { useNotebookRun } from '../../src/renderer/hooks/useNotebookRun';
 import { runnerManager } from '../../src/renderer/runners';
 import { trackEvent } from '../../src/renderer/utils/telemetry';
-import { executeQuery, executeSqlInTransaction } from '../../src/renderer/runtime/duckdbClient';
+import {
+  __setDuckDbEngineFactoryForTests,
+  executeQuery,
+  executeSqlInTransaction,
+  getDuckDbDataGeneration,
+  getDuckDbEngine,
+  restartDuckDbEngine,
+  type DuckDbEngineHandle,
+} from '../../src/renderer/runtime/duckdbClient';
 import {
   disposeNotebookSession,
   resetNotebookSessionsForTests,
@@ -68,7 +76,7 @@ function sqlOutcome(overrides: Record<string, unknown> = {}) {
 const CREATE_BY_CITY = 'CREATE TABLE by_city AS SELECT 1 AS n;';
 
 /** SQL CREATE → SQL SELECT → Python → Python, all run once; `stale` lists the cells marked stale. */
-function seedSqlPythonNotebook(stale: ReadonlyArray<string>): void {
+function seedSqlPythonNotebook(stale: ReadonlyArray<string>, sqlEngineGeneration?: number): void {
   const code = (id: string, language: NotebookCellLanguage, source: string) => ({
     kind: 'code' as const,
     id,
@@ -93,7 +101,10 @@ function seedSqlPythonNotebook(stale: ReadonlyArray<string>): void {
         },
         cellRunStatus: Object.fromEntries(ids.map((id) => [id, stale.includes(id) ? 'stale' : 'ok'])),
         cellExecutionOrder: Object.fromEntries(ids.map((id, index) => [id, index + 1])),
-        cellVarFlow: { 'sql-create': { uses: [], produces: ['by_city'] } },
+        cellVarFlow: {
+          'sql-create': { uses: [], produces: ['by_city'], ...(sqlEngineGeneration !== undefined ? { sqlEngineGeneration } : {}) },
+          ...(sqlEngineGeneration !== undefined ? { 'sql-read': { uses: ['by_city'], produces: [], sqlEngineGeneration } } : {}),
+        },
         executionCounter: 4,
         activeCellId: 'py-tickets',
       },
@@ -654,6 +665,49 @@ describe('useNotebookRun', () => {
     expect(mockExecute.mock.calls.map((call) => call[0])).toEqual(['python', 'python']);
     const statuses = useNotebookStore.getState().notebooks['tab-sql']!.cellRunStatus;
     expect(statuses).toMatchObject({ 'sql-create': 'ok', 'sql-read': 'ok', 'py-tickets': 'ok', 'py-over': 'ok' });
+  });
+
+  it('replays current SQL cells whose engine dropped its tables and records the new generation', async () => {
+    seedSqlPythonNotebook(['py-over'], getDuckDbDataGeneration() - 1);
+    mockScript.mockImplementation(async (statements: string[]) => statements.map(() => sqlOutcome({ rows: [{ Count: 1 }], rowCount: 1 })));
+    mockQuery.mockImplementation(async (sql: string) =>
+      sqlOutcome(/DESCRIBE/.test(sql) ? { rows: [{ c: 1 }], rowCount: 1 } : { rows: [{ n: 1 }], rowCount: 1, columns: [{ name: 'n' }] })
+    );
+    mockExecute.mockResolvedValue({ kind: 'ok', result: '', stdout: [], stderr: [] });
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.refreshStale('tab-sql', 'py-over');
+    });
+
+    expect(mockScript.mock.calls[0]![0]).toEqual(['DROP TABLE IF EXISTS by_city', CREATE_BY_CITY]);
+    expect(mockQuery.mock.calls.map((call) => call[0])).toContain('SELECT n FROM by_city;');
+    const slice = useNotebookStore.getState().notebooks['tab-sql']!;
+    expect(slice.cellRunStatus).toMatchObject({ 'sql-create': 'ok', 'sql-read': 'ok', 'py-tickets': 'ok', 'py-over': 'ok' });
+    expect(slice.cellVarFlow?.['sql-create']?.sqlEngineGeneration).toBe(getDuckDbDataGeneration());
+  });
+
+  it('marks SQL cells stale once the engine drops their tables, and leaves other cells alone', async () => {
+    seedSqlPythonNotebook([], getDuckDbDataGeneration());
+    useNotebookStore.setState((state) => {
+      const slice = state.notebooks['tab-sql']!;
+      return { notebooks: { 'tab-sql': { ...slice, cellRunStatus: { ...slice.cellRunStatus, 'sql-read': 'error' } } } };
+    });
+    const engine = { connect: vi.fn(), terminate: vi.fn(async () => undefined) } as unknown as DuckDbEngineHandle;
+    __setDuckDbEngineFactoryForTests(async () => engine);
+    try {
+      await getDuckDbEngine();
+      await restartDuckDbEngine();
+    } finally {
+      __setDuckDbEngineFactoryForTests(null);
+    }
+
+    expect(useNotebookStore.getState().notebooks['tab-sql']!.cellRunStatus).toEqual({
+      'sql-create': 'stale',
+      'sql-read': 'error',
+      'py-tickets': 'ok',
+      'py-over': 'ok',
+    });
   });
 
   it('replaces the table a stale SQL cell made instead of failing on it, then refreshes the cells below', async () => {
