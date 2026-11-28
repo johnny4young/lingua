@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { canRecordTimeline } from '../../../shared/timeline';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 
-/** Record run in the Run menu, for JS / TS Worker tabs. */
+/** Record run in the Run menu, for JS / TS Worker and Python tabs. */
 export function RecordRunMenuItem({ disabled, onRecord }: { disabled: boolean; onRecord: () => void }) {
   const { t } = useTranslation();
   const recordable = useEditorStore(state => {

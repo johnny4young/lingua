@@ -20,7 +20,7 @@
  * agree about them.
  */
 
-import { sanitizeTimeline, type ExecutionTimeline } from '../../shared/timeline';
+import { sanitizeTimeline, sanitizeTimelineSteps, type ExecutionTimeline } from '../../shared/timeline';
 import { livePassField, sanitizeLiveRun, type LiveLoopSpan } from '../../shared/liveRun';
 import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
@@ -365,6 +365,11 @@ export class WorkerRunnerShell {
           case 'timeline':
             timeline = sanitizeTimeline(msg.timeline);
             break;
+          case 'timeline-steps': {
+            const progress = sanitizeTimelineSteps(msg);
+            if (progress) context?.onTimeline?.(progress.steps, progress.ms);
+            break;
+          }
           case 'live-line': {
             const live = sanitizeLiveRun(msg.live);
             if (live) context?.onLive?.(live);

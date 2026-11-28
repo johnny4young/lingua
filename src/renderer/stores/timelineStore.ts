@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { isEntitled } from '../../shared/entitlements';
-import { TIMELINE_FREE_STEPS, type ExecutionTimeline, type TimelineStep } from '../../shared/timeline';
+import { TIMELINE_FREE_STEPS, TIMELINE_MAX_STEPS, type ExecutionTimeline, type TimelineStep } from '../../shared/timeline';
 import { currentEffectiveTier } from './licenseSelectors';
 import { useEditorStore } from './editorStore';
 import { findTimelineStep, type TimelineMove } from '../utils/timelineModel';
@@ -19,12 +19,18 @@ export interface TimelineRecording {
   ms?: number;
   /** The tab's code when the recording arrived, so line labels survive later edits. */
   code: string;
+  /** The run is still going: steps arrive as it records them. */
+  live?: true;
 }
 
 interface TimelineState {
   recording: TimelineRecording | null;
   current: number;
   publish: (tabId: string, timeline: ExecutionTimeline, code?: string) => void;
+  /** Appends the steps a recording in flight posted; the first call starts it. */
+  grow: (tabId: string, steps: TimelineStep[], ms: number, code?: string) => void;
+  /** A recording in flight whose run ended without its timeline: kept as cut short, or dropped. */
+  endLive: (tabId: string, keep: boolean) => void;
   select: (index: number) => void;
   /** Moves by `delta` steps; at the first or last step it bumps `blocked` instead, as `go` does. */
   step: (delta: number) => boolean;
@@ -37,6 +43,29 @@ interface TimelineState {
 
 /** The latest Record run, in memory only. It opens on the step where the run ended. */
 let watchingTabs = false;
+
+function entitledNow(): boolean {
+  try {
+    return isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY');
+  } catch {
+    return false;
+  }
+}
+
+/** `timeline` as the store keeps it: Free sees its last steps of `total`. */
+function recordingOf(tabId: string, timeline: ExecutionTimeline, total: number, entitled: boolean, code: string): TimelineRecording {
+  const steps = entitled ? timeline.steps : timeline.steps.slice(-TIMELINE_FREE_STEPS);
+  return {
+    tabId,
+    steps,
+    total,
+    truncated: timeline.truncated,
+    limited: steps.length < total,
+    entitled,
+    code,
+    ...(timeline.ms !== undefined ? { ms: timeline.ms } : {}),
+  };
+}
 
 /** A recording goes with its tab, so a closed tab does not keep its steps in memory. */
 function dropRecordingWithItsTab(): void {
@@ -53,28 +82,33 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
   current: 0,
   blocked: 0,
   publish: (tabId, timeline, code = '') => {
-    let entitled: boolean;
-    try {
-      entitled = isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY');
-    } catch {
-      entitled = false;
-    }
     dropRecordingWithItsTab();
-    const total = timeline.steps.length;
-    const steps = entitled ? timeline.steps : timeline.steps.slice(-TIMELINE_FREE_STEPS);
-    set({
-      recording: {
-        tabId,
-        steps,
-        total,
-        truncated: timeline.truncated,
-        limited: steps.length < total,
-        entitled,
-        code,
-        ...(timeline.ms !== undefined ? { ms: timeline.ms } : {}),
-      },
-      current: Math.max(0, steps.length - 1),
-    });
+    const recording = recordingOf(tabId, timeline, timeline.steps.length, entitledNow(), code);
+    set({ recording, current: Math.max(0, recording.steps.length - 1) });
+  },
+  grow: (tabId, steps, ms, code = '') => {
+    const previous = get().recording;
+    // One recording in flight at a time: another tab's steps wait for its own final timeline.
+    if (previous?.live && previous.tabId !== tabId) return;
+    const growing = previous?.live ? previous : null;
+    dropRecordingWithItsTab();
+    const joined = (growing ? growing.steps.concat(steps) : steps).slice(0, TIMELINE_MAX_STEPS);
+    const total = Math.min(TIMELINE_MAX_STEPS, (growing?.total ?? 0) + steps.length);
+    const entitled = growing ? growing.entitled : entitledNow();
+    const recording = { ...recordingOf(tabId, { steps: joined, truncated: false, ms }, total, entitled, growing?.code ?? code), live: true as const };
+    // The selection follows the run unless the user moved it back.
+    const following = !growing || !entitled || get().current >= growing.steps.length - 1;
+    set({ recording, current: following ? Math.max(0, recording.steps.length - 1) : get().current });
+  },
+  endLive: (tabId, keep) => {
+    const recording = get().recording;
+    if (!recording?.live || recording.tabId !== tabId) return;
+    if (!keep) {
+      set({ recording: null, current: 0 });
+      return;
+    }
+    const { live: _live, ...rest } = recording;
+    set({ recording: { ...rest, truncated: true } });
   },
   select: index => {
     const count = get().recording?.steps.length ?? 0;

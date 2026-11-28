@@ -13,10 +13,12 @@ import { useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
 import type { NewConsoleEntry } from '../../types/console';
 import type { ConsoleOutput, ExecutionResult, LanguageRunner } from '../../types/execution';
+import type { TimelineStep } from '../../../shared/timeline';
 import { toExecutionPresentation } from '../../utils/executionPresentation';
 import type { RunExecution } from './resolveRunPlan';
 import { replaceProgressOutput } from '../../runners/limits';
 import { reportLiveRun } from '../../stores/liveRunStore';
+import { useTimelineStore } from '../../stores/timelineStore';
 
 export interface RunConsole {
   /** Queue one entry; it reaches the store on the next flush. */
@@ -55,6 +57,14 @@ export function createRunConsole(isCurrent: () => boolean = () => true): RunCons
     flush: entries.flush,
     count: () => count,
   };
+}
+
+/** A recording ends with its run: the whole timeline replaces the steps, a stopped run drops them, and one that timed out or crashed keeps them as cut short. */
+function settleRecording(tab: FileTab, result: ExecutionResult | undefined, current: boolean): void {
+  const timelines = useTimelineStore.getState();
+  const kept = current && result !== undefined && !result.cancelled;
+  if (kept && result.timeline) timelines.publish(tab.id, result.timeline, tab.content);
+  else timelines.endLive(tab.id, kept);
 }
 
 export async function runAndCollect(
@@ -125,17 +135,30 @@ export async function runAndCollect(
     setRunDeadlineAt(Date.now() + execution.deadlineTimeoutMs);
   }
 
-  let result: ExecutionResult;
+  let result: ExecutionResult | undefined;
   const live = reportLiveRun(activeTab.id, content);
+  const record = execution.context.record === true;
   try {
     result = await runner.execute(content, {
       ...execution.context,
       onConsole: streamConsoleOutput,
       onLive: live.onLive,
+        ...(record
+        ? {
+            onTimeline: (steps: TimelineStep[], ms: number) => {
+              if (settled || !isCurrent()) return;
+              useTimelineStore.getState().grow(activeTab.id, steps, ms, content);
+              // A recording has no live signal; its latest step is where the run is, for the meter, rail and tape.
+              const last = steps[steps.length - 1]!;
+              live.onLive({ line: last.line, lineMs: Math.max(0, ms - (last.ms ?? ms)), elapsedMs: ms, loops: [] });
+            },
+          }
+        : {}),
     });
   } finally {
     settled = true;
     live.end();
+    if (record) settleRecording(activeTab, result, isCurrent());
   }
   // Runners may return the same captures without owning ordering metadata.
   // Reconcile by identity only; matching text could confuse repeated outputs.

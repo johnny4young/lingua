@@ -57,6 +57,44 @@ describe('JS worker timeline', () => {
     expect(timeline?.steps.at(-1)).toMatchObject({ line: 2, error: true });
   });
 
+  it('posts the steps while the run goes, before an await ends', async () => {
+    const started = performance.now();
+    const { messages, timeline } = await record(
+      ['const names = ["api", "db"];', 'for (const name of names) {', '  await new Promise(resolve => setTimeout(resolve, 250));', '  console.log(name);', '}'].join('\n')
+    );
+    const progress = messages.filter(message => message.type === 'timeline-steps') as unknown as Array<{ steps: ExecutionTimeline['steps']; ms: number }>;
+    expect(progress.length).toBeGreaterThanOrEqual(2);
+    expect(progress.flatMap(entry => entry.steps.map(step => step.line))).toEqual(timeline!.steps.map(step => step.line).slice(0, progress.flatMap(entry => entry.steps).length));
+    expect(progress[0]!.steps.map(step => step.line)).toContain(3);
+    for (const entry of progress) expect(entry.ms).toBeGreaterThanOrEqual(entry.steps.at(-1)!.ms!);
+    // Nothing after the whole timeline.
+    const last = messages.findIndex(message => message.type === 'timeline');
+    expect(messages.slice(last).some(message => message.type === 'timeline-steps')).toBe(false);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(450);
+  });
+
+  it('posts steps at most once per progress window and none after the snapshot', () => {
+    let clock = 0;
+    const posts: number[][] = [];
+    const timeline = createJsWorkerTimeline(() => clock, steps => posts.push(steps.map(step => step.line)));
+    timeline.rec(1, () => ({}));
+    clock = 50;
+    timeline.rec(2, () => ({}));
+    expect(posts).toEqual([]);
+    clock = 120;
+    timeline.rec(3, () => ({}));
+    expect(posts).toEqual([[1, 2, 3]]);
+    clock = 130;
+    timeline.rec(4, () => ({}));
+    timeline.flushSteps();
+    expect(posts).toEqual([[1, 2, 3], [4]]);
+    timeline.flushSteps();
+    timeline.rec(5, () => ({}));
+    timeline.snapshot();
+    timeline.flushSteps();
+    expect(posts).toHaveLength(2);
+  });
+
   it('posts no timeline for a normal run', async () => {
     const { timeline, messages } = await record('const a = 1;', false);
     expect(timeline).toBeUndefined();

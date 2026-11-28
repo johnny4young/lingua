@@ -18,6 +18,8 @@ const DEFAULT_WIDTH = 690;
 /** Up to this many steps each one gets its own dot. */
 const MAX_DOTS = 48;
 const MIN_PASS_LABEL = 36;
+/** While the run records, its steps fill this much of the plot and the rest stays for what comes next. */
+const LIVE_REACH = 0.88;
 const NO_STEPS: readonly TimelineStep[] = [];
 
 const openTimeline = () => useUIStore.getState().openBottomPanel('timeline');
@@ -29,7 +31,7 @@ function stairs(points: ReadonlyArray<readonly [number, number]>): string {
     .join('');
 }
 
-/** The latest Record run as a chart of the line at each step, beside the Console tape. */
+/** The latest Record run as a chart of the line at each step, beside the Console tape; it draws while the run records. */
 export function RunTrace() {
   const { t } = useTranslation();
   const recording = useTimelineStore(state => state.recording);
@@ -65,6 +67,8 @@ export function RunTrace() {
   const loopsFound = useMemo(() => pickLoops(detectLoops(steps)), [steps]);
   const logs = useMemo(() => steps.reduce((sum, item) => sum + (item.log ? 1 : 0), 0), [steps]);
 
+  const live = shown && recording.live === true;
+  const reach = live ? LIVE_REACH : 1;
   const chart = useMemo(() => {
     if (count < 2) return null;
     let minLine = Infinity;
@@ -74,7 +78,8 @@ export function RunTrace() {
       maxLine = Math.max(maxLine, step.line);
     }
     const span = maxLine - minLine;
-    const plotWidth = Math.max(1, width - PLOT_LEFT - PLOT_RIGHT);
+    const fullWidth = Math.max(1, width - PLOT_LEFT - PLOT_RIGHT);
+    const plotWidth = fullWidth * reach;
     const xOf = (index: number) => PLOT_LEFT + (index / (count - 1)) * plotWidth;
     const yOf = (line: number) => (span === 0 ? HEIGHT / 2 : PAD_Y + ((line - minLine) / span) * (HEIGHT - 2 * PAD_Y));
     const loops = loopsFound.map(loop => {
@@ -84,7 +89,8 @@ export function RunTrace() {
         key: `${loop.start}-${loop.head}`,
         x,
         y,
-        width: Math.min(width - 1, xOf(loop.end) + 9) - x,
+        // A loop still running when the recording is live reaches into the projection.
+        width: (live && loop.end === count - 1 ? PLOT_LEFT + fullWidth : Math.min(width - 1, xOf(loop.end) + 9)) - x,
         height: yOf(loop.maxLine) - yOf(loop.minLine) + 14,
         labels: loop.passes.flatMap((pass, at) => {
           const slotEnd = at + 1 < loop.passes.length ? xOf(loop.passes[at + 1]!.start) : xOf(pass.end) + plotWidth / (count - 1);
@@ -94,11 +100,12 @@ export function RunTrace() {
         }),
       };
     });
-    return { xOf, yOf, loops, ticks: pickTicks(steps.map(step => step.line), yOf), plotWidth };
-  }, [steps, count, width, loopsFound]);
+    return { xOf, yOf, loops, ticks: pickTicks(steps.map(step => step.line), yOf), plotWidth, right: PLOT_LEFT + fullWidth };
+  }, [steps, count, width, loopsFound, reach, live]);
 
   if (!shown || !chart) return null;
-  const { xOf, yOf, loops, ticks, plotWidth } = chart;
+  const { xOf, yOf, loops, ticks, plotWidth, right } = chart;
+  const last = steps[count - 1]!;
   const step = steps[current];
   const drawn = sampleSteps(steps, current, Math.floor(plotWidth / 2));
   const point = (index: number) => [xOf(index), yOf(steps[index]!.line)] as const;
@@ -107,7 +114,7 @@ export function RunTrace() {
 
   const pick = (event: ReactMouseEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    const usable = bounds.width - PLOT_LEFT - PLOT_RIGHT;
+    const usable = (bounds.width - PLOT_LEFT - PLOT_RIGHT) * reach;
     if (usable > 0) select(Math.round(((event.clientX - bounds.left - PLOT_LEFT) / usable) * (count - 1)));
     openTimeline();
   };
@@ -127,7 +134,7 @@ export function RunTrace() {
   const slowestValues = slowest ? { line: slowest.line, time: formatRunDuration(slowest.ms), share } : null;
 
   return (
-    <section className="run-trace" data-testid="run-trace" aria-label={t('timeline.trace.title')}>
+    <section className="run-trace" data-testid="run-trace" data-live={live || undefined} aria-busy={live || undefined} aria-label={t('timeline.trace.title')}>
       <div className="run-trace-head">
         <span className="run-trace-title">{t('timeline.trace.title')}</span>
         <button type="button" className="run-trace-open" onClick={openTimeline} data-testid="run-trace-open">
@@ -161,6 +168,13 @@ export function RunTrace() {
             <rect key={loop.key} className="run-trace-wash" x={loop.x} y={loop.y} width={Math.max(0, loop.width)} height={loop.height} rx={5} />
           ))}
           {ahead.length > 1 && <path className="run-trace-ahead" d={stairs(ahead.map(point))} />}
+          {live && (
+            <path
+              className="run-trace-ahead"
+              d={`M${xOf(count - 1).toFixed(1)} ${yOf(last.line).toFixed(1)}H${right.toFixed(1)}`}
+              data-testid="run-trace-projection"
+            />
+          )}
           {reached.length > 1 && <path className="run-trace-path" d={stairs(reached.map(point))} />}
           {drawn.map(index => {
             const item = steps[index]!;

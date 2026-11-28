@@ -963,6 +963,31 @@ Each step also carries `ms`, the run time when it began minus the time the
 recorder spent reading locals, and the snapshot carries the time recording
 ended; `utils/runTraceModel.ts` turns them into self time per line for the
 Console's trace, which also derives loop passes from backward jumps in one call.
+
+While the run goes, both recorders post the steps recorded since their last
+post as `timeline-steps` messages, at most every 100 ms (the JS worker also on
+a timer, so steps before an `await` arrive while it waits; Python also before
+`time.sleep`). The runner hands them to `ExecutionContext.onTimeline`, and
+`runAndCollect` grows a `live` recording in `timelineStore`, which the final
+`timeline` replaces. The Console trace draws it with a dashed projection past
+the last step, and `runAndCollect` publishes that step's line to
+`liveRunStore` as the run's position (no loops), since record runs take no live
+signal. A stopped run drops it;
+a run that ends without a timeline (timeout, crash) keeps it as cut short.
+
+Python records through `workers/python-worker-trace-source.ts`. Record run
+claims a free `sys.monitoring` tool id for that run only, with LINE,
+PY_RETURN and PY_UNWIND events, and frees it before the run's streams are
+read, so a normal run is not traced. Code that is not the user's (`<exec>`),
+generators, coroutines and lambdas return `DISABLE`, as do the loop-guard
+lines the runner adds and the instructions of Pyodide's final-expression
+`raise` template, which sit on line 1. A loop header records once, like JS,
+so a pass starts in the body. Frames come from walking the stack; a call
+number is kept per frame object and dropped when it returns or unwinds.
+Module variables come from the AST's binding lines and show only after one of
+those lines ran, because Pyodide globals outlive a run. Previews read builtin
+values only. The tracer never runs beside the live signal; recorded runs
+measured about 10 µs per step.
 `resultStore.tabAnswers` keeps each tab's last two published answers (memory
 only, capped at 12 tabs) so the editor can mark what moved since the previous run.
 

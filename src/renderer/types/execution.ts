@@ -10,7 +10,7 @@ import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
 import type { NetworkWorkerMessage } from '../../shared/networkPolicy';
-import type { ExecutionTimeline, TimelineWorkerMessage } from '../../shared/timeline';
+import type { ExecutionTimeline, TimelineStep, TimelineWorkerMessage } from '../../shared/timeline';
 import type { LiveRunSnapshot, LiveRunWorkerMessage } from '../../shared/liveRun';
 import type { Language } from './language';
 
@@ -41,8 +41,10 @@ export interface ExecutionContext {
    * breakpoints; only Debug should attach the worker pause protocol.
    */
   debug?: boolean;
-  /** Record run (JS / TS): the result carries a step-by-step `timeline`. */
+  /** Record run (JS / TS Worker, Python): the result carries a step-by-step `timeline`. */
   record?: boolean;
+  /** Record run: the steps recorded since the last call, while the run goes, and the run time then. */
+  onTimeline?: (steps: TimelineStep[], ms: number) => void;
   /**
    * Tab id of the source being executed. The
    * debugger runner reads breakpoints + watches from the debugger

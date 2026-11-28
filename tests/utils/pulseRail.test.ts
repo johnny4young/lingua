@@ -81,6 +81,22 @@ describe('buildPulseRail', () => {
     });
   });
 
+  it('with every timeline step, lights the later lines of a statement that spans lines', () => {
+    const python = ['report = [', '    {"n": n}', '    for n in names', ']', '', 'if False:', '    print(1)', 'done = 1'];
+    const statementEnd = (line: number) => (line === 1 ? 4 : line);
+    const built = buildPulseRail({ lines: python, executed: [1, 6, 8], complete: true, frontier: null, finished: true, statementEnd });
+    expect(Object.fromEntries(built.map(line => [line.line, line.state]))).toEqual({
+      1: 'answered',
+      2: 'reached',
+      3: 'reached',
+      4: 'reached',
+      5: 'reached',
+      6: 'answered',
+      7: 'not-run',
+      8: 'answered',
+    });
+  });
+
   it('beats on the selected step and dots the steps after it', () => {
     expect(rail({ executed: [7, 8], complete: true, frontier: { line: 2, kind: 'running' } })).toMatchObject({
       2: 'running',

@@ -1,7 +1,8 @@
 // Print entries reach the console while a run goes: a print flushes the pending batch to the
 // worker's __lingua_flush_print_entries once 50 ms have passed since the last flush, and so
 // do time.sleep() and rich media; the rest wait for the next flush or the end-of-run dump.
-// With the live signal on, a sleep also reports its line and length before it blocks.
+// With the live signal on, a sleep also reports its line and length before it blocks; a recording
+// posts its steps so far.
 export const PYTHON_PRINT_STREAM_SOURCE = `
 __lingua_print_count = 0
 __lingua_print_flushed_at = float("-inf")
@@ -43,6 +44,8 @@ def __lingua_push_print_entry(entry):
 @__lingua_functools.wraps(__lingua_time._lingua_sleep)
 def __lingua_sleep(seconds):
     __lingua_flush_prints()
+    if __lingua_trace_state is not None:
+        __lingua_trace_flush()
     if __lingua_live_state is not None:
         __lingua_live_wait(seconds)
     return __lingua_time._lingua_sleep(seconds)

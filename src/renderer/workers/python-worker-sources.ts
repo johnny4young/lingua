@@ -17,6 +17,7 @@ import math as __lingua_math
 __lingua_stdout = io.StringIO()
 __lingua_stderr = io.StringIO()
 __lingua_live_state = None
+__lingua_trace_state = None
 __lingua_prev_stdout = sys.stdout
 __lingua_prev_stderr = sys.stderr
 sys.stdout = __lingua_stdout
@@ -306,6 +307,8 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
             entry["line"] = line
     if __lingua_live_state is not None:
         entry["pass"] = __lingua_live_pass()
+    if __lingua_trace_state is not None:
+        __lingua_trace_log(method)
     __lingua_push_print_entry(entry)
 
 

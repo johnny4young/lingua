@@ -819,6 +819,61 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     }
   });
 
+  it('records without the live signal and maps streamed and final steps back to the source', async () => {
+    const posted: Array<Record<string, unknown>> = [];
+    const workers: Array<{ emit(data: Record<string, unknown>): void }> = [];
+    class RecordWorker {
+      private listeners = new Set<(event: MessageEvent) => void>();
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workers.push(this);
+      }
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.add(handler);
+      }
+      removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.delete(handler);
+      }
+      postMessage(message: Record<string, unknown>): void {
+        posted.push(message);
+        if (message.type === 'init') this.emit({ type: 'ready' });
+      }
+      emit(data: Record<string, unknown>): void {
+        for (const listener of [...this.listeners]) listener({ data } as MessageEvent);
+      }
+      terminate(): void {}
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: RecordWorker, writable: true, configurable: true });
+
+    const runner = new PythonRunner();
+    try {
+      const onTimeline = vi.fn();
+      const run = runner.execute('total = 0\nfor n in range(3):\n    total += n', { timeout: 5_000, tabId: 'py-tab', record: true, onLive: vi.fn(), onTimeline });
+      await vi.waitFor(() => expect(posted.some(message => message.type === 'execute')).toBe(true));
+      const execute = posted.find(message => message.type === 'execute')!;
+      expect(execute).toMatchObject({ record: true, live: false });
+      const runId = execute.runId;
+      // Generated line 6 is the loop body, line 3 of the source.
+      const step = (line: number, ms: number) => ({ line, frames: [{ name: '<module>', line }], vars: [['total', '0']], depth: 0, call: 0, ms });
+      workers[0]!.emit({ type: 'timeline-steps', runId, steps: [step(1, 0), step(3, 1), step(6, 2)], ms: 3 });
+      workers[0]!.emit({ type: 'timeline-steps', runId, steps: [], ms: 4 });
+      expect(onTimeline.mock.calls).toEqual([[[step(1, 0), step(2, 1), step(3, 2)], 3]]);
+      workers[0]!.emit({ type: 'timeline', runId, timeline: { steps: [step(1, 0), step(6, 2)], truncated: false, ms: 5 } });
+      workers[0]!.emit({ type: 'done', runId, executionTime: 5 });
+      const result = await run;
+      expect(result.timeline).toEqual({ steps: [step(1, 0), step(3, 2)], truncated: false, ms: 5 });
+
+      // Notebook cells never record.
+      const cell = runner.execute('1', { timeout: 5_000, tabId: 'nb', scopeId: 'nb', record: true });
+      await vi.waitFor(() => expect(posted.filter(message => message.type === 'execute')).toHaveLength(2));
+      const cellExecute = posted.filter(message => message.type === 'execute')[1]!;
+      expect(cellExecute.record).toBe(false);
+      workers[0]!.emit({ type: 'done', runId: cellExecute.runId, executionTime: 1 });
+      await cell;
+    } finally {
+      runner.stop();
+    }
+  });
+
   it('ignores foreign run IDs, including stale output and done from a prior run', async () => {
     const workers: ManualWorker[] = [];
     class ManualWorker {

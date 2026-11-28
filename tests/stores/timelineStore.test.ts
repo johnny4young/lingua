@@ -34,6 +34,59 @@ describe('timeline store', () => {
     expect(recording).toMatchObject({ total: 50, limited: true, truncated: true });
   });
 
+  it('grows a recording in flight, follows its last step and lets the final timeline replace it', () => {
+    const store = useTimelineStore.getState();
+    store.grow('t1', steps(3), 30, 'code');
+    expect(useTimelineStore.getState().recording).toMatchObject({ tabId: 't1', total: 3, live: true, ms: 30, code: 'code' });
+    expect(useTimelineStore.getState().current).toBe(2);
+    store.grow('t1', steps(2), 60, 'later');
+    expect(useTimelineStore.getState().recording).toMatchObject({ total: 5, ms: 60, code: 'code' });
+    expect(useTimelineStore.getState().current).toBe(4);
+    // A step the user picked stays picked.
+    store.select(1);
+    store.grow('t1', steps(1), 70);
+    expect(useTimelineStore.getState().current).toBe(1);
+    store.publish('t1', { steps: steps(6), truncated: false, ms: 80 });
+    expect(useTimelineStore.getState().recording).not.toHaveProperty('live');
+    expect(useTimelineStore.getState().current).toBe(5);
+  });
+
+  it('keeps a recording in flight when another tab posts steps at the same time', () => {
+    const store = useTimelineStore.getState();
+    store.grow('t1', steps(3), 30);
+    store.grow('t2', steps(1), 10);
+    expect(useTimelineStore.getState().recording).toMatchObject({ tabId: 't1', total: 3 });
+    store.publish('t1', { steps: steps(4), truncated: false });
+    store.grow('t2', steps(1), 10);
+    expect(useTimelineStore.getState().recording).toMatchObject({ tabId: 't2', total: 1, live: true });
+  });
+
+  it('keeps the last steps of a recording in flight on Free', () => {
+    mockTier = 'free';
+    useTimelineStore.getState().grow('t1', steps(15), 10);
+    useTimelineStore.getState().grow('t1', steps(15), 20);
+    const recording = useTimelineStore.getState().recording!;
+    expect(recording.steps).toHaveLength(TIMELINE_FREE_STEPS);
+    expect(recording).toMatchObject({ total: 30, limited: true, entitled: false });
+    expect(useTimelineStore.getState().current).toBe(TIMELINE_FREE_STEPS - 1);
+  });
+
+  it('keeps a recording in flight as cut short, or drops it, when the run ends without its timeline', () => {
+    const store = useTimelineStore.getState();
+    store.grow('t1', steps(3), 30);
+    store.endLive('t2', true);
+    expect(useTimelineStore.getState().recording?.live).toBe(true);
+    store.endLive('t1', true);
+    expect(useTimelineStore.getState().recording).toMatchObject({ truncated: true, total: 3 });
+    expect(useTimelineStore.getState().recording).not.toHaveProperty('live');
+    // A finished recording is not touched.
+    store.endLive('t1', false);
+    expect(useTimelineStore.getState().recording).not.toBeNull();
+    store.grow('t1', steps(2), 10);
+    store.endLive('t1', false);
+    expect(useTimelineStore.getState().recording).toBeNull();
+  });
+
   it('drops the recording when its tab closes', () => {
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: '' }] as never, 't1');
     useTimelineStore.getState().publish('t1', { steps: steps(3), truncated: false });
