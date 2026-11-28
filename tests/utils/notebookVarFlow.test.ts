@@ -76,6 +76,20 @@ describe('pythonMadeNames', () => {
     ].join('\n');
     expect(pythonMadeNames(source)).toEqual(['note', 'label', 'total', 'run', 'one', 'two']);
   });
+
+  it('reads match and case as names unless they open a block, and keeps one-line block bodies out', () => {
+    const source = [
+      'match = re.search(pattern, text)',
+      'case = 1',
+      'match command:',
+      '    case "go": moved = 1',
+      'if ready: a = 1; b = 2',
+      'def f(): x = 1; y = 2',
+      'key = lambda item, default=0: item',
+      'c = 3; d = 4',
+    ].join('\n');
+    expect(pythonMadeNames(source)).toEqual(['match', 'case', 'f', 'key', 'c', 'd']);
+  });
 });
 
 describe('deriveUsesKeys', () => {

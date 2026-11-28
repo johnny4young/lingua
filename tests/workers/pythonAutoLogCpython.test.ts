@@ -7,6 +7,7 @@
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { PYTHON_AUTO_LOG_HELPERS_SOURCE } from '../../src/renderer/workers/python-worker-auto-log-source';
+import { PYTHON_CELL_SOURCE } from '../../src/renderer/workers/python-worker-cell-source';
 
 const hasPython = spawnSync('python3', ['--version']).status === 0;
 
@@ -42,6 +43,41 @@ function run(code: string, mode: '' | 'assignments' | 'cell'): { outcome: string
   if (result.status !== 0) throw new Error(result.stderr);
   return JSON.parse(result.stdout);
 }
+
+// Runs each cell in turn against one shared scope and reports the line the last error answers on.
+const CELL_HARNESS = `
+import asyncio, json, sys
+ns = {"__lingua_cell_codes": None, "__lingua_error_line": None}
+exec(sys.stdin.read(), ns)
+ns["__mc"] = lambda line, fn, directive=None, kind=None: fn()
+scope = {k: v for k, v in ns.items() if k.startswith("__lingua") or k == "__mc"}
+for source in json.loads(sys.argv[1]):
+    ns["__lingua_error_line"] = None
+    try:
+        asyncio.run(ns["__lingua_execute_cell"](source, scope))
+    except Exception:
+        pass
+print(json.dumps({"line": ns["__lingua_error_line"]}))
+`;
+
+function runCells(cells: string[]): { line: number | null } {
+  const result = spawnSync('python3', ['-I', '-c', CELL_HARNESS, JSON.stringify(cells)], {
+    input: `${PYTHON_AUTO_LOG_HELPERS_SOURCE}\n${PYTHON_CELL_SOURCE}`,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) throw new Error(result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+describe.skipIf(!hasPython)('Python notebook cells under CPython', () => {
+  it('answers an error raised in a function another cell defined on the line that called it', () => {
+    expect(runCells(['def boom():\n    raise ValueError("x")', 'ready = 1\nboom()'])).toEqual({ line: 2 });
+  });
+
+  it('answers an error inside a function of the same cell on the line that raised it', () => {
+    expect(runCells(['def boom():\n    raise ValueError("x")\n\nboom()'])).toEqual({ line: 2 });
+  });
+});
 
 describe.skipIf(!hasPython)('Python auto-log under CPython', () => {
   it('answers notebook assignments and expressions on their lines', () => {

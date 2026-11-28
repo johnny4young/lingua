@@ -5,7 +5,7 @@ import type { RichOutputTable } from '../../../shared/richOutput';
 import { replaceUnsafeText } from '../../utils/unsafeText';
 import { AnswerObject } from '../Answer/AnswerObject';
 import { TypeTag } from '../ui/answer';
-import { answerGrid, notebookAnswerInput } from './notebookAnswerView';
+import { answerGrid, cutCollectionTag, notebookAnswerInput } from './notebookAnswerView';
 import '../../i18n/notebookCatalog';
 import './notebookAnswers.css';
 
@@ -48,6 +48,11 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
   sourceLines,
 }: NotebookCellAnswersProps) {
   const { t } = useTranslation();
+  // Built once per answer set, so each AnswerObject keeps its memo across re-renders.
+  const inputs = useMemo(
+    () => rows.map(answer => notebookAnswerInput(answer, language, sourceLines[answer.line - 1])),
+    [rows, language, sourceLines]
+  );
   const lines = Math.max(1, lineCount);
   const last = rows.length - 1;
   const lastSpansTable = last >= 0 && rows[last]!.kind === 'result' && table !== null;
@@ -75,6 +80,7 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
         const spansTable = answer.kind === 'result' && table !== null;
         // The last answer has the lines below it free, so long text wraps into them.
         const wraps = index === last && !spansTable;
+        const cutTag = cutCollectionTag(answer);
         return (
           <div
             key={`${answer.line}:${answer.kind}`}
@@ -99,11 +105,10 @@ export const NotebookCellAnswers = memo(function NotebookCellAnswers({
                 <AnswerObject text={answer.text} hideTag oneLine muted={stale} />
               </>
             ) : (
-              <AnswerObject
-                {...notebookAnswerInput(answer, language, sourceLines[answer.line - 1])}
-                oneLine={!wraps}
-                muted={stale}
-              />
+              <>
+                {cutTag ? <TypeTag className="answer-object-tag">{cutTag}</TypeTag> : null}
+                <AnswerObject {...inputs[index]!} hideTag={cutTag !== null} oneLine={!wraps} muted={stale} />
+              </>
             )}
             {index === last && !spansTable ? dated : null}
           </div>

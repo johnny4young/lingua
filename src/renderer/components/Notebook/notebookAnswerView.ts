@@ -71,6 +71,13 @@ export function notebookAnswerInput(
   return { ...base, text };
 }
 
+/** The type and length of a collection cut to the text cap, which its head alone cannot tell. */
+export function cutCollectionTag(answer: NotebookLineAnswerV1): string | null {
+  const { kind, text, type, size } = answer;
+  if (kind !== 'value' || type === undefined || !COLLECTION_TYPES.has(type) || !text.endsWith(CUT)) return null;
+  return size === undefined ? type : `${type}·${size}`;
+}
+
 const SCOPE_OPTIONS = { truncate: (text: string) => `${text}${CUT}`, maxDepth: 2 };
 
 function collectionPayload(type: 'map' | 'set', text: string, size: number | undefined): RichOutputPayload | null {

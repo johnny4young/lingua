@@ -44,6 +44,7 @@ interface PythonStatement {
 
 const OPENERS = '([{';
 const CLOSERS = ')]}';
+const INLINE_BLOCK = /^(?:if|elif|else|for|while|with|try|except|finally|def|class|async)\b/;
 
 /** Python source as logical statements: brackets, strings, continuations and `;` resolved. */
 function pythonStatements(source: string): PythonStatement[] {
@@ -98,7 +99,8 @@ function pythonStatements(source: string): PythonStatement[] {
       continue;
     }
     if (ch === ';' && depth === 0) {
-      const wasTop: boolean = topLevel;
+      // `if x: a = 1; b = 2` keeps `b` in the block's body.
+      const wasTop: boolean = topLevel && !INLINE_BLOCK.test(code.trim());
       flush();
       topLevel = wasTop;
       continue;
@@ -160,7 +162,9 @@ function targetNames(target: string, out: string[]): void {
   if (IDENTIFIER.test(text)) out.push(text);
 }
 
-const COMPOUND = /^(?:if|elif|else|for|while|with|try|except|finally|match|case|async\s+(?:for|with)|return|del|assert|raise|global|nonlocal|pass|break|continue)\b/;
+const COMPOUND = /^(?:if|elif|else|for|while|with|try|except|finally|async\s+(?:for|with)|return|del|assert|raise|global|nonlocal|pass|break|continue)\b/;
+// Soft keywords: `match x:` opens a block, `match = re.search(...)` binds a name.
+const SOFT_COMPOUND = /^(?:match|case)\b.*:$/;
 
 /**
  * Names a Python cell binds at module level: functions, classes, import
@@ -185,14 +189,16 @@ export function pythonMadeNames(source: string): string[] {
       }
       continue;
     }
-    if (COMPOUND.test(text) || text.startsWith('@')) continue;
+    if (COMPOUND.test(text) || SOFT_COMPOUND.test(text) || text.startsWith('@')) continue;
     const augmented = /^([\p{L}_][\p{L}\p{N}_]*)\s*(?:\*\*|\/\/|>>|<<|[-+*/%@&|^])=(?!=)/u.exec(text);
     if (augmented) {
       names.push(augmented[1]!);
       continue;
     }
     const parts = splitTop(text, isAssign);
-    for (const target of parts.slice(0, -1)) targetNames(target, names);
+    // A lambda's defaults (`f = lambda a, b=1: a`) are not targets.
+    const lambda = parts.findIndex((part) => /\blambda\b/.test(part));
+    for (const target of parts.slice(0, lambda === -1 ? -1 : lambda)) targetNames(target, names);
   }
   return [...new Set(names)];
 }

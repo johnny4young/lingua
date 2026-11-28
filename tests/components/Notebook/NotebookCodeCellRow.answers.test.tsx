@@ -141,6 +141,21 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(within(answers[2]!).getByTestId('answer-object').dataset.tone).toBe('error');
   });
 
+  it('keeps the type and length of a list cut to the answer cap', () => {
+    const cut = `[${Array.from({ length: 80 }, (_, i) => i).join(', ')}`.slice(0, 239) + '…';
+    const cell: NotebookCodeCellV1 = {
+      kind: 'code',
+      id: 'cell-cut-list',
+      language: 'python',
+      source: 'list(range(80))',
+      outputs: [],
+      answers: [{ line: 1, kind: 'value', text: cut, type: 'list', size: 80 }],
+    };
+    render(<NotebookCodeCellRow {...rowProps(cell)} />);
+    const answer = screen.getByTestId('notebook-cell-answer');
+    expect(answer.textContent?.startsWith('list·80[0, 1, 2')).toBe(true);
+  });
+
   it('answers a write with its row count in the number tone', () => {
     const cell: NotebookCodeCellV1 = {
       kind: 'code',

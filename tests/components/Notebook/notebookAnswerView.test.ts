@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerGrid, notebookAnswerInput } from '../../../src/renderer/components/Notebook/notebookAnswerView';
+import { answerGrid, cutCollectionTag, notebookAnswerInput } from '../../../src/renderer/components/Notebook/notebookAnswerView';
 import { readAnswer } from '../../../src/renderer/components/Answer/answerObjectModel';
 import type { NotebookCellLanguage, NotebookLineAnswerV1 } from '../../../src/shared/notebook';
 import type { ScopeValue } from '../../../src/shared/scopeSnapshot';
@@ -74,5 +74,20 @@ describe('notebookAnswerInput', () => {
   it('passes the line source so a number can gauge against its threshold', () => {
     const input = notebookAnswerInput({ line: 1, kind: 'value', text: '42', type: 'number' }, 'javascript', 'p95 // < 120');
     expect(input.source).toBe('p95 // < 120');
+  });
+});
+
+describe('cutCollectionTag', () => {
+  it('keeps the type and length of a collection cut to the answer cap', () => {
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[1, 2, 3…', type: 'list', size: 80 })).toBe('list·80');
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '{1, 2, 3…', type: 'set', size: 50 })).toBe('set·50');
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[["a",1]…', type: 'map', size: 9 })).toBe('map·9');
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '(1, 2, 3…', type: 'tuple' })).toBe('tuple');
+  });
+
+  it('leaves whole values and strings to the answer renderer', () => {
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[1, 2, 3]', type: 'list', size: 3 })).toBeNull();
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '"abc…', type: 'string' })).toBeNull();
+    expect(cutCollectionTag({ line: 1, kind: 'output', text: 'printed…' })).toBeNull();
   });
 });
