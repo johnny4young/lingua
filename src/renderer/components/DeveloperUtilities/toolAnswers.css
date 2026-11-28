@@ -1,0 +1,233 @@
+@layer components {
+  .tool-answer-panel {
+    display: grid;
+    gap: 20px;
+  }
+
+  /* The header spans the pane: it cancels the panel host's px-7 py-6 padding. */
+  .tool-answer-header {
+    margin: -24px -28px 0;
+  }
+
+  .tool-answer-section {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+  }
+
+  /* Fixed height: a copy button in one head never lowers its neighbour's label. */
+  .tool-answer-section-head {
+    display: flex;
+    height: 24px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .tool-answer-section-head .type-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tool-answer-swatch {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 1.5px;
+  }
+
+  .tool-leaf-row {
+    display: flex;
+    min-width: 0;
+    min-height: 30px;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
+    font-size: 12.5px;
+    white-space: nowrap;
+    color: var(--color-fg-base);
+  }
+
+  .tool-leaf-key {
+    flex: 0 1 auto;
+    min-width: 34px;
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-fg-muted);
+  }
+
+  .tool-leaf-leader {
+    min-width: 14px;
+    margin: 0;
+  }
+
+  .tool-leaf-answer {
+    display: flex;
+    min-width: 0;
+    flex: 0 1 var(--tool-leaf-width, 392px);
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tool-leaf-type {
+    min-width: 52px;
+    flex: none;
+  }
+
+  .tool-leaf-answer > .answer-object-value[data-pill] {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tool-leaf-raw {
+    flex: none;
+    color: var(--color-fg-subtle);
+    font-size: 11.5px;
+  }
+
+  .tool-leaf-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-fg-muted);
+    font-family: var(--font-ui);
+    font-variation-settings: normal;
+  }
+
+  .tool-leaf-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* exp: issued at the left edge, expiry at the right, a mark where now falls. */
+  .tool-lifetime {
+    position: relative;
+    width: 110px;
+    height: 12px;
+    flex: none;
+  }
+
+  .tool-lifetime::before,
+  .tool-lifetime-used {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 3px;
+    height: 6px;
+    border-radius: 2px;
+  }
+
+  .tool-lifetime::before {
+    right: 0;
+    background: var(--answer-track);
+  }
+
+  .tool-lifetime-used {
+    background: var(--color-value-date);
+  }
+
+  .tool-lifetime[data-state='expired'] .tool-lifetime-used {
+    background: var(--color-value-error);
+  }
+
+  .tool-lifetime-now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background: var(--color-fg-base);
+  }
+
+  /* JWT decode: header and signature side by side, the payload under them. Leaders stay short enough to follow across: the body keeps the board's reading width. */
+  .jwt-decode {
+    display: grid;
+    max-width: 760px;
+    gap: 24px;
+  }
+
+  .jwt-decode-parts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 210px);
+    gap: 28px;
+  }
+
+  @container (max-width: 560px) {
+    .jwt-decode-parts {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 20px;
+    }
+  }
+
+  .jwt-decode-wrap {
+    container-type: inline-size;
+  }
+
+  /* A narrow pane drops the type column; a date row wraps its bar or note under the date instead of cutting it. */
+  @container (max-width: 480px) {
+    .tool-leaf-type {
+      display: none;
+    }
+
+    .tool-leaf-row {
+      align-items: flex-start;
+      padding-block: 5px;
+      line-height: 20px;
+    }
+
+    .tool-leaf-leader {
+      margin-top: 9px;
+    }
+
+    .tool-leaf-answer {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      row-gap: 4px;
+    }
+
+    .tool-leaf-answer > * {
+      margin-block: 0.5px;
+    }
+
+    .tool-lifetime {
+      margin-block: 4px;
+    }
+  }
+
+  /* A digest wraps anywhere: it is one long word. */
+  .tool-digest-row {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
+    font-size: 12.5px;
+    line-height: 20px;
+  }
+
+  .tool-digest {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 560;
+    color: var(--color-value-string);
+  }
+
+  /* The token box grows with the token instead of a fixed textarea height. */
+  /* Block, so no baseline gap under the textarea shows the overlay as a second edge. */
+  .jwt-token-field textarea.um-control {
+    display: block;
+    min-height: 0;
+    field-sizing: content;
+    max-height: 18rem;
+    resize: none;
+  }
+}

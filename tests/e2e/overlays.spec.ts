@@ -367,11 +367,11 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await page.getByTestId('hash-input-text').fill('abc');
 
     await page.getByTestId('hash-algorithm').selectOption('MD5');
-    await expect(page.getByTestId('hash-output')).toHaveValue('900150983cd24fb0d6963f7d28e17f72');
+    await expect(page.getByTestId('hash-output')).toHaveText('900150983cd24fb0d6963f7d28e17f72');
 
     await page.getByTestId('hash-algorithm').selectOption('SHA-384');
     // SHA-384("abc") — canonical NIST test vector, 96 hex chars.
-    await expect(page.getByTestId('hash-output')).toHaveValue(
+    await expect(page.getByTestId('hash-output')).toHaveText(
       'cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7'
     );
 
@@ -381,7 +381,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await page.getByTestId('hash-input-text').fill('The quick brown fox jumps over the lazy dog');
     await page.getByTestId('hash-hmac-key').fill('key');
     await page.getByTestId('hash-algorithm').selectOption('SHA-256');
-    await expect(page.getByTestId('hash-output')).toHaveValue(
+    await expect(page.getByTestId('hash-output')).toHaveText(
       'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8'
     );
 
@@ -797,7 +797,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await page.getByRole('button', { name: /^JWT Debugger/ }).click();
 
     // Sign first: HS256 with a key that hits the 32-byte HMAC floor.
-    await page.getByTestId('jwt-mode').selectOption('sign');
+    await page.getByTestId('jwt-mode-sign').click();
     await page.getByTestId('jwt-sign-key').fill('this-secret-is-exactly-32-bytes!');
     await page.getByTestId('jwt-sign-run').click();
 
@@ -808,7 +808,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
     // Verify: paste the same token + key, algorithm auto-stays on HS256
     // (the default). Expect the pass indicator.
-    await page.getByTestId('jwt-mode').selectOption('verify');
+    await page.getByTestId('jwt-mode-verify').click();
     await page.getByTestId('jwt-verify-token').fill(token);
     await page.getByTestId('jwt-verify-key').fill('this-secret-is-exactly-32-bytes!');
     await page.getByTestId('jwt-verify-run').click();
@@ -820,6 +820,29 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await page.getByTestId('jwt-verify-token').fill(tampered);
     await page.getByTestId('jwt-verify-run').click();
     await expect(page.getByTestId('jwt-verify-result-fail')).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('JWT Debugger answers in one header: time left, segments and typed claims', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^JWT Debugger/ }).click();
+
+    const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+    const now = Math.floor(Date.now() / 1000);
+    const token = [
+      encode({ alg: 'HS256', typ: 'JWT' }),
+      encode({ sub: 'user_42', iat: now - 3600, exp: now + 58 * 60 + 30 }),
+      'c2lnbmF0dXJl',
+    ].join('.');
+    await page.getByTestId('jwt-decode-token').fill(token);
+
+    const header = page.getByTestId('jwt-result-header');
+    await expect(header.getByTestId('result-header-numeral')).toHaveText(/^5[78]min left$/u);
+    await expect(header.getByTestId('result-header-meta')).toHaveText('HS256 · 3 claims');
+    await expect(page.getByTestId('jwt-segments').locator('[data-phase]')).toHaveCount(3);
+    await expect(page.getByTestId('jwt-claim-sub')).toContainText('"user_42"');
+    await expect(page.getByTestId('jwt-time-claim-exp').getByTestId('jwt-lifetime')).toBeVisible();
 
     await closeDeveloperUtilities(page);
   });
@@ -846,7 +869,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     });
 
     // Sign with ES256 + the private JWK.
-    await page.getByTestId('jwt-mode').selectOption('sign');
+    await page.getByTestId('jwt-mode-sign').click();
     await page.getByTestId('jwt-sign-algorithm').selectOption('ES256');
     await page.getByTestId('jwt-sign-key').fill(keyMaterial.privateJwk);
     await page.getByTestId('jwt-sign-run').click();
@@ -857,7 +880,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     expect(token.split('.')).toHaveLength(3);
 
     // Verify with ES256 + the public JWK → PASS.
-    await page.getByTestId('jwt-mode').selectOption('verify');
+    await page.getByTestId('jwt-mode-verify').click();
     await page.getByTestId('jwt-verify-algorithm').selectOption('ES256');
     await page.getByTestId('jwt-verify-token').fill(token);
     await page.getByTestId('jwt-verify-key').fill(keyMaterial.publicJwk);

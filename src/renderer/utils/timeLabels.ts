@@ -10,11 +10,7 @@ const DAY = 24 * HOUR;
 
 const relativeFormats = new Map<string, Intl.RelativeTimeFormat>();
 
-/**
- * "in 23 hr" / "1 hr ago" in the given locale. Hours run up to two days, so a
- * token that expires tomorrow reads in hours rather than "in 1 day".
- */
-export function formatRelativeTime(targetMs: number, nowMs: number, locale: string): string {
+function relativeFormat(targetMs: number, nowMs: number, locale: string): [Intl.RelativeTimeFormat, number, Intl.RelativeTimeFormatUnit] {
   const delta = targetMs - nowMs;
   const absolute = Math.abs(delta);
   const [unit, size]: [Intl.RelativeTimeFormatUnit, number] =
@@ -30,7 +26,27 @@ export function formatRelativeTime(targetMs: number, nowMs: number, locale: stri
     format = new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' });
     relativeFormats.set(locale, format);
   }
-  return format.format(Math.round(delta / size), unit);
+  return [format, Math.round(delta / size), unit];
+}
+
+/**
+ * "in 23 hr" / "1 hr ago" in the given locale. Hours run up to two days, so a
+ * token that expires tomorrow reads in hours rather than "in 1 day".
+ */
+export function formatRelativeTime(targetMs: number, nowMs: number, locale: string): string {
+  const [format, value, unit] = relativeFormat(targetMs, nowMs, locale);
+  return format.format(value, unit);
+}
+
+/** The same reading split for a numeral: words before the number, the number, words after. */
+export function relativeTimeParts(targetMs: number, nowMs: number, locale: string): { lead: string; value: string; unit: string } {
+  const [format, value, unit] = relativeFormat(targetMs, nowMs, locale);
+  const parts = format.formatToParts(value, unit);
+  const number = parts.flatMap((part, index) => ('unit' in part ? [index] : []));
+  const first = number[0] ?? 0;
+  const last = number.at(-1) ?? -1;
+  const text = (from: number, to: number) => parts.slice(from, to).map((part) => part.value).join('').trim();
+  return { lead: text(0, first), value: text(first, last + 1), unit: text(last + 1, parts.length) };
 }
 
 type Translate = (key: string, values?: Record<string, number>) => string;

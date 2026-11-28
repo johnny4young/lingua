@@ -6,7 +6,7 @@
  * error banners, ES locale.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,12 +52,18 @@ describe('HashUtilityPanel', () => {
     expect((screen.getByTestId('hash-algorithm') as HTMLSelectElement).value).toBe('SHA-256');
 
     await waitFor(() => {
-      const output = screen.getByTestId('hash-output') as HTMLTextAreaElement;
+      const output = screen.getByTestId('hash-output').textContent ?? '';
       // SHA-256 of "Lingua".
-      expect(output.value).toBe(
+      expect(output).toBe(
         '0fcc9b7d744c5feeeaad15919402773216cba26b703a5ad3e0724c2ab2d315ee',
       );
     });
+    // The header answers with the bytes hashed; the digest is a typed hex value.
+    const header = within(screen.getByTestId('hash-result-header'));
+    expect(header.getByTestId('result-header-tag').textContent).toBe('HASH');
+    expect(header.getByTestId('result-header-numeral').textContent).toBe('6bytes hashed');
+    expect(header.getByTestId('result-header-meta').textContent).toBe('SHA-256');
+    expect(screen.getByText('hex·64')).toBeTruthy();
   });
 
   it('switching the algorithm to SHA-384 re-renders the digest with 96 hex chars', async () => {
@@ -68,8 +74,8 @@ describe('HashUtilityPanel', () => {
     await user.selectOptions(screen.getByTestId('hash-algorithm'), 'SHA-384');
 
     await waitFor(() => {
-      const output = screen.getByTestId('hash-output') as HTMLTextAreaElement;
-      expect(output.value).toHaveLength(96);
+      const output = screen.getByTestId('hash-output').textContent ?? '';
+      expect(output).toHaveLength(96);
     });
   });
 
@@ -83,8 +89,8 @@ describe('HashUtilityPanel', () => {
     await user.selectOptions(screen.getByTestId('hash-algorithm'), 'MD5');
 
     await waitFor(() => {
-      const output = screen.getByTestId('hash-output') as HTMLTextAreaElement;
-      expect(output.value).toBe('900150983cd24fb0d6963f7d28e17f72');
+      const output = screen.getByTestId('hash-output').textContent ?? '';
+      expect(output).toBe('900150983cd24fb0d6963f7d28e17f72');
     });
   });
 
@@ -130,11 +136,14 @@ describe('HashUtilityPanel', () => {
     fireEvent.change(keyInput, { target: { value: 'key' } });
 
     await waitFor(() => {
-      const output = screen.getByTestId('hash-output') as HTMLTextAreaElement;
-      expect(output.value).toBe(
+      const output = screen.getByTestId('hash-output').textContent ?? '';
+      expect(output).toBe(
         'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8',
       );
     });
+    expect(
+      within(screen.getByTestId('hash-result-header')).getByTestId('result-header-meta').textContent
+    ).toBe('HMAC · SHA-256');
   });
 
   it('switching the input source to File reveals the drop zone and hides the text area', async () => {

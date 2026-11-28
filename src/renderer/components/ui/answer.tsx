@@ -12,6 +12,8 @@ export function TypeTag({ children, className }: { children: ReactNode; classNam
 export interface ResultNumeralProps {
   value: ReactNode;
   unit?: ReactNode;
+  /** Words a locale puts before the number ("in", "hace"), set like the unit. */
+  lead?: ReactNode;
   /** 19 / 26 / 44 / 88 px numerals. */
   size?: 'sm' | 'md' | 'lg' | 'xl';
   /** Counts stay neutral; `error` is reserved for a failed answer. */
@@ -26,6 +28,7 @@ export interface ResultNumeralProps {
 export function ResultNumeral({
   value,
   unit,
+  lead,
   size = 'md',
   tone = 'neutral',
   word = false,
@@ -34,6 +37,7 @@ export function ResultNumeral({
 }: ResultNumeralProps) {
   return (
     <span className={cn('result-numeral', className)} data-size={size} data-tone={tone} data-word={word ? '' : undefined} data-testid={testId}>
+      {lead ? <span className="result-numeral-unit">{lead}</span> : null}
       <span className="result-numeral-value">{value}</span>
       {unit ? <span className="result-numeral-unit">{unit}</span> : null}
     </span>

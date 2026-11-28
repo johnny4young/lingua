@@ -1,8 +1,9 @@
-import { EncodeDecodeToggle, TwoPaneTransformPanel, UtilityToolbar } from '../panelPrimitives';
+import { TwoPaneTransformPanel, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTransformUtilityPanel } from '../useTransformUtilityPanel';
 import { decodeBase64, detectsAsBase64, encodeBase64 } from '../../../utils/developerUtilities';
+import { TransformResultHeader } from '../ToolAnswerParts';
 
 export function Base64UtilityPanel() {
   const { t } = useTranslation();
@@ -27,8 +28,8 @@ export function Base64UtilityPanel() {
   }, [input]);
 
   return (
-    <div className="grid gap-4">
-      <EncodeDecodeToggle mode={mode} onModeChange={setMode} />
+    <div className="tool-answer-panel">
+      <TransformResultHeader tag="BASE64" testIdPrefix="base64" input={input} output={output} errorKey={errorKey} mode={mode} onModeChange={setMode} />
       <UtilityToolbar utilityId="base64" primary={input} run={runApply} setPrimary={setInput} />
       <TwoPaneTransformPanel
         title={t('utilities.tool.base64.title')}

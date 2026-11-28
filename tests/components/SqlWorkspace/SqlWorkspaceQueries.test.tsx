@@ -497,6 +497,7 @@ describe('Load more', () => {
     expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
   });
 
+  // Twenty dependent Load more round trips, each re-profiling up to 100k rows; coverage runs pass 5 s.
   it('stops reading at the session cap and lets the stream go', async () => {
     const user = userEvent.setup();
     useSettingsStore.setState({ sqlWorkspaceRowDisplayLimit: 5000 });
@@ -515,7 +516,7 @@ describe('Load more', () => {
     showColumnRail();
     expect(screen.getByTestId('sql-column-rail-sample').textContent).toContain('100,000');
     await waitFor(() => expect(stream.cancelled).toBe(1));
-  });
+  }, 15_000);
 
   it('holds fewer rows of a wide result', () => {
     expect(sessionRowCap(4)).toBe(SQL_SESSION_ROW_CAP);

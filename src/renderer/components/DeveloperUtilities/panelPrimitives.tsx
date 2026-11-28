@@ -115,9 +115,14 @@ const UTILITY_OUTPUT_MAX_PANE_GRID =
 export function TimestampHoverValue({
   value,
   timestamp,
+  variant = 'chip',
+  className,
 }: {
   value: string;
   timestamp: TimestampHoverInfo;
+  /** `quiet` drops the accent chip, e.g. for a raw value in a leader row. */
+  variant?: 'chip' | 'quiet';
+  className?: string;
 }) {
   const { t } = useTranslation();
   const reactId = useId();
@@ -129,7 +134,12 @@ export function TimestampHoverValue({
         tabIndex={0}
         aria-describedby={tooltipId}
         data-testid="json-timestamp-value"
-        className="focus-ring inline-flex cursor-help items-center rounded-md border border-accent/25 bg-accent/10 px-1.5 py-0.5 font-mono text-[0.82em] font-semibold text-accent-fg transition-colors hover:border-accent/45 hover:bg-accent/15"
+        className={cn(
+          'focus-ring inline-flex cursor-help items-center',
+          variant === 'chip' &&
+            'rounded-md border border-accent/25 bg-accent/10 px-1.5 py-0.5 font-mono text-[0.82em] font-semibold text-accent-fg transition-colors hover:border-accent/45 hover:bg-accent/15',
+          className
+        )}
       >
         {value}
       </span>

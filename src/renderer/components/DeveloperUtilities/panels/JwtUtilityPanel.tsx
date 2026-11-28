@@ -1,188 +1,110 @@
-import {
-  FieldLabel,
-  PanelSection,
-  StatusMessage,
-  UtilityToolbar,
-  UtilityTextarea,
-} from '../panelPrimitives';
+import { FieldLabel, PanelSection, StatusMessage, UtilityToolbar, UtilityTextarea } from '../panelPrimitives';
 import { JsonSyntaxOutput } from '../JsonSyntaxOutput';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { usePendingUtilityInput } from '../usePendingUtilityInput';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
-import { cn } from '../../../utils/cn';
-import { formatRelativeTime } from '../../../utils/timeLabels';
-import {
-  JWT_SUPPORTED_ALGORITHMS,
-  decodeJwt,
-  isJwtAlgorithm,
-  signJwt,
-  verifyJwt,
-} from '../../../utils/jwt';
+import { JWT_SUPPORTED_ALGORITHMS, decodeJwt, isJwtAlgorithm, signJwt, verifyJwt } from '../../../utils/jwt';
 import type { JwtAlgorithm, JwtSignResult, JwtVerifyResult } from '../../../utils/jwt';
+import { ToolResultHeader } from '../ToolAnswerParts';
+import { useToolClock } from '../useToolClock';
+import { claimTime, hasTimeClaim, invalidAnswer, isOneOf, jwtAnswer } from '../toolAnswers';
+import { formatNumber } from '../../../i18n/formatNumber';
+import { JwtDecodeView } from './JwtDecodeView';
+import { JwtColoredTokenArea, JwtSignaturePill } from './JwtToken';
+import {
+  JWT_HEADER_COLOR,
+  JWT_PAYLOAD_COLOR,
+  jwtSegmentBytes,
+  jwtSignatureColor,
+  resolveSignatureState,
+  type JwtSignatureState,
+} from './jwtSegments';
+
+const MODES = ['decode', 'verify', 'sign'] as const;
+type JwtMode = (typeof MODES)[number];
 
 export function JwtUtilityPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [mode, setMode] = useState<JwtMode>('decode');
   const [input, setInput] = useState(
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsaW5ndWEiLCJyb2xlIjoiZGV2In0.signature'
   );
+  const [signed, setSigned] = useState<string | null>(null);
+  const [verifyState, setVerifyState] = useState<JwtSignatureState>('unverified');
   // A smart-pasted token lands in decode mode (the common case).
   usePendingUtilityInput('jwt', pending => {
     setMode('decode');
     setInput(pending);
   });
 
-  // Apply forces the panel into decode mode against
-  // the current token. Verify and Sign sub-modes have their own
-  // explicit "Run" buttons; the productivity gesture targets the
-  // common case (paste a token, see its claims).
+  // Apply targets the common case: show the current token's claims.
   const runApply = useCallback(() => {
     setMode('decode');
   }, []);
 
-  return (
-    <div className="grid gap-4">
-      <PanelSection
-        title={t('utilities.tool.jwt.title')}
-        description={t('utilities.tool.jwt.panelDescription')}
-      >
-        {/* Space audit — the mode select shares the toolbar's single
-            row (mode · Apply · Recent runs) instead of stacking its own
-            labeled block above it. The label survives as aria-label. */}
-        <UtilityToolbar
-          utilityId="jwt"
-          primary={input}
-          run={runApply}
-          setPrimary={setInput}
-          leading={
-            <select
-              aria-label={t('utilities.tool.jwt.mode.label')}
-              data-testid="jwt-mode"
-              value={mode}
-              onChange={event => {
-                const next = event.target.value;
-                if (next === 'decode' || next === 'verify' || next === 'sign') setMode(next);
-              }}
-              className="rounded-full border border-border/80 bg-bg-panel py-1.5 pl-3 pr-8 text-body-sm font-semibold text-fg-base outline-none transition-colors hover:bg-bg-panel-alt focus:border-accent/55"
-            >
-              <option value="decode">{t('utilities.tool.jwt.mode.decode')}</option>
-              <option value="verify">{t('utilities.tool.jwt.mode.verify')}</option>
-              <option value="sign">{t('utilities.tool.jwt.mode.sign')}</option>
-            </select>
-          }
-        />
-      </PanelSection>
+  // The header reads the token on screen: the input, or in Sign mode the token just signed.
+  const token = mode === 'sign' ? signed ?? '' : input;
+  const analysis = useMemo(() => decodeJwt(token), [token]);
+  const now = useToolClock(token, hasTimeClaim(analysis.payload), claimTime(analysis.payload?.exp));
+  const signatureState = resolveSignatureState(token, mode === 'sign' ? 'signed' : mode === 'verify' ? verifyState : 'unverified');
+  const reading =
+    analysis.header && analysis.payload ? jwtAnswer(analysis.header, analysis.payload, now, t, i18n.language) : null;
+  const answer = reading ? reading.answer : analysis.errorKey ? invalidAnswer(t) : null;
+  const bytes = useMemo(() => jwtSegmentBytes(token), [token]);
 
-      {mode === 'decode' ? (
-        <JwtDecodeSection input={input} setInput={setInput} />
-      ) : mode === 'verify' ? (
-        <JwtVerifySection input={input} setInput={setInput} />
-      ) : (
-        <JwtSignSection />
-      )}
-    </div>
-  );
-}
-
-type JwtMode = 'decode' | 'verify' | 'sign';
-type JwtSignatureState = 'missing' | 'unverified' | 'verified' | 'failed' | 'signed';
-
-function JwtDecodeSection({
-  input,
-  setInput,
-}: {
-  input: string;
-  setInput: (value: string) => void;
-}) {
-  const { t } = useTranslation();
-  const analysis = useMemo(() => decodeJwt(input), [input]);
-
-  // Register the decoded payload (the user-meaningful
-  // half of a decoded JWT) as the panel's output for Cmd+Shift+C.
-  // verify and sign sub-modes don't register yet; a later change will
-  // unify all 3 modes once detect()-driven Apply lands.
+  // Copy output takes the decoded payload; Verify and Sign keep their own copy buttons.
+  const decodedPayload = mode === 'decode' ? analysis.payload : null;
   const registerOutput = useCallback(
-    () => (analysis.payload ? JSON.stringify(analysis.payload, null, 2) : null),
-    [analysis.payload]
+    () => (decodedPayload ? JSON.stringify(decodedPayload, null, 2) : null),
+    [decodedPayload]
   );
   useRegisterUtilityOutput(registerOutput);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
-      <PanelSection
-        title={t('utilities.tool.jwt.headerTitle')}
-        description={t('utilities.tool.jwt.panelDescription')}
-      >
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <FieldLabel>{t('utilities.field.token')}</FieldLabel>
-            {input.trim() ? (
-              <JwtSignaturePill state={resolveSignatureState(input, 'unverified')} />
-            ) : null}
-          </div>
-          <JwtColoredTokenArea
-            ariaLabel={t('utilities.field.token')}
-            testid="jwt-decode-token"
-            value={input}
-            onChange={setInput}
-            signatureState={resolveSignatureState(input, 'unverified')}
-          />
-        </div>
-        {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
-      </PanelSection>
+    <div className="tool-answer-panel">
+      <ToolResultHeader
+        testId="jwt-result-header"
+        tag="JWT"
+        answer={answer}
+        meta={reading?.meta || undefined}
+        segments={
+          analysis.header && analysis.payload
+            ? {
+                testId: 'jwt-segments',
+                label: t('utilities.answer.jwt.segments', {
+                  header: formatNumber(bytes.header, i18n.language),
+                  payload: formatNumber(bytes.payload, i18n.language),
+                  signature: formatNumber(bytes.signature, i18n.language),
+                }),
+                parts: [
+                  { key: 'header', ms: bytes.header, color: JWT_HEADER_COLOR },
+                  { key: 'payload', ms: bytes.payload, color: JWT_PAYLOAD_COLOR },
+                  { key: 'signature', ms: bytes.signature, color: jwtSignatureColor(signatureState) },
+                ],
+              }
+            : undefined
+        }
+        tabs={MODES.map(id => ({ id, label: t(`utilities.tool.jwt.mode.${id}`), testId: `jwt-mode-${id}` }))}
+        activeTab={mode}
+        onTabChange={id => {
+          if (!isOneOf(MODES, id) || id === mode) return;
+          // Verify and Sign remount empty, so their last reading must not head the next visit.
+          setSigned(null);
+          setVerifyState('unverified');
+          setMode(id);
+        }}
+      />
 
-      <div className="grid content-start gap-4">
-        <PanelSection
-          title={t('utilities.tool.jwt.headerTitle')}
-          description={t('utilities.tool.jwt.headerDescription')}
-        >
-          {analysis.header ? (
-            <div className="grid gap-2">
-              <JsonSyntaxOutput
-                ariaLabel={t('utilities.tool.jwt.headerTitle')}
-                testid="jwt-header-output"
-                value={JSON.stringify(analysis.header, null, 2)}
-              />
-              <div className="flex justify-end">
-                <CopyButton
-                  value={JSON.stringify(analysis.header, null, 2)}
-                  testid="jwt-header-copy"
-                />
-              </div>
-            </div>
-          ) : (
-            <StatusMessage message={t('utilities.tool.jwt.empty')} />
-          )}
-        </PanelSection>
-        <PanelSection
-          title={t('utilities.tool.jwt.payloadTitle')}
-          description={t('utilities.tool.jwt.payloadDescription')}
-        >
-          {analysis.payload ? (
-            <div className="grid gap-2">
-              <JsonSyntaxOutput
-                ariaLabel={t('utilities.tool.jwt.payloadTitle')}
-                testid="jwt-payload-output"
-                value={JSON.stringify(analysis.payload, null, 2)}
-                annotateTimestamps
-              />
-              {/* Keyed by payload so each decoded token reads the clock afresh. */}
-              <JwtTimeClaims key={JSON.stringify(analysis.payload)} payload={analysis.payload} />
-              <div className="flex justify-end">
-                <CopyButton
-                  value={JSON.stringify(analysis.payload, null, 2)}
-                  testid="jwt-payload-copy"
-                />
-              </div>
-            </div>
-          ) : (
-            <StatusMessage message={t('utilities.tool.jwt.empty')} />
-          )}
-        </PanelSection>
-        {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
-      </div>
+      {mode === 'decode' ? (
+        <JwtDecodeView input={input} setInput={setInput} analysis={analysis} now={now} bytes={bytes} signatureState={signatureState} />
+      ) : mode === 'verify' ? (
+        <JwtVerifySection input={input} setInput={setInput} onSignatureState={setVerifyState} />
+      ) : (
+        <JwtSignSection onSigned={setSigned} />
+      )}
+      <UtilityToolbar utilityId="jwt" primary={input} run={runApply} setPrimary={setInput} />
     </div>
   );
 }
@@ -190,9 +112,11 @@ function JwtDecodeSection({
 function JwtVerifySection({
   input,
   setInput,
+  onSignatureState,
 }: {
   input: string;
   setInput: (value: string) => void;
+  onSignatureState: (state: JwtSignatureState) => void;
 }) {
   const { t } = useTranslation();
   const [key, setKey] = useState('');
@@ -202,6 +126,7 @@ function JwtVerifySection({
   const signatureState: JwtSignatureState =
     result === null ? 'unverified' : result.ok ? 'verified' : 'failed';
   const resetVerification = useCallback(() => setResult(null), []);
+  useEffect(() => onSignatureState(signatureState), [onSignatureState, signatureState]);
   const latestVerificationInputRef = useRef({ input, key, algorithm });
 
   useEffect(() => {
@@ -311,10 +236,7 @@ function JwtVerifyResultView({ result }: { result: JwtVerifyResult }) {
 
   if (result.ok) {
     return (
-      <PanelSection
-        title={t('utilities.tool.jwt.verify.resultTitle')}
-        description={t('utilities.status.live')}
-      >
+      <PanelSection title={t('utilities.tool.jwt.verify.resultTitle')}>
         <StatusMessage
           tone="success"
           message={t('utilities.tool.jwt.verify.pass')}
@@ -351,10 +273,7 @@ function JwtVerifyResultView({ result }: { result: JwtVerifyResult }) {
   }
 
   return (
-    <PanelSection
-      title={t('utilities.tool.jwt.verify.resultTitle')}
-      description={t('utilities.status.live')}
-    >
+    <PanelSection title={t('utilities.tool.jwt.verify.resultTitle')}>
       <StatusMessage tone="error" message={t(messageKey, values)} testid="jwt-verify-result-fail" />
     </PanelSection>
   );
@@ -383,7 +302,7 @@ function verifyErrorMessageKey(kind: Exclude<JwtVerifyResult, { ok: true }>['kin
   }
 }
 
-function JwtSignSection() {
+function JwtSignSection({ onSigned }: { onSigned: (token: string | null) => void }) {
   const { t } = useTranslation();
   const [header, setHeader] = useState('{"alg":"HS256","typ":"JWT"}');
   const [payload, setPayload] = useState('{"sub":"lingua","role":"dev"}');
@@ -391,6 +310,8 @@ function JwtSignSection() {
   const [algorithm, setAlgorithm] = useState<JwtAlgorithm>('HS256');
   const [result, setResult] = useState<JwtSignResult | null>(null);
   const [running, setRunning] = useState(false);
+  const signedToken = result?.ok ? result.token : null;
+  useEffect(() => onSigned(signedToken), [onSigned, signedToken]);
 
   const handleSign = async () => {
     // Same re-entrancy guard as handleVerify — belt-and-braces against
@@ -473,10 +394,7 @@ function JwtSignSection() {
         </button>
       </PanelSection>
 
-      <PanelSection
-        title={t('utilities.tool.jwt.sign.resultTitle')}
-        description={t('utilities.status.live')}
-      >
+      <PanelSection title={t('utilities.tool.jwt.sign.resultTitle')}>
         {result?.ok ? (
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -531,205 +449,3 @@ function signErrorMessageKey(kind: Exclude<JwtSignResult, { ok: true }>['kind'])
   }
 }
 
-/**
- * A signature-less token resolves to `missing` no matter what the caller
- * knows about verification — you cannot verify what is not there.
- */
-function resolveSignatureState(token: string, base: JwtSignatureState): JwtSignatureState {
-  const parts = token.trim().split('.');
-  const signature = parts.slice(2).join('.');
-  return signature ? base : 'missing';
-}
-
-function JwtSignaturePill({ state }: { state: JwtSignatureState }) {
-  const { t } = useTranslation();
-  return (
-    <span
-      data-testid="jwt-signature-status"
-      className={cn(
-        'rounded-full border px-2 py-0.5 font-mono text-micro font-bold uppercase tracking-[0.14em]',
-        signatureStatusClass(state)
-      )}
-    >
-      {t(signatureStatusLabelKey(state))}
-    </span>
-  );
-}
-
-/**
- * The token characters, segment-colored: header (info), payload (accent),
- * signature (state-toned). Rendered inside the colored-input overlay so
- * the REAL input shows the colors — no duplicated preview block.
- */
-function JwtTokenSpans({ token, signatureState }: { token: string; signatureState: JwtSignatureState }) {
-  const parts = token.split('.');
-  const header = parts[0] ?? '';
-  const payload = parts[1] ?? '';
-  const signature = parts.slice(2).join('.');
-  return (
-    <>
-      <span data-testid="jwt-token-header" className="text-info">
-        {header}
-      </span>
-      {parts.length > 1 ? <span className="text-fg-subtle">.</span> : null}
-      <span data-testid="jwt-token-payload" className="text-accent-fg">
-        {payload}
-      </span>
-      {parts.length > 2 ? <span className="text-fg-subtle">.</span> : null}
-      <span data-testid="jwt-token-signature" className={signatureTextClass(signatureState)}>
-        {signature}
-      </span>
-    </>
-  );
-}
-
-function signatureTextClass(state: JwtSignatureState): string {
-  switch (state) {
-    case 'verified':
-    case 'signed':
-      return 'text-success';
-    case 'failed':
-      return 'text-danger';
-    case 'missing':
-    case 'unverified':
-      return 'text-warning';
-  }
-}
-
-/**
- * jwt.io-style colored token editor. The REAL textarea stays on top with
- * transparent text (caret, selection, and editing intact) while an
- * aria-hidden overlay underneath paints the same characters
- * segment-colored. Both layers copy the um-control metrics (1px border,
- * px-3 py-3, text-body-md, mono, break-anywhere) so wrap points line up,
- * and the overlay mirrors the textarea's scroll position. The overlay
- * carries the control background; the textarea keeps the visible border
- * and focus ring.
- */
-function JwtColoredTokenArea({
-  value,
-  onChange,
-  signatureState,
-  testid,
-  ariaLabel,
-  readOnly = false,
-}: {
-  value: string;
-  onChange?: (value: string) => void;
-  signatureState: JwtSignatureState;
-  testid: string;
-  ariaLabel: string;
-  readOnly?: boolean;
-}) {
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const syncScroll = (target: HTMLTextAreaElement) => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    overlay.scrollTop = target.scrollTop;
-    overlay.scrollLeft = target.scrollLeft;
-  };
-  return (
-    <div className="relative">
-      <div
-        ref={overlayRef}
-        aria-hidden
-        data-testid={`${testid}-overlay`}
-        className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap rounded-xl border border-transparent bg-bg-inset/60 px-3 py-3 font-mono text-body-md [overflow-wrap:anywhere]"
-      >
-        {value ? <JwtTokenSpans token={value} signatureState={signatureState} /> : null}
-      </div>
-      <UtilityTextarea
-        aria-label={ariaLabel}
-        data-testid={testid}
-        value={value}
-        readOnly={readOnly}
-        onChange={onChange ? event => onChange(event.target.value) : undefined}
-        onScroll={event => syncScroll(event.currentTarget)}
-        spellCheck={false}
-        className="relative bg-transparent font-mono text-transparent [overflow-wrap:anywhere] selection:bg-accent/30 selection:text-fg-base"
-        style={{ caretColor: 'var(--color-fg-base)' }}
-      />
-    </div>
-  );
-}
-
-function signatureStatusClass(state: JwtSignatureState): string {
-  switch (state) {
-    case 'verified':
-      return 'border-success/45 bg-success/10 text-success';
-    case 'failed':
-      return 'border-danger/45 bg-danger/10 text-danger';
-    case 'signed':
-      return 'border-success/45 bg-success/10 text-success';
-    case 'missing':
-      return 'border-border-subtle bg-bg-panel-alt/80 text-fg-muted';
-    case 'unverified':
-      return 'border-warning/45 bg-warning/10 text-warning';
-  }
-}
-
-function signatureStatusLabelKey(state: JwtSignatureState): string {
-  switch (state) {
-    case 'verified':
-      return 'utilities.jwtPreview.signature.verified';
-    case 'failed':
-      return 'utilities.jwtPreview.signature.failed';
-    case 'signed':
-      return 'utilities.jwtPreview.signature.signed';
-    case 'missing':
-      return 'utilities.jwtPreview.signature.missing';
-    case 'unverified':
-      return 'utilities.jwtPreview.signature.unverified';
-  }
-}
-
-const TIME_CLAIMS = ['exp', 'nbf', 'iat'] as const;
-/** The largest offset a JavaScript Date can hold. */
-const MAX_DATE_MS = 8.64e15;
-
-/** Relative badges for the registered time claims, so expiry reads at a glance. */
-function JwtTimeClaims({ payload }: { payload: Record<string, unknown> }) {
-  const { t, i18n } = useTranslation();
-  const [now] = useState(() => Date.now());
-  const claims = TIME_CLAIMS.flatMap(claim => {
-    const seconds = payload[claim];
-    const at = typeof seconds === 'number' ? seconds * 1000 : Number.NaN;
-    return Math.abs(at) <= MAX_DATE_MS ? [{ claim, at }] : [];
-  });
-  if (claims.length === 0) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="jwt-time-claims">
-      {claims.map(({ claim, at }) => {
-        const expired = claim === 'exp' && at <= now;
-        const pending = claim === 'nbf' && at > now;
-        const tone = expired
-          ? 'border-error-border bg-error-bg text-error-fg'
-          : pending
-            ? 'border-warning-border bg-warning-bg text-warning-fg'
-            : claim === 'exp'
-              ? 'border-success-border bg-success-bg text-success-fg'
-              : 'border-border-default text-fg-muted';
-        return (
-          <span
-            key={claim}
-            data-testid={`jwt-time-claim-${claim}`}
-            data-state={expired ? 'expired' : pending ? 'pending' : 'ok'}
-            title={
-              expired
-                ? t('utilities.tool.jwt.claim.expired')
-                : pending
-                  ? t('utilities.tool.jwt.claim.notYetValid')
-                  : undefined
-            }
-            className={cn(
-              'inline-flex h-5 items-center rounded border px-1.5 font-mono text-micro font-semibold',
-              tone
-            )}
-          >
-            {claim} {formatRelativeTime(at, now, i18n.language)}
-          </span>
-        );
-      })}
-    </div>
-  );
-}

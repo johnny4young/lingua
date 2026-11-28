@@ -275,6 +275,18 @@ describe('renderer locale bundle boundary', () => {
     expect(readFileSync(resolve(__dirname, '../../src/renderer/components/DeveloperUtilities/panels/CronPhraseComposer.tsx'), 'utf8')).toContain("import '../../../i18n/cronPhraseCatalog'");
   });
 
+  it('keeps the tool answer copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => key.startsWith('utilities.answer.'))).toEqual([]);
+    expect(rendererI18n).not.toContain('locales/en/toolAnswers.json');
+    expect(rendererI18n).toContain("import('./locales/es/toolAnswers.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/toolAnswersCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/toolAnswers.json'");
+    expect(readFileSync(resolve(__dirname, '../../src/renderer/components/DeveloperUtilities/ToolAnswerParts.tsx'), 'utf8')).toContain("import '../../i18n/toolAnswersCatalog'");
+  });
+
   it('keeps language selection metadata free of catalog imports', () => {
     expect(languageMetadata).not.toMatch(/common\.json/u);
   });

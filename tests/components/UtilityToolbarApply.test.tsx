@@ -9,7 +9,7 @@
  * UI plumbing.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -122,14 +122,12 @@ describe('UtilityToolbar Apply ', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    const encodeButton = screen.getByRole('button', { name: 'Encode' });
-    const decodeButton = screen.getByRole('button', { name: 'Decode' });
+    // The mode segment lives in the result header.
+    const encodeButton = screen.getByTestId('base64-mode-encode');
+    const decodeButton = screen.getByTestId('base64-mode-decode');
     expect(encodeButton.getAttribute('aria-pressed')).toBe('true');
     expect(decodeButton.getAttribute('aria-pressed')).toBe('false');
-    expect(encodeButton.className).toContain('focus-ring');
-    expect(decodeButton.className).toContain('focus-ring');
-    expect(encodeButton.className).toContain('focus-visible:ring-inset');
-    expect(decodeButton.className).toContain('focus-visible:ring-inset');
+    expect(encodeButton.className).toContain('focus-visible:ring-2');
 
     // Default seed is plain text in encode mode. Replace with a base64 paste.
     const inputs = screen.getAllByLabelText('Input');
@@ -141,11 +139,14 @@ describe('UtilityToolbar Apply ', () => {
     expect((apply as HTMLButtonElement).disabled).toBe(false);
     await user.click(screen.getByTestId('utility-apply-button'));
 
-    // After Apply, the semantic pressed state should move to Decode.
+    // After Apply, the semantic pressed state should move to Decode, and the header answers with the decoded text.
     await waitFor(() => {
       expect(encodeButton.getAttribute('aria-pressed')).toBe('false');
       expect(decodeButton.getAttribute('aria-pressed')).toBe('true');
     });
+    const header = within(screen.getByTestId('base64-result-header'));
+    expect(header.getByTestId('result-header-numeral').textContent).toBe('6chars');
+    expect(header.getByTestId('result-header-meta').textContent).toBe('from 8 chars');
   });
 
   it('URL: Apply auto-flips to decode and publishes the decoded output', async () => {

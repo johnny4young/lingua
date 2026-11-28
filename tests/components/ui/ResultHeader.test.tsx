@@ -24,6 +24,32 @@ describe('ResultHeader meta line', () => {
     expect(screen.getByTestId('status').parentElement?.className).toContain('min-w-0');
   });
 
+  it('heads a tool with its own tag, a numeral with words on either side and testable views', () => {
+    render(
+      <ResultHeader
+        tag="TIME"
+        numeral={{ lead: 'hace', value: '3', unit: 'h' }}
+        tabs={[{ id: 'decode', label: 'Decode', testId: 'mode-decode' }]}
+        activeTab="decode"
+      />
+    );
+    expect(screen.getByTestId('result-header-tag').textContent).toBe('TIME');
+    expect(screen.queryByTestId('result-header-workspace')).toBeNull();
+    const numeral = screen.getByTestId('result-header-numeral');
+    expect(Array.from(numeral.querySelectorAll('.result-numeral > span')).map((part) => part.className)).toEqual([
+      'result-numeral-unit',
+      'result-numeral-value',
+      'result-numeral-unit',
+    ]);
+    expect(numeral.textContent).toBe('hace3h');
+    expect(screen.getByTestId('mode-decode').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('sets a word numeral smaller than digits', () => {
+    render(<ResultHeader tag="JWT" numeral={{ value: 'expired', unit: '2 hr. ago', word: true }} />);
+    expect(screen.getByTestId('result-header-numeral').querySelector('.result-numeral')?.hasAttribute('data-word')).toBe(true);
+  });
+
   it('reads tag, numeral with its unit, metrics over a bar, views and actions in that order', async () => {
     const onTabChange = vi.fn();
     const onExport = vi.fn();

@@ -20,7 +20,7 @@ let spanishCatalogPromise: Promise<CommonCatalog> | null = null;
 async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> {
   if (language === 'en') return en;
   if (loadedCatalogs.es) return loadedCatalogs.es;
-  // Database connection, HTTP builder, debugger, explain panel, Tests tab, Compare runs, timeline, run regions, Instant SQL, pipeline export, clipboard, Local MCP, native SQL engine, Settings privacy, capsule import, Start, project explorer, notebook, theme pack, answer object, run meter and cron phrase copy are separate files so English can leave them out of the boot catalog.
+  // Database connection, HTTP builder, debugger, explain panel, Tests tab, Compare runs, timeline, run regions, Instant SQL, pipeline export, clipboard, Local MCP, native SQL engine, Settings privacy, capsule import, Start, project explorer, notebook, theme pack, answer object, run meter, cron phrase and tool answer copy are separate files so English can leave them out of the boot catalog.
   spanishCatalogPromise ??= Promise.all([
     import('./locales/es/common.json'),
     import('./locales/es/sqlConnections.json'),
@@ -45,6 +45,7 @@ async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> 
     import('./locales/es/answers.json'),
     import('./locales/es/runMeter.json'),
     import('./locales/es/cronPhrase.json'),
+    import('./locales/es/toolAnswers.json'),
   ]).then(
     (catalogs) => Object.assign({}, ...catalogs.map((catalog) => catalog.default)) as CommonCatalog
   );

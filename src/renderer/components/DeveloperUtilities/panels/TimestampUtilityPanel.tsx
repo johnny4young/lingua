@@ -12,13 +12,18 @@ import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { analyzeTimestamp, inspectTimestampLike } from '../../../utils/developerUtilities';
+import { ToolResultHeader } from '../ToolAnswerParts';
+import { useToolClock } from '../useToolClock';
+import { invalidAnswer } from '../toolAnswers';
+import { relativeTimeParts } from '../../../utils/timeLabels';
 
 export function TimestampUtilityPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [input, setInput] = useState(() => String(Math.floor(Date.now() / 1000)));
   // Seed from a smart-pasted epoch value.
   usePendingUtilityInput('timestamp', setInput);
   const analysis = useMemo(() => analyzeTimestamp(input), [input]);
+  const now = useToolClock(input, analysis.unixMilliseconds !== null, analysis.unixMilliseconds);
 
   // ISO 8601 is the most copy-worthy output for the
   // shortcut. The other readouts (epoch s/ms, local) stay reachable
@@ -32,74 +37,86 @@ export function TimestampUtilityPanel() {
     setInput(prev => prev);
   }, []);
 
-  return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-      <PanelSection
-        title={t('utilities.tool.timestamp.title')}
-      >
-        <div className="grid gap-2">
-          <FieldLabel>{t('utilities.field.input')}</FieldLabel>
-          <UtilityInput
-            aria-label={t('utilities.field.input')}
-            value={input}
-            onChange={event => setInput(event.target.value)}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="button-secondary w-fit"
-            onClick={() => setInput(String(Math.floor(Date.now() / 1000)))}
-          >
-            {t('utilities.tool.timestamp.actions.useNow')}
-          </button>
-          <UtilityToolbar
-            utilityId="timestamp"
-            primary={input}
-            run={runApply}
-            setPrimary={setInput}
-          />
-        </div>
-        {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
-      </PanelSection>
+  const answer =
+    analysis.unixMilliseconds !== null
+      ? relativeTimeParts(analysis.unixMilliseconds, now, i18n.language)
+      : analysis.errorKey
+        ? invalidAnswer(t)
+        : null;
 
-      <PanelSection
-        title={t('utilities.tool.timestamp.outputsTitle')}
-        description={t('utilities.tool.timestamp.outputsDescription')}
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <TimestampOutputCard
-            label={t('utilities.tool.timestamp.outputs.seconds')}
-            value={analysis.unixSeconds ?? null}
-            testid="timestamp-output-seconds"
-          />
-          <TimestampOutputCard
-            label={t('utilities.tool.timestamp.outputs.milliseconds')}
-            value={analysis.unixMilliseconds ?? null}
-            testid="timestamp-output-milliseconds"
-          />
-          <TimestampOutputCard
-            label={t('utilities.tool.timestamp.outputs.iso')}
-            value={analysis.iso ?? null}
-            testid="timestamp-output-iso"
-            fullWidth
-          />
-          <TimestampOutputCard
-            label={t('utilities.tool.timestamp.outputs.local')}
-            value={analysis.local ?? null}
-            testid="timestamp-output-local"
-            fullWidth
-            monospace={false}
-          />
-          <TimestampOutputCard
-            label={t('utilities.tool.timestamp.outputs.utc')}
-            value={analysis.utc ?? null}
-            testid="timestamp-output-utc"
-            fullWidth
-            monospace={false}
-          />
-        </div>
-      </PanelSection>
+  return (
+    <div className="tool-answer-panel">
+      <ToolResultHeader
+        testId="timestamp-result-header"
+        tag="TIME"
+        answer={answer}
+        meta={analysis.kind ? t(`utilities.answer.timestamp.${analysis.kind}`) : undefined}
+      />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <PanelSection
+          title={t('utilities.tool.timestamp.title')}
+        >
+          <div className="grid gap-2">
+            <FieldLabel>{t('utilities.field.input')}</FieldLabel>
+            <UtilityInput
+              aria-label={t('utilities.field.input')}
+              value={input}
+              onChange={event => setInput(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="button-secondary w-fit"
+              onClick={() => setInput(String(Math.floor(Date.now() / 1000)))}
+            >
+              {t('utilities.tool.timestamp.actions.useNow')}
+            </button>
+            <UtilityToolbar
+              utilityId="timestamp"
+              primary={input}
+              run={runApply}
+              setPrimary={setInput}
+            />
+          </div>
+          {analysis.errorKey ? <StatusMessage message={t(analysis.errorKey)} tone="error" /> : null}
+        </PanelSection>
+
+        <PanelSection title={t('utilities.tool.timestamp.outputsTitle')}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <TimestampOutputCard
+              label={t('utilities.tool.timestamp.outputs.seconds')}
+              value={analysis.unixSeconds ?? null}
+              testid="timestamp-output-seconds"
+            />
+            <TimestampOutputCard
+              label={t('utilities.tool.timestamp.outputs.milliseconds')}
+              value={analysis.unixMilliseconds ?? null}
+              testid="timestamp-output-milliseconds"
+            />
+            <TimestampOutputCard
+              label={t('utilities.tool.timestamp.outputs.iso')}
+              value={analysis.iso ?? null}
+              testid="timestamp-output-iso"
+              fullWidth
+            />
+            <TimestampOutputCard
+              label={t('utilities.tool.timestamp.outputs.local')}
+              value={analysis.local ?? null}
+              testid="timestamp-output-local"
+              fullWidth
+              monospace={false}
+            />
+            <TimestampOutputCard
+              label={t('utilities.tool.timestamp.outputs.utc')}
+              value={analysis.utc ?? null}
+              testid="timestamp-output-utc"
+              fullWidth
+              monospace={false}
+            />
+          </div>
+        </PanelSection>
+      </div>
     </div>
   );
 }
