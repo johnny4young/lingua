@@ -142,7 +142,10 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         ? createJsWorkerLive(snapshot => ctx.postMessage({ type: 'live-line', runId, v: LIVE_RUN_PROTOCOL_VERSION, live: snapshot }), exec.live.loops)
         : null;
       installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames, live?.passOrdinal);
-      const timeline = exec.record === true ? createJsWorkerTimeline() : null;
+      const timeline =
+        exec.record === true
+          ? createJsWorkerTimeline(undefined, (steps, ms) => ctx.postMessage({ type: 'timeline-steps', runId, steps, ms }))
+          : null;
       if (timeline) watchJsWorkerConsoleForTimeline(timeline);
       // A timeline that cannot be posted is dropped, so `done` still follows.
       const flushTimeline = () => {

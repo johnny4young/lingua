@@ -229,11 +229,13 @@ describe('resolveRunExecution — context', () => {
     expect(resolveRunExecution(tab(), runPlan({ region }), { maskedStdin: masked }, settings).context).not.toHaveProperty('captureScope');
   });
 
-  it('records only JS and TS Worker tabs, never alongside Debug, and drops scope capture', () => {
+  it('records JS and TS Worker tabs and Python, never alongside Debug, and drops scope capture', () => {
     expect(resolveRunPlan(tab(), { record: true }).recordRequested).toBe(true);
     expect(resolveRunPlan(tab({ language: 'typescript' }), { record: true }).recordRequested).toBe(true);
     expect(resolveRunPlan(tab({ runtimeMode: 'node' }), { record: true }).recordRequested).toBe(false);
-    expect(resolveRunPlan(tab({ language: 'python' }), { record: true }).recordRequested).toBe(false);
+    expect(resolveRunPlan(tab({ language: 'python', runtimeMode: undefined }), { record: true }).recordRequested).toBe(true);
+    expect(resolveRunPlan(tab({ language: 'python', runtimeMode: undefined }), { record: true, debug: true }).recordRequested).toBe(false);
+    expect(resolveRunPlan(tab({ language: 'go', runtimeMode: undefined }), { record: true }).recordRequested).toBe(false);
     expect(resolveRunPlan(tab(), { record: true, debug: true })).toMatchObject({ recordRequested: false, debugRequested: true });
     const context = resolveRunExecution(tab(), runPlan({ recordRequested: true }), {}, settings).context;
     expect(context).toMatchObject({ record: true });

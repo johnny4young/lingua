@@ -17,6 +17,7 @@ import {
 import { buildMagicLineMaps } from './magicLineMap';
 import { injectPythonLoopProtectionWithLineMap } from '../utils/loopProtection';
 import { livePassField, mapLiveRunLines, sanitizeLiveRun } from '../../shared/liveRun';
+import { mapTimelineLines, sanitizeTimeline, sanitizeTimelineSteps, type ExecutionTimeline } from '../../shared/timeline';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
 import {
@@ -277,6 +278,9 @@ export class PythonRunner implements LanguageRunner {
     let stdinRequest: ExecutionResult['stdinRequest'];
     // Scope snapshot relay (same shape as JS/TS).
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
+    let timeline: ExecutionTimeline | undefined;
+    // Notebook cells keep their own kernel view; a recording is for editor runs.
+    const record = context?.record === true && !context.scopeId;
     // Independent caps per stream — see JavaScriptRunner.
     const caps = createConsoleCapState();
 
@@ -564,6 +568,16 @@ export class PythonRunner implements LanguageRunner {
             }
             break;
           }
+          case 'timeline-steps': {
+            const progress = sanitizeTimelineSteps(msg);
+            if (progress) context?.onTimeline?.(mapTimelineLines({ steps: progress.steps, truncated: false }, sourceLineFor).steps, progress.ms);
+            break;
+          }
+          case 'timeline': {
+            const recorded = sanitizeTimeline(msg.timeline);
+            if (recorded) timeline = mapTimelineLines(recorded, sourceLineFor);
+            break;
+          }
           case 'live-line': {
             const live = sanitizeLiveRun(msg.live);
             const mapped = live && mapLiveRunLines(live, sourceLineFor);
@@ -593,6 +607,7 @@ export class PythonRunner implements LanguageRunner {
               timeoutPreset,
               timeoutMs: timeout,
               scopeSnapshot,
+              ...(timeline ? { timeline } : {}),
             });
             break;
         }
@@ -660,7 +675,8 @@ export class PythonRunner implements LanguageRunner {
         ...(typeof context?.autoLog === 'string' ? { autoLogMode: context.autoLog } : {}),
         askStdin: context?.askStdin === true,
         network,
-        live: context?.onLive !== undefined,
+        live: context?.onLive !== undefined && !record,
+        record,
       });
     });
   }

@@ -1,6 +1,6 @@
 /**
- * A recorded JS / TS run: one step before every statement the recorder
- * reached, in memory only. Recording stops at its caps and says so.
+ * A recorded JS / TS or Python run: one step before every statement (Python:
+ * every line) the recorder reached, in memory only. Recording stops at its caps and says so.
  */
 export const TIMELINE_MAX_STEPS = 5_000;
 export const TIMELINE_MAX_VARS = 30;
@@ -11,8 +11,12 @@ export const TIMELINE_MAX_VALUE_CHARS = 2_000_000;
 /** Free sees the last steps of a recording; paid tiers see all of them. */
 export const TIMELINE_FREE_STEPS = 20;
 
-/** Record run instruments the JS / TS Worker; Node, Deno, Bun and Browser preview run elsewhere. */
+/** Steps reach the renderer at most this often while a recording goes. */
+export const TIMELINE_PROGRESS_MS = 100;
+
+/** Record run instruments the JS / TS Worker and Pyodide; Node, Deno, Bun and Browser preview run elsewhere. */
 export function canRecordTimeline(tab: { language: string; runtimeMode?: string }): boolean {
+  if (tab.language === 'python') return true;
   return (tab.language === 'javascript' || tab.language === 'typescript') && (tab.runtimeMode ?? 'worker') === 'worker';
 }
 
@@ -81,8 +85,22 @@ export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined 
   return { steps, truncated: raw.truncated === true || raw.steps.length > TIMELINE_MAX_STEPS, ...(isTime(ms) ? { ms } : {}) };
 }
 
-export interface TimelineWorkerMessage {
-  type: 'timeline';
-  runId: string;
-  timeline: ExecutionTimeline;
+/** Steps a recording in flight posted, re-checked like the whole timeline; null when there is nothing to show. */
+export function sanitizeTimelineSteps(message: { steps: unknown; ms: unknown }): { steps: TimelineStep[]; ms: number } | null {
+  const progress = sanitizeTimeline({ steps: message.steps, ms: message.ms });
+  return progress?.ms !== undefined && progress.steps.length > 0 ? { steps: progress.steps, ms: progress.ms } : null;
 }
+
+/** Maps each step's and frame's line, as runners do for code they rewrote before it ran. */
+export function mapTimelineLines(timeline: ExecutionTimeline, map: (line: number) => number | undefined): ExecutionTimeline {
+  const to = (line: number) => (line > 0 ? (map(line) ?? line) : line);
+  return {
+    ...timeline,
+    steps: timeline.steps.map(step => ({ ...step, line: to(step.line), frames: step.frames.map(frame => ({ ...frame, line: to(frame.line) })) })),
+  };
+}
+
+export type TimelineWorkerMessage =
+  | { type: 'timeline'; runId: string; timeline: ExecutionTimeline }
+  /** Steps recorded since the last post while the run goes, and the run time at the post. */
+  | { type: 'timeline-steps'; runId: string; steps: TimelineStep[]; ms: number };

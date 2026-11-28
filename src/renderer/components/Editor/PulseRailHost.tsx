@@ -10,6 +10,7 @@ import { useUIStore } from '../../stores/uiStore';
 import type { TimelineStep } from '../../../shared/timeline';
 import { buildPulseRail, PULSE_RAIL_SLOTS, type PulseRailInput, type PulseRailLine } from '../../utils/pulseRail';
 import { railDecoration } from './pulseRailDecoration';
+import { statementEndLine } from './answerColumnGeometry';
 import '../ui/identity.css';
 import './pulseRail.css';
 
@@ -118,10 +119,13 @@ export function PulseRailHost({
   }, [tabId, results, recording, timelineOpen, current, pausedLine, pausedReached]);
 
   // Rebuilt when the run or its frontier changes, never on edits: Monaco carries the marks with the text.
-  const rail = useMemo(
-    () => (model && source && !held ? buildPulseRail({ ...source, lines: model.getLinesContent() }) : []),
-    [model, source, held]
-  );
+  const rail = useMemo(() => {
+    if (!model || !source || held) return [];
+    const lines = model.getLinesContent();
+    const language = model.getLanguageId();
+    const statementEnd = (line: number) => statementEndLine(at => lines[at - 1] ?? '', line, lines.length, language);
+    return buildPulseRail({ ...source, lines, statementEnd });
+  }, [model, source, held]);
   useEffect(() => {
     if (!editor || !monaco || stale || held) return;
     // The trail fades with distance above the selected step, not from the top of the rail.

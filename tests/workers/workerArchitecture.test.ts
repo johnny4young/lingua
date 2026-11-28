@@ -76,6 +76,7 @@ const MODULE_BUDGETS = {
   'python-worker-display.ts': 90,
   'python-worker-live-source.ts': 230,
   'python-worker-live-repr-source.ts': 40,
+  'python-worker-trace-source.ts': 380,
 } as const;
 
 function workerSource(filename: string): string {

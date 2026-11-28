@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { initI18n } from '@/i18n';
@@ -79,6 +79,46 @@ describe('run trace', () => {
     const chart = screen.getByTestId('run-trace-chart');
     expect(chart.querySelector('.run-trace-ahead')).not.toBeNull();
     expect(chart.querySelectorAll('.run-trace-dot')).toHaveLength(5);
+  });
+
+  it('draws a recording in flight up to its last step with a dashed projection after it', () => {
+    record({ live: true });
+    render(<RunTrace />);
+    const trace = screen.getByTestId('run-trace');
+    expect(trace.getAttribute('aria-busy')).toBe('true');
+    const chart = screen.getByTestId('run-trace-chart');
+    expect(chart.querySelector('.run-trace-path')?.getAttribute('d')).toMatch(/^M30\.0 6\.0H/u);
+    // Its steps fill 88% of the plot; the projection runs on from the last one to the edge.
+    const projection = screen.getByTestId('run-trace-projection').getAttribute('d')!;
+    expect(projection).toMatch(/^M(\d+\.\d) 126\.0H680\.0$/u);
+    expect(Number(/^M(\d+\.\d)/u.exec(projection)![1])).toBeCloseTo(30 + 650 * 0.88, 0);
+    expect(screen.getByTestId('run-trace-slowest')).toBeTruthy();
+    // A loop still running reaches the right edge with the projection; a finished one does not.
+    const washEnd = () => {
+      const wash = screen.getByTestId('run-trace-chart').querySelector('.run-trace-wash')!;
+      return Number(wash.getAttribute('x')) + Number(wash.getAttribute('width'));
+    };
+    expect(washEnd()).toBeLessThan(680);
+    act(() => record({ live: true, steps: steps.slice(0, 8) }, 7));
+    expect(washEnd()).toBeCloseTo(680, 0);
+    act(() => record({ live: undefined }));
+    expect(screen.queryByTestId('run-trace-projection')).toBeNull();
+    expect(screen.getByTestId('run-trace').getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('draws a Python recording, its loop passes and the line that slept', () => {
+    const python = 'from time import sleep\nfor name in ["api", "db"]:\n    sleep(0.4)\n    print(name)\nprint("done")';
+    const lines = [1, 2, 3, 4, 3, 4, 5];
+    const times = [0, 1, 2, 402, 403, 803, 804];
+    useEditorStore.setState({ tabs: [{ id: 't1', name: 'latencies.py', language: 'python', content: python } as never], activeTabId: 't1' });
+    record({
+      code: python,
+      ms: 805,
+      steps: lines.map((line, index) => ({ line, frames: [{ name: '<module>', line }], vars: [], call: 0, depth: 0, ms: times[index], ...(line === 4 ? { log: 'log' as const } : {}) })),
+    }, 6);
+    render(<RunTrace />);
+    expect(screen.getAllByTestId('run-trace-loop').map(label => label.textContent)).toEqual(['loop 1', 'loop 2']);
+    expect(screen.getByTestId('run-trace-slowest').textContent).toBe('L3 sleep(0.4) · 800 ms · 99%');
   });
 
   it('selects the step under a click and opens the timeline', () => {

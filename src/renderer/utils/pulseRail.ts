@@ -22,6 +22,8 @@ export interface PulseRailInput {
   finished: boolean;
   /** The lines the run was given, for a region run; the whole file otherwise. */
   span?: { start: number; end: number };
+  /** Last line of the statement starting on a line, so a statement's later lines read as run with it. */
+  statementEnd?: (line: number) => number;
 }
 
 export const PULSE_RAIL_SLOTS = 12;
@@ -62,11 +64,19 @@ export function buildPulseRail(input: PulseRailInput): PulseRailLine[] {
   const states: PulseRailState[] = new Array(end - start + 1);
   if (complete) {
     // Steps say exactly what ran; a gap between two of them is lit only when nothing in it could run.
+    // A step's later lines, when its statement spans several, ran with it.
+    const continued = new Set<number>();
+    const { statementEnd } = input;
+    if (statementEnd) {
+      for (const line of ran) {
+        for (let next = line + 1; next <= Math.min(end, statementEnd(line)); next += 1) continued.add(next);
+      }
+    }
     const anchors = [...ran, ...(front ? [front.line] : [])].sort((a, b) => a - b);
     let previous = start - 1;
     for (const anchor of [...anchors, end + 1]) {
       let lit = anchor <= end;
-      for (let line = previous + 1; lit && line < anchor; line += 1) lit = quiet(line);
+      for (let line = previous + 1; lit && line < anchor; line += 1) lit = quiet(line) || continued.has(line);
       // The header of a block whose body ran, such as a called function, ran too.
       let opened = anchor;
       for (let line = anchor - 1; anchor <= end && line > previous; line -= 1) {
@@ -74,7 +84,7 @@ export function buildPulseRail(input: PulseRailInput): PulseRailLine[] {
         else if (!quiet(line)) break;
       }
       for (let line = previous + 1; line < anchor; line += 1) {
-        states[line - start] = lit || line >= opened ? 'reached' : 'not-run';
+        states[line - start] = lit || line >= opened || continued.has(line) ? 'reached' : 'not-run';
       }
       previous = anchor;
     }

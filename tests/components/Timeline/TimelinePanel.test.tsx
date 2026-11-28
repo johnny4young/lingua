@@ -208,13 +208,16 @@ describe('timeline in the editor and the Run menu', () => {
     expect(JSON.stringify(created)).toContain('"content":"label = \\" evil line x  \\""');
   });
 
-  it('offers Record run for JavaScript Worker tabs', async () => {
+  it('offers Record run for JavaScript Worker and Python tabs, not other languages', async () => {
     const onRecord = vi.fn();
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: '' }] as never, 't1');
     const { rerender } = render(<RecordRunMenuItem disabled={false} onRecord={onRecord} />);
     await userEvent.click(screen.getByTestId('action-pill-record'));
     expect(onRecord).toHaveBeenCalledOnce();
     useEditorStore.getState().restoreTabs([{ id: 't2', name: 'a.py', language: 'python', content: '' }] as never, 't2');
+    rerender(<RecordRunMenuItem disabled={false} onRecord={onRecord} />);
+    expect(screen.getByTestId('action-pill-record')).toBeTruthy();
+    useEditorStore.getState().restoreTabs([{ id: 't3', name: 'main.go', language: 'go', content: '' }] as never, 't3');
     rerender(<RecordRunMenuItem disabled={false} onRecord={onRecord} />);
     expect(screen.queryByTestId('action-pill-record')).toBeNull();
     useEditorStore.getState().restoreTabs([], null);

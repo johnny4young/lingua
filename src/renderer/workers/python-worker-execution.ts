@@ -32,6 +32,7 @@ import {
 } from './python-worker-auto-log-source';
 import { buildPythonCellExecutionSource, PYTHON_CELL_SOURCE } from './python-worker-cell-source';
 import { startPythonLive } from './python-worker-live-source';
+import { startPythonTrace } from './python-worker-trace-source';
 import { livePassField } from '../../shared/liveRun';
 
 export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: PythonRuntimeAdapter) {
@@ -160,7 +161,9 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         let result: unknown;
         let errorText: string | null = null;
         // The live signal is best effort: a run never fails because it could not start.
-        const stopLive = msg.live === true && !scopeId ? await startPythonLive(py, ctx, runId).catch(() => null) : null;
+        // Record run owns the line view, so it never runs beside the live signal.
+        const stopTrace = msg.record === true && !scopeId ? await startPythonTrace(py, ctx, runId, code).catch(() => null) : null;
+        const stopLive = msg.live === true && !scopeId && !stopTrace ? await startPythonLive(py, ctx, runId).catch(() => null) : null;
 
         try {
           const live = stopLive !== null;
@@ -212,6 +215,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             (err instanceof Error ? err.message : String(err)) || String(err) || 'Python execution failed';
         } finally {
           stopLive?.();
+          stopTrace?.(errorText !== null);
         }
 
         const streamState = await py.runPythonAsync(PYTHON_STREAM_STATE_SOURCE);

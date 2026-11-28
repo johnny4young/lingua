@@ -16,6 +16,7 @@ class FakeModel {
   collections = new Map<object, Decoration[]>();
   constructor(public lines: string[]) {}
   getLinesContent = () => this.lines;
+  getLanguageId = () => 'javascript';
   get decorations(): Decoration[] {
     return [...this.collections.values()].flat();
   }

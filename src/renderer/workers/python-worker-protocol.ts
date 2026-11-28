@@ -36,6 +36,8 @@ export interface PythonWorkerExecuteMessage {
   network?: NetworkRunPolicy;
   /** Post `live-line` snapshots while the run goes, and tag results with their loop pass. */
   live?: boolean;
+  /** Record run: post the steps while the run goes and the whole `timeline` before `done`. */
+  record?: boolean;
 }
 
 export interface PythonWorkerListLoadedMessage {

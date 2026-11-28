@@ -3,6 +3,7 @@ import {
   TIMELINE_MAX_STEPS,
   TIMELINE_MAX_VALUE_CHARS,
   TIMELINE_MAX_VARS,
+  TIMELINE_PROGRESS_MS,
   TIMELINE_VALUE_MAX_CHARS,
   type ExecutionTimeline,
   type TimelineFrame,
@@ -71,6 +72,8 @@ export interface JsWorkerTimeline {
   exit: () => void;
   noteConsole: (method: ConsoleMethod) => void;
   noteError: () => void;
+  /** Posts the steps since the last post; nothing once `snapshot` has run, which also stops the timer. */
+  flushSteps: () => void;
   snapshot: () => ExecutionTimeline;
 }
 
@@ -86,11 +89,18 @@ function safeName(name: unknown): string {
 
 /**
  * Step buffer for Record run. Past a cap it only tracks the current line, so
- * long loops stay fast, and it never throws into the user's code.
+ * long loops stay fast, and it never throws into the user's code. With
+ * `postSteps`, steps also go out while the run records, at most every TIMELINE_PROGRESS_MS.
  */
-export function createJsWorkerTimeline(now: () => number = () => performance.now()): JsWorkerTimeline {
+export function createJsWorkerTimeline(
+  now: () => number = () => performance.now(),
+  postSteps?: (steps: TimelineStep[], ms: number) => void
+): JsWorkerTimeline {
   const steps: TimelineStep[] = [];
   const startedAt = now();
+  let sent = 0;
+  let flushedAt = startedAt;
+  let ended = false;
   // Time spent reading locals is the recorder's, not the line's.
   let overhead = 0;
   const elapsedAt = (at: number) => Math.max(0, at - startedAt - overhead);
@@ -99,6 +109,19 @@ export function createJsWorkerTimeline(now: () => number = () => performance.now
   let lastCall = 0;
   let truncated = false;
   let chars = 0;
+  const flushSteps = () => {
+    if (ended || !postSteps || sent >= steps.length) return;
+    const fresh = steps.slice(sent);
+    sent = steps.length;
+    flushedAt = now();
+    try {
+      postSteps(fresh, elapsedAt(flushedAt));
+    } catch {
+      // The final timeline still carries every step.
+    }
+  };
+  // Steps before an await reach the trace while the run waits.
+  const timer = postSteps ? setInterval(flushSteps, TIMELINE_PROGRESS_MS) : null;
 
   return {
     rec: (line, getLocals) => {
@@ -135,6 +158,7 @@ export function createJsWorkerTimeline(now: () => number = () => performance.now
         }
         const ms = elapsedAt(entered);
         steps.push({ line: frames[frames.length - 1]!.line, frames: kept, vars, depth: frames.length - 1, call: calls[calls.length - 1]!, ms });
+        if (entered - flushedAt >= TIMELINE_PROGRESS_MS) flushSteps();
       } catch {
         truncated = true;
       } finally {
@@ -160,7 +184,12 @@ export function createJsWorkerTimeline(now: () => number = () => performance.now
       const step = steps[steps.length - 1];
       if (step) step.error = true;
     },
-    snapshot: () => ({ steps, truncated, ms: elapsedAt(now()) }),
+    flushSteps,
+    snapshot: () => {
+      ended = true;
+      if (timer !== null) clearInterval(timer);
+      return { steps, truncated, ms: elapsedAt(now()) };
+    },
   };
 }
 
