@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UtilityHistoryDrawer } from '@/components/DeveloperUtilities/UtilityHistoryDrawer';
 import { useUtilityHistoryStore } from '@/stores/utilityHistoryStore';
@@ -63,6 +63,23 @@ describe('UtilityHistoryDrawer', () => {
     expect(screen.getAllByTestId('utility-history-entry')).toHaveLength(3);
   });
 
+  it('drops Show fewer once the runs fit without folding', () => {
+    seed(5);
+    render(<UtilityHistoryDrawer utilityId="jwt" onApplyEntry={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('utility-history-more'));
+    act(() => {
+      useUtilityHistoryStore.setState(state => ({ history: { jwt: state.history.jwt!.slice(0, 2) } }));
+    });
+    expect(screen.getAllByTestId('utility-history-entry')).toHaveLength(2);
+    expect(screen.queryByTestId('utility-history-more')).toBeNull();
+  });
+
+  it('names a whitespace-only input as empty', () => {
+    useUtilityHistoryStore.getState().pushEntry('jwt', '   ', '');
+    render(<UtilityHistoryDrawer utilityId="jwt" onApplyEntry={vi.fn()} />);
+    expect(within(screen.getByTestId('utility-history-entry')).getByText('(empty input)')).toBeTruthy();
+  });
+
   it('clears the tool and shows the empty state', () => {
     seed(2);
     render(<UtilityHistoryDrawer utilityId="jwt" onApplyEntry={vi.fn()} />);
@@ -77,6 +94,9 @@ describe('UtilityHistoryDrawer', () => {
     render(<UtilityHistoryDrawer utilityId="jwt" onApplyEntry={vi.fn()} />);
     expect((screen.getByTestId('utility-history-persist-toggle') as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByTestId('utility-history-persist-unlock')).toBeTruthy();
+    const reason = screen.getByTestId('utility-history-persist-locked');
+    expect(screen.getByTestId('utility-history-persist-unlock').getAttribute('aria-describedby')).toBe(reason.id);
+    expect(screen.getByTestId('utility-history-persist-toggle').getAttribute('aria-describedby')).toBe(reason.id);
   });
 
   it('toggles Save across reloads in Pro and names the runs Saved', () => {

@@ -53,6 +53,7 @@ export const UtilityHistoryDrawer = memo(function UtilityHistoryDrawer({
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const headingId = useId();
+  const lockedId = useId();
   const [showAll, setShowAll] = useState(false);
   const effectiveTier = useEffectiveTier();
   const canPersistHistory = useEntitlement('DEV_UTILITIES');
@@ -61,7 +62,7 @@ export const UtilityHistoryDrawer = memo(function UtilityHistoryDrawer({
   const togglePersist = useUtilityHistoryStore(state => state.togglePersist);
   const clearHistory = useUtilityHistoryStore(state => state.clearHistory);
   const effectivePersistEnabled = canPersistHistory && persistEnabled;
-  // Read once per entry; only a time fact and the clock label follow the tick.
+  // Read once per entry; only the time facts and clock labels follow the tick.
   const rows = useMemo(
     () =>
       (showAll ? entries : entries.slice(0, SHOWN_RUNS)).map(entry => {
@@ -70,14 +71,16 @@ export const UtilityHistoryDrawer = memo(function UtilityHistoryDrawer({
           entry,
           at,
           date: new Date(at).toLocaleString(locale),
-          input: entry.input ? shortInput(entry.input) : t('utilities.history.entryEmpty'),
+          input: entry.input.trim() ? shortInput(entry.input) : t('utilities.history.entryEmpty'),
           inputTitle: entry.input.slice(0, 400),
-          answer: readHistoryAnswer(utilityId, entry.output, entry.outputTruncated ?? false, t, locale),
+          // Entries saved before outputTruncated existed fall back to the store's cut marker.
+          answer: readHistoryAnswer(utilityId, entry.output, entry.outputTruncated ?? (entry.truncated && entry.output.endsWith('…')), t, locale),
         };
       }),
     [entries, showAll, utilityId, t, locale]
   );
-  const now = useToolClock(entries, rows.some(row => row.answer.timed));
+  // Ticks while any run shows, so a run's clock-or-day label turns over at midnight.
+  const now = useToolClock(entries, rows.length > 0);
   const hidden = entries.length - rows.length;
 
   const handlePersistToggle = () => {
@@ -155,7 +158,7 @@ export const UtilityHistoryDrawer = memo(function UtilityHistoryDrawer({
           })}
         </ul>
       )}
-      {hidden > 0 || showAll ? (
+      {hidden > 0 || (showAll && entries.length > SHOWN_RUNS) ? (
         <button
           type="button"
           className="recent-runs-more focus-ring"
@@ -173,6 +176,7 @@ export const UtilityHistoryDrawer = memo(function UtilityHistoryDrawer({
             data-testid="utility-history-persist-toggle"
             checked={effectivePersistEnabled}
             disabled={!canPersistHistory}
+            aria-describedby={canPersistHistory ? undefined : lockedId}
             onChange={handlePersistToggle}
           />
           <span>{t('utilities.history.persistToggle')}</span>
@@ -183,10 +187,16 @@ export const UtilityHistoryDrawer = memo(function UtilityHistoryDrawer({
             data-testid="utility-history-persist-unlock"
             onClick={handlePersistToggle}
             title={t('utilities.history.persistLocked')}
+            aria-describedby={lockedId}
             className="recent-runs-unlock focus-ring"
           >
             {t('utilities.history.persistUnlock')}
           </button>
+        ) : null}
+        {!canPersistHistory ? (
+          <span id={lockedId} className="sr-only" data-testid="utility-history-persist-locked">
+            {t('utilities.history.persistLocked')}
+          </span>
         ) : null}
         <button
           type="button"

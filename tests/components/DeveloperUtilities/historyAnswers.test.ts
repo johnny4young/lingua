@@ -43,6 +43,7 @@ describe('history answers', () => {
 
   it('marks an output the store cut short and names a run without output', () => {
     expect(read('base64', 'a'.repeat(30), true).fact).toBe('30+ chars:30');
+    expect(read('base64', `${'a'.repeat(30)}…`, true).fact).toBe('30+ chars:30');
     expect(read('jwt', '')).toEqual({ value: 'noOutput', tone: 'none' });
   });
 
@@ -63,6 +64,7 @@ describe('history rows', () => {
   it('shows the clock for a run today and the day for an older one', () => {
     expect(runTime(NOW - 60_000, NOW, 'en')).toMatch(/^\d{2}:\d{2}$/u);
     expect(runTime(NOW - 3 * DAY, NOW, 'en')).toMatch(/^Nov \d+$/u);
+    expect(runTime(Number.NaN, NOW, 'en')).toBe('');
   });
 
   it('shortens a digest with the same head-and-tail rule', () => {

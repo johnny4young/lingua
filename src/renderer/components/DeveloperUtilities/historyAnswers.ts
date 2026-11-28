@@ -31,7 +31,9 @@ export function shortInput(input: string): string {
   return shortenMiddle(input.replace(/\s+/gu, ' ').trim(), 8, 5);
 }
 
-function sizeFact(output: string, cut: boolean, t: Translate, locale: string): string {
+function sizeFact(stored: string, cut: boolean, t: Translate, locale: string): string {
+  // A cut output ends in the store's ellipsis, which is not part of it.
+  const output = cut && stored.endsWith('…') ? stored.slice(0, -1) : stored;
   let lines = 1;
   for (let at = output.indexOf('\n'); at !== -1; at = output.indexOf('\n', at + 1)) lines += 1;
   const size = lines > 1 ? countAnswer(lines, 'utilities.history.answer.lines', t, locale) : countAnswer(countChars(output), 'utilities.answer.chars', t, locale);
@@ -87,5 +89,6 @@ export function timedFact(timed: NonNullable<HistoryAnswer['timed']>, now: numbe
 
 /** `12:57` for a run today, `Nov 11` for an older saved one. */
 export function runTime(at: number, now: number, locale: string): string {
+  if (!Number.isFinite(at)) return '';
   return new Date(now).toDateString() === new Date(at).toDateString() ? clockText(at, locale) : dayText(at, locale);
 }
