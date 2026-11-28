@@ -49,5 +49,9 @@
   "utilityPipeline.result.skippedHint": "Skipped because an upstream step failed.",
   "utilityPipeline.result.incompatibleHint": "Upstream output kind does not match this step.",
   "utilityPipeline.result.timeout": "Step exceeded the per-step timeout.",
-  "utilityPipeline.result.error": "Step failed."
+  "utilityPipeline.result.error": "Step failed.",
+  "utilityHandoff.insert": "Insert at cursor",
+  "utilityHandoff.where": "{{tab}} · line {{line}}",
+  "utilityHandoff.inserted": "Inserted from {{tool}}",
+  "utilityHandoff.undo": "undo"
 }

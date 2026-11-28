@@ -1,6 +1,6 @@
 import { createLspEditorOpener } from './lspEditorOpener';
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
@@ -32,7 +32,8 @@ import { useInlineLint } from '../../hooks/useInlineLint';
 import { useSmartPaste } from '../../hooks/useSmartPaste';
 import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
-import { setActiveEditor } from '../../runtime/editorAccess';
+import { rememberCodeCursor, setActiveEditor } from '../../runtime/editorAccess';
+import { applyEditorInsert, useEditorInsertStore } from '../../runtime/editorInsert';
 import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { notifyDependencyDetectionPaste } from '../../hooks/dependencyDetectionPaste';
 import { useEntitlement } from '../../hooks/useEntitlement';
@@ -71,6 +72,7 @@ export function CodeEditor() {
   const activeTabId = useEditorStore(state => state.activeTabId);
   const updateContent = useEditorStore(state => state.updateContent);
   const pendingReveal = useEditorStore(state => state.pendingReveal);
+  const pendingInsert = useEditorInsertStore(state => state.request);
   const clearPendingReveal = useEditorStore(state => state.clearPendingReveal);
   // Shallow slice: the settings store holds ~50 fields, and subscribing to
   // the whole object re-rendered the editor (and rebuilt its Monaco options)
@@ -202,6 +204,13 @@ export function CodeEditor() {
   // palette). The action closure reads live tab context through a ref so it
   // never needs re-registering on every keystroke.
   const aiEntitled = useEntitlement('LOCAL_AI');
+  // Set before Monaco swaps in a tab's text, and kept through the unmount, so a cursor move
+  // right after leaving for another surface is still recorded for the tab it happened in.
+  const shownTabIdRef = useRef<string | null>(null);
+  const shownTabId = activeTab && !activeTab.kind ? activeTab.id : null;
+  useLayoutEffect(() => {
+    shownTabIdRef.current = shownTabId;
+  }, [shownTabId]);
   const explainCtxRef = useRef<{ id: string; language: string; name: string } | null>(null);
   useEffect(() => {
     explainCtxRef.current = activeTab
@@ -353,6 +362,11 @@ export function CodeEditor() {
     // Also hand over the `monaco` namespace so the persistent
     // status bar can read marker severities + `getModelMarkers`.
     setActiveEditor(editor, monaco);
+    const rememberCursor = (position: { lineNumber: number; column: number } | null) => {
+      const tabId = shownTabIdRef.current;
+      if (position && tabId) rememberCodeCursor({ tabId, line: position.lineNumber, column: position.column });
+    };
+    rememberCursor(editor.getPosition());
 
     // Let the dependency detection runner
     // see paste events so it can drop to the 60ms paste debounce
@@ -370,6 +384,7 @@ export function CodeEditor() {
     // Keep one pending command so cursor bursts
     // collapse to the final settled line.
     editor.onDidChangeCursorPosition(event => {
+      rememberCursor(event.position);
       const line = event.position.lineNumber;
       if (!Number.isFinite(line) || line <= 0) return;
       if (cursorBroadcastTimerRef.current) {
@@ -525,6 +540,14 @@ export function CodeEditor() {
     // correctly flags it. The `!pendingReveal` short-circuit on line 108
     // makes re-runs cheap when no reveal is queued.
   }, [pendingReveal, activeTab, clearPendingReveal]);
+
+  // Runs after Monaco's own effect swaps in the tab's text, so the insert lands in that tab.
+  const activeTabIdForInsert = activeTab?.id;
+  useEffect(() => {
+    if (!pendingInsert || !editorInstance || !monacoInstance) return;
+    useEditorInsertStore.setState({ request: null });
+    if (pendingInsert.tabId === activeTabIdForInsert) applyEditorInsert(editorInstance, monacoInstance, pendingInsert);
+  }, [pendingInsert, editorInstance, monacoInstance, activeTabIdForInsert]);
 
   useEffect(() => {
     return () => {

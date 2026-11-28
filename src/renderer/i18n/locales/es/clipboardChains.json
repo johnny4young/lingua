@@ -49,5 +49,9 @@
   "utilityPipeline.result.skippedHint": "Saltado porque un paso anterior falló.",
   "utilityPipeline.result.incompatibleHint": "El tipo de salida del paso anterior no coincide con este paso.",
   "utilityPipeline.result.timeout": "El paso superó el límite de tiempo.",
-  "utilityPipeline.result.error": "El paso falló."
+  "utilityPipeline.result.error": "El paso falló.",
+  "utilityHandoff.insert": "Insertar en el cursor",
+  "utilityHandoff.where": "{{tab}} · línea {{line}}",
+  "utilityHandoff.inserted": "Insertado desde {{tool}}",
+  "utilityHandoff.undo": "deshacer"
 }

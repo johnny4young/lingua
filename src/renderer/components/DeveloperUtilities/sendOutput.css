@@ -29,28 +29,34 @@
     }
   }
 
+  .send-card,
+  .editor-handoff-button {
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    background: var(--color-bg-panel);
+    transition: border-color 120ms, background-color 120ms;
+  }
+
+  .send-card:hover:not(:disabled),
+  .editor-handoff-button:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+    background: var(--color-bg-panel-alt);
+  }
+
+  .send-card:disabled,
+  .editor-handoff-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
   .send-card {
     display: grid;
     min-width: 0;
     min-height: 56px;
     align-content: center;
     gap: 4px;
-    border: 1px solid var(--color-border-default);
-    border-radius: 6px;
-    background: var(--color-bg-panel);
     padding: 8px 12px;
     text-align: left;
-    transition: border-color 120ms, background-color 120ms;
-  }
-
-  .send-card:hover:not(:disabled) {
-    border-color: var(--color-border-strong);
-    background: var(--color-bg-panel-alt);
-  }
-
-  .send-card:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
   }
 
   .send-card-title {
@@ -91,8 +97,78 @@
     color: var(--color-fg-muted);
   }
 
+  .editor-handoff {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+    container-type: inline-size;
+  }
+
+  /* One card per row below 24rem: the buttons take the cards' width too. */
+  @container (max-width: 24rem) {
+    .editor-handoff-button {
+      width: 100%;
+    }
+  }
+
+  .editor-handoff-button {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    height: 32px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--color-fg-base);
+  }
+
+  .editor-handoff-button svg {
+    flex: none;
+    color: var(--color-fg-muted);
+  }
+
+  .editor-handoff-where {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-fg-muted);
+  }
+
+  /* Lines a tool inserted, until the next edit. */
+  .monaco-editor .lingua-inserted-line {
+    background: color-mix(in srgb, var(--color-pulse) 6%, transparent);
+  }
+
+  .lingua-inserted-note {
+    pointer-events: none;
+  }
+
+  .inserted-note-body {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    gap: 6px;
+    padding-left: 2px;
+    font-family: var(--font-ui);
+    font-variation-settings: normal;
+    font-size: 12.5px;
+    white-space: nowrap;
+    color: var(--color-fg-muted);
+  }
+
+  .inserted-note-dot {
+    color: var(--color-fg-subtle);
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .send-card {
+    .send-card,
+    .editor-handoff-button {
       transition: none;
     }
   }

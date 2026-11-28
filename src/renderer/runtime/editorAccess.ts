@@ -133,3 +133,21 @@ export function getActiveEditorLineText(): string | null {
   if (line < 1 || line > model.getLineCount()) return null;
   return model.getLineContent(line);
 }
+
+/** Where the code editor's cursor last sat, by tab. */
+export interface CodeCursor {
+  readonly tabId: string;
+  readonly line: number;
+  readonly column: number;
+}
+
+let lastCodeCursor: CodeCursor | null = null;
+
+/** Outlives the editor, so a surface in front of it can insert where the user left off. */
+export function rememberCodeCursor(cursor: CodeCursor): void {
+  lastCodeCursor = cursor;
+}
+
+export function getLastCodeCursor(): CodeCursor | null {
+  return lastCodeCursor;
+}

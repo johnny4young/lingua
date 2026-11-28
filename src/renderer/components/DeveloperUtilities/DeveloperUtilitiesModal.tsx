@@ -19,6 +19,7 @@ import { DotLeader } from '../ui/answer';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useWidthTier } from '../../hooks/useWidthTier';
 import { SendOutputCards } from './SendOutputCards';
+import { EditorHandoffRow } from './EditorHandoffRow';
 import { UtilityRail } from './UtilityRail';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { formatNumber } from '../../i18n/formatNumber';
@@ -391,7 +392,14 @@ function DeveloperUtilitiesWorkspaceBody({
         />
         {activeSelectedUtilityId !== 'utility-pipelines' ? (
           // Keyed by tool: the last tool's cards never stay clickable while the next one's are read.
-          <ToolSendCards key={activeSelectedUtilityId} ready={outputReady} onSend={handleSendOutput} />
+          <ToolSendCards
+            key={activeSelectedUtilityId}
+            ready={outputReady}
+            onSend={handleSendOutput}
+            utilityId={activeSelectedUtilityId}
+            tool={t(selectedUtility.titleKey)}
+            active={active}
+          />
         ) : null}
       </div>
     </main>
@@ -611,13 +619,22 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
   );
 }
 
+interface ToolSendCardsProps {
+  ready: boolean;
+  onSend: (utilityId: UtilityAdapterId) => void;
+  utilityId: DeveloperUtilityId;
+  tool: string;
+  active: boolean;
+}
+
 /** Reads the tool's output on its own, so a new output re-renders the cards and never the tool. */
-function ToolSendCards({ ready, onSend }: { ready: boolean; onSend: (utilityId: UtilityAdapterId) => void }) {
+function ToolSendCards({ ready, onSend, utilityId, tool, active }: ToolSendCardsProps) {
   const provider = useUtilityOutputStore(state => state.provider);
   const output = useMemo(() => provider?.() ?? '', [provider]);
   return (
-    <div className="mt-6">
+    <div className="mt-6 grid gap-3">
       <SendOutputCards testId="utility-send-output" output={output} ready={ready} onSend={onSend} />
+      <EditorHandoffRow output={output} ready={ready} utilityId={utilityId} tool={tool} active={active} />
     </div>
   );
 }
