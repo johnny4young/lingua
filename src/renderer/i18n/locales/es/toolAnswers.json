@@ -23,5 +23,13 @@
   "utilities.answer.charsIn_other": "de {{chars}} caracteres",
   "utilities.answer.timestamp.seconds": "segundos epoch",
   "utilities.answer.timestamp.milliseconds": "milisegundos epoch",
-  "utilities.answer.timestamp.text": "fecha en texto"
+  "utilities.answer.timestamp.text": "fecha en texto",
+  "utilities.history.answer.expIn": "vence {{when}}",
+  "utilities.history.answer.expired": "venció {{when}}",
+  "utilities.history.answer.noExp": "sin exp",
+  "utilities.history.answer.noOutput": "sin salida",
+  "utilities.history.answer.lines_one": "línea",
+  "utilities.history.answer.lines_other": "líneas",
+  "utilities.history.showMore": "Mostrar {{count}} más",
+  "utilities.history.showFewer": "Mostrar menos"
 }

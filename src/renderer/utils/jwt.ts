@@ -133,7 +133,7 @@ function textToBytes(text: string): Uint8Array {
   return new TextEncoder().encode(text);
 }
 
-function parseJsonObject(value: string): Record<string, unknown> | null {
+export function parseJsonObject(value: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;

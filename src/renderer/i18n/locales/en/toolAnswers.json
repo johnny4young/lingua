@@ -23,5 +23,13 @@
   "utilities.answer.charsIn_other": "from {{chars}} chars",
   "utilities.answer.timestamp.seconds": "epoch seconds",
   "utilities.answer.timestamp.milliseconds": "epoch milliseconds",
-  "utilities.answer.timestamp.text": "date text"
+  "utilities.answer.timestamp.text": "date text",
+  "utilities.history.answer.expIn": "exp {{when}}",
+  "utilities.history.answer.expired": "expired {{when}}",
+  "utilities.history.answer.noExp": "no exp",
+  "utilities.history.answer.noOutput": "no output",
+  "utilities.history.answer.lines_one": "line",
+  "utilities.history.answer.lines_other": "lines",
+  "utilities.history.showMore": "Show {{count}} more",
+  "utilities.history.showFewer": "Show fewer"
 }

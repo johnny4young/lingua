@@ -17,6 +17,7 @@ import { jwtDecodeAdapter } from '../../../shared/utilities/jwtDecode';
 import { QR_MAX_BYTES_M, qrVersionAtM } from '../../../shared/utilities/qrCapacity';
 import { inspect } from '../../../shared/utilities/stringInspect';
 import { encodeUrlComponent } from '../../../shared/utilities/urlComponent';
+import { truncateText } from '../../../shared/truncateText';
 import { countAnswer, dateText, jwtAnswer } from './toolAnswers';
 
 type PreviewTone = 'neutral' | 'number' | 'string' | 'date' | 'none' | 'error';
@@ -39,9 +40,22 @@ export const PREVIEW_MAX_CHARS = 100_000;
 
 const HIDDEN_WARNINGS = new Set(['zero-width', 'bidi-control']);
 
+/** The head and tail of `text` around an ellipsis, by code point; reads only both ends. */
+export function shortenMiddle(text: string, head: number, tail: number): string {
+  if (text.length <= head + tail + 2) return text;
+  const start = Array.from(text.slice(0, head * 2)).slice(0, head).join('');
+  const end = Array.from(text.slice(-tail * 2)).slice(-tail).join('');
+  return `${start}…${end}`;
+}
+
 /** First six and last four characters of a digest, as the board abbreviates hashes. */
 export function shortDigest(hex: string): string {
-  return hex.length > 12 ? `${hex.slice(0, 6)}…${hex.slice(-4)}` : hex;
+  return shortenMiddle(hex, 6, 4);
+}
+
+/** An output's first characters on one line, read from a bounded head of it. */
+export function outputHead(text: string, max: number): string {
+  return truncateText(text.slice(0, max * 8).replace(/\s+/gu, ' ').trim(), max);
 }
 
 function jsonShape(text: string): string | null {

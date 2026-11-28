@@ -91,10 +91,11 @@ test.describe('personalize gesture smoke', () => {
     // Default JSON panel — Apply against the seeded valid input.
     await page.getByTestId('utility-apply-button').click();
 
-    // Open the drawer, expect 1 entry.
-    await page.getByTestId('utility-history-drawer').click();
+    // Recent runs list the run with its answer.
     await expect(page.getByTestId('utility-history-entries')).toBeVisible();
     await expect(page.getByTestId('utility-history-entry')).toHaveCount(1);
+    await expect(page.getByTestId('utility-history-answer')).toBeVisible();
+    await expect(page.getByTestId('utility-history-badge')).toHaveText('Session');
 
     // Clear — the empty-state copy returns.
     await page.getByTestId('utility-history-clear').click();
@@ -104,13 +105,12 @@ test.describe('personalize gesture smoke', () => {
   test('History persist toggle: enabling it survives a reload', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByTestId('utility-apply-button').click();
-    await page.getByTestId('utility-history-drawer').click();
     await page.getByTestId('utility-history-persist-toggle').check();
+    await expect(page.getByTestId('utility-history-badge')).toHaveText('Saved');
     await closeDeveloperUtilities(page);
 
     await page.reload();
     await openDeveloperUtilities(page);
-    await page.getByTestId('utility-history-drawer').click();
     await expect(page.getByTestId('utility-history-entry')).toHaveCount(1);
   });
 
@@ -190,9 +190,9 @@ test.describe('personalize gesture smoke', () => {
       const apply = panel.getByTestId('utility-apply-button');
       await expect(apply).toBeEnabled();
       await apply.click();
-      await panel.getByTestId('utility-history-drawer').click();
-      await expect(panel.getByTestId('utility-history-entry')).toHaveCount(1);
-      await panel.getByTestId('utility-history-drawer').click();
+      // The open tool's runs render under its Send output cards, outside the panel container.
+      await expect(page.getByTestId('utility-history-drawer')).toHaveCount(1);
+      await expect(page.getByTestId('utility-history-entry')).toHaveCount(1);
     }
   });
 
@@ -212,9 +212,9 @@ test.describe('personalize gesture smoke', () => {
       await page.getByTestId('utility-favorite-toggle-json').click();
       await expect(page.getByText('Favoritos')).toBeVisible();
 
-      // Open history drawer — labels in Spanish.
-      await page.getByTestId('utility-history-drawer').click();
+      // Recent runs — labels in Spanish.
       await expect(page.getByText('Guardar entre recargas')).toBeVisible();
+      await expect(page.getByTestId('utility-history-badge')).toHaveText('Sesión');
       await closeDeveloperUtilities(page);
 
       // Settings — clipboard toggle status reads in Spanish.
@@ -237,7 +237,7 @@ test.describe('personalize gesture smoke', () => {
 
     await openDeveloperUtilities(page);
 
-    // Pin two, click apply on three different panels, open the drawer.
+    // Pin two, click apply on three different panels, show the open tool's runs.
     // Visited panels stay mounted in the keep-mounted cache — scope each
     // apply/drawer interaction to the active panel's container.
     await revealUtility(page, 'jwt');
@@ -250,10 +250,7 @@ test.describe('personalize gesture smoke', () => {
     await page.getByTestId('utility-panel-cache-jwt').getByTestId('utility-apply-button').click();
     await revealUtility(page, 'cron-parser');
     await page.getByTestId('utility-item-cron-parser').click();
-    await page
-      .getByTestId('utility-panel-cache-cron-parser')
-      .getByTestId('utility-history-drawer')
-      .click();
+    await expect(page.getByTestId('utility-history-drawer')).toHaveCount(1);
 
     expect(errors, errors.join('\n')).toEqual([]);
   });

@@ -20,6 +20,7 @@ import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useWidthTier } from '../../hooks/useWidthTier';
 import { SendOutputCards } from './SendOutputCards';
 import { EditorHandoffRow } from './EditorHandoffRow';
+import { UtilityHistorySlotContext } from './utilityHistorySlot';
 import { UtilityRail } from './UtilityRail';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { formatNumber } from '../../i18n/formatNumber';
@@ -131,6 +132,7 @@ function DeveloperUtilitiesWorkspaceBody({
 }: DeveloperUtilitiesWorkspaceBodyProps) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [historySlot, setHistorySlot] = useState<HTMLElement | null>(null);
   const [visitedUtilityIds, setVisitedUtilityIds] = useState<DeveloperUtilityId[]>(() => [
     selectedUtilityId,
   ]);
@@ -385,11 +387,13 @@ function DeveloperUtilitiesWorkspaceBody({
           and heading-based tests. */}
       <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
       <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-        <DeveloperUtilityPanel
-          toolId={activeSelectedUtilityId}
-          mountedToolIds={visitedUtilityIds}
-          active={active}
-        />
+        <UtilityHistorySlotContext.Provider value={historySlot}>
+          <DeveloperUtilityPanel
+            toolId={activeSelectedUtilityId}
+            mountedToolIds={visitedUtilityIds}
+            active={active}
+          />
+        </UtilityHistorySlotContext.Provider>
         {activeSelectedUtilityId !== 'utility-pipelines' ? (
           // Keyed by tool: the last tool's cards never stay clickable while the next one's are read.
           <ToolSendCards
@@ -401,6 +405,7 @@ function DeveloperUtilitiesWorkspaceBody({
             active={active}
           />
         ) : null}
+        <div ref={setHistorySlot} data-testid="utility-history-slot" />
       </div>
     </main>
   );
