@@ -7,7 +7,7 @@ const FIXED = {
   tooLong: 'Expression is too long',
   invalid: 'Invalid expression',
   single: 'Only one expression is allowed',
-  budget: 'Expression budget exceeded',
+  budget: 'Expression is too complex to evaluate',
   nullish: 'Cannot inspect null or undefined',
   prototype: 'Prototype access is not allowed',
   objectMethods: 'Object methods and spread are not allowed',

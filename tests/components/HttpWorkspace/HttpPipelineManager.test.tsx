@@ -267,6 +267,16 @@ describe('HttpPipelineManager', () => {
       expect(steps()[1]!.dataset.status).toBe('running');
     });
 
+    it('says a pipeline is running when the running one was deleted mid-run', () => {
+      seedPipeline();
+      useWorkspaceToolStore.getState().setActiveHttpPipeline('p2');
+      renderManager({ pipelineId: 'deleted', startedAt: NOW, phase: 'running', results: [] });
+      expect(screen.queryByText('Ready to run locally.')).toBeNull();
+      expect(screen.queryByTestId('http-pipeline-running-other')).toBeNull();
+      expect(screen.getByTestId('result-header').textContent).toContain('Pipeline running…');
+      expect(screen.getByTestId('http-pipeline-stop').title).toBe('Pipeline running…');
+    });
+
     it('marks the running step and keeps its order locked until the run settles', () => {
       seedPipeline();
       renderManager({ pipelineId: 'p1', startedAt: NOW, phase: 'running', activeStepId: 's2', results: [failedRun.results[0]!] });

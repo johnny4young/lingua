@@ -50,7 +50,12 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
   const runningHere = shownRun?.phase === 'running';
   // Stop acts on the run, so a pipeline picked while another runs names the one it would stop.
   const runningElsewhere = isRunning && !runningHere ? (pipelines.find(pipeline => pipeline.id === run.pipelineId) ?? null) : null;
-  const runningElsewhereLabel = runningElsewhere ? t('httpWorkspace.pipeline.runningOther', { name: runningElsewhere.name }) : undefined;
+  // A running pipeline deleted mid-run has no name left to show.
+  const runningElsewhereLabel = runningElsewhere
+    ? t('httpWorkspace.pipeline.runningOther', { name: runningElsewhere.name })
+    : isRunning && !runningHere
+      ? t('httpWorkspace.pipeline.phase.running')
+      : undefined;
   const summary = useMemo(
     () => (shownRun && active ? summarizePipelineRun(active, shownRun) : null),
     [shownRun, active]
@@ -280,7 +285,9 @@ export function HttpPipelineManager({ onClose, run, onRun, onStop }: HttpPipelin
                     >
                       {runningElsewhereLabel}
                     </button>
-                  ) : isRunning ? null : (
+                  ) : runningElsewhereLabel ? (
+                    <span className="text-body-sm text-fg-muted">{runningElsewhereLabel}</span>
+                  ) : (
                     <span className="text-body-sm text-fg-muted">
                       {t('httpWorkspace.pipeline.ready')}
                     </span>

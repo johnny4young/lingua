@@ -17,4 +17,3 @@ export function useToolClock(input: unknown, timed: boolean, targets: readonly (
   if (nextNear !== near) setNear(nextNear);
   return now;
 }
-

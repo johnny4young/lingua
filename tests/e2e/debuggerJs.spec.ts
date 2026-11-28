@@ -223,7 +223,7 @@ test.describe('Debugger ', () => {
 
     await expectPausedAt(page, 2);
     await expect(page.getByTestId('debugger-condition-error')).toContainText(
-      'Unsupported syntax: CallExpression'
+      'Function calls are not allowed'
     );
     await page.getByTestId('debugger-hud-continue').click();
     await waitForRunCompleted(page);
