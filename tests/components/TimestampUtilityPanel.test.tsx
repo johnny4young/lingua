@@ -6,6 +6,7 @@ import { DeveloperUtilitiesModal } from '../../src/renderer/components/Developer
 import { UTILITY_PANEL_WARM_UP_TIMEOUT_MS, warmUpUtilityPanels } from '../__fixtures__/utilityPanels';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
+  Kbd: ({ children }: { children: React.ReactNode }) => <kbd>{children}</kbd>,
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
   OverlayBackdrop: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   OverlayCard: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,

@@ -11,6 +11,7 @@ vi.mock('../../../src/renderer/hooks/useClipboardSuggestion', () => ({
   useClipboardSuggestion: (active: boolean) => (active ? peek.current : null),
 }));
 vi.mock('../../../src/renderer/components/ui/chrome', () => ({
+  Kbd: ({ children }: { children: React.ReactNode }) => <kbd>{children}</kbd>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

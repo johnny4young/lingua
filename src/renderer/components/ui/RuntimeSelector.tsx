@@ -1,6 +1,7 @@
 import { ChevronDown, Play, Square } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
+import { Kbd } from './chrome';
 
 interface RuntimeLanguageGlyph {
   /** Short uppercase tag, e.g. "JS". */
@@ -103,9 +104,7 @@ export function RuntimeSelector({
         {running ? <Square size={11} aria-hidden /> : <Play size={11} aria-hidden />}
         {activeLabel ? <span>{activeLabel}</span> : null}
         {!running && runShortcut ? (
-          <kbd className="kbd-shell font-mono text-eyebrow font-medium">
-            {runShortcut}
-          </kbd>
+          <Kbd className="action-pill-kbd">{runShortcut}</Kbd>
         ) : null}
       </button>
     </div>

@@ -8,7 +8,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { NEW_SCRATCH_LANGUAGE } from '../../stores/editorTabUtils';
 import { requestSqlSample } from '../SqlWorkspace/pendingSqlSample';
-import { Kbd } from '../ui/ModalShell';
+import { Kbd } from '../ui/chrome';
 import { AnswerPicture } from './AnswerPicture';
 import { DotLeader } from '../ui/answer';
 import { StartPromptEditor } from './StartPromptEditor';

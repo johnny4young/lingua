@@ -161,7 +161,7 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
               onClick={() => void handleDetect()}
               disabled={detect.kind === 'detecting'}
               data-testid="ai-settings-detect"
-              className="focus-ring rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg disabled:opacity-40"
+              className="focus-ring rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg-base disabled:opacity-40"
             >
               {detect.kind === 'detecting'
                 ? t('ai.settings.detecting')
@@ -190,8 +190,8 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
                       aria-pressed={model === id}
                       className={`focus-ring rounded border px-2 py-1 font-mono text-micro ${
                         model === id
-                          ? 'border-accent text-fg'
-                          : 'border-border text-fg-muted hover:text-fg'
+                          ? 'border-accent text-fg-base'
+                          : 'border-border text-fg-muted hover:text-fg-base'
                       }`}
                     >
                       {id}
@@ -211,7 +211,7 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
               type="button"
               onClick={clear}
               data-testid="ai-settings-clear"
-              className="focus-ring rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg"
+              className="focus-ring rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg-base"
             >
               {t('ai.settings.clear')}
             </button>

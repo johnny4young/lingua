@@ -221,7 +221,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
     >
       <span className="absolute left-0 top-0 z-10 flex items-center gap-1 px-1">
         {status === 'loading' && (
-          <span className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
+          <span className="rounded-md bg-bg-panel-alt px-2 py-0.5 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
             {t('console.rich.chartLoading')}
           </span>
         )}
@@ -245,7 +245,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
             role="menu"
             tabIndex={-1}
             onKeyDown={handleMenuKeyDown}
-            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-e2 outline-none"
+            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-panel p-1 text-caption shadow-e2 outline-none"
             data-testid="console-rich-chart-menu"
           >
             {canExportChart ? (
@@ -254,7 +254,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
                   type="button"
                   role="menuitem"
                   onClick={() => handleExport('svg')}
-                  className="block w-full px-2 py-1 text-left hover:bg-bg"
+                  className="block w-full px-2 py-1 text-left hover:bg-bg-panel-alt"
                 >
                   {t('console.rich.chartExportSvg')}
                 </button>
@@ -262,7 +262,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
                   type="button"
                   role="menuitem"
                   onClick={() => handleExport('png')}
-                  className="block w-full px-2 py-1 text-left hover:bg-bg"
+                  className="block w-full px-2 py-1 text-left hover:bg-bg-panel-alt"
                 >
                   {t('console.rich.chartExportPng')}
                 </button>
@@ -272,7 +272,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
                 type="button"
                 role="menuitem"
                 onClick={() => handleExport('svg')}
-                className="block w-full px-2 py-1 text-left text-fg-subtle hover:bg-bg"
+                className="block w-full px-2 py-1 text-left text-fg-subtle hover:bg-bg-panel-alt"
                 data-testid="console-rich-chart-export-pro"
               >
                 {t('console.rich.chartExportPro')}
@@ -283,12 +283,12 @@ export function RichValueChart({ payload }: RichValueChartProps) {
       </span>
       <span
         ref={containerRef}
-        className="block w-full rounded-md border border-border/40 bg-bg p-2"
+        className="block w-full rounded-md border border-border/40 bg-bg-base p-2"
         style={{ minHeight: 200 }}
       />
       {status === 'failed' && (
         <span
-          className="block rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-caption text-fg-subtle"
+          className="block rounded-md bg-bg-panel-alt px-2 py-0.5 font-mono text-caption text-fg-subtle"
           data-testid="console-rich-chart-failed"
         >
           {t('console.rich.chartLoadFailed')}

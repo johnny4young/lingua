@@ -91,7 +91,7 @@ export function ExplainErrorButton({
         type="button"
         onClick={() => (onOpen ? onOpen() : setOpen(true))}
         data-testid={testId ?? 'explain-error-trigger'}
-        className={`focus-ring inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-micro text-fg-muted hover:text-fg${
+        className={`focus-ring inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-micro text-fg-muted hover:text-fg-base${
           className ? ` ${className}` : ''
         }`}
       >

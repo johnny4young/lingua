@@ -166,7 +166,7 @@ export function AskSqlDialog({
             onClick={handleClose}
             aria-label={t('ai.explain.close')}
             data-testid="ask-sql-close"
-            className="focus-ring rounded p-1 text-fg-subtle hover:text-fg"
+            className="focus-ring rounded p-1 text-fg-subtle hover:text-fg-base"
           >
             <X size={16} aria-hidden="true" />
           </button>
@@ -196,7 +196,7 @@ export function AskSqlDialog({
               </p>
               <pre
                 data-testid="ask-sql-preview"
-                className="max-h-[35vh] overflow-auto whitespace-pre-wrap rounded border border-border bg-bg-panel-alt p-2 text-micro text-fg"
+                className="max-h-[35vh] overflow-auto whitespace-pre-wrap rounded border border-border bg-bg-panel-alt p-2 text-micro text-fg-base"
               >
                 {request.preview}
               </pre>
@@ -224,7 +224,7 @@ export function AskSqlDialog({
               <button
                 type="button"
                 onClick={handleClose}
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.cancel')}
               </button>
@@ -244,7 +244,7 @@ export function AskSqlDialog({
                 type="button"
                 onClick={() => setPhase({ kind: 'ask' })}
                 data-testid="ask-sql-again"
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.askSql.askAgain')}
               </button>
@@ -267,7 +267,7 @@ export function AskSqlDialog({
               type="button"
               onClick={() => setPhase({ kind: 'ask' })}
               data-testid="ask-sql-retry"
-              className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+              className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
             >
               {t('ai.explain.retry')}
             </button>
@@ -275,7 +275,7 @@ export function AskSqlDialog({
             <button
               type="button"
               onClick={handleClose}
-              className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+              className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
             >
               {t('ai.explain.close')}
             </button>

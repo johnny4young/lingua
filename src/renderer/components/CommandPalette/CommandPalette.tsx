@@ -1,7 +1,7 @@
 import { Search, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '../ui/chrome';
+import { Kbd, Tooltip } from '../ui/chrome';
 import { ContextualHint } from '../ContextualHints/ContextualHint';
 import { ModalShell } from '../ui/ModalShell';
 import { LegendPair, ModalFooterLegend } from '../ui/ModalFooterLegend';
@@ -10,7 +10,6 @@ import { filterCommandPaletteCommands } from './commandPaletteModel';
 import { adjacentGroupStart, groupCommands } from './commandPaletteGroups';
 import { useCommandPaletteCommands } from './useCommandPaletteCommands';
 import { usePaletteAutodetect } from './usePaletteAutodetect';
-import { Kbd } from '../ui/ModalShell';
 import { useCommandHistoryStore } from '../../stores/commandHistoryStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { lastAnswerForPath } from '../../stores/lastAnswerSelectors';

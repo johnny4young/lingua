@@ -30,6 +30,20 @@ describe('RichValueError', () => {
     expect((items[1] as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it('opens the frame menu on the page, outside the console panel, at the pointer', () => {
+    const { container } = render(<RichValueError payload={{ kind: 'error', message: 'menu', stack: [
+      { text: 'external user', file: 'app.js', line: 4 },
+    ] }} />);
+    fireEvent.contextMenu(screen.getByText('external user'), { clientX: 40, clientY: 60 });
+    const menu = screen.getByRole('menu');
+    expect(menu.parentElement).toBe(document.body);
+    expect(container.contains(menu)).toBe(false);
+    expect(menu.style.position).toBe('fixed');
+    expect(menu.className).toContain('bg-bg-panel');
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('renders Python cause-chain markers as non-clickable list separators', () => {
     const payload: ScopeValueError = {
       kind: 'error',

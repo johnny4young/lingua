@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ScopeValueError } from '../../../shared/scopeSnapshot';
 import type { ClickableStackFrame } from '../../../shared/errorStack';
@@ -169,7 +170,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
     // returns false), but the dispatcher might still arrive here on
     // its catch-all branch.
     return (
-      <span className="whitespace-pre-wrap text-fg-danger" data-testid="console-rich-error-text">
+      <span className="whitespace-pre-wrap text-error-fg" data-testid="console-rich-error-text">
         {fallbackText ?? payload.message}
       </span>
     );
@@ -220,7 +221,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
                   onClick={() => handleFrameClick(frame)}
                   onContextMenu={event => handleContextMenu(event, index)}
                   data-testid="console-rich-error-frame-clickable"
-                  className="rounded-sm px-1 text-left text-fg-info underline-offset-2 hover:bg-bg-elevated hover:underline focus:bg-bg-elevated focus:outline focus:outline-1 focus:outline-fg-info"
+                  className="rounded-sm px-1 text-left text-info-fg underline-offset-2 hover:bg-bg-panel-alt hover:underline focus:bg-bg-panel-alt focus:outline focus:outline-1 focus:outline-info-fg"
                   title={label}
                   aria-label={label}
                 >
@@ -251,7 +252,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
       className="flex flex-col gap-0.5 font-mono text-caption"
       data-testid="console-rich-error"
     >
-      <span className="text-fg-danger">{payload.message}</span>
+      <span className="text-error-fg">{payload.message}</span>
       <span className="text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
         {t('console.rich.errorStackHeader')}
       </span>
@@ -261,19 +262,20 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
           data-testid="console-rich-error-runtime"
           onToggle={event => { if (!event.currentTarget.open) closeMenu(); }}
         >
-          <summary className="cursor-pointer rounded-sm text-fg-subtle focus-visible:outline focus-visible:outline-1 focus-visible:outline-fg-info">
+          <summary className="cursor-pointer rounded-sm text-fg-subtle focus-visible:outline focus-visible:outline-1 focus-visible:outline-info-fg">
             {t('console.rich.errorRuntimeFrames')}
           </summary>
           {renderFrames(runtimeFrames)}
         </details>
       )}
-      {menu !== null && frames[menu.index] !== undefined && (
+      {/* Portaled: the console's backdrop-filter would make `fixed` relative to the panel. */}
+      {menu !== null && frames[menu.index] !== undefined && createPortal(
         <div
           ref={menuRef}
           role="menu"
           aria-label={t('console.rich.errorStackHeader')}
           style={{ position: 'fixed', top: menu.y + 4, left: menu.x + 4, zIndex: 50 }}
-          className="rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-e2"
+          className="rounded-md border border-border/60 bg-bg-panel p-1 text-caption shadow-e2"
           data-testid="console-rich-error-frame-menu"
         >
           <button
@@ -282,7 +284,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
             }}
             type="button"
             role="menuitem"
-            className="block w-full px-2 py-1 text-left hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+            className="block w-full px-2 py-1 text-left hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => {
               const frame = frames[menu.index];
               if (frame?.file && typeof frame.line === 'number') {
@@ -300,7 +302,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
             }}
             type="button"
             role="menuitem"
-            className="block w-full px-2 py-1 text-left hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+            className="block w-full px-2 py-1 text-left hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => {
               const frame = frames[menu.index];
               if (frame && isClickable(frame)) {
@@ -318,7 +320,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
             }}
             type="button"
             role="menuitem"
-            className="block w-full px-2 py-1 text-left hover:bg-bg"
+            className="block w-full px-2 py-1 text-left hover:bg-bg-panel-alt"
             onClick={() => {
               const frame = frames[menu.index];
               if (frame) {
@@ -329,7 +331,8 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
           >
             {t('console.rich.errorFrameMenuCopyText')}
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatShortcutLabel } from '../../data/keyboardShortcuts';
-import { Kbd } from '../ui/ModalShell';
+import { Kbd } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
 

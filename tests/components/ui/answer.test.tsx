@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DotLeader, LeaderRow, ResultNumeral, TypeTag } from '../../../src/renderer/components/ui/answer';
-import { Kbd } from '../../../src/renderer/components/ui/ModalShell';
+import { Kbd } from '../../../src/renderer/components/ui/chrome';
 
 describe('TypeTag', () => {
   it('renders the label with the small-caps class', () => {
@@ -61,6 +61,8 @@ describe('DotLeader', () => {
 describe('Kbd', () => {
   it('renders a keycap', () => {
     render(<Kbd>⌘↵</Kbd>);
-    expect(screen.getByText('⌘↵').tagName).toBe('KBD');
+    const keycap = screen.getByText('⌘↵');
+    expect(keycap.tagName).toBe('KBD');
+    expect(keycap.className).toBe('kbd');
   });
 });

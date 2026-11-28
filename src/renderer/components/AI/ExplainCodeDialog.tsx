@@ -187,7 +187,7 @@ export function ExplainCodeDialog({
             onClick={handleClose}
             aria-label={t('ai.explain.close')}
             data-testid="ai-explain-code-close"
-            className="focus-ring rounded p-1 text-fg-subtle hover:text-fg"
+            className="focus-ring rounded p-1 text-fg-subtle hover:text-fg-base"
           >
             <X size={16} aria-hidden="true" />
           </button>
@@ -229,7 +229,7 @@ export function ExplainCodeDialog({
               ) : null}
               <pre
                 data-testid="ai-explain-code-preview"
-                className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded border border-border bg-bg-panel-alt p-2 text-micro text-fg"
+                className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded border border-border bg-bg-panel-alt p-2 text-micro text-fg-base"
               >
                 {request.preview}
               </pre>
@@ -273,7 +273,7 @@ export function ExplainCodeDialog({
               <button
                 type="button"
                 onClick={handleClose}
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.cancel')}
               </button>
@@ -292,7 +292,7 @@ export function ExplainCodeDialog({
                 type="button"
                 onClick={handleRetry}
                 data-testid="ai-explain-code-retry"
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.retry')}
               </button>
@@ -329,7 +329,7 @@ export function ExplainCodeDialog({
               <button
                 type="button"
                 onClick={handleClose}
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.close')}
               </button>

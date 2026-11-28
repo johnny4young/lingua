@@ -23,9 +23,9 @@ import { useProjectTestStore } from '../../stores/projectTestStore';
 import { IconButton } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { OverflowMenu } from '../ui/OverflowMenu';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeFooter } from './FileTreeFooter';
-import { FileTreeHeaderMenu } from './FileTreeHeaderMenu';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import { FileTreeNode } from './FileTreeNode';
 import { FileTreeOpenTabs } from './FileTreeOpenTabs';
@@ -374,8 +374,11 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           >
             <FolderPlus size={ICON_GLYPH.md} />
           </IconButton>
-          <FileTreeHeaderMenu
-            actions={[
+          <OverflowMenu
+            label={t('fileTree.actions.more')}
+            testId="file-tree-more"
+            itemTestIdPrefix="file-tree"
+            items={[
               { id: 'collapse-all', label: t('fileTree.actions.collapseAll'), icon: <ChevronsDownUp size={ICON_GLYPH.md} />, run: collapseAllDirectories },
               { id: 'refresh', label: t('fileTree.actions.refresh'), icon: <RefreshCw size={ICON_GLYPH.md} />, run: refreshTree },
               { id: 'open-folder', label: t('fileTree.openDifferent'), icon: <FolderOpen size={ICON_GLYPH.md} />, run: () => void openProject() },

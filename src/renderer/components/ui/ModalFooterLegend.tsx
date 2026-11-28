@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
-import { Kbd } from './ModalShell';
+import { Kbd } from './chrome';
 
 /** Keycap glyphs — literal symbols, intentionally not translated. */
 const GLYPH_ARROWS = '↑↓'; // U+2191 / U+2193

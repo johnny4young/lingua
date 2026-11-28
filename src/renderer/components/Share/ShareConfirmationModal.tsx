@@ -105,7 +105,7 @@ export function ShareConfirmationModal({
             </p>
             <pre
               data-testid="share-confirm-preview"
-              className="max-h-[40vh] overflow-auto rounded-md border border-border/80 bg-bg-elevated/80 p-3 text-caption leading-snug text-fg-base whitespace-pre-wrap break-words"
+              className="max-h-[40vh] overflow-auto rounded-md border border-border/80 bg-bg-panel-alt/80 p-3 text-caption leading-snug text-fg-base whitespace-pre-wrap break-words"
             >
               {sourcePreview.text}
             </pre>
@@ -127,7 +127,7 @@ export function ShareConfirmationModal({
               </p>
               <pre
                 data-testid="share-confirm-stdin-preview"
-                className="max-h-[24vh] overflow-auto rounded-md border border-border/80 bg-bg-elevated/80 p-3 text-caption leading-snug text-fg-base whitespace-pre-wrap break-words"
+                className="max-h-[24vh] overflow-auto rounded-md border border-border/80 bg-bg-panel-alt/80 p-3 text-caption leading-snug text-fg-base whitespace-pre-wrap break-words"
               >
                 {stdinPreviewBlock.text}
               </pre>

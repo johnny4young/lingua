@@ -75,7 +75,7 @@ export function RichValueHtml({ payload }: RichValueHtmlProps) {
   if (validated === null) {
     return (
       <span
-        className="rounded-md bg-bg-elevated px-2 py-0.5 font-mono text-caption text-fg-subtle"
+        className="rounded-md bg-bg-panel-alt px-2 py-0.5 font-mono text-caption text-fg-subtle"
         data-testid="console-rich-html-rejected"
       >
         {t('console.rich.mediaRejected')}
@@ -95,7 +95,7 @@ export function RichValueHtml({ payload }: RichValueHtmlProps) {
         title={t('console.rich.htmlSandboxed')}
         data-testid="console-rich-html-iframe"
         style={{ height: `${height}px` }}
-        className="mt-1 block w-full rounded-md border border-border/40 bg-bg"
+        className="mt-1 block w-full rounded-md border border-border/40 bg-bg-base"
       />
     </span>
   );

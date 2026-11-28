@@ -3,7 +3,7 @@ import type { ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { ShortcutOverrideMap } from '../../data/keyboardShortcuts';
-import { Kbd } from '../ui/ModalShell';
+import { Kbd } from '../ui/chrome';
 import {
   languageBadgeClass,
   languageShortLabel,
@@ -20,7 +20,7 @@ import {
   type CommandGroupId,
 } from './commandPaletteGroups';
 import { formatRunAge } from '../../utils/timeLabels';
-import { LanguageSquare } from '../Start/StartParts';
+import { LanguageSquare } from '../ui/LanguageSquare';
 import { DotLeader, ResultNumeral } from '../ui/answer';
 import { answerDisplay } from '../Start/answerLabels';
 import '../../i18n/startCatalog';

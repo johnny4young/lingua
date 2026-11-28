@@ -124,11 +124,11 @@ export function FloatingActionPillLanguageSegment({
             <span />
           </button>
           <div className="dropdown-rich-footer">
-            <Kbd>↑↓</Kbd>
+            <Kbd className="action-pill-kbd">↑↓</Kbd>
             <span>{t('actionPill.navigate')}</span>
             <span className="flex-1" />
-            <Kbd>↵</Kbd>
-            <Kbd>Esc</Kbd>
+            <Kbd className="action-pill-kbd">↵</Kbd>
+            <Kbd className="action-pill-kbd">Esc</Kbd>
           </div>
         </div>
       ) : null}

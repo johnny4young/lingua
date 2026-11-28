@@ -30,10 +30,12 @@ export function useFloatingPosition(
       }
       const below = window.innerHeight - rect.bottom - GAP - MARGIN;
       const above = rect.top - GAP - MARGIN;
+      // Hung from the anchor's right edge, it wraps rather than cross the window's left edge.
+      const maxWidth = Math.max(0, rect.right - MARGIN);
       setStyle(
         below < MIN_BELOW && above > below
-          ? { position: 'fixed', right, bottom: window.innerHeight - rect.top + GAP, maxHeight: above, overflowY: 'auto' }
-          : { position: 'fixed', right, top: rect.bottom + GAP, maxHeight: below, overflowY: 'auto' }
+          ? { position: 'fixed', right, bottom: window.innerHeight - rect.top + GAP, maxHeight: above, maxWidth, overflowY: 'auto' }
+          : { position: 'fixed', right, top: rect.bottom + GAP, maxHeight: below, maxWidth, overflowY: 'auto' }
       );
     };
     place();

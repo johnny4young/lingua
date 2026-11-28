@@ -53,7 +53,7 @@ function renderInline(text: string): ReactNode[] {
       return (
         <code
           key={index}
-          className="rounded bg-bg-panel-alt px-1 py-0.5 font-mono text-[0.85em] text-fg"
+          className="rounded bg-bg-panel-alt px-1 py-0.5 font-mono text-[0.85em] text-fg-base"
         >
           {part.slice(1, -1)}
         </code>
@@ -92,7 +92,7 @@ function ProseBlock({ text }: { readonly text: string }): ReactNode {
       // rather than leaking the hashes as literal text.
       flush();
       nodes.push(
-        <p key={nodes.length} className="mt-1 font-semibold text-fg">
+        <p key={nodes.length} className="mt-1 font-semibold text-fg-base">
           {renderInline(heading[1] ?? '')}
         </p>
       );
@@ -138,7 +138,7 @@ function CodeBlock({ code, lang }: { readonly code: string; readonly lang: strin
         <CopyButton value={code} testid="ai-explain-code-copy" />
       </div>
       <pre className="overflow-x-auto p-2 text-micro">
-        <code className="font-mono text-fg">{code}</code>
+        <code className="font-mono text-fg-base">{code}</code>
       </pre>
     </div>
   );
@@ -147,7 +147,7 @@ function CodeBlock({ code, lang }: { readonly code: string; readonly lang: strin
 export function ExplainErrorAnswer({ content }: { readonly content: string }): ReactNode {
   const segments = useMemo(() => parseAnswer(content), [content]);
   return (
-    <div data-testid="ai-explain-result" className="space-y-3 text-fg">
+    <div data-testid="ai-explain-result" className="space-y-3 text-fg-base">
       {segments.map((segment, index) =>
         segment.kind === 'code' ? (
           <CodeBlock key={index} code={segment.code} lang={segment.lang} />

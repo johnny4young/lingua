@@ -12,7 +12,8 @@ import type { Language } from '../../types/language';
 import { languageLabel } from '../../utils/languageMeta';
 import { isNativeLanguageToolchain } from '../../utils/nativeLanguageToolchainStatus';
 import { Kbd } from '../ui/chrome';
-import { LanguageSquare, SectionHeading } from './StartParts';
+import { LanguageSquare } from '../ui/LanguageSquare';
+import { SectionHeading } from './StartParts';
 import { START_LANGUAGES, isWebShell, languageAvailability, type LanguageAvailability } from './startModel';
 
 

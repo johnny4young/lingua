@@ -1139,8 +1139,8 @@
     @apply mx-1 hidden h-5 w-px bg-border/80 sm:block;
   }
 
-  .kbd-shell {
-    @apply rounded-lg border border-border/80 bg-surface/75 px-1.5 py-0.5 font-mono text-eyebrow text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.03)];
+  .kbd {
+    @apply inline-flex items-center gap-1 rounded-sm border border-border-subtle bg-bg-panel-alt px-1.5 py-0.5 font-mono text-eyebrow font-medium leading-none text-fg-muted;
   }
 
   .status-pill {
@@ -1836,9 +1836,9 @@
   .action-pill-drag-handle:focus-visible {
     @apply outline-none ring-2 ring-ring/70 ring-inset;
   }
-  /* The accent ring vanishes on an accent or pulse fill; the label ink shows. */
+  /* Every run verb (Run, SQL Run, HTTP Send, Import) shares one ring in its label ink; the accent would vanish on the fill. */
   .action-pill-run:focus-visible {
-    --tw-ring-color: color-mix(in srgb, currentColor 70%, transparent);
+    --tw-ring-color: var(--color-run-ring);
   }
 
   /* A hidden control takes its tooltip wrapper along, so the row keeps no empty gap. */
@@ -1893,7 +1893,7 @@
   }
 
   @media (max-width: 600px) {
-    .action-pill .kbd-shell {
+    .action-pill .action-pill-kbd {
       display: none;
     }
 
@@ -1927,6 +1927,7 @@
     background: var(--color-run);
     color: var(--color-run-on);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-run) 18%, transparent);
+    --color-run-ring: color-mix(in srgb, currentColor 70%, transparent);
   }
   .action-pill-run:not([data-workflow='debug']):not([data-workflow='scratchpad']):not(:disabled):hover {
     background: var(--color-run-hover);
@@ -1991,7 +1992,7 @@
     border-radius: 0 999px 999px 0;
   }
 
-  .action-pill-run .kbd-shell {
+  .action-pill-run .action-pill-kbd {
     display: inline-flex;
     min-width: 18px;
     height: 17px;
@@ -2021,7 +2022,7 @@
       padding: 0 10px;
     }
 
-    .action-pill-docked .action-pill-run .kbd-shell {
+    .action-pill-docked .action-pill-run .action-pill-kbd {
       display: none;
     }
   }
