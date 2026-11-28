@@ -2,7 +2,9 @@ import QRCode from 'qrcode';
 import { describe, expect, it } from 'vitest';
 import { qrVersionAtM } from '../../../src/shared/utilities/qrCapacity';
 
-const encoderVersion = (text: string) => QRCode.create(text, { errorCorrectionLevel: 'M' }).version;
+// A fixed mask skips the encoder's mask search; the version it picks does not depend on the mask.
+const encoderVersion = (text: string) =>
+  QRCode.create(text, { errorCorrectionLevel: 'M', maskPattern: 0 }).version;
 
 describe('qrVersionAtM', () => {
   it.each([
