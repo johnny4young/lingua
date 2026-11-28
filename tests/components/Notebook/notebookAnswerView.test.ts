@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { answerGrid } from '../../../src/renderer/components/Notebook/notebookAnswerView';
+import { answerGrid, cutCollectionTag, notebookAnswerInput } from '../../../src/renderer/components/Notebook/notebookAnswerView';
+import { readAnswer } from '../../../src/renderer/components/Answer/answerObjectModel';
+import type { NotebookCellLanguage, NotebookLineAnswerV1 } from '../../../src/shared/notebook';
 import type { ScopeValue } from '../../../src/shared/scopeSnapshot';
 
 const num = (repr: string): ScopeValue => ({ kind: 'primitive', type: 'number', repr }) as ScopeValue;
@@ -40,5 +42,52 @@ describe('answerGrid', () => {
     expect(grid.barColumn).toBe(1);
     expect(grid.barWidths[0]).toBe(100);
     expect(grid.barWidths[1]).toBeCloseTo((731121.3 / 818294.4) * 100);
+  });
+});
+
+describe('notebookAnswerInput', () => {
+  const read = (answer: NotebookLineAnswerV1, language: NotebookCellLanguage = 'javascript') =>
+    readAnswer(notebookAnswerInput(answer, language), { now: 0, locale: 'en' });
+
+  it('reads a value cut to the answer cap as its head, never as a string', () => {
+    const cut = `[${Array.from({ length: 80 }, (_, i) => i).join(', ')}`.slice(0, 239) + '…';
+    expect(read({ line: 1, kind: 'value', text: cut, type: 'array', size: 80 })).toMatchObject({ tag: 'array', kind: 'array' });
+    expect(read({ line: 1, kind: 'value', text: cut, type: 'list', size: 80 }, 'python')).toMatchObject({ tag: 'list', kind: 'array' });
+    expect(read({ line: 1, kind: 'value', text: '"abcdef…', type: 'string' })).toMatchObject({ tag: 'string', value: '"abcdef…"' });
+    expect(read({ line: 1, kind: 'value', text: "'abcdef…", type: 'str' }, 'python')).toMatchObject({ tag: 'str', value: "'abcdef…'" });
+  });
+
+  it('keeps script types that have no literal: bigint, functions, promises, maps and sets', () => {
+    expect(read({ line: 1, kind: 'value', text: '12n', type: 'bigint' })).toMatchObject({ tag: 'bigint', value: '12n' });
+    expect(read({ line: 1, kind: 'value', text: 'ƒ usd', type: 'function' })).toMatchObject({ tag: 'function', value: 'usd' });
+    expect(read({ line: 1, kind: 'value', text: 'Promise', type: 'promise' })).toMatchObject({ tag: 'promise' });
+    expect(read({ line: 1, kind: 'value', text: '[["a",1],["b",2]]', type: 'map', size: 2 })).toMatchObject({ tag: 'map·2' });
+    expect(read({ line: 1, kind: 'value', text: '[1,2,3]', type: 'set', size: 3 })).toMatchObject({ tag: 'set·3' });
+    expect(read({ line: 1, kind: 'value', text: 'NaN', type: 'number' })).toMatchObject({ tone: 'number', value: 'NaN' });
+  });
+
+  it('reads printed lines and errors by their role', () => {
+    expect(read({ line: 1, kind: 'output', text: 'done' }, 'python')).toMatchObject({ tag: 'stdout', tone: 'plain' });
+    expect(read({ line: 1, kind: 'error', text: 'TypeError: x' })).toMatchObject({ tag: 'error', tone: 'error' });
+  });
+
+  it('passes the line source so a number can gauge against its threshold', () => {
+    const input = notebookAnswerInput({ line: 1, kind: 'value', text: '42', type: 'number' }, 'javascript', 'p95 // < 120');
+    expect(input.source).toBe('p95 // < 120');
+  });
+});
+
+describe('cutCollectionTag', () => {
+  it('keeps the type and length of a collection cut to the answer cap', () => {
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[1, 2, 3…', type: 'list', size: 80 })).toBe('list·80');
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '{1, 2, 3…', type: 'set', size: 50 })).toBe('set·50');
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[["a",1]…', type: 'map', size: 9 })).toBe('map·9');
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '(1, 2, 3…', type: 'tuple' })).toBe('tuple');
+  });
+
+  it('leaves whole values and strings to the answer renderer', () => {
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[1, 2, 3]', type: 'list', size: 3 })).toBeNull();
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '"abc…', type: 'string' })).toBeNull();
+    expect(cutCollectionTag({ line: 1, kind: 'output', text: 'printed…' })).toBeNull();
   });
 });

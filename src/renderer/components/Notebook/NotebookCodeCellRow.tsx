@@ -319,7 +319,7 @@ function NotebookCodeCellRowImpl({
   const neverRan = !hasNotebookExecutionEvidence(cell, status, executionOrder ?? undefined);
   // A cell that never ran has no answers to pin, so its hint follows the draft.
   const answerSource = neverRan ? source : cell.source;
-  const { leaders, lineCount, hintLine } = useMemo(() => {
+  const { leaders, lineCount, hintLine, lines } = useMemo(() => {
     const lines = answerSource.split('\n');
     const hint = neverRan ? lastCodeLine(lines) : 0;
     const answered: ReadonlyArray<{ line: number; kind?: string }> = hint ? [{ line: hint }] : answerRows;
@@ -328,7 +328,7 @@ function NotebookCodeCellRowImpl({
       chars: lineLength(lines[answer.line - 1] ?? ''),
       ...(answer.kind === 'error' ? { tone: 'error' as const } : {}),
     }));
-    return { leaders: placed, lineCount: lines.length, hintLine: hint };
+    return { leaders: placed, lineCount: lines.length, hintLine: hint, lines };
   }, [answerRows, answerSource, neverRan]);
   // Answers belong to the source they ran; a draft not yet saved moves the lines.
   // An editor taller than its cap scrolls inside, where the column cannot follow.
@@ -596,6 +596,7 @@ function NotebookCodeCellRowImpl({
           stale={status === 'stale'}
           runNumber={executionOrder}
           table={answerTable}
+          sourceLines={lines}
         />
       ) : null}
       </div>

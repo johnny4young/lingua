@@ -101,7 +101,7 @@ test('a cell header and its answers fit at 768 and 375 px', async ({ page }) => 
     expect(await table.evaluate(el => el.scrollWidth - el.clientWidth)).toBe(0);
 
     // The error and its dated note wrap instead of being cut.
-    const error = broken.locator('[data-testid="notebook-cell-answer"][data-kind="error"] .notebook-answer-pill[data-tone="error"]');
+    const error = broken.locator('[data-testid="notebook-cell-answer"][data-kind="error"] [data-testid="answer-object-value"][data-tone="error"]');
     await expect(error).toBeVisible();
     expect(await error.evaluate(el => el.scrollWidth - el.clientWidth)).toBe(0);
     expect((await box(error)).height).toBeGreaterThan(30);

@@ -83,6 +83,7 @@ import {
   type NotebookJsAnswerCapture,
   type SqlAnswerTarget,
 } from './notebookAnswers';
+import { pythonMadeNames } from '../utils/notebookVarFlow';
 
 // ---------------------------------------------------------------------------
 // Closed enums
@@ -545,11 +546,22 @@ export async function composeNotebookCellProgram(
     '  const __notebook_original_error = console.error.bind(console);',
     // The first user-code frame is the console override (on `selfLine`), the
     // next is its caller; their distance survives any constant offset.
+    '  const __notebook_frame_lines = (stack) =>',
+    `    (String(stack ?? "").match(/${JS_WORKER_USER_SOURCE}:\\d+/g) ?? []).map((frame) => Number(frame.slice(frame.lastIndexOf(":") + 1)));`,
     '  const __notebook_line_of = (stack, selfLine) => {',
-    `    const frames = String(stack ?? "").match(/${JS_WORKER_USER_SOURCE}:\\d+/g);`,
-    '    if (!frames || frames.length < 2) return null;',
-    '    const lineOf = (frame) => Number(frame.slice(frame.lastIndexOf(":") + 1));',
-    '    return selfLine + lineOf(frames[1]) - lineOf(frames[0]);',
+    '    const frames = __notebook_frame_lines(stack);',
+    '    return frames.length < 2 ? null : selfLine + frames[1] - frames[0];',
+    '  };',
+    // A throw keeps the answers before it; its line comes from the stack the same way.
+    '  let __notebook_thrown = null;',
+    '  const __notebook_describe_error = (error, here, selfLine) => {',
+    '    const isError = error instanceof Error;',
+    '    const thrown = isError ? __notebook_frame_lines(error.stack)[0] : undefined;',
+    '    const self = __notebook_frame_lines(here)[0];',
+    '    let message = "";',
+    '    let text = "";',
+    '    try { message = isError ? String(error.message) : String(error); text = isError ? `${error.name}: ${message}` : message; } catch { text = message = "Error"; }',
+    '    return { message, text, line: thrown !== undefined && self !== undefined ? selfLine + thrown - self : null };',
     '  };',
     '  const __notebook_capture = (buffer, lines, line, ...args) => {',
     '    try {',
@@ -603,14 +615,18 @@ export async function composeNotebookCellProgram(
     ...pullInLines
   );
   const userStartLine = head.length + 1;
+  // The catch reads its own line from the stack on the line after `catch`.
+  const describeLine = userStartLine + rewritten.split('\n').length + 1;
   const source = [
     ...head,
     rewritten,
+    '  } catch (__notebook_error) {',
+    `    __notebook_thrown = __notebook_describe_error(__notebook_error, new Error().stack, ${describeLine});`,
     '  } finally {',
     '    console.log = __notebook_original_log;',
     '    console.error = __notebook_original_error;',
     '  }',
-    '  return { stdout: __notebook_console_buffer_stdout, stderr: __notebook_console_buffer_stderr, stdoutLines: __notebook_console_lines_stdout, stderrLines: __notebook_console_lines_stderr, answers: __notebook_answers, sessionDelta: _sessionDelta };',
+    '  return { stdout: __notebook_console_buffer_stdout, stderr: __notebook_console_buffer_stderr, stdoutLines: __notebook_console_lines_stdout, stderrLines: __notebook_console_lines_stderr, answers: __notebook_answers, sessionDelta: _sessionDelta, thrown: __notebook_thrown };',
     '})();',
   ].join('\n');
   return { source, userStartLine };
@@ -890,7 +906,7 @@ export async function runNotebookCell(
           stdout,
           stderr,
           sandboxKeyCount,
-          producedKeys: assignedNames(answers, request.source),
+          producedKeys: pythonMadeNames(request.source),
           answers,
         },
       };
@@ -998,6 +1014,7 @@ export async function runNotebookCell(
     let stderrLines: unknown[] = [];
     let captures: NotebookJsAnswerCapture[] = [];
     let sessionDelta: unknown = {};
+    let thrown: NotebookJsThrown | null = null;
     if (
       composedResult !== undefined &&
       composedResult !== null &&
@@ -1018,12 +1035,35 @@ export async function runNotebookCell(
       if (Array.isArray(obj.stdoutLines)) stdoutLines = obj.stdoutLines;
       if (Array.isArray(obj.stderrLines)) stderrLines = obj.stderrLines;
       captures = readJsAnswerCaptures(obj.answers);
+      thrown = readJsThrown(obj.thrown);
     }
     if (composedStdout.length === 0) {
       composedStdout = flattenStdoutText(result.stdout);
     }
     if (composedStderr.length === 0) {
       composedStderr = flattenStdoutText(result.stderr);
+    }
+    const answerInput = {
+      source: request.source,
+      captures,
+      stdout: composedStdout.map((text, index) => ({ text, line: jsLine(stdoutLines[index]) })),
+      stderr: composedStderr.map((text, index) => ({ text, line: jsLine(stderrLines[index]) })),
+      mapLine,
+    };
+    if (thrown) {
+      // A throw keeps what ran before it on screen, and nothing it declared.
+      return {
+        ok: true,
+        outcome: {
+          status: 'error',
+          stdout: composedStdout,
+          stderr: [...composedStderr, thrown.message],
+          errorMessage: thrown.message,
+          sandboxKeyCount: Object.keys(session.sandbox).length,
+          producedKeys: [],
+          answers: jsAnswers({ ...answerInput, error: { message: thrown.text, line: jsLine(thrown.line) } }),
+        },
+      };
     }
     // Merge the new top-level declarations into the per-tab sandbox.
     // The filter pass drops any non-serializable values defensively.
@@ -1041,13 +1081,7 @@ export async function runNotebookCell(
         stderr: composedStderr,
         sandboxKeyCount: Object.keys(session.sandbox).length,
         producedKeys,
-        answers: jsAnswers({
-          source: request.source,
-          captures,
-          stdout: composedStdout.map((text, index) => ({ text, line: jsLine(stdoutLines[index]) })),
-          stderr: composedStderr.map((text, index) => ({ text, line: jsLine(stderrLines[index]) })),
-          mapLine,
-        }),
+        answers: jsAnswers(answerInput),
       },
     };
   } catch (err) {
@@ -1176,6 +1210,24 @@ function createCellLineMapper(
   };
 }
 
+interface NotebookJsThrown {
+  readonly message: string;
+  /** `Name: message`, as the error line answers. */
+  readonly text: string;
+  readonly line: number | null;
+}
+
+function readJsThrown(raw: unknown): NotebookJsThrown | null {
+  if (raw === null || typeof raw !== 'object') return null;
+  const { message, text, line } = raw as Record<string, unknown>;
+  if (typeof message !== 'string' || typeof text !== 'string') return null;
+  return {
+    message: message || text || 'Error',
+    text: text || message || 'Error',
+    line: Number.isInteger(line) ? (line as number) : null,
+  };
+}
+
 function readJsAnswerCaptures(raw: unknown): NotebookJsAnswerCapture[] {
   if (!Array.isArray(raw)) return [];
   const captures: NotebookJsAnswerCapture[] = [];
@@ -1191,23 +1243,6 @@ function readJsAnswerCaptures(raw: unknown): NotebookJsAnswerCapture[] {
     });
   }
   return captures;
-}
-
-/** Names a Python cell assigned, read off the answered assignment lines. */
-function assignedNames(
-  answers: ReadonlyArray<NotebookLineAnswerV1>,
-  source: string
-): string[] {
-  const lines = source.split('\n');
-  const names = new Set<string>();
-  for (const answer of answers) {
-    if (answer.kind !== 'value') continue;
-    const match = /^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(?::[^=]*)?(?:[-+*/%@&|^]|\*\*|\/\/|<<|>>)?=(?!=)/.exec(
-      lines[answer.line - 1] ?? ''
-    );
-    for (const name of match?.[1]?.split(',') ?? []) names.add(name.trim());
-  }
-  return [...names];
 }
 
 /**

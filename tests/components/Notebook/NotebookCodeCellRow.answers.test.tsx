@@ -65,8 +65,17 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     const answers = within(column).getAllByTestId('notebook-cell-answer');
     expect(answers.map(answer => answer.getAttribute('data-line'))).toEqual(['2', '3', '4']);
     expect(answers[0]!.textContent).toBe('list·3130.86 – 151.2');
-    expect(answers[1]!.textContent).toBe('float142.98666666666668');
-    expect(answers[2]!.textContent).toBe('printdone');
+    expect(answers[1]!.textContent).toBe('float142.9866667');
+    expect(answers[2]!.textContent).toBe('stdoutdone');
+    // The shared answer renderer draws them: bars for a numeric list, a number pill for a float.
+    expect(within(answers[0]!).getByTestId('answer-picture-bars').querySelectorAll('rect')).toHaveLength(3);
+    const value = within(answers[1]!).getByTestId('answer-object-value');
+    expect(value.dataset.tone).toBe('number');
+    expect(value.hasAttribute('data-pill')).toBe(true);
+    expect(within(answers[2]!).getByTestId('answer-object').dataset.kind).toBe('stdout');
+    // Only the last answer may wrap into the free lines below it.
+    expect(within(answers[0]!).getByTestId('answer-object').hasAttribute('data-one-line')).toBe(true);
+    expect(within(answers[2]!).getByTestId('answer-object').hasAttribute('data-one-line')).toBe(false);
     // Answers sit on their source line in the grid.
     expect(answers[1]!.style.gridRow).toBe('3');
     const leaders = screen.getAllByTestId('notebook-cell-answer-leader');
@@ -112,6 +121,56 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
     expect(screen.getByTestId('notebook-cell-answer').style.gridRow).toBe('1 / 5');
   });
 
+  it('answers a JavaScript cell with script vocabulary, and an error in its tone', () => {
+    const cell: NotebookCodeCellV1 = {
+      kind: 'code',
+      id: 'cell-js-answers',
+      language: 'javascript',
+      source: 'const n = 2n ** 70n;\nn\nnew Map([["a", 1]])\nnull.size',
+      outputs: [],
+      answers: [
+        { line: 2, kind: 'value', text: '1180591620717411303424n', type: 'bigint' },
+        { line: 3, kind: 'value', text: '[["a",1]]', type: 'map', size: 1 },
+        { line: 4, kind: 'error', text: "TypeError: Cannot read properties of null (reading 'size')" },
+      ],
+    };
+    render(<NotebookCodeCellRow {...rowProps(cell)} />);
+    const answers = screen.getAllByTestId('notebook-cell-answer');
+    expect(answers[0]!.textContent).toBe('bigint1180591620717411303424n');
+    expect(within(answers[1]!).getByTestId('answer-object').textContent).toContain('map·1');
+    expect(within(answers[2]!).getByTestId('answer-object').dataset.tone).toBe('error');
+  });
+
+  it('keeps the type and length of a list cut to the answer cap', () => {
+    const cut = `[${Array.from({ length: 80 }, (_, i) => i).join(', ')}`.slice(0, 239) + '…';
+    const cell: NotebookCodeCellV1 = {
+      kind: 'code',
+      id: 'cell-cut-list',
+      language: 'python',
+      source: 'list(range(80))',
+      outputs: [],
+      answers: [{ line: 1, kind: 'value', text: cut, type: 'list', size: 80 }],
+    };
+    render(<NotebookCodeCellRow {...rowProps(cell)} />);
+    const answer = screen.getByTestId('notebook-cell-answer');
+    expect(answer.textContent?.startsWith('list·80[0, 1, 2')).toBe(true);
+  });
+
+  it('answers a write with its row count in the number tone', () => {
+    const cell: NotebookCodeCellV1 = {
+      kind: 'code',
+      id: 'cell-sql-write',
+      language: 'sql',
+      source: 'DELETE FROM orders WHERE total = 0;',
+      outputs: [],
+      answers: [{ line: 1, kind: 'value', type: 'rows', text: '3' }],
+    };
+    render(<NotebookCodeCellRow {...rowProps(cell)} />);
+    const answer = screen.getByTestId('notebook-cell-answer');
+    expect(answer.textContent).toBe('rows3');
+    expect(within(answer).getByTestId('answer-object-value').dataset.tone).toBe('number');
+  });
+
   it('summarizes a made table in Spanish', async () => {
     await i18next.changeLanguage('es');
     const cell: NotebookCodeCellV1 = {
@@ -130,6 +189,7 @@ describe('NotebookCodeCellRow — answers beside the lines', () => {
   it('marks stale answers and hides answers while an unsaved draft moves the lines', () => {
     const { rerender } = render(<NotebookCodeCellRow {...rowProps(pythonCell, 'stale')} />);
     expect(screen.getByTestId('notebook-cell-answers').getAttribute('data-stale')).toBe('true');
+    for (const answer of screen.getAllByTestId('answer-object')) expect(answer.hasAttribute('data-muted')).toBe(true);
     rerender(<NotebookCodeCellRow {...rowProps({ ...pythonCell, answers: undefined })} />);
     expect(screen.queryByTestId('notebook-cell-answers')).toBeNull();
     expect(screen.queryByTestId('notebook-cell-answer-leader')).toBeNull();

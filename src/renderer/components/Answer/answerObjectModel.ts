@@ -571,9 +571,7 @@ export function readAnswer(input: AnswerInput, context: AnswerContext): AnswerMo
   }
   const fn = /^\[Function: (.+)\]$/.exec(trimmed);
   if (fn) return plainAnswer('function', 'function', fn[1]!);
-  // A Python value that is not a literal is an object repr; a script string arrives without quotes.
-  if (python) return plainAnswer('object', 'object', firstLine(text).line);
-  // JSON too large to read, pretty-printed or cut to its head, is still an array or object, not a string.
+  // A value too large to read, pretty-printed or cut to its head, is still a list or a dict, not a string.
   const head = firstLine(text);
   const cut = (input.length ?? 0) > text.length;
   const opener = cut ? text.trimStart().charAt(0) : head.line.trim();
@@ -581,6 +579,8 @@ export function readAnswer(input: AnswerInput, context: AnswerContext): AnswerMo
     const preview = truncateText(text.slice(0, 400).replace(/\s+/g, ' ').trim(), 120);
     return plainAnswer(opener === '[' ? reading.words.list : reading.words.dict, opener === '[' ? 'array' : 'object', preview);
   }
+  // A Python value that is not a literal is an object repr; a script string arrives without quotes.
+  if (python) return plainAnswer('object', 'object', head.line);
   return stringAnswer(text, reading);
 }
 

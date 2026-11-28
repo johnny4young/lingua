@@ -45,6 +45,7 @@ import { useNotebookExportActions } from './useNotebookExportActions';
 import { coerceNotebookCellLanguage, notebookTitleFromTabName } from './notebookViewModel';
 import { useDismissible } from '../../hooks/useDismissible';
 import { languageLabel } from '../../utils/languageMeta';
+import { restoredPythonVarFlow } from '../../utils/notebookVarFlow';
 
 export interface NotebookViewProps {
   readonly tabId: string;
@@ -60,6 +61,11 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // Signal-Slate — per-cell Jupyter [N] execution-order stamp map,
   // threaded into each code-cell row alongside status + latency.
   const cellExecutionOrderMap = useNotebookStore(s => s.notebooks[tabId]?.cellExecutionOrder);
+  // Python cells that ran before this session read their chips from their source.
+  const shownVarFlowMap = useMemo(
+    () => (notebook ? restoredPythonVarFlow(notebook.cells, cellVarFlowMap, cellRunStatusMap, cellExecutionOrderMap) : cellVarFlowMap),
+    [notebook, cellVarFlowMap, cellRunStatusMap, cellExecutionOrderMap]
+  );
   const runInPlaceCellId = useNotebookStore(s => {
     const slice = s.notebooks[tabId];
     return slice ? notebookCellRunningInPlace(slice.notebook.cells, slice.cellRunStatus, slice.cellEditedSinceRun) : null;
@@ -723,7 +729,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         measureRef={measureRef}
         cellRunStatusMap={cellRunStatusMap}
         cellDurationMsMap={cellDurationMsMap}
-        cellVarFlowMap={cellVarFlowMap}
+        cellVarFlowMap={shownVarFlowMap}
         cellExecutionOrderMap={cellExecutionOrderMap}
         runInPlaceCellId={runInPlaceCellId}
         activeCellId={activeCellId}

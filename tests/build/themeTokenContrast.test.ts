@@ -222,7 +222,6 @@ describe('text over its own tint', () => {
   const source = (path: string) => readFileSync(resolve(__dirname, '../../src/renderer/components', path), 'utf8');
   // [name, rule body, tone variable]; the answer object's light wash is 10%, so 14% is its worst case.
   const PILLS = [
-    ['notebook', readCssRule(source('Notebook/notebookAnswers.css'), '.notebook-answer-pill'), '--notebook-answer-tone'],
     ['project tests', readCssRule(source('ProjectTests/projectTests.css'), '.test-answer-pill'), '--test-answer-tone'],
     ['answer object', readCssRule(source('Answer/answerObject.css'), '\n  .answer-object-value[data-pill]').replace('var(--answer-wash)', '14%'), '--answer-tone'],
   ] as const;

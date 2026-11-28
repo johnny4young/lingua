@@ -515,6 +515,16 @@ describe('runNotebookCell + session manager', () => {
     );
   });
 
+  it('names what a Python cell made: functions, classes, import aliases and chained targets', async () => {
+    mockExecute.mockResolvedValue({ kind: 'ok', result: '', stdout: [], stderr: [] });
+    const result = await runNotebookCell({
+      tabId: 'tab-py-made',
+      language: 'python',
+      source: 'import math as m\nx = y = 2\ndef greet(name): print(name)\nclass Box: pass',
+    });
+    expect(result.ok && result.outcome.producedKeys).toEqual(['m', 'x', 'y', 'greet', 'Box']);
+  });
+
   it('disposing a notebook session resets its Python kernel scope', () => {
     mockResetScope.mockClear();
     disposeNotebookSession('tab-restart');
@@ -812,6 +822,36 @@ describe('runNotebookCell + session manager', () => {
     if (!result.ok) return;
     expect(result.outcome.status).toBe('error');
     expect(result.outcome.stderr).toContain('ReferenceError: ouch');
+  });
+
+  it('keeps the answers before a throw and answers the throw on its own line', async () => {
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (body: string) => () => Promise<unknown>;
+    // Runs the composed body the way the worker does, under its user-code source URL.
+    mockExecute.mockImplementation(async (_language: string, body: string) => ({
+      kind: 'ok',
+      structuredResult: await new AsyncFunction(`${body}\n//# sourceURL=lingua-user-code`)(),
+      stdout: [],
+      stderr: [],
+    }));
+    const result = await runNotebookCell({
+      tabId: 'tab-throw',
+      language: 'javascript',
+      source: "const prices = [12, 7.5, 30];\nprices.length\nconsole.log('before')\nconst gone = null;\ngone.size\n'never'",
+    });
+    mockExecute.mockReset();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.outcome.status).toBe('error');
+    expect(result.outcome.errorMessage).toMatch(/null/);
+    expect(result.outcome.stdout).toEqual(['before']);
+    expect(result.outcome.answers?.map(answer => [answer.line, answer.kind, answer.text.split(':')[0]])).toEqual([
+      [2, 'value', '3'],
+      [3, 'output', 'before'],
+      [5, 'error', 'TypeError'],
+    ]);
+    // A cell that threw declares nothing for the cells below.
+    expect(result.outcome.producedKeys).toEqual([]);
+    expect(getNotebookSessionKeys('tab-throw')).toEqual([]);
   });
 
   it('settles to an error outcome if runner execution rejects', async () => {
