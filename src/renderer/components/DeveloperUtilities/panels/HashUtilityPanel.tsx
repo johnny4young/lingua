@@ -1,5 +1,8 @@
 import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { TypeTag } from '../../ui/answer';
+import { ToolResultHeader, ToolSection } from '../ToolAnswerParts';
+import { countAnswer } from '../toolAnswers';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
@@ -40,7 +43,7 @@ const HASH_ALGORITHM_I18N_KEYS: Record<HashAlgorithm, string> = {
 };
 
 export function HashUtilityPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [mode, setMode] = useState<HashMode>('plain');
   const [source, setSource] = useState<HashInputSource>('text');
   const [algorithm, setAlgorithm] = useState<HashAlgorithm>('SHA-256');
@@ -148,172 +151,165 @@ export function HashUtilityPanel() {
     setText((prev) => prev);
   }, []);
 
-  return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <PanelSection
-        title={t('utilities.tool.hash.title')}
-      >
-        <div className="grid gap-2 md:grid-cols-2">
-          <label className="grid gap-1 text-body-sm text-muted">
-            <FieldLabel>{t('utilities.tool.hash.mode.label')}</FieldLabel>
-            <select
-              aria-label={t('utilities.tool.hash.mode.label')}
-              data-testid="hash-mode"
-              value={mode}
-              onChange={(event) => handleModeChange(event.target.value as HashMode)}
-              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
-            >
-              <option value="plain">{t('utilities.tool.hash.mode.plain')}</option>
-              <option value="hmac">{t('utilities.tool.hash.mode.hmac')}</option>
-            </select>
-          </label>
-          <label className="grid gap-1 text-body-sm text-muted">
-            <FieldLabel>{t('utilities.tool.hash.source.label')}</FieldLabel>
-            <select
-              aria-label={t('utilities.tool.hash.source.label')}
-              data-testid="hash-source"
-              value={source}
-              onChange={(event) => setSource(event.target.value as HashInputSource)}
-              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
-            >
-              <option value="text">{t('utilities.tool.hash.source.text')}</option>
-              <option value="file">{t('utilities.tool.hash.source.file')}</option>
-            </select>
-          </label>
-        </div>
-        <label className="grid gap-1 text-body-sm text-muted">
-          <FieldLabel>{t('utilities.tool.hash.algorithmLabel')}</FieldLabel>
-          <select
-            aria-label={t('utilities.tool.hash.algorithmLabel')}
-            data-testid="hash-algorithm"
-            value={algorithm}
-            onChange={(event) => setAlgorithm(event.target.value as HashAlgorithm)}
-            className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
-          >
-            {algorithmOptions.map((algo) => (
-              <option key={algo} value={algo}>
-                {t(HASH_ALGORITHM_I18N_KEYS[algo])}
-              </option>
-            ))}
-          </select>
-        </label>
-        {mode === 'hmac' ? (
-          <div className="grid gap-2">
-            <FieldLabel>{t('utilities.tool.hash.key.label')}</FieldLabel>
-            <UtilityInput
-              aria-label={t('utilities.tool.hash.key.label')}
-              data-testid="hash-hmac-key"
-              value={hmacKey}
-              onChange={(event) => setHmacKey(event.target.value)}
-              placeholder={t('utilities.tool.hash.key.placeholder') ?? undefined}
-              spellCheck={false}
-              autoComplete="off"
-            />
-          </div>
-        ) : null}
-        {source === 'text' ? (
-          <div className="grid gap-2">
-            <FieldLabel>{t('utilities.tool.hash.input.textLabel')}</FieldLabel>
-            <UtilityTextarea
-              aria-label={t('utilities.tool.hash.input.textLabel')}
-              data-testid="hash-input-text"
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              spellCheck={false}
-            />
-          </div>
-        ) : (
-          <div className="grid gap-2">
-            <FieldLabel>{t('utilities.tool.hash.input.fileLabel')}</FieldLabel>
-            {/* Migrated to <FileDropZone> so the hash input
-                inherits the new four-state visual (idle/over/dropping/
-                error). The wrapper testid `hash-dropzone` is preserved
-                for the existing regression test, and the hidden file
-                input keeps its `hash-file-input` testid via the new
-                `inputTestId` prop. The legacy `<StatusMessage>` for
-                fileError is now folded into the dropzone's `error`
-                visual via `errorMessage`. */}
-            <FileDropZone
-              testId="hash-dropzone"
-              inputTestId="hash-file-input"
-              onFile={handleFile}
-              hint={t('utilities.tool.hash.input.dropHint')}
-              placeholder={t('utilities.tool.hash.input.filePlaceholder')}
-              summary={
-                file ? (
-                  <span
-                    className="font-mono text-body-sm text-foreground"
-                    data-testid="hash-file-summary"
-                  >
-                    {t('utilities.tool.hash.input.fileSummary', {
-                      name: file.name,
-                      size: formatByteSize(file.size),
-                    })}
-                  </span>
-                ) : undefined
-              }
-              errorMessage={
-                fileError ? t(fileError, { limitMb: HASH_FILE_MAX_MB }) : undefined
-              }
-            />
-          </div>
-        )}
-        <UtilityToolbar
-          utilityId="hash"
-          primary={source === 'text' ? text : file?.name ?? ''}
-          run={runApply}
-        />
-      </PanelSection>
+  const digest = result?.ok ? result.hex : null;
+  const algorithmLabel = t(HASH_ALGORITHM_I18N_KEYS[algorithm]);
 
-      <PanelSection
-        title={t('utilities.tool.hash.output.label')}
-        description={t('utilities.status.live')}
-      >
-        {result === null ? (
-          <StatusMessage message={t('utilities.tool.hash.error.empty')} tone="muted" />
-        ) : !result.ok ? (
-          <div className="grid gap-2">
-            <StatusMessage
-              message={t(result.errorKey, { limitMb: HASH_FILE_MAX_MB })}
-              tone={result.errorKey === 'utilities.tool.hash.error.empty' ? 'muted' : 'error'}
-              testid="hash-error"
-            />
-            {result.message ? (
-              <p
-                className="rounded-xl border border-border/70 bg-background/55 px-3 py-2 font-mono text-body-sm text-muted"
-                data-testid="hash-error-detail"
+  return (
+    <div className="tool-answer-panel">
+      <ToolResultHeader
+        testId="hash-result-header"
+        tag="HASH"
+        answer={result?.ok ? countAnswer(result.inputByteLength, 'utilities.answer.hash.bytes', t, i18n.language) : null}
+        meta={mode === 'hmac' ? `HMAC · ${algorithmLabel}` : algorithmLabel}
+      />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <PanelSection
+          title={t('utilities.tool.hash.title')}
+        >
+          <div className="grid gap-2 md:grid-cols-2">
+            <label className="grid gap-1 text-body-sm text-muted">
+              <FieldLabel>{t('utilities.tool.hash.mode.label')}</FieldLabel>
+              <select
+                aria-label={t('utilities.tool.hash.mode.label')}
+                data-testid="hash-mode"
+                value={mode}
+                onChange={(event) => handleModeChange(event.target.value as HashMode)}
+                className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
               >
-                {result.message}
-              </p>
-            ) : null}
+                <option value="plain">{t('utilities.tool.hash.mode.plain')}</option>
+                <option value="hmac">{t('utilities.tool.hash.mode.hmac')}</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-body-sm text-muted">
+              <FieldLabel>{t('utilities.tool.hash.source.label')}</FieldLabel>
+              <select
+                aria-label={t('utilities.tool.hash.source.label')}
+                data-testid="hash-source"
+                value={source}
+                onChange={(event) => setSource(event.target.value as HashInputSource)}
+                className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
+              >
+                <option value="text">{t('utilities.tool.hash.source.text')}</option>
+                <option value="file">{t('utilities.tool.hash.source.file')}</option>
+              </select>
+            </label>
           </div>
-        ) : (
-          <div className="grid gap-2">
-            <div className="relative">
+          <label className="grid gap-1 text-body-sm text-muted">
+            <FieldLabel>{t('utilities.tool.hash.algorithmLabel')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.hash.algorithmLabel')}
+              data-testid="hash-algorithm"
+              value={algorithm}
+              onChange={(event) => setAlgorithm(event.target.value as HashAlgorithm)}
+              className="rounded-2xl border border-border/80 bg-background/88 px-3 py-2.5 text-body text-foreground outline-none focus:border-primary/50"
+            >
+              {algorithmOptions.map((algo) => (
+                <option key={algo} value={algo}>
+                  {t(HASH_ALGORITHM_I18N_KEYS[algo])}
+                </option>
+              ))}
+            </select>
+          </label>
+          {mode === 'hmac' ? (
+            <div className="grid gap-2">
+              <FieldLabel>{t('utilities.tool.hash.key.label')}</FieldLabel>
+              <UtilityInput
+                aria-label={t('utilities.tool.hash.key.label')}
+                data-testid="hash-hmac-key"
+                value={hmacKey}
+                onChange={(event) => setHmacKey(event.target.value)}
+                placeholder={t('utilities.tool.hash.key.placeholder') ?? undefined}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </div>
+          ) : null}
+          {source === 'text' ? (
+            <div className="grid gap-2">
+              <FieldLabel>{t('utilities.tool.hash.input.textLabel')}</FieldLabel>
               <UtilityTextarea
-                aria-label={t('utilities.tool.hash.output.label')}
-                data-testid="hash-output"
-                readOnly
-                value={result.hex}
-                className="pr-10 font-mono"
+                aria-label={t('utilities.tool.hash.input.textLabel')}
+                data-testid="hash-input-text"
+                value={text}
+                onChange={(event) => setText(event.target.value)}
                 spellCheck={false}
               />
-              <div className="absolute right-2 top-2">
-                <CopyButton
-                  value={result.hex}
-                  testid="hash-output-copy"
-                  disabled={!result.hex}
-                />
-              </div>
             </div>
-            <StatusMessage
-              tone="muted"
-              testid="hash-byte-length"
-              message={t('utilities.tool.hash.byteLength', { bytes: result.inputByteLength })}
-            />
-          </div>
-        )}
-      </PanelSection>
+          ) : (
+            <div className="grid gap-2">
+              <FieldLabel>{t('utilities.tool.hash.input.fileLabel')}</FieldLabel>
+              {/* Migrated to <FileDropZone> so the hash input
+                  inherits the new four-state visual (idle/over/dropping/
+                  error). The wrapper testid `hash-dropzone` is preserved
+                  for the existing regression test, and the hidden file
+                  input keeps its `hash-file-input` testid via the new
+                  `inputTestId` prop. The legacy `<StatusMessage>` for
+                  fileError is now folded into the dropzone's `error`
+                  visual via `errorMessage`. */}
+              <FileDropZone
+                testId="hash-dropzone"
+                inputTestId="hash-file-input"
+                onFile={handleFile}
+                hint={t('utilities.tool.hash.input.dropHint')}
+                placeholder={t('utilities.tool.hash.input.filePlaceholder')}
+                summary={
+                  file ? (
+                    <span
+                      className="font-mono text-body-sm text-foreground"
+                      data-testid="hash-file-summary"
+                    >
+                      {t('utilities.tool.hash.input.fileSummary', {
+                        name: file.name,
+                        size: formatByteSize(file.size),
+                      })}
+                    </span>
+                  ) : undefined
+                }
+                errorMessage={
+                  fileError ? t(fileError, { limitMb: HASH_FILE_MAX_MB }) : undefined
+                }
+              />
+            </div>
+          )}
+          <UtilityToolbar
+            utilityId="hash"
+            primary={source === 'text' ? text : file?.name ?? ''}
+            run={runApply}
+          />
+        </PanelSection>
+
+        <ToolSection
+          label={t('utilities.tool.hash.output.label')}
+          trailing={digest ? <CopyButton value={digest} testid="hash-output-copy" /> : null}
+        >
+          {result === null ? (
+            <StatusMessage message={t('utilities.tool.hash.error.empty')} tone="muted" />
+          ) : !result.ok ? (
+            <div className="grid gap-2">
+              <StatusMessage
+                message={t(result.errorKey, { limitMb: HASH_FILE_MAX_MB })}
+                tone={result.errorKey === 'utilities.tool.hash.error.empty' ? 'muted' : 'error'}
+                testid="hash-error"
+              />
+              {result.message ? (
+                <p
+                  className="rounded-xl border border-border/70 bg-background/55 px-3 py-2 font-mono text-body-sm text-muted"
+                  data-testid="hash-error-detail"
+                >
+                  {result.message}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="tool-digest-row">
+              <TypeTag className="tool-leaf-type">{`hex·${result.hex.length}`}</TypeTag>
+              <code className="tool-digest" data-testid="hash-output">
+                {result.hex}
+              </code>
+            </div>
+          )}
+        </ToolSection>
+      </div>
     </div>
   );
 }

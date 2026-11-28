@@ -43,12 +43,16 @@ export interface ResultHeaderPhases {
 export interface ResultHeaderTab {
   id: string;
   label: ReactNode;
+  testId?: string;
 }
 
 export interface ResultHeaderNumeral {
   value: ReactNode;
   unit?: ReactNode;
+  lead?: ReactNode;
   tone?: AnswerTone;
+  /** A word in the numeral slot (expired, invalid) sets smaller than digits. */
+  word?: boolean;
   /** Full reading for the tooltip, e.g. the untruncated status text. */
   title?: string;
   /** Extra attributes for the numeral's wrapper (test ids, state). */
@@ -66,6 +70,8 @@ export interface ResultHeaderAction {
 
 export interface ResultHeaderProps {
   workspace?: ResultWorkspace;
+  /** A tool's own type tag (JWT, HASH) when there is no workspace; code vocabulary, never translated. */
+  tag?: string;
   /** The result as a number: 12 rows, 200 ok, 1.24 s. */
   numeral?: ResultHeaderNumeral;
   /** A status badge, for results without a number (errors, cancelled runs). */
@@ -111,6 +117,7 @@ const TAB_CLASS = cn(
 
 export function ResultHeader({
   workspace,
+  tag,
   numeral,
   status,
   meta,
@@ -151,7 +158,13 @@ export function ResultHeader({
           : cn('min-h-[66px] gap-y-1.5 py-2 pr-4', folded ? 'gap-x-3 pl-4' : 'gap-x-4 pl-5')
       )}
     >
-      {workspace ? <WorkspaceTag workspace={workspace} className="shrink-0" /> : null}
+      {workspace ? (
+        <WorkspaceTag workspace={workspace} className="shrink-0" />
+      ) : tag ? (
+        <span data-testid="result-header-tag" className="flex shrink-0">
+          <TypeTag>{tag}</TypeTag>
+        </span>
+      ) : null}
       {numeral ? (
         <span
           data-testid="result-header-numeral"
@@ -163,6 +176,8 @@ export function ResultHeader({
             size={compact ? 'md' : 'lg'}
             value={numeral.value}
             unit={numeral.unit}
+            lead={numeral.lead}
+            word={numeral.word}
             tone={numeral.tone ?? 'neutral'}
             className="min-w-0 [&_.result-numeral-unit]:truncate"
           />
@@ -220,6 +235,7 @@ export function ResultHeader({
                     key={tab.id}
                     type="button"
                     aria-pressed={active}
+                    data-testid={tab.testId}
                     onClick={() => onTabChange?.(tab.id)}
                     className={cn(
                       TAB_CLASS,

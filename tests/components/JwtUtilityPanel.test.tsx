@@ -6,7 +6,7 @@
  * Spanish copy resolves.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -55,22 +55,30 @@ describe('JwtUtilityPanel', () => {
     Object.defineProperty(globalThis, 'CSS', { configurable: true, value: originalCss });
   });
 
-  it('renders the Decode form by default and preserves the existing decode output', async () => {
+  it('renders the Decode form by default with one answer in the header', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    // Mode selector lands on `decode`.
-    const modeSelect = screen.getByTestId('jwt-mode') as HTMLSelectElement;
-    expect(modeSelect.value).toBe('decode');
-
-    // Seed token parses — header copy button proves the tree rendered.
+    expect(screen.getByTestId('jwt-mode-decode').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('jwt-mode-verify').getAttribute('aria-pressed')).toBe('false');
     expect(screen.getByTestId('jwt-decode-token')).toBeTruthy();
     expect(screen.getByTestId('jwt-header-copy')).toBeTruthy();
-    expect(screen.getByTestId('jwt-header-output').tagName).toBe('PRE');
-    expect(screen.getByTestId('jwt-payload-output').tagName).toBe('PRE');
+    expect(screen.getByTestId('jwt-payload-copy')).toBeTruthy();
+
+    // The seed token never expires, so the numeral counts its claims and the meta names the algorithm only.
+    const header = within(screen.getByTestId('jwt-result-header'));
+    expect(header.getByTestId('result-header-tag').textContent).toBe('JWT');
+    expect(header.getByTestId('result-header-numeral').textContent).toBe('2claims');
+    expect(header.getByTestId('result-header-meta').textContent).toBe('HS256');
+
+    // Typed leader rows: key, then the JSON type and the value.
+    expect(screen.getByTestId('jwt-claim-alg').textContent).toBe('algstring"HS256"');
+    expect(screen.getByTestId('jwt-claim-sub').textContent).toBe('substring"lingua"');
+    expect(within(screen.getByTestId('jwt-header-output')).getByText(/Header · 27 bytes/u)).toBeTruthy();
+    expect(within(screen.getByTestId('jwt-payload-output')).getByText(/Payload · 29 bytes/u)).toBeTruthy();
   });
 
-  it('dates each time claim at the end of its line and badges how far it is from now', async () => {
+  it('dates each time claim with a pill, how far it is from now, and the lifetime of exp', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(Date.UTC(2026, 9, 17, 1, 0, 0));
     try {
@@ -83,16 +91,14 @@ describe('JwtUtilityPanel', () => {
         target: { value: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}.sig` },
       });
 
-      const comments = await screen.findAllByTestId('json-timestamp-comment');
-      expect(comments.map(comment => comment.textContent)).toEqual([
-        '  // 2026-10-17 00:00:00 UTC',
-        '  // 2026-10-18 00:00:00 UTC',
-        '  // 2026-10-19 00:00:00 UTC',
-      ]);
-      expect(screen.getByTestId('jwt-time-claim-exp').textContent).toBe('exp in 23 hr.');
+      const header = within(screen.getByTestId('jwt-result-header'));
+      expect(header.getByTestId('result-header-numeral').textContent).toBe('23h left');
+      expect(header.getByTestId('result-header-meta').textContent).toBe('HS256 · 4 claims');
       expect(screen.getByTestId('jwt-time-claim-exp').dataset.state).toBe('ok');
-      expect(screen.getByTestId('jwt-time-claim-iat').textContent).toBe('iat 1 hr. ago');
+      expect(screen.getByTestId('jwt-lifetime').getAttribute('aria-label')).toBe('4% of its lifetime used');
+      expect(screen.getByTestId('jwt-time-claim-iat-relative').textContent).toBe('1 hr. ago');
       expect(screen.getByTestId('jwt-time-claim-nbf').dataset.state).toBe('pending');
+      expect(screen.getByTestId('jwt-time-claim-nbf-relative').textContent).toBe('Not valid yet · in 47 hr.');
 
       // A token decoded later is judged against the clock at that moment.
       vi.setSystemTime(Date.UTC(2026, 9, 18, 2, 0, 0));
@@ -104,20 +110,34 @@ describe('JwtUtilityPanel', () => {
       await waitFor(() =>
         expect(screen.getByTestId('jwt-time-claim-exp').dataset.state).toBe('expired')
       );
-      expect(screen.getByTestId('jwt-time-claim-exp').textContent).toBe('exp 2 hr. ago');
+      expect(header.getByTestId('result-header-numeral').textContent).toBe('expired2 hr. ago');
+      // Without iat there is no lifetime to draw.
+      expect(screen.queryByTestId('jwt-lifetime')).toBeNull();
 
-      // A claim past the Date range gets no badge instead of a crash.
+      // A claim past the Date range reads as a plain number instead of a crash.
       fireEvent.change(screen.getByTestId('jwt-decode-token'), {
         target: { value: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ exp: 1e308 })}.sig` },
       });
       await waitFor(() => expect(screen.queryByTestId('jwt-time-claim-exp')).toBeNull());
-      expect(screen.getByTestId('jwt-payload-output')).toBeTruthy();
+      expect(screen.getByTestId('jwt-claim-exp').textContent).toBe('expnumber1e+308');
+      expect(header.getByTestId('result-header-numeral').textContent).toBe('1claim');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('colors JWT segments and highlights timestamp claims with local and UTC hover metadata', async () => {
+  it('reads a malformed token as invalid in the header', async () => {
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+    fireEvent.change(screen.getByTestId('jwt-decode-token'), { target: { value: 'not-a-token' } });
+
+    const numeral = within(screen.getByTestId('jwt-result-header')).getByTestId('result-header-numeral');
+    expect(numeral.textContent).toBe('invalid');
+    expect(numeral.querySelector('.result-numeral')?.getAttribute('data-tone')).toBe('error');
+    expect(screen.queryByTestId('jwt-payload-output')).toBeNull();
+  });
+
+  it('colors JWT segments like the header bar and keeps the timestamp hover', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
@@ -139,6 +159,20 @@ describe('JwtUtilityPanel', () => {
     expect(screen.getByTestId('jwt-token-payload').textContent).toBe(token.split('.')[1]);
     expect(screen.getByTestId('jwt-token-signature').textContent).toBe('signature');
     expect(screen.getByTestId('jwt-signature-status').textContent).toContain('Not verified');
+
+    // Each bar part is sized by its decoded bytes and painted like its characters.
+    const parts = Array.from(screen.getByTestId('jwt-segments').querySelectorAll<HTMLElement>('[data-phase]'));
+    expect(parts.map(part => [part.dataset.phase, part.style.flexGrow])).toEqual([
+      ['header', '27'],
+      ['payload', '50'],
+      ['signature', '6'],
+    ]);
+    expect(parts.map(part => part.style.background)).toEqual([
+      screen.getByTestId('jwt-token-header').style.color,
+      screen.getByTestId('jwt-token-payload').style.color,
+      screen.getByTestId('jwt-token-signature').style.color,
+    ]);
+
     const timestampValues = screen.getAllByTestId('json-timestamp-value');
     expect(timestampValues.map(node => node.textContent)).toEqual(['1783624472', '1783624472']);
     expect(new Set(timestampValues.map(node => node.getAttribute('aria-describedby'))).size).toBe(
@@ -153,7 +187,7 @@ describe('JwtUtilityPanel', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
+    await user.click(screen.getByTestId('jwt-mode-sign'));
 
     expect(screen.getByTestId('jwt-sign-header')).toBeTruthy();
     expect(screen.getByTestId('jwt-sign-payload')).toBeTruthy();
@@ -169,7 +203,7 @@ describe('JwtUtilityPanel', () => {
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Sign a token first.
-    await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
+    await user.click(screen.getByTestId('jwt-mode-sign'));
     const signKey = screen.getByTestId('jwt-sign-key') as HTMLTextAreaElement;
     await user.type(signKey, 'this-secret-is-exactly-32-bytes!');
     await user.click(screen.getByTestId('jwt-sign-run'));
@@ -177,9 +211,13 @@ describe('JwtUtilityPanel', () => {
     const resultField = (await screen.findByTestId('jwt-sign-result')) as HTMLTextAreaElement;
     const token = resultField.value;
     expect(token.split('.')).toHaveLength(3);
+    // In Sign mode the header reads the token just signed.
+    expect(
+      within(screen.getByTestId('jwt-result-header')).getByTestId('result-header-numeral').textContent
+    ).toBe('2claims');
 
     // Switch to verify, paste the same token + key.
-    await user.selectOptions(screen.getByTestId('jwt-mode'), 'verify');
+    await user.click(screen.getByTestId('jwt-mode-verify'));
     const verifyTokenField = screen.getByTestId('jwt-verify-token') as HTMLTextAreaElement;
     // Replace the seeded token with the one we just signed.
     await user.clear(verifyTokenField);
@@ -207,7 +245,7 @@ describe('JwtUtilityPanel', () => {
 
     // Seeded token uses "signature" as its third segment — not a real
     // signature. So any real key will fail verification with HS256.
-    await user.selectOptions(screen.getByTestId('jwt-mode'), 'verify');
+    await user.click(screen.getByTestId('jwt-mode-verify'));
     const verifyKey = screen.getByTestId('jwt-verify-key') as HTMLTextAreaElement;
     await user.type(verifyKey, 'any-key-that-is-long-enough-32bytes!');
     await user.click(screen.getByTestId('jwt-verify-run'));
@@ -223,7 +261,7 @@ describe('JwtUtilityPanel', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
+    await user.click(screen.getByTestId('jwt-mode-sign'));
 
     const headerField = screen.getByTestId('jwt-sign-header') as HTMLTextAreaElement;
     await user.clear(headerField);
@@ -239,16 +277,17 @@ describe('JwtUtilityPanel', () => {
     expect(screen.queryByTestId('jwt-sign-result')).toBeNull();
   });
 
-  it('localizes the mode selector options to Spanish', async () => {
+  it('localizes the mode segment and the sections to Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    const modeSelect = screen.getByTestId('jwt-mode') as HTMLSelectElement;
-    const labels = Array.from(modeSelect.options).map(opt => opt.textContent);
-    expect(labels).toContain('Decodificar');
-    expect(labels).toContain('Verificar');
-    expect(labels).toContain('Firmar');
+    expect(screen.getByTestId('jwt-mode-decode').textContent).toBe('Decodificar');
+    expect(screen.getByTestId('jwt-mode-verify').textContent).toBe('Verificar');
+    expect(screen.getByTestId('jwt-mode-sign').textContent).toBe('Firmar');
+    const header = within(screen.getByTestId('jwt-result-header'));
+    expect(header.getByTestId('result-header-numeral').textContent).toBe('2claims');
+    expect(screen.getByText(/Firma · \d+ bytes/u)).toBeTruthy();
   });
 
   it('exposes the full HS / RS / ES / PS algorithm set in both Verify and Sign selects', async () => {
@@ -271,13 +310,13 @@ describe('JwtUtilityPanel', () => {
       'PS512',
     ];
 
-    await user.selectOptions(screen.getByTestId('jwt-mode'), 'verify');
+    await user.click(screen.getByTestId('jwt-mode-verify'));
     const verifyOptions = Array.from(
       (screen.getByTestId('jwt-verify-algorithm') as HTMLSelectElement).options
     ).map(opt => opt.value);
     expect(verifyOptions).toEqual(expected);
 
-    await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
+    await user.click(screen.getByTestId('jwt-mode-sign'));
     const signOptions = Array.from(
       (screen.getByTestId('jwt-sign-algorithm') as HTMLSelectElement).options
     ).map(opt => opt.value);

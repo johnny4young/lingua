@@ -26,6 +26,8 @@ export interface TransformResult {
 // sites (developerUtilities.ts was the historical home) keep compiling.
 
 export interface TimestampAnalysis {
+  /** How the input was read; null when it was empty or not a date. */
+  kind: 'seconds' | 'milliseconds' | 'text' | null;
   unixSeconds: number | null;
   unixMilliseconds: number | null;
   iso: string | null;
@@ -393,6 +395,7 @@ export function analyzeTimestamp(value: string): TimestampAnalysis {
   const trimmed = value.trim();
   if (!trimmed) {
     return {
+      kind: null,
       unixSeconds: null,
       unixMilliseconds: null,
       iso: null,
@@ -403,11 +406,12 @@ export function analyzeTimestamp(value: string): TimestampAnalysis {
   }
 
   let date: Date | null = null;
+  let kind: TimestampAnalysis['kind'] = 'text';
 
   if (/^-?\d+$/u.test(trimmed)) {
     const numeric = Number.parseInt(trimmed, 10);
-    const milliseconds = trimmed.length <= 10 ? numeric * 1000 : numeric;
-    date = new Date(milliseconds);
+    kind = trimmed.length <= 10 ? 'seconds' : 'milliseconds';
+    date = new Date(kind === 'seconds' ? numeric * 1000 : numeric);
   } else {
     const parsed = new Date(trimmed);
     if (!Number.isNaN(parsed.getTime())) {
@@ -417,6 +421,7 @@ export function analyzeTimestamp(value: string): TimestampAnalysis {
 
   if (!date || Number.isNaN(date.getTime())) {
     return {
+      kind: null,
       unixSeconds: null,
       unixMilliseconds: null,
       iso: null,
@@ -429,6 +434,7 @@ export function analyzeTimestamp(value: string): TimestampAnalysis {
   const unixMilliseconds = date.getTime();
 
   return {
+    kind,
     unixSeconds: Math.floor(unixMilliseconds / 1000),
     unixMilliseconds,
     iso: date.toISOString(),

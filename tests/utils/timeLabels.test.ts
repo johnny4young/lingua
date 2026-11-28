@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatRelativeTime, formatRunAge, utcDateLabel } from '../../src/renderer/utils/timeLabels';
+import { formatRelativeTime, formatRunAge, relativeTimeParts, utcDateLabel } from '../../src/renderer/utils/timeLabels';
 
 const NOW = Date.UTC(2026, 9, 17, 1, 0, 0);
 const HOUR = 3_600_000;
@@ -24,6 +24,13 @@ describe('time labels', () => {
     expect(formatRunAge(NOW - 59_000, NOW, t)).toBe('seconds:59');
     expect(formatRunAge(NOW - 90_000, NOW, t)).toBe('minutes:2');
     expect(formatRunAge(NOW - 3 * HOUR, NOW, t)).toBe('hours:3');
+  });
+
+  it('splits the phrase around its number for a numeral, whatever side the words fall on', () => {
+    expect(relativeTimeParts(NOW - 3 * HOUR, NOW, 'en')).toEqual({ lead: '', value: '3', unit: 'hr. ago' });
+    expect(relativeTimeParts(NOW + 3 * HOUR, NOW, 'en')).toEqual({ lead: 'in', value: '3', unit: 'hr.' });
+    expect(relativeTimeParts(NOW - 3 * HOUR, NOW, 'es')).toEqual({ lead: 'hace', value: '3', unit: 'h' });
+    expect(relativeTimeParts(NOW - 20_000 * 24 * HOUR, NOW, 'en')).toEqual({ lead: '', value: '20,000', unit: 'days ago' });
   });
 
   it('localizes the phrase', () => {
