@@ -44,6 +44,18 @@ describe('RichValueError', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('hands Tab back to the frame that opened the menu', () => {
+    render(<RichValueError payload={{ kind: 'error', message: 'menu', stack: [
+      { text: 'external user', file: 'app.js', line: 4 },
+    ] }} />);
+    const frame = screen.getByTestId('console-rich-error-frame-clickable');
+    fireEvent.contextMenu(frame);
+    within(screen.getByRole('menu')).getAllByRole('menuitem')[0]!.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(frame);
+  });
+
   it('renders Python cause-chain markers as non-clickable list separators', () => {
     const payload: ScopeValueError = {
       kind: 'error',

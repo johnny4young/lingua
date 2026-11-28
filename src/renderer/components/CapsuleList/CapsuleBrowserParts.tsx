@@ -119,7 +119,7 @@ export function ImportButton({ onImport }: { onImport: () => void }) {
       {t('capsuleList.import')}
       {combo ? (
         <span aria-hidden="true" className="hidden sm:inline-flex">
-          <Kbd>{combo}</Kbd>
+          <Kbd className="action-pill-kbd">{combo}</Kbd>
         </span>
       ) : null}
     </button>

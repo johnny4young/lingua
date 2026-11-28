@@ -63,6 +63,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
   const containerRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuItemsRef = useRef<Array<HTMLButtonElement | null>>([]);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const frames = payload.stack ?? [];
   const langForTelemetry =
@@ -81,6 +82,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
 
   const handleContextMenu = useCallback((event: React.MouseEvent, index: number) => {
     event.preventDefault();
+    openerRef.current = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     setMenu({ index, x: event.clientX, y: event.clientY });
   }, []);
 
@@ -93,7 +95,9 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
   useEffect(() => {
     if (menu === null) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' || event.key === 'Tab') {
+        // The portaled menu sits at the end of the page, so Tab continues from the frame.
+        if (menuRef.current?.contains(document.activeElement)) openerRef.current?.focus();
         closeMenu();
         return;
       }

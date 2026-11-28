@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { OverlayBackdrop } from '../../../src/renderer/components/ui/chrome';
@@ -34,6 +35,35 @@ describe('OverlayBackdrop', () => {
     expect(document.activeElement).toBe(editor);
   });
 
+  it('returns focus to the trigger after a loading shell hands over to the real dialog', async () => {
+    function Swap({ stage }: { stage: 'closed' | 'loading' | 'ready' }) {
+      return (
+        <>
+          <button type="button">Trigger</button>
+          {stage === 'loading' ? (
+            <OverlayBackdrop key="loading">
+              <button type="button">Cancel loading</button>
+            </OverlayBackdrop>
+          ) : null}
+          {stage === 'ready' ? (
+            <OverlayBackdrop key="ready">
+              <button type="button">Real</button>
+            </OverlayBackdrop>
+          ) : null}
+        </>
+      );
+    }
+    const { rerender } = render(<Swap stage="closed" />);
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    trigger.focus();
+    rerender(<Swap stage="loading" />);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel loading' })));
+    rerender(<Swap stage="ready" />);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Real' })));
+    rerender(<Swap stage="closed" />);
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('pulls a forward Tab from outside back to the first control, and closes on a scrim click', async () => {
     const onClose = vi.fn();
     render(<Harness open onClose={onClose} />);
@@ -46,5 +76,25 @@ describe('OverlayBackdrop', () => {
     expect(document.activeElement).toBe(first);
     fireEvent.click(backdrop);
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('leaves Tab to a dialog portaled above it', async () => {
+    render(
+      <OverlayBackdrop>
+        <button type="button">Behind</button>
+        {createPortal(
+          <div role="dialog">
+            <button type="button">Top first</button>
+            <button type="button">Top middle</button>
+            <button type="button">Top last</button>
+          </div>,
+          document.body
+        )}
+      </OverlayBackdrop>
+    );
+    const middle = screen.getByRole('button', { name: 'Top middle' });
+    middle.focus();
+    fireEvent.keyDown(middle, { key: 'Tab' });
+    expect(document.activeElement).toBe(middle);
   });
 });
