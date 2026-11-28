@@ -102,12 +102,13 @@ and carries auto-log, capsule export and share. Tabs that do not fit move into
 More (`Layout/useDockRowFit.ts`, `Layout/DockTabsMore.tsx`), least picked first
 (`Layout/dockTabUse.ts`). On a dock at least
 `DOCK_SPLIT_MIN_WIDTH` wide, Tests and Terminal share the body side by side
-(`isDockSplit`); while Tests is on screen the left column is the Tests meter
+(`isDockSplit`); narrower, the one not picked stays mounted but hidden, so
+crossing that width never remounts either. While Tests is on screen the left column is the Tests meter
 (`ProjectTests/TestsMeter.tsx`, runs from `projectTestStore.runs`) and the tab
 row adds its filter and Run all tests (`ProjectTests/TestsDockControls.tsx`).
 Otherwise a code tab adds the run meter
 (`RunMeter/RunMeter.tsx`) at the dock's left: state, elapsed time, the tab's
-session runs from `resultStore.tabRuns`, Recent runs, execution history and
+session runs from `resultStore.tabRuns` (dropped when the tab closes), Recent runs, execution history and
 Compare. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
 output surface reopens from one place. Compare is a dock tab, not a per-tab flag:
 `utils/compareDock.ts` opens and closes it for the shortcut and the palette.
@@ -368,7 +369,10 @@ presentation:
   the column, and a zone after the last free line for what a tall answer cannot
   spread over. A tall answer that cannot stand beside its whole multi-line
   statement moves under the statement's last line, and narrow editors put every
-  answer under its line at the code's indent. It also portals the column header
+  answer under its line at the code's indent. Code answers and test answers
+  (`ProjectTests/answerColumn.ts`) publish the lines they take through
+  `Editor/answerLines.ts`, so neither spreads over the other's lines and a test
+  answer on a line a code answer takes moves under it, after the code's row. It also portals the column header
   (`AnswerColumnHeader.tsx`) into a slot above the editor. Each line's answers
   portal in through `InlineAnswerLine.tsx`.
   Failed chunk delivery reports localized reload guidance instead of silently

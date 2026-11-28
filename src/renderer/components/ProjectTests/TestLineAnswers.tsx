@@ -90,7 +90,7 @@ export function TestLineAnswers({ editor, monaco, headerSlot = null }: TestLineA
           range,
           options: {
             isWholeLine: true,
-            // A line that runs into the column keeps the tint under all of its code.
+            // A line that runs into the column, or whose answer sits under it, keeps the tint under all of its code.
             className: crowded.has(answer.key) ? 'test-error-line test-error-line--full' : 'test-error-line',
             marginClassName: 'test-error-margin',
             lineNumberClassName: 'test-error-number',

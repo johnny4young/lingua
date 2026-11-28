@@ -123,6 +123,7 @@ const testsDockGrown = new Set<string>();
 
 // Compact runs up to and including DOCK_COMPACT_MAX_WIDTH, like a CSS max-width query.
 const DOCK_WIDTH_TIERS = [DOCK_COMPACT_MAX_WIDTH + 1, DOCK_SPLIT_MIN_WIDTH] as const;
+const NO_PAIR: { readonly tests: boolean; readonly terminal: boolean } = { tests: false, terminal: false };
 
 interface DockTabMeta {
   icon: LucideIcon;
@@ -288,6 +289,13 @@ export function BottomPanel({
   }, [effectiveTab, compact]);
 
   const shown = (id: DockTabId) => expanded && (effectiveTab === id || (split && isDockSplitTab(id)));
+  // Tests and Terminal share one tree whether split or not, so crossing the split width never remounts either.
+  const projectPair = expanded && (split || effectiveTab === 'tests' || (effectiveTab === 'project-terminal' && currentProject !== null));
+  const [pairMounted, setPairMounted] = useState(NO_PAIR);
+  const pairNow = projectPair
+    ? { tests: pairMounted.tests || shown('tests'), terminal: pairMounted.terminal || (currentProject !== null && shown('project-terminal')) }
+    : NO_PAIR;
+  if (pairNow.tests !== pairMounted.tests || pairNow.terminal !== pairMounted.terminal) setPairMounted(pairNow);
   // The Tests meter and controls answer for the project while its tests are on screen.
   const testsOnScreen = currentProject !== null && shown('tests');
   // Until detection binds the test store to this project the code meter keeps the column.
@@ -504,17 +512,29 @@ export function BottomPanel({
             </div>
           </div>
           {expanded ? (
-            <div key={split ? 'split' : effectiveTab} className="dock-tab-body flex min-h-0 flex-1 flex-col overflow-hidden">
-              {split ? (
-                <div className="flex min-h-0 flex-1" data-testid="results-dock-split">
-                  <div className="min-h-0 min-w-0 flex-[1.25] border-r border-border-subtle" data-testid="results-dock-split-tests">
-                    <Suspense fallback={null}>
-                      <TestsPanel />
-                    </Suspense>
-                  </div>
-                  <div className="min-h-0 min-w-0 flex-1" data-testid="results-dock-split-terminal">
-                    {terminalPanel}
-                  </div>
+            <div key={projectPair ? 'project' : effectiveTab} className="dock-tab-body flex min-h-0 flex-1 flex-col overflow-hidden">
+              {projectPair ? (
+                <div className="flex min-h-0 flex-1" data-testid={split ? 'results-dock-split' : undefined}>
+                  {pairNow.tests ? (
+                    <div
+                      hidden={!shown('tests')}
+                      className={cn('min-h-0 min-w-0', split ? 'flex-[1.25] border-r border-border-subtle' : 'flex-1')}
+                      data-testid={split ? 'results-dock-split-tests' : undefined}
+                    >
+                      <Suspense fallback={null}>
+                        <TestsPanel />
+                      </Suspense>
+                    </div>
+                  ) : null}
+                  {pairNow.terminal ? (
+                    <div
+                      hidden={!shown('project-terminal')}
+                      className="min-h-0 min-w-0 flex-1"
+                      data-testid={split ? 'results-dock-split-terminal' : undefined}
+                    >
+                      {terminalPanel}
+                    </div>
+                  ) : null}
                 </div>
               ) : effectiveTab === 'debugger' ? (
                 <DebuggerDrawerHost activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} compactDock={compact} />
@@ -544,12 +564,6 @@ export function BottomPanel({
               ) : effectiveTab === 'git-diff' ? (
                 <Suspense fallback={null}>
                   <GitDiffPanel />
-                </Suspense>
-              ) : effectiveTab === 'project-terminal' && currentProject ? (
-                terminalPanel
-              ) : effectiveTab === 'tests' ? (
-                <Suspense fallback={null}>
-                  <TestsPanel />
                 </Suspense>
               ) : effectiveTab === 'recipe' ? (
                 <Suspense fallback={null}>

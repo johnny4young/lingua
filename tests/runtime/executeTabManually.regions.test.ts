@@ -100,7 +100,7 @@ describe('executeTabManually — run regions', () => {
     expect(summary.ok).toBe(true);
     expect(mockRunnerExecute.mock.calls[0]![0]).toBe('const a = 1;\n// %% first\nconsole.log(a);');
     expect(mockRunnerExecute.mock.calls[0]![1]).toMatchObject({ autoLog: true });
-    expect(useResultStore.getState().ranCode?.code).toBe(SOURCE);
+    expect(useResultStore.getState().ranCode).toMatchObject({ code: SOURCE, span: { start: region.startLine, end: region.endLine } });
     expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
     expect(useResultStore.getState().snapshotRing).toHaveLength(0);
     expect(useRunRegionStore.getState().last).toMatchObject({ tabId: 'tab-r', region, ok: true, executionTime: 3, rows: [{ line: 3, value: 'inside', type: 'log' }] });

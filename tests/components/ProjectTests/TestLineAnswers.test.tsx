@@ -11,6 +11,7 @@ import { useResultStore } from '../../../src/renderer/stores/resultStore';
 import { useTimelineStore } from '../../../src/renderer/stores/timelineStore';
 import { asRootId } from '../../../src/shared/fs/brandedIds';
 import { fakeEditor } from './fakeEditor';
+import { answerLinesOf, publishAnswerLines } from '../../../src/renderer/components/Editor/answerLines';
 
 const initialEditor = useEditorStore.getState();
 const initialProject = useProjectStore.getState();
@@ -207,6 +208,29 @@ describe('TestLineAnswers', () => {
       return (source.split('\n')[line - 1]!.length) * 8 + Number.parseInt(widget.getDomNode().style.width, 10);
     });
     expect(new Set(rights).size).toBe(1);
+  });
+
+  it('moves every answer under its line in a narrow editor and reserves a row for each', async () => {
+    const fake = fakeEditor({ lines: source.split('\n'), contentWidth: 600 });
+    render(<TestLineAnswers editor={fake.editor} monaco={fake.monaco} />);
+    await waitFor(() => expect(fake.widgets.length).toBeGreaterThan(0));
+    await waitFor(() => expect(fake.widgets.every(widget => widget.getDomNode().hasAttribute('data-below'))).toBe(true));
+    expect(fake.widgets.every(widget => widget.getPosition()!.preference![0] === fake.monaco.editor.ContentWidgetPositionPreference.BELOW)).toBe(true);
+    const lines = fake.widgets.map(widget => widget.getPosition()!.position!.lineNumber).sort((a, b) => a - b);
+    expect(fake.activeZones().map(zone => zone.afterLineNumber).sort((a, b) => a - b)).toEqual(lines);
+    expect([...answerLinesOf(fake.editor, 'tests').below.keys()].sort((a, b) => a - b)).toEqual(lines);
+  });
+
+  it('moves a test answer under a line a code answer takes, after the code answer\'s row', async () => {
+    const fake = fakeEditor({ lines: source.split('\n') });
+    publishAnswerLines(fake.editor, 'code', { beside: new Set([5]), below: new Map([[5, 40]]) });
+    render(<TestLineAnswers editor={fake.editor} monaco={fake.monaco} />);
+    const onLine = (line: number) => fake.widgets.find(widget => widget.getPosition()!.position!.lineNumber === line)!.getDomNode();
+    await waitFor(() => expect(onLine(5).hasAttribute('data-below')).toBe(true));
+    expect(onLine(5).style.marginTop).toBe('40px');
+    expect(onLine(8).hasAttribute('data-below')).toBe(false);
+    expect(answerLinesOf(fake.editor, 'tests').beside.has(8)).toBe(true);
+    publishAnswerLines(fake.editor, 'code');
   });
 
   it('opens the card with the change under test from the failing line', async () => {

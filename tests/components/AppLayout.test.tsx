@@ -562,6 +562,56 @@ describe('AppLayout responsive shell', () => {
       expect(await screen.findByTestId('tests-dock-controls')).toBeTruthy();
     });
 
+    it('keeps the terminal and the test list mounted while the dock crosses the split width', async () => {
+      const observers: Array<{ callback: ResizeObserverCallback; node: Element | null }> = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          entry: { callback: ResizeObserverCallback; node: Element | null };
+          constructor(callback: ResizeObserverCallback) {
+            this.entry = { callback, node: null };
+            observers.push(this.entry);
+          }
+          observe(node: Element) {
+            this.entry.node = node;
+          }
+          unobserve() {}
+          disconnect() {}
+        }
+      );
+      const resizeDock = (width: number) =>
+        act(() => {
+          for (const { callback } of observers.filter(observer => observer.node === screen.getByTestId('results-dock'))) {
+            callback([{ borderBoxSize: [{ inlineSize: width }], contentRect: { width } } as unknown as ResizeObserverEntry], {} as ResizeObserver);
+          }
+        });
+      openProjectWithTestsAndTerminal(1400);
+      useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'project-terminal' });
+
+      await renderLayout();
+      const terminal = await screen.findByTestId('project-terminal-panel');
+      const tests = await screen.findByTestId('tests-panel');
+
+      resizeDock(900);
+      expect(screen.queryByTestId('results-dock-split')).toBeNull();
+      expect(screen.getByTestId('project-terminal-panel')).toBe(terminal);
+      expect(screen.getByTestId('tests-panel')).toBe(tests);
+      expect(tests.closest('[hidden]')).not.toBeNull();
+      expect(terminal.closest('[hidden]')).toBeNull();
+
+      act(() => useUIStore.getState().openBottomPanel('tests'));
+      expect(screen.getByTestId('tests-panel')).toBe(tests);
+      expect(tests.closest('[hidden]')).toBeNull();
+      expect(terminal.closest('[hidden]')).not.toBeNull();
+
+      resizeDock(1400);
+      expect(await screen.findByTestId('results-dock-split')).toBeTruthy();
+      expect(screen.getByTestId('project-terminal-panel')).toBe(terminal);
+      expect(screen.getByTestId('tests-panel')).toBe(tests);
+      expect(terminal.closest('[hidden]')).toBeNull();
+      vi.unstubAllGlobals();
+    });
+
     it('keeps one tab at a time on a narrow dock', async () => {
       openProjectWithTestsAndTerminal(900);
       useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'project-terminal' });
@@ -602,6 +652,24 @@ describe('AppLayout responsive shell', () => {
     act(() => useUIStore.getState().setConsoleVisible(true));
     expect(await screen.findByTestId('console-panel')).toBeTruthy();
     expect(screen.getByTestId('code-editor')).toBe(editor);
+  });
+
+  it('keeps the editor and the dock mounted while the explorer hides and shows', async () => {
+    editorTabs = [{ id: 'tab-1', language: 'javascript' }];
+    activeTabId = 'tab-1';
+    useUIStore.setState({ sidebarVisible: true, consoleVisible: true, activeBottomPanel: 'console' });
+
+    await renderLayout();
+    const editor = screen.getByTestId('code-editor');
+    const dock = await screen.findByTestId('results-dock');
+
+    act(() => useUIStore.getState().setSidebarVisible(false));
+    expect(screen.getByTestId('code-editor')).toBe(editor);
+    expect(screen.getByTestId('results-dock')).toBe(dock);
+
+    act(() => useUIStore.getState().setSidebarVisible(true));
+    expect(screen.getByTestId('code-editor')).toBe(editor);
+    expect(screen.getByTestId('results-dock')).toBe(dock);
   });
 
   it('lists Variables in the dock once a capture exists and opens it', async () => {

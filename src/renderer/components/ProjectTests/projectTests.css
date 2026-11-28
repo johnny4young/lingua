@@ -16,6 +16,23 @@
   white-space: nowrap;
 }
 
+/* Under its line the answer starts at the code's indent, wraps instead of cutting, and needs no leader. */
+.test-answer-widget[data-below] .test-answer {
+  height: auto;
+  min-height: var(--test-answer-line, 22px);
+  white-space: normal;
+}
+
+.test-answer-widget[data-below] .test-answer-leader {
+  display: none;
+}
+
+.test-answer-widget[data-below] .test-answer .test-answer-body {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  max-height: none;
+}
+
 .test-answer-leader {
   flex: none;
   width: var(--test-answer-leader, 26px);

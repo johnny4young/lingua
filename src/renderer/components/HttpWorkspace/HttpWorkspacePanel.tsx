@@ -139,10 +139,17 @@ function applyCapturesToActiveEnvironment(
   });
 }
 
-/** From this width a 560 px response column still leaves the editor room for test answers; narrower, it sits under the editor. */
-const COLUMNS_MIN_WIDTH = [1760] as const;
+/**
+ * Up to 600 px the request list sits above the editor; from 1760 px a 560 px response column still
+ * leaves the editor room for test answers. In between, the response sits under the editor.
+ */
+const WIDTH_TIERS = [601, 1760] as const;
 const RESIZE_TARGET = { coarse: 24, fine: 24 };
 const SIDEBAR_PANELS = ['http-request-list', 'http-request-main'];
+const SIDEBARS = {
+  side: { layoutId: 'lingua-http-workspace-sidebar-layout', axis: 'horizontal', handle: 'vertical', listMin: 200, listMax: 360, mainMin: 320, layout: { 'http-request-list': 20, 'http-request-main': 80 } },
+  top: { layoutId: 'lingua-http-workspace-narrow-layout', axis: 'vertical', handle: 'horizontal', listMin: 96, listMax: '45%', mainMin: 300, layout: { 'http-request-list': 24, 'http-request-main': 76 } },
+} as const;
 const MAIN_PANELS = ['http-request-editor', 'http-response-preview'];
 const SPLITS = {
   columns: { layoutId: 'lingua-http-workspace-columns-layout', axis: 'horizontal', handle: 'vertical', editorMin: 320, responseMin: 560, border: 'border-l', layout: { 'http-request-editor': 56, 'http-response-preview': 44 } },
@@ -153,20 +160,27 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const { t } = useTranslation();
   const announce = useAnnounce();
   const rootRef = useRef<HTMLDivElement>(null);
-  const split = useWidthTier(rootRef, COLUMNS_MIN_WIDTH, 1) === 1 ? SPLITS.columns : SPLITS.stacked;
+  const tier = useWidthTier(rootRef, WIDTH_TIERS, WIDTH_TIERS.length);
+  const split = tier === WIDTH_TIERS.length ? SPLITS.columns : SPLITS.stacked;
+  const narrow = tier === 0;
+  const sidebar = narrow ? SIDEBARS.top : SIDEBARS.side;
   const columns = split === SPLITS.columns;
-  const sidebarLayout = useDefaultLayout({ id: 'lingua-http-workspace-sidebar-layout', panelIds: SIDEBAR_PANELS, storage: localStorage });
-  // Sizes persist per arrangement: they split the main pane along different axes.
+  // History follows the request list only where the list has the height for it.
+  const historyBesideList = !columns && !narrow;
+  // Sizes persist per arrangement: they split each pane along different axes.
   // Only drags are saved, so the unmeasured first pass never clamps the other arrangement's sizes.
+  const sidebarLayout = useDefaultLayout({ id: sidebar.layoutId, panelIds: SIDEBAR_PANELS, storage: localStorage, onlySaveAfterUserInteractions: true });
   const mainLayout = useDefaultLayout({ id: split.layoutId, panelIds: MAIN_PANELS, storage: localStorage, onlySaveAfterUserInteractions: true });
+  const sidebarGroupRef = useRef<GroupImperativeHandle | null>(null);
   const mainGroupRef = useRef<GroupImperativeHandle | null>(null);
-  const previousSplitRef = useRef(split);
+  const previousRef = useRef({ split, sidebar });
   useLayoutEffect(() => {
-    // The Group keeps its last layout across an orientation flip; restore this arrangement's own.
-    if (previousSplitRef.current === split) return;
-    previousSplitRef.current = split;
-    mainGroupRef.current?.setLayout(mainLayout.defaultLayout ?? split.layout);
-  }, [split, mainLayout.defaultLayout]);
+    // A Group keeps its last layout across an orientation flip; restore this arrangement's own.
+    const previous = previousRef.current;
+    previousRef.current = { split, sidebar };
+    if (previous.sidebar !== sidebar) sidebarGroupRef.current?.setLayout(sidebarLayout.defaultLayout ?? sidebar.layout);
+    if (previous.split !== split) mainGroupRef.current?.setLayout(mainLayout.defaultLayout ?? split.layout);
+  }, [split, sidebar, sidebarLayout.defaultLayout, mainLayout.defaultLayout]);
   const requests = useWorkspaceToolStore(state => state.requests);
   const pipelineCount = useWorkspaceToolStore(state => state.httpPipelines.length);
   const activeRequestId = useWorkspaceToolStore(state => state.activeRequestId);
@@ -783,7 +797,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
       onDelete={handleDelete}
       onOpenPipelines={() => setIsPipelineManagerOpen(true)}
       pipelineCount={pipelineCount}
-      footer={columns ? undefined : history}
+      footer={historyBesideList ? history : undefined}
+      edge={narrow ? 'bottom' : 'right'}
     />
   );
   const requestEditor = activeRequest ? (
@@ -842,7 +857,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             : {})}
         />
       </div>
-      {columns ? history : null}
+      {historyBesideList ? null : history}
     </div>
   );
 
@@ -857,20 +872,26 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
           {...(environmentTint ? { tint: environmentTint } : {})}
         />
       </CommandBarSlot>
-      <div ref={rootRef} data-testid="http-workspace-body" data-layout={columns ? 'columns' : 'stacked'} className="min-h-0 flex-1">
-        {/* One tree for both layouts: only the orientation flips, so the editor and response keep their state. */}
+      <div
+        ref={rootRef}
+        data-testid="http-workspace-body"
+        data-layout={columns ? 'columns' : narrow ? 'narrow' : 'stacked'}
+        className="min-h-0 flex-1"
+      >
+        {/* One tree for every layout: only orientations flip, so the list, editor and response keep their state. */}
         <Group
-          orientation="horizontal"
+          groupRef={sidebarGroupRef}
+          orientation={sidebar.axis}
           defaultLayout={sidebarLayout.defaultLayout}
           onLayoutChanged={sidebarLayout.onLayoutChanged}
           resizeTargetMinimumSize={RESIZE_TARGET}
           className="h-full"
         >
-          <Panel id="http-request-list" defaultSize="20%" minSize={200} maxSize={360}>
+          <Panel id="http-request-list" defaultSize={`${sidebar.layout['http-request-list']}%`} minSize={sidebar.listMin} maxSize={sidebar.listMax}>
             {requestList}
           </Panel>
-          <ResizeHandle orientation="vertical" />
-          <Panel id="http-request-main" defaultSize="80%" minSize={320}>
+          <ResizeHandle orientation={sidebar.handle} />
+          <Panel id="http-request-main" defaultSize={`${sidebar.layout['http-request-main']}%`} minSize={sidebar.mainMin}>
             <Group
               groupRef={mainGroupRef}
               orientation={split.axis}
