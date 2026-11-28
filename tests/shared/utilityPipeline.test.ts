@@ -439,4 +439,14 @@ describe('step controls', () => {
     expect(parsePipeline({ ...shell, autoBake: 'yes' })).not.toHaveProperty('autoBake');
   });
 
+  it('keeps the source tool id through a parse and an import, and drops anything else there', () => {
+    const shell = { version: 1, id: 'p', name: '', createdAt: 'a', updatedAt: 'b', steps: [] };
+    expect(parsePipeline({ ...shell, sourceToolId: 'jwt' })?.sourceToolId).toBe('jwt');
+    for (const bad of ['', 'JWT', '../jwt', 'a'.repeat(41), 7]) {
+      expect(parsePipeline({ ...shell, sourceToolId: bad })).not.toHaveProperty('sourceToolId');
+    }
+    const imported = tryImportPipelineJson(JSON.stringify({ ...shell, sourceToolId: 'url-parser' }), 0);
+    expect(imported.ok && imported.pipeline.sourceToolId).toBe('url-parser');
+  });
+
 });

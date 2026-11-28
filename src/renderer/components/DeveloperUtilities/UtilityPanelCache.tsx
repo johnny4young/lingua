@@ -60,8 +60,8 @@ export const DeveloperUtilityPanelCache = memo(function DeveloperUtilityPanelCac
             // inside a subtree hidden from assistive technology.
             inert={!panelActive}
             data-testid={`utility-panel-cache-${mountedToolId}`}
-            // A panel may fill the pane with flex-1; the rest keep their own height.
-            className="flex min-h-full flex-col"
+            // Pipelines fill the pane; a tool keeps its own height, so what follows it sits right below.
+            className={mountedToolId === 'utility-pipelines' ? 'flex min-h-full flex-col' : 'flex flex-col'}
           >
             <UtilityPanelActiveContext.Provider value={panelActive}>
               {/* A hidden tool keeps its state but gives up the command bar. */}

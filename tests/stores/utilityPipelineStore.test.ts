@@ -18,6 +18,8 @@ beforeEach(() => {
   resetUtilityPipelineStoreForTests();
 });
 
+const store = () => useUtilityPipelineStore.getState();
+
 describe('useUtilityPipelineStore', () => {
   it('starts empty', () => {
     const state = useUtilityPipelineStore.getState();
@@ -173,10 +175,10 @@ describe('step controls and sends', () => {
   });
 
   it('sends an output to a new pipeline without persisting the output', () => {
-    expect(sendOutputToNewPipeline('tok-SECRET', 'jwt-decode', 'JWT Debugger')).toBe(true);
+    expect(sendOutputToNewPipeline('tok-SECRET', 'jwt-decode', 'JWT Debugger', 'jwt')).toBe(true);
     const state = useUtilityPipelineStore.getState();
     const pipeline = state.pipelines[0]!;
-    expect(pipeline).toMatchObject({ name: 'JWT Debugger', steps: [{ utilityId: 'jwt-decode' }] });
+    expect(pipeline).toMatchObject({ name: 'JWT Debugger', steps: [{ utilityId: 'jwt-decode' }], sourceToolId: 'jwt' });
     expect(state.activePipelineId).toBe(pipeline.id);
     expect(state.inputsByPipelineId[pipeline.id]).toBe('tok-SECRET');
     expect(state.pendingRunPipelineId).toBe(pipeline.id);
@@ -184,6 +186,8 @@ describe('step controls and sends', () => {
     expect(stored).toContain('jwt-decode');
     expect(stored).not.toContain('tok-SECRET');
     expect(stored).not.toContain('pendingRunPipelineId');
+    store().setPipelineInput(pipeline.id, 'edited');
+    expect(store().pipelines[0]!.sourceToolId).toBeUndefined();
   });
 
   it('refuses a send at the library cap instead of evicting a pipeline', () => {

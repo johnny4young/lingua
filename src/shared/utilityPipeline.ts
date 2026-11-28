@@ -131,6 +131,8 @@ export interface UtilityPipelineV1 {
   updatedAt: string;
   /** Run whenever the input is not empty and differs from the last run's. Absent when off. */
   autoBake?: true;
+  /** The Utilities tool whose output became this pipeline's input. Absent once the input is edited. */
+  sourceToolId?: string;
 }
 
 export interface PipelineStepResult {
@@ -161,6 +163,9 @@ export interface PipelineRunOutcome {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
+
+/** A tool id names a panel, never data; an unknown one is kept and shown by nothing. */
+const SOURCE_TOOL_ID = /^[a-z][a-z0-9-]{0,39}$/u;
 
 function isUtilityAdapterId(value: unknown): value is UtilityAdapterId {
   return (
@@ -226,6 +231,9 @@ export function parsePipeline(value: unknown): UtilityPipelineV1 | null {
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
     ...(value.autoBake === true ? { autoBake: true as const } : {}),
+    ...(typeof value.sourceToolId === 'string' && SOURCE_TOOL_ID.test(value.sourceToolId)
+      ? { sourceToolId: value.sourceToolId }
+      : {}),
   };
 }
 

@@ -34,6 +34,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { DeveloperUtilityId } from '../../data/developerUtilityCatalog';
+import type { UtilityAdapterId } from '../../../shared/utilities/types';
 import type { UtilityCategory } from '../../data/utilityCategories';
 
 /** One glyph per tool in the launcher list. */
@@ -79,4 +80,32 @@ export const CATEGORY_ICON: Record<UtilityCategory, LucideIcon> = {
   text: Code,
   visual: Palette,
   time: Clock,
+};
+
+/** One glyph per pipeline adapter, the tool's own where the adapter has a tool. */
+export const ADAPTER_ICON: Record<UtilityAdapterId, LucideIcon> = {
+  'json-format': Braces,
+  'json-minify': Braces,
+  'base64-encode': Binary,
+  'base64-decode': Binary,
+  'url-parse': Link2,
+  'url-encode': Link,
+  'url-decode': Link,
+  'regex-replace': Regex,
+  'diff-text': Diff,
+  hash: Hash,
+  'jwt-decode': KeyRound,
+  timestamp: Clock,
+  'color-convert': Palette,
+  'string-case': CaseSensitive,
+  'html-entity-encode': Ampersand,
+  'html-entity-decode': Ampersand,
+  'number-base': Calculator,
+  'line-sort': WrapText,
+  slugify: Slash,
+  'text-stats': FileText,
+  uuid: Fingerprint,
+  'lorem-ipsum': Pilcrow,
+  'string-inspect': Type,
+  'cron-phrase': CalendarClock,
 };

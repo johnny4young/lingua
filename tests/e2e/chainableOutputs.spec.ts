@@ -32,8 +32,7 @@ for (const language of ['en', 'es'] as const) {
     await open(page, language);
     await page.keyboard.press('ControlOrMeta+K');
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
-    await page.getByTestId('utility-send-output').selectOption('json-minify');
-    await page.getByTestId('utility-send-output-go').click();
+    await page.locator('[data-testid="utility-send-output-card"][data-utility-id="json-minify"]').click();
 
     await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
     await expect(page.getByTestId('utility-pipeline-step-row')).toHaveCount(1);
@@ -41,8 +40,9 @@ for (const language of ['en', 'es'] as const) {
     await expectStatuses(page, ['ok']);
     await expect(page.getByTestId('utility-pipeline-result-output')).toContainText('"name":"Lingua"');
 
-    await page.getByTestId('utility-pipeline-send-select').selectOption('hash');
-    await page.getByTestId('utility-pipeline-send-select-go').click();
+    await expect(page.getByTestId('utility-pipeline-input-source')).toHaveText(language === 'en' ? 'from JSON Formatter' : 'desde Formateador JSON');
+    await expect(page.getByTestId('utility-pipeline-result-time')).toHaveText(/ ms$/);
+    await page.locator('[data-testid="utility-pipeline-send-card"][data-utility-id="hash"]').click();
     await expect(page.getByTestId('utility-pipeline-step-row')).toHaveCount(2);
     await expectStatuses(page, ['ok', 'ok']);
     await expect(page.getByTestId('utility-pipeline-result-output').last()).toHaveText(/^[0-9a-f]{64}$/);
@@ -116,10 +116,10 @@ test('holds Send until the tool has loaded its output', async ({ page }) => {
   });
   await open(page, 'en');
   await page.keyboard.press('ControlOrMeta+K');
-  await page.getByTestId('utility-send-output').selectOption('json-minify');
-  await expect(page.getByTestId('utility-send-output-go')).toBeDisabled();
+  await expect(page.getByTestId('utility-send-output-card').first()).toBeDisabled();
+  await expect(page.getByTestId('utility-send-output-more')).toBeDisabled();
   release();
-  await page.getByTestId('utility-send-output-go').click();
+  await page.locator('[data-testid="utility-send-output-card"][data-utility-id="json-minify"]').click();
   await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
   await expect(page.getByTestId('utility-pipeline-editor-input')).not.toHaveValue('');
 });

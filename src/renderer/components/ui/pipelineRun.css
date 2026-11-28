@@ -587,6 +587,11 @@
     gap: 10px;
   }
 
+  /* Time and the output toggle close the row on its right edge. */
+  .utility-step-value + :is(.utility-step-time, .utility-step-toggle) {
+    margin-left: auto;
+  }
+
   /* Sized to its word, so a long tag (DESACTIVADO) pushes the hint instead of running into it. */
   .utility-step-tag {
     min-width: 60px;

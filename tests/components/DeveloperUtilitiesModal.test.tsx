@@ -12,6 +12,8 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useUtilityHistoryStore } from '../../src/renderer/stores/utilityHistoryStore';
 import { useUtilityWorkspaceStore } from '../../src/renderer/stores/utilityWorkspaceStore';
+import { useUtilityPipelineStore } from '../../src/renderer/stores/utilityPipelineStore';
+import { createBlankPipeline, PIPELINE_CAP } from '../../src/shared/utilityPipeline';
 import {
   UTILITY_PANEL_WARM_UP_TIMEOUT_MS,
   warmUpUtilityPanels,
@@ -219,7 +221,39 @@ describe('DeveloperUtilitiesModal', () => {
     );
   });
 
-  it('offers Send output above a tool, not on the Pipelines tool', async () => {
+  it('previews where a tool output can go and sends it with the tool as its source', async () => {
+    useUtilityPipelineStore.setState({ pipelines: [], inputsByPipelineId: {}, activePipelineId: null, pendingRunPipelineId: null });
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesWorkspaceView />);
+    const cards = await screen.findAllByTestId('utility-send-output-card');
+    expect(cards.map(card => card.dataset.utilityId)).toEqual(['hash', 'base64-encode', 'json-minify']);
+    expect(screen.getAllByTestId('utility-send-output-preview')[0]!.textContent).toMatch(/^[0-9a-f]{6}…[0-9a-f]{4}$/);
+    await user.click(cards[2]!);
+    const state = useUtilityPipelineStore.getState();
+    expect(state.pipelines[0]).toMatchObject({ name: 'JSON Formatter', sourceToolId: 'json', steps: [{ utilityId: 'json-minify' }] });
+    expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('utility-pipelines');
+    // The new pipeline runs on its own once it is on screen.
+    await waitFor(() => expect(screen.getAllByTestId('utility-pipeline-result-row')[0]!.dataset.status).toBe('ok'));
+  });
+
+  it('keeps the empty-output and full-library notices on a card', async () => {
+    useUtilityPipelineStore.setState({
+      pipelines: Array.from({ length: PIPELINE_CAP }, (_, index) => createBlankPipeline({ id: `p${index}` })),
+    });
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesWorkspaceView />);
+    const [hash] = await screen.findAllByTestId('utility-send-output-card');
+    await user.click(hash!);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('utilityPipeline.send.capReached');
+    const input = screen.getByLabelText('Input');
+    await user.clear(input);
+    await waitFor(() => expect(screen.queryAllByTestId('utility-send-output-preview')).toHaveLength(0));
+    await user.click(screen.getAllByTestId('utility-send-output-card')[0]!);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('utilityPipeline.send.empty');
+    expect(useUtilityPipelineStore.getState().pipelines).toHaveLength(PIPELINE_CAP);
+  });
+
+  it('offers Send output below a tool, not on the Pipelines tool', async () => {
     useUtilityWorkspaceStore.setState({ activeUtilityId: 'json' });
     const { unmount } = render(<DeveloperUtilitiesWorkspaceView />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());

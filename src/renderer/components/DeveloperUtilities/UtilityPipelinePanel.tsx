@@ -80,6 +80,7 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { appPlatform } from '../../utils/appPlatform';
 import { CommandBarSlot, CommandBarVerb } from '../Chrome/CommandBarSlot';
 import '../ui/pipelineRun.css';
+import { DEVELOPER_UTILITY_CATALOG } from '../../data/developerUtilityCatalog';
 
 const DEFAULT_FIRST_STEP_UTILITY: UtilityAdapterId = 'json-format';
 
@@ -363,6 +364,8 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
     [activePipeline, execute]
   );
 
+  const sourceTool = DEVELOPER_UTILITY_CATALOG.find((tool) => tool.id === activePipeline?.sourceToolId);
+
   // While a breakpoint holds the run, the bar's verb resumes it.
   const heldAt = heldStepId(runState);
 
@@ -630,6 +633,11 @@ function UtilityPipelinePanelUnlocked({ stepLimit }: { stepLimit: number }) {
             <div className="utility-pipeline-input flex flex-col gap-1">
               <span className="text-caption font-bold uppercase tracking-[0.12em] text-muted">
                 {t('utilityPipeline.editor.inputLabel')}
+                {sourceTool ? (
+                  <span data-testid="utility-pipeline-input-source" className="ml-2 font-medium normal-case tracking-normal text-fg-subtle">
+                    {t('utilityPipeline.editor.inputFrom', { tool: t(sourceTool.titleKey) })}
+                  </span>
+                ) : null}
               </span>
               <textarea
                 value={activeInput}

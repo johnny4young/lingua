@@ -205,6 +205,10 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
       setPipelineInput: (id, input) =>
         set((state) => ({
           inputsByPipelineId: { ...state.inputsByPipelineId, [id]: input },
+          // A new input no longer is the output of the tool the pipeline was sent from.
+          ...(state.pipelines.some((p) => p.id === id && p.sourceToolId)
+            ? { pipelines: state.pipelines.map((p) => (p.id === id ? { ...p, sourceToolId: undefined } : p)) }
+            : {}),
         })),
 
       setPendingRunPipelineId: (id) => set({ pendingRunPipelineId: id }),
