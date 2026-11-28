@@ -1,5 +1,6 @@
 import type React from 'react';
-import { useCallback, useId, useMemo } from 'react';
+import { useCallback, useContext, useId, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from './CopyButton';
@@ -13,6 +14,7 @@ import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
 import { cn } from '../../utils/cn';
 import type { TimestampHoverInfo } from '../../utils/developerUtilities';
 import { UtilityHistoryDrawer } from './UtilityHistoryDrawer';
+import { UtilityHistorySlotContext } from './utilityHistorySlot';
 
 export function PanelSection({
   title,
@@ -215,6 +217,7 @@ export function UtilityToolbar({
 }) {
   const { t } = useTranslation();
   const panelActive = useUtilityPanelActive();
+  const historySlot = useContext(UtilityHistorySlotContext);
   const definition = useMemo(() => findDeveloperUtility(utilityId), [utilityId]);
   const detect = useMemo(() => findDeveloperUtilityDetector(utilityId), [utilityId]);
   const enabled = useMemo(() => {
@@ -226,15 +229,11 @@ export function UtilityToolbar({
     }
   }, [detect, primary, secondary]);
 
+  // The button and Mod+Shift+A both record the run with what Cmd+Shift+C would copy at that moment.
   const handleApply = useCallback(() => {
     if (!detect || !enabled) return;
     run();
-    // Implementation note apply event into the per-tool history
-    // ring. The output snapshot is read from the registered output
-    // provider so we capture exactly what Cmd+Shift+C would copy at
-    // this moment, with no extra plumbing per panel.
-    const provider = useUtilityOutputStore.getState().getProvider();
-    const output = provider?.() ?? '';
+    const output = useUtilityOutputStore.getState().getProvider()?.() ?? '';
     useUtilityHistoryStore.getState().pushEntry(utilityId, primary, output);
   }, [detect, enabled, run, utilityId, primary]);
 
@@ -245,18 +244,9 @@ export function UtilityToolbar({
     () => ({
       enabled: detect ? enabled : false,
       toolNameKey: definition.titleKey,
-      run: () => {
-        if (!detect || !enabled) return;
-        run();
-        // Mirror handleApply's history emission so Mod+Shift+A also
-        // accumulates entries — keyboard users get the same drawer
-        // populated as click users.
-        const provider = useUtilityOutputStore.getState().getProvider();
-        const output = provider?.() ?? '';
-        useUtilityHistoryStore.getState().pushEntry(utilityId, primary, output);
-      },
+      run: handleApply,
     }),
-    [definition.titleKey, detect, enabled, run, utilityId, primary]
+    [definition.titleKey, detect, enabled, handleApply]
   );
   useRegisterUtilityApply(applyHandler);
 
@@ -310,20 +300,16 @@ export function UtilityToolbar({
     );
   }
 
+  const history = setPrimary ? <UtilityHistoryDrawer utilityId={utilityId} onApplyEntry={handleHistoryEntry} /> : null;
   const labelKey = 'utilities.actions.applyFromInput';
   const tooltipKey = enabled
     ? 'utilities.actions.applyFromInput'
     : 'utilities.tooltip.applyUnavailable';
   return (
-    // Space audit — ONE wrapping row: leading extras, Apply, children,
-    // and the Recent-runs drawer side by side (the drawer flexes into
-    // the remaining width; its expanded list drops below within it).
+    // One wrapping row: leading extras, Apply, children.
     <div
       data-testid="utility-toolbar"
-      // min-w-0: as a grid item this row must be allowed to shrink below its
-      // content's min width, or the history drawer never wraps and overflows
-      // the card into the neighbouring pane (its Clear row lands under the
-      // sibling card and becomes unclickable).
+      // min-w-0: as a grid item this row must shrink below its content's min width, or it overflows into the neighbouring pane.
       className={`um-toolbar flex min-w-0 flex-wrap items-center gap-2 ${className ?? ''}`}
     >
       {leading}
@@ -340,15 +326,11 @@ export function UtilityToolbar({
         {t(labelKey)}
       </button>
       {children}
-      {setPrimary ? (
-        // w-full: the drawer always takes its own toolbar line. A flex-basis
-        // floor (the previous min-w-[14rem] flex-1) let it share the Apply
-        // row and overflow the card whenever a sibling grid row inflated the
-        // column track — its expanded Clear row then landed under the
-        // neighbouring card, clipped and unclickable.
-        <div className="w-full min-w-0">
-          <UtilityHistoryDrawer utilityId={utilityId} onApplyEntry={handleHistoryEntry} />
-        </div>
+      {/* In the workspace the open tool's runs sit under its Send output cards; elsewhere they take their own toolbar line. */}
+      {!history ? null : historySlot === undefined ? (
+        <div className="w-full min-w-0">{history}</div>
+      ) : historySlot && panelActive ? (
+        createPortal(history, historySlot)
       ) : null}
     </div>
   );

@@ -5,10 +5,9 @@
 import { classifyClipboard, type UtilitySuggestionId } from '../../clipboard/pasteHandlers';
 import { detectsAsUrlEncoded } from '../../utils/developerUtilityDetection';
 import { readAnswer } from '../Answer/answerObjectModel';
-import { truncateText } from '../../../shared/truncateText';
 import { getAdapter } from '../../../shared/utilities/registry';
 import type { UtilityAdapterId } from '../../../shared/utilities/types';
-import { PREVIEW_MAX_CHARS, shortDigest } from './launcherPreviews';
+import { PREVIEW_MAX_CHARS, outputHead, shortDigest } from './launcherPreviews';
 
 const SEND_CARD_COUNT = 3;
 
@@ -54,7 +53,7 @@ export function describeOutput(utilityId: UtilityAdapterId, value: string): Pick
     { now: Date.now(), locale: 'en' }
   );
   if (utilityId === 'hash') return { tag, preview: shortDigest(value) };
-  const head = truncateText(value.slice(0, 64).replace(/\s+/gu, ' ').trim(), 8);
+  const head = outputHead(value, 8);
   return { tag, preview: json ? head : `"${head}"` };
 }
 

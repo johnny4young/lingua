@@ -217,7 +217,6 @@ for (const language of ['en', 'es'] as const) {
       const { other, otherErrors } = await openSecondTab(page);
       await openDeveloperUtilities(other);
       await other.getByTestId('utility-apply-button').click();
-      await other.getByTestId('utility-history-drawer').click();
       await expect(other.getByTestId('utility-history-entry')).toHaveCount(1);
       await countEvents(page, KEY);
       await countEvents(other, KEY);

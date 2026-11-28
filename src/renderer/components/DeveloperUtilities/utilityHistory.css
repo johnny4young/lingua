@@ -1,0 +1,219 @@
+@layer components {
+  /* minmax(0, 1fr): an auto track grows to the rows' min-content and pushes them past the pane. */
+  .recent-runs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    margin-top: 28px;
+    container-type: inline-size;
+  }
+
+  .recent-runs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .recent-runs-badge {
+    padding: 0 4px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 4px;
+    font-size: 9.5px;
+    font-weight: 600;
+    line-height: 15px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-fg-subtle);
+  }
+
+  .recent-runs-empty {
+    font-size: 12px;
+    color: var(--color-fg-muted);
+  }
+
+  .recent-runs-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  /* The input gives way before the answer; past 70% of the row the value ends in an ellipsis. */
+  .recent-run-answer {
+    display: flex;
+    min-width: 0;
+    max-width: 70%;
+    flex: none;
+    align-items: center;
+  }
+
+  .recent-run {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    height: 30px;
+    align-items: center;
+    border-radius: 4px;
+    font-family: var(--font-code);
+    font-variation-settings: var(--font-code-axes);
+    font-size: 12.5px;
+    white-space: nowrap;
+    text-align: left;
+    color: var(--color-fg-muted);
+  }
+
+  .recent-run:hover {
+    background: color-mix(in srgb, var(--color-fg-base) 4%, transparent);
+  }
+
+  .recent-run-time {
+    width: 46px;
+    flex: none;
+    color: var(--color-fg-subtle);
+  }
+
+  /* The input gives way first; its full text stays in the tooltip. */
+  .recent-run-input {
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .recent-run-leader {
+    min-width: 28px;
+    margin: 0 4px;
+  }
+
+  /* Outranks the answer pill's flex: none, so a long value shrinks with an ellipsis; the tooltip keeps it whole. */
+  .recent-run-answer > .recent-run-value {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    flex: 0 1 auto;
+    gap: 6px;
+  }
+
+  .recent-run-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .recent-run-answer > .recent-run-value[data-pill] {
+    font-weight: 560;
+  }
+
+  .recent-run-swatch {
+    width: 10px;
+    height: 10px;
+    flex: none;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-fg-base) 20%, transparent);
+  }
+
+  .recent-run-answer > .recent-run-fact {
+    flex: none;
+    margin-left: 8px;
+  }
+
+  .recent-run-break {
+    display: none;
+  }
+
+  .recent-runs-more,
+  .recent-runs-unlock,
+  .recent-runs-clear {
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 560;
+    color: var(--color-fg-muted);
+  }
+
+  .recent-runs-more {
+    justify-self: start;
+    margin-top: 2px;
+    padding: 2px 0;
+  }
+
+  .recent-runs-more:hover,
+  .recent-runs-unlock:hover,
+  .recent-runs-clear:hover:not(:disabled) {
+    color: var(--color-fg-base);
+  }
+
+  .recent-runs-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--color-fg-muted);
+  }
+
+  .recent-runs-persist {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .recent-runs-persist[data-locked] {
+    cursor: not-allowed;
+  }
+
+  .recent-runs-unlock {
+    color: var(--color-warning-fg);
+  }
+
+  .recent-runs-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .recent-runs-clear:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* A narrow pane puts the answer on a second line, still at the right edge, so neither it nor the input is cut. */
+  @container (max-width: 440px) {
+    .recent-run {
+      height: auto;
+      min-height: 30px;
+      flex-wrap: wrap;
+      padding-block: 5px;
+      row-gap: 4px;
+    }
+
+    .recent-run-break {
+      display: block;
+      flex-basis: 100%;
+    }
+
+    .recent-run-leader {
+      display: none;
+    }
+
+    .recent-run-answer {
+      max-width: none;
+      flex-basis: 100%;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      row-gap: 4px;
+      padding-left: 46px;
+    }
+
+    .recent-run-answer > .recent-run-fact {
+      margin-left: 0;
+    }
+
+    .recent-run-answer > .recent-run-value {
+      margin-right: 8px;
+    }
+  }
+}

@@ -14,7 +14,7 @@ export interface ToolAnswer {
   tone?: AnswerTone;
 }
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
+export type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -52,8 +52,7 @@ export function claimTime(value: unknown): number | null {
 
 const dateFormats = new Map<string, [day: Intl.DateTimeFormat, clock: Intl.DateTimeFormat]>();
 
-/** `Nov 11 · 12:02`: the day and the local clock, with no weekday. */
-export function dateText(at: number, locale: string): string {
+function formatsFor(locale: string): [day: Intl.DateTimeFormat, clock: Intl.DateTimeFormat] {
   let formats = dateFormats.get(locale);
   if (!formats) {
     formats = [
@@ -62,8 +61,22 @@ export function dateText(at: number, locale: string): string {
     ];
     dateFormats.set(locale, formats);
   }
-  const date = new Date(at);
-  return `${formats[0].format(date)} · ${formats[1].format(date)}`;
+  return formats;
+}
+
+/** `Nov 11` */
+export function dayText(at: number, locale: string): string {
+  return formatsFor(locale)[0].format(at);
+}
+
+/** `12:02`, the local 24-hour clock. */
+export function clockText(at: number, locale: string): string {
+  return formatsFor(locale)[1].format(at);
+}
+
+/** `Nov 11 · 12:02`: the day and the local clock, with no weekday. */
+export function dateText(at: number, locale: string): string {
+  return `${dayText(at, locale)} · ${clockText(at, locale)}`;
 }
 
 export function hasTimeClaim(payload: Record<string, unknown> | null): boolean {
@@ -75,7 +88,7 @@ export function segmentBytes(segment: string): number {
   return Math.floor((segment.replace(/=+$/u, '').length * 3) / 4);
 }
 
-const CLAIMS_KEY = 'utilities.answer.jwt.claims';
+export const CLAIMS_KEY = 'utilities.answer.jwt.claims';
 
 /**
  * Time left before `exp`, `expired` with how long ago, or the claim count when

@@ -66,6 +66,8 @@ export interface UtilityHistoryEntry {
   output: string;
   /** Whether the input or output was clipped to fit the cap. */
   truncated: boolean;
+  /** Whether the output was clipped; absent on entries saved before it was recorded. */
+  outputTruncated?: boolean;
 }
 
 export interface UtilityHistoryState {
@@ -164,6 +166,7 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
           input: inputCapped.value,
           output: outputCapped.value,
           truncated: inputCapped.truncated || outputCapped.truncated,
+          outputTruncated: outputCapped.truncated,
         };
         set(state => {
           const previous = state.history[toolId] ?? [];
