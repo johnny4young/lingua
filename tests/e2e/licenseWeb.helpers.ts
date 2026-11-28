@@ -10,6 +10,8 @@ import {
   type Route,
 } from '@playwright/test';
 import type { WorkflowMode } from '../../src/shared/workflowMode';
+import { UTILITY_CATEGORY } from '../../src/renderer/data/utilityCategories';
+import type { DeveloperUtilityId } from '../../src/renderer/data/developerUtilityCatalog';
 import { isKnownBenignConsoleError } from './consoleErrorFilter';
 
 const repoRoot = process.cwd();
@@ -500,6 +502,15 @@ export async function openDeveloperUtilities(page: Page): Promise<void> {
   const expand = page.getByTestId('utility-rail-expand');
   if (await expand.isVisible().catch(() => false)) await expand.click();
   await expect(page.getByTestId('utilities-search-input')).toBeVisible();
+}
+
+/** Opens the tool's category row in the Utilities list, which starts with only the open tool's category open. */
+export async function revealUtility(page: Page, id: string): Promise<void> {
+  const item = page.getByTestId(`utility-item-${id}`);
+  if (await item.isVisible().catch(() => false)) return;
+  const category = page.getByTestId(`utility-category-${UTILITY_CATEGORY[id as DeveloperUtilityId]}`);
+  if ((await category.getAttribute('aria-expanded')) !== 'true') await category.click();
+  await expect(item).toBeVisible();
 }
 
 export async function closeDeveloperUtilities(page: Page): Promise<void> {

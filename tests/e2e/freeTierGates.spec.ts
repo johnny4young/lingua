@@ -28,6 +28,7 @@ import {
   seedSession,
   test,
   waitForRunCompleted,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -277,6 +278,7 @@ test.describe('Free tier gates', () => {
 
     await page.getByTestId('utility-rail-expand').click();
     await page.getByTestId('utilities-search-input').fill('pipeline');
+    await revealUtility(page, 'utility-pipelines');
     await page.getByTestId('utility-item-utility-pipelines').click();
     await expect(page.getByTestId('utility-pipeline-panel')).toBeVisible();
     await expect(page.getByTestId('status-notice-banner')).toHaveCount(0);

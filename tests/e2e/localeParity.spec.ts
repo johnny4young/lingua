@@ -33,6 +33,7 @@ import {
   seedSession,
   test,
   waitForRunCompleted,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -164,6 +165,7 @@ test.describe('Spanish locale — Pro flows', () => {
 
   test('URL Parser localizes its panel copy and empty-state hint', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'url-parser');
     await page.getByRole('button', { name: /^Analizador de URL/ }).click();
 
     await expect(page.getByRole('heading', { level: 3, name: 'Analizador de URL' })).toBeVisible();

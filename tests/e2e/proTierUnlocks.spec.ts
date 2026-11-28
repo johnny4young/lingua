@@ -32,6 +32,7 @@ import {
   seedSession,
   test,
   waitForRunCompleted,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -83,11 +84,13 @@ test.describe('Pro tier unlocks — seeded Pro session', () => {
 
     // Sidebar buttons use the `titleLabel` i18n key, so accessible name
     // starts with the utility title (no "Open " prefix).
+    await revealUtility(page, 'base64');
     await page.getByRole('button', { name: /^Base64 Encoder/ }).click();
     await expect(
       page.getByRole('heading', { name: 'Base64 Encoder', exact: true })
     ).toBeVisible();
 
+    await revealUtility(page, 'uuid');
     await page.getByRole('button', { name: /^UUID Generator/ }).click();
     await expect(
       page.getByRole('heading', { name: 'UUID Generator', exact: true })

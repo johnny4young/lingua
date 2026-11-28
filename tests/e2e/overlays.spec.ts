@@ -28,6 +28,7 @@ import {
   paletteInput,
   seedSession,
   test,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -271,6 +272,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await openDeveloperUtilities(page);
     // Sidebar buttons use the `titleLabel` i18n key, not the command
     // palette `label` — accessible name starts with the utility title.
+    await revealUtility(page, 'beautify-minify');
     await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
 
     await page.getByTestId('beautify-minify-language').selectOption('json');
@@ -285,6 +287,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('Beautify/Minify panel minifies HTML and preserves <pre> content', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'beautify-minify');
     await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
 
     await page.getByTestId('beautify-minify-language').selectOption('html');
@@ -304,6 +307,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'beautify-minify');
     await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
 
     await page.getByTestId('beautify-minify-language').selectOption('scss');
@@ -321,6 +325,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('Beautify/Minify panel minifies CSS and preserves url() + strings', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'beautify-minify');
     await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
 
     await page.getByTestId('beautify-minify-language').selectOption('css');
@@ -343,6 +348,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'beautify-minify');
     await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
 
     await page.getByTestId('beautify-minify-language').selectOption('xml');
@@ -361,6 +367,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'hash');
     await page.getByRole('button', { name: /^Hash Generator/ }).click();
 
     // Type a stable input, then swap algorithms to prove each lands.
@@ -390,6 +397,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('UUID Generator produces a value and the decoder recognizes it', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'uuid');
     await page.getByRole('button', { name: /^UUID Generator/ }).click();
 
     // The panel renders a batch of identifiers at once — scope to the
@@ -415,6 +423,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('String Case Converter emits every casing from a single input', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'string-case');
     await page.getByRole('button', { name: /^String Case Converter/ }).click();
 
     const input = page.getByTestId('string-case-input');
@@ -431,6 +440,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('Timestamp Converter outputs every card with a copy button', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'timestamp');
     await page.getByRole('button', { name: /^Timestamp Converter/ }).click();
 
     for (const testid of [
@@ -448,6 +458,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('Base64 Image decode renders a pasted data-URI preview with metadata', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'base64-image');
     await page.getByRole('button', { name: /^Base64 Image/ }).click();
 
     await page.getByTestId('base64-image-mode').selectOption('decode');
@@ -473,6 +484,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'regex');
     await page.getByRole('button', { name: /^Regex Tester/ }).click();
 
     await page.getByTestId('regex-mode').selectOption('replace');
@@ -498,6 +510,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'svg-to-css');
     await page.getByRole('button', { name: /^SVG to CSS/ }).click();
 
     // Default: seeded SVG with width=24/height=24 in Base64 mode.
@@ -521,6 +534,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'cron-parser');
     await page.getByRole('button', { name: /^Cron Parser/ }).click();
 
     // Default seed: "*/5 * * * *" with nextCount=5.
@@ -547,6 +561,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'html-to-jsx');
     await page.getByRole('button', { name: /^HTML to JSX/ }).click();
 
     const output = page.getByTestId('html-to-jsx-output');
@@ -563,6 +578,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'curl-to-code');
     await page.getByRole('button', { name: /^cURL to Code/ }).click();
 
     const output = page.getByTestId('curl-to-code-output');
@@ -583,6 +599,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'yaml-json');
     await page.getByRole('button', { name: /^YAML and JSON/ }).click();
 
     await expect.poll(() => outputText(page, 'yaml-json-output')).toMatch(/"name": "lingua"/);
@@ -598,6 +615,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'json-csv');
     await page.getByRole('button', { name: /^JSON and CSV/ }).click();
 
     await expect.poll(() => outputText(page, 'json-csv-output')).toMatch(/^name,score\nAlice,92/);
@@ -611,6 +629,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('Markdown Preview emits sanitized HTML for the seeded source', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'markdown-preview');
     await page.getByRole('button', { name: /^Markdown Preview/ }).click();
 
     const html = page.getByTestId('markdown-preview-html');
@@ -622,6 +641,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('SQL Formatter formats a SELECT and switches keyword case', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'sql-formatter');
     await page.getByRole('button', { name: /^SQL Formatter/ }).click();
 
     const output = page.getByTestId('sql-formatter-output');
@@ -638,6 +658,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'lorem-ipsum');
     await page.getByRole('button', { name: /^Lorem Ipsum Generator/ }).click();
 
     // Defaults: unit = paragraphs, count = 3, classic-opening toggle on.
@@ -656,6 +677,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'random-string');
     await page.getByRole('button', { name: /^Random String Generator/ }).click();
 
     // Default state: length 32, count 5, lowercase + uppercase + digits on.
@@ -684,6 +706,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'backslash-escape');
     await page.getByRole('button', { name: /^Backslash Escape \/ Unescape/ }).click();
 
     const input = page.getByTestId('backslash-escape-input');
@@ -720,6 +743,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('HTML Entity encode/decode mode swaps the output live', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'html-entity');
     await page.getByRole('button', { name: /^HTML Entity/ }).click();
 
     const input = page.getByTestId('html-entity-input');
@@ -743,6 +767,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('String Inspector surfaces counts and a zero-width warning inline', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'string-inspector');
     await page.getByRole('button', { name: /^String Inspector/ }).click();
 
     const input = page.getByTestId('string-inspector-input');
@@ -764,6 +789,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('QR Code panel renders a PNG preview and a working download link', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'qr-code');
     await page.getByRole('button', { name: /^QR Code/ }).click();
 
     const input = page.getByTestId('qr-code-input');
@@ -794,6 +820,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('JWT Debugger signs a token and verifies it via the mode toggle', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'jwt');
     await page.getByRole('button', { name: /^JWT Debugger/ }).click();
 
     // Sign first: HS256 with a key that hits the 32-byte HMAC floor.
@@ -826,6 +853,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('JWT Debugger answers in one header: time left, segments and typed claims', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'jwt');
     await page.getByRole('button', { name: /^JWT Debugger/ }).click();
 
     const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -849,6 +877,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('JWT Debugger rounds-trips Sign → Verify for ES256 via Web Crypto', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'jwt');
     await page.getByRole('button', { name: /^JWT Debugger/ }).click();
 
     // Generate an ECDSA P-256 keypair inside the page and export both
@@ -895,6 +924,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     page,
   }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'diff');
     await page.getByRole('button', { name: /^Diff Viewer/ }).click();
 
     // Default granularity is "line" — the grouped rows are rendered.
@@ -915,6 +945,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('URL Parser breaks a URL into components and a query table', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'url-parser');
     await page.getByRole('button', { name: /^URL Parser/ }).click();
 
     // Default sample URL is already loaded — the live parse should
@@ -939,6 +970,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
 
   test('Number Base Converter keeps bin/oct/dec/hex in sync', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'number-base');
     await page.getByRole('button', { name: /^Number Base Converter/ }).click();
 
     // Each view is a single input with a stable testid — using testids is

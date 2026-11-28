@@ -28,6 +28,7 @@ import {
   openSettingsTab,
   seedSession,
   test,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
@@ -46,6 +47,7 @@ test.describe('personalize gesture smoke', () => {
     await expect(page.getByTestId('utilities-favorites-row')).toHaveCount(0);
 
     // Pin Base64 from the sidebar.
+    await revealUtility(page, 'base64');
     await page.getByTestId('utility-favorite-toggle-base64').click();
 
     // Row appears with the Base64 chip.
@@ -57,7 +59,9 @@ test.describe('personalize gesture smoke', () => {
 
   test('Favorites: pin two tools and survive a reload', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'jwt');
     await page.getByTestId('utility-favorite-toggle-jwt').click();
+    await revealUtility(page, 'cron-parser');
     await page.getByTestId('utility-favorite-toggle-cron-parser').click();
     await closeDeveloperUtilities(page);
 
@@ -70,7 +74,9 @@ test.describe('personalize gesture smoke', () => {
 
   test('Favorites: clicking a chip selects the matching panel', async ({ page }) => {
     await openDeveloperUtilities(page);
+    await revealUtility(page, 'cron-parser');
     await page.getByTestId('utility-favorite-toggle-cron-parser').click();
+    await revealUtility(page, 'jwt');
     await page.getByTestId('utility-favorite-toggle-jwt').click();
 
     // JSON panel is the default landing. Clicking the JWT chip should
@@ -169,6 +175,7 @@ test.describe('personalize gesture smoke', () => {
     ];
 
     for (const { id, heading } of checkPanels) {
+      await revealUtility(page, id);
       await page.getByTestId(`utility-item-${id}`).click();
       await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible();
       // Visited panels stay mounted (hidden) in the keep-mounted cache, so
@@ -201,6 +208,7 @@ test.describe('personalize gesture smoke', () => {
 
       // Pin one panel so the favorites row mounts.
       await openDeveloperUtilities(page);
+      await revealUtility(page, 'json');
       await page.getByTestId('utility-favorite-toggle-json').click();
       await expect(page.getByText('Favoritos')).toBeVisible();
 
@@ -232,11 +240,15 @@ test.describe('personalize gesture smoke', () => {
     // Pin two, click apply on three different panels, open the drawer.
     // Visited panels stay mounted in the keep-mounted cache — scope each
     // apply/drawer interaction to the active panel's container.
+    await revealUtility(page, 'jwt');
     await page.getByTestId('utility-favorite-toggle-jwt').click();
+    await revealUtility(page, 'cron-parser');
     await page.getByTestId('utility-favorite-toggle-cron-parser').click();
     await page.getByTestId('utility-panel-cache-json').getByTestId('utility-apply-button').click();
+    await revealUtility(page, 'jwt');
     await page.getByTestId('utility-item-jwt').click();
     await page.getByTestId('utility-panel-cache-jwt').getByTestId('utility-apply-button').click();
+    await revealUtility(page, 'cron-parser');
     await page.getByTestId('utility-item-cron-parser').click();
     await page
       .getByTestId('utility-panel-cache-cron-parser')

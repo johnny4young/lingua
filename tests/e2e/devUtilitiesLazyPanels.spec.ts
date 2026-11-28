@@ -13,6 +13,7 @@ import {
   openDeveloperUtilities,
   seedSession,
   test,
+  revealUtility,
 } from './licenseWeb.helpers';
 
 const HEAVY_PANEL_CHUNK = /(QrCodePanel|SqlFormatterPanel)-[A-Za-z0-9_-]+\.js/;
@@ -37,11 +38,12 @@ test.describe('Lazy Developer Utilities panels', () => {
 
     // The workspace opens on the JSON tool; its panel chunk loads, but the QR and
     // SQL panel chunks must not.
-    await expect(page.getByTestId('utility-item-qr-code')).toBeVisible();
+    await expect(page.getByTestId('utility-category-visual')).toBeVisible();
     await page.waitForTimeout(750);
     expect(panelChunkRequests).toEqual([]);
 
     // Selecting QR pulls the QrCodePanel chunk on demand — proving lazy load.
+    await revealUtility(page, 'qr-code');
     await page.getByTestId('utility-item-qr-code').click();
     await expect
       .poll(() => panelChunkRequests.some(pathname => /QrCodePanel-/.test(pathname)), {

@@ -93,18 +93,34 @@ option defaults and execution-time validation are unchanged.
 
 ## Clipboard-aware utilities
 
+The Utilities tool list reads top to bottom: **Your clipboard** (see below),
+**Favorites**, then **All tools** as one row per category with its tool count (Data,
+Web, Encoding & crypto, Text, Visual, Time). Click a category to open or close it; the
+open tool's category starts open unless the tool already has a row higher up. Arrow
+keys, Home and End walk every tool in that order and open the category of the tool
+they land on; searching shows one ranked list instead. Favorites are rows you reorder
+by dragging their grip, or by focusing it and pressing the arrow keys; the Timestamp
+Converter's row shows now as epoch seconds. **Pipelines** at the foot of the list
+shows how many you have saved and opens them (`Cmd/Ctrl+Shift+G`).
+
 With a Pro license and **Apply from
 clipboard on panel focus** on in **Settings › Editor › Developer Utilities**, Utilities
 reads the clipboard when it opens or you switch back to it, and each time the window
 regains focus. It classifies the
 value on this device as a JWT, JSON, cron expression, epoch timestamp, Base64, UUID
-or color. A banner above the tool list names the kind, a light bulb marks the tools
-that fit, and on the folded rail a dot marks their category. Only the kind stays:
-Lingua does not store, log or send the text. Without both it
-does not read the clipboard for this. Chromium browsers may ask for permission when
-Utilities opens, never on a window focus. Browsers that cannot report this permission,
-such as Firefox and Safari, could ask on each read, so there Lingua does not read it for
-this.
+or color. **Your clipboard** then heads the list with the kind and its length (JWT ·
+169 chars) and the tools that take it, each with what it would answer after a dotted
+leader: a JWT's time left, the SHA-256 digest, the Base64 length, hidden characters
+the String Inspector finds, URL escapes (or *no change*), the QR version at level M,
+and for JSON, timestamps, UUIDs and colors their shape, date, version or hex. The open
+tool's row shows no answer, since its panel does; searching marks the tools that fit
+with a light bulb, and on the folded rail a dot marks their category. The text stays in
+memory while Utilities is the active tab and is dropped when you leave it: Lingua
+does not store, log or send it, and no answer quotes it. Without both it does not read
+the clipboard for this and the list stays as above. Chromium browsers may ask for
+permission when Utilities opens, never on a window focus. Browsers that cannot report
+this permission, such as Firefox and Safari, could ask on each read, so there Lingua
+does not read it for this.
 
 The JWT, Hash, Base64 and Timestamp tools open with one answer in a header: the tool's tag, a numeral (a JWT's time left, or `expired` with how long ago, or its claim count when it has no `exp`; bytes hashed; characters out; how far a timestamp is from now) and one line under it. The header also holds the tool's modes (Decode, Verify and Sign for JWT; Encode and Decode for Base64). A JWT's time left and a timestamp's distance from now read against the clock when the input changes and every 30 seconds while the tool is open, every second within a minute of the time. Decode lists the token's header, payload and signature as typed rows with their size in bytes; `iat` and `nbf` show a date and how far it is from now, and `exp` a bar from issue to expiry with a mark at now. Hover a raw time value for its local and UTC dates.
 

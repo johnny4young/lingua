@@ -1,16 +1,4 @@
-import {
-  Clock,
-  Code,
-  Database,
-  Globe,
-  KeyRound,
-  Palette,
-  PanelLeft,
-  Search,
-  Star,
-  Workflow,
-  type LucideIcon,
-} from 'lucide-react';
+import { PanelLeft, Search, Star, Workflow, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import {
@@ -20,15 +8,8 @@ import {
 } from '../../data/utilityCategories';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
+import { CATEGORY_ICON } from './utilityIcons';
 
-const CATEGORY_ICON: Record<UtilityCategory, LucideIcon> = {
-  data: Database,
-  web: Globe,
-  crypto: KeyRound,
-  text: Code,
-  visual: Palette,
-  time: Clock,
-};
 
 interface UtilityRailProps {
   /** Category of the open tool, drawn pressed. */

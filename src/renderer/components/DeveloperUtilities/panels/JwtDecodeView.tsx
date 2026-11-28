@@ -5,7 +5,7 @@ import { CopyButton } from '../CopyButton';
 import { StatusMessage, TimestampHoverValue } from '../panelPrimitives';
 import { ToolLeafRow, ToolSection } from '../ToolAnswerParts';
 import { formatNumber } from '../../../i18n/formatNumber';
-import { claimTime, countChars } from '../toolAnswers';
+import { claimTime, countChars, dateText } from '../toolAnswers';
 import { JwtColoredTokenArea } from './JwtToken';
 import {
   JWT_HEADER_COLOR,
@@ -20,22 +20,6 @@ import type { JwtAnalysis } from '../../../utils/jwt';
 const HEADER_VALUE_WIDTH = 150;
 const PAYLOAD_VALUE_WIDTH = 392;
 const TIME_CLAIMS = new Set(['iat', 'nbf', 'exp']);
-
-const dateFormats = new Map<string, [day: Intl.DateTimeFormat, clock: Intl.DateTimeFormat]>();
-
-/** `Nov 11 · 12:02`: the day and the local clock, as the date pill on the board reads (no weekday). */
-function claimDateText(at: number, locale: string): string {
-  let formats = dateFormats.get(locale);
-  if (!formats) {
-    formats = [
-      new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }),
-      new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
-    ];
-    dateFormats.set(locale, formats);
-  }
-  const date = new Date(at);
-  return `${formats[0].format(date)} · ${formats[1].format(date)}`;
-}
 
 export function JwtDecodeView({
   input,
@@ -179,7 +163,7 @@ function JwtTimeClaimRow({
         data-pill=""
         title={expired ? t('utilities.tool.jwt.claim.expired') : pending ? t('utilities.tool.jwt.claim.notYetValid') : undefined}
       >
-        {claimDateText(at, i18n.language)}
+        {dateText(at, i18n.language)}
       </span>
       {claim === 'exp' ? (
         issuedAt !== null && issuedAt < at ? <JwtLifetime issuedAt={issuedAt} expiresAt={at} now={now} /> : null

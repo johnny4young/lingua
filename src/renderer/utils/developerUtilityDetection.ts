@@ -90,6 +90,14 @@ function hslToRgb({ h, s, l }: HslColor): RgbColor {
   };
 }
 
+export function rgbToHex({ r, g, b }: RgbColor): string {
+  const toHex = (component: number) =>
+    Math.max(0, Math.min(255, Math.round(component)))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 /**
  * Shared color parser for both detection and the full utility analyzer.
  * Keeping it here lets Smart Paste validate colors without importing every
