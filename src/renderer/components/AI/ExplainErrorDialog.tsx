@@ -128,7 +128,7 @@ export function ExplainErrorDialog({
             onClick={handleClose}
             aria-label={t('ai.explain.close')}
             data-testid="ai-explain-close"
-            className="focus-ring rounded p-1 text-fg-subtle hover:text-fg"
+            className="focus-ring rounded p-1 text-fg-subtle hover:text-fg-base"
           >
             <X size={16} aria-hidden="true" />
           </button>
@@ -156,7 +156,7 @@ export function ExplainErrorDialog({
               ) : null}
               <pre
                 data-testid="ai-explain-preview"
-                className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded border border-border bg-bg-panel-alt p-2 text-micro text-fg"
+                className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded border border-border bg-bg-panel-alt p-2 text-micro text-fg-base"
               >
                 {request.preview}
               </pre>
@@ -177,7 +177,7 @@ export function ExplainErrorDialog({
               <button
                 type="button"
                 onClick={handleClose}
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.cancel')}
               </button>
@@ -196,7 +196,7 @@ export function ExplainErrorDialog({
                 type="button"
                 onClick={conversation.retry}
                 data-testid="ai-explain-retry"
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.retry')}
               </button>
@@ -207,7 +207,7 @@ export function ExplainErrorDialog({
                 type="button"
                 onClick={() => setPhase({ kind: 'done' })}
                 data-testid="ai-explain-apply-back"
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.applyBack')}
               </button>
@@ -267,7 +267,7 @@ export function ExplainErrorDialog({
               <button
                 type="button"
                 onClick={handleClose}
-                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
+                className="focus-ring rounded border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg-base"
               >
                 {t('ai.explain.close')}
               </button>

@@ -1,19 +1,4 @@
 import type { ReactNode } from 'react';
-import type { Language } from '../../types/language';
-import { languageBadgeTone } from '../../utils/languageMeta';
-
-export function LanguageSquare({ language }: { language: Language }) {
-  const tone = languageBadgeTone(language);
-  return (
-    <span
-      className="inline-flex h-5 min-w-5 shrink-0 px-[3px] text-[9.5px] items-center justify-center rounded-md font-mono font-bold leading-none tracking-[0.02em]"
-      style={{ background: tone.background, color: tone.foreground }}
-      aria-hidden
-    >
-      {tone.code}
-    </span>
-  );
-}
 
 export function SectionHeading({
   id,

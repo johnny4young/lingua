@@ -467,7 +467,7 @@ function DeveloperUtilitiesWorkspaceBody({
             />
             {searchQuery.length > 0 ? (
               <span
-                className="kbd-shell absolute right-2 top-1/2 -translate-y-1/2"
+                className="kbd absolute right-2 top-1/2 -translate-y-1/2"
                 aria-label={t('utilities.search.escHint')}
               >
                 {t('shortcuts.kbd.escape')}

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { EmptyState } from '../ui/EmptyState';
-import { Kbd } from '../ui/ModalShell';
+import { Kbd } from '../ui/chrome';
 
 /**
  * Actionable empty state for the HTTP workspace collection.

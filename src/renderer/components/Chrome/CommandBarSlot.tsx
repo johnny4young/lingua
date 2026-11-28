@@ -220,14 +220,14 @@ export function CommandBarVerb({
         aria-describedby={describedBy}
         title={title}
         style={style}
-        className={cn('focus-ring action-pill-run action-pill-run-main rounded-l-none', !showMenu && 'rounded-r-lg', className)}
+        className={cn('action-pill-run action-pill-run-main rounded-l-none', !showMenu && 'rounded-r-lg', className)}
         {...data}
       >
         <span aria-hidden className="inline-flex">
           {icon}
         </span>
         <span className="max-w-[220px] truncate">{label}</span>
-        {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+        {shortcut ? <Kbd className="action-pill-kbd">{shortcut}</Kbd> : null}
       </button>
       {showMenu && menu ? (
         <button
@@ -239,7 +239,7 @@ export function CommandBarVerb({
           data-testid={menu.testId}
           disabled={menu.disabled}
           style={style}
-          className={cn('focus-ring action-pill-run action-pill-run-menu rounded-r-lg', className)}
+          className={cn('action-pill-run action-pill-run-menu rounded-r-lg', className)}
           onClick={() => setOpen((value) => !value)}
         >
           <ChevronDown size={16} aria-hidden />

@@ -940,11 +940,12 @@ describe('UtilityPipelinePanel', () => {
       'utility-pipeline-list-templates',
       'utility-pipeline-list-create',
       'utility-pipeline-editor-add-step',
-      'utility-pipeline-editor-run',
       'pipeline-save-capsule',
     ]) {
       expect(screen.getByTestId(testId).className).toContain('focus-ring');
     }
+    // The run verb wears the Run control's ring instead.
+    expect(screen.getByTestId('utility-pipeline-editor-run').className).toContain('action-pill-run');
 
     await user.click(screen.getByTestId('utility-pipeline-list-import'));
     expect(screen.getByTestId('utility-pipeline-import-cancel').className).toContain(

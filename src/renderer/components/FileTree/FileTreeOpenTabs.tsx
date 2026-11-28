@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { Language } from '../../types/language';
 import { useEditorStore } from '../../stores/editorStore';
-import { languageBadgeTone } from '../../utils/languageMeta';
+import { LanguageSquare } from '../ui/LanguageSquare';
 
 interface FileTreeOpenTabsProps {
   /**
@@ -24,7 +24,7 @@ interface FileTreeOpenTabsProps {
  * recursive `FileTreeNode` body subscribes to none of this.
  *
  * Rendered above the tree in the project view and as the foot of the
- * no-project state. Each row leads with the `languageBadgeTone` glyph,
+ * no-project state. Each row leads with the `LanguageSquare` glyph,
  * then the name and a dirty dot; renders `null` with no open tabs.
  */
 interface OpenTabSummary {
@@ -104,7 +104,7 @@ export function FileTreeOpenTabs({ onNavigate, className = '' }: FileTreeOpenTab
                 : 'text-muted hover:bg-surface-strong/62 hover:text-foreground'
             }`}
           >
-            <OpenTabGlyph language={tab.language} />
+            <LanguageSquare size="sm" language={tab.language} />
             <span className="truncate">{tab.name}</span>
             {tab.isDirty && (
               <span
@@ -117,32 +117,5 @@ export function FileTreeOpenTabs({ onNavigate, className = '' }: FileTreeOpenTab
         ))}
       </div>
     </div>
-  );
-}
-
-/**
- * Colored filled mono glyph badge (proto lines 59-60 / 70). Renders the
- * `languageBadgeTone` triple via inline `style` — the tone backgrounds
- * are theme tokens / oklch pairs owned by `languageMeta`, the same way
- * `EditorTabs` and `FloatingActionPill` consume them. No hardcoded
- * color lives here.
- */
-function OpenTabGlyph({ language }: { language: Language }) {
-  const tone = languageBadgeTone(language);
-  return (
-    <span
-      aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-sm font-mono text-nano font-bold uppercase leading-none"
-      style={{
-        minWidth: 16,
-        height: 16,
-        padding: '0 3px',
-        letterSpacing: '0.04em',
-        background: tone.background,
-        color: tone.foreground,
-      }}
-    >
-      {tone.code}
-    </span>
   );
 }

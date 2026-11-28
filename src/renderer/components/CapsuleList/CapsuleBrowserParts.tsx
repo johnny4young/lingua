@@ -9,7 +9,7 @@ import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
 import { DotLeader, ResultNumeral } from '../ui/answer';
 import { Kbd } from '../ui/chrome';
-import { LanguageSquare } from '../Start/StartParts';
+import { LanguageSquare } from '../ui/LanguageSquare';
 import {
   capsuleAnswer,
   capsuleRunLabel,
@@ -114,12 +114,12 @@ export function ImportButton({ onImport }: { onImport: () => void }) {
   const { t } = useTranslation();
   const combo = useShortcutLabel('overlay-capsule-import');
   return (
-    <button type="button" onClick={onImport} data-testid="capsule-list-import" className="focus-ring action-pill-run shrink-0 rounded-lg px-3">
+    <button type="button" onClick={onImport} data-testid="capsule-list-import" className="action-pill-run shrink-0 rounded-lg px-3">
       <ArrowDownToLine size={13} aria-hidden="true" />
       {t('capsuleList.import')}
       {combo ? (
         <span aria-hidden="true" className="hidden sm:inline-flex">
-          <Kbd>{combo}</Kbd>
+          <Kbd className="action-pill-kbd">{combo}</Kbd>
         </span>
       ) : null}
     </button>

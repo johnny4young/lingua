@@ -11,7 +11,7 @@ import { parentDirOf } from '../../utils/filePath';
 import { PLAINTEXT_LANGUAGE, languageFromPath } from '../../utils/language';
 import { monacoLanguageFor } from '../../utils/languageMeta';
 import { useLineWidget } from '../Editor/useLineWidget';
-import { LanguageSquare } from '../Start/StartParts';
+import { LanguageSquare } from '../ui/LanguageSquare';
 import { lineEnd } from '../Editor/answerColumnGeometry';
 import { answerLinesOf, onAnswerLinesChange } from '../Editor/answerLines';
 import { answerColumn } from './answerColumn';

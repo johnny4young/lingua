@@ -201,7 +201,7 @@ export function SqlConnectionManager({ project, query, onQuery, onClose, onNew, 
           <MoreHorizontal size={14} aria-hidden="true" />
         </button>
         {menu === connection.id ? (
-          <div role="menu" className="absolute right-1 top-[30px] z-10 w-[190px] rounded-lg border border-border-default bg-bg-elevated p-1 shadow-lg">
+          <div role="menu" className="absolute right-1 top-[30px] z-10 w-[190px] rounded-lg border border-border-default bg-bg-panel p-1 shadow-lg">
             {menuItem(t('sqlWorkspace.connection.manager.edit'), () => onEdit(connection), 'sql-manager-edit')}
             {menuItem(t('sqlWorkspace.connection.manager.duplicate'), () => {
               setMenu(null);

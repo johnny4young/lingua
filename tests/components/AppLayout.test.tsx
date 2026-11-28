@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppLayout } from '../../src/renderer/components/Layout/AppLayout';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
@@ -265,6 +265,9 @@ vi.mock('lucide-react', async () => {
 });
 
 describe('AppLayout responsive shell', () => {
+  // The dock is lazy; a cold first import under a loaded suite can outlast findBy's 1 s.
+  beforeAll(() => import('../../src/renderer/components/Layout/BottomPanel'), 30_000);
+
   beforeEach(() => {
     localStorage.clear();
     compactShell = false;

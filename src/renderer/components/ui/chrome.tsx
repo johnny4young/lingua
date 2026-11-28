@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { getFocusableElements, restoreFocus, trapTab } from './focusTrap';
 import { ICON_BUTTON_BOX, type IconButtonSize } from './iconScale';
 import type {
   ButtonHTMLAttributes,
@@ -295,14 +296,14 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   );
 });
 
-export function Kbd({
-  className,
-  children,
-}: {
-  className?: string;
+export interface KbdProps {
   children: ReactNode;
-}) {
-  return <kbd className={cn('kbd-shell', className)}>{children}</kbd>;
+  className?: string;
+}
+
+/** The app's one keycap. Hosts restyle it through `className` (the run verb tints it, the action pill hides it when narrow). */
+export function Kbd({ className, children }: KbdProps) {
+  return <kbd className={cn('kbd', className)}>{children}</kbd>;
 }
 
 interface OverlayBackdropProps extends HTMLAttributes<HTMLDivElement> {
@@ -314,24 +315,6 @@ interface OverlayBackdropProps extends HTMLAttributes<HTMLDivElement> {
    * body-portaled action pill.
    */
   portal?: boolean;
-}
-
-const FOCUSABLE_SELECTOR = [
-  'a[href]',
-  'button:not([disabled])',
-  'textarea:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) =>
-      !element.hasAttribute('disabled') &&
-      element.getAttribute('aria-hidden') !== 'true' &&
-      element.tabIndex !== -1
-  );
 }
 
 export function OverlayBackdrop({
@@ -365,6 +348,7 @@ export function OverlayBackdrop({
     // Move focus into the overlay on the next frame so children rendered by
     // portals/lazy branches have mounted. Restore the prior focus target on
     // unmount when it is still connected to the document.
+    const backdrop = backdropRef.current;
     const frame = requestFrame(() => {
       const root = backdropRef.current;
       if (!root || root.contains(document.activeElement)) return;
@@ -373,47 +357,14 @@ export function OverlayBackdrop({
 
     return () => {
       cancelFrame(frame);
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        try {
-          previouslyFocused.focus({ preventScroll: true });
-        } catch {
-          // Best-effort — some elements (e.g. detached nodes during
-          // strict-mode double-mount) reject focus(); ignore silently.
-        }
-      }
+      restoreFocus(previouslyFocused, backdrop);
     };
   }, []);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(event);
-    if (event.defaultPrevented || event.key !== 'Tab') return;
-
-    const root = backdropRef.current;
-    if (!root) return;
-    const focusable = getFocusableElements(root);
-    if (focusable.length === 0) {
-      event.preventDefault();
-      root.focus({ preventScroll: true });
-      return;
-    }
-
-    // Trap Tab within the overlay. This shared primitive backs settings,
-    // importers, and rich-output popovers, so focus leakage here would make
-    // every modal surface keyboard-hostile.
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-
-    if (event.shiftKey && (active === first || !root.contains(active))) {
-      event.preventDefault();
-      last?.focus({ preventScroll: true });
-      return;
-    }
-
-    if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first?.focus({ preventScroll: true });
-    }
+    // Shared by settings, importers and rich-output popovers: focus never leaks behind the overlay.
+    if (!event.defaultPrevented && backdropRef.current) trapTab(event, backdropRef.current);
   };
 
   const backdrop = (

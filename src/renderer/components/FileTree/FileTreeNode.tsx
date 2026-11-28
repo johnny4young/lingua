@@ -13,11 +13,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
-import {
-  languageBadgeTone,
-  languageCapabilityBadgeKey,
-} from '../../utils/languageMeta';
+import { languageCapabilityBadgeKey } from '../../utils/languageMeta';
 import { Tooltip } from '../ui/chrome';
+import { LanguageSquare } from '../ui/LanguageSquare';
 import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { FileTreeContextMenu, type FileTreeContextMenuItem } from './FileTreeContextMenu';
@@ -282,7 +280,7 @@ export function FileTreeNode({
           <span className="w-3 shrink-0" />
         )}
 
-        {!node.isDirectory && <FileTreeGlyph language={node.language ?? PLAINTEXT_LANGUAGE} />}
+        {!node.isDirectory && <LanguageSquare size="sm" language={node.language ?? PLAINTEXT_LANGUAGE} />}
 
         {renaming ? (
           <FileTreeInlineInput
@@ -402,32 +400,5 @@ export function FileTreeNode({
         />
       )}
     </div>
-  );
-}
-
-/**
- * Colored filled mono glyph badge for a file row (proto lines
- * 59-60), replacing the former monochrome `FileCode` icon. Renders the
- * `languageBadgeTone` triple via inline `style` — the same token-backed
- * tone object `EditorTabs`, `FloatingActionPill`, and the open-tabs
- * foot consume, so no hardcoded color lives in this file.
- */
-function FileTreeGlyph({ language }: { language: ProjectFileTreeNode['language'] }) {
-  const tone = languageBadgeTone(language ?? PLAINTEXT_LANGUAGE);
-  return (
-    <span
-      aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-sm font-mono text-nano font-bold uppercase leading-none"
-      style={{
-        minWidth: 16,
-        height: 16,
-        padding: '0 3px',
-        letterSpacing: '0.04em',
-        background: tone.background,
-        color: tone.foreground,
-      }}
-    >
-      {tone.code}
-    </span>
   );
 }

@@ -24,13 +24,10 @@
  * no English literals.
  */
 
-import { useEffect, useId, useRef } from 'react';
-import type {
-  CSSProperties,
-  KeyboardEvent as ReactKeyboardEvent,
-  ReactNode,
-} from 'react';
+import { useId } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { cn } from '../../utils/cn';
+import { OverlayBackdrop } from './chrome';
 
 /**
  * Props for {@link ConfirmDialog}. All copy is pre-translated by the
@@ -64,26 +61,6 @@ export interface ConfirmDialogProps {
   readonly alternative?: { readonly label: string; readonly onSelect: () => void };
 }
 
-const FOCUSABLE_SELECTOR = [
-  'a[href]',
-  'button:not([disabled])',
-  'textarea:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-  ).filter(
-    (element) =>
-      !element.hasAttribute('disabled') &&
-      element.getAttribute('aria-hidden') !== 'true' &&
-      element.tabIndex !== -1
-  );
-}
-
 export function ConfirmDialog({
   title,
   body,
@@ -94,110 +71,19 @@ export function ConfirmDialog({
   testId,
   alternative,
 }: ConfirmDialogProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  const previouslyFocusedRef = useRef<HTMLElement | null>(
-    typeof document !== 'undefined' &&
-      document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
-  );
-
   const titleId = useId();
   const bodyId = useId();
 
-  // Initial focus on the SAFE action; restore the trigger's focus on
-  // unmount. Mirrors ModalShell's focus mechanics but seeds Cancel
-  // rather than the first focusable, so a reflexive Enter cancels.
-  useEffect(() => {
-    const previouslyFocused = previouslyFocusedRef.current;
-    const requestFrame =
-      typeof window.requestAnimationFrame === 'function'
-        ? window.requestAnimationFrame.bind(window)
-        : (callback: FrameRequestCallback) =>
-            window.setTimeout(() => callback(performance.now()), 0);
-    const cancelFrame =
-      typeof window.cancelAnimationFrame === 'function'
-        ? window.cancelAnimationFrame.bind(window)
-        : window.clearTimeout.bind(window);
-
-    const frame = requestFrame(() => {
-      const target =
-        cancelButtonRef.current ??
-        (containerRef.current
-          ? getFocusableElements(containerRef.current)[0]
-          : null) ??
-        containerRef.current;
-      target?.focus({ preventScroll: true });
-    });
-
-    return () => {
-      cancelFrame(frame);
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        try {
-          previouslyFocused.focus({ preventScroll: true });
-        } catch {
-          // Best-effort — detached nodes during strict-mode double-mount
-          // reject focus(); ignore silently.
-        }
-      }
-    };
-  }, []);
-
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      onCancel();
-      return;
-    }
-
-    if (event.key !== 'Tab') return;
-
-    const root = containerRef.current;
-    if (!root) return;
-    const focusable = getFocusableElements(root);
-    if (focusable.length === 0) {
-      event.preventDefault();
-      root.focus({ preventScroll: true });
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-
-    if (!root.contains(active)) {
-      event.preventDefault();
-      (event.shiftKey ? last : first)?.focus({ preventScroll: true });
-      return;
-    }
-
-    if (event.shiftKey && active === first) {
-      event.preventDefault();
-      last?.focus({ preventScroll: true });
-      return;
-    }
-
-    if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first?.focus({ preventScroll: true });
-    }
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onCancel();
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center scrim p-4"
-      style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onCancel();
-        }
-      }}
-      onKeyDown={handleKeyDown}
-    >
+    <OverlayBackdrop className="scrim z-[70]" onClose={onCancel} onKeyDown={handleKeyDown}>
       <div
-        ref={containerRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -220,7 +106,8 @@ export function ConfirmDialog({
         </div>
         <footer className="flex items-center justify-end gap-2 border-t border-border-subtle bg-bg-inset px-5 py-3">
           <button
-            ref={cancelButtonRef}
+            // The backdrop traps Tab and restores focus; starting on the SAFE action makes a reflexive Enter cancel.
+            autoFocus
             type="button"
             onClick={onCancel}
             className="button-secondary"
@@ -248,6 +135,6 @@ export function ConfirmDialog({
           </button>
         </footer>
       </div>
-    </div>
+    </OverlayBackdrop>
   );
 }

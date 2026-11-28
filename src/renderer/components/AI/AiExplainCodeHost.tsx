@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
+import { OverlayBackdrop } from '../ui/chrome';
 import { useAiExplainCodeStore } from '../../stores/aiExplainCodeStore';
 import type { ExplainCodeDialogProps } from './ExplainCodeDialog';
 import { loadAiExplainCodeDialog } from './aiExplainCodeDialogLoader';
@@ -11,8 +12,7 @@ function AiExplainCodeLoadingDialog({ onClose }: { readonly onClose: () => void 
   const { t } = useTranslation();
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    <OverlayBackdrop
       role="dialog"
       aria-modal="true"
       aria-label={t('ai.explainCode.title')}
@@ -26,7 +26,7 @@ function AiExplainCodeLoadingDialog({ onClose }: { readonly onClose: () => void 
             type="button"
             onClick={onClose}
             aria-label={t('ai.explain.close')}
-            className="focus-ring rounded p-1 text-lg leading-none text-fg-subtle hover:text-fg"
+            className="focus-ring rounded p-1 text-lg leading-none text-fg-subtle hover:text-fg-base"
           >
             ×
           </button>
@@ -43,7 +43,7 @@ function AiExplainCodeLoadingDialog({ onClose }: { readonly onClose: () => void 
           {t('ai.explainCode.loadingDialog')}
         </div>
       </div>
-    </div>
+    </OverlayBackdrop>
   );
 }
 

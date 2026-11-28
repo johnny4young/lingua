@@ -137,7 +137,7 @@ export function FloatingActionPillRunGroup({
             {bootstrapLabel ?? loadingMessage}
           </span>
         ) : null}
-        {isRunning ? (stopShortcut ? <Kbd>{stopShortcut}</Kbd> : null) : !newScratch && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
+        {isRunning ? (stopShortcut ? <Kbd className="action-pill-kbd">{stopShortcut}</Kbd> : null) : !newScratch && runShortcut ? <Kbd className="action-pill-kbd">{runShortcut}</Kbd> : null}
       </button>
       <button
         type="button"

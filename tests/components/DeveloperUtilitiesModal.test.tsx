@@ -20,6 +20,7 @@ import {
 } from '../__fixtures__/utilityPanels';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
+  Kbd: ({ children }: { children: React.ReactNode }) => <kbd>{children}</kbd>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>

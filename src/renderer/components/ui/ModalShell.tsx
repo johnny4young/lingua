@@ -26,53 +26,8 @@ import type { KeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
-
-/* ------------------------------------------------------------------ Kbd */
-
-export interface KbdProps {
-  children: ReactNode;
-  className?: string;
-}
-
-/**
- * Internal keycap used by the shell's footer rail and Esc hint. Kept
- * local to the shell so callers get a matching keycap without importing
- * the legacy `.kbd-shell` class (which carries the old rounded-lg
- * styling). Mono / 10.5px / alt-panel surface per the proposal.
- */
-export function Kbd({ children, className }: KbdProps) {
-  return (
-    <kbd
-      className={cn(
-        'inline-flex items-center gap-1 rounded-sm border border-border-subtle bg-bg-panel-alt px-1.5 py-0.5',
-        'font-mono text-eyebrow font-medium leading-none text-fg-muted',
-        className
-      )}
-    >
-      {children}
-    </kbd>
-  );
-}
-
-/* ------------------------------------------------------------ focus trap */
-
-const FOCUSABLE_SELECTOR = [
-  'a[href]',
-  'button:not([disabled])',
-  'textarea:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) =>
-      !element.hasAttribute('disabled') &&
-      element.getAttribute('aria-hidden') !== 'true' &&
-      element.tabIndex !== -1
-  );
-}
+import { Kbd } from './chrome';
+import { getFocusableElements, restoreFocus, trapTab } from './focusTrap';
 
 interface ModalShellBaseProps {
   /** Called on Escape, scrim click, and the Esc keycap / x button (caller wires it). */
@@ -222,16 +177,10 @@ export function ModalShell({
       initialTarget.focus({ preventScroll: true });
     });
 
+    const container = containerRef.current;
     return () => {
       cancelFrame(frame);
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        try {
-          previouslyFocused.focus({ preventScroll: true });
-        } catch {
-          // Best-effort — detached nodes during strict-mode double-mount
-          // reject focus(); ignore silently.
-        }
-      }
+      restoreFocus(previouslyFocused, container);
     };
   }, []);
 
@@ -242,31 +191,7 @@ export function ModalShell({
       return;
     }
 
-    if (event.key !== 'Tab') return;
-
-    const root = containerRef.current;
-    if (!root) return;
-    const focusable = getFocusableElements(root);
-    if (focusable.length === 0) {
-      event.preventDefault();
-      root.focus({ preventScroll: true });
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-
-    if (event.shiftKey && (active === first || !root.contains(active))) {
-      event.preventDefault();
-      last?.focus({ preventScroll: true });
-      return;
-    }
-
-    if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first?.focus({ preventScroll: true });
-    }
+    if (containerRef.current) trapTab(event, containerRef.current);
   };
 
   return (

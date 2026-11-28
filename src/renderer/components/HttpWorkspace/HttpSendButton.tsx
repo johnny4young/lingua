@@ -78,7 +78,7 @@ export function HttpSendButton({
           data-testid="http-request-editor-unqueue"
           aria-label={t('httpWorkspace.offline.remove')}
           title={t('httpWorkspace.offline.remove')}
-          className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg-base"
+          className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base"
         >
           <X size={12} aria-hidden="true" />
         </button>

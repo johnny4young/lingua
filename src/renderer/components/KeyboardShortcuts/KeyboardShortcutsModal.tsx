@@ -484,7 +484,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                   type="button"
                   onClick={() => setQuery('')}
                   aria-label={t('shortcuts.searchClear')}
-                  className="kbd-shell absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:text-foreground"
+                  className="kbd absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:text-foreground"
                 >
                   {t('shortcuts.kbd.escape')}
                 </button>

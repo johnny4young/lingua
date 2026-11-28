@@ -19,6 +19,7 @@ import { isLocalAiEndpoint } from '../../utils/loopbackHost';
 import { formatRunDuration } from '../../utils/timeLabels';
 import { cn } from '../../utils/cn';
 import { defineCustomThemes } from '../Editor/editorThemes';
+import { OverlayBackdrop } from '../ui/chrome';
 
 const NOTICE_KEY = 'lingua-ai-edit-preview-notice';
 const MAX_VALUE_ROWS = 6;
@@ -228,7 +229,7 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
   const provider = t(isLocalAiEndpoint(endpoint) ? 'ai.edit.provider.local' : 'ai.edit.provider.remote', { model: model || '—' });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onKeyDown={onKeyDown}>
+    <OverlayBackdrop onKeyDown={onKeyDown}>
       <div role="dialog" aria-modal="true" aria-label={t('ai.edit.title')} data-testid="ai-edit-dialog" className="flex max-h-[85vh] w-full max-w-[920px] flex-col overflow-hidden rounded-lg border border-border bg-bg-panel shadow-e3">
         <form
           className="flex h-[42px] shrink-0 items-center gap-2 border-b border-border px-3"
@@ -354,6 +355,6 @@ export function EditWithAiDialog({ request, onClose, runChatCompletionImpl, runP
           </div>
         ) : null}
       </div>
-    </div>
+    </OverlayBackdrop>
   );
 }

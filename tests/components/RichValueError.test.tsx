@@ -30,6 +30,32 @@ describe('RichValueError', () => {
     expect((items[1] as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it('opens the frame menu on the page, outside the console panel, at the pointer', () => {
+    const { container } = render(<RichValueError payload={{ kind: 'error', message: 'menu', stack: [
+      { text: 'external user', file: 'app.js', line: 4 },
+    ] }} />);
+    fireEvent.contextMenu(screen.getByText('external user'), { clientX: 40, clientY: 60 });
+    const menu = screen.getByRole('menu');
+    expect(menu.parentElement).toBe(document.body);
+    expect(container.contains(menu)).toBe(false);
+    expect(menu.style.position).toBe('fixed');
+    expect(menu.className).toContain('bg-bg-panel');
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('hands Tab back to the frame that opened the menu', () => {
+    render(<RichValueError payload={{ kind: 'error', message: 'menu', stack: [
+      { text: 'external user', file: 'app.js', line: 4 },
+    ] }} />);
+    const frame = screen.getByTestId('console-rich-error-frame-clickable');
+    fireEvent.contextMenu(frame);
+    within(screen.getByRole('menu')).getAllByRole('menuitem')[0]!.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(frame);
+  });
+
   it('renders Python cause-chain markers as non-clickable list separators', () => {
     const payload: ScopeValueError = {
       kind: 'error',

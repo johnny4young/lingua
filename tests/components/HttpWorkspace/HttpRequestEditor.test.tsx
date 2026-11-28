@@ -482,12 +482,11 @@ describe('HttpRequestEditor', () => {
       <HttpRequestEditor {...props} isExecuting={false} />
     );
 
-    for (const testId of [
-      'http-request-editor-copy-menu',
-      'http-request-editor-send',
-      'http-request-editor-tab-params',
-    ]) {
-      expect(screen.getByTestId(testId).className).toContain('focus-ring');
+    expect(screen.getByTestId('http-request-editor-tab-params').className).toContain('focus-ring');
+    // The verb and its menu wear the Run control's ring instead.
+    for (const testId of ['http-request-editor-copy-menu', 'http-request-editor-send']) {
+      expect(screen.getByTestId(testId).className).toContain('action-pill-run');
+      expect(screen.getByTestId(testId).className).not.toContain('focus-ring');
     }
 
     fireEvent.click(screen.getByTestId('http-request-editor-copy-menu'));
@@ -502,7 +501,7 @@ describe('HttpRequestEditor', () => {
 
     rerender(<HttpRequestEditor {...props} isExecuting onStop={vi.fn()} />);
     expect(screen.getByTestId('http-request-editor-stop').className).toContain(
-      'focus-ring'
+      'action-pill-run'
     );
   });
 

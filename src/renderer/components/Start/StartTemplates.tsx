@@ -6,7 +6,8 @@ import type { Language } from '../../types/language';
 import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 import { emitCommand } from '../../stores/commandBus';
-import { LanguageSquare, SectionHeading } from './StartParts';
+import { LanguageSquare } from '../ui/LanguageSquare';
+import { SectionHeading } from './StartParts';
 import { DotLeader } from '../ui/answer';
 import { isWebShell, templateLanguages, templateRows } from './startModel';
 

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { OverlayBackdrop } from '../ui/chrome';
 
 /**
  * Small startup-safe shell shown while the share implementation or encoded
@@ -9,8 +10,7 @@ export function ShareLinkLoadingDialog({ onClose }: { readonly onClose?: () => v
   const { t } = useTranslation();
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    <OverlayBackdrop
       role="dialog"
       aria-modal="true"
       aria-label={t('share.confirm.title')}
@@ -25,7 +25,7 @@ export function ShareLinkLoadingDialog({ onClose }: { readonly onClose?: () => v
               type="button"
               onClick={onClose}
               aria-label={t('share.confirm.cancel')}
-              className="focus-ring rounded p-1 text-lg leading-none text-fg-subtle hover:text-fg"
+              className="focus-ring rounded p-1 text-lg leading-none text-fg-subtle hover:text-fg-base"
             >
               ×
             </button>
@@ -43,6 +43,6 @@ export function ShareLinkLoadingDialog({ onClose }: { readonly onClose?: () => v
           {t('share.loading')}
         </div>
       </div>
-    </div>
+    </OverlayBackdrop>
   );
 }
