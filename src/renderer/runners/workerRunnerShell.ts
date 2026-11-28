@@ -367,7 +367,7 @@ export class WorkerRunnerShell {
             break;
           case 'timeline-steps': {
             const progress = sanitizeTimelineSteps(msg);
-            if (progress) context?.onTimeline?.(progress.steps, progress.ms);
+            if (progress) context?.onTimeline?.(progress);
             break;
           }
           case 'live-line': {

@@ -3,7 +3,7 @@
  * it, and the editor follows the selected step.
  */
 import type { Page } from '@playwright/test';
-import { expect, gotoApp, replaceEditorText, seedSession, test, waitForRunCompleted } from './licenseWeb.helpers';
+import { dismissWhatsNew, expect, gotoApp, replaceEditorText, seedSession, test, waitForRunCompleted } from './licenseWeb.helpers';
 
 const CODE = [
   'function double(n) { const twice = n * 2; return twice; }',
@@ -52,6 +52,38 @@ test.describe('Execution timeline', () => {
       await expect(page.getByTestId('timeline-current')).toContainText(language === 'en' ? 'line 3' : 'línea 3');
     });
   }
+
+  test('lights every line of a recorded statement that spans several, and dots a branch that never ran', async ({ page }) => {
+    const code = [
+      'const sum = [3, 6, 8]',
+      '  .map(n => n * 2)',
+      '  .reduce((a, b) => a + b, 0);',
+      'if (sum > 100) {',
+      '  console.log("big");',
+      '}',
+      'console.log(',
+      '  sum,',
+      ');',
+    ].join('\n');
+    await seedSession(page, {
+      language: 'en',
+      primeProLicense: true,
+      restoreSessionMode: 'always',
+      workflowModeDefaultsByLanguage: { javascript: 'run' },
+      savedTabs: [{ name: 'spans.js', language: 'javascript', content: code }],
+    });
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await expect(page.getByRole('button', { name: /spans\.js/ }).first()).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId('action-pill-run-menu').click();
+    await page.getByTestId('action-pill-record').click();
+    await waitForRunCompleted(page);
+    await expect(page.getByTestId('timeline-summary')).toHaveText('3 steps · recorded');
+    const rail = page.locator('.lingua-rail');
+    await expect(rail).toHaveCount(9);
+    const states = await rail.evaluateAll(nodes => nodes.map(node => /lingua-rail--([a-z-]+)/.exec(node.className)?.[1]));
+    expect(states).toEqual(['answered', 'reached', 'reached', 'answered', 'not-run', 'not-run', 'running', 'reached', 'reached']);
+  });
 
   test('Free keeps the last 20 steps', async ({ page }) => {
     await seedTimeline(page, 'en', false);

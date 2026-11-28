@@ -1,0 +1,43 @@
+/* Narrow docks: step buttons fold to their glyphs, then the panes stack and scroll together. */
+.timeline-panel {
+  container: timeline-panel / inline-size;
+}
+
+.timeline-head {
+  min-height: 34px;
+  padding-block: 3px;
+}
+
+.timeline-body {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 330px);
+}
+
+.timeline-body > section + section {
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+@container timeline-panel (max-width: 639px) {
+  .timeline-step-label {
+    display: none;
+  }
+
+  .timeline-steps > button {
+    padding-inline: 6px;
+  }
+}
+
+@container timeline-panel (max-width: 479px) {
+  .timeline-body {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .timeline-body > section {
+    overflow: visible;
+  }
+
+  .timeline-body > section + section {
+    border-left: 0;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+}

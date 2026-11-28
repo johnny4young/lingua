@@ -51,6 +51,7 @@ async function record(source: string, extra: { record?: boolean; live?: boolean;
     at: entry.at,
     ms: entry.message.ms,
     steps: mapTimelineLines(sanitizeTimeline({ steps: entry.message.steps })!, toSource).steps,
+    marks: entry.message.marks,
   }));
   const done = of('done')[0]!;
   return { timeline, progress, done, startedAt, error: of('error')[0], lives: of('live-line') };
@@ -190,6 +191,16 @@ describe('Python Record run', () => {
     const first = run.progress.find(entry => entry.steps.some(step => step.line === 9))!;
     expect(run.done.at - first.at).toBeGreaterThanOrEqual(300);
     for (const entry of run.progress) expect(entry.ms).toBeGreaterThanOrEqual(entry.steps.at(-1)!.ms!);
+  });
+
+  it('sends a print that lands after its step was posted with the next post', async () => {
+    // The busy line posts the batch as line 2 starts, before its print runs; the sleep posts again.
+    const run = await record(['total = sum(range(3_000_000))', 'print(total)', 'from time import sleep', 'sleep(0.05)'].join('\n'));
+    const posted = run.progress.findIndex(entry => entry.steps.at(-1)?.line === 2);
+    expect(posted).toBeGreaterThanOrEqual(0);
+    expect(run.progress[posted]!.steps.at(-1)!.log).toBeUndefined();
+    expect(run.progress[posted + 1]!.marks).toEqual({ log: 'log' });
+    expect(run.timeline!.steps.find(step => step.line === 2)!.log).toBe('log');
   });
 
   it('throttles posts in a busy loop and stops at the step cap', async () => {

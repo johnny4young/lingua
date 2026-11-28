@@ -1,20 +1,12 @@
 import type { UnassignedBinding } from '../../shared/scopeSnapshot';
 import type { JsWorkerDebuggerFrame, JsWorkerDebuggerSession } from './js-worker-debugger';
 
-/** Records the statement about to run as its frame's current line, and as a line the frame ran. */
-export function noteJsWorkerDebugLine(session: JsWorkerDebuggerSession, line: number): void {
-  const frame = session.frames.at(-1)!;
+/** Records the statement about to run as its frame's current line, and as a line the frame ran; that frame is now active. */
+export function noteJsWorkerDebugLine(session: JsWorkerDebuggerSession, line: number, frame: JsWorkerDebuggerFrame): void {
+  session.active = frame;
   frame.line = line;
   (frame.ran ??= new Set()).add(line);
   frame.calls?.clear();
-}
-
-/** Enters a function frame, counting it among the calls its caller's statement has started. */
-export function pushJsWorkerDebugFrame(session: JsWorkerDebuggerSession, functionName: string, line: number): void {
-  const calls = (session.frames.at(-1)!.calls ??= new Map());
-  const callIndex = (calls.get(functionName) ?? 0) + 1;
-  calls.set(functionName, callIndex);
-  session.frames.push({ functionName, declarationLine: line, line, callIndex });
 }
 
 /** The paused frame's locals, or none when reading them throws. */
@@ -43,9 +35,12 @@ export function reachJsWorkerDebugLines(session: JsWorkerDebuggerSession, line: 
   if (known === undefined || known < endLine) session.reached.set(line, endLine);
 }
 
-/** The pause's view of the run: frames newest first with their current line, every line that ran, and the paused frame's own. */
-export function jsWorkerPauseFrames(session: JsWorkerDebuggerSession): {
-  callStack: Omit<JsWorkerDebuggerFrame, 'calls' | 'ran'>[];
+/** The pause's view of the run: the paused frame and its callers newest first with their current line, every line that ran, and the paused frame's own. */
+export function jsWorkerPauseFrames(
+  session: JsWorkerDebuggerSession,
+  paused: JsWorkerDebuggerFrame
+): {
+  callStack: Omit<JsWorkerDebuggerFrame, 'calls' | 'ran' | 'parent' | 'returned'>[];
   reachedLines: number[];
   frameLines: number[];
 } {
@@ -53,10 +48,14 @@ export function jsWorkerPauseFrames(session: JsWorkerDebuggerSession): {
   for (const [start, end] of session.reached) {
     for (let line = start; line <= end; line += 1) reached.add(line);
   }
-  const paused = session.frames.at(-1)!;
+  const callStack: Omit<JsWorkerDebuggerFrame, 'calls' | 'ran' | 'parent' | 'returned'>[] = [];
+  // Copies, since the frames keep moving after the pause is posted.
+  for (let at: JsWorkerDebuggerFrame | undefined = paused; at; at = at.parent) {
+    const { calls: _calls, ran: _ran, parent: _parent, returned: _returned, ...frame } = at;
+    callStack.push(frame);
+  }
   return {
-    // Copies, since the frames keep moving after the pause is posted.
-    callStack: session.frames.map(({ calls: _calls, ran: _ran, ...frame }) => frame).reverse(),
+    callStack,
     reachedLines: [...reached].sort((a, b) => a - b),
     frameLines: [...(paused.ran ?? [])].filter(line => line !== paused.line).sort((a, b) => a - b),
   };

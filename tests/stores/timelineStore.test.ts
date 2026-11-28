@@ -87,6 +87,34 @@ describe('timeline store', () => {
     expect(useTimelineStore.getState().recording).toBeNull();
   });
 
+  it('applies the marks a batch carries to the step the previous batch ended on', () => {
+    const store = useTimelineStore.getState();
+    // Marks with no recording in flight have nowhere to go.
+    store.grow('t1', [], 5, '', { log: 'warn' });
+    expect(useTimelineStore.getState().recording).toBeNull();
+    store.grow('t1', steps(2), 10);
+    store.grow('t1', [], 20, '', { log: 'log' });
+    // The worker sends the step's marks as they stand now, so they replace the earlier ones.
+    store.grow('t1', steps(1), 30, '', { log: 'warn', error: true });
+    const recorded = useTimelineStore.getState().recording!.steps;
+    expect(recorded.map(step => [step.log, step.error])).toEqual([
+      [undefined, undefined],
+      ['warn', true],
+      [undefined, undefined],
+    ]);
+  });
+
+  it('marks the latest step of a crashed run only when it is on the line that threw', () => {
+    const store = useTimelineStore.getState();
+    store.grow('t1', [...steps(2), ...steps(2)], 10);
+    store.endLive('t1', true, 2);
+    expect(useTimelineStore.getState().recording?.steps.map(step => step.error)).toEqual([undefined, undefined, undefined, true]);
+    // An earlier pass of the line is not the step that threw: the batch with it never arrived.
+    store.grow('t1', [...steps(2), ...steps(2)], 10);
+    store.endLive('t1', true, 1);
+    expect(useTimelineStore.getState().recording?.steps.some(step => step.error)).toBe(false);
+  });
+
   it('drops the recording when its tab closes', () => {
     useEditorStore.getState().restoreTabs([{ id: 't1', name: 'a.js', language: 'javascript', content: '' }] as never, 't1');
     useTimelineStore.getState().publish('t1', { steps: steps(3), truncated: false });

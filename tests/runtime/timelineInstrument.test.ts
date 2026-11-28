@@ -47,6 +47,15 @@ describe('timeline instrumentation', () => {
     expect(steps[9]!).toMatchObject({ line: 2, depth: 2, locals: { arr: [] } });
   });
 
+  it('passes a statement its last own line, never a body without braces or a later arrow body it would claim as run', () => {
+    const ends = (source: string) =>
+      [...instrumentForTimeline(source).code.matchAll(/__lingua_rec\((\d+), \(\) => (?:\(\{\}\)|[^\n]*?\}\)\(\))(?:, (\d+))?\); /g)].map(match => [Number(match[1]), match[2] ? Number(match[2]) : undefined]);
+    expect(ends(['const total = [1, 2]', '  .map((n) => n * 2)', '  .reduce((a, b) => a + b, 0);'].join('\n'))).toEqual([[1, 3]]);
+    expect(ends(['const n = 1;', 'if (n > 100)', "  console.log('big');"].join('\n'))).toEqual([[1, undefined], [2, undefined]]);
+    expect(ends(['const twice = (x) =>', '  x * 2;'].join('\n'))).toEqual([[1, undefined]]);
+    expect(ends(['call(', '  1,', '  (x) =>', '    x * 2,', ');'].join('\n'))).toEqual([[1, 3]]);
+  });
+
   it('skips loop protection guards and leaves hoisted declarations alone', () => {
     const protectedCode = injectJSLoopProtection('let i = 0;\nwhile (i < 2) {\n  i++;\n}\nreturn hoisted();\nfunction hoisted() { return i; }', 100);
     const { steps, result } = record(protectedCode);

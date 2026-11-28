@@ -15,13 +15,13 @@ describe('instrumentForDebugger ', () => {
 
   it('passes the last line of a statement that spans several lines', () => {
     const result = instrumentForDebugger(`const a = 1;\nconst total = [1, 2].reduce(\n  (sum, n) => sum + n,\n  0\n);\n`);
-    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\), 1, "\[\{\\"name\\":\\"a\\"[^\n]*total[^\n]*\]"\);/);
-    expect(result.code).toMatch(/__lingua_dbg_yield\(2, \(\) => [^\n]*, 5, "\[\{\\"name\\":\\"total\\",\\"kind\\":\\"const\\",\\"line\\":2\}\]"\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\), 1, "\[\{\\"name\\":\\"a\\"[^\n]*total[^\n]*\]"\)\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(2, \(\) => [^\n]*, 5, "\[\{\\"name\\":\\"total\\",\\"kind\\":\\"const\\",\\"line\\":2\}\]"\)\);/);
   });
 
   it('stops the span where a debuggable function starts, so its body is reached only when called', () => {
     const result = instrumentForDebugger(`const twice = (n) => {\n  return n * 2;\n};\n`);
-    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\), 1, "\[\{\\"name\\":\\"twice\\",\\"kind\\":\\"const\\",\\"line\\":1\}\]"\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(1, \(\) => [^\n]*\}\)\(\), 1, "\[\{\\"name\\":\\"twice\\",\\"kind\\":\\"const\\",\\"line\\":1\}\]"\)\);/);
     expect(result.code).toMatch(/__lingua_dbg_yield\(2, /);
   });
 
@@ -30,7 +30,7 @@ describe('instrumentForDebugger ', () => {
       ['for (const x of [1]) {', '  if (x) {', '    [x].map((y) => {', '      return y;', '    });', '  }', '}'].join('\n')
     );
     // The loop covers only its header; each nested statement reports itself.
-    expect(result.code).toContain('__lingua_dbg_yield(1, () => ({}));');
+    expect(result.code).toContain('__lingua_dbg_at(await __lingua_dbg_yield(1, () => ({})));');
     expect(result.code).toContain('__lingua_dbg_reach(2, 2, 1);');
     expect(result.code).toContain('__lingua_dbg_reach(3, 3, 1);');
     // A plain callback has no debugger frame, so it must not move its caller's line.
@@ -59,8 +59,9 @@ describe('instrumentForDebugger ', () => {
     );
     expect(result.instrumentedLines).toEqual([2, 4, 5]);
     expect(result.code).toContain('async function add');
-    expect(result.code).toContain('const x = await add(1, 2);');
-    expect(result.code).toContain('await add(3, 4);');
+    // Each awaited call resumes in the frame that made it.
+    expect(result.code).toContain('const x = __lingua_dbg_at(await add(1, 2), 1);');
+    expect(result.code).toContain('__lingua_dbg_at(await add(3, 4), 1);');
     expect(result.code).toContain('__lingua_dbg_yield(4');
     expect(result.code).toContain('__lingua_dbg_yield(5');
     expect(result.code).not.toContain('await await __lingua_dbg_yield');
@@ -78,8 +79,36 @@ describe('instrumentForDebugger ', () => {
     expect(result.instrumentedLines).toContain(2);
     expect(result.instrumentedLines).toContain(3);
     expect(result.instrumentedLines).toContain(5);
-    expect(result.code).toContain('__lingua_dbg_frame("add", 1);');
-    expect(result.code).toContain('__lingua_dbg_pop();');
+    expect(result.code).toContain('const __lingua_dbg_f = __lingua_dbg_frame("add", 1);');
+    expect(result.code).toContain('__lingua_dbg_pop(__lingua_dbg_f);');
+    // Each yield and reach names its own invocation's frame; the top level names none.
+    expect(result.code).toMatch(/__lingua_dbg_yield\(3, [^\n]*, 3, undefined, __lingua_dbg_f\)\);/);
+    expect(result.code).toMatch(/__lingua_dbg_yield\(5, \(\) => [^\n]*\);\n/);
+    expect(result.code).not.toMatch(/__lingua_dbg_yield\(5, [^\n]*__lingua_dbg_f/);
+  });
+
+  it('resumes the awaiting frame after every await, never from a parameter or a body without a frame', () => {
+    const result = instrumentForDebugger(
+      ['async function job(ms) {', '  const v = helper(await wait(ms)) + 1;', '  return v;', '}', 'function helper(x) {', '  return x;', '}', 'const run = async (x) => await job(x);', 'await job(1);'].join('\n')
+    );
+    expect(result.code).toContain('__lingua_dbg_at(await helper(__lingua_dbg_at(await wait(ms), __lingua_dbg_f)), __lingua_dbg_f) + 1;');
+    expect(result.code).toContain('const run = async (x) => await job(x);');
+    expect(result.code).toContain('__lingua_dbg_at(await job(1), 1);');
+  });
+
+  it('passes the frame token to reach calls only inside a body that owns a frame', () => {
+    const result = instrumentForDebugger(
+      ['async function load(ids) {', '  for (const id of ids) {', '    if (id) {', '      [id].map((x) => {', '        return x;', '      });', '    }', '  }', '}', 'if (true) {', '  await load([1]);', '}'].join('\n')
+    );
+    expect(result.code).toContain('__lingua_dbg_reach(3, 3, __lingua_dbg_f);');
+    expect(result.code).toContain('__lingua_dbg_reach(5, 5, 0);');
+    expect(result.code).toContain('__lingua_dbg_reach(11, 11, 1);');
+  });
+
+  it('gives a function in a parameter default the frame token its reach calls name', () => {
+    const result = instrumentForDebugger(['function f(cb = async () => {', '  if (true) {', '    console.log(1);', '  }', '}) {', '  return cb();', '}', 'await f();'].join('\n'));
+    // The token is declared in the default's own body, which a closure in the parameter list can see.
+    expect(result.code).toMatch(/cb = async \(\) => \{\nconst __lingua_dbg_f = __lingua_dbg_frame\("<anonymous>", 1\);[^]*__lingua_dbg_reach\(3, 3, __lingua_dbg_f\);/);
   });
 
   it('keeps TDZ locals from blanking the whole locals snapshot', () => {
@@ -96,11 +125,11 @@ describe('instrumentForDebugger ', () => {
       `function f(a) {\n  var v = 1;\n  const c = a; let { l } = { l: 2 };\n  class K {}\n  return [c, l, K, v];\n}\nf(1);\n`
     );
     expect(result.code).toContain(
-      ', 2, "[{\\"name\\":\\"c\\",\\"kind\\":\\"const\\",\\"line\\":3},{\\"name\\":\\"l\\",\\"kind\\":\\"let\\",\\"line\\":3},{\\"name\\":\\"K\\",\\"kind\\":\\"class\\",\\"line\\":4}]");'
+      ', 2, "[{\\"name\\":\\"c\\",\\"kind\\":\\"const\\",\\"line\\":3},{\\"name\\":\\"l\\",\\"kind\\":\\"let\\",\\"line\\":3},{\\"name\\":\\"K\\",\\"kind\\":\\"class\\",\\"line\\":4}]", __lingua_dbg_f));'
     );
     // The second statement on line 3 still waits on its own declaration, not on the one before it.
-    expect(result.code).toContain(', 3, "[{\\"name\\":\\"l\\",\\"kind\\":\\"let\\",\\"line\\":3},{\\"name\\":\\"K\\",\\"kind\\":\\"class\\",\\"line\\":4}]");');
-    expect(result.code).toMatch(/__lingua_dbg_yield\(5, [^\n]*\}\)\(\)\);/);
+    expect(result.code).toContain(', 3, "[{\\"name\\":\\"l\\",\\"kind\\":\\"let\\",\\"line\\":3},{\\"name\\":\\"K\\",\\"kind\\":\\"class\\",\\"line\\":4}]", __lingua_dbg_f));');
+    expect(result.code).toMatch(/__lingua_dbg_yield\(5, [^\n]*\}\)\(\), 5, undefined, __lingua_dbg_f\)\);/);
     expect(result.code).not.toContain('\\"name\\":\\"v\\"');
     expect(result.code).not.toContain('\\"name\\":\\"a\\"');
   });

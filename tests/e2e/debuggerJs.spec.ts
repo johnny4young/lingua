@@ -358,6 +358,38 @@ test.describe('Debugger ', () => {
     ]);
   });
 
+  test('interleaved async calls each pause under their own caller', async ({ page }) => {
+    const source = [
+      'const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));',
+      'async function job(name, ms) {',
+      '  await wait(ms);',
+      '  const done = name;',
+      '  return done;',
+      '}',
+      "const results = await Promise.all([['slow', 60], ['fast', 5]].map(([name, ms]) => job(name, ms)));",
+      'console.log(results);',
+    ].join('\n');
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.locator('.monaco-editor').click({ position: { x: 140, y: 42 } });
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.evaluate(text => navigator.clipboard.writeText(text), source);
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V');
+    await moveEditorCursorToLine(page, 5);
+    await page.keyboard.press('Control+Shift+B');
+
+    await clickDebug(page);
+    await expectPausedAt(page, 5);
+    const rows = page.getByTestId('debugger-callstack').getByRole('listitem');
+    await expect(rows).toHaveText(['<module>:7', 'job:5']);
+    await expectLocal(page, 'name', 'fast');
+
+    await page.getByTestId('debugger-hud-continue').click();
+    await expectLocal(page, 'name', 'slow');
+    await expect(rows).toHaveText(['<module>:7', 'job:5']);
+    await page.getByTestId('debugger-hud-continue').click();
+    await waitForRunCompleted(page);
+  });
+
   test('Spanish copy keeps breakpoint actions in the Debugger panel', async ({
     browser,
   }) => {

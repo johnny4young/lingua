@@ -129,4 +129,125 @@ describe('JS worker pause frames', () => {
     const [atTop] = await debugRun(SORT, [19], 1);
     expect(atTop!.frameLines).toEqual([14, 15]);
   });
+
+  it('keeps interleaved async calls in their own frames, each under the statement that called it', async () => {
+    const source = [
+      'const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));',
+      'async function job(name, ms) {',
+      '  await wait(ms);',
+      '  const done = name;',
+      '  return done;',
+      '}',
+      // A plain callback calls without the await the debugger adds to direct calls, so the two calls interleave.
+      "const results = await Promise.all([['slow', 40], ['fast', 5]].map(([name, ms]) => job(name, ms)));",
+      'console.log(results);',
+    ].join('\n');
+    const [fast, slow] = await debugRun(source, [5], 2);
+    for (const [pause, name] of [[fast, 'fast'], [slow, 'slow']] as const) {
+      expect(pause!.locals.name).toBe(name);
+      // One frame per call, never the other job stacked on top of or under it.
+      expect(pause!.callStack.map(frame => [frame.functionName, frame.line, frame.callIndex])).toEqual([
+        ['job', 5, name === 'slow' ? 1 : 2],
+        ['<module>', 7, undefined],
+      ]);
+    }
+  });
+
+  it('holds a second call that reaches a breakpoint until the first pause resumes', async () => {
+    const source = [
+      'async function job(name) {',
+      '  const label = name;',
+      '  return label;',
+      '}',
+      "await Promise.all(['a', 'b'].map((name) => job(name)));",
+    ].join('\n');
+    const pauses = await debugRun(source, [2], 2);
+    expect(pauses.map(pause => pause.locals.name)).toEqual(['a', 'b']);
+  });
+
+  it('lands a step over in the paused call, not in another call at the same depth', async () => {
+    vi.resetModules();
+    const pauses: Paused[] = [];
+    const { createJsWorkerMessageHandler } = await import('@/workers/js-worker-execution');
+    let handler: (event: MessageEvent) => Promise<void> = async () => {};
+    vi.stubGlobal('postMessage', (message: { type: string }) => {
+      if (message.type !== 'paused') return;
+      pauses.push(message as Paused);
+      const data = pauses.length === 1 ? { type: 'step', runId: 'dbg', mode: 'over' } : { type: 'resume', runId: 'dbg' };
+      setTimeout(() => void handler({ data } as MessageEvent));
+    });
+    handler = createJsWorkerMessageHandler(globalThis as unknown as Worker);
+    const source = [
+      'const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));',
+      'async function job(name, ms) {',
+      '  const label = name;',
+      '  await wait(ms);',
+      '  return label;',
+      '}',
+      "await Promise.all([['slow', 40], ['fast', 5]].map(([name, ms]) => job(name, ms)));",
+    ].join('\n');
+    const { code } = instrumentForDebugger(source);
+    const breakpoints = [{ line: 3, mode: 'conditional', condition: "name === 'slow'" }];
+    await handler({ data: { type: 'execute', runId: 'dbg', code, debug: true, breakpoints } } as MessageEvent);
+    // The step from the slow call's first line lands on its next line, never on the fast call's.
+    expect(pauses[0]).toMatchObject({ line: 3, locals: { name: 'slow' } });
+    expect(pauses[1]).toMatchObject({ line: 4, locals: { name: 'slow' } });
+  });
+
+  it('lands a step over from the end of a call in the next call its loop starts', async () => {
+    vi.resetModules();
+    const pauses: Paused[] = [];
+    const { createJsWorkerMessageHandler } = await import('@/workers/js-worker-execution');
+    let handler: (event: MessageEvent) => Promise<void> = async () => {};
+    vi.stubGlobal('postMessage', (message: { type: string }) => {
+      if (message.type !== 'paused') return;
+      pauses.push(message as Paused);
+      const data = pauses.length === 1 ? { type: 'step', runId: 'dbg', mode: 'over' } : { type: 'resume', runId: 'dbg' };
+      setTimeout(() => void handler({ data } as MessageEvent));
+    });
+    handler = createJsWorkerMessageHandler(globalThis as unknown as Worker);
+    const source = ['function job(n) {', '  return n * 2;', '}', 'for (const x of [1, 2, 3]) {', '  job(x);', '}', "console.log('end');"].join('\n');
+    const { code } = instrumentForDebugger(source);
+    const breakpoints = [{ line: 2, mode: 'conditional', condition: 'n === 1' }];
+    await handler({ data: { type: 'execute', runId: 'dbg', code, debug: true, breakpoints } } as MessageEvent);
+    // The loop body has no pausable statement, so the step lands on the next pass's call.
+    expect(pauses[1]).toMatchObject({ line: 2, reason: 'step', locals: { n: '2' } });
+  });
+
+  it('resumes a call after its own await under the caller that made it, not the call that ran meanwhile', async () => {
+    const source = [
+      'const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));',
+      'async function helper(x) {',
+      '  const y = x;',
+      '  return y;',
+      '}',
+      'async function job(ms) {',
+      '  const v = await helper(await wait(ms));',
+      '  return v;',
+      '}',
+      'async function other() {',
+      '  await wait(1);',
+      '  await wait(100);',
+      '}',
+      'await Promise.all([() => job(20), () => other()].map((f) => f()));',
+    ].join('\n');
+    const [pause] = await debugRun(source, [3], 1);
+    expect(pause!.callStack.map(frame => [frame.functionName, frame.line])).toEqual([
+      ['helper', 3],
+      ['job', 7],
+      ['<module>', 14],
+    ]);
+  });
+
+  it('keeps the frames out of reach of user code', async () => {
+    const source = ['async function f() {', '  __lingua_dbg_f.parent = __lingua_dbg_f;', '  const a = 1;', '}', 'await f();'].join('\n');
+    const [pause] = await debugRun(source, [3], 1);
+    expect(pause!.callStack.map(frame => frame.functionName)).toEqual(['f', '<module>']);
+  });
+
+  it('reads the locals as the paused statement found them when no other pause is waiting', async () => {
+    const source = ['let count = 0;', 'Promise.resolve().then(() => count++);', 'const seen = count;'].join('\n');
+    const [pause] = await debugRun(source, [3], 1);
+    expect(pause!.locals.count).toBe('0');
+  });
 });

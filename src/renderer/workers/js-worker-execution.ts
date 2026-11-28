@@ -8,10 +8,11 @@ import {
   applyJsWorkerExecutePayload,
   createJsWorkerDebuggerSession,
   sanitizeJsWorkerWatches,
-  type JsWorkerBreakpoint,
+  type JsWorkerDebuggerFrame,
   type JsWorkerDebuggerSession,
 } from './js-worker-debugger';
-import { jsWorkerPauseFrames, noteJsWorkerDebugLine, pushJsWorkerDebugFrame, reachJsWorkerDebugLines, readJsWorkerLocals, parseJsWorkerUnassigned } from './js-worker-debugger-frames';
+import { jsWorkerPauseFrames, noteJsWorkerDebugLine, parseJsWorkerUnassigned, reachJsWorkerDebugLines, readJsWorkerLocals } from './js-worker-debugger-frames';
+import { createJsWorkerDebugHelpers, holdJsWorkerPause, jsWorkerDebugFrame, jsWorkerStepPauses } from './js-worker-debugger-stack';
 import {
   evaluateDebuggerExpression,
   renderDebuggerLogpoint,
@@ -79,7 +80,6 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       if (!session || !session.resumeResolver) return;
       if (msg.type === 'step') {
         session.stepMode = msg.mode ?? 'over';
-        session.stepDepth = session.frames.length;
       } else {
         session.stepMode = 'none';
       }
@@ -145,7 +145,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames, live?.passOrdinal);
       const timeline =
         exec.record === true
-          ? createJsWorkerTimeline(undefined, (steps, ms) => ctx.postMessage({ type: 'timeline-steps', runId, steps, ms }))
+          ? createJsWorkerTimeline(undefined, progress => ctx.postMessage({ type: 'timeline-steps', runId, ...progress }))
           : null;
       if (timeline) watchJsWorkerConsoleForTimeline(timeline);
       // A timeline that cannot be posted is dropped, so `done` still follows.
@@ -241,27 +241,29 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             line: number,
             getLocals: () => Record<string, unknown>,
             endLine = line,
-            unassigned?: string
-          ): Promise<void> => {
-            if (!session.enabled) return;
-            noteJsWorkerDebugLine(session, line);
-            const breakpoint = session.breakpoints.get(line);
-            const shouldPauseForStep =
-              session.stepMode === 'into' ||
-              (session.stepMode === 'over' && session.frames.length <= session.stepDepth) ||
-              (session.stepMode === 'out' && session.frames.length < session.stepDepth);
-            if (breakpoint || shouldPauseForStep) await pauseAt(line, getLocals, breakpoint, shouldPauseForStep, unassigned);
+            unassigned?: string, token?: unknown
+          ): Promise<unknown> => {
+            if (!session.enabled) return token;
+            const frame = jsWorkerDebugFrame(session, token);
+            noteJsWorkerDebugLine(session, line, frame);
+            const pause = session.breakpoints.has(line) || jsWorkerStepPauses(session, frame) ? holdJsWorkerPause(session, () => pauseAt(line, getLocals, unassigned, frame)) : null;
+            // The frame suspends at this yield, so control goes back to its caller until __lingua_dbg_at.
+            session.active = frame.parent ?? session.root;
+            if (pause) await pause;
             // Recorded after any pause, so a statement first reached by this pause still reads as not run.
             reachJsWorkerDebugLines(session, line, endLine);
+            return token;
           };
 
           const pauseAt = async (
             line: number,
             getLocals: () => Record<string, unknown>,
-            breakpoint: JsWorkerBreakpoint | undefined,
-            shouldPauseForStep: boolean,
-            pendingBindings: string | undefined
+            pendingBindings: string | undefined, frame: JsWorkerDebuggerFrame
           ): Promise<void> => {
+            // Decided once any earlier pause resumed, since a Continue there disarms its step.
+            const breakpoint = session.breakpoints.get(line);
+            const shouldPauseForStep = jsWorkerStepPauses(session, frame);
+            if (!breakpoint && !shouldPauseForStep) return;
             const localsRaw = readJsWorkerLocals(getLocals);
             const scope = snapshotDebuggerScope(localsRaw);
 
@@ -309,30 +311,20 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               reason,
               locals: localsSerialized,
               unassigned: parseJsWorkerUnassigned(pendingBindings),
-              ...jsWorkerPauseFrames(session),
+              ...jsWorkerPauseFrames(session, frame),
               watchResults,
               conditionError,
             });
 
             session.pausedScope = scope;
+            // A step from here lands relative to the paused frame, whatever runs while it waits.
+            session.stepFrame = frame;
             await new Promise<void>(resolve => {
               session.resumeResolver = resolve;
             });
           };
 
-          const __lingua_dbg_frame = (functionName: string, line: number): void => {
-            pushJsWorkerDebugFrame(session, functionName, line);
-          };
-
-          const __lingua_dbg_reach = (line: number, endLine: number, ownsFrame: number): void => {
-            if (!session.enabled) return;
-            if (ownsFrame) noteJsWorkerDebugLine(session, line);
-            reachJsWorkerDebugLines(session, line, endLine);
-          };
-
-          const __lingua_dbg_pop = (): void => {
-            if (session.frames.length > 1) session.frames.pop();
-          };
+          const debug = createJsWorkerDebugHelpers(session);
 
           const __lingua_capture_scope = (getters: Record<string, () => unknown>): void => {
             lexicalScopeVariables = captureLexicalScope(getters, exec.scopeDepth, marker);
@@ -358,6 +350,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             '__lingua_dbg_frame',
             '__lingua_dbg_pop',
             '__lingua_dbg_reach',
+            '__lingua_dbg_at',
             '__lingua_capture_scope',
             '__lingua_rec',
             '__lingua_rec_enter',
@@ -374,9 +367,10 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             __mc,
             __mc_tick,
             __lingua_dbg_yield,
-            __lingua_dbg_frame,
-            __lingua_dbg_pop,
-            __lingua_dbg_reach,
+            debug.frame,
+            debug.pop,
+            debug.reach,
+            debug.at,
             __lingua_capture_scope,
             timeline?.rec ?? noop,
             timeline?.enter ?? noop,

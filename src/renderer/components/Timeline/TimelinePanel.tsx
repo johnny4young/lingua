@@ -2,6 +2,7 @@ import { useMemo, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as R
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, CornerLeftUp, CornerRightUp, Redo2 } from 'lucide-react';
 import '../../i18n/timelineCatalog';
+import './timelinePanel.css';
 import type { TimelineStep } from '../../../shared/timeline';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { announce } from '../../stores/announcerStore';
@@ -70,28 +71,30 @@ export function TimelinePanel() {
   };
 
   return (
-    <div data-testid="timeline-panel" className="flex h-full min-h-0 flex-col bg-bg-panel text-body-sm">
-      <header className="flex h-[34px] shrink-0 items-center gap-3 border-b border-border-subtle px-3">
-        <EyebrowMono>{t('timeline.title')}</EyebrowMono>
-        <span className="truncate font-mono text-caption text-fg-muted" data-testid="timeline-summary">
+    <div data-testid="timeline-panel" className="timeline-panel flex h-full min-h-0 flex-col bg-bg-panel text-body-sm">
+      <header className="timeline-head flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-subtle px-3">
+        <EyebrowMono className="whitespace-nowrap">{t('timeline.title')}</EyebrowMono>
+        <span className="min-w-0 truncate font-mono text-caption text-fg-muted" data-testid="timeline-summary">
           {t('timeline.summary', { count: recording.total })}
           {recording.truncated ? ` · ${t('timeline.truncated', { count: recording.total })}` : ''}
         </span>
-        <span className="flex-1" />
-        {STEP_BUTTONS.map(button => (
-          <button
-            key={button.id}
-            type="button"
-            className="button-secondary inline-flex h-[26px] shrink-0 items-center gap-1 px-[9px] text-caption"
-            aria-label={t(`timeline.${button.id}Label`)}
-            onClick={() => move(button.move, button.backward)}
-            data-testid={`timeline-${button.id}`}
-          >
-            {button.backward ? <button.icon size={12} aria-hidden="true" /> : null}
-            {t(`timeline.${button.id}`)}
-            {button.backward ? null : <button.icon size={12} aria-hidden="true" />}
-          </button>
-        ))}
+        <div className="timeline-steps ml-auto flex shrink-0 items-center gap-1.5">
+          {STEP_BUTTONS.map(button => (
+            <button
+              key={button.id}
+              type="button"
+              className="button-secondary inline-flex h-[26px] shrink-0 items-center gap-1 px-[9px] text-caption"
+              aria-label={t(`timeline.${button.id}Label`)}
+              title={t(`timeline.${button.id}Label`)}
+              onClick={() => move(button.move, button.backward)}
+              data-testid={`timeline-${button.id}`}
+            >
+              {button.backward ? <button.icon size={12} aria-hidden="true" /> : null}
+              <span className="timeline-step-label">{t(`timeline.${button.id}`)}</span>
+              {button.backward ? null : <button.icon size={12} aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
       </header>
 
       {count === 0 ? (

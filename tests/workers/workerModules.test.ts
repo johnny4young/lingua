@@ -65,7 +65,7 @@ describe('JavaScript worker responsibility modules', () => {
   it('normalizes debugger payloads into fresh session state', () => {
     const session = createJsWorkerDebuggerSession('run-1');
     session.stepMode = 'into';
-    session.frames.push({ functionName: 'stale', declarationLine: 9, line: 9 });
+    session.active = { functionName: 'stale', declarationLine: 9, line: 9, parent: session.root };
     session.reached.set(4, 4);
 
     applyJsWorkerExecutePayload(session, {
@@ -84,9 +84,10 @@ describe('JavaScript worker responsibility modules', () => {
       enabled: true,
       watches: ['value'],
       stepMode: 'none',
-      stepDepth: 0,
-      frames: [{ functionName: '<module>', line: 0 }],
+      stepFrame: null,
+      root: { functionName: '<module>', line: 0 },
     });
+    expect(session.active).toBe(session.root);
     expect(session.reached.size).toBe(0);
     expect([...session.breakpoints]).toEqual([
       [3, { mode: 'conditional', condition: 'ready', logMessage: '' }],

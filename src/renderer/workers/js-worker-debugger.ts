@@ -38,10 +38,33 @@ export interface JsWorkerDebuggerFrame {
   calls?: Map<string, number>;
   /** Every statement line this invocation has started. */
   ran?: Set<number>;
+  /** The call has returned. */
+  returned?: true;
+  /** The frame that was running when this one was called; absent on the top level. */
+  parent?: JsWorkerDebuggerFrame;
 }
 
 /** The top level is the outermost frame, as native runtimes report it; its line is 0 until a statement runs. */
 const moduleFrame = (): JsWorkerDebuggerFrame => ({ functionName: '<module>', line: 0 });
+
+type JsWorkerRunState = Pick<JsWorkerDebuggerSession, 'stepMode' | 'stepFrame' | 'root' | 'active' | 'frames' | 'reached' | 'resumeResolver' | 'held' | 'waiting' | 'pausedScope'>;
+
+/** What each run starts from; nothing of a previous run's frames, steps or pauses carries over. */
+function freshRunState(): JsWorkerRunState {
+  const root = moduleFrame();
+  return {
+    stepMode: 'none',
+    stepFrame: null,
+    root,
+    active: root,
+    frames: new WeakMap(),
+    reached: new Map(),
+    resumeResolver: null,
+    held: Promise.resolve(),
+    waiting: 0,
+    pausedScope: null,
+  };
+}
 
 export interface JsWorkerDebuggerSession {
   runId: string;
@@ -49,11 +72,21 @@ export interface JsWorkerDebuggerSession {
   breakpoints: Map<number, JsWorkerBreakpoint>;
   watches: string[];
   stepMode: JsWorkerStepMode;
-  stepDepth: number;
-  frames: JsWorkerDebuggerFrame[];
+  /** The frame a step started from; a sibling call at the same depth is not where it lands. */
+  stepFrame: JsWorkerDebuggerFrame | null;
+  /** The top level; every call's frame chains up to it through `parent`. */
+  root: JsWorkerDebuggerFrame;
+  /** The frame whose statement ran last, the caller of the next frame entered. */
+  active: JsWorkerDebuggerFrame;
+  /** The frame behind each token the worker handed out, while its call runs; user code only ever holds the token. */
+  frames: WeakMap<object, JsWorkerDebuggerFrame>;
   /** First line of each statement that ran, mapped to its last line. */
   reached: Map<number, number>;
   resumeResolver: (() => void) | null;
+  /** Settles once the latest pause resumes; a call that reaches a pause meanwhile waits on it. */
+  held: Promise<void>;
+  /** Pauses running or waiting to. */
+  waiting: number;
   pausedScope: DebuggerScopeSnapshot | null;
   resultMarker: string;
 }
@@ -64,12 +97,7 @@ export function createJsWorkerDebuggerSession(runId: string): JsWorkerDebuggerSe
     enabled: false,
     breakpoints: new Map(),
     watches: [],
-    stepMode: 'none',
-    stepDepth: 0,
-    frames: [moduleFrame()],
-    reached: new Map(),
-    resumeResolver: null,
-    pausedScope: null,
+    ...freshRunState(),
     resultMarker: '',
   };
 }
@@ -95,10 +123,5 @@ export function applyJsWorkerExecutePayload(
     }
   }
   session.watches = sanitizeJsWorkerWatches(message.watches);
-  session.stepMode = 'none';
-  session.stepDepth = 0;
-  session.frames = [moduleFrame()];
-  session.reached = new Map();
-  session.resumeResolver = null;
-  session.pausedScope = null;
+  Object.assign(session, freshRunState());
 }

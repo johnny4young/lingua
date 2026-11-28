@@ -37,7 +37,7 @@ describe('streamed progress', () => {
     const step = (line: number, ms: number) => ({ line, frames: [], vars: [], ms });
     const runner = {
       execute: vi.fn(async (_code: string, context?: ExecutionContext) => {
-        context?.onTimeline?.([step(1, 0), step(3, 5)], 12);
+        context?.onTimeline?.({ steps: [step(1, 0), step(3, 5)], ms: 12 });
         await gate;
         return { stdout: [], stderr: [], executionTime: 1 };
       }),

@@ -6,7 +6,7 @@ import {
   TIMELINE_PROGRESS_MS,
   TIMELINE_VALUE_MAX_CHARS,
   sanitizeTimeline,
-  type ExecutionTimeline,
+  type TimelineProgress,
 } from '../../shared/timeline';
 import type { PythonWorkerPort } from './python-worker-protocol';
 import type { PyodideRuntime } from './python-worker-runtime';
@@ -269,15 +269,21 @@ def __lingua_trace_unwind(code, offset, exception):
 
 
 def __lingua_trace_flush():
+    # Also posts the marks the last posted step got after it went out, such as its line's print.
     state = __lingua_trace_state
-    if state is None or state["sent"] >= len(state["steps"]):
+    if state is None:
+        return
+    steps = state["steps"]
+    start = state["sent"]
+    marks = state["late"]
+    if start >= len(steps) and marks is None:
         return
     now = __lingua_trace_clock()
-    start = state["sent"]
-    state["sent"] = len(state["steps"])
+    state["sent"] = len(steps)
+    state["late"] = None
     state["flushed"] = now
     try:
-        __lingua_post_trace(__lingua_json.dumps({"steps": state["steps"][start:], "ms": __lingua_trace_ms(state, now)}))
+        __lingua_post_trace(__lingua_json.dumps({"steps": steps[start:], "ms": __lingua_trace_ms(state, now), **({"marks": marks} if marks else {})}))
     except Exception:  # noqa: BLE001 — the final timeline still carries every step
         pass
 
@@ -290,6 +296,8 @@ def __lingua_trace_log(method):
     mark = method if method in __lingua_trace_logs else "log"
     if __lingua_trace_logs[mark] > __lingua_trace_logs.get(step.get("log"), 0):
         step["log"] = mark
+        if state["sent"] == len(state["steps"]):
+            state["late"] = {"log": mark}
 
 
 def __lingua_trace_begin(source, namespace):
@@ -306,7 +314,7 @@ def __lingua_trace_begin(source, namespace):
     mon.register_callback(tool, events.PY_UNWIND, __lingua_trace_unwind)
     now = __lingua_trace_clock()
     __lingua_trace_state = {
-        "tool": tool, "start": now, "overhead": 0.0, "flushed": now, "steps": [], "sent": 0, "chars": 0,
+        "tool": tool, "start": now, "overhead": 0.0, "flushed": now, "steps": [], "sent": 0, "late": None, "chars": 0,
         "truncated": False, "skip": skip, "traced": {}, "calls": {}, "next_call": 0, "previous": {},
         "module_names": names, "binds": binds, "baseline": dict(namespace), "loops": loops, "owner": owner, "ran": set(), "locals": {}, "injected": {},
     }
@@ -350,8 +358,8 @@ export async function startPythonTrace(
   if (!run) return null;
   const runPython = (source: string) => run(source, { filename: '<lingua-trace>' });
   py.globals.set('__lingua_post_trace', (json: string) => {
-    const progress = JSON.parse(json) as { steps: unknown; ms: number };
-    port.postMessage({ type: 'timeline-steps', runId, steps: progress.steps as ExecutionTimeline['steps'], ms: progress.ms });
+    const progress = JSON.parse(json) as TimelineProgress;
+    port.postMessage({ type: 'timeline-steps', runId, ...progress });
   });
   if (!prepared.has(py)) {
     await py.runPythonAsync(PYTHON_TRACE_SOURCE, { filename: '<lingua-trace>' });

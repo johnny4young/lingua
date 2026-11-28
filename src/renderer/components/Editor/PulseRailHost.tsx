@@ -96,6 +96,13 @@ export function PulseRailHost({
   );
   const model = useSyncExternalStore(subscribeModel, () => editor?.getModel() ?? null);
 
+  // A recorded statement that spans several lines ran on all of its own lines.
+  const recordedEnd = useMemo(() => {
+    const ends = new Map<number, number>();
+    for (const { line, end } of recording?.steps ?? []) if (end !== undefined && end > (ends.get(line) ?? line)) ends.set(line, end);
+    return ends.size > 0 ? (line: number) => ends.get(line) ?? line : null;
+  }, [recording?.steps]);
+
   const source = useMemo<Omit<PulseRailInput, 'lines'> | null>(() => {
     if (!tabId) return null;
     const ownsResults = results.ranTab === tabId;
@@ -110,23 +117,24 @@ export function PulseRailHost({
     const answered = ownsResults && !complete ? [...results.lineResults, ...results.lineTimings].map(entry => entry.line) : [];
     const step = recording && timelineOpen ? recording.steps[current] : undefined;
     return {
+      ...(recordedEnd ? { statementEnd: recordedEnd } : {}),
       executed: [...stepLines, ...answered],
       complete,
       frontier: railFrontier(pausedLine, step, ownsResults ? results.errorLine : null),
       finished: ownsResults && !results.running && results.succeeded && !results.failed,
       ...(ownsResults && results.span ? { span: results.span } : {}),
     };
-  }, [tabId, results, recording, timelineOpen, current, pausedLine, pausedReached]);
+  }, [tabId, results, recording, recordedEnd, timelineOpen, current, pausedLine, pausedReached]);
 
   // Rebuilt when the run or its frontier changes, never on edits: Monaco carries the marks with the text.
   const rail = useMemo(() => {
     if (!model || !source || held) return [];
     const lines = model.getLinesContent();
-    // Brace languages would read a block's body as part of its header, such as an if that never entered.
+    // Brace languages read spans from the recording: from the text, a block's body would read as part of its header.
     const statementEnd =
       model.getLanguageId() === 'python'
         ? (line: number) => statementEndLine(at => lines[at - 1] ?? '', line, lines.length, 'python')
-        : undefined;
+        : source.statementEnd;
     return buildPulseRail({ ...source, lines, ...(statementEnd ? { statementEnd } : {}) });
   }, [model, source, held]);
   useEffect(() => {
