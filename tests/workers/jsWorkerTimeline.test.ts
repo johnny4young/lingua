@@ -6,11 +6,11 @@ vi.hoisted(() => {
   (globalThis as { self?: unknown }).self = globalThis;
 });
 
-import type { ExecutionTimeline } from '@/../shared/timeline';
+import type { ExecutionTimeline, TimelineProgress } from '@/../shared/timeline';
 import { TIMELINE_MAX_FRAMES, TIMELINE_MAX_STEPS, TIMELINE_MAX_VARS } from '@/../shared/timeline';
 import { instrumentForTimeline } from '@/runtime/timelineInstrument';
 import { createJsWorkerTimeline, previewTimelineValue } from '@/workers/js-worker-timeline';
-import { sanitizeTimeline } from '@/../shared/timeline';
+import { sanitizeTimeline, sanitizeTimelineSteps } from '@/../shared/timeline';
 
 type Message = { type: string; [key: string]: unknown };
 
@@ -76,7 +76,7 @@ describe('JS worker timeline', () => {
   it('posts steps at most once per progress window and none after the snapshot', () => {
     let clock = 0;
     const posts: number[][] = [];
-    const timeline = createJsWorkerTimeline(() => clock, steps => posts.push(steps.map(step => step.line)));
+    const timeline = createJsWorkerTimeline(() => clock, ({ steps }) => posts.push(steps.map(step => step.line)));
     timeline.rec(1, () => ({}));
     clock = 50;
     timeline.rec(2, () => ({}));
@@ -93,6 +93,37 @@ describe('JS worker timeline', () => {
     timeline.snapshot();
     timeline.flushSteps();
     expect(posts).toHaveLength(2);
+  });
+
+  it('sends the marks a posted step gets later with the next post, so a run cut short keeps them', () => {
+    let clock = 0;
+    const posts: TimelineProgress[] = [];
+    // Cloned as postMessage does, so later marks do not reach what was already posted.
+    const timeline = createJsWorkerTimeline(() => clock, progress => posts.push(structuredClone(progress)));
+    clock = 120;
+    // The step posts as it is recorded, before its statement logs.
+    timeline.rec(1, () => ({}));
+    timeline.noteConsole('warn');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.steps[0]!.log).toBeUndefined();
+    timeline.flushSteps();
+    expect(posts[1]).toMatchObject({ steps: [], marks: { log: 'warn' } });
+    timeline.flushSteps();
+    expect(posts).toHaveLength(2);
+    timeline.rec(2, () => ({}));
+    timeline.noteConsole('log');
+    timeline.flushSteps();
+    expect(posts[2]).toMatchObject({ steps: [{ line: 2, log: 'log' }] });
+    expect(posts[2]!.marks).toBeUndefined();
+  });
+
+  it('records the last own line of a statement that spans several', async () => {
+    const { timeline } = await record(['const total = [1, 2]', '  .map(n => n * 2)', '  .reduce((a, b) => a + b, 0);', 'if (total > 0) {', '  console.log(total);', '}'].join('\n'));
+    expect(timeline?.steps.map(step => [step.line, step.end])).toEqual([
+      [1, 3],
+      [4, undefined],
+      [5, undefined],
+    ]);
   });
 
   it('posts no timeline for a normal run', async () => {
@@ -236,6 +267,13 @@ describe('timeline value preview', () => {
     expect(sanitizeTimeline({ steps: [{ line: 2, ms: -1 }], ms: Number.NaN })?.steps[0]).not.toHaveProperty('ms');
     expect(sanitizeTimeline({ steps: [], ms: Number.POSITIVE_INFINITY })).not.toHaveProperty('ms');
     expect(sanitizeTimeline({ steps: 'no' })).toBeUndefined();
+  });
+
+  it('keeps a span only past its own line, and a batch of only late marks', () => {
+    expect(sanitizeTimeline({ steps: [{ line: 2, end: 4 }, { line: 3, end: 3 }, { line: 5, end: 'x' }, { line: 0, end: 2 }] })!.steps.map(step => step.end)).toEqual([4, undefined, undefined, undefined]);
+    expect(sanitizeTimelineSteps({ steps: [], ms: 5, marks: { log: 'warn', error: 'yes' } })).toEqual({ steps: [], ms: 5, marks: { log: 'warn' } });
+    expect(sanitizeTimelineSteps({ steps: [], ms: 5, marks: { log: 'shout' } })).toBeNull();
+    expect(sanitizeTimelineSteps({ steps: [], ms: 5, marks: null })).toBeNull();
   });
 });
 

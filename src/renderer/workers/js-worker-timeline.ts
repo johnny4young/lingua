@@ -7,6 +7,7 @@ import {
   TIMELINE_VALUE_MAX_CHARS,
   type ExecutionTimeline,
   type TimelineFrame,
+  type TimelineProgress,
   type TimelineStep,
 } from '../../shared/timeline';
 
@@ -67,12 +68,13 @@ export function previewTimelineValue(value: unknown, depth = 0): string {
 }
 
 export interface JsWorkerTimeline {
-  rec: (line: unknown, getLocals: unknown) => void;
+  /** `end` is the statement's last own line when it spans several. */
+  rec: (line: unknown, getLocals: unknown, end?: unknown) => void;
   enter: (name: unknown, line: unknown) => void;
   exit: () => void;
   noteConsole: (method: ConsoleMethod) => void;
   noteError: () => void;
-  /** Posts the steps since the last post; nothing once `snapshot` has run, which also stops the timer. */
+  /** Posts the steps since the last post and any marks the last posted step got since; nothing once `snapshot` has run, which also stops the timer. */
   flushSteps: () => void;
   snapshot: () => ExecutionTimeline;
 }
@@ -94,7 +96,7 @@ function safeName(name: unknown): string {
  */
 export function createJsWorkerTimeline(
   now: () => number = () => performance.now(),
-  postSteps?: (steps: TimelineStep[], ms: number) => void
+  postSteps?: (progress: TimelineProgress) => void
 ): JsWorkerTimeline {
   const steps: TimelineStep[] = [];
   const startedAt = now();
@@ -109,13 +111,20 @@ export function createJsWorkerTimeline(
   let lastCall = 0;
   let truncated = false;
   let chars = 0;
+  // Marks the last posted step got after it went out; they travel with the next post.
+  let late: TimelineProgress['marks'];
+  const mark = (step: TimelineStep) => {
+    if (steps.length === sent) late = { ...(step.log ? { log: step.log } : {}), ...(step.error ? { error: true as const } : {}) };
+  };
   const flushSteps = () => {
-    if (ended || !postSteps || sent >= steps.length) return;
+    if (ended || !postSteps || (sent >= steps.length && !late)) return;
     const fresh = steps.slice(sent);
+    const marks = late;
     sent = steps.length;
+    late = undefined;
     flushedAt = now();
     try {
-      postSteps(fresh, elapsedAt(flushedAt));
+      postSteps({ steps: fresh, ms: elapsedAt(flushedAt), ...(marks ? { marks } : {}) });
     } catch {
       // The final timeline still carries every step.
     }
@@ -124,7 +133,7 @@ export function createJsWorkerTimeline(
   const timer = postSteps ? setInterval(flushSteps, TIMELINE_PROGRESS_MS) : null;
 
   return {
-    rec: (line, getLocals) => {
+    rec: (line, getLocals, end) => {
       let entered: number | null = null;
       try {
         frames[frames.length - 1]!.line = safeLine(line);
@@ -157,7 +166,9 @@ export function createJsWorkerTimeline(
           return;
         }
         const ms = elapsedAt(entered);
-        steps.push({ line: frames[frames.length - 1]!.line, frames: kept, vars, depth: frames.length - 1, call: calls[calls.length - 1]!, ms });
+        const step: TimelineStep = { line: frames[frames.length - 1]!.line, frames: kept, vars, depth: frames.length - 1, call: calls[calls.length - 1]!, ms };
+        if (safeLine(end) > step.line) step.end = safeLine(end);
+        steps.push(step);
         if (entered - flushedAt >= TIMELINE_PROGRESS_MS) flushSteps();
       } catch {
         truncated = true;
@@ -178,11 +189,17 @@ export function createJsWorkerTimeline(
     },
     noteConsole: method => {
       const step = steps[steps.length - 1];
-      if (step && (!step.log || LOG_WEIGHT[method] > LOG_WEIGHT[step.log])) step.log = method;
+      if (step && (!step.log || LOG_WEIGHT[method] > LOG_WEIGHT[step.log])) {
+        step.log = method;
+        mark(step);
+      }
     },
     noteError: () => {
       const step = steps[steps.length - 1];
-      if (step) step.error = true;
+      if (step) {
+        step.error = true;
+        mark(step);
+      }
     },
     flushSteps,
     snapshot: () => {

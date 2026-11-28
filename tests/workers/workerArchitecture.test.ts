@@ -57,6 +57,7 @@ const MODULE_BUDGETS = {
   'js-worker-runtime.ts': 220,
   'js-worker-debugger.ts': 130,
   'js-worker-debugger-frames.ts': 80,
+  'js-worker-debugger-stack.ts': 60,
   'debuggerExpression.ts': 560,
   'js-worker-stdin.ts': 60,
   'js-worker-live.ts': 150,

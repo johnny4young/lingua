@@ -856,7 +856,11 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
       const step = (line: number, ms: number) => ({ line, frames: [{ name: '<module>', line }], vars: [['total', '0']], depth: 0, call: 0, ms });
       workers[0]!.emit({ type: 'timeline-steps', runId, steps: [step(1, 0), step(3, 1), step(6, 2)], ms: 3 });
       workers[0]!.emit({ type: 'timeline-steps', runId, steps: [], ms: 4 });
-      expect(onTimeline.mock.calls).toEqual([[[step(1, 0), step(2, 1), step(3, 2)], 3]]);
+      workers[0]!.emit({ type: 'timeline-steps', runId, steps: [], ms: 4, marks: { log: 'log' } });
+      expect(onTimeline.mock.calls).toEqual([
+        [{ steps: [step(1, 0), step(2, 1), step(3, 2)], ms: 3 }],
+        [{ steps: [], ms: 4, marks: { log: 'log' } }],
+      ]);
       workers[0]!.emit({ type: 'timeline', runId, timeline: { steps: [step(1, 0), step(6, 2)], truncated: false, ms: 5 } });
       workers[0]!.emit({ type: 'done', runId, executionTime: 5 });
       const result = await run;

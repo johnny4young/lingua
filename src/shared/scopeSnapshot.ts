@@ -169,6 +169,7 @@ export const INTERNAL_JS_SYMBOLS: ReadonlySet<string> = new Set([
   '__lingua_dbg_frame',
   '__lingua_dbg_pop',
   '__lingua_dbg_reach',
+  '__lingua_dbg_at',
   // Stdin helpers installed dynamically before user code runs .
   'prompt',
   'readline',

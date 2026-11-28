@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { isEntitled } from '../../shared/entitlements';
-import { TIMELINE_FREE_STEPS, TIMELINE_MAX_STEPS, type ExecutionTimeline, type TimelineStep } from '../../shared/timeline';
+import { TIMELINE_FREE_STEPS, TIMELINE_MAX_STEPS, type ExecutionTimeline, type TimelineStep, type TimelineStepMarks } from '../../shared/timeline';
 import { currentEffectiveTier } from './licenseSelectors';
 import { useEditorStore } from './editorStore';
 import { findTimelineStep, type TimelineMove } from '../utils/timelineModel';
@@ -27,10 +27,10 @@ interface TimelineState {
   recording: TimelineRecording | null;
   current: number;
   publish: (tabId: string, timeline: ExecutionTimeline, code?: string) => void;
-  /** Appends the steps a recording in flight posted; the first call starts it. */
-  grow: (tabId: string, steps: TimelineStep[], ms: number, code?: string) => void;
-  /** A recording in flight whose run ended without its timeline: kept as cut short, or dropped. */
-  endLive: (tabId: string, keep: boolean) => void;
+  /** Appends the steps a recording in flight posted, after `marks` for the step it posted last; the first call starts it. */
+  grow: (tabId: string, steps: TimelineStep[], ms: number, code?: string, marks?: TimelineStepMarks) => void;
+  /** A recording in flight whose run ended without its timeline: kept as cut short, or dropped. A run that threw marks its latest step on `errorLine`. */
+  endLive: (tabId: string, keep: boolean, errorLine?: number) => void;
   select: (index: number) => void;
   /** Moves by `delta` steps; at the first or last step it bumps `blocked` instead, as `go` does. */
   step: (delta: number) => boolean;
@@ -67,6 +67,13 @@ function recordingOf(tabId: string, timeline: ExecutionTimeline, total: number, 
   };
 }
 
+/** Replaces the marks of `steps[index]` in place; `steps` must be a fresh array. */
+function mark(steps: TimelineStep[], index: number, marks: TimelineStepMarks): TimelineStep[] {
+  const step = steps[index];
+  if (step) steps[index] = { ...step, ...marks };
+  return steps;
+}
+
 /** A recording goes with its tab, so a closed tab does not keep its steps in memory. */
 function dropRecordingWithItsTab(): void {
   if (watchingTabs) return;
@@ -86,13 +93,15 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     const recording = recordingOf(tabId, timeline, timeline.steps.length, entitledNow(), code);
     set({ recording, current: Math.max(0, recording.steps.length - 1) });
   },
-  grow: (tabId, steps, ms, code = '') => {
+  grow: (tabId, steps, ms, code = '', marks) => {
     const previous = get().recording;
     // One recording in flight at a time: another tab's steps wait for its own final timeline.
     if (previous?.live && previous.tabId !== tabId) return;
     const growing = previous?.live ? previous : null;
+    if (!growing && steps.length === 0) return;
     dropRecordingWithItsTab();
     const joined = (growing ? growing.steps.concat(steps) : steps).slice(0, TIMELINE_MAX_STEPS);
+    if (growing && marks) mark(joined, growing.steps.length - 1, marks);
     const total = Math.min(TIMELINE_MAX_STEPS, (growing?.total ?? 0) + steps.length);
     const entitled = growing ? growing.entitled : entitledNow();
     const recording = { ...recordingOf(tabId, { steps: joined, truncated: false, ms }, total, entitled, growing?.code ?? code), live: true as const };
@@ -100,7 +109,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     const following = !growing || !entitled || get().current >= growing.steps.length - 1;
     set({ recording, current: following ? Math.max(0, recording.steps.length - 1) : get().current });
   },
-  endLive: (tabId, keep) => {
+  endLive: (tabId, keep, errorLine) => {
     const recording = get().recording;
     if (!recording?.live || recording.tabId !== tabId) return;
     if (!keep) {
@@ -108,7 +117,10 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
       return;
     }
     const { live: _live, ...rest } = recording;
-    set({ recording: { ...rest, truncated: true } });
+    let thrown = errorLine === undefined ? -1 : rest.steps.length - 1;
+    while (thrown >= 0 && rest.steps[thrown]!.line !== errorLine) thrown -= 1;
+    const steps = thrown < 0 ? rest.steps : mark([...rest.steps], thrown, { error: true });
+    set({ recording: { ...rest, truncated: true, steps } });
   },
   select: index => {
     const count = get().recording?.steps.length ?? 0;

@@ -27,6 +27,8 @@ export interface TimelineFrame {
 
 export interface TimelineStep {
   line: number;
+  /** Last line the statement covers on its own, when it spans several. */
+  end?: number;
   /** Innermost frame last; `<module>` first. */
   frames: TimelineFrame[];
   /** Call depth, which `frames` loses past its cap. */
@@ -40,6 +42,16 @@ export interface TimelineStep {
   error?: true;
   /** Run time in ms when the step began, without the recorder's own time. */
   ms?: number;
+}
+
+/** Marks the previous batch's last step got after it was posted: its current ones, which replace those it went out with. */
+export type TimelineStepMarks = Pick<TimelineStep, 'log' | 'error'>;
+
+/** What a recording in flight posts: its new steps, the run time at the post, and late marks. */
+export interface TimelineProgress {
+  steps: TimelineStep[];
+  ms: number;
+  marks?: TimelineStepMarks;
 }
 
 export interface ExecutionTimeline {
@@ -57,6 +69,15 @@ const LOGS = new Set(['log', 'info', 'warn', 'error']);
 const isCount = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const isTime = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
+/** A step's console and error marks from worker data, or undefined when it has none. */
+function marksOf(value: unknown): TimelineStepMarks | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  const log = typeof raw.log === 'string' && LOGS.has(raw.log) ? (raw.log as TimelineStep['log']) : undefined;
+  if (!log && raw.error !== true) return undefined;
+  return { ...(log ? { log } : {}), ...(raw.error === true ? { error: true as const } : {}) };
+}
+
 /** Re-applies the caps and types to a timeline from the worker, which user code can reach. */
 export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined {
   if (!value || typeof value !== 'object' || !Array.isArray((value as ExecutionTimeline).steps)) return undefined;
@@ -67,8 +88,10 @@ export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined 
     const step = item as Record<string, unknown>;
     const frames = Array.isArray(step.frames) ? step.frames.slice(-TIMELINE_MAX_FRAMES) : [];
     const vars = Array.isArray(step.vars) ? step.vars.slice(0, TIMELINE_MAX_VARS) : [];
+    const line = lineOf(step.line);
     steps.push({
-      line: lineOf(step.line),
+      line,
+      ...(line > 0 && lineOf(step.end) > line ? { end: step.end as number } : {}),
       frames: frames.map(frame => ({
         name: text((frame as TimelineFrame | null)?.name, '<anonymous>'),
         line: lineOf((frame as TimelineFrame | null)?.line),
@@ -76,8 +99,7 @@ export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined 
       vars: vars.map(pair => [text(Array.isArray(pair) ? pair[0] : ''), text(Array.isArray(pair) ? pair[1] : '')]),
       ...(isCount(step.depth) ? { depth: step.depth } : {}),
       ...(isCount(step.call) ? { call: step.call } : {}),
-      ...(typeof step.log === 'string' && LOGS.has(step.log) ? { log: step.log as TimelineStep['log'] } : {}),
-      ...(step.error === true ? { error: true as const } : {}),
+      ...marksOf(step),
       ...(isTime(step.ms) ? { ms: step.ms } : {}),
     });
   }
@@ -85,22 +107,30 @@ export function sanitizeTimeline(value: unknown): ExecutionTimeline | undefined 
   return { steps, truncated: raw.truncated === true || raw.steps.length > TIMELINE_MAX_STEPS, ...(isTime(ms) ? { ms } : {}) };
 }
 
-/** Steps a recording in flight posted, re-checked like the whole timeline; null when there is nothing to show. */
-export function sanitizeTimelineSteps(message: { steps: unknown; ms: unknown }): { steps: TimelineStep[]; ms: number } | null {
-  const progress = sanitizeTimeline({ steps: message.steps, ms: message.ms });
-  return progress?.ms !== undefined && progress.steps.length > 0 ? { steps: progress.steps, ms: progress.ms } : null;
+
+/** A batch a recording in flight posted, re-checked like the whole timeline; null when there is nothing to show. */
+export function sanitizeTimelineSteps(message: { steps: unknown; ms: unknown; marks?: unknown }): TimelineProgress | null {
+  const progress = sanitizeTimeline({ steps: Array.isArray(message.steps) ? message.steps : [], ms: message.ms });
+  const marks = marksOf(message.marks);
+  if (progress?.ms === undefined || (progress.steps.length === 0 && !marks)) return null;
+  return { steps: progress.steps, ms: progress.ms, ...(marks ? { marks } : {}) };
 }
+
 
 /** Maps each step's and frame's line, as runners do for code they rewrote before it ran. */
 export function mapTimelineLines(timeline: ExecutionTimeline, map: (line: number) => number | undefined): ExecutionTimeline {
   const to = (line: number) => (line > 0 ? (map(line) ?? line) : line);
   return {
     ...timeline,
-    steps: timeline.steps.map(step => ({ ...step, line: to(step.line), frames: step.frames.map(frame => ({ ...frame, line: to(frame.line) })) })),
+    steps: timeline.steps.map(({ end, ...step }) => {
+      const line = to(step.line);
+      const last = end === undefined ? line : to(end);
+      return { ...step, line, ...(last > line ? { end: last } : {}), frames: step.frames.map(frame => ({ ...frame, line: to(frame.line) })) };
+    }),
   };
 }
 
 export type TimelineWorkerMessage =
   | { type: 'timeline'; runId: string; timeline: ExecutionTimeline }
   /** Steps recorded since the last post while the run goes, and the run time at the post. */
-  | { type: 'timeline-steps'; runId: string; steps: TimelineStep[]; ms: number };
+  | ({ type: 'timeline-steps'; runId: string } & TimelineProgress);

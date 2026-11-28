@@ -24,8 +24,10 @@ interface AwaitableDebugTargets {
  * is preceded by an `await __lingua_dbg_yield(line, () => locals)`
  * call, which also passes the statement's last line when it spans
  * several. Statements in nested blocks and in bodies that cannot
- * await get a synchronous `__lingua_dbg_reach(line, end, owns)` instead,
- * so the worker knows every line that ran without pausing there. The worker injects `__lingua_dbg_yield` as a closure parameter
+ * await get a synchronous `__lingua_dbg_reach(line, end, owner)` instead,
+ * so the worker knows every line that ran without pausing there. A body
+ * with a frame passes its frame token to both, so the worker tells
+ * interleaved async calls apart. The worker injects `__lingua_dbg_yield` as a closure parameter
  * (mirror of the existing `__mc` magic-comment helper), so each yield
  * sees the live local-scope binding without us having to rebuild a
  * scope chain at injection time.
@@ -141,6 +143,9 @@ export interface InstrumentOptions {
 
 const DEFAULT_HELPER_NAME = '__lingua_dbg_yield';
 const REACH_HELPER_NAME = '__lingua_dbg_reach';
+const RESUME_HELPER_NAME = '__lingua_dbg_at';
+/** Each invocation's frame, passed to its yields, reaches and pop, so interleaved async calls never share one. */
+const FRAME_TOKEN = '__lingua_dbg_f';
 
 /**
  * Line translator. JS line in, user-source line
@@ -248,6 +253,7 @@ export function collectLocalIdentifiers(node: AcornNode): string[] {
     '__lingua_dbg_frame',
     '__lingua_dbg_pop',
     REACH_HELPER_NAME,
+    RESUME_HELPER_NAME,
     '__lingua_dbg_locals',
     'arguments',
   ]);
@@ -614,9 +620,14 @@ function injectYieldBefore(
     .map(({ name, kind, line }) => ({ name, kind, line }));
   // A string literal, so a statement that does not pause allocates nothing for it.
   const pendingArg = pending.length > 0 ? `, ${JSON.stringify(JSON.stringify(pending))}` : '';
-  const endArg = endLine > userLine || pendingArg ? `, ${endLine}${pendingArg}` : '';
+  const endArg = ownsFrameToken(parent, awaitableTargets)
+    ? `, ${endLine}${pendingArg || ', undefined'}, ${FRAME_TOKEN}`
+    : endLine > userLine || pendingArg
+      ? `, ${endLine}${pendingArg}`
+      : '';
 
-  const yieldExpr = `await ${helperName}(${userLine}, () => ${localObject}${endArg});`;
+  // The yield resolves to its frame, active again once the statement resumes.
+  const yieldExpr = `${RESUME_HELPER_NAME}(await ${helperName}(${userLine}, () => ${localObject}${endArg}));`;
 
   // Inject BEFORE the statement. magic-string's `appendLeft` keeps
   // multiple injections at the same offset in source order, so the
@@ -629,9 +640,10 @@ function injectYieldBefore(
  * The last line a statement covers on its own: up to the line before its
  * first nested statement, which reports itself when it runs.
  */
-function ownEndLine(stmt: AcornNode, userLine: number, translateLine: LineTranslator): number {
+export function ownEndLine(stmt: AcornNode, userLine: number, translateLine: LineTranslator): number {
   const start = stmt.loc?.start.line ?? 0;
   let end = stmt.loc?.end.line ?? start;
+  if (end <= start) return userLine;
   const nested = firstNestedStatementLine(stmt);
   if (nested !== null) end = Math.min(end, Math.max(start, nested - 1));
   if (end <= start) return userLine;
@@ -677,8 +689,8 @@ function runsAsStatement(stmt: AcornNode): boolean {
 
 /**
  * Marks every statement the yields do not cover (nested blocks, and bodies
- * that cannot await) with a synchronous reach call. `owns` says whether the
- * enclosing body has a debugger frame, so the call may move that frame's line.
+ * that cannot await) with a synchronous reach call. `owner` names the
+ * enclosing body's debugger frame, so the call may move that frame's line.
  */
 function injectReachMarkers(
   ast: AcornNode,
@@ -686,9 +698,10 @@ function injectReachMarkers(
   translateLine: LineTranslator,
   awaitableTargets: AwaitableDebugTargets
 ): void {
-  const stack: Array<{ node: AcornNode; owns: boolean; yields: boolean }> = [{ node: ast, owns: true, yields: true }];
+  // `owner` is the reach call's last argument: 0 for a body without a frame, 1 for the top level, else the body's frame token.
+  const stack: Array<{ node: AcornNode; owner: string; yields: boolean }> = [{ node: ast, owner: '1', yields: true }];
   while (stack.length > 0) {
-    const { node, owns, yields } = stack.pop()!;
+    const { node, owner, yields } = stack.pop()!;
     const list = statementList(node);
     if (list) {
       for (const stmt of list) {
@@ -696,7 +709,7 @@ function injectReachMarkers(
         const userLine = jsLine > 0 ? translateLine(jsLine) : 0;
         if (!yields && runsAsStatement(stmt) && Number.isInteger(userLine) && userLine > 0) {
           const end = ownEndLine(stmt, userLine, translateLine);
-          ms.appendLeft(stmt.start, `${REACH_HELPER_NAME}(${userLine}, ${end}, ${owns ? 1 : 0});\n`);
+          ms.appendLeft(stmt.start, `${REACH_HELPER_NAME}(${userLine}, ${end}, ${owner});\n`);
         }
       }
     }
@@ -709,10 +722,11 @@ function injectReachMarkers(
           // A body that can await gets yields before its own statements and keeps a frame.
           const awaits = canAwaitInBody(item, awaitableTargets);
           const body = (item as { body?: AcornNode }).body;
-          if (body && isAcornNode(body)) stack.push({ node: body, owns: awaits, yields: awaits });
-          for (const param of (item as { params?: AcornNode[] }).params ?? []) stack.push({ node: param, owns, yields: false });
+          const own = ownsFrameToken(item, awaitableTargets) ? FRAME_TOKEN : '0';
+          if (body && isAcornNode(body)) stack.push({ node: body, owner: own, yields: awaits });
+          for (const param of (item as { params?: AcornNode[] }).params ?? []) stack.push({ node: param, owner, yields: false });
         } else {
-          stack.push({ node: item, owns, yields: false });
+          stack.push({ node: item, owner, yields: false });
         }
       }
     }
@@ -755,10 +769,8 @@ function wrapAsyncFunctionBody(
   translateLine: LineTranslator,
   awaitableTargets: AwaitableDebugTargets
 ): void {
-  if (!canAwaitInBody(node, awaitableTargets)) return;
-  if (node.type === 'Program') return;
-  const body = (node as { body?: AcornNode }).body;
-  if (!body || body.type !== 'BlockStatement') return;
+  if (!ownsFrameToken(node, awaitableTargets)) return;
+  const body = (node as { body: AcornNode }).body;
 
   const functionName = functionDisplayName(node);
   const jsLine = node.loc?.start.line ?? 0;
@@ -767,9 +779,15 @@ function wrapAsyncFunctionBody(
   const userLine = translateLine(jsLine);
   ms.appendLeft(
     body.start + 1,
-    `\n__lingua_dbg_frame(${JSON.stringify(functionName)}, ${userLine});\ntry {`
+    `\nconst ${FRAME_TOKEN} = __lingua_dbg_frame(${JSON.stringify(functionName)}, ${userLine});\ntry {`
   );
-  ms.prependRight(body.end - 1, `\n} finally { __lingua_dbg_pop(); }\n`);
+  ms.prependRight(body.end - 1, `\n} finally { __lingua_dbg_pop(${FRAME_TOKEN}); }\n`);
+}
+
+/** A function body that can await gets a debugger frame of its own, held in its frame token. */
+function ownsFrameToken(node: AcornNode, awaitableTargets: AwaitableDebugTargets): boolean {
+  if (node.type === 'Program' || !canAwaitInBody(node, awaitableTargets)) return false;
+  return (node as { body?: AcornNode }).body?.type === 'BlockStatement';
 }
 
 function functionDisplayName(node: AcornNode): string {

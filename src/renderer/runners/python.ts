@@ -572,7 +572,7 @@ export class PythonRunner implements LanguageRunner {
           }
           case 'timeline-steps': {
             const progress = sanitizeTimelineSteps(msg);
-            if (progress) context?.onTimeline?.(mapTimelineLines({ steps: progress.steps, truncated: false }, sourceLineFor).steps, progress.ms);
+            if (progress) context?.onTimeline?.({ ...progress, steps: mapTimelineLines({ steps: progress.steps, truncated: false }, sourceLineFor).steps });
             break;
           }
           case 'timeline': {

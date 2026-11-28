@@ -6,10 +6,12 @@ import {
   buildLineTranslator,
   buildLocalSnapshotExpression,
   collectLocalIdentifiers,
+  ownEndLine,
   type LineTranslator,
 } from './debuggerInstrument';
 
-// Record run: a synchronous `__lingua_rec(line, locals)` before every statement, on the same line, so nothing pauses.
+// Record run: a synchronous `__lingua_rec(line, locals, end?)` before every statement, on the same line, so nothing pauses;
+// `end` is the statement's last own line when it spans several, as the debugger reports it.
 // Async functions and generators get no frame because their bodies interleave with other code.
 export interface TimelineInstrumentResult {
   code: string;
@@ -99,7 +101,8 @@ function walk(node: AcornNode, parent: AcornNode | null, scope: string[], ms: Ma
       if (HOISTED.has(stmt.type) || isInjected(stmt)) continue;
       const line = translate(stmt.loc?.start.line ?? 0);
       if (!Number.isInteger(line) || line <= 0) continue;
-      ms.appendLeft(stmt.start, `__lingua_rec(${line}, () => ${snapshot}); `);
+      const end = ownEndLine(stmt, line, translate);
+      ms.appendLeft(stmt.start, `__lingua_rec(${line}, () => ${snapshot}${end > line ? `, ${end}` : ''}); `);
     }
   }
 

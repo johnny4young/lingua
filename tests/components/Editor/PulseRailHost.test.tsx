@@ -226,6 +226,19 @@ describe('PulseRailHost', () => {
     expect(model.rail()).toMatchObject({ 3: 'lingua-rail lingua-rail--not-run', 4: 'lingua-rail lingua-rail--not-run' });
   });
 
+  it('lights the continuation lines of a recorded JS statement that spans several', () => {
+    const model = new FakeModel(['const total = [1, 2]', '  .map(n => n * 2)', '  .reduce((a, b) => a + b, 0);', 'if (total > 99) {', '  console.log(total);', '}', 'call(', '  total,', ');']);
+    const steps = [{ line: 1, end: 3 }, { line: 4 }, { line: 7, end: 8 }].map(step => ({ ...step, frames: [], vars: [] }));
+    useTimelineStore.setState({ recording: { tabId: 't1', steps, total: 3, truncated: false, limited: false, entitled: true, code: '' }, current: 2 });
+    render(<PulseRailHost editor={fakeEditor(model) as never} monaco={monaco as never} tabId="t1" />);
+    expect(model.rail()).toMatchObject({
+      2: 'lingua-rail lingua-rail--reached',
+      3: 'lingua-rail lingua-rail--reached',
+      5: 'lingua-rail lingua-rail--not-run',
+      8: 'lingua-rail lingua-rail--reached',
+    });
+  });
+
   it('holds the line the debugger paused on', () => {
     const model = new FakeModel(source);
     publishRun([]);

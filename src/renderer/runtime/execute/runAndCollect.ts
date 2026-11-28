@@ -13,7 +13,7 @@ import { useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
 import type { NewConsoleEntry } from '../../types/console';
 import type { ConsoleOutput, ExecutionResult, LanguageRunner } from '../../types/execution';
-import type { TimelineStep } from '../../../shared/timeline';
+import type { TimelineProgress } from '../../../shared/timeline';
 import { toExecutionPresentation } from '../../utils/executionPresentation';
 import type { RunExecution } from './resolveRunPlan';
 import { replaceProgressOutput } from '../../runners/limits';
@@ -64,7 +64,8 @@ function settleRecording(tab: FileTab, result: ExecutionResult | undefined, curr
   const timelines = useTimelineStore.getState();
   const kept = current && result !== undefined && !result.cancelled;
   if (kept && result.timeline) timelines.publish(tab.id, result.timeline, tab.content);
-  else timelines.endLive(tab.id, kept);
+  // A crash posts no final timeline, so the step on the line that threw gets its error mark here.
+  else timelines.endLive(tab.id, kept, kept && executionKind(result) === 'error' ? primaryExecutionError(result)?.line : undefined);
 }
 
 export async function runAndCollect(
@@ -145,12 +146,12 @@ export async function runAndCollect(
       onLive: live.onLive,
         ...(record
         ? {
-            onTimeline: (steps: TimelineStep[], ms: number) => {
+            onTimeline: ({ steps, ms, marks }: TimelineProgress) => {
               if (settled || !isCurrent()) return;
-              useTimelineStore.getState().grow(activeTab.id, steps, ms, content);
+              useTimelineStore.getState().grow(activeTab.id, steps, ms, content, marks);
               // A recording has no live signal; its latest step is where the run is, for the meter, rail and tape.
-              const last = steps[steps.length - 1]!;
-              live.onLive({ line: last.line, lineMs: Math.max(0, ms - (last.ms ?? ms)), elapsedMs: ms, loops: [] });
+              const last = steps[steps.length - 1];
+              if (last) live.onLive({ line: last.line, lineMs: Math.max(0, ms - (last.ms ?? ms)), elapsedMs: ms, loops: [] });
             },
           }
         : {}),
