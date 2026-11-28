@@ -23,7 +23,7 @@ export function TimestampUtilityPanel() {
   // Seed from a smart-pasted epoch value.
   usePendingUtilityInput('timestamp', setInput);
   const analysis = useMemo(() => analyzeTimestamp(input), [input]);
-  const now = useToolClock(input, analysis.unixMilliseconds !== null);
+  const now = useToolClock(input, analysis.unixMilliseconds !== null, analysis.unixMilliseconds);
 
   // ISO 8601 is the most copy-worthy output for the
   // shortcut. The other readouts (epoch s/ms, local) stay reachable
@@ -117,7 +117,7 @@ export function TimestampUtilityPanel() {
           </div>
         </PanelSection>
       </div>
-      </div>
+    </div>
   );
 }
 

@@ -212,9 +212,11 @@ describe('JwtUtilityPanel', () => {
     const token = resultField.value;
     expect(token.split('.')).toHaveLength(3);
     // In Sign mode the header reads the token just signed.
-    expect(
-      within(screen.getByTestId('jwt-result-header')).getByTestId('result-header-numeral').textContent
-    ).toBe('2claims');
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('jwt-result-header')).getByTestId('result-header-numeral').textContent
+      ).toBe('2claims')
+    );
 
     // Switch to verify, paste the same token + key.
     await user.click(screen.getByTestId('jwt-mode-verify'));
@@ -236,6 +238,25 @@ describe('JwtUtilityPanel', () => {
       expect(screen.queryByTestId('jwt-verify-result-pass')).toBeNull();
     });
     expect(screen.getByTestId('jwt-signature-status').textContent).toContain('Not verified');
+  });
+
+  it('clears the signed token from the header when Sign is left and opened again', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    await user.click(screen.getByTestId('jwt-mode-sign'));
+    await user.type(screen.getByTestId('jwt-sign-key'), 'this-secret-is-exactly-32-bytes!');
+    await user.click(screen.getByTestId('jwt-sign-run'));
+    await screen.findByTestId('jwt-sign-result');
+    const header = within(screen.getByTestId('jwt-result-header'));
+    await waitFor(() => expect(header.getByTestId('result-header-numeral').textContent).toBe('2claims'));
+
+    await user.click(screen.getByTestId('jwt-mode-decode'));
+    await user.click(screen.getByTestId('jwt-mode-sign'));
+    // The Sign form is back to its defaults, so the header has no token to read.
+    expect(header.queryByTestId('result-header-numeral')).toBeNull();
+    expect(screen.queryByTestId('jwt-segments')).toBeNull();
   });
 
   it('shows the FAIL indicator when the Verify key does not match', async () => {

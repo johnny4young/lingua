@@ -9,7 +9,8 @@ import { JWT_SUPPORTED_ALGORITHMS, decodeJwt, isJwtAlgorithm, signJwt, verifyJwt
 import type { JwtAlgorithm, JwtSignResult, JwtVerifyResult } from '../../../utils/jwt';
 import { ToolResultHeader } from '../ToolAnswerParts';
 import { useToolClock } from '../useToolClock';
-import { hasTimeClaim, invalidAnswer, isOneOf, jwtAnswer } from '../toolAnswers';
+import { claimTime, hasTimeClaim, invalidAnswer, isOneOf, jwtAnswer } from '../toolAnswers';
+import { formatNumber } from '../../../i18n/formatNumber';
 import { JwtDecodeView } from './JwtDecodeView';
 import { JwtColoredTokenArea, JwtSignaturePill } from './JwtToken';
 import {
@@ -46,7 +47,7 @@ export function JwtUtilityPanel() {
   // The header reads the token on screen: the input, or in Sign mode the token just signed.
   const token = mode === 'sign' ? signed ?? '' : input;
   const analysis = useMemo(() => decodeJwt(token), [token]);
-  const now = useToolClock(token, hasTimeClaim(analysis.payload));
+  const now = useToolClock(token, hasTimeClaim(analysis.payload), claimTime(analysis.payload?.exp));
   const signatureState = resolveSignatureState(token, mode === 'sign' ? 'signed' : mode === 'verify' ? verifyState : 'unverified');
   const reading =
     analysis.header && analysis.payload ? jwtAnswer(analysis.header, analysis.payload, now, t, i18n.language) : null;
@@ -72,7 +73,11 @@ export function JwtUtilityPanel() {
           analysis.header && analysis.payload
             ? {
                 testId: 'jwt-segments',
-                label: t('utilities.answer.jwt.segments', { ...bytes }),
+                label: t('utilities.answer.jwt.segments', {
+                  header: formatNumber(bytes.header, i18n.language),
+                  payload: formatNumber(bytes.payload, i18n.language),
+                  signature: formatNumber(bytes.signature, i18n.language),
+                }),
                 parts: [
                   { key: 'header', ms: bytes.header, color: JWT_HEADER_COLOR },
                   { key: 'payload', ms: bytes.payload, color: JWT_PAYLOAD_COLOR },
@@ -84,7 +89,11 @@ export function JwtUtilityPanel() {
         tabs={MODES.map(id => ({ id, label: t(`utilities.tool.jwt.mode.${id}`), testId: `jwt-mode-${id}` }))}
         activeTab={mode}
         onTabChange={id => {
-          if (isOneOf(MODES, id)) setMode(id);
+          if (!isOneOf(MODES, id) || id === mode) return;
+          // Verify and Sign remount empty, so their last reading must not head the next visit.
+          setSigned(null);
+          setVerifyState('unverified');
+          setMode(id);
         }}
       />
 
