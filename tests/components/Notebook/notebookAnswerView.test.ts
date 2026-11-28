@@ -79,10 +79,13 @@ describe('notebookAnswerInput', () => {
 
 describe('cutCollectionTag', () => {
   it('keeps the type and length of a collection cut to the answer cap', () => {
-    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[1, 2, 3…', type: 'list', size: 80 })).toBe('list·80');
-    expect(cutCollectionTag({ line: 1, kind: 'value', text: '{1, 2, 3…', type: 'set', size: 50 })).toBe('set·50');
-    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[["a",1]…', type: 'map', size: 9 })).toBe('map·9');
-    expect(cutCollectionTag({ line: 1, kind: 'value', text: '(1, 2, 3…', type: 'tuple' })).toBe('tuple');
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[1, 2, 3…', type: 'list', size: 80 })).toEqual({ label: 'list·80' });
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '{1, 2, 3…', type: 'set', size: 50 })).toEqual({ label: 'set·50' });
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[["a",1]…', type: 'map', size: 9 })).toEqual({ label: 'map·9' });
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '(1, 2, 3…', type: 'tuple' })).toEqual({ label: 'tuple' });
+    // A Python int past the digit limit counts its digits.
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '39802768…', type: 'int', size: 6021 })).toEqual({ label: 'int·6021' });
+    expect(cutCollectionTag({ line: 1, kind: 'value', text: '[0, 1, …', type: 'list', size: 100000 })).toEqual({ label: 'list·100K', full: 'list·100,000' });
   });
 
   it('leaves whole values and strings to the answer renderer', () => {

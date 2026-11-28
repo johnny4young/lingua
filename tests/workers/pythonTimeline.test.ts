@@ -24,6 +24,8 @@ beforeAll(async () => {
   const port = { postMessage: (message: PythonWorkerOutboundMessage) => posted.push({ message, at: performance.now() }) };
   vi.stubGlobal('self', port);
   py = await loadPyodide({ indexURL: path.dirname(require.resolve('pyodide')) });
+  // Cold module imports cost CPU time the timing assertions are not about.
+  py.pyimport('statistics').destroy();
   const { createPythonExecutionHandler } = await import('@/workers/python-worker-execution');
   handle = createPythonExecutionHandler(port, {
     loadPyodide: async () => py as unknown as PyodideRuntime,

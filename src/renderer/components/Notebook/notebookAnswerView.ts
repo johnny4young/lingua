@@ -6,6 +6,7 @@ import { scopeValueToString } from '../Console/richConsoleFormat';
 import { groupsDigits } from '../SqlWorkspace/sqlColumnInstruments';
 import { renderNumberCell } from '../SqlWorkspace/sqlResultFormatters';
 import type { AnswerInput } from '../Answer/answerObjectModel';
+import { formatCompactNumber, formatNumber } from '../../i18n/formatNumber';
 
 /** Line height of a code cell, shared by the code and its answer column. */
 export function notebookLineHeight(fontSize: number): number {
@@ -71,11 +72,18 @@ export function notebookAnswerInput(
   return { ...base, text };
 }
 
-/** The type and length of a collection cut to the text cap, which its head alone cannot tell. */
-export function cutCollectionTag(answer: NotebookLineAnswerV1): string | null {
+/**
+ * The type and length of a collection (or the digits of an int) cut to the text cap, which its head alone
+ * cannot tell. Five digits or more read compact (list·100K) to fit the tag column; `full` keeps the count.
+ */
+export function cutCollectionTag(answer: NotebookLineAnswerV1): { label: string; full?: string } | null {
   const { kind, text, type, size } = answer;
-  if (kind !== 'value' || type === undefined || !COLLECTION_TYPES.has(type) || !text.endsWith(CUT)) return null;
-  return size === undefined ? type : `${type}·${size}`;
+  if (kind !== 'value' || type === undefined || !text.endsWith(CUT)) return null;
+  if (!COLLECTION_TYPES.has(type) && type !== 'int') return null;
+  if (size === undefined) return { label: type };
+  // Tags are code vocabulary, so the compact suffix stays English in every locale.
+  if (size < 10_000) return { label: `${type}·${size}` };
+  return { label: `${type}·${formatCompactNumber(size, 'en')}`, full: `${type}·${formatNumber(size)}` };
 }
 
 const SCOPE_OPTIONS = { truncate: (text: string) => `${text}${CUT}`, maxDepth: 2 };

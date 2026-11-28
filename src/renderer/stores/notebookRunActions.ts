@@ -115,6 +115,7 @@ export function createRunActions(
                 [cellId]: {
                   uses: varFlow.uses,
                   produces: varFlow.produces,
+                  sqlEngineGeneration: varFlow.sqlEngineGeneration,
                 },
               },
             },

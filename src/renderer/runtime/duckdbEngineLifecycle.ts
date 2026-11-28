@@ -9,6 +9,11 @@ export class DuckDbEngineLifecycle<Engine extends { terminate: (options?: { forc
 
   constructor(private readonly factory: () => Promise<Engine>) {}
 
+  /** An engine is live or starting. */
+  get isActive(): boolean {
+    return this.cached !== null;
+  }
+
   get(): Promise<Engine> {
     if (this.cached !== null) return this.cached;
 

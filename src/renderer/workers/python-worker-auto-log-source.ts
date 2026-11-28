@@ -34,10 +34,6 @@ def __lingua_auto_log_capture(line, expr, node):
     )
     return __lingua_ast.copy_location(__lingua_ast.Expr(value=call), node)
 
-def __lingua_answer_value(line, value):
-    __mc(line, lambda: value, kind="autoLog")
-    return value
-
 def __lingua_awaits(node):
     # A lambda cannot hold an await, so awaited statements stay as written.
     return any(isinstance(child, __lingua_ast.Await) for child in __lingua_ast.walk(node))
@@ -76,7 +72,8 @@ def __lingua_auto_log_compile(source, mode=None, prepare=None):
             assigned = __lingua_assigned_value(node)
             if assigned is not None:
                 next_body.append(node)
-                next_body.append(__lingua_auto_log_capture(node.lineno, assigned, node))
+                capture = __lingua_answer_call if mode == "cell" else __lingua_auto_log_capture
+                next_body.append(capture(node.lineno, assigned, node))
                 continue
         is_docstring = (
             index == 0
@@ -90,12 +87,7 @@ def __lingua_auto_log_compile(source, mode=None, prepare=None):
         if mode == "cell":
             # Notebook cells: the expression runs as written, so errors stop the cell
             # and walrus, await and dir() keep module scope; only its value is captured.
-            call = __lingua_ast.Call(
-                func=__lingua_ast.Name(id="__lingua_answer_value", ctx=__lingua_ast.Load()),
-                args=[__lingua_ast.Constant(value=node.lineno), node.value],
-                keywords=[],
-            )
-            next_body.append(__lingua_ast.copy_location(__lingua_ast.Expr(value=call), node))
+            next_body.append(__lingua_answer_call(node.lineno, node.value, node))
             continue
         if __lingua_awaits(node):
             next_body.append(node)

@@ -141,6 +141,8 @@ describe('pythonValueType', () => {
     ['(1+2j)', { type: 'complex' }],
     ['-3j', { type: 'complex' }],
     ['[]', { type: 'list', size: 0 }],
+    ['19950631168807583848…', { type: 'int' }],
+    ["{'k0': 'x', …", { type: 'dict', size: 1 }],
     ['<object at 0x1>', {}],
   ])('reads %s', (repr, expected) => {
     expect(pythonValueType(repr)).toEqual(expected);
@@ -162,6 +164,26 @@ describe('pythonAnswers', () => {
       { line: 1, kind: 'output', text: 'ready' },
       { line: 2, kind: 'value', text: '[151.2, 146.9]', type: 'list', size: 2 },
       { line: 3, kind: 'value', text: '149.05', type: 'float' },
+    ]);
+  });
+
+  it('takes the length the worker sent for a collection it cut before building', () => {
+    const result: ExecutionResult = {
+      stdout: [],
+      stderr: [],
+      executionTime: 1,
+      magicResults: [
+        { line: 1, value: '[0, 1, 2, …', kind: 'autoLog', size: 100000 },
+        { line: 2, value: "{'k0': 'x', …", kind: 'autoLog', size: 2000 },
+        { line: 3, value: '19950631168807583848…', kind: 'autoLog', size: 6021 },
+        { line: 4, value: "[[1, ...], 'b']", kind: 'autoLog', size: 2 },
+      ],
+    };
+    expect(pythonAnswers(result, 'readings\nlabels\nhuge\npairs')).toEqual([
+      { line: 1, kind: 'value', text: '[0, 1, 2, …', type: 'list', size: 100000 },
+      { line: 2, kind: 'value', text: "{'k0': 'x', …", type: 'dict', size: 2000 },
+      { line: 3, kind: 'value', text: '19950631168807583848…', type: 'int', size: 6021 },
+      { line: 4, kind: 'value', text: "[[1, ...], 'b']", type: 'list', size: 2 },
     ]);
   });
 

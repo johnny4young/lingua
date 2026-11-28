@@ -96,6 +96,7 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
         ...(magicResult.pass !== undefined ? { pass: magicResult.pass } : {}),
       };
       if (magicResult.payload) entry.payload = magicResult.payload;
+      if (magicResult.size !== undefined) entry.size = magicResult.size;
       lineResults.push(entry);
     }
   }

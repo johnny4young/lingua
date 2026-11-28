@@ -24,6 +24,7 @@ import {
   PYTHON_AUTO_LOG_HELPERS_SOURCE,
 } from '../../src/renderer/workers/python-worker-auto-log-source';
 import { buildPythonCellExecutionSource, PYTHON_CELL_SOURCE } from '../../src/renderer/workers/python-worker-cell-source';
+import { PYTHON_CELL_ANSWER_SOURCE } from '../../src/renderer/workers/python-worker-cell-answer-source';
 
 function createPythonExecutionHarness(overrides: Partial<PythonRuntimeAdapter> = {}) {
   const messages: PythonWorkerOutboundMessage[] = [];
@@ -207,7 +208,7 @@ describe('Python execution worker adapter', () => {
     expect(PYTHON_AUTO_LOG_HELPERS_SOURCE).toContain('def __lingua_assigned_value(node):');
     expect(PYTHON_AUTO_LOG_HELPERS_SOURCE).toContain('PyCF_ALLOW_TOP_LEVEL_AWAIT');
     // Notebook expressions run as written: no lambda, so errors still stop the cell.
-    expect(PYTHON_AUTO_LOG_HELPERS_SOURCE).toContain('def __lingua_answer_value(line, value):');
+    expect(PYTHON_CELL_ANSWER_SOURCE).toContain('def __lingua_answer_value(line, value):');
     const runPythonAsync = vi.fn(async (incoming: string) =>
       incoming === PYTHON_STREAM_STATE_SOURCE
         ? JSON.stringify({ stdout: '', stderr: '', magic: [], print_entries: [] })

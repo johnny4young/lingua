@@ -29,8 +29,10 @@ import {
   isNotebookCodeCell,
   type NotebookCellLanguage,
   type NotebookCellOutputV1,
+  type NotebookCellV1,
   type NotebookV1,
 } from '../../shared/notebook';
+import { getDuckDbDataGeneration, subscribeDuckDbDataGeneration } from '../runtime/duckdbClient';
 import {
   disposeNotebookSession,
   getNotebookSessionKeys,
@@ -76,6 +78,29 @@ function namesMadeBySameKernel(
 function relationsMadeBy(tabId: string, cellId: string): ReadonlyArray<string> {
   return useNotebookStore.getState().notebooks[tabId]?.cellVarFlow?.[cellId]?.produces ?? [];
 }
+
+type NotebookSlice = NonNullable<ReturnType<typeof useNotebookStore.getState>['notebooks'][string]>;
+
+/** A SQL cell ran fine against an engine whose tables have since been dropped. */
+function ranOnDroppedEngine(slice: NotebookSlice, cellId: string): boolean {
+  const generation = slice.cellVarFlow?.[cellId]?.sqlEngineGeneration;
+  return slice.cellRunStatus[cellId] === 'ok' && generation !== undefined && generation !== getDuckDbDataGeneration();
+}
+
+/** When the engine drops its tables, every SQL cell that ran against them is stale. */
+function markSqlCellsOfDroppedEngineStale(): void {
+  const store = useNotebookStore.getState();
+  for (const [tabId, slice] of Object.entries(store.notebooks)) {
+    if (!slice) continue;
+    for (const cell of slice.notebook.cells) {
+      if (cell.kind === 'code' && cell.language === 'sql' && ranOnDroppedEngine(slice, cell.id)) {
+        store.setCellRunStatus(tabId, cell.id, 'stale');
+      }
+    }
+  }
+}
+
+subscribeDuckDbDataGeneration(markSqlCellsOfDroppedEngineStale);
 
 /** A manual editor, Recipe or Debug run is executing on this cell's runner. */
 function isRunnerUsedByManualRun(language: NotebookCellLanguage): boolean {
@@ -245,7 +270,13 @@ export function useNotebookRun(): UseNotebookRunResult {
         store.setCellVarFlow(tabId, cellId, {
           uses: deriveUsesKeys(cell.source, priorSandboxKeys, cell.language),
           produces: outcome.producedKeys,
+          sqlEngineGeneration: outcome.sqlEngineGeneration,
         });
+        // The engine dropped its tables while the cell ran, after the drop marked cells stale.
+        const settled = useNotebookStore.getState().notebooks[tabId];
+        if (outcome.status === 'ok' && settled && ranOnDroppedEngine(settled, cellId)) {
+          store.setCellRunStatus(tabId, cellId, 'stale');
+        }
         // Lazy reactivity: a settled cell may have changed persistent
         // runtime state. Preserve downstream outputs, but mark every
         // previously-executed cell below it stale across languages.
@@ -435,13 +466,16 @@ export function useNotebookRun(): UseNotebookRunResult {
       }
       // The JS/TS sandbox and Python scope are rebuilt, so every executed cell
       // of theirs replays. DuckDB is shared and survives the rebuild: a current
-      // SQL cell's tables are still there, and only stale SQL cells run again.
+      // SQL cell's tables are still there unless the engine dropped them, and
+      // only stale SQL cells or those whose tables are gone run again.
+      const keepsSql = (cell: NotebookCellV1) =>
+        slice.cellRunStatus[cell.id] !== 'stale' && !ranOnDroppedEngine(slice, cell.id);
       const replay = slice.notebook.cells
         .slice(0, lastStaleIndex + 1)
         .filter(
           (cell) =>
             cell.kind === 'code' &&
-            (cell.language !== 'sql' || slice.cellRunStatus[cell.id] === 'stale') &&
+            (cell.language !== 'sql' || !keepsSql(cell)) &&
             hasNotebookExecutionEvidence(
               cell,
               slice.cellRunStatus[cell.id],
@@ -452,7 +486,7 @@ export function useNotebookRun(): UseNotebookRunResult {
       // Current SQL cells read only DuckDB, so the JS/Python replay above them leaves them current.
       const currentSql = slice.notebook.cells.flatMap((cell, index) => {
         const status = slice.cellRunStatus[cell.id];
-        return cell.kind === 'code' && cell.language === 'sql' && status !== undefined && status !== 'stale'
+        return cell.kind === 'code' && cell.language === 'sql' && status !== undefined && keepsSql(cell)
           ? [{ id: cell.id, index, status }]
           : [];
       });

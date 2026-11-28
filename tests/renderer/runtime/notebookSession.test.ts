@@ -41,7 +41,7 @@ vi.mock('../../../src/renderer/runners', () => {
 // The SQL cell branch calls `executeQuery` from the DuckDB client.
 // Mock just that export so the session tests never stand up the WASM engine.
 vi.mock('../../../src/renderer/runtime/duckdbClient', () => {
-  return { executeQuery: vi.fn() };
+  return { executeQuery: vi.fn(), getDuckDbDataGeneration: vi.fn(() => 7) };
 });
 
 import {
@@ -1325,6 +1325,7 @@ describe('per-line answers', () => {
       { line: 2, kind: 'table', text: 'by_city', rows: 6, columns: 3 },
     ]);
     expect(result.outcome.producedKeys).toEqual(['by_city']);
+    expect(result.outcome.sqlEngineGeneration).toBe(7);
   });
 
   it('counts a made table when DuckDB reports no row count, and never counts a view', async () => {

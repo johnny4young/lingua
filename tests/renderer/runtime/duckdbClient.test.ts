@@ -23,6 +23,7 @@ import {
   runWithExtensions,
   fetchRuntimeAssetWithRetry,
   flushAndReleaseDuckDbEngine,
+  getDuckDbDataGeneration,
   getDuckDbEngine,
   getResolvedSqlStorageMode,
   persistedSqlDatabaseBytes,
@@ -31,6 +32,8 @@ import {
   isOpfsStorageAvailable,
   mapArrowTable,
   previewImportFile,
+  restartDuckDbEngine,
+  subscribeDuckDbDataGeneration,
   type ArrowTableLike,
   type DuckDbConnection,
   type DuckDbEngineHandle,
@@ -701,6 +704,48 @@ describe('OPFS persistence ', () => {
 
     expect(getResolvedSqlStorageMode()).toBe('memory');
     expect(getResolvedSqlStorageRequestMode()).toBe('memory');
+  });
+
+  describe('data generation', () => {
+    const live = async (mode: 'memory' | 'opfs', persist: boolean) => {
+      __setDuckDbEngineFactoryForTests(async () => mockEngine(async () => arrowTableFrom([], [])));
+      configureDuckDbPersistence(persist);
+      await getDuckDbEngine();
+      __setResolvedSqlStorageModeForTests(mode);
+    };
+
+    it('moves when a live in-memory engine is dropped, and tells subscribers', async () => {
+      await live('memory', false);
+      const listener = vi.fn();
+      const unsubscribe = subscribeDuckDbDataGeneration(listener);
+      const before = getDuckDbDataGeneration();
+      await restartDuckDbEngine();
+      expect(getDuckDbDataGeneration()).toBe(before + 1);
+      expect(listener).toHaveBeenCalledTimes(1);
+      await live('memory', false);
+      await flushAndReleaseDuckDbEngine();
+      expect(getDuckDbDataGeneration()).toBe(before + 2);
+      unsubscribe();
+    });
+
+    it('stays when no engine is live or the next engine opens the same file', async () => {
+      const before = getDuckDbDataGeneration();
+      await restartDuckDbEngine();
+      await live('opfs', true);
+      await flushAndReleaseDuckDbEngine();
+      await live('opfs', true);
+      await restartDuckDbEngine();
+      expect(getDuckDbDataGeneration()).toBe(before);
+    });
+
+    it('moves when persistence is turned off before reconnecting, and on every clear', async () => {
+      await live('opfs', false);
+      const before = getDuckDbDataGeneration();
+      await flushAndReleaseDuckDbEngine();
+      expect(getDuckDbDataGeneration()).toBe(before + 1);
+      await clearPersistedSqlDatabase();
+      expect(getDuckDbDataGeneration()).toBe(before + 2);
+    });
   });
 
   it('isOpfsStorageAvailable is false in jsdom (no navigator.storage.getDirectory)', () => {

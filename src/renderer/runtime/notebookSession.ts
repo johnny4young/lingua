@@ -55,7 +55,7 @@ import { parse } from 'acorn';
 import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
 import { loadEsbuild } from '../runners/esbuildLoader';
 import { runnerManager } from '../runners';
-import { executeQuery, executeSqlInTransaction, type DuckDbExecuteOutcome } from './duckdbClient';
+import { executeQuery, executeSqlInTransaction, getDuckDbDataGeneration, type DuckDbExecuteOutcome } from './duckdbClient';
 import {
   claimNotebookRunner,
   notebookCellRunnerKey,
@@ -713,6 +713,8 @@ export interface NotebookCellRunOutcome {
   readonly producedKeys: ReadonlyArray<string>;
   /** What the cell answered on its lines; absent when the kernel gave none. */
   readonly answers?: ReadonlyArray<NotebookLineAnswerV1>;
+  /** SQL cells: the DuckDB data generation the cell ran against. */
+  readonly sqlEngineGeneration?: number;
 }
 
 export type NotebookCellRunResult =
@@ -779,6 +781,8 @@ export async function runNotebookCell(
       const sandboxKeyCount = Object.keys(session.sandbox).length;
       const effects = sqlCellEffects(request.source);
       const replaced = replacedRelations(effects, request.replaces);
+      // Read before the run: an engine dropped while it runs leaves its tables in the older generation.
+      const sqlEngineGeneration = getDuckDbDataGeneration();
       const outcome = await executeSqlCell(
         request.source,
         replaced,
@@ -803,6 +807,7 @@ export async function runNotebookCell(
             sandboxKeyCount,
             // The failed run rolled back, so what it would have replaced is still there for the next run.
             producedKeys: [...new Set(replaced.map((relation) => relation.label))],
+            sqlEngineGeneration,
             answers: [
               {
                 line: sqlErrorLine(errorMessage, request.source),
@@ -845,6 +850,7 @@ export async function runNotebookCell(
           // A CREATE leaves a table for the cells below.
           producedKeys: [...new Set(effects.made.map((relation) => relation.label))],
           answers,
+          sqlEngineGeneration,
         },
       };
     }

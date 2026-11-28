@@ -5,8 +5,12 @@ import './identity.css';
 export type AnswerTone = 'neutral' | 'error';
 
 /** Small-caps type label (FLOAT, LIST·7, STDOUT). Labels only, never values. */
-export function TypeTag({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={cn('type-tag', className)}>{children}</span>;
+export function TypeTag({ children, className, title }: { children: ReactNode; className?: string; title?: string }) {
+  return (
+    <span className={cn('type-tag', className)} title={title}>
+      {children}
+    </span>
+  );
 }
 
 export interface ResultNumeralProps {

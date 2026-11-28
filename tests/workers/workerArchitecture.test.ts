@@ -68,6 +68,7 @@ const MODULE_BUDGETS = {
   'python-worker-sources.ts': 500,
   'python-worker-auto-log-source.ts': 120,
   'python-worker-cell-source.ts': 50,
+  'python-worker-cell-answer-source.ts': 90,
   'python-worker-runtime.ts': 220,
   'python-worker-dependencies.ts': 250,
   'python-worker-env.ts': 80,

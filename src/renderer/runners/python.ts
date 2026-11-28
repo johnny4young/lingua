@@ -529,6 +529,8 @@ export class PythonRunner implements LanguageRunner {
               kind: msg.kind ?? magicKindByLine[msg.line] ?? 'arrow',
               ...livePassField(msg.pass),
               ...(msg.isError === true ? { isError: true } : {}),
+              // User code reaches the worker, so the size is checked on this side.
+              ...(Number.isSafeInteger(msg.size) && (msg.size ?? -1) >= 0 ? { size: msg.size } : {}),
             };
             if (payload) entry.payload = payload;
             magicResults.push(entry);
